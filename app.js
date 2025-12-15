@@ -2301,7 +2301,7 @@ const swagger = {
         version: "1.0.0",
         description: "Human Resource Management System API with Auth, Employees, Payroll, Attendance, Timesheets, and more"
     },
-    servers: [{ url: "http://tamminademoapps.com:9295" }],
+    servers: [{ url: process.env.BASE_URL || "http://localhost:3000", description: "Local server" }],
     components: {
         securitySchemes: {
             bearerAuth: {
