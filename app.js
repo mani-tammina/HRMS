@@ -906,28 +906,34 @@ async function getOrCreateMaster(conn, table, column, value) {
 
 // Replace employee bulk upload to populate master data
 app.post("/api/upload/employees", auth, admin, upload.single("file"), async (req, res) => {
-
     const rows = excel(req.file.path);
     const c = await db();
 
-    let inserted = 0, skipped = 0, errors = [];
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = [];
 
     for (const r of rows) {
         try {
-            // Map common column names
             const empNo = r.EmployeeNumber || r['Employee Number'] || null;
-            if (!empNo) { skipped++; errors.push('Missing EmployeeNumber'); continue; }
+            if (!empNo) {
+                skipped++;
+                errors.push("Missing EmployeeNumber");
+                continue;
+            }
 
-            const locationName = r.Location || r.location || r.LocationName || r['Location Name'] || null;
-            const departmentName = r.Department || r.department || r['Department'] || null;
-            const designationName = r.Designation || r.JobTitle || r['Job Title'] || null;
-            const buName = r.BusinessUnit || r['Business Unit'] || null;
-            const legalName = r.LegalEntity || r['Legal Entity'] || null;
-            const costCenterCode = r.CostCenter || r['Cost Center'] || r.CostCenterCode || null;
+            const locationName = r.Location || r.LocationName || null;
+            const departmentName = r.Department || null;
+            const designationName = r.Designation || r.JobTitle || null;
+            const buName = r.BusinessUnit || null;
+            const legalName = r.LegalEntity || null;
+            const costCenterCode = r.CostCenter || r.CostCenterCode || null;
 
-            const maritalStatus = r.MaritalStatus || r['Marital Status'] || null;
-            const bloodGroup = r.BloodGroup || r['Blood Group'] || r.Blood || null;
-            // Ensure masters exist and get IDs
+            const maritalStatus = r.MaritalStatus || null;
+            const bloodGroup = r.BloodGroup || null;
+
+            // ---- Ensure master data ----
             const locationId = await getOrCreateMaster(c, 'locations', 'name', locationName);
             const deptId = await getOrCreateMaster(c, 'departments', 'name', departmentName);
             const desgId = await getOrCreateMaster(c, 'designations', 'name', designationName);
@@ -935,32 +941,95 @@ app.post("/api/upload/employees", auth, admin, upload.single("file"), async (req
             const legalId = await getOrCreateMaster(c, 'legal_entities', 'name', legalName);
             const costId = await getOrCreateMaster(c, 'cost_centers', 'code', costCenterCode);
 
-            // Insert employee with master FK ids
-            await c.query(
-                `INSERT IGNORE INTO employees
-       (EmployeeNumber, FirstName, MiddleName, LastName, FullName, WorkEmail,
-        DateOfBirth, DateJoined, Gender, Nationality, MaritalStatus, BloodGroup, PANNumber, AadhaarNumber,
-        LocationId, DepartmentId, DesignationId, BusinessUnitId, LegalEntityId, CostCenterId)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-                [
-                    empNo,
-                    r.FirstName || r['First Name'] || null,
-                    r.MiddleName || r['Middle Name'] || null,
-                    r.LastName || r['Last Name'] || null,
-                    r.FullName || r['Name'] || null,
-                    r.WorkEmail || r['Work Email'] || null,
-                    r.DateOfBirth || r['DateOfBirth'] || null,
-                    r.DateJoined || r['DateJoined'] || null,
-                    r.Gender || null,
-                    r.Nationality || null,
-                    maritalStatus,
-                    bloodGroup,
-                    r.PANNumber || r['PANNumber'] || null,
-                    r.AadhaarNumber || r['AadhaarNumber'] || null,
-                    locationId, deptId, desgId, buId, legalId, costId
-                ]
+            // ---- Check employee exists ----
+            const [existing] = await c.query(
+                `SELECT id FROM employees WHERE EmployeeNumber = ?`,
+                [empNo]
             );
-            inserted++;
+
+            if (existing.length > 0) {
+                // ---------- UPDATE ----------
+                await c.query(
+                    `UPDATE employees SET
+                        FirstName = ?,
+                        MiddleName = ?,
+                        LastName = ?,
+                        FullName = ?,
+                        WorkEmail = ?,
+                        DateOfBirth = ?,
+                        DateJoined = ?,
+                        Gender = ?,
+                        Nationality = ?,
+                        MaritalStatus = ?,
+                        BloodGroup = ?,
+                        PANNumber = ?,
+                        AadhaarNumber = ?,
+                        LocationId = ?,
+                        DepartmentId = ?,
+                        DesignationId = ?,
+                        BusinessUnitId = ?,
+                        LegalEntityId = ?,
+                        CostCenterId = ?
+                     WHERE EmployeeNumber = ?`,
+                    [
+                        r.FirstName || null,
+                        r.MiddleName || null,
+                        r.LastName || null,
+                        r.FullName || r.Name || null,
+                        r.WorkEmail || null,
+                        r.DateOfBirth || null,
+                        r.DateJoined || null,
+                        r.Gender || null,
+                        r.Nationality || null,
+                        maritalStatus,
+                        bloodGroup,
+                        r.PANNumber || null,
+                        r.AadhaarNumber || null,
+                        locationId,
+                        deptId,
+                        desgId,
+                        buId,
+                        legalId,
+                        costId,
+                        empNo
+                    ]
+                );
+                updated++;
+            } else {
+                // ---------- INSERT ----------
+                await c.query(
+                    `INSERT INTO employees
+                     (EmployeeNumber, FirstName, MiddleName, LastName, FullName, WorkEmail,
+                      DateOfBirth, DateJoined, Gender, Nationality, MaritalStatus, BloodGroup,
+                      PANNumber, AadhaarNumber,
+                      LocationId, DepartmentId, DesignationId, BusinessUnitId, LegalEntityId, CostCenterId)
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                    [
+                        empNo,
+                        r.FirstName || null,
+                        r.MiddleName || null,
+                        r.LastName || null,
+                        r.FullName || r.Name || null,
+                        r.WorkEmail || null,
+                        r.DateOfBirth || null,
+                        r.DateJoined || null,
+                        r.Gender || null,
+                        r.Nationality || null,
+                        maritalStatus,
+                        bloodGroup,
+                        r.PANNumber || null,
+                        r.AadhaarNumber || null,
+                        locationId,
+                        deptId,
+                        desgId,
+                        buId,
+                        legalId,
+                        costId
+                    ]
+                );
+                inserted++;
+            }
+
         } catch (err) {
             skipped++;
             errors.push(err.message);
@@ -968,7 +1037,14 @@ app.post("/api/upload/employees", auth, admin, upload.single("file"), async (req
     }
 
     c.end();
-    res.json({ inserted, skipped, processed: rows.length, errors: errors.slice(0, 10) });
+
+    res.json({
+        processed: rows.length,
+        inserted,
+        updated,
+        skipped,
+        errors: errors.slice(0, 10)
+    });
 });
 
 // app.post("/api/upload/holidays",auth,admin,upload.single("file"),async(req,res)=>{
