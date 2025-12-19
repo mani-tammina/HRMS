@@ -54,26 +54,31 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
             const holidayListName = r.HolidayList || r['Holiday List'] || null;
             const expensePolicyName = r.ExpensePolicy || r['Expense Policy'] || null;
 
-            // ---- Ensure master data exists and get IDs ----
-            const locationId = await getOrCreateMaster(c, 'locations', 'name', locationName);
-            const deptId = await getOrCreateMaster(c, 'departments', 'name', departmentName);
-            const subDeptId = await getOrCreateMaster(c, 'sub_departments', 'name', subDepartmentName);
-            const desgId = await getOrCreateMaster(c, 'designations', 'name', designationName);
-            const secondaryDesgId = await getOrCreateMaster(c, 'designations', 'name', secondaryDesignationName);
-            const buId = await getOrCreateMaster(c, 'business_units', 'name', buName);
-            const legalId = await getOrCreateMaster(c, 'legal_entities', 'name', legalName);
-            const costId = await getOrCreateMaster(c, 'cost_centers', 'code', costCenterCode);
-            const bandId = await getOrCreateMaster(c, 'bands', 'name', bandName);
-            const payGradeId = await getOrCreateMaster(c, 'pay_grades', 'name', payGradeName);
+            // ---- Ensure master data exists and get IDs (only if value provided) ----
+            console.log(`\n📋 Processing Employee: ${empNo} - ${r.FullName || r.Name || ''}`);
+            console.log(`   Master Data: Location="${locationName}", Dept="${departmentName}", Desig="${designationName}"`);
+            
+            const locationId = locationName ? await getOrCreateMaster(c, 'locations', 'name', locationName) : null;
+            const deptId = departmentName ? await getOrCreateMaster(c, 'departments', 'name', departmentName) : null;
+            const subDeptId = subDepartmentName ? await getOrCreateMaster(c, 'sub_departments', 'name', subDepartmentName) : null;
+            const desgId = designationName ? await getOrCreateMaster(c, 'designations', 'name', designationName) : null;
+            const secondaryDesgId = secondaryDesignationName ? await getOrCreateMaster(c, 'designations', 'name', secondaryDesignationName) : null;
+            const buId = buName ? await getOrCreateMaster(c, 'business_units', 'name', buName) : null;
+            const legalId = legalName ? await getOrCreateMaster(c, 'legal_entities', 'name', legalName) : null;
+            const costId = costCenterCode ? await getOrCreateMaster(c, 'cost_centers', 'code', costCenterCode) : null;
+            const bandId = bandName ? await getOrCreateMaster(c, 'bands', 'name', bandName) : null;
+            const payGradeId = payGradeName ? await getOrCreateMaster(c, 'pay_grades', 'name', payGradeName) : null;
             
             // Policy IDs
-            const leavePlanId = await getOrCreateMaster(c, 'leave_plans', 'name', leavePlanName);
-            const shiftPolicyId = await getOrCreateMaster(c, 'shift_policies', 'name', shiftPolicyName);
-            const weeklyOffPolicyId = await getOrCreateMaster(c, 'weekly_off_policies', 'name', weeklyOffPolicyName);
-            const attendancePolicyId = await getOrCreateMaster(c, 'attendance_policies', 'name', attendancePolicyName);
-            const attendanceCaptureSchemeId = await getOrCreateMaster(c, 'attendance_capture_schemes', 'name', attendanceCaptureSchemeName);
-            const holidayListId = await getOrCreateMaster(c, 'holiday_lists', 'name', holidayListName);
-            const expensePolicyId = await getOrCreateMaster(c, 'expense_policies', 'name', expensePolicyName);
+            const leavePlanId = leavePlanName ? await getOrCreateMaster(c, 'leave_plans', 'name', leavePlanName) : null;
+            const shiftPolicyId = shiftPolicyName ? await getOrCreateMaster(c, 'shift_policies', 'name', shiftPolicyName) : null;
+            const weeklyOffPolicyId = weeklyOffPolicyName ? await getOrCreateMaster(c, 'weekly_off_policies', 'name', weeklyOffPolicyName) : null;
+            const attendancePolicyId = attendancePolicyName ? await getOrCreateMaster(c, 'attendance_policies', 'name', attendancePolicyName) : null;
+            const attendanceCaptureSchemeId = attendanceCaptureSchemeName ? await getOrCreateMaster(c, 'attendance_capture_schemes', 'name', attendanceCaptureSchemeName) : null;
+            const holidayListId = holidayListName ? await getOrCreateMaster(c, 'holiday_lists', 'name', holidayListName) : null;
+            const expensePolicyId = expensePolicyName ? await getOrCreateMaster(c, 'expense_policies', 'name', expensePolicyName) : null;
+            
+            console.log(`   IDs: Loc=${locationId}, Dept=${deptId}, Desig=${desgId}, Band=${bandId}`);
 
             // Reporting Manager lookup (by EmployeeNumber)
             let reportingManagerId = null;
@@ -369,18 +374,46 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
 
         } catch (err) {
             skipped++;
-            errors.push(err.message);
+            const errorMsg = `Row ${inserted + updated + skipped}: ${err.message}`;
+            errors.push(errorMsg);
+            console.error('Employee upload error:', errorMsg);
         }
     }
 
+    // Get master data counts after upload
+    const [masterCounts] = await c.query(`
+        SELECT 
+            'locations' as table_name, COUNT(*) as count FROM locations
+        UNION ALL SELECT 'departments', COUNT(*) FROM departments
+        UNION ALL SELECT 'designations', COUNT(*) FROM designations
+        UNION ALL SELECT 'business_units', COUNT(*) FROM business_units
+        UNION ALL SELECT 'legal_entities', COUNT(*) FROM legal_entities
+        UNION ALL SELECT 'cost_centers', COUNT(*) FROM cost_centers
+        UNION ALL SELECT 'bands', COUNT(*) FROM bands
+        UNION ALL SELECT 'pay_grades', COUNT(*) FROM pay_grades
+        UNION ALL SELECT 'leave_plans', COUNT(*) FROM leave_plans
+        UNION ALL SELECT 'shift_policies', COUNT(*) FROM shift_policies
+    `);
+    
     c.end();
 
+    console.log('\n📊 Master Data Summary After Upload:');
+    masterCounts.forEach(row => {
+        console.log(`   ${row.table_name}: ${row.count} records`);
+    });
+
     res.json({
+        message: 'Employee upload completed',
         processed: rows.length,
         inserted,
         updated,
         skipped,
-        errors: errors.slice(0, 10)
+        errors: errors.slice(0, 20),
+        summary: `✅ Inserted: ${inserted}, ✅ Updated: ${updated}, ⚠️ Skipped: ${skipped}`,
+        masterDataCounts: masterCounts.reduce((acc, row) => {
+            acc[row.table_name] = row.count;
+            return acc;
+        }, {})
     });
 });
 
@@ -436,6 +469,54 @@ router.post("/holidays", auth, admin, upload.single("file"), async (req, res) =>
 
     c.end();
     res.json({ processed: rows.length, inserted, updated, skipped });
+});
+
+/* ============ TEST/DIAGNOSTIC ENDPOINT ============ */
+
+router.get("/test-master-creation", auth, admin, async (req, res) => {
+    const c = await db();
+    
+    try {
+        // Test creating entries in all master tables
+        const testData = {
+            location: "Test Location " + Date.now(),
+            department: "Test Department " + Date.now(),
+            designation: "Test Designation " + Date.now(),
+            businessUnit: "Test BU " + Date.now(),
+            legalEntity: "Test Legal " + Date.now(),
+            costCenter: "TEST" + Date.now(),
+            band: "Test Band " + Date.now(),
+            payGrade: "Test Grade " + Date.now(),
+            leavePlan: "Test Leave Plan " + Date.now(),
+            shiftPolicy: "Test Shift " + Date.now()
+        };
+        
+        const { getOrCreateMaster } = require("../utils/helpers");
+        
+        const results = {};
+        results.locationId = await getOrCreateMaster(c, 'locations', 'name', testData.location);
+        results.departmentId = await getOrCreateMaster(c, 'departments', 'name', testData.department);
+        results.designationId = await getOrCreateMaster(c, 'designations', 'name', testData.designation);
+        results.businessUnitId = await getOrCreateMaster(c, 'business_units', 'name', testData.businessUnit);
+        results.legalEntityId = await getOrCreateMaster(c, 'legal_entities', 'name', testData.legalEntity);
+        results.costCenterId = await getOrCreateMaster(c, 'cost_centers', 'code', testData.costCenter);
+        results.bandId = await getOrCreateMaster(c, 'bands', 'name', testData.band);
+        results.payGradeId = await getOrCreateMaster(c, 'pay_grades', 'name', testData.payGrade);
+        results.leavePlanId = await getOrCreateMaster(c, 'leave_plans', 'name', testData.leavePlan);
+        results.shiftPolicyId = await getOrCreateMaster(c, 'shift_policies', 'name', testData.shiftPolicy);
+        
+        c.end();
+        
+        res.json({
+            message: "Master data creation test successful",
+            testData,
+            results,
+            allCreated: Object.values(results).every(id => id !== null && id > 0)
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message, stack: error.stack });
+    }
 });
 
 /* ============ BULK PAYROLL UPLOAD ============ */

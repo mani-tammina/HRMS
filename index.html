@@ -481,7 +481,7 @@
     <!-- login, reset, admin-set-password, add employee, timesheet, leave, mini announcement, recalc payslip -->
     <div class="modal fade" id="loginModal" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
-            <form id="loginModalForm" class="modal-content" onsubmit="onLoginSubmit(event)">
+            <form id="loginModalForm" class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Sign in</h5><button type="button" class="btn-close"
                         data-bs-dismiss="modal"></button>
@@ -493,7 +493,7 @@
                     <div class="mb-2"><label class="form-label">Password</label><input id="loginPassword"
                             type="password" class="form-control" required></div>
                 </div>
-                <div class="modal-footer"><button class="btn btn-primary">Login</button></div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Login</button></div>
             </form>
         </div>
     </div>
@@ -685,10 +685,10 @@
         <script>
         const API_BASE = '';
         const ENDPOINT = {
-            login: API_BASE + '/api/login',
+            login: API_BASE + '/api/auth/login',
             sendSetup: API_BASE + '/api/auth/password/setup/send',
             adminCreatePassword: API_BASE + '/api/auth/password/create',
-            attendanceReport: API_BASE + '/api/attendance-report',
+            attendanceReport: API_BASE + '/api/reports/attendance',
             timesheets: API_BASE + '/api/timesheets',
             leaves: API_BASE + '/api/leaves',
             announcements: API_BASE + '/api/announcements',
@@ -707,7 +707,9 @@
                 costCenters: API_BASE + '/api/cost-centers'
             },
             payrollGenerate: API_BASE + '/api/payroll/generate',
-            payslipsList: API_BASE + '/api/payslips',
+            payslipsList: API_BASE + '/api/payroll/slips/all',
+            payslipsEmployee: API_BASE + '/api/payroll/slips/employee',
+            payslipsDetail: API_BASE + '/api/payroll/slips',
             payrollRecalculate: API_BASE + '/api/payroll/recalculate' // append /:empId
         };
 
@@ -751,6 +753,16 @@
             const addMasterBtn = document.getElementById('btnAddMaster'); if (addMasterBtn) addMasterBtn.style.display = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'hr')) ? '' : 'none';
             // show mini announcement only for admin/hr
             const miniWrap = document.getElementById('miniAnnWrap'); if (miniWrap) miniWrap.style.display = (currentUser && (currentUser.role === 'admin' || currentUser.role === 'hr')) ? '' : 'none';
+            // hide KPI cards for employees
+            const kpiCards = document.querySelectorAll('#dashboard .row.g-3 > div');
+            if (role === 'employee') {
+                kpiCards.forEach((card, idx) => {
+                    // Hide first 3 KPI cards (employees, pending leaves, payroll runs)
+                    if (idx < 3) card.style.display = 'none';
+                });
+            } else {
+                kpiCards.forEach(card => card.style.display = '');
+            }
         }
         setUserUI();
 
@@ -762,18 +774,114 @@
             showPage(page); document.getElementById('pageTitle').innerText = page.charAt(0).toUpperCase() + page.slice(1);
             switch (page) { case 'dashboard': loadDashboard(); break; case 'employees': loadEmployees(); break; case 'attendance': break; case 'timesheets': loadTimesheets(); break; case 'leaves': loadLeaves(); break; case 'payroll': loadPayroll(); break; case 'uploads': break; case 'masters': initMasters(); break; case 'salary': /* nothing extra */ break; }
         }
-        function showPage(id) { document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); const el = document.getElementById(id); if (el) el.classList.add('active'); }
+        function showPage(id) { 
+            document.querySelectorAll('.page').forEach(p => p.classList.remove('active')); 
+            const el = document.getElementById(id); 
+            if (el) el.classList.add('active'); 
+            // Update nav active state
+            document.querySelectorAll('#mainNav .nav-link').forEach(link => link.classList.remove('active'));
+            const navLink = document.querySelector(`#mainNav .nav-link[data-page="${id}"]`);
+            if (navLink) navLink.classList.add('active');
+        }
 
         /* AUTH */
-        function openLogin() { new bootstrap.Modal(document.getElementById('loginModal')).show(); }
+        function openLogin() { 
+            // Clear previous login attempts
+            document.getElementById('loginUsername').value = '';
+            document.getElementById('loginPassword').value = '';
+            document.getElementById('loginAlert').innerHTML = '';
+            new bootstrap.Modal(document.getElementById('loginModal')).show(); 
+        }
+        
         async function onLoginSubmit(e) {
             e.preventDefault();
-            const username = document.getElementById('loginUsername').value.trim(); const password = document.getElementById('loginPassword').value;
+            const alertBox = document.getElementById('loginAlert');
+            alertBox.innerHTML = '';
+            
+            const username = document.getElementById('loginUsername').value.trim(); 
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                alertBox.innerHTML = '<div class="alert alert-warning">Please enter username and password</div>';
+                return;
+            }
+            
+            // Show loading
+            alertBox.innerHTML = '<div class="alert alert-info">Logging in...</div>';
+            
             try {
-                const r = await axios.post(ENDPOINT.login, { username, password }); const data = r.data; const token = data.token || data.accessToken || null; let user = data.user || null; if (!user && data.role) { user = { id: data.userId || data.id || null, username, role: data.role }; } if (!token) { Swal.fire('Login failed', 'No token returned', 'error'); return; }
-                authToken = token; localStorage.setItem('hr_token', token); if (user) { currentUser = user; localStorage.setItem('hr_user', JSON.stringify(user)); } setUserUI(); bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide(); Swal.fire('Success', 'Logged in', 'success'); await postLoginInit();
-            } catch (err) { const msg = err.response && err.response.data && (err.response.data.error || err.response.data.message) ? (err.response.data.error || err.response.data.message) : err.message; Swal.fire('Login failed', msg, 'error'); }
+                console.log('Attempting login to:', ENDPOINT.login);
+                const r = await axios.post(ENDPOINT.login, { username, password }); 
+                console.log('Login response:', r.data);
+                
+                const data = r.data; 
+                const token = data.token || data.accessToken || null; 
+                let user = data.user || null; 
+                
+                if (!user && data.role) { 
+                    user = { 
+                        id: data.userId || data.id || null, 
+                        username, 
+                        role: data.role,
+                        full_name: data.full_name || data.name || username
+                    }; 
+                }
+                
+                if (!token) { 
+                    alertBox.innerHTML = '<div class="alert alert-danger">No token returned from server</div>';
+                    return; 
+                }
+                
+                authToken = token; 
+                localStorage.setItem('hr_token', token); 
+                
+                if (user) { 
+                    currentUser = user; 
+                    localStorage.setItem('hr_user', JSON.stringify(user)); 
+                }
+                
+                setUserUI(); 
+                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide(); 
+                
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Welcome!',
+                    text: `Logged in as ${user?.role || 'user'}`,
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+                
+                await postLoginInit();
+            } catch (err) { 
+                console.error('Login error:', err);
+                console.error('Error details:', {
+                    status: err.response?.status,
+                    statusText: err.response?.statusText,
+                    data: err.response?.data,
+                    endpoint: ENDPOINT.login
+                });
+                
+                let msg = 'Login failed';
+                
+                if (err.response?.status === 404) {
+                    msg = `Backend API not found (404). Please ensure:<br>
+                    1. Backend server is running on port 3000<br>
+                    2. Endpoint ${ENDPOINT.login} exists<br>
+                    3. Try: <code>node app.js</code> in terminal`;
+                } else if (err.response?.status === 401) {
+                    msg = 'Invalid username or password';
+                } else if (err.response?.status === 500) {
+                    msg = 'Server error. Check backend logs.';
+                } else if (err.code === 'ECONNREFUSED' || err.message.includes('Network Error')) {
+                    msg = 'Cannot connect to server. Is it running on port 3000?';
+                } else {
+                    msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Login failed';
+                }
+                
+                alertBox.innerHTML = `<div class="alert alert-danger"><strong>Error:</strong> ${msg}</div>`;
+            }
         }
+        
         document.getElementById('loginModalForm').addEventListener('submit', onLoginSubmit);
 
         async function onMiniAnn(e) {
@@ -784,12 +892,42 @@
         }
 
         /* ADMIN SET PASSWORD */
-        function openAdminSetPasswordModal() { if (currentUser?.role !== 'admin') return Swal.fire('Access Denied', 'Only admin can set passwords', 'error'); new bootstrap.Modal(document.getElementById('adminSetPasswordModal')).show(); }
+        function openAdminSetPasswordModal() { 
+            if (currentUser?.role !== 'admin') return Swal.fire('Access Denied', 'Only admin can set passwords', 'error'); 
+            // Clear previous values
+            document.getElementById('adminPwdEmpId').value = '';
+            document.getElementById('adminPwd').value = '';
+            document.getElementById('adminPwdConfirm').value = '';
+            document.getElementById('adminSetPwdAlert').innerHTML = '';
+            new bootstrap.Modal(document.getElementById('adminSetPasswordModal')).show(); 
+        }
         async function onAdminSetPassword(e) { e.preventDefault(); const empId = document.getElementById('adminPwdEmpId').value.trim(); const pwd = document.getElementById('adminPwd').value.trim(); const confirm = document.getElementById('adminPwdConfirm').value.trim(); const alertBox = document.getElementById('adminSetPwdAlert'); alertBox.innerHTML = ''; if (!empId) { alertBox.innerHTML = '<div class="alert alert-danger">Employee ID required.</div>'; return; } if (pwd !== confirm) { alertBox.innerHTML = '<div class="alert alert-danger">Passwords do not match.</div>'; return; } try { await axios.post(ENDPOINT.adminCreatePassword, { employee_id: empId, password: pwd }); Swal.fire('Success', 'Password set', 'success'); bootstrap.Modal.getInstance(document.getElementById('adminSetPasswordModal')).hide(); } catch (err) { const m = err.response && err.response.data && (err.response.data.error || err.response.data.message) ? (err.response.data.error || err.response.data.message) : err.message; alertBox.innerHTML = '<div class="alert alert-danger">' + m + '</div>'; } }
         document.getElementById('adminSetPasswordForm').addEventListener('submit', onAdminSetPassword);
 
         /* LOGOUT */
-        function logout() { axios.post(API_BASE + '/api/auth/logout').catch(() => { }); authToken = null; currentUser = null; localStorage.removeItem('hr_token'); localStorage.removeItem('hr_user'); delete axios.defaults.headers.common['Authorization']; setUserUI(); showPage('dashboard'); Swal.fire({ icon: 'success', title: 'Logged out', timer: 900, showConfirmButton: false }); }
+        function logout() { 
+            axios.post(API_BASE + '/api/auth/logout').catch(() => { }); 
+            authToken = null; 
+            currentUser = null; 
+            localStorage.removeItem('hr_token'); 
+            localStorage.removeItem('hr_user'); 
+            delete axios.defaults.headers.common['Authorization']; 
+            // Clear all caches
+            caches = { employees: [], announcements: [], birthdays: [], leaves: [], payslips: [] };
+            caches_masters = {};
+            // Clear dashboard
+            document.getElementById('kpiEmployees').innerText = '—';
+            document.getElementById('kpiPendingLeaves').innerText = '—';
+            document.getElementById('kpiPayrollRuns').innerText = '—';
+            document.getElementById('dashboardBirthdays').innerHTML = '<div class="small-muted">Login to see birthdays</div>';
+            // Destroy charts
+            if (chartAttendance) { chartAttendance.destroy(); chartAttendance = null; }
+            if (chartLeaves) { chartLeaves.destroy(); chartLeaves = null; }
+            if (chartPayroll) { chartPayroll.destroy(); chartPayroll = null; }
+            setUserUI(); 
+            showPage('dashboard'); 
+            Swal.fire({ icon: 'success', title: 'Logged out', timer: 900, showConfirmButton: false }); 
+        }
 
         /* POST LOGIN */
         async function postLoginInit() { try { await Promise.all([loadAnnouncements(), loadBirthdays(), loadEmployees(), initMasters(), loadPayroll()]); setTimeout(loadDashboard, 250); } catch (e) { console.warn(e); } }
@@ -810,7 +948,7 @@
                 const labels = Object.keys(buckets); const values = labels.map(l => buckets[l]); renderAttendanceChart(labels, values);
             } catch (e) { renderAttendanceChart([], []); }
             try { const r = await axios.get(ENDPOINT.leaves); const types = {}; (r.data || []).forEach(x => types[x.leave_type] = (types[x.leave_type] || 0) + 1); renderLeavesChart(Object.keys(types), Object.values(types)); } catch (e) { renderLeavesChart([], []); }
-            try { const r = await axios.get(ENDPOINT.payslipsList); const slips = r.data || []; const map = {}; slips.forEach(s => { const k = s.payroll_run_id || s.payroll_run_id || 'run'; map[k] = (map[k] || 0) + (s.net_pay || s.net_salary || 0); }); const keys = Object.keys(map).slice(-6); renderPayrollChart(keys, keys.map(k => map[k])); document.getElementById('kpiPayrollRuns').innerText = Object.keys(map).length; } catch (e) { renderPayrollChart([], []); document.getElementById('kpiPayrollRuns').innerText = '—'; }
+            try { const r = await axios.get(ENDPOINT.payslipsList); const slips = r.data || []; const map = {}; slips.forEach(s => { const k = s.payroll_run_id || 'run'; map[k] = (map[k] || 0) + (s.net_pay || s.net_salary || 0); }); const keys = Object.keys(map).slice(-6); renderPayrollChart(keys, keys.map(k => map[k])); document.getElementById('kpiPayrollRuns').innerText = Object.keys(map).length; } catch (e) { renderPayrollChart([], []); document.getElementById('kpiPayrollRuns').innerText = '—'; }
             try {
                 const r = await axios.get(ENDPOINT.birthdays + '?days=7');
                 caches.birthdays = r.data || [];
@@ -878,9 +1016,35 @@
         function openAddEmployeeModal() { new bootstrap.Modal(document.getElementById('addEmployeeModal')).show(); }
         async function onAddEmployee(e) { e.preventDefault(); const emp = { EmployeeNumber: document.getElementById('addEmpNo').value, FullName: document.getElementById('addFullName').value, WorkEmail: document.getElementById('addEmail').value, Department: document.getElementById('addDept').value, Designation: document.getElementById('addDesig').value }; try { await axios.post(ENDPOINT.employees, emp); Swal.fire('Added', 'Employee added', 'success'); bootstrap.Modal.getInstance(document.getElementById('addEmployeeModal')).hide(); await loadEmployees(); } catch (err) { Swal.fire('Error', 'Failed to add employee', 'error'); } }
         document.getElementById('addEmployeeForm').addEventListener('submit', onAddEmployee);
-        function openAdminSetPasswordRow(empId) { document.getElementById('adminPwdEmpId').value = empId; openAdminSetPasswordModal(); }
+        function openAdminSetPasswordRow(empId) { 
+            // Clear all fields first
+            document.getElementById('adminPwdEmpId').value = '';
+            document.getElementById('adminPwd').value = '';
+            document.getElementById('adminPwdConfirm').value = '';
+            document.getElementById('adminSetPwdAlert').innerHTML = '';
+            // Then set employee ID
+            document.getElementById('adminPwdEmpId').value = empId; 
+            new bootstrap.Modal(document.getElementById('adminSetPasswordModal')).show();
+        }
         async function promptSendSetup(empId) { if (!empId) { Swal.fire('Error', 'Employee id required', 'error'); return; } try { const r = await axios.post(ENDPOINT.sendSetup + '/' + empId); Swal.fire('Sent', 'Mock token: <pre style="text-align:left">' + (r.data.token || '') + '</pre>', 'info'); } catch (e) { Swal.fire('Error', 'Failed to send setup', 'error'); } }
-        function exportEmployees() { const data = caches.employees.map(e => ({ EmployeeNumber: e.EmployeeNumber, FullName: e.FullName, WorkEmail: e.WorkEmail, Department: e.Department, Designation: e.Designation })); const ws = XLSX.utils.json_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'Employees'); XLSX.writeFile(wb, 'employees.xlsx'); }
+        function exportEmployees() { 
+            if (!caches.employees || caches.employees.length === 0) {
+                Swal.fire('No Data', 'No employee data to export. Please load employees first.', 'warning');
+                return;
+            }
+            const data = caches.employees.map(e => ({ 
+                EmployeeNumber: e.EmployeeNumber || '', 
+                FullName: e.FullName || e.full_name || '', 
+                WorkEmail: e.WorkEmail || e.work_email || e.email || '', 
+                Department: e.Department || e.department_name || '', 
+                Designation: e.Designation || e.designation_name || '' 
+            })); 
+            const ws = XLSX.utils.json_to_sheet(data); 
+            const wb = XLSX.utils.book_new(); 
+            XLSX.utils.book_append_sheet(wb, ws, 'Employees'); 
+            XLSX.writeFile(wb, 'employees_' + new Date().toISOString().slice(0,10) + '.xlsx'); 
+            Swal.fire('Success', `Exported ${data.length} employees`, 'success');
+        }
 
         /* SALARY MANAGEMENT HELPERS */
         function computeSalaryFromLPA(lpa, basicPct, hraPct, medical, transport, special) {
@@ -1076,7 +1240,41 @@
         }
 
         /* ATTENDANCE */
-        async function fetchAttendanceReport() { const from = document.getElementById('attFrom').value; const to = document.getElementById('attTo').value; const emp = document.getElementById('attEmployee').value; const params = new URLSearchParams(); if (from) params.append('start_date', from); if (to) params.append('end_date', to); if (emp) params.append('employee_id', emp); try { const r = await axios.get(ENDPOINT.attendanceReport + '?' + params.toString()); const rows = r.data || []; const tbody = document.querySelector('#tblAttendance tbody'); tbody.innerHTML = ''; rows.forEach((row, i) => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${i + 1}</td><td>${row.EmployeeNumber || row.employee_number || ''}</td><td>${row.FullName || row.Fullname || ''}</td><td>${row.punch_date || ''}</td><td>${row.punch_in_time || ''}</td><td>${row.punch_out_time || ''}</td>`; tbody.appendChild(tr); }); } catch (e) { Swal.fire('Error', 'Failed to fetch attendance', 'error'); } }
+        async function fetchAttendanceReport() { 
+            const from = document.getElementById('attFrom').value; 
+            const to = document.getElementById('attTo').value; 
+            const emp = document.getElementById('attEmployee').value; 
+            
+            // Require at least one filter
+            if (!from && !to && !emp) {
+                Swal.fire('Validation Error', 'Please enter at least one filter criteria (From Date, To Date, or Employee ID)', 'warning');
+                return;
+            }
+            
+            const params = new URLSearchParams(); 
+            if (from) params.append('startDate', from); 
+            if (to) params.append('endDate', to); 
+            if (emp) params.append('employee_id', emp); 
+            
+            try { 
+                const r = await axios.get(ENDPOINT.attendanceReport + '?' + params.toString()); 
+                const rows = r.data || []; 
+                const tbody = document.querySelector('#tblAttendance tbody'); 
+                tbody.innerHTML = ''; 
+                if (rows.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="text-center small-muted">No attendance records found</td></tr>';
+                } else {
+                    rows.forEach((row, i) => { 
+                        const tr = document.createElement('tr'); 
+                        tr.innerHTML = `<td>${i + 1}</td><td>${row.EmployeeNumber || row.employee_number || ''}</td><td>${row.FullName || row.Fullname || ''}</td><td>${row.punch_date || ''}</td><td>${row.punch_in_time || ''}</td><td>${row.punch_out_time || ''}</td>`; 
+                        tbody.appendChild(tr); 
+                    });
+                }
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                Swal.fire('Error', msg, 'error'); 
+            } 
+        }
 
         function getCurrentUserId() { return currentUser?.id || currentUser?.userId || currentUser?.employee_id || null; }
 
@@ -1105,24 +1303,156 @@
 
         async function doCheckIn() {
             if (!getCurrentUserId()) return Swal.fire('Error', 'Login required', 'error');
-            try { await axios.post(API_BASE + '/api/attendance/checkin', { source: 'web' }); Swal.fire('Checked In', '', 'success'); await loadTodayAttendanceStatus(); } catch (e) { Swal.fire('Error', 'Check-in failed', 'error'); }
+            const btn = document.getElementById('btnCheckIn');
+            if (btn) btn.disabled = true;
+            try { 
+                await axios.post(API_BASE + '/api/attendance/checkin', { 
+                    employee_id: getCurrentUserId(),
+                    source: 'web' 
+                }); 
+                Swal.fire('Checked In', '', 'success'); 
+                await loadTodayAttendanceStatus(); 
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                Swal.fire('Error', msg, 'error'); 
+            } finally {
+                if (btn) btn.disabled = false;
+            }
         }
 
         async function doCheckOut() {
             if (!getCurrentUserId()) return Swal.fire('Error', 'Login required', 'error');
-            try { await axios.post(API_BASE + '/api/attendance/checkout', {}); Swal.fire('Checked Out', '', 'success'); await loadTodayAttendanceStatus(); } catch (e) { Swal.fire('Error', 'Check-out failed', 'error'); }
+            const btn = document.getElementById('btnCheckOut');
+            if (btn) btn.disabled = true;
+            try { 
+                await axios.post(API_BASE + '/api/attendance/checkout', {
+                    employee_id: getCurrentUserId()
+                }); 
+                Swal.fire('Checked Out', '', 'success'); 
+                await loadTodayAttendanceStatus(); 
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                Swal.fire('Error', msg, 'error'); 
+            } finally {
+                if (btn) btn.disabled = false;
+            }
         }
 
         /* TIMESHEETS */
-        function openTimesheetModal() { document.getElementById('tsDate').value = new Date().toISOString().slice(0, 10); new bootstrap.Modal(document.getElementById('timesheetModal')).show(); }
-        async function onTimesheetSubmit(e) { e.preventDefault(); const project_id = document.getElementById('tsProject').value; const hours = parseFloat(document.getElementById('tsHours').value); const date = document.getElementById('tsDate').value; if (!currentUser) return Swal.fire('Error', 'Login required', 'error'); const payload = { employee_id: currentUser.id || currentUser.userId || currentUser.employee_id, project_id, hours, date }; try { await axios.post(ENDPOINT.timesheets, payload); Swal.fire('Saved', 'Timesheet submitted', 'success'); bootstrap.Modal.getInstance(document.getElementById('timesheetModal')).hide(); await loadTimesheets(); } catch (err) { Swal.fire('Error', 'Failed to submit timesheet', 'error'); } }
+        function openTimesheetModal() { 
+            document.getElementById('tsDate').value = new Date().toISOString().slice(0, 10); 
+            document.getElementById('tsProject').value = '';
+            document.getElementById('tsHours').value = '';
+            new bootstrap.Modal(document.getElementById('timesheetModal')).show(); 
+        }
+        async function onTimesheetSubmit(e) { 
+            e.preventDefault(); 
+            if (!currentUser) return Swal.fire('Error', 'Login required', 'error');
+            
+            const project_id = document.getElementById('tsProject').value.trim(); 
+            const hours = parseFloat(document.getElementById('tsHours').value); 
+            const date = document.getElementById('tsDate').value; 
+            
+            if (!project_id || !hours || hours <= 0 || !date) {
+                Swal.fire('Validation Error', 'Please enter valid project, hours, and date', 'warning');
+                return;
+            }
+            
+            const empId = currentUser.id || currentUser.userId || currentUser.employee_id;
+            const payload = { employee_id: empId, project_id, hours, date }; 
+            
+            try { 
+                await axios.post(ENDPOINT.timesheets, payload); 
+                Swal.fire('Saved', 'Timesheet submitted', 'success'); 
+                bootstrap.Modal.getInstance(document.getElementById('timesheetModal')).hide(); 
+                await loadTimesheets(); 
+            } catch (err) { 
+                const msg = err.response?.data?.error || err.response?.data?.message || 'Failed to submit timesheet';
+                Swal.fire('Error', msg, 'error'); 
+            } 
+        }
         document.getElementById('timesheetForm').addEventListener('submit', onTimesheetSubmit);
-        async function loadTimesheets() { try { const r = await axios.get(ENDPOINT.timesheets); let rows = r.data || []; if (currentUser) { const myId = currentUser.id || currentUser.userId || currentUser.employee_id; rows = rows.filter(x => String(x.employee_id) === String(myId)); } document.getElementById('timesheetList').innerHTML = (rows).map(t => `<div>${t.date || t.submission_date} — Project ${t.project_id} — ${t.hours} hrs</div>`).join('') || '<div class="small-muted">No timesheets</div>'; } catch (e) { document.getElementById('timesheetList').innerHTML = '<div class="small-muted">Unable to load timesheets</div>'; } }
+        async function loadTimesheets() { 
+            try { 
+                const r = await axios.get(ENDPOINT.timesheets); 
+                let rows = r.data || []; 
+                
+                // Filter by current user's employee ID
+                if (currentUser) { 
+                    const myId = String(currentUser.id || currentUser.userId || currentUser.employee_id); 
+                    rows = rows.filter(x => String(x.employee_id) === myId); 
+                } 
+                
+                document.getElementById('timesheetList').innerHTML = rows.length > 0 
+                    ? rows.map(t => `<div class="mb-1"><small>${t.date || t.submission_date}</small> — Project: <b>${t.project_id || t.project_name}</b> — <b>${t.hours}</b> hrs</div>`).join('') 
+                    : '<div class="small-muted">No timesheets found</div>'; 
+            } catch (e) { 
+                console.error('Timesheet load error:', e);
+                document.getElementById('timesheetList').innerHTML = '<div class="small-muted">Unable to load timesheets</div>'; 
+            } 
+        }
 
         /* LEAVES */
-        function openLeaveModal() { new bootstrap.Modal(document.getElementById('leaveModal')).show(); }
-        async function onLeaveSubmit(e) { e.preventDefault(); const leave_type = document.getElementById('leaveType').value; const start_date = document.getElementById('leaveFrom').value; const end_date = document.getElementById('leaveTo').value; const reason = document.getElementById('leaveReason').value; try { await axios.post(ENDPOINT.leaves, { leave_type, start_date, end_date, reason }); Swal.fire('Requested', 'Leave request submitted', 'success'); bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide(); await loadLeaves(); } catch (err) { Swal.fire('Error', 'Failed to submit leave', 'error'); } }
-        async function loadLeaves() { try { const r = await axios.get(ENDPOINT.leaves); document.getElementById('leaveList').innerHTML = (r.data || []).map(l => `<div>${l.leave_type} — ${l.start_date} to ${l.end_date} — <b>${l.status}</b></div>`).join('') || '<div class="small-muted">No leaves</div>'; } catch (e) { document.getElementById('leaveList').innerHTML = '<div class="small-muted">Unable to load leaves</div>'; } }
+        function openLeaveModal() { 
+            document.getElementById('leaveType').value = '';
+            document.getElementById('leaveFrom').value = '';
+            document.getElementById('leaveTo').value = '';
+            document.getElementById('leaveReason').value = '';
+            new bootstrap.Modal(document.getElementById('leaveModal')).show(); 
+        }
+        async function onLeaveSubmit(e) { 
+            e.preventDefault(); 
+            if (!currentUser) return Swal.fire('Error', 'Login required', 'error');
+            
+            const leave_type = document.getElementById('leaveType').value; 
+            const start_date = document.getElementById('leaveFrom').value; 
+            const end_date = document.getElementById('leaveTo').value; 
+            const reason = document.getElementById('leaveReason').value.trim(); 
+            
+            if (!leave_type || !start_date || !end_date) {
+                Swal.fire('Validation Error', 'Please fill all required fields', 'warning');
+                return;
+            }
+            
+            const empId = currentUser.id || currentUser.userId || currentUser.employee_id;
+            
+            try { 
+                await axios.post(ENDPOINT.leaves, { 
+                    employee_id: empId,
+                    leave_type, 
+                    start_date, 
+                    end_date, 
+                    reason 
+                }); 
+                Swal.fire('Requested', 'Leave request submitted', 'success'); 
+                bootstrap.Modal.getInstance(document.getElementById('leaveModal')).hide(); 
+                await loadLeaves(); 
+            } catch (err) { 
+                const msg = err.response?.data?.error || err.response?.data?.message || 'Failed to submit leave';
+                Swal.fire('Error', msg, 'error'); 
+            } 
+        }
+        async function loadLeaves() { 
+            try { 
+                const r = await axios.get(ENDPOINT.leaves); 
+                let leaves = r.data || [];
+                
+                // Filter by current user if employee role
+                if (currentUser && currentUser.role === 'employee') {
+                    const myId = String(currentUser.id || currentUser.userId || currentUser.employee_id);
+                    leaves = leaves.filter(l => String(l.employee_id) === myId);
+                }
+                
+                caches.leaves = leaves;
+                
+                document.getElementById('leaveList').innerHTML = leaves.length > 0
+                    ? leaves.map(l => `<div class="mb-2"><b>${l.leave_type}</b> — ${l.start_date} to ${l.end_date}<br><small>${l.reason || ''}</small><br>Status: <span class="badge bg-${l.status === 'Approved' ? 'success' : l.status === 'Rejected' ? 'danger' : 'warning'}">${l.status}</span></div>`).join('') 
+                    : '<div class="small-muted">No leaves found</div>'; 
+            } catch (e) { 
+                console.error('Leave load error:', e);
+                document.getElementById('leaveList').innerHTML = '<div class="small-muted">Unable to load leaves</div>'; 
+            } 
+        }
 
         /* ANNOUNCEMENTS */
         async function loadAnnouncements() { try { const r = await axios.get(ENDPOINT.announcements); caches.announcements = r.data || []; } catch (e) { } }
@@ -1147,9 +1477,104 @@
         /* SUPPORT remains internal (no menu) */
 
         /* UPLOADS */
-        async function uploadEmployees() { const file = document.getElementById('uploadEmployeesFile').files[0]; if (!file) { Swal.fire('Select file', 'Choose an Excel file', 'warning'); return; } const fd = new FormData(); fd.append('file', file); try { const r = await axios.post(ENDPOINT.uploadEmployees, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); Swal.fire('Uploaded', '' + JSON.stringify(r.data), 'success'); await loadEmployees(); } catch (e) { Swal.fire('Error', 'Upload failed', 'error'); } }
-        async function uploadHolidays() { const file = document.getElementById('uploadHolidaysFile').files[0]; if (!file) { Swal.fire('Select file', 'Choose an Excel file', 'warning'); return; } const fd = new FormData(); fd.append('file', file); try { const r = await axios.post(ENDPOINT.uploadHolidays, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); Swal.fire('Uploaded', '' + JSON.stringify(r.data), 'success'); await initMasters(); } catch (e) { Swal.fire('Error', 'Upload failed', 'error'); } }
-        async function uploadPayroll() { const file = document.getElementById('uploadPayrollFile').files[0]; if (!file) { Swal.fire('Select file', 'Choose an Excel file', 'warning'); return; } const fd = new FormData(); fd.append('file', file); try { const r = await axios.post(ENDPOINT.uploadPayroll, fd, { headers: { 'Content-Type': 'multipart/form-data' } }); Swal.fire('Uploaded', '' + JSON.stringify(r.data), 'success'); await loadPayroll(); await loadDashboard(); } catch (e) { Swal.fire('Error', 'Upload failed', 'error'); } }
+        async function uploadEmployees() { 
+            const file = document.getElementById('uploadEmployeesFile').files[0]; 
+            if (!file) { 
+                Swal.fire('Select file', 'Choose an Excel file', 'warning'); 
+                return; 
+            } 
+            
+            // Validate file type
+            const validTypes = ['application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'];
+            if (!validTypes.includes(file.type) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                Swal.fire('Invalid File', 'Please select a valid Excel file (.xlsx or .xls)', 'error');
+                return;
+            }
+            
+            const fd = new FormData(); 
+            fd.append('file', file); 
+            
+            Swal.fire({ title: 'Uploading...', text: 'Please wait', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            try { 
+                const r = await axios.post(ENDPOINT.uploadEmployees, fd, { 
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    timeout: 60000 // 60 second timeout
+                }); 
+                Swal.fire('Success', `Uploaded successfully: ${r.data.message || JSON.stringify(r.data)}`, 'success'); 
+                await loadEmployees(); 
+                document.getElementById('uploadEmployeesFile').value = ''; // Clear file input
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                const details = e.response?.data?.details ? '\n\nDetails: ' + JSON.stringify(e.response.data.details) : '';
+                Swal.fire('Upload Error', msg + details, 'error'); 
+            } 
+        }
+        async function uploadHolidays() { 
+            const file = document.getElementById('uploadHolidaysFile').files[0]; 
+            if (!file) { 
+                Swal.fire('Select file', 'Choose an Excel file', 'warning'); 
+                return; 
+            } 
+            
+            // Validate file type
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                Swal.fire('Invalid File', 'Please select a valid Excel file (.xlsx or .xls)', 'error');
+                return;
+            }
+            
+            const fd = new FormData(); 
+            fd.append('file', file); 
+            
+            Swal.fire({ title: 'Uploading...', text: 'Please wait', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            try { 
+                const r = await axios.post(ENDPOINT.uploadHolidays, fd, { 
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    timeout: 30000
+                }); 
+                Swal.fire('Success', `${r.data.message || 'Holidays uploaded successfully'}`, 'success'); 
+                await initMasters(); 
+                document.getElementById('uploadHolidaysFile').value = '';
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                const details = e.response?.data?.details ? '\n\nDetails: ' + JSON.stringify(e.response.data.details) : '';
+                Swal.fire('Upload Error', msg + details, 'error'); 
+            } 
+        }
+        async function uploadPayroll() { 
+            const file = document.getElementById('uploadPayrollFile').files[0]; 
+            if (!file) { 
+                Swal.fire('Select file', 'Choose an Excel file', 'warning'); 
+                return; 
+            } 
+            
+            // Validate file type
+            if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+                Swal.fire('Invalid File', 'Please select a valid Excel file (.xlsx or .xls)', 'error');
+                return;
+            }
+            
+            const fd = new FormData(); 
+            fd.append('file', file); 
+            
+            Swal.fire({ title: 'Uploading...', text: 'Processing payroll data', allowOutsideClick: false, didOpen: () => { Swal.showLoading(); } });
+            
+            try { 
+                const r = await axios.post(ENDPOINT.uploadPayroll, fd, { 
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    timeout: 120000 // 2 minute timeout for large payroll files
+                }); 
+                Swal.fire('Success', `${r.data.message || 'Payroll uploaded successfully'}`, 'success'); 
+                await loadPayroll(); 
+                await loadDashboard(); 
+                document.getElementById('uploadPayrollFile').value = '';
+            } catch (e) { 
+                const msg = e.response?.data?.error || e.response?.data?.message || e.message;
+                const details = e.response?.data?.details ? '\n\nDetails: ' + JSON.stringify(e.response.data.details) : '';
+                Swal.fire('Upload Error', msg + details, 'error'); 
+            } 
+        }
 
         /* MASTERS: tabbed DataGrid, dynamic columns and add-only modal */
         let caches_masters = {};
@@ -1184,10 +1609,20 @@
             const conf = MASTER_CONFIG.find(x => x.key === key);
             if (!conf) return;
             const container = document.getElementById(key + '-container');
+            if (!container) return;
             container.innerHTML = '<div class="small-muted">Loading...</div>';
             try {
-                const r = await axios.get(API_BASE + conf.endpoint);
-                const rows = r.data || [];
+                const r = await axios.get(conf.endpoint);
+                let rows = r.data;
+                
+                // Handle different response formats
+                if (rows && typeof rows === 'object' && !Array.isArray(rows)) {
+                    // If response is wrapped in a data property
+                    rows = rows.data || rows.rows || rows.items || [];
+                }
+                
+                if (!Array.isArray(rows)) rows = [];
+                
                 caches_masters[key] = rows;
                 renderMasterTable(key, rows);
             } catch (err) {
@@ -1261,15 +1696,24 @@
             const payload = {};
             (conf._addFields || ['name']).forEach(f => {
                 const el = document.getElementById('add_' + f);
-                if (el) payload[f] = el.value;
+                if (el) payload[f] = el.value.trim();
             });
+            
+            // Validate required fields
+            const emptyFields = (conf._addFields || ['name']).filter(f => !payload[f]);
+            if (emptyFields.length > 0) {
+                Swal.fire('Validation Error', 'Please fill all required fields', 'warning');
+                return;
+            }
+            
             try {
-                const r = await axios.post(API_BASE + conf.endpoint, payload, { headers: { 'Content-Type': 'application/json' } });
-                Swal.fire('Saved', 'Record added', 'success');
+                await axios.post(conf.endpoint, payload);
+                Swal.fire('Success', conf.title + ' added successfully', 'success');
                 bootstrap.Modal.getInstance(document.getElementById('addMasterModal')).hide();
                 await loadMastersTab(conf.key);
             } catch (err) {
-                const msg = err.response && err.response.data && (err.response.data.error || err.response.data.message) ? (err.response.data.error || err.response.data.message) : err.message;
+                const msg = err.response?.data?.error || err.response?.data?.message || err.message;
+                Swal.fire('Error', 'Failed to add ' + conf.title + ': ' + msg, 'error');
                 Swal.fire('Error', msg, 'error');
             }
         }
@@ -1322,7 +1766,7 @@
             document.getElementById('recalcEmpId').value = empId || '';
             document.getElementById('recalcDetails').innerHTML = 'Loading payslip details...';
             try {
-                const r = await axios.get(`${ENDPOINT.payslipsList}/${empId}`);
+                const r = await axios.get(`${ENDPOINT.payslipsEmployee}/${empId}`);
                 const rows = r.data || [];
                 const slip = rows[0] || null;
                 if (!slip) document.getElementById('recalcDetails').innerText = 'No payslip found for this employee.';
@@ -1478,8 +1922,43 @@
         }
         function exportPayroll() { const doc = new jspdf.jsPDF(); const text = document.getElementById('payrollList').innerText || 'Payroll'; doc.text(text, 10, 10); doc.save('payroll.pdf'); }
 
+        /* BACKEND HEALTH CHECK */
+        async function checkBackendHealth() {
+            try {
+                const response = await axios.get('/api/health', { timeout: 3000 });
+                console.log('✅ Backend is running:', response.data);
+                return true;
+            } catch (err) {
+                console.error('❌ Backend health check failed:', err.message);
+                if (err.code === 'ECONNABORTED' || err.message.includes('timeout')) {
+                    console.error('Backend is not responding. Please start the server: node app.js');
+                } else if (err.response?.status === 404) {
+                    console.warn('Health endpoint not found. Backend might be running but /api/health not implemented.');
+                    return true; // Continue anyway
+                }
+                return false;
+            }
+        }
+
         /* INITIAL LOAD */
-        async function initialLoad() { const token = localStorage.getItem('hr_token') || null; const savedUser = JSON.parse(localStorage.getItem('hr_user') || 'null'); if (token) axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; if (savedUser) currentUser = savedUser; setUserUI(); try { await Promise.all([loadAnnouncements(), loadBirthdays(), loadEmployees(), initMasters(), loadPayroll()]); } catch (e) { } loadDashboard(); }
+        async function initialLoad() { 
+            // Check backend health
+            await checkBackendHealth();
+            
+            const token = localStorage.getItem('hr_token') || null; 
+            const savedUser = JSON.parse(localStorage.getItem('hr_user') || 'null'); 
+            if (token) axios.defaults.headers.common['Authorization'] = 'Bearer ' + token; 
+            if (savedUser) currentUser = savedUser; 
+            setUserUI(); 
+            
+            try { 
+                await Promise.all([loadAnnouncements(), loadBirthdays(), loadEmployees(), initMasters(), loadPayroll()]); 
+            } catch (e) { 
+                console.warn('Some initial data failed to load:', e);
+            } 
+            
+            loadDashboard(); 
+        }
         initialLoad();
 
         function refreshCurrentPage() { const page = document.getElementById('pageTitle').innerText.toLowerCase(); routeTo(page); }
@@ -1507,9 +1986,16 @@
 
         async function onProfileSave(e) {
             e.preventDefault();
-            const personal_email = document.getElementById('profilePersonalEmail').value;
+            const personal_email = document.getElementById('profilePersonalEmail').value.trim();
             const physically_handicapped = document.getElementById('profilePH').value;
             const date_of_birth = document.getElementById('profileDOB').value || null;
+            
+            // Email validation
+            if (personal_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(personal_email)) {
+                Swal.fire('Validation Error', 'Please enter a valid email address', 'warning');
+                return;
+            }
+            
             try {
                 await axios.put(API_BASE + '/api/profile', { personal_email, physically_handicapped, date_of_birth });
                 Swal.fire('Saved', 'Profile updated', 'success');
@@ -1539,10 +2025,10 @@
             try {
                 let slip = null;
                 if (slipId) {
-                    const r = await axios.get(`${ENDPOINT.payslipsList}/${empId}/${slipId}`);
+                    const r = await axios.get(`${ENDPOINT.payslipsDetail}/${empId}/${slipId}`);
                     slip = r.data || null;
                 } else {
-                    const r = await axios.get(`${ENDPOINT.payslipsList}/${empId}`);
+                    const r = await axios.get(`${ENDPOINT.payslipsEmployee}/${empId}`);
                     slip = (r.data && r.data[0]) || null;
                 }
                 document.getElementById('payslipModalBody').innerHTML = formatPayslipHtml(slip);

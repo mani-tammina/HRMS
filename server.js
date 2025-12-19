@@ -32,6 +32,8 @@ const { excel } = require("./utils/excelReader");
 // Import route modules
 const authRoutes = require("./routes/auth.routes");
 const masterRoutes = require("./routes/master.routes");
+const candidatesRoutes = require("./routes/candidates.routes");
+const preonboardingRoutes = require("./routes/preonboarding.routes");
 const onboardingRoutes = require("./routes/onboarding.routes");
 const employeeRoutes = require("./routes/employee.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
@@ -218,6 +220,12 @@ app.use("/api/auth", authRoutes);
 
 // Master Data Routes (locations, departments, designations, etc.)
 app.use("/api", masterRoutes);
+
+// Candidates Routes
+app.use("/api/candidates", candidatesRoutes);
+
+// Pre-onboarding Routes
+app.use("/api/preonboarding", preonboardingRoutes);
 
 // Onboarding Routes
 app.use("/api/onboarding", onboardingRoutes);

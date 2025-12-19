@@ -32,10 +32,23 @@ function toMySQLDateTime(val) {
 async function getOrCreateMaster(conn, table, column, value) {
     if (value === undefined || value === null || String(value).trim() === '') return null;
     const val = String(value).trim();
-    const [rows] = await conn.query(`SELECT id FROM \`${table}\` WHERE \`${column}\` = ? LIMIT 1`, [val]);
-    if (rows.length) return rows[0].id;
-    const [res] = await conn.query(`INSERT INTO \`${table}\` (\`${column}\`) VALUES (?)`, [val]);
-    return res.insertId;
+    
+    try {
+        // Check if exists
+        const [rows] = await conn.query(`SELECT id FROM \`${table}\` WHERE \`${column}\` = ? LIMIT 1`, [val]);
+        if (rows.length) {
+            console.log(`✓ Found existing ${table}: ${val} (ID: ${rows[0].id})`);
+            return rows[0].id;
+        }
+        
+        // Create new entry
+        const [res] = await conn.query(`INSERT INTO \`${table}\` (\`${column}\`) VALUES (?)`, [val]);
+        console.log(`✓ Created new ${table}: ${val} (ID: ${res.insertId})`);
+        return res.insertId;
+    } catch (error) {
+        console.error(`✗ Error in getOrCreateMaster for ${table}.${column}="${val}":`, error.message);
+        throw error;
+    }
 }
 
 module.exports = { findEmployeeByUserId, toMySQLDateTime, getOrCreateMaster };
