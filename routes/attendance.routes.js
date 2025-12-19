@@ -11,31 +11,66 @@ const { findEmployeeByUserId } = require("../utils/helpers");
 
 /* ============ ATTENDANCE MANAGEMENT ============ */
 
-// Check-in
+// Check-in (with work mode: Office/WFH/Remote)
 router.post("/checkin", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
     
+    const { work_mode, location, notes } = req.body;
+    const ip_address = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const device_info = req.headers['user-agent'];
+    
     const c = await db();
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date();
+    
+    // Check if already checked in today
     const [existing] = await c.query(
-        "SELECT id FROM attendance WHERE employee_id = ? AND attendance_date = ?",
+        "SELECT id, check_in FROM attendance WHERE employee_id = ? AND attendance_date = ?",
         [emp.id, today]
     );
     
     if (existing.length > 0) {
         c.end();
-        return res.status(400).json({ error: "Already checked in today" });
+        return res.status(400).json({ 
+            error: "Already checked in today",
+            check_in_time: existing[0].check_in
+        });
     }
     
+    // Validate work mode
+    const validModes = ['Office', 'WFH', 'Remote', 'Hybrid'];
+    const selectedMode = work_mode || 'Office';
+    
+    if (!validModes.includes(selectedMode)) {
+        c.end();
+        return res.status(400).json({ error: "Invalid work mode. Use: Office, WFH, Remote, or Hybrid" });
+    }
+    
+    // Insert attendance record
     await c.query("INSERT INTO attendance SET ?", {
         employee_id: emp.id,
         attendance_date: today,
-        check_in: new Date(),
-        status: 'present'
+        punch_date: today,
+        check_in: now,
+        punch_in_time: now.toTimeString().split(' ')[0],
+        work_mode: selectedMode,
+        location: location || selectedMode,
+        ip_address: ip_address,
+        device_info: device_info,
+        status: 'present',
+        notes: notes,
+        source: 'web'
     });
+    
     c.end();
-    res.json({ success: true, message: "Checked in successfully" });
+    res.json({ 
+        success: true, 
+        message: `Checked in successfully as ${selectedMode}`,
+        work_mode: selectedMode,
+        check_in_time: now,
+        location: location || selectedMode
+    });
 });
 
 // Check-out
@@ -43,14 +78,38 @@ router.post("/checkout", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
     
+    const { notes } = req.body;
     const c = await db();
     const today = new Date().toISOString().split('T')[0];
-    await c.query(
-        "UPDATE attendance SET check_out = ?, total_hours = TIMESTAMPDIFF(HOUR, check_in, ?) WHERE employee_id = ? AND attendance_date = ?",
-        [new Date(), new Date(), emp.id, today]
+    const now = new Date();
+    
+    // Check if checked in today
+    const [record] = await c.query(
+        "SELECT id, check_in, work_mode FROM attendance WHERE employee_id = ? AND attendance_date = ? AND check_out IS NULL",
+        [emp.id, today]
     );
+    
+    if (record.length === 0) {
+        c.end();
+        return res.status(400).json({ error: "No active check-in found for today" });
+    }
+    
+    const checkIn = new Date(record[0].check_in);
+    const totalHours = ((now - checkIn) / (1000 * 60 * 60)).toFixed(2);
+    
+    await c.query(
+        "UPDATE attendance SET check_out = ?, punch_out_time = ?, total_hours = ?, notes = CONCAT(IFNULL(notes, ''), ?) WHERE id = ?",
+        [now, now.toTimeString().split(' ')[0], totalHours, notes ? ` | Checkout: ${notes}` : '', record[0].id]
+    );
+    
     c.end();
-    res.json({ success: true, message: "Checked out successfully" });
+    res.json({ 
+        success: true, 
+        message: "Checked out successfully",
+        check_out_time: now,
+        total_hours: parseFloat(totalHours),
+        work_mode: record[0].work_mode
+    });
 });
 
 // My attendance

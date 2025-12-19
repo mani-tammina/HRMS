@@ -401,6 +401,670 @@ createMaster("holiday-lists", "holiday_lists", "name");
 createMaster("expense-policies", "expense_policies", "name");
 
 
+/* ============ CANDIDATES & PRE-ONBOARDING ============ */
+
+// Create new candidate
+app.post("/api/candidates", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const candidateData = {
+            candidate_id: req.body.candidate_id || `CAN${Date.now()}`,
+            first_name: req.body.first_name,
+            middle_name: req.body.middle_name,
+            last_name: req.body.last_name,
+            full_name: req.body.full_name || `${req.body.first_name} ${req.body.last_name || ''}`.trim(),
+            email: req.body.email,
+            phone: req.body.phone,
+            position: req.body.position,
+            designation_id: req.body.designation_id,
+            department_id: req.body.department_id,
+            location_id: req.body.location_id,
+            offered_ctc: req.body.offered_ctc,
+            joining_date: req.body.joining_date,
+            reporting_manager_id: req.body.reporting_manager_id,
+            hr_coordinator_id: req.body.hr_coordinator_id || req.user.employee_id,
+            recruiter_name: req.body.recruiter_name,
+            recruitment_source: req.body.recruitment_source,
+            created_by: req.user.id,
+            status: 'offered'
+        };
+
+        const [result] = await c.query("INSERT INTO candidates SET ?", candidateData);
+        c.end();
+        
+        res.json({ 
+            success: true,
+            candidate_id: result.insertId, 
+            message: "Candidate created successfully" 
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all candidates with filters
+app.get("/api/candidates", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const { status, joining_date_from, joining_date_to, department_id } = req.query;
+        
+        let query = `
+            SELECT c.*, 
+                   d.name as department_name, 
+                   des.name as designation_name,
+                   l.name as location_name,
+                   CONCAT(m.FirstName, ' ', m.LastName) as manager_name
+            FROM candidates c
+            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN designations des ON c.designation_id = des.id
+            LEFT JOIN locations l ON c.location_id = l.id
+            LEFT JOIN employees m ON c.reporting_manager_id = m.id
+            WHERE 1=1
+        `;
+        const params = [];
+        
+        if (status) {
+            query += " AND c.status = ?";
+            params.push(status);
+        }
+        if (joining_date_from) {
+            query += " AND c.joining_date >= ?";
+            params.push(joining_date_from);
+        }
+        if (joining_date_to) {
+            query += " AND c.joining_date <= ?";
+            params.push(joining_date_to);
+        }
+        if (department_id) {
+            query += " AND c.department_id = ?";
+            params.push(department_id);
+        }
+        
+        query += " ORDER BY c.created_at DESC";
+        
+        const [candidates] = await c.query(query, params);
+        c.end();
+        
+        res.json(candidates);
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get candidate by ID
+app.get("/api/candidates/:id", auth, async (req, res) => {
+    const c = await db();
+    try {
+        const [candidates] = await c.query(`
+            SELECT c.*, 
+                   d.name as department_name, 
+                   des.name as designation_name,
+                   l.name as location_name,
+                   CONCAT(m.FirstName, ' ', m.LastName) as manager_name,
+                   CONCAT(hr.FirstName, ' ', hr.LastName) as hr_coordinator_name
+            FROM candidates c
+            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN designations des ON c.designation_id = des.id
+            LEFT JOIN locations l ON c.location_id = l.id
+            LEFT JOIN employees m ON c.reporting_manager_id = m.id
+            LEFT JOIN employees hr ON c.hr_coordinator_id = hr.id
+            WHERE c.id = ?
+        `, [req.params.id]);
+        
+        if (candidates.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Candidate not found" });
+        }
+        
+        // Get documents
+        const [documents] = await c.query(
+            "SELECT * FROM candidate_documents WHERE candidate_id = ?",
+            [req.params.id]
+        );
+        
+        // Get task progress
+        const [tasks] = await c.query(`
+            SELECT ctp.*, pt.task_name, pt.description, pt.task_category, pt.is_mandatory
+            FROM candidate_task_progress ctp
+            JOIN preonboarding_tasks pt ON ctp.task_id = pt.id
+            WHERE ctp.candidate_id = ?
+            ORDER BY pt.task_order
+        `, [req.params.id]);
+        
+        c.end();
+        
+        res.json({
+            candidate: candidates[0],
+            documents,
+            tasks,
+            completion_percentage: tasks.length > 0 
+                ? (tasks.filter(t => t.status === 'completed').length / tasks.length * 100).toFixed(2)
+                : 0
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update candidate
+app.put("/api/candidates/:id", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const updates = { ...req.body };
+        delete updates.id;
+        delete updates.created_at;
+        delete updates.created_by;
+        
+        await c.query("UPDATE candidates SET ? WHERE id = ?", [updates, req.params.id]);
+        c.end();
+        
+        res.json({ success: true, message: "Candidate updated successfully" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Send offer letter
+app.post("/api/candidates/:id/send-offer", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        await c.query(`
+            UPDATE candidates SET 
+                offer_letter_sent = 1,
+                offer_letter_sent_date = CURDATE(),
+                status = 'offered'
+            WHERE id = ?
+        `, [req.params.id]);
+        
+        c.end();
+        res.json({ success: true, message: "Offer letter sent" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Accept offer
+app.post("/api/candidates/:id/accept-offer", async (req, res) => {
+    const c = await db();
+    try {
+        await c.query(`
+            UPDATE candidates SET 
+                offer_accepted = 1,
+                offer_accepted_date = CURDATE(),
+                status = 'offer_accepted'
+            WHERE id = ?
+        `, [req.params.id]);
+        
+        // Auto-assign pre-onboarding tasks
+        const [tasks] = await c.query(
+            "SELECT id FROM preonboarding_tasks WHERE auto_assign = 1 ORDER BY task_order"
+        );
+        
+        for (const task of tasks) {
+            await c.query(`
+                INSERT INTO candidate_task_progress (candidate_id, task_id, status, assigned_date)
+                VALUES (?, ?, 'not_started', CURDATE())
+            `, [req.params.id, task.id]);
+        }
+        
+        c.end();
+        res.json({ success: true, message: "Offer accepted, pre-onboarding tasks assigned" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Decline offer
+app.post("/api/candidates/:id/decline-offer", async (req, res) => {
+    const c = await db();
+    try {
+        await c.query(`
+            UPDATE candidates SET 
+                offer_declined = 1,
+                offer_declined_date = CURDATE(),
+                decline_reason = ?,
+                status = 'offer_declined'
+            WHERE id = ?
+        `, [req.body.reason, req.params.id]);
+        
+        c.end();
+        res.json({ success: true, message: "Offer declined" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Upload candidate document
+app.post("/api/candidates/:id/documents", upload.single("file"), async (req, res) => {
+    const c = await db();
+    try {
+        const docData = {
+            candidate_id: req.params.id,
+            document_type: req.body.document_type,
+            document_name: req.file.originalname,
+            file_path: req.file.path,
+            file_size: req.file.size,
+            mime_type: req.file.mimetype,
+            required: req.body.required || 1
+        };
+        
+        await c.query("INSERT INTO candidate_documents SET ?", docData);
+        
+        // Update candidate documents status
+        await c.query(`
+            UPDATE candidates SET 
+                documents_submitted = 1,
+                status = CASE 
+                    WHEN status = 'offer_accepted' THEN 'documents_pending'
+                    ELSE status
+                END
+            WHERE id = ?
+        `, [req.params.id]);
+        
+        c.end();
+        res.json({ success: true, message: "Document uploaded successfully" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Verify document
+app.put("/api/candidates/documents/:docId/verify", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        await c.query(`
+            UPDATE candidate_documents SET 
+                verified = 1,
+                verified_by = ?,
+                verified_date = CURDATE(),
+                verification_remarks = ?
+            WHERE id = ?
+        `, [req.user.id, req.body.remarks, req.params.docId]);
+        
+        c.end();
+        res.json({ success: true, message: "Document verified" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Initiate BGV
+app.post("/api/candidates/:id/bgv/initiate", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        await c.query(`
+            UPDATE candidates SET 
+                bgv_status = 'initiated',
+                bgv_initiated_date = CURDATE(),
+                status = 'bgv_initiated'
+            WHERE id = ?
+        `, [req.params.id]);
+        
+        c.end();
+        res.json({ success: true, message: "BGV initiated" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update BGV status
+app.put("/api/candidates/:id/bgv/status", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const updates = {
+            bgv_status: req.body.bgv_status,
+            bgv_remarks: req.body.remarks
+        };
+        
+        if (req.body.bgv_status === 'completed') {
+            updates.bgv_completed_date = new Date();
+            updates.status = 'bgv_completed';
+        }
+        
+        await c.query("UPDATE candidates SET ? WHERE id = ?", [updates, req.params.id]);
+        c.end();
+        
+        res.json({ success: true, message: "BGV status updated" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Convert candidate to employee
+app.post("/api/candidates/:id/convert-to-employee", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        // Get candidate details
+        const [candidates] = await c.query("SELECT * FROM candidates WHERE id = ?", [req.params.id]);
+        
+        if (candidates.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Candidate not found" });
+        }
+        
+        const candidate = candidates[0];
+        
+        // Create employee
+        const empData = {
+            EmployeeNumber: req.body.employee_number || `EMP${Date.now()}`,
+            FirstName: candidate.first_name,
+            MiddleName: candidate.middle_name,
+            LastName: candidate.last_name,
+            FullName: candidate.full_name,
+            WorkEmail: candidate.email,
+            PersonalEmail: candidate.email,
+            Gender: candidate.gender,
+            DateOfBirth: candidate.date_of_birth,
+            DateJoined: candidate.joining_date || new Date(),
+            LocationId: candidate.location_id,
+            DepartmentId: candidate.department_id,
+            DesignationId: candidate.designation_id,
+            reporting_manager_id: candidate.reporting_manager_id,
+            EmploymentStatus: 'Active',
+            lpa: candidate.offered_ctc
+        };
+        
+        const [empResult] = await c.query("INSERT INTO employees SET ?", empData);
+        
+        // Update candidate
+        await c.query(`
+            UPDATE candidates SET 
+                converted_to_employee = 1,
+                employee_id = ?,
+                conversion_date = CURDATE(),
+                status = 'joined'
+            WHERE id = ?
+        `, [empResult.insertId, req.params.id]);
+        
+        // Create user account
+        const userData = {
+            username: candidate.email.split('@')[0],
+            password_hash: await bcrypt.hash('welcome123', 10),
+            role: 'employee',
+            full_name: candidate.full_name,
+            employee_id: empResult.insertId
+        };
+        
+        await c.query("INSERT INTO users SET ?", userData);
+        
+        // Auto-assign onboarding steps
+        const [steps] = await c.query("SELECT id FROM onboarding_steps ORDER BY step_order");
+        for (const step of steps) {
+            await c.query(`
+                INSERT INTO onboarding_progress (employee_id, step_id, status)
+                VALUES (?, ?, 'not_started')
+            `, [empResult.insertId, step.id]);
+        }
+        
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            employee_id: empResult.insertId,
+            message: "Candidate converted to employee successfully" 
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Candidate dashboard stats
+app.get("/api/candidates/stats/dashboard", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const [stats] = await c.query(`
+            SELECT 
+                COUNT(*) as total_candidates,
+                SUM(CASE WHEN status = 'offered' THEN 1 ELSE 0 END) as offered,
+                SUM(CASE WHEN status = 'offer_accepted' THEN 1 ELSE 0 END) as offer_accepted,
+                SUM(CASE WHEN status = 'bgv_initiated' OR status = 'bgv_completed' THEN 1 ELSE 0 END) as in_bgv,
+                SUM(CASE WHEN status = 'ready_to_join' THEN 1 ELSE 0 END) as ready_to_join,
+                SUM(CASE WHEN status = 'joined' THEN 1 ELSE 0 END) as joined,
+                SUM(CASE WHEN status = 'offer_declined' OR status = 'dropped_out' THEN 1 ELSE 0 END) as declined_dropped
+            FROM candidates
+            WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+        `);
+        
+        c.end();
+        res.json(stats[0]);
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/* ============ PRE-ONBOARDING TASKS ============ */
+
+// Create pre-onboarding task template
+app.post("/api/preonboarding/tasks", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const taskData = {
+            task_name: req.body.task_name,
+            description: req.body.description,
+            task_category: req.body.task_category,
+            is_mandatory: req.body.is_mandatory !== undefined ? req.body.is_mandatory : 1,
+            task_order: req.body.task_order,
+            auto_assign: req.body.auto_assign !== undefined ? req.body.auto_assign : 1,
+            assigned_to_role: req.body.assigned_to_role || 'candidate'
+        };
+        
+        const [result] = await c.query("INSERT INTO preonboarding_tasks SET ?", taskData);
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            task_id: result.insertId,
+            message: "Pre-onboarding task created" 
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all task templates
+app.get("/api/preonboarding/tasks", auth, async (req, res) => {
+    const c = await db();
+    try {
+        const [tasks] = await c.query(`
+            SELECT * FROM preonboarding_tasks 
+            ORDER BY task_order ASC, id ASC
+        `);
+        c.end();
+        
+        res.json(tasks);
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update task template
+app.put("/api/preonboarding/tasks/:id", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const updates = { ...req.body };
+        delete updates.id;
+        delete updates.created_at;
+        
+        await c.query("UPDATE preonboarding_tasks SET ? WHERE id = ?", [updates, req.params.id]);
+        c.end();
+        
+        res.json({ success: true, message: "Task template updated" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Delete task template
+app.delete("/api/preonboarding/tasks/:id", auth, admin, async (req, res) => {
+    const c = await db();
+    try {
+        await c.query("DELETE FROM preonboarding_tasks WHERE id = ?", [req.params.id]);
+        c.end();
+        
+        res.json({ success: true, message: "Task template deleted" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Assign tasks to candidate
+app.post("/api/preonboarding/assign/:candidateId", auth, hr, async (req, res) => {
+    const c = await db();
+    try {
+        const taskIds = req.body.task_ids; // Array of task IDs
+        
+        if (!taskIds || taskIds.length === 0) {
+            // Assign all auto-assign tasks
+            const [tasks] = await c.query(
+                "SELECT id FROM preonboarding_tasks WHERE auto_assign = 1"
+            );
+            
+            for (const task of tasks) {
+                await c.query(`
+                    INSERT INTO candidate_task_progress (candidate_id, task_id, status, assigned_date)
+                    VALUES (?, ?, 'not_started', CURDATE())
+                    ON DUPLICATE KEY UPDATE assigned_date = CURDATE()
+                `, [req.params.candidateId, task.id]);
+            }
+        } else {
+            // Assign specific tasks
+            for (const taskId of taskIds) {
+                await c.query(`
+                    INSERT INTO candidate_task_progress (candidate_id, task_id, status, assigned_date)
+                    VALUES (?, ?, 'not_started', CURDATE())
+                    ON DUPLICATE KEY UPDATE assigned_date = CURDATE()
+                `, [req.params.candidateId, taskId]);
+            }
+        }
+        
+        c.end();
+        res.json({ success: true, message: "Tasks assigned to candidate" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get candidate task progress
+app.get("/api/preonboarding/progress/:candidateId", async (req, res) => {
+    const c = await db();
+    try {
+        const [progress] = await c.query(`
+            SELECT 
+                ctp.*,
+                pt.task_name,
+                pt.description,
+                pt.task_category,
+                pt.is_mandatory,
+                pt.assigned_to_role
+            FROM candidate_task_progress ctp
+            JOIN preonboarding_tasks pt ON ctp.task_id = pt.id
+            WHERE ctp.candidate_id = ?
+            ORDER BY pt.task_order ASC
+        `, [req.params.candidateId]);
+        
+        const total = progress.length;
+        const completed = progress.filter(t => t.status === 'completed').length;
+        const pending = total - completed;
+        const completionPercentage = total > 0 ? ((completed / total) * 100).toFixed(2) : 0;
+        
+        c.end();
+        
+        res.json({
+            tasks: progress,
+            stats: {
+                total,
+                completed,
+                pending,
+                completion_percentage: completionPercentage
+            }
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update task progress
+app.put("/api/preonboarding/progress/:progressId", async (req, res) => {
+    const c = await db();
+    try {
+        const updates = {
+            status: req.body.status,
+            remarks: req.body.remarks
+        };
+        
+        if (req.body.status === 'in_progress' && !req.body.started_date) {
+            updates.started_date = new Date();
+        }
+        
+        if (req.body.status === 'completed') {
+            updates.completed_date = new Date();
+        }
+        
+        await c.query("UPDATE candidate_task_progress SET ? WHERE id = ?", 
+            [updates, req.params.progressId]);
+        
+        c.end();
+        res.json({ success: true, message: "Task progress updated" });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Create default pre-onboarding tasks (one-time setup)
+app.post("/api/preonboarding/tasks/setup-defaults", auth, admin, async (req, res) => {
+    const c = await db();
+    try {
+        const defaultTasks = [
+            { task_name: "Accept Offer Letter", description: "Review and accept the offer letter", task_category: "form_filling", is_mandatory: 1, task_order: 1, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Photo", description: "Upload passport size photograph", task_category: "document_submission", is_mandatory: 1, task_order: 2, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Resume", description: "Upload updated resume", task_category: "document_submission", is_mandatory: 1, task_order: 3, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload ID Proof (PAN Card)", description: "Upload PAN Card copy", task_category: "document_submission", is_mandatory: 1, task_order: 4, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Address Proof (Aadhar)", description: "Upload Aadhar Card copy", task_category: "document_submission", is_mandatory: 1, task_order: 5, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Education Certificates", description: "Upload highest education degree", task_category: "document_submission", is_mandatory: 1, task_order: 6, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Experience Certificates", description: "Upload previous employment certificates", task_category: "document_submission", is_mandatory: 0, task_order: 7, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Relieving Letter", description: "Upload relieving letter from last employer", task_category: "document_submission", is_mandatory: 0, task_order: 8, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Last 3 Months Salary Slips", description: "Upload salary slips", task_category: "document_submission", is_mandatory: 0, task_order: 9, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Upload Bank Details", description: "Upload bank passbook/cancelled cheque", task_category: "document_submission", is_mandatory: 1, task_order: 10, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Fill Personal Information Form", description: "Complete personal and family details", task_category: "form_filling", is_mandatory: 1, task_order: 11, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Emergency Contact Details", description: "Provide emergency contact information", task_category: "form_filling", is_mandatory: 1, task_order: 12, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Background Verification Consent", description: "Provide BGV consent", task_category: "verification", is_mandatory: 1, task_order: 13, auto_assign: 1, assigned_to_role: "candidate" },
+            { task_name: "Verify Documents", description: "HR to verify all submitted documents", task_category: "verification", is_mandatory: 1, task_order: 14, auto_assign: 1, assigned_to_role: "hr" },
+            { task_name: "Initiate Background Verification", description: "Initiate BGV process", task_category: "verification", is_mandatory: 1, task_order: 15, auto_assign: 1, assigned_to_role: "hr" }
+        ];
+        
+        for (const task of defaultTasks) {
+            await c.query("INSERT INTO preonboarding_tasks SET ?", task);
+        }
+        
+        c.end();
+        res.json({ success: true, message: `${defaultTasks.length} default pre-onboarding tasks created` });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+
 /* ---------------- EMPLOYEES -----------------------------------*/
 
 app.get("/api/employees", auth, async (req, res) => {
@@ -2623,6 +3287,383 @@ const swagger = {
                         description: "Admin access required",
                         content: { "application/json": { schema: { $ref: "#/components/schemas/ErrorResponse" }, example: { error: "Admin only" } } }
                     }
+                }
+            }
+        },
+
+        "/api/candidates": {
+            get: {
+                summary: "Get All Candidates",
+                description: "Retrieve list of all candidates with optional filters",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [
+                    { name: "status", in: "query", schema: { type: "string", enum: ["offered", "offer_accepted", "offer_declined", "documents_pending", "bgv_initiated", "bgv_completed", "ready_to_join", "joined", "dropped_out"] } },
+                    { name: "joining_date_from", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "joining_date_to", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "department_id", in: "query", schema: { type: "integer" } }
+                ],
+                responses: {
+                    200: {
+                        description: "List of candidates",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    { id: 1, candidate_id: "CAN001", full_name: "Alice Johnson", email: "alice@example.com", position: "Software Engineer", status: "offer_accepted", joining_date: "2024-03-01" }
+                                ]
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized" }
+                }
+            },
+            post: {
+                summary: "Create Candidate",
+                description: "Add new candidate to the pre-onboarding pipeline",
+                tags: ["Candidates & Pre-onboarding"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            example: {
+                                first_name: "Alice",
+                                last_name: "Johnson",
+                                email: "alice@example.com",
+                                phone: "1234567890",
+                                position: "Software Engineer",
+                                designation_id: 5,
+                                department_id: 2,
+                                location_id: 1,
+                                offered_ctc: 800000,
+                                joining_date: "2024-03-01",
+                                reporting_manager_id: 10
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Candidate created",
+                        content: { "application/json": { example: { success: true, candidate_id: 1, message: "Candidate created successfully" } } }
+                    }
+                }
+            }
+        },
+
+        "/api/candidates/{id}": {
+            get: {
+                summary: "Get Candidate Details",
+                description: "Retrieve candidate details including documents and task progress",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: {
+                        description: "Candidate details",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    candidate: { id: 1, full_name: "Alice Johnson", status: "offer_accepted" },
+                                    documents: [{ id: 1, document_type: "resume", document_name: "resume.pdf", verified: 0 }],
+                                    tasks: [{ id: 1, task_name: "Upload Photo", status: "completed" }],
+                                    completion_percentage: "60.00"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            put: {
+                summary: "Update Candidate",
+                description: "Update candidate information",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { phone: "9876543210", joining_date: "2024-03-15" } } }
+                },
+                responses: {
+                    200: { description: "Candidate updated", content: { "application/json": { example: { success: true, message: "Candidate updated successfully" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/send-offer": {
+            post: {
+                summary: "Send Offer Letter",
+                description: "Mark offer letter as sent to candidate",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: { description: "Offer sent", content: { "application/json": { example: { success: true, message: "Offer letter sent" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/accept-offer": {
+            post: {
+                summary: "Accept Offer",
+                description: "Candidate accepts the offer and auto-assigns pre-onboarding tasks",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: { description: "Offer accepted", content: { "application/json": { example: { success: true, message: "Offer accepted, pre-onboarding tasks assigned" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/decline-offer": {
+            post: {
+                summary: "Decline Offer",
+                description: "Candidate declines the offer",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { reason: "Accepted another offer" } } }
+                },
+                responses: {
+                    200: { description: "Offer declined", content: { "application/json": { example: { success: true, message: "Offer declined" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/documents": {
+            post: {
+                summary: "Upload Candidate Document",
+                description: "Upload document for candidate verification",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    file: { type: "string", format: "binary" },
+                                    document_type: { type: "string", enum: ["photo", "resume", "id_proof", "address_proof", "education_certificate"] }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Document uploaded", content: { "application/json": { example: { success: true, message: "Document uploaded successfully" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/documents/{docId}/verify": {
+            put: {
+                summary: "Verify Document",
+                description: "HR verifies submitted document",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "docId", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { remarks: "Document verified successfully" } } }
+                },
+                responses: {
+                    200: { description: "Document verified", content: { "application/json": { example: { success: true, message: "Document verified" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/bgv/initiate": {
+            post: {
+                summary: "Initiate Background Verification",
+                description: "Start BGV process for candidate",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: { description: "BGV initiated", content: { "application/json": { example: { success: true, message: "BGV initiated" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/bgv/status": {
+            put: {
+                summary: "Update BGV Status",
+                description: "Update background verification status",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { bgv_status: "completed", remarks: "All checks passed" } } }
+                },
+                responses: {
+                    200: { description: "BGV status updated", content: { "application/json": { example: { success: true, message: "BGV status updated" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/{id}/convert-to-employee": {
+            post: {
+                summary: "Convert Candidate to Employee",
+                description: "Convert candidate to employee after completing pre-onboarding",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    content: { "application/json": { example: { employee_number: "EMP12345" } } }
+                },
+                responses: {
+                    200: { description: "Candidate converted", content: { "application/json": { example: { success: true, employee_id: 100, message: "Candidate converted to employee successfully" } } } }
+                }
+            }
+        },
+
+        "/api/candidates/stats/dashboard": {
+            get: {
+                summary: "Candidate Dashboard Stats",
+                description: "Get statistics for candidate pipeline",
+                tags: ["Candidates & Pre-onboarding"],
+                responses: {
+                    200: {
+                        description: "Dashboard statistics",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    total_candidates: 50,
+                                    offered: 15,
+                                    offer_accepted: 20,
+                                    in_bgv: 10,
+                                    ready_to_join: 3,
+                                    joined: 2
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/api/preonboarding/tasks": {
+            get: {
+                summary: "Get Pre-onboarding Task Templates",
+                description: "Retrieve all pre-onboarding task templates",
+                tags: ["Candidates & Pre-onboarding"],
+                responses: {
+                    200: {
+                        description: "Task templates",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    { id: 1, task_name: "Upload Photo", task_category: "document_submission", is_mandatory: 1, task_order: 1 }
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
+            post: {
+                summary: "Create Pre-onboarding Task",
+                description: "Create new pre-onboarding task template (HR/Admin only)",
+                tags: ["Candidates & Pre-onboarding"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            example: {
+                                task_name: "Upload Passport",
+                                description: "Upload passport copy",
+                                task_category: "document_submission",
+                                is_mandatory: 0,
+                                task_order: 20,
+                                auto_assign: 1
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Task created", content: { "application/json": { example: { success: true, task_id: 10, message: "Pre-onboarding task created" } } } }
+                }
+            }
+        },
+
+        "/api/preonboarding/tasks/{id}": {
+            put: {
+                summary: "Update Task Template",
+                description: "Update pre-onboarding task template",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { task_name: "Upload Passport (Updated)", is_mandatory: 1 } } }
+                },
+                responses: {
+                    200: { description: "Task updated", content: { "application/json": { example: { success: true, message: "Task template updated" } } } }
+                }
+            },
+            delete: {
+                summary: "Delete Task Template",
+                description: "Delete pre-onboarding task template (Admin only)",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: { description: "Task deleted", content: { "application/json": { example: { success: true, message: "Task template deleted" } } } }
+                }
+            }
+        },
+
+        "/api/preonboarding/assign/{candidateId}": {
+            post: {
+                summary: "Assign Tasks to Candidate",
+                description: "Assign pre-onboarding tasks to specific candidate",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "candidateId", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    content: { "application/json": { example: { task_ids: [1, 2, 3] } } }
+                },
+                responses: {
+                    200: { description: "Tasks assigned", content: { "application/json": { example: { success: true, message: "Tasks assigned to candidate" } } } }
+                }
+            }
+        },
+
+        "/api/preonboarding/progress/{candidateId}": {
+            get: {
+                summary: "Get Candidate Task Progress",
+                description: "Retrieve candidate's pre-onboarding task progress",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "candidateId", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: {
+                        description: "Task progress",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    tasks: [{ id: 1, task_name: "Upload Photo", status: "completed" }],
+                                    stats: { total: 10, completed: 6, pending: 4, completion_percentage: "60.00" }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+
+        "/api/preonboarding/progress/{progressId}": {
+            put: {
+                summary: "Update Task Progress",
+                description: "Update specific task progress status",
+                tags: ["Candidates & Pre-onboarding"],
+                parameters: [{ name: "progressId", in: "path", required: true, schema: { type: "integer" } }],
+                requestBody: {
+                    required: true,
+                    content: { "application/json": { example: { status: "completed", remarks: "Document uploaded successfully" } } }
+                },
+                responses: {
+                    200: { description: "Progress updated", content: { "application/json": { example: { success: true, message: "Task progress updated" } } } }
+                }
+            }
+        },
+
+        "/api/preonboarding/tasks/setup-defaults": {
+            post: {
+                summary: "Setup Default Tasks",
+                description: "One-time setup to create default pre-onboarding tasks (Admin only)",
+                tags: ["Candidates & Pre-onboarding"],
+                responses: {
+                    200: { description: "Default tasks created", content: { "application/json": { example: { success: true, message: "15 default pre-onboarding tasks created" } } } }
                 }
             }
         },

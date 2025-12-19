@@ -93,6 +93,19 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
 
             if (existing.length > 0) {
                 // ---------- UPDATE ----------
+                // Convert PhysicallyHandicapped to 0/1
+                const physicallyHandicapped = (['Yes', 'YES', 'yes', 'Y', 'y', '1', 1, true].includes(r.PhysicallyHandicapped)) ? 1 : 0;
+                
+                // Parse notice_period - extract number from text like "3months" or "Default Notice period - 3months"
+                let noticePeriod = null;
+                if (r.notice_period || r.NoticePeriod) {
+                    const noticeText = String(r.notice_period || r.NoticePeriod);
+                    const match = noticeText.match(/(\d+)/); // Extract first number
+                    if (match) {
+                        noticePeriod = parseInt(match[1]);
+                    }
+                }
+                
                 await c.query(
                     `UPDATE employees SET
                         attendance_number = ?,
@@ -178,7 +191,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         r.Gender || null,
                         r.MaritalStatus || null,
                         r.BloodGroup || null,
-                        r.PhysicallyHandicapped || 0,
+                        physicallyHandicapped,
                         r.Nationality || null,
                         r.DateOfBirth || null,
                         r.current_address_line1 || r.CurrentAddressLine1 || null,
@@ -245,6 +258,19 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                 updated++;
             } else {
                 // ---------- INSERT ----------
+                // Convert PhysicallyHandicapped to 0/1
+                const physicallyHandicapped = (['Yes', 'YES', 'yes', 'Y', 'y', '1', 1, true].includes(r.PhysicallyHandicapped)) ? 1 : 0;
+                
+                // Parse notice_period - extract number from text like "3months" or "Default Notice period - 3months"
+                let noticePeriod = null;
+                if (r.notice_period || r.NoticePeriod) {
+                    const noticeText = String(r.notice_period || r.NoticePeriod);
+                    const match = noticeText.match(/(\d+)/); // Extract first number
+                    if (match) {
+                        noticePeriod = parseInt(match[1]);
+                    }
+                }
+                
                 await c.query(
                     `INSERT INTO employees
                      (EmployeeNumber, attendance_number, FirstName, MiddleName, LastName, FullName, 
@@ -262,7 +288,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                       lpa, basic_pct, hra_pct, medical_allowance, transport_allowance, special_allowance,
                       paid_basic_monthly, working_days, loss_of_days,
                       exit_date, exit_status, termination_type, termination_reason, resignation_note, comments)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                     [
                         empNo,
                         r.attendance_number || r.AttendanceNumber || null,
@@ -275,7 +301,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         r.Gender || null,
                         r.MaritalStatus || null,
                         r.BloodGroup || null,
-                        r.PhysicallyHandicapped || 0,
+                        physicallyHandicapped,
                         r.Nationality || null,
                         r.DateOfBirth || null,
                         r.current_address_line1 || r.CurrentAddressLine1 || null,
@@ -298,7 +324,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         r.time_type || r.TimeType || null,
                         r.worker_type || r.WorkerType || null,
                         r.EmploymentStatus || r.Status || null,
-                        r.notice_period || r.NoticePeriod || null,
+                        noticePeriod,
                         locationId,
                         deptId,
                         subDeptId,

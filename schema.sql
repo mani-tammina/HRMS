@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS employees (
   -- =========================
   Gender VARCHAR(20),
   MaritalStatus VARCHAR(20),
-  BloodGroup VARCHAR(10),
+  BloodGroup VARCHAR(50),
   PhysicallyHandicapped TINYINT(1) DEFAULT 0,
   Nationality VARCHAR(50),
   DateOfBirth DATE,
@@ -349,14 +349,24 @@ CREATE TABLE IF NOT EXISTS emp_pay_details (
 CREATE TABLE IF NOT EXISTS attendance (
   id INT PRIMARY KEY AUTO_INCREMENT,
   employee_id INT NOT NULL,
+  attendance_date DATE NOT NULL,
   punch_date DATE NOT NULL,
+  check_in DATETIME,
+  check_out DATETIME,
   punch_in_time TIME,
   punch_out_time TIME,
+  total_hours DECIMAL(5,2),
+  work_mode ENUM('Office', 'WFH', 'Remote', 'Hybrid') DEFAULT 'Office',
+  location VARCHAR(255),
+  ip_address VARCHAR(50),
+  device_info VARCHAR(255),
+  status ENUM('present', 'absent', 'half-day', 'late', 'on-leave') DEFAULT 'present',
   source VARCHAR(50),
-  notes VARCHAR(255),
+  notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (employee_id) REFERENCES employees(id),
-  UNIQUE KEY unique_attendance (employee_id, punch_date)
+  KEY idx_employee_date (employee_id, attendance_date)
 );
 
 -- ============================================
@@ -580,6 +590,260 @@ CREATE TABLE IF NOT EXISTS birthday_wishes (
   FOREIGN KEY (sender_id) REFERENCES users(id),
   FOREIGN KEY (employee_id) REFERENCES employees(id)
 );
+
+-- ============================================
+-- CANDIDATES & PRE-ONBOARDING TABLES
+-- ============================================
+
+-- Candidates Table (Pre-onboarding stage)
+CREATE TABLE IF NOT EXISTS candidates (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  candidate_id VARCHAR(50) UNIQUE NOT NULL,
+  
+  -- Personal Information
+  first_name VARCHAR(100) NOT NULL,
+  middle_name VARCHAR(100),
+  last_name VARCHAR(100),
+  full_name VARCHAR(255) NOT NULL,
+  email VARCHAR(150) NOT NULL,
+  phone VARCHAR(20),
+  alternate_phone VARCHAR(20),
+  date_of_birth DATE,
+  gender VARCHAR(20),
+  
+  -- Position Details
+  position VARCHAR(150),
+  designation_id INT,
+  department_id INT,
+  location_id INT,
+  offered_ctc DECIMAL(15,2),
+  joining_date DATE,
+  reporting_manager_id INT,
+  
+  -- Offer Details
+  offer_letter_sent TINYINT(1) DEFAULT 0,
+  offer_letter_sent_date DATE,
+  offer_accepted TINYINT(1) DEFAULT 0,
+  offer_accepted_date DATE,
+  offer_declined TINYINT(1) DEFAULT 0,
+  offer_declined_date DATE,
+  decline_reason TEXT,
+  
+  -- Pre-onboarding Status
+  status ENUM('offered', 'offer_accepted', 'offer_declined', 'documents_pending', 'bgv_initiated', 'bgv_completed', 'ready_to_join', 'joined', 'dropped_out') DEFAULT 'offered',
+  
+  -- Background Verification
+  bgv_status ENUM('not_started', 'initiated', 'in_progress', 'completed', 'failed') DEFAULT 'not_started',
+  bgv_initiated_date DATE,
+  bgv_completed_date DATE,
+  bgv_remarks TEXT,
+  
+  -- Documents Status
+  documents_submitted TINYINT(1) DEFAULT 0,
+  documents_verified TINYINT(1) DEFAULT 0,
+  
+  -- Portal Access
+  portal_access_given TINYINT(1) DEFAULT 0,
+  portal_username VARCHAR(100),
+  portal_password_set TINYINT(1) DEFAULT 0,
+  
+  -- Converted to Employee
+  converted_to_employee TINYINT(1) DEFAULT 0,
+  employee_id INT,
+  conversion_date DATE,
+  
+  -- HR Details
+  hr_coordinator_id INT,
+  recruiter_name VARCHAR(150),
+  recruitment_source VARCHAR(100),
+  
+  -- Audit
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (designation_id) REFERENCES designations(id),
+  FOREIGN KEY (department_id) REFERENCES departments(id),
+  FOREIGN KEY (location_id) REFERENCES locations(id),
+  FOREIGN KEY (reporting_manager_id) REFERENCES employees(id),
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (hr_coordinator_id) REFERENCES employees(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Candidate Documents Table
+CREATE TABLE IF NOT EXISTS candidate_documents (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  candidate_id INT NOT NULL,
+  
+  document_type ENUM('photo', 'resume', 'offer_letter', 'id_proof', 'address_proof', 'pan_card', 
+                     'aadhar_card', 'education_certificate', 'experience_certificate', 
+                     'relieving_letter', 'salary_slip', 'bank_passbook', 'cancelled_cheque', 'other') NOT NULL,
+  document_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500),
+  file_size INT,
+  mime_type VARCHAR(100),
+  
+  uploaded_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  verified TINYINT(1) DEFAULT 0,
+  verified_by INT,
+  verified_date DATE,
+  verification_remarks TEXT,
+  
+  required TINYINT(1) DEFAULT 1,
+  
+  FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  FOREIGN KEY (verified_by) REFERENCES users(id)
+);
+
+-- Pre-onboarding Tasks Table
+CREATE TABLE IF NOT EXISTS preonboarding_tasks (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  task_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  task_category ENUM('document_submission', 'form_filling', 'verification', 'system_setup', 'other') DEFAULT 'other',
+  is_mandatory TINYINT(1) DEFAULT 1,
+  task_order INT,
+  auto_assign TINYINT(1) DEFAULT 1,
+  assigned_to_role ENUM('candidate', 'hr', 'manager', 'admin') DEFAULT 'candidate',
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Candidate Task Progress Table
+CREATE TABLE IF NOT EXISTS candidate_task_progress (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  candidate_id INT NOT NULL,
+  task_id INT NOT NULL,
+  
+  status ENUM('not_started', 'in_progress', 'completed', 'blocked', 'skipped') DEFAULT 'not_started',
+  assigned_date DATE,
+  due_date DATE,
+  started_date DATE,
+  completed_date DATE,
+  
+  completed_by INT,
+  remarks TEXT,
+  
+  FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  FOREIGN KEY (task_id) REFERENCES preonboarding_tasks(id),
+  FOREIGN KEY (completed_by) REFERENCES users(id)
+);
+
+-- Onboarding Timeline/Events Table
+CREATE TABLE IF NOT EXISTS onboarding_events (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  
+  event_type ENUM('welcome_email', 'system_access', 'orientation', 'buddy_assigned', 
+                  'team_introduction', 'training_scheduled', 'asset_allocation', 
+                  'first_day', 'week_1_check', 'month_1_check', 'probation_review', 'other') NOT NULL,
+  event_title VARCHAR(255) NOT NULL,
+  event_description TEXT,
+  event_date DATE,
+  event_time TIME,
+  
+  status ENUM('scheduled', 'completed', 'cancelled', 'rescheduled') DEFAULT 'scheduled',
+  completed_date TIMESTAMP,
+  
+  assigned_to INT,
+  location VARCHAR(255),
+  meeting_link VARCHAR(500),
+  
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (assigned_to) REFERENCES employees(id),
+  FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Onboarding Buddy System Table
+CREATE TABLE IF NOT EXISTS onboarding_buddies (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  new_employee_id INT NOT NULL,
+  buddy_employee_id INT NOT NULL,
+  
+  assigned_date DATE NOT NULL,
+  end_date DATE,
+  is_active TINYINT(1) DEFAULT 1,
+  
+  buddy_feedback TEXT,
+  new_employee_feedback TEXT,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (new_employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (buddy_employee_id) REFERENCES employees(id)
+);
+
+-- Asset Allocation Table
+CREATE TABLE IF NOT EXISTS asset_allocations (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  
+  asset_type ENUM('laptop', 'desktop', 'mobile', 'tablet', 'keyboard', 'mouse', 
+                  'headset', 'monitor', 'docking_station', 'chair', 'desk', 
+                  'id_card', 'access_card', 'other') NOT NULL,
+  asset_name VARCHAR(255) NOT NULL,
+  asset_id VARCHAR(100),
+  serial_number VARCHAR(100),
+  brand VARCHAR(100),
+  model VARCHAR(100),
+  
+  allocated_date DATE NOT NULL,
+  expected_return_date DATE,
+  returned_date DATE,
+  
+  condition_at_allocation ENUM('new', 'good', 'fair', 'poor') DEFAULT 'good',
+  condition_at_return ENUM('good', 'fair', 'poor', 'damaged', 'lost'),
+  
+  allocation_remarks TEXT,
+  return_remarks TEXT,
+  
+  status ENUM('allocated', 'returned', 'damaged', 'lost', 'under_repair') DEFAULT 'allocated',
+  
+  allocated_by INT,
+  received_by INT,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (allocated_by) REFERENCES users(id),
+  FOREIGN KEY (received_by) REFERENCES users(id)
+);
+
+-- Candidate Communication Log Table
+CREATE TABLE IF NOT EXISTS candidate_communications (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  candidate_id INT NOT NULL,
+  
+  communication_type ENUM('email', 'phone', 'sms', 'whatsapp', 'meeting', 'other') NOT NULL,
+  subject VARCHAR(255),
+  message TEXT,
+  
+  communication_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  communicated_by INT,
+  
+  response_received TINYINT(1) DEFAULT 0,
+  response_date TIMESTAMP,
+  response_text TEXT,
+  
+  FOREIGN KEY (candidate_id) REFERENCES candidates(id) ON DELETE CASCADE,
+  FOREIGN KEY (communicated_by) REFERENCES users(id)
+);
+
+-- Indexes for better performance
+CREATE INDEX idx_candidate_email ON candidates(email);
+CREATE INDEX idx_candidate_status ON candidates(status);
+CREATE INDEX idx_candidate_joining_date ON candidates(joining_date);
+CREATE INDEX idx_candidate_docs_type ON candidate_documents(candidate_id, document_type);
+CREATE INDEX idx_task_progress_status ON candidate_task_progress(candidate_id, status);
+CREATE INDEX idx_onboarding_events_date ON onboarding_events(employee_id, event_date);
+CREATE INDEX idx_asset_allocations_status ON asset_allocations(employee_id, status);
 
 -- ============================================
 -- Post-Creation Modifications

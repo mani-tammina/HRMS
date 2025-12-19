@@ -36,6 +36,104 @@ router.get("/:id", auth, async (req, res) => {
     res.json(r[0] || null);
 });
 
+// Get detailed employee information with all relationships
+router.get("/:id/details", auth, async (req, res) => {
+    const c = await db();
+    
+    // Get employee with all master data
+    const [employee] = await c.query(
+        `SELECT 
+            e.*,
+            l.name as location_name,
+            d.name as department_name,
+            sd.name as sub_department_name,
+            des.name as designation_name,
+            des2.name as secondary_designation_name,
+            bu.name as business_unit_name,
+            le.name as legal_entity_name,
+            b.name as band_name,
+            pg.name as pay_grade_name,
+            cc.code as cost_center_code,
+            mgr.FirstName as manager_first_name,
+            mgr.LastName as manager_last_name,
+            mgr.EmployeeNumber as manager_employee_number,
+            lp.name as leave_plan_name,
+            sp.name as shift_policy_name,
+            wop.name as weekly_off_policy_name,
+            ap.name as attendance_policy_name,
+            acs.name as attendance_capture_scheme_name,
+            hl.name as holiday_list_name,
+            ep.name as expense_policy_name
+         FROM employees e
+         LEFT JOIN locations l ON e.LocationId = l.id
+         LEFT JOIN departments d ON e.DepartmentId = d.id
+         LEFT JOIN sub_departments sd ON e.SubDepartmentId = sd.id
+         LEFT JOIN designations des ON e.DesignationId = des.id
+         LEFT JOIN designations des2 ON e.SecondaryDesignationId = des2.id
+         LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+         LEFT JOIN legal_entities le ON e.LegalEntityId = le.id
+         LEFT JOIN bands b ON e.BandId = b.id
+         LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
+         LEFT JOIN cost_centers cc ON e.CostCenterId = cc.id
+         LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+         LEFT JOIN leave_plans lp ON e.leave_plan_id = lp.id
+         LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+         LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+         LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
+         LEFT JOIN attendance_capture_schemes acs ON e.attendance_capture_scheme_id = acs.id
+         LEFT JOIN holiday_lists hl ON e.holiday_list_id = hl.id
+         LEFT JOIN expense_policies ep ON e.expense_policy_id = ep.id
+         WHERE e.id = ?`,
+        [req.params.id]
+    );
+    
+    if (employee.length === 0) {
+        c.end();
+        return res.status(404).json({ error: "Employee not found" });
+    }
+    
+    // Get recent attendance (last 30 days)
+    const [attendance] = await c.query(
+        `SELECT attendance_date, check_in, check_out, total_hours, work_mode, status 
+         FROM attendance 
+         WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         ORDER BY attendance_date DESC`,
+        [req.params.id]
+    );
+    
+    // Get leave balance
+    const [leaves] = await c.query(
+        `SELECT leave_type, COUNT(*) as used 
+         FROM leaves 
+         WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = YEAR(CURDATE())
+         GROUP BY leave_type`,
+        [req.params.id]
+    );
+    
+    // Get pending requests
+    const [pending] = await c.query(
+        `SELECT id, leave_type, start_date, end_date, status, applied_at 
+         FROM leaves 
+         WHERE employee_id = ? AND status = 'pending'
+         ORDER BY applied_at DESC`,
+        [req.params.id]
+    );
+    
+    c.end();
+    
+    res.json({
+        employee: employee[0],
+        attendance_summary: {
+            recent_records: attendance,
+            total_present_days: attendance.filter(a => a.status === 'present').length,
+            wfh_days: attendance.filter(a => a.work_mode === 'WFH').length,
+            remote_days: attendance.filter(a => a.work_mode === 'Remote').length
+        },
+        leave_summary: leaves,
+        pending_requests: pending
+    });
+});
+
 // Update employee
 router.put("/:id", auth, hr, async (req, res) => {
     const c = await db();
