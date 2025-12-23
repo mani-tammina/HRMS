@@ -110,8 +110,8 @@ CREATE TABLE IF NOT EXISTS shift_policies (
   id INT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100) UNIQUE NOT NULL,
   shift_type ENUM('general', 'night', 'rotating', 'flexible') NOT NULL DEFAULT 'general',
-  start_time TIME NOT NULL,
-  end_time TIME NOT NULL,
+  start_time TIME DEFAULT '09:00:00',
+  end_time TIME DEFAULT '18:00:00',
   break_duration_minutes INT DEFAULT 60,
   timezone VARCHAR(50) DEFAULT 'UTC',
   description TEXT,
@@ -404,63 +404,10 @@ CREATE TABLE IF NOT EXISTS attendance_punches (
 );
 
 -- ============================================
--- Timesheet Management
--- ============================================
-
--- Timesheets Table (Basic/Legacy)
--- Enhanced Timesheets Table (Both Regular and Project-based)
-CREATE TABLE IF NOT EXISTS timesheets (
-  id INT PRIMARY KEY AUTO_INCREMENT,
-  employee_id INT NOT NULL,
-  project_id INT NULL,
-  date DATE NOT NULL,
-  timesheet_type ENUM('regular', 'project') NOT NULL DEFAULT 'regular',
-  
-  -- Hourly breakdown (JSON format: [{hour: "09:00-10:00", task: "Development", hours: 1}])
-  hours_breakdown JSON,
-  total_hours DECIMAL(5,2) NOT NULL,
-  work_description TEXT,
-  notes TEXT,
-  
-  -- Submission info
-  status ENUM('draft', 'submitted', 'verified', 'rejected') DEFAULT 'draft',
-  submission_date TIMESTAMP NULL,
-  
-  -- Internal verification
-  verified_by INT NULL,
-  verified_at TIMESTAMP NULL,
-  
-  -- Client timesheet (for project-based)
-  client_timesheet_file VARCHAR(500),
-  client_timesheet_upload_date TIMESTAMP NULL,
-  client_timesheet_status ENUM('pending_validation', 'validated', 'rejected', 'mismatch') NULL,
-  validation_remarks TEXT,
-  client_reported_hours DECIMAL(5,2),
-  validated_by INT NULL,
-  validated_at TIMESTAMP NULL,
-  
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  
-  FOREIGN KEY (employee_id) REFERENCES employees(id),
-  FOREIGN KEY (project_id) REFERENCES projects(id),
-  FOREIGN KEY (verified_by) REFERENCES users(id),
-  FOREIGN KEY (validated_by) REFERENCES users(id),
-  
-  INDEX idx_timesheet_employee_date (employee_id, date),
-  INDEX idx_timesheet_project (project_id),
-  INDEX idx_timesheet_type (timesheet_type),
-  INDEX idx_timesheet_status (status),
-  INDEX idx_client_validation (client_timesheet_status),
-  
-  UNIQUE KEY unique_employee_project_date (employee_id, project_id, date, timesheet_type)
-);
-
--- ============================================
 -- Project Work Updates & Client Timesheet Verification
 -- ============================================
 
--- Projects Master Table
+-- Projects Master Table (MUST be created before timesheets)
 CREATE TABLE IF NOT EXISTS projects (
   id INT PRIMARY KEY AUTO_INCREMENT,
   project_code VARCHAR(50) UNIQUE NOT NULL,
@@ -517,6 +464,59 @@ CREATE TABLE IF NOT EXISTS project_assignments (
   INDEX idx_employee_project (employee_id, status),
   INDEX idx_project_assignments (project_id, status),
   INDEX idx_assignment_dates (assignment_start_date, assignment_end_date)
+);
+
+-- ============================================
+-- Timesheet Management
+-- ============================================
+
+-- Timesheets Table (Basic/Legacy)
+-- Enhanced Timesheets Table (Both Regular and Project-based)
+CREATE TABLE IF NOT EXISTS timesheets (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  project_id INT NULL,
+  date DATE NOT NULL,
+  timesheet_type ENUM('regular', 'project') NOT NULL DEFAULT 'regular',
+  
+  -- Hourly breakdown (JSON format: [{hour: "09:00-10:00", task: "Development", hours: 1}])
+  hours_breakdown JSON,
+  total_hours DECIMAL(5,2) NOT NULL,
+  work_description TEXT,
+  notes TEXT,
+  
+  -- Submission info
+  status ENUM('draft', 'submitted', 'verified', 'rejected') DEFAULT 'draft',
+  submission_date TIMESTAMP NULL,
+  
+  -- Internal verification
+  verified_by INT NULL,
+  verified_at TIMESTAMP NULL,
+  
+  -- Client timesheet (for project-based)
+  client_timesheet_file VARCHAR(500),
+  client_timesheet_upload_date TIMESTAMP NULL,
+  client_timesheet_status ENUM('pending_validation', 'validated', 'rejected', 'mismatch') NULL,
+  validation_remarks TEXT,
+  client_reported_hours DECIMAL(5,2),
+  validated_by INT NULL,
+  validated_at TIMESTAMP NULL,
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (project_id) REFERENCES projects(id),
+  FOREIGN KEY (verified_by) REFERENCES users(id),
+  FOREIGN KEY (validated_by) REFERENCES users(id),
+  
+  INDEX idx_timesheet_employee_date (employee_id, date),
+  INDEX idx_timesheet_project (project_id),
+  INDEX idx_timesheet_type (timesheet_type),
+  INDEX idx_timesheet_status (status),
+  INDEX idx_client_validation (client_timesheet_status),
+  
+  UNIQUE KEY unique_employee_project_date (employee_id, project_id, date, timesheet_type)
 );
 
 -- Employee Daily Work Updates
