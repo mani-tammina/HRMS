@@ -1,0 +1,81 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Leave Management</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="leaves-container">
+    <!-- Leave Balance -->
+    <ion-card *ngIf="leaveBalance">
+      <ion-card-header>
+        <ion-card-title>Leave Balance</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <div class="balance-grid">
+          <div class="balance-item">
+            <p class="label">Total</p>
+            <p class="value">{{ leaveBalance.total || 0 }}</p>
+          </div>
+          <div class="balance-item">
+            <p class="label">Used</p>
+            <p class="value used">{{ leaveBalance.used || 0 }}</p>
+          </div>
+          <div class="balance-item">
+            <p class="label">Available</p>
+            <p class="value available">{{ leaveBalance.available || 0 }}</p>
+          </div>
+          <div class="balance-item">
+            <p class="label">Pending</p>
+            <p class="value pending">{{ leaveBalance.pending || 0 }}</p>
+          </div>
+        </div>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Leave History -->
+    <div class="section-title">
+      <h2>Leave Requests</h2>
+    </div>
+
+    <ion-card *ngIf="leaves.length === 0">
+      <ion-card-content class="empty-state">
+        <ion-icon name="document-text-outline" size="large"></ion-icon>
+        <p>No leave requests found</p>
+        <ion-button (click)="requestLeave()">
+          Request Leave
+        </ion-button>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card *ngIf="leaves.length > 0">
+      <ion-list>
+        <ion-item *ngFor="let leave of leaves" lines="full">
+          <ion-icon 
+            slot="start" 
+            [name]="getStatusIcon(leave.status)" 
+            [color]="getStatusColor(leave.status)">
+          </ion-icon>
+          <ion-label>
+            <h3>{{ leave.leaveType | titlecase }} Leave</h3>
+            <p>{{ leave.startDate | date:'MMM d' }} - {{ leave.endDate | date:'MMM d, y' }}</p>
+            <p>{{ leave.days }} day(s) • {{ leave.reason }}</p>
+          </ion-label>
+          <ion-badge slot="end" [color]="getStatusColor(leave.status)">
+            {{ leave.status }}
+          </ion-badge>
+        </ion-item>
+      </ion-list>
+    </ion-card>
+  </div>
+
+  <ion-fab slot="fixed" vertical="bottom" horizontal="end">
+    <ion-fab-button (click)="requestLeave()">
+      <ion-icon name="add-outline"></ion-icon>
+    </ion-fab-button>
+  </ion-fab>
+</ion-content>

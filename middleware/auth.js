@@ -37,4 +37,13 @@ const manager = (req, res, next) => {
     next();
 };
 
-module.exports = { auth, admin, roleAuth, hr, manager };
+// Aliases for new routes
+const authMiddleware = auth;
+const adminAuthMiddleware = (req, res, next) => {
+    auth(req, res, (err) => {
+        if (err) return next(err);
+        admin(req, res, next);
+    });
+};
+
+module.exports = { auth, admin, roleAuth, hr, manager, authMiddleware, adminAuthMiddleware };

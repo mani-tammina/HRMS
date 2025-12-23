@@ -1,0 +1,402 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="header-toolbar">
+    <ion-title class="header-title">
+      <div class="title-content">
+        <h1>Dashboard</h1>
+        <p class="subtitle">Welcome back, {{ user?.name || 'User' }}!</p>
+      </div>
+    </ion-title>
+    <ion-buttons slot="end">
+      <ion-button fill="clear" (click)="goToNotifications()">
+        <ion-icon slot="icon-only" name="notifications-outline" class="notification-icon"></ion-icon>
+        <ion-badge color="danger" class="notification-badge">3</ion-badge>
+      </ion-button>
+      <ion-button fill="clear">
+        <ion-avatar class="header-avatar">
+          <img [src]="user?.avatar || 'assets/avatar-placeholder.png'" alt="Profile">
+        </ion-avatar>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="dashboard-content">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="dashboard-wrapper">
+    <!-- Top Statistics Cards -->
+    <div class="stats-row">
+      <div class="stat-card stat-primary">
+        <div class="stat-icon">
+          <ion-icon name="time-outline"></ion-icon>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Work Hours</p>
+          <h2 class="stat-value">{{ stats.workHours }}</h2>
+          <p class="stat-change positive">+2.5% from last week</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-success">
+        <div class="stat-icon">
+          <ion-icon name="checkmark-circle-outline"></ion-icon>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Attendance Rate</p>
+          <h2 class="stat-value">{{ stats.attendanceRate }}%</h2>
+          <p class="stat-change positive">+5% this month</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-warning">
+        <div class="stat-icon">
+          <ion-icon name="calendar-outline"></ion-icon>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Leaves Used</p>
+          <h2 class="stat-value">{{ stats.leavesUsed }}/20</h2>
+          <p class="stat-change neutral">{{ 20 - stats.leavesUsed }} remaining</p>
+        </div>
+      </div>
+
+      <div class="stat-card stat-info">
+        <div class="stat-icon">
+          <ion-icon name="hourglass-outline"></ion-icon>
+        </div>
+        <div class="stat-content">
+          <p class="stat-label">Pending</p>
+          <h2 class="stat-value">{{ stats.leavesPending }}</h2>
+          <p class="stat-change neutral">Leave requests</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Attendance Card -->
+    <ion-card class="attendance-card">
+      <div class="card-header">
+        <div class="header-left">
+          <h2>Today's Attendance</h2>
+          <p class="date-display">{{ currentTime }}</p>
+        </div>
+        <ion-badge [color]="todayAttendance ? 'success' : 'medium'">
+          {{ todayAttendance ? 'Checked In' : 'Not Checked In' }}
+        </ion-badge>
+      </div>
+      
+      <div class="attendance-time-section">
+        <div class="time-display">
+          <div class="time-item">
+            <ion-icon name="log-in-outline" class="time-icon in"></ion-icon>
+            <div>
+              <p class="time-label">Check In</p>
+              <h3 class="time-value">{{ todayAttendance?.checkIn || '--:--' }}</h3>
+            </div>
+          </div>
+          
+          <div class="time-divider"></div>
+          
+          <div class="time-item">
+            <ion-icon name="log-out-outline" class="time-icon out"></ion-icon>
+            <div>
+              <p class="time-label">Check Out</p>
+              <h3 class="time-value">{{ todayAttendance?.checkOut || '--:--' }}</h3>
+            </div>
+          </div>
+          
+          <div class="time-divider"></div>
+          
+          <div class="time-item">
+            <ion-icon name="time-outline" class="time-icon total"></ion-icon>
+            <div>
+              <p class="time-label">Total Hours</p>
+              <h3 class="time-value">{{ stats.workHours }}</h3>
+            </div>
+          </div>
+        </div>
+
+        <div class="action-buttons">
+          <ion-button expand="block" class="check-btn check-in-btn" *ngIf="!todayAttendance" (click)="navigateTo('attendance')">
+            <ion-icon name="log-in-outline" slot="start"></ion-icon>
+            Check In
+          </ion-button>
+          <ion-button expand="block" class="check-btn check-out-btn" *ngIf="todayAttendance && !todayAttendance.checkOut" (click)="navigateTo('attendance')">
+            <ion-icon name="log-out-outline" slot="start"></ion-icon>
+            Check Out
+          </ion-button>
+          <div class="quick-action-btns" *ngIf="todayAttendance">
+            <ion-button fill="outline" size="small" (click)="navigateTo('leave-request')">
+              <ion-icon name="document-text-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+            <ion-button fill="outline" size="small" (click)="navigateTo('attendance')">
+              <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+            <ion-button fill="outline" size="small">
+              <ion-icon name="bar-chart-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </ion-card>
+
+    <!-- Main Grid Layout -->
+    <div class="content-grid">
+      <!-- Left Column -->
+      <div class="grid-left">
+        <!-- Quick Actions -->
+        <ion-card class="quick-actions-card">
+          <ion-card-header>
+            <ion-card-title>Quick Actions</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="action-grid">
+              <div class="action-item" (click)="navigateTo('attendance')">
+                <div class="action-icon primary">
+                  <ion-icon name="time-outline"></ion-icon>
+                </div>
+                <p>Attendance</p>
+              </div>
+              <div class="action-item" (click)="navigateTo('leave-request')">
+                <div class="action-icon success">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                </div>
+                <p>Apply Leave</p>
+              </div>
+              <div class="action-item" (click)="navigateTo('employees')">
+                <div class="action-icon warning">
+                  <ion-icon name="people-outline"></ion-icon>
+                </div>
+                <p>Directory</p>
+              </div>
+              <div class="action-item">
+                <div class="action-icon info">
+                  <ion-icon name="document-text-outline"></ion-icon>
+                </div>
+                <p>Payslip</p>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Announcements -->
+        <ion-card class="announcements-card">
+          <ion-card-header>
+            <div class="card-header-with-action">
+              <ion-card-title>
+                <ion-icon name="megaphone-outline"></ion-icon>
+                Announcements
+              </ion-card-title>
+              <ion-button fill="clear" size="small">
+                View All
+                <ion-icon name="chevron-forward-outline" slot="end"></ion-icon>
+              </ion-button>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="announcement-list">
+              <div class="announcement-item" *ngFor="let announcement of announcements">
+                <div class="announcement-dot"></div>
+                <div class="announcement-content">
+                  <p class="announcement-title">{{ announcement.title }}</p>
+                  <p class="announcement-time">
+                    <ion-icon name="time-outline"></ion-icon>
+                    {{ announcement.time }}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Attendance Chart -->
+        <ion-card class="chart-card">
+          <ion-card-header>
+            <div class="card-header-with-action">
+              <ion-card-title>Attendance Overview</ion-card-title>
+              <ion-badge color="success">+6% improvement</ion-badge>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="simple-chart">
+              <div class="chart-bar" style="height: 60%">
+                <span class="bar-value">60%</span>
+              </div>
+              <div class="chart-bar" style="height: 80%">
+                <span class="bar-value">80%</span>
+              </div>
+              <div class="chart-bar" style="height: 70%">
+                <span class="bar-value">70%</span>
+              </div>
+              <div class="chart-bar" style="height: 90%">
+                <span class="bar-value">90%</span>
+              </div>
+              <div class="chart-bar" style="height: 75%">
+                <span class="bar-value">75%</span>
+              </div>
+              <div class="chart-bar" style="height: 85%">
+                <span class="bar-value">85%</span>
+              </div>
+              <div class="chart-bar" style="height: 95%">
+                <span class="bar-value">95%</span>
+              </div>
+            </div>
+            <div class="chart-labels">
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+              <span>Sun</span>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Right Column -->
+      <div class="grid-right">
+        <!-- Leave Balance -->
+        <ion-card class="leave-card">
+          <ion-card-header>
+            <div class="card-header-with-action">
+              <ion-card-title>
+                <ion-icon name="calendar-outline"></ion-icon>
+                Leave Balance
+              </ion-card-title>
+              <ion-button fill="clear" size="small" (click)="navigateTo('leaves')">
+                View All
+              </ion-button>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="leave-grid">
+              <div class="leave-type-item">
+                <div class="leave-icon primary">
+                  <ion-icon name="sunny-outline"></ion-icon>
+                </div>
+                <div class="leave-info">
+                  <p class="leave-count">12 <span>/20</span></p>
+                  <p class="leave-name">Annual Leave</p>
+                </div>
+              </div>
+              <div class="leave-type-item">
+                <div class="leave-icon success">
+                  <ion-icon name="medical-outline"></ion-icon>
+                </div>
+                <div class="leave-info">
+                  <p class="leave-count">5 <span>/10</span></p>
+                  <p class="leave-name">Sick Leave</p>
+                </div>
+              </div>
+              <div class="leave-type-item">
+                <div class="leave-icon warning">
+                  <ion-icon name="home-outline"></ion-icon>
+                </div>
+                <div class="leave-info">
+                  <p class="leave-count">3 <span>/8</span></p>
+                  <p class="leave-name">Casual Leave</p>
+                </div>
+              </div>
+              <div class="leave-type-item">
+                <div class="leave-icon danger">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                </div>
+                <div class="leave-info">
+                  <p class="leave-count">2 <span>/--</span></p>
+                  <p class="leave-name">Unpaid Leave</p>
+                </div>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Upcoming Events -->
+        <ion-card class="events-card">
+          <ion-card-header>
+            <div class="card-header-with-action">
+              <ion-card-title>
+                <ion-icon name="gift-outline"></ion-icon>
+                Upcoming Events
+              </ion-card-title>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="event-list">
+              <div class="event-item holiday">
+                <div class="event-date">
+                  <span class="day">25</span>
+                  <span class="month">Dec</span>
+                </div>
+                <div class="event-details">
+                  <p class="event-title">Christmas Day</p>
+                  <p class="event-type">
+                    <ion-icon name="gift-outline"></ion-icon>
+                    Public Holiday
+                  </p>
+                </div>
+              </div>
+              <div class="event-item birthday">
+                <div class="event-date">
+                  <span class="day">26</span>
+                  <span class="month">Dec</span>
+                </div>
+                <div class="event-details">
+                  <p class="event-title">{{ celebrations[0].name || 'Jenny Wilson' }}</p>
+                  <p class="event-type">
+                    <ion-icon name="cake-outline"></ion-icon>
+                    Birthday
+                  </p>
+                </div>
+              </div>
+              <div class="event-item anniversary">
+                <div class="event-date">
+                  <span class="day">26</span>
+                  <span class="month">Dec</span>
+                </div>
+                <div class="event-details">
+                  <p class="event-title">{{ celebrations[2].name || 'Shivani Pandey' }}</p>
+                  <p class="event-type">
+                    <ion-icon name="trophy-outline"></ion-icon>
+                    Work Anniversary
+                  </p>
+                </div>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+
+        <!-- Team Members -->
+        <ion-card class="team-card">
+          <ion-card-header>
+            <div class="card-header-with-action">
+              <ion-card-title>
+                <ion-icon name="people-outline"></ion-icon>
+                Team Members
+              </ion-card-title>
+              <ion-button fill="clear" size="small" (click)="navigateTo('employees')">
+                View All
+              </ion-button>
+            </div>
+          </ion-card-header>
+          <ion-card-content>
+            <div class="team-list">
+              <div class="team-member" *ngFor="let member of celebrations">
+                <ion-avatar class="member-avatar">
+                  <img [src]="member.avatar || 'assets/avatar-placeholder.png'" [alt]="member.name">
+                </ion-avatar>
+                <div class="member-info">
+                  <p class="member-name">{{ member.name }}</p>
+                  <p class="member-role">{{ member.type === 'Birthday' ? 'Team Member' : 'Senior Developer' }}</p>
+                </div>
+                <ion-badge [color]="member.type === 'Birthday' ? 'success' : 'primary'">
+                  {{ member.type === 'Birthday' ? 'Active' : '5 years' }}
+                </ion-badge>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    </div>
+  </div>
+</ion-content>

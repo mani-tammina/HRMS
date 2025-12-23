@@ -808,46 +808,11 @@ const swaggerSpec = {
             }
         },
         
-        // ============ ATTENDANCE (ENHANCED) ============
-        "/api/attendance/checkin": {
+        // ============ ATTENDANCE (MULTIPLE PUNCHES SYSTEM) ============
+        "/api/attendance/punch-in": {
             post: {
-                summary: "✨ Check In (Enhanced with Work Mode)",
-                description: "Check in with work mode support: Office, WFH, Remote, or Hybrid. Captures location, IP address, and device info.",
-                tags: ["⏰ Attendance"],
-                requestBody: {
-                    required: true,
-                    content: {
-                        "application/json": {
-                            schema: { $ref: "#/components/schemas/CheckInRequest" }
-                        }
-                    }
-                },
-                responses: {
-                    200: { 
-                        description: "Checked in successfully",
-                        content: {
-                            "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        success: { type: "boolean" },
-                                        message: { type: "string", example: "Checked in successfully as WFH" },
-                                        work_mode: { type: "string" },
-                                        check_in_time: { type: "string", format: "date-time" },
-                                        location: { type: "string" }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    400: { description: "Already checked in or invalid work mode" }
-                }
-            }
-        },
-        "/api/attendance/checkout": {
-            post: {
-                summary: "✨ Check Out (Enhanced)",
-                description: "Check out with automatic hours calculation. Returns work mode and total hours worked.",
+                summary: "✨ Punch In (Multiple Times per Day)",
+                description: "Punch in - can be done multiple times per day (e.g., morning, after lunch). System validates against active punch-in.",
                 tags: ["⏰ Attendance"],
                 requestBody: {
                     content: {
@@ -855,87 +820,339 @@ const swaggerSpec = {
                             schema: {
                                 type: "object",
                                 properties: {
-                                    notes: { type: "string", example: "Completed all tasks" }
+                                    work_mode: { type: "string", enum: ["Office", "WFH", "Remote", "Hybrid"], example: "Office" },
+                                    location: { type: "string", example: "Mumbai Office" },
+                                    notes: { type: "string", example: "Starting work" }
                                 }
+                            },
+                            example: {
+                                work_mode: "Office",
+                                location: "Mumbai Office",
+                                notes: "Morning shift"
                             }
                         }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Checked out successfully",
+                    200: {
+                        description: "Punched in successfully",
                         content: {
                             "application/json": {
-                                schema: {
-                                    type: "object",
-                                    properties: {
-                                        success: { type: "boolean" },
-                                        message: { type: "string" },
-                                        check_out_time: { type: "string", format: "date-time" },
-                                        total_hours: { type: "number", format: "float" },
-                                        work_mode: { type: "string" }
+                                example: {
+                                    success: true,
+                                    message: "Punched in successfully",
+                                    punch_time: "2025-12-23T09:00:00.000Z",
+                                    work_mode: "Office",
+                                    attendance_id: 15
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Already punched in - punch out first" }
+                }
+            }
+        },
+        "/api/attendance/punch-out": {
+            post: {
+                summary: "✨ Punch Out (Multiple Times per Day)",
+                description: "Punch out - can be done multiple times per day (e.g., lunch break, end of day). Automatically calculates and updates gross hours.",
+                tags: ["⏰ Attendance"],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    notes: { type: "string", example: "Lunch break" }
+                                }
+                            },
+                            example: {
+                                notes: "Going for lunch"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Punched out successfully with updated hours",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Punched out successfully",
+                                    punch_time: "2025-12-23T13:00:00.000Z",
+                                    attendance_id: 15,
+                                    hours_calculated: {
+                                        total_work_hours: 4.0,
+                                        total_break_hours: 0.0,
+                                        gross_hours: 4.0
                                     }
                                 }
                             }
                         }
                     },
-                    400: { description: "No active check-in found" }
+                    400: { description: "Already punched out or no attendance record" }
                 }
             }
         },
-        "/api/attendance/me": {
+        "/api/attendance/today": {
             get: {
-                summary: "Get My Attendance",
-                description: "Get my attendance records with optional date filtering",
+                summary: "✨ Get Today's Attendance Status",
+                description: "Get complete attendance status for today including all punches, total hours, and can_punch_in/can_punch_out status",
+                tags: ["⏰ Attendance"],
+                responses: {
+                    200: {
+                        description: "Today's attendance with all punches",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    has_attendance: true,
+                                    attendance: {
+                                        id: 15,
+                                        attendance_date: "2025-12-23",
+                                        first_check_in: "2025-12-23T09:00:00",
+                                        last_check_out: "2025-12-23T18:00:00",
+                                        total_work_hours: 8.5,
+                                        total_break_hours: 1.0,
+                                        gross_hours: 8.5,
+                                        work_mode: "Office",
+                                        status: "present"
+                                    },
+                                    punches: [
+                                        { id: 1, punch_type: "in", punch_time: "2025-12-23T09:00:00", location: "Office" },
+                                        { id: 2, punch_type: "out", punch_time: "2025-12-23T13:00:00", location: "Office" },
+                                        { id: 3, punch_type: "in", punch_time: "2025-12-23T14:00:00", location: "Office" },
+                                        { id: 4, punch_type: "out", punch_time: "2025-12-23T18:00:00", location: "Office" }
+                                    ],
+                                    punch_count: 4,
+                                    last_punch_type: "out",
+                                    can_punch_in: true,
+                                    can_punch_out: false
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/attendance/my-report": {
+            get: {
+                summary: "✨ My Attendance Report",
+                description: "Get attendance report with summary statistics (total days, present, hours worked, etc.)",
                 tags: ["⏰ Attendance"],
                 parameters: [
-                    {
-                        name: "start_date",
-                        in: "query",
-                        schema: { type: "string", format: "date" }
-                    },
-                    {
-                        name: "end_date",
-                        in: "query",
-                        schema: { type: "string", format: "date" }
-                    }
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-01" },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-31" },
+                    { name: "month", in: "query", schema: { type: "integer" }, example: 12 },
+                    { name: "year", in: "query", schema: { type: "integer" }, example: 2025 }
                 ],
                 responses: {
-                    200: { description: "Attendance records" }
+                    200: {
+                        description: "Attendance report with summary",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    summary: {
+                                        total_days: 20,
+                                        present_days: 18,
+                                        absent_days: 0,
+                                        half_days: 2,
+                                        total_work_hours: 162.5,
+                                        avg_work_hours: 8.13
+                                    },
+                                    attendance: [
+                                        {
+                                            id: 15,
+                                            attendance_date: "2025-12-23",
+                                            gross_hours: 8.5,
+                                            punch_in_count: 2,
+                                            punch_out_count: 2,
+                                            status: "present"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
-        "/api/attendance/mark": {
-            post: {
-                summary: "Mark Attendance (HR)",
-                description: "Manually mark attendance for an employee (HR only)",
-                tags: ["⏰ Attendance"],
-                responses: {
-                    200: { description: "Attendance marked" }
-                }
-            }
-        },
-        "/api/attendance/employee/{empId}": {
+        "/api/attendance/details/{date}": {
             get: {
-                summary: "Get Employee Attendance (HR)",
+                summary: "✨ Get Attendance Details for Date",
+                description: "Get detailed punch history and calculated punch pairs for specific date",
                 tags: ["⏰ Attendance"],
                 parameters: [{
-                    name: "empId",
+                    name: "date",
                     in: "path",
                     required: true,
-                    schema: { type: "integer" }
+                    schema: { type: "string", format: "date" },
+                    example: "2025-12-23"
                 }],
                 responses: {
-                    200: { description: "Employee attendance records" }
+                    200: {
+                        description: "Detailed attendance with punch pairs",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    attendance: {
+                                        id: 15,
+                                        attendance_date: "2025-12-23",
+                                        total_work_hours: 8.5,
+                                        total_break_hours: 1.0,
+                                        gross_hours: 8.5
+                                    },
+                                    punches: [
+                                        { id: 1, punch_type: "in", punch_time: "2025-12-23T09:00:00" },
+                                        { id: 2, punch_type: "out", punch_time: "2025-12-23T13:00:00" },
+                                        { id: 3, punch_type: "in", punch_time: "2025-12-23T14:00:00" },
+                                        { id: 4, punch_type: "out", punch_time: "2025-12-23T18:00:00" }
+                                    ],
+                                    punch_pairs: [
+                                        {
+                                            punch_in: "2025-12-23T09:00:00",
+                                            punch_out: "2025-12-23T13:00:00",
+                                            hours_worked: 4.0,
+                                            punch_in_location: "Office",
+                                            punch_out_location: "Office"
+                                        },
+                                        {
+                                            punch_in: "2025-12-23T14:00:00",
+                                            punch_out: "2025-12-23T18:00:00",
+                                            hours_worked: 4.5
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
-        "/api/attendance/monthly": {
+        "/api/attendance/report/employee/{employeeId}": {
             get: {
-                summary: "Monthly Attendance Summary (HR)",
+                summary: "✨ Employee Attendance Report (Manager)",
+                description: "Get comprehensive attendance report for specific employee (Manager/Admin only)",
                 tags: ["⏰ Attendance"],
+                parameters: [
+                    { name: "employeeId", in: "path", required: true, schema: { type: "integer" }, example: 5 },
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "month", in: "query", schema: { type: "integer" } },
+                    { name: "year", in: "query", schema: { type: "integer" } }
+                ],
                 responses: {
-                    200: { description: "Monthly summary" }
+                    200: {
+                        description: "Employee attendance report",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    employee: {
+                                        id: 5,
+                                        employee_number: "EMP005",
+                                        name: "John Doe",
+                                        email: "john@company.com"
+                                    },
+                                    summary: {
+                                        total_days: 20,
+                                        present_days: 18,
+                                        total_work_hours: 162.5,
+                                        avg_work_hours: 8.13
+                                    },
+                                    attendance: []
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/attendance/report/details/{employeeId}/{date}": {
+            get: {
+                summary: "✨ Employee Attendance Details (Manager)",
+                description: "Get detailed punch breakdown for employee on specific date (Manager/Admin only)",
+                tags: ["⏰ Attendance"],
+                parameters: [
+                    { name: "employeeId", in: "path", required: true, schema: { type: "integer" } },
+                    { name: "date", in: "path", required: true, schema: { type: "string", format: "date" } }
+                ],
+                responses: {
+                    200: { description: "Detailed punch history with pairs" }
+                }
+            }
+        },
+        "/api/attendance/report/team": {
+            get: {
+                summary: "✨ Team Attendance Report (Manager)",
+                description: "Get attendance for all team members reporting to logged-in manager",
+                tags: ["⏰ Attendance"],
+                parameters: [{
+                    name: "date",
+                    in: "query",
+                    schema: { type: "string", format: "date" },
+                    example: "2025-12-23"
+                }],
+                responses: {
+                    200: {
+                        description: "Team attendance summary",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    team_members: [
+                                        { id: 5, EmployeeNumber: "EMP005", FirstName: "John", LastName: "Doe" }
+                                    ],
+                                    date: "2025-12-23",
+                                    attendance: [
+                                        {
+                                            employee_id: 5,
+                                            EmployeeNumber: "EMP005",
+                                            FirstName: "John",
+                                            gross_hours: 8.5,
+                                            status: "present",
+                                            total_punches: 4
+                                        }
+                                    ],
+                                    summary: {
+                                        total_team: 10,
+                                        present: 8,
+                                        absent: 1,
+                                        on_leave: 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/attendance/report/all": {
+            get: {
+                summary: "✨ All Attendance Report (Admin)",
+                description: "Get company-wide attendance report (Admin/HR only)",
+                tags: ["⏰ Attendance"],
+                parameters: [
+                    { name: "date", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" } },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" } }
+                ],
+                responses: {
+                    200: {
+                        description: "Company-wide attendance",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    attendance: [],
+                                    summary: {
+                                        total_records: 50,
+                                        present: 45,
+                                        absent: 2,
+                                        half_day: 1,
+                                        on_leave: 2
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1110,6 +1327,620 @@ const swaggerSpec = {
                 tags: ["🏖️ Leave Management"],
                 responses: {
                     200: { description: "Leave type created" }
+                }
+            }
+        },
+        
+        // ============ ENHANCED LEAVE MANAGEMENT SYSTEM ============
+        "/api/leaves/plans": {
+            post: {
+                summary: "✨ Create Leave Plan (Admin)",
+                description: "Create comprehensive leave plan with multiple leave types and allocations. Supports auto-proration for mid-year joiners.",
+                tags: ["🏖️ Leave Management"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    plan_name: { type: "string", example: "Standard Plan 2025" },
+                                    leave_year_start_month: { type: "integer", example: 1 },
+                                    leave_year_start_day: { type: "integer", example: 1 },
+                                    description: { type: "string", example: "Standard leave plan for all permanent employees" },
+                                    allocations: {
+                                        type: "array",
+                                        items: {
+                                            type: "object",
+                                            properties: {
+                                                leave_type_id: { type: "integer" },
+                                                allocated_days: { type: "number" },
+                                                prorate_on_joining: { type: "boolean" },
+                                                min_days_to_prorate: { type: "integer" }
+                                            }
+                                        }
+                                    }
+                                },
+                                required: ["plan_name", "allocations"]
+                            },
+                            example: {
+                                plan_name: "Standard Plan 2025",
+                                leave_year_start_month: 1,
+                                leave_year_start_day: 1,
+                                description: "Standard leave allocation for all permanent employees",
+                                allocations: [
+                                    {
+                                        leave_type_id: 1,
+                                        allocated_days: 12,
+                                        prorate_on_joining: true,
+                                        min_days_to_prorate: 1
+                                    },
+                                    {
+                                        leave_type_id: 2,
+                                        allocated_days: 7,
+                                        prorate_on_joining: false,
+                                        min_days_to_prorate: 0
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave plan created successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave plan created successfully with 2 allocations",
+                                    plan_id: 1
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            get: {
+                summary: "✨ Get All Leave Plans (Admin)",
+                description: "Get list of all leave plans with allocation details and employee counts",
+                tags: ["🏖️ Leave Management"],
+                responses: {
+                    200: {
+                        description: "List of leave plans",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 1,
+                                        plan_name: "Standard Plan 2025",
+                                        leave_year_start: "Jan 1",
+                                        description: "Standard leave plan",
+                                        is_active: true,
+                                        total_allocations: 2,
+                                        employees_count: 45
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/plans/{id}": {
+            get: {
+                summary: "✨ Get Leave Plan Details (Admin)",
+                description: "Get detailed information about specific leave plan including all allocations",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Leave plan with allocations",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    id: 1,
+                                    plan_name: "Standard Plan 2025",
+                                    leave_year_start_month: 1,
+                                    leave_year_start_day: 1,
+                                    description: "Standard plan",
+                                    is_active: true,
+                                    allocations: [
+                                        {
+                                            leave_type_id: 1,
+                                            leave_type_name: "Casual Leave",
+                                            type_code: "CL",
+                                            allocated_days: 12,
+                                            prorate_on_joining: true
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            put: {
+                summary: "✨ Update Leave Plan (Admin)",
+                description: "Update leave plan details and allocations",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            example: {
+                                plan_name: "Updated Standard Plan 2025",
+                                description: "Updated description",
+                                allocations: [
+                                    {
+                                        leave_type_id: 1,
+                                        allocated_days: 15,
+                                        prorate_on_joining: true
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Plan updated successfully" }
+                }
+            }
+        },
+        "/api/leaves/types/create": {
+            post: {
+                summary: "✨ Create Leave Type (Admin)",
+                description: "Create new leave type with carry forward configuration",
+                tags: ["🏖️ Leave Management"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    leave_type_name: { type: "string" },
+                                    type_code: { type: "string" },
+                                    is_paid: { type: "boolean" },
+                                    requires_approval: { type: "boolean" },
+                                    can_carry_forward: { type: "boolean" },
+                                    max_carry_forward_days: { type: "integer" },
+                                    description: { type: "string" }
+                                }
+                            },
+                            example: {
+                                leave_type_name: "Privilege Leave",
+                                type_code: "PL",
+                                is_paid: true,
+                                requires_approval: true,
+                                can_carry_forward: true,
+                                max_carry_forward_days: 5,
+                                description: "Annual privilege leave with carry forward"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave type created",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave type created successfully",
+                                    leave_type_id: 5
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/types/list": {
+            get: {
+                summary: "✨ Get All Leave Types",
+                description: "Get list of all active leave types with configuration",
+                tags: ["🏖️ Leave Management"],
+                responses: {
+                    200: {
+                        description: "List of leave types",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 1,
+                                        leave_type_name: "Casual Leave",
+                                        type_code: "CL",
+                                        is_paid: true,
+                                        requires_approval: true,
+                                        can_carry_forward: false,
+                                        max_carry_forward_days: 0
+                                    },
+                                    {
+                                        id: 2,
+                                        leave_type_name: "Sick Leave",
+                                        type_code: "SL",
+                                        is_paid: true,
+                                        requires_approval: false,
+                                        can_carry_forward: true,
+                                        max_carry_forward_days: 3
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/types/update/{id}": {
+            put: {
+                summary: "✨ Update Leave Type (Admin)",
+                description: "Update leave type configuration",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            example: {
+                                leave_type_name: "Updated Casual Leave",
+                                can_carry_forward: true,
+                                max_carry_forward_days: 2
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: { description: "Leave type updated" }
+                }
+            }
+        },
+        "/api/leaves/initialize-balance/{employeeId}": {
+            post: {
+                summary: "✨ Initialize Employee Leave Balance (Admin)",
+                description: "Initialize leave balances for employee based on their leave plan. Auto-prorates for mid-year joiners based on joining date.",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "employeeId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 5
+                }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    leave_plan_id: { type: "integer" },
+                                    leave_year: { type: "integer" }
+                                }
+                            },
+                            example: {
+                                leave_plan_id: 1,
+                                leave_year: 2025
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave balances initialized with auto-proration",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave balances initialized successfully",
+                                    balances: [
+                                        {
+                                            leave_type: "Casual Leave",
+                                            allocated_days: 9,
+                                            note: "Prorated based on joining date (July 1)"
+                                        },
+                                        {
+                                            leave_type: "Sick Leave",
+                                            allocated_days: 7,
+                                            note: "Full allocation (no proration)"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/balance": {
+            get: {
+                summary: "✨ Get My Leave Balance",
+                description: "Get current leave balance for logged-in employee with breakdown: allocated + carry_forward - used = available",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "leave_year",
+                    in: "query",
+                    schema: { type: "integer" },
+                    example: 2025
+                }],
+                responses: {
+                    200: {
+                        description: "Leave balance by type",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    employee_id: 5,
+                                    leave_year: 2025,
+                                    balances: [
+                                        {
+                                            leave_type_id: 1,
+                                            leave_type_name: "Casual Leave",
+                                            type_code: "CL",
+                                            allocated_days: 12,
+                                            carry_forward_days: 2,
+                                            used_days: 5,
+                                            available_days: 9
+                                        },
+                                        {
+                                            leave_type_id: 2,
+                                            leave_type_name: "Sick Leave",
+                                            type_code: "SL",
+                                            allocated_days: 7,
+                                            carry_forward_days: 0,
+                                            used_days: 3,
+                                            available_days: 4
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/balance/{employeeId}": {
+            get: {
+                summary: "✨ Get Employee Leave Balance (Manager/Admin)",
+                description: "Get leave balance for specific employee (Manager/Admin only)",
+                tags: ["🏖️ Leave Management"],
+                parameters: [
+                    {
+                        name: "employeeId",
+                        in: "path",
+                        required: true,
+                        schema: { type: "integer" }
+                    },
+                    {
+                        name: "leave_year",
+                        in: "query",
+                        schema: { type: "integer" }
+                    }
+                ],
+                responses: {
+                    200: { description: "Employee leave balance" }
+                }
+            }
+        },
+        "/api/leaves/apply-enhanced": {
+            post: {
+                summary: "✨ Apply for Leave (Enhanced with Balance Check)",
+                description: "Apply for leave with automatic balance validation. System checks available days before submission.",
+                tags: ["🏖️ Leave Management"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    leave_type_id: { type: "integer" },
+                                    start_date: { type: "string", format: "date" },
+                                    end_date: { type: "string", format: "date" },
+                                    reason: { type: "string" },
+                                    contact_number: { type: "string" }
+                                },
+                                required: ["leave_type_id", "start_date", "end_date", "reason"]
+                            },
+                            example: {
+                                leave_type_id: 1,
+                                start_date: "2025-12-25",
+                                end_date: "2025-12-27",
+                                reason: "Family function",
+                                contact_number: "+91 9876543210"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave applied successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave applied successfully",
+                                    leave_id: 15,
+                                    total_days: 3,
+                                    remaining_balance: 6
+                                }
+                            }
+                        }
+                    },
+                    400: {
+                        description: "Insufficient leave balance",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: false,
+                                    message: "Insufficient leave balance. Available: 2 days, Requested: 3 days"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/approve-enhanced/{leaveId}": {
+            put: {
+                summary: "✨ Approve Leave (Auto-deduct from Balance)",
+                description: "Approve leave and automatically deduct days from employee balance",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "leaveId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 15
+                }],
+                requestBody: {
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    remarks: { type: "string" }
+                                }
+                            },
+                            example: {
+                                remarks: "Approved by manager"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave approved and balance updated",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave approved successfully. 3 days deducted from balance.",
+                                    remaining_balance: 6
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/reject-enhanced/{leaveId}": {
+            put: {
+                summary: "✨ Reject Leave (With Reason)",
+                description: "Reject leave application with mandatory rejection reason",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "leaveId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    rejection_reason: { type: "string" }
+                                },
+                                required: ["rejection_reason"]
+                            },
+                            example: {
+                                rejection_reason: "Team capacity insufficient during this period"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave rejected",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave rejected successfully"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/pending-enhanced": {
+            get: {
+                summary: "✨ Get Pending Leave Approvals (Manager/Admin)",
+                description: "Get all pending leave requests with employee details and balance information",
+                tags: ["🏖️ Leave Management"],
+                responses: {
+                    200: {
+                        description: "Pending leave requests",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        leave_id: 15,
+                                        employee_id: 5,
+                                        employee_name: "John Doe",
+                                        leave_type_name: "Casual Leave",
+                                        type_code: "CL",
+                                        start_date: "2025-12-25",
+                                        end_date: "2025-12-27",
+                                        total_days: 3,
+                                        reason: "Family function",
+                                        available_balance: 9,
+                                        applied_date: "2025-12-20"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leaves/my-leaves-enhanced": {
+            get: {
+                summary: "✨ Get My Leave History",
+                description: "Get my complete leave history with status and balance impact",
+                tags: ["🏖️ Leave Management"],
+                parameters: [{
+                    name: "leave_year",
+                    in: "query",
+                    schema: { type: "integer" }
+                }],
+                responses: {
+                    200: {
+                        description: "Leave history",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 15,
+                                        leave_type_name: "Casual Leave",
+                                        start_date: "2025-12-25",
+                                        end_date: "2025-12-27",
+                                        total_days: 3,
+                                        status: "approved",
+                                        applied_date: "2025-12-20",
+                                        approved_date: "2025-12-21"
+                                    }
+                                ]
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -2832,8 +3663,531 @@ const swaggerSpec = {
                     }
                 }
             }
+        },
+        
+        // ============ PROJECT WORK UPDATES (EMPLOYEE) ============
+        "/api/work-updates/my-projects": {
+            get: {
+                summary: "Get My Active Project Assignments",
+                description: "Get list of active project assignments for logged-in employee with shift details",
+                tags: ["🚀 Project Work Updates"],
+                responses: {
+                    200: {
+                        description: "List of active projects with shift information",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    projects: [
+                                        {
+                                            assignment_id: 1,
+                                            employee_id: 5,
+                                            project_id: 1,
+                                            project_code: "PRJ001",
+                                            project_name: "E-Commerce Platform Development",
+                                            client_name: "TechCorp Inc",
+                                            role_in_project: "Full Stack Developer",
+                                            allocation_percentage: 100,
+                                            assignment_start_date: "2025-01-01",
+                                            assignment_end_date: null,
+                                            shift_id: 1,
+                                            shift_type: "general",
+                                            shift_name: "Day Shift",
+                                            start_time: "09:00:00",
+                                            end_time: "18:00:00",
+                                            timezone: "Asia/Kolkata",
+                                            assignment_status: "active"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "No employee found or no active assignments" }
+                }
+            }
+        },
+        "/api/work-updates/submit": {
+            post: {
+                summary: "Submit Daily Work Update",
+                description: "Submit daily work update with client timesheet upload. Supports draft mode and final submission.",
+                tags: ["🚀 Project Work Updates"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                required: ["projectId", "shiftId", "updateDate", "shiftStartTime", "shiftEndTime", "hoursWorked", "workDescription", "clientTimesheet"],
+                                properties: {
+                                    projectId: { type: "integer", example: 1 },
+                                    shiftId: { type: "integer", example: 1 },
+                                    updateDate: { type: "string", format: "date", example: "2025-12-23" },
+                                    shiftStartTime: { type: "string", format: "date-time", example: "2025-12-23T09:00:00" },
+                                    shiftEndTime: { type: "string", format: "date-time", example: "2025-12-23T18:00:00" },
+                                    hoursWorked: { type: "number", example: 9, description: "Total hours worked" },
+                                    workDescription: { type: "string", example: "Completed API integration and bug fixes" },
+                                    tasksCompleted: { type: "string", example: "1. Fixed login bug\n2. Updated user API" },
+                                    challengesFaced: { type: "string", example: "Database connection timeout issues" },
+                                    submitNow: { type: "boolean", example: true, description: "true = submit, false = save draft" },
+                                    clientTimesheet: { type: "string", format: "binary", description: "Client timesheet file (PDF, Excel, CSV, Image - Max 10MB)" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Work update submitted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Work update submitted successfully",
+                                    workUpdateId: 15,
+                                    timesheetId: 8,
+                                    status: "submitted"
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Validation error or missing required fields" }
+                }
+            }
+        },
+        "/api/work-updates/my-updates": {
+            get: {
+                summary: "Get My Work Updates",
+                description: "Get work updates for logged-in employee with optional date range filter",
+                tags: ["🚀 Project Work Updates"],
+                parameters: [
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-11-01" },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-31" }
+                ],
+                responses: {
+                    200: {
+                        description: "List of work updates with verification status",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    updates: [
+                                        {
+                                            id: 15,
+                                            employee_id: 5,
+                                            project_id: 1,
+                                            project_name: "E-Commerce Platform Development",
+                                            client_name: "TechCorp Inc",
+                                            update_date: "2025-12-23",
+                                            shift_start_time: "2025-12-23T09:00:00",
+                                            shift_end_time: "2025-12-23T18:00:00",
+                                            hours_worked: 9,
+                                            work_description: "Completed API integration",
+                                            tasks_completed: "Fixed login bug",
+                                            challenges_faced: "None",
+                                            status: "approved",
+                                            submission_timestamp: "2025-12-23T18:30:00",
+                                            shift_name: "Day Shift",
+                                            shift_type: "general",
+                                            timesheet_id: 8,
+                                            file_name: "timesheet_23122025.pdf",
+                                            is_verified: true,
+                                            verification_status: "approved",
+                                            verification_notes: "All details verified"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/work-updates/{id}": {
+            delete: {
+                summary: "Delete Work Update (Draft Only)",
+                description: "Delete a work update if it's in draft status",
+                tags: ["🚀 Project Work Updates"],
+                parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: {
+                        description: "Draft deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Draft deleted successfully" }
+                            }
+                        }
+                    },
+                    403: { description: "Cannot delete submitted work updates" },
+                    404: { description: "Work update not found" }
+                }
+            }
+        },
+        "/api/work-updates/compliance-status": {
+            get: {
+                summary: "Get My Compliance Status",
+                description: "Get compliance status for logged-in employee (last 30 days)",
+                tags: ["🚀 Project Work Updates"],
+                responses: {
+                    200: {
+                        description: "Compliance status with traffic light indicators",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    complianceRecords: [
+                                        {
+                                            compliance_date: "2025-12-23",
+                                            project_id: 1,
+                                            project_name: "E-Commerce Platform",
+                                            client_name: "TechCorp Inc",
+                                            has_work_update: true,
+                                            has_client_timesheet: true,
+                                            compliance_status: "compliant",
+                                            reminder_count: 0,
+                                            shift_name: "Day Shift",
+                                            shift_type: "general"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/work-updates/download-timesheet/{timesheetId}": {
+            get: {
+                summary: "Download Client Timesheet",
+                description: "Download uploaded client timesheet file",
+                tags: ["🚀 Project Work Updates"],
+                parameters: [{ name: "timesheetId", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: {
+                        description: "Timesheet file",
+                        content: {
+                            "application/pdf": {},
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {},
+                            "image/png": {},
+                            "image/jpeg": {}
+                        }
+                    },
+                    404: { description: "Timesheet not found" }
+                }
+            }
+        },
+        
+        // ============ ADMIN TIMESHEET VERIFICATION ============
+        "/api/admin/timesheet/dashboard": {
+            get: {
+                summary: "Admin Compliance Dashboard",
+                description: "Get compliance dashboard with traffic light status (green/yellow/red) for all projects (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                parameters: [
+                    { name: "startDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-01" },
+                    { name: "endDate", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-31" }
+                ],
+                responses: {
+                    200: {
+                        description: "Dashboard with project compliance statistics",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    dashboard: [
+                                        {
+                                            project_id: 1,
+                                            project_name: "E-Commerce Platform",
+                                            client_name: "TechCorp Inc",
+                                            compliance_date: "2025-12-23",
+                                            total_employees: 10,
+                                            compliant_count: 8,
+                                            update_only_count: 1,
+                                            missing_count: 1,
+                                            traffic_light_status: "yellow"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    },
+                    403: { description: "Admin/HR access required" }
+                }
+            }
+        },
+        "/api/admin/timesheet/non-compliant": {
+            get: {
+                summary: "Get Non-Compliant Employees",
+                description: "Get list of employees who haven't submitted updates or timesheets (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                parameters: [
+                    { name: "date", in: "query", schema: { type: "string", format: "date" }, example: "2025-12-23" }
+                ],
+                responses: {
+                    200: {
+                        description: "List of non-compliant employees",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    nonCompliant: [
+                                        {
+                                            employee_id: 5,
+                                            employee_code: "EMP005",
+                                            first_name: "John",
+                                            last_name: "Doe",
+                                            project_id: 1,
+                                            project_name: "E-Commerce Platform",
+                                            client_name: "TechCorp Inc",
+                                            compliance_date: "2025-12-23",
+                                            compliance_status: "missing",
+                                            has_work_update: false,
+                                            has_client_timesheet: false,
+                                            reminder_count: 2,
+                                            shift_name: "Day Shift",
+                                            shift_type: "general"
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/timesheet/verification-queue": {
+            get: {
+                summary: "Get Verification Queue",
+                description: "Get submitted work updates awaiting verification (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                responses: {
+                    200: {
+                        description: "Queue of submissions pending verification",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    queue: [
+                                        {
+                                            id: 15,
+                                            employee_id: 5,
+                                            employee_name: "John Doe",
+                                            employee_code: "EMP005",
+                                            project_name: "E-Commerce Platform",
+                                            client_name: "TechCorp Inc",
+                                            update_date: "2025-12-23",
+                                            hours_worked: 9,
+                                            work_description: "API integration completed",
+                                            status: "submitted",
+                                            submission_timestamp: "2025-12-23T18:30:00",
+                                            timesheet_id: 8,
+                                            file_name: "timesheet.pdf",
+                                            is_verified: false
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/timesheet/comparison/{workUpdateId}": {
+            get: {
+                summary: "Get Comparison Data",
+                description: "Get side-by-side comparison of work update and client timesheet for verification (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                parameters: [{ name: "workUpdateId", in: "path", required: true, schema: { type: "integer" } }],
+                responses: {
+                    200: {
+                        description: "Detailed comparison data",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    workUpdate: {
+                                        id: 15,
+                                        employee_name: "John Doe",
+                                        project_name: "E-Commerce Platform",
+                                        update_date: "2025-12-23",
+                                        shift_start_time: "2025-12-23T09:00:00",
+                                        shift_end_time: "2025-12-23T18:00:00",
+                                        hours_worked: 9,
+                                        work_description: "API integration",
+                                        tasks_completed: "Login API fixed",
+                                        challenges_faced: "None",
+                                        status: "submitted"
+                                    },
+                                    clientTimesheet: {
+                                        id: 8,
+                                        file_name: "timesheet.pdf",
+                                        file_path: "/uploads/client_timesheets/timesheet.pdf",
+                                        file_type: "application/pdf",
+                                        uploaded_at: "2025-12-23T18:30:00",
+                                        is_verified: false
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Work update not found" }
+                }
+            }
+        },
+        "/api/admin/timesheet/verify": {
+            post: {
+                summary: "Verify Work Update & Timesheet",
+                description: "Approve, flag, or reject work update after verification (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["workUpdateId", "verificationStatus"],
+                                properties: {
+                                    workUpdateId: { type: "integer", example: 15 },
+                                    clientTimesheetId: { type: "integer", example: 8, description: "Optional - Client timesheet ID to mark as verified" },
+                                    verificationStatus: { type: "string", enum: ["approved", "flagged", "rejected"], example: "approved" },
+                                    verificationNotes: { type: "string", example: "All details verified and match client timesheet" },
+                                    hoursDiscrepancy: { type: "number", example: 0, description: "Hours difference if any" }
+                                }
+                            },
+                            example: {
+                                workUpdateId: 15,
+                                clientTimesheetId: 8,
+                                verificationStatus: "approved",
+                                verificationNotes: "Verified successfully - all data matches client timesheet",
+                                hoursDiscrepancy: 0
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Verification recorded successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Work update approved successfully"
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Invalid verification status" },
+                    403: { description: "Admin/HR access required" }
+                }
+            }
+        },
+        "/api/admin/timesheet/bulk-verify": {
+            post: {
+                summary: "Bulk Verify Multiple Updates",
+                description: "Approve multiple work updates at once (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["workUpdateIds", "verificationStatus"],
+                                properties: {
+                                    workUpdateIds: { type: "array", items: { type: "integer" }, example: [15, 16, 17] },
+                                    verificationStatus: { type: "string", enum: ["approved", "flagged"], example: "approved" },
+                                    verificationNotes: { type: "string", example: "Bulk approved - all compliant" }
+                                }
+                            },
+                            example: {
+                                workUpdateIds: [15, 16, 17, 18],
+                                verificationStatus: "approved",
+                                verificationNotes: "Bulk verification - all timesheets match work updates"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Bulk verification completed",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "3 work updates verified successfully"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/timesheet/payroll-lock-status": {
+            get: {
+                summary: "Get Payroll Period Lock Status",
+                description: "Get lock status for payroll periods (Admin/HR only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                responses: {
+                    200: {
+                        description: "List of payroll period locks",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    locks: [
+                                        {
+                                            id: 1,
+                                            payroll_period: "2025-12",
+                                            lock_status: "open",
+                                            pending_verifications: 5,
+                                            flagged_submissions: 2,
+                                            locked_by: null,
+                                            locked_at: null
+                                        }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/admin/timesheet/lock-payroll-period": {
+            post: {
+                summary: "Lock Payroll Period",
+                description: "Lock payroll period after all verifications complete (Admin only)",
+                tags: ["🔐 Admin Timesheet Verification"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["payrollPeriod"],
+                                properties: {
+                                    payrollPeriod: { type: "string", example: "2025-12", description: "Format: YYYY-MM" },
+                                    lockStatus: { type: "string", enum: ["review", "locked", "processed"], example: "locked" }
+                                }
+                            },
+                            example: {
+                                payrollPeriod: "2025-12",
+                                lockStatus: "locked"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Payroll period locked",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Payroll period 2025-12 locked successfully"
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Cannot lock - pending verifications exist" },
+                    403: { description: "Admin access required" }
+                }
+            }
         }
     }
 };
+
+module.exports = swaggerSpec;
 
 module.exports = swaggerSpec;

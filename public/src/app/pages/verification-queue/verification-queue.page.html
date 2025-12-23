@@ -1,0 +1,125 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/timesheet/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Verification Queue</ion-title>
+  </ion-toolbar>
+
+  <!-- Filters and Actions -->
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="toggleSelectAll()">
+        <ion-icon name="checkmark-done-outline"></ion-icon>
+        Select All
+      </ion-button>
+    </ion-buttons>
+    <ion-buttons slot="end">
+      <ion-badge color="primary">{{ selectedItems.size }}</ion-badge>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Filter and Search -->
+  <ion-card>
+    <ion-card-content>
+      <ion-item>
+        <ion-label>Status Filter</ion-label>
+        <ion-select [(ngModel)]="filterStatus" (ionChange)="onFilterChange($event)">
+          <ion-select-option value="submitted">Submitted</ion-select-option>
+          <ion-select-option value="approved">Approved</ion-select-option>
+          <ion-select-option value="flagged">Flagged</ion-select-option>
+          <ion-select-option value="rejected">Rejected</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-searchbar [(ngModel)]="searchTerm" 
+                     placeholder="Search by employee, project..."
+                     animated>
+      </ion-searchbar>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Bulk Actions -->
+  <ion-card *ngIf="selectedItems.size > 0" class="bulk-actions-card">
+    <ion-card-content>
+      <div class="bulk-actions">
+        <ion-button size="small" color="success" (click)="bulkApprove()">
+          <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+          Approve ({{ selectedItems.size }})
+        </ion-button>
+        <ion-button size="small" color="warning" (click)="bulkFlag()">
+          <ion-icon name="warning-outline" slot="start"></ion-icon>
+          Flag ({{ selectedItems.size }})
+        </ion-button>
+        <ion-button size="small" color="danger" (click)="bulkReject()">
+          <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+          Reject ({{ selectedItems.size }})
+        </ion-button>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Verification Queue List -->
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>
+        Pending Verifications
+        <ion-badge color="primary">{{ filteredQueue.length }}</ion-badge>
+      </ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <ion-list *ngIf="filteredQueue.length > 0">
+        <ion-item *ngFor="let item of filteredQueue">
+          <ion-checkbox slot="start" 
+                        [checked]="selectedItems.has(item.work_update_id)"
+                        (ionChange)="toggleSelection(item.work_update_id)">
+          </ion-checkbox>
+
+          <ion-label>
+            <h2>{{ item.first_name }} {{ item.last_name }}</h2>
+            <p>{{ item.employee_code }} • {{ item.project_name }}</p>
+            <p><strong>Client:</strong> {{ item.client_name }}</p>
+            <p><strong>Date:</strong> {{ item.update_date | date:'mediumDate' }} • 
+               <strong>Hours:</strong> {{ item.hours_worked }}</p>
+            <p class="description">{{ item.work_description | slice:0:100 }}...</p>
+            
+            <div class="chips">
+              <ion-chip [color]="getStatusColor(item.work_update_status)">
+                <ion-label>{{ item.work_update_status }}</ion-label>
+              </ion-chip>
+              <ion-chip [color]="item.timesheet_id ? 'success' : 'danger'">
+                <ion-icon [name]="item.timesheet_id ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+                <ion-label>{{ item.timesheet_id ? 'Has Timesheet' : 'No Timesheet' }}</ion-label>
+              </ion-chip>
+              <ion-chip color="tertiary" *ngIf="item.is_verified">
+                <ion-label>Verified</ion-label>
+              </ion-chip>
+            </div>
+
+            <p class="submission-time">
+              Submitted: {{ item.submission_timestamp | date:'short' }}
+            </p>
+          </ion-label>
+
+          <ion-button slot="end" 
+                      fill="outline" 
+                      size="small"
+                      (click)="viewComparison(item.work_update_id)">
+            <ion-icon name="eye-outline"></ion-icon>
+            View
+          </ion-button>
+        </ion-item>
+      </ion-list>
+
+      <div *ngIf="filteredQueue.length === 0" class="empty-state">
+        <ion-icon name="checkmark-circle-outline" size="large" color="success"></ion-icon>
+        <p>No items in verification queue</p>
+      </div>
+    </ion-card-content>
+  </ion-card>
+</ion-content>

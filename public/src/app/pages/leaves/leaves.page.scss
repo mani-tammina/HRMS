@@ -1,0 +1,80 @@
+.leaves-container {
+  padding: 1rem;
+  padding-bottom: 80px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.balance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  text-align: center;
+
+  .balance-item {
+    .label {
+      font-size: 0.8rem;
+      color: var(--ion-color-medium);
+      margin: 0 0 0.5rem 0;
+    }
+
+    .value {
+      font-size: 1.5rem;
+      font-weight: bold;
+      margin: 0;
+      color: var(--ion-color-primary);
+
+      &.used {
+        color: var(--ion-color-danger);
+      }
+
+      &.available {
+        color: var(--ion-color-success);
+      }
+
+      &.pending {
+        color: var(--ion-color-warning);
+      }
+    }
+  }
+}
+
+.section-title {
+  margin: 1.5rem 0 1rem 0;
+
+  h2 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+
+  ion-icon {
+    color: var(--ion-color-medium);
+    margin-bottom: 1rem;
+  }
+
+  p {
+    color: var(--ion-color-medium);
+    margin-bottom: 1.5rem;
+  }
+}
+
+ion-list {
+  ion-item {
+    h3 {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    p {
+      font-size: 0.85rem;
+      color: var(--ion-color-medium);
+      margin: 0.25rem 0;
+    }
+  }
+}

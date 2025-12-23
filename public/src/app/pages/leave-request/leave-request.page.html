@@ -1,0 +1,70 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/tabs/leaves"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Request Leave</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="page-content">
+    <ion-card>
+      <ion-card-content>
+        <form [formGroup]="leaveForm" (ngSubmit)="onSubmit()">
+          <ion-item>
+            <ion-icon name="document-text-outline" slot="start"></ion-icon>
+            <ion-select 
+              label="Leave Type" 
+              labelPlacement="floating"
+              formControlName="leaveType"
+              placeholder="Select leave type">
+              <ion-select-option value="sick">Sick Leave</ion-select-option>
+              <ion-select-option value="casual">Casual Leave</ion-select-option>
+              <ion-select-option value="annual">Annual Leave</ion-select-option>
+              <ion-select-option value="unpaid">Unpaid Leave</ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="calendar-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Start Date" 
+              labelPlacement="floating"
+              type="date" 
+              formControlName="startDate">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="calendar-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="End Date" 
+              labelPlacement="floating"
+              type="date" 
+              formControlName="endDate">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-textarea 
+              label="Reason" 
+              labelPlacement="floating"
+              formControlName="reason"
+              rows="4"
+              placeholder="Enter reason for leave (minimum 10 characters)">
+            </ion-textarea>
+          </ion-item>
+
+          <ion-button 
+            expand="block" 
+            type="submit" 
+            [disabled]="isLoading"
+            class="submit-button">
+            Submit Request
+          </ion-button>
+        </form>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

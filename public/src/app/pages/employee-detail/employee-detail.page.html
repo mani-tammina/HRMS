@@ -1,0 +1,83 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/employees"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Employee Details</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <div class="page-content" *ngIf="employee">
+    <!-- Profile Header -->
+    <div class="profile-header">
+      <ion-avatar class="profile-avatar">
+        <img [src]="employee.avatar || 'assets/avatar-placeholder.png'" alt="{{ employee.name }}">
+      </ion-avatar>
+      <h1>{{ employee.name }}</h1>
+      <p>{{ employee.position }}</p>
+      <ion-badge [color]="employee.status === 'active' ? 'success' : 'medium'">
+        {{ employee.status }}
+      </ion-badge>
+    </div>
+
+    <!-- Employee Information -->
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Contact Information</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list lines="none">
+          <ion-item>
+            <ion-icon slot="start" name="mail-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Email</p>
+              <h3>{{ employee.email }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="employee.phone">
+            <ion-icon slot="start" name="call-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Phone</p>
+              <h3>{{ employee.phone }}</h3>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Work Information</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <ion-list lines="none">
+          <ion-item>
+            <ion-icon slot="start" name="business-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Department</p>
+              <h3>{{ employee.department }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon slot="start" name="briefcase-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Position</p>
+              <h3>{{ employee.position }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon slot="start" name="calendar-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Join Date</p>
+              <h3>{{ employee.joinDate | date:'MMM d, y' }}</h3>
+            </ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

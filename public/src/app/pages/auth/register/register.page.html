@@ -1,0 +1,108 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/login"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Register</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="ion-padding">
+  <div class="register-container">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Create Account</ion-card-title>
+      </ion-card-header>
+
+      <ion-card-content>
+        <form [formGroup]="registerForm" (ngSubmit)="onRegister()">
+          <ion-item>
+            <ion-icon name="person-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Full Name" 
+              labelPlacement="floating"
+              type="text" 
+              formControlName="name"
+              placeholder="Enter your full name">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="mail-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Email" 
+              labelPlacement="floating"
+              type="email" 
+              formControlName="email"
+              placeholder="Enter your email">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="call-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Phone Number" 
+              labelPlacement="floating"
+              type="tel" 
+              formControlName="phone"
+              placeholder="Enter your phone number">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Password" 
+              labelPlacement="floating"
+              type="password" 
+              formControlName="password"
+              placeholder="Enter your password">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="business-outline" slot="start"></ion-icon>
+            <ion-select 
+              label="Department" 
+              labelPlacement="floating"
+              formControlName="department"
+              placeholder="Select department">
+              <ion-select-option value="IT">IT</ion-select-option>
+              <ion-select-option value="HR">HR</ion-select-option>
+              <ion-select-option value="Finance">Finance</ion-select-option>
+              <ion-select-option value="Sales">Sales</ion-select-option>
+              <ion-select-option value="Marketing">Marketing</ion-select-option>
+              <ion-select-option value="Operations">Operations</ion-select-option>
+            </ion-select>
+          </ion-item>
+
+          <ion-item>
+            <ion-icon name="briefcase-outline" slot="start"></ion-icon>
+            <ion-input 
+              label="Position" 
+              labelPlacement="floating"
+              type="text" 
+              formControlName="position"
+              placeholder="Enter your position">
+            </ion-input>
+          </ion-item>
+
+          <ion-button 
+            expand="block" 
+            type="submit" 
+            [disabled]="isLoading"
+            class="register-button">
+            <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
+            <span *ngIf="!isLoading">Register</span>
+          </ion-button>
+        </form>
+
+        <div class="login-link">
+          <ion-text>
+            Already have an account? <a routerLink="/login">Login</a>
+          </ion-text>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

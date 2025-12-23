@@ -1,7 +1,14 @@
 # Dependency directories
 node_modules/
-hrms-frontend/
 jspm_packages/
+# public/
+public/node_modules/
+public/.angular/
+public/WWW/
+public/.vscode/
+public/.github/
+
+images/
 
 # Debug logs
 npm-debug.log*
@@ -24,3 +31,6 @@ build/
 .DS_Store
 .vscode/
 .idea/
+
+*.md
+*.bat

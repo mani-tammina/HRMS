@@ -12,9 +12,14 @@ const DB = {
 
 let __pool = null;
 
-async function db() {
+function getPool() {
     if (!__pool) __pool = mysql.createPool(DB);
-    const conn = await __pool.getConnection();
+    return __pool;
+}
+
+async function db() {
+    const pool = getPool();
+    const conn = await pool.getConnection();
     // If this is a pooled connection, make c.end() behave like release()
     try {
         if (conn && typeof conn.release === 'function') {
@@ -25,5 +30,16 @@ async function db() {
     } catch (e) { }
     return conn;
 }
+
+// Export pool methods for direct query access
+db.query = async (...args) => {
+    const pool = getPool();
+    return pool.query(...args);
+};
+
+db.getConnection = async () => {
+    const pool = getPool();
+    return pool.getConnection();
+};
 
 module.exports = { DB, db };

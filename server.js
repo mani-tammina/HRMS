@@ -39,8 +39,8 @@ const candidatesRoutes = require("./routes/candidates.routes");
 const preonboardingRoutes = require("./routes/preonboarding.routes");
 const onboardingRoutes = require("./routes/onboarding.routes");
 const employeeRoutes = require("./routes/employee.routes");
-const attendanceRoutes = require("./routes/attendance.routes");
-const leaveRoutes = require("./routes/leave.routes");
+const attendanceRoutes = require("./routes/attendance-enhanced.routes"); // Enhanced with multiple punches
+const leaveRoutes = require("./routes/leave-enhanced.routes"); // Enhanced leave management
 const payrollRoutes = require("./routes/payroll.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const timesheetRoutes = require("./routes/timesheet.routes");
@@ -50,6 +50,11 @@ const birthdayRoutes = require("./routes/birthday.routes");
 const holidayRoutes = require("./routes/holiday.routes");
 const reportRoutes = require("./routes/report.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const workUpdatesRoutes = require("./routes/workupdates.routes");
+const adminTimesheetRoutes = require("./routes/admin-timesheet.routes");
+
+// Import notification service
+const timesheetNotificationService = require("./utils/timesheet-notification.service");
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -304,6 +309,12 @@ app.use("/api/reports", reportRoutes);
 // Notification Routes
 app.use("/api/notifications", notificationRoutes);
 
+// Work Updates Routes (Employee)
+app.use("/api/work-updates", workUpdatesRoutes);
+
+// Admin Timesheet Verification Routes
+app.use("/api/admin/timesheet", adminTimesheetRoutes);
+
 /* ============ SWAGGER API DOCUMENTATION ============ */
 
 // Serve Swagger UI
@@ -360,6 +371,9 @@ app.get("/api/health", (req, res) => {
 
         const PORT = process.env.PORT || 3000;
         const ENV = process.env.NODE_ENV || 'development';
+        
+        // Start timesheet notification service
+        timesheetNotificationService.start();
         
         app.listen(PORT, () => {
             console.log(`\n╔══════════════════════════════════════════════╗`);

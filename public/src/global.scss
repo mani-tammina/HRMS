@@ -1,0 +1,99 @@
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+}
+
+// Global Theme Variables
+:root {
+  --app-background: #f5f7fa;
+  --card-background: #ffffff;
+  --text-primary: #2c3e50;
+  --text-secondary: #7f8c8d;
+  --border-color: #e8ecef;
+  --gradient-primary: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+  --gradient-success: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  --gradient-warning: linear-gradient(135deg, #f2994a 0%, #f2c94c 100%);
+  --gradient-danger: linear-gradient(135deg, #eb3349 0%, #f45c43 100%);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+// Global Card Styles
+ion-card {
+  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-md);
+  margin: 0 0 1rem 0;
+
+  &:hover {
+    box-shadow: var(--shadow-md);
+    transition: box-shadow 0.3s ease;
+  }
+}
+
+// Global Button Styles
+ion-button {
+  --border-radius: var(--radius-sm);
+  font-weight: 500;
+  text-transform: none;
+}
+
+// Global Content Background
+ion-content {
+  --background: var(--app-background);
+}
+
+// Global Toolbar Styles
+ion-toolbar {
+  --background: var(--card-background);
+  --border-color: var(--border-color);
+}
+
+// Card Header Styles
+.card-header-flex {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  ion-card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .view-link {
+    font-size: 0.85rem;
+    color: var(--ion-color-primary);
+    cursor: pointer;
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
