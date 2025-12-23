@@ -1251,85 +1251,6 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/my": {
-            get: {
-                summary: "Get My Leaves",
-                tags: ["🏖️ Leave Management"],
-                responses: {
-                    200: { description: "My leave applications" }
-                }
-            }
-        },
-        "/api/leaves/pending": {
-            get: {
-                summary: "Get Pending Leaves (HR)",
-                tags: ["🏖️ Leave Management"],
-                responses: {
-                    200: { description: "Pending leave requests" }
-                }
-            }
-        },
-        "/api/leaves/approve/{leaveId}": {
-            put: {
-                summary: "Approve Leave/WFH (HR)",
-                tags: ["🏖️ Leave Management"],
-                parameters: [{
-                    name: "leaveId",
-                    in: "path",
-                    required: true,
-                    schema: { type: "integer" }
-                }],
-                responses: {
-                    200: { description: "Approved successfully" }
-                }
-            }
-        },
-        "/api/leaves/reject/{leaveId}": {
-            put: {
-                summary: "Reject Leave/WFH (HR)",
-                tags: ["🏖️ Leave Management"],
-                parameters: [{
-                    name: "leaveId",
-                    in: "path",
-                    required: true,
-                    schema: { type: "integer" }
-                }],
-                responses: {
-                    200: { description: "Rejected successfully" }
-                }
-            }
-        },
-        "/api/leaves/balance/{employee_id}": {
-            get: {
-                summary: "Get Leave Balance",
-                tags: ["🏖️ Leave Management"],
-                parameters: [{
-                    name: "employee_id",
-                    in: "path",
-                    required: true,
-                    schema: { type: "integer" }
-                }],
-                responses: {
-                    200: { description: "Leave balance by type" }
-                }
-            }
-        },
-        "/api/leaves/types": {
-            get: {
-                summary: "Get Leave Types",
-                tags: ["🏖️ Leave Management"],
-                responses: {
-                    200: { description: "List of leave types" }
-                }
-            },
-            post: {
-                summary: "Create Leave Type (Admin)",
-                tags: ["🏖️ Leave Management"],
-                responses: {
-                    200: { description: "Leave type created" }
-                }
-            }
-        },
         
         // ============ ENHANCED LEAVE MANAGEMENT SYSTEM ============
         "/api/leaves/plans": {
@@ -1344,7 +1265,7 @@ const swaggerSpec = {
                             schema: {
                                 type: "object",
                                 properties: {
-                                    plan_name: { type: "string", example: "Standard Plan 2025" },
+                                    name: { type: "string", example: "Standard Plan 2025" },
                                     leave_year_start_month: { type: "integer", example: 1 },
                                     leave_year_start_day: { type: "integer", example: 1 },
                                     description: { type: "string", example: "Standard leave plan for all permanent employees" },
@@ -1354,32 +1275,29 @@ const swaggerSpec = {
                                             type: "object",
                                             properties: {
                                                 leave_type_id: { type: "integer" },
-                                                allocated_days: { type: "number" },
-                                                prorate_on_joining: { type: "boolean" },
-                                                min_days_to_prorate: { type: "integer" }
+                                                days_allocated: { type: "number" },
+                                                prorate_on_joining: { type: "boolean" }
                                             }
                                         }
                                     }
                                 },
-                                required: ["plan_name", "allocations"]
+                                required: ["name", "allocations"]
                             },
                             example: {
-                                plan_name: "Standard Plan 2025",
+                                name: "Standard Plan 2025",
                                 leave_year_start_month: 1,
                                 leave_year_start_day: 1,
                                 description: "Standard leave allocation for all permanent employees",
                                 allocations: [
                                     {
                                         leave_type_id: 1,
-                                        allocated_days: 12,
-                                        prorate_on_joining: true,
-                                        min_days_to_prorate: 1
+                                        days_allocated: 12,
+                                        prorate_on_joining: true
                                     },
                                     {
                                         leave_type_id: 2,
-                                        allocated_days: 7,
-                                        prorate_on_joining: false,
-                                        min_days_to_prorate: 0
+                                        days_allocated: 7,
+                                        prorate_on_joining: false
                                     }
                                 ]
                             }
@@ -1393,8 +1311,8 @@ const swaggerSpec = {
                             "application/json": {
                                 example: {
                                     success: true,
-                                    message: "Leave plan created successfully with 2 allocations",
-                                    plan_id: 1
+                                    message: "Leave plan created successfully",
+                                    planId: 1
                                 }
                             }
                         }
@@ -1479,13 +1397,31 @@ const swaggerSpec = {
                 requestBody: {
                     content: {
                         "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    name: { type: "string" },
+                                    description: { type: "string" },
+                                    allocations: {
+                                        type: "array",
+                                        items: {
+                                            type: "object",
+                                            properties: {
+                                                leave_type_id: { type: "integer" },
+                                                days_allocated: { type: "number" },
+                                                prorate_on_joining: { type: "boolean" }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
                             example: {
-                                plan_name: "Updated Standard Plan 2025",
+                                name: "Updated Standard Plan 2025",
                                 description: "Updated description",
                                 allocations: [
                                     {
                                         leave_type_id: 1,
-                                        allocated_days: 15,
+                                        days_allocated: 15,
                                         prorate_on_joining: true
                                     }
                                 ]
@@ -1498,7 +1434,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/types/create": {
+        "/api/leaves/types": {
             post: {
                 summary: "✨ Create Leave Type (Admin)",
                 description: "Create new leave type with carry forward configuration",
@@ -1510,17 +1446,18 @@ const swaggerSpec = {
                             schema: {
                                 type: "object",
                                 properties: {
-                                    leave_type_name: { type: "string" },
+                                    type_name: { type: "string" },
                                     type_code: { type: "string" },
                                     is_paid: { type: "boolean" },
                                     requires_approval: { type: "boolean" },
                                     can_carry_forward: { type: "boolean" },
                                     max_carry_forward_days: { type: "integer" },
                                     description: { type: "string" }
-                                }
+                                },
+                                required: ["type_name", "type_code"]
                             },
                             example: {
-                                leave_type_name: "Privilege Leave",
+                                type_name: "Privilege Leave",
                                 type_code: "PL",
                                 is_paid: true,
                                 requires_approval: true,
@@ -1538,16 +1475,13 @@ const swaggerSpec = {
                             "application/json": {
                                 example: {
                                     success: true,
-                                    message: "Leave type created successfully",
-                                    leave_type_id: 5
+                                    id: 5
                                 }
                             }
                         }
                     }
                 }
-            }
-        },
-        "/api/leaves/types/list": {
+            },
             get: {
                 summary: "✨ Get All Leave Types",
                 description: "Get list of all active leave types with configuration",
@@ -1560,20 +1494,20 @@ const swaggerSpec = {
                                 example: [
                                     {
                                         id: 1,
-                                        leave_type_name: "Casual Leave",
+                                        type_name: "Casual Leave",
                                         type_code: "CL",
-                                        is_paid: true,
-                                        requires_approval: true,
-                                        can_carry_forward: false,
+                                        is_paid: 1,
+                                        requires_approval: 1,
+                                        can_carry_forward: 0,
                                         max_carry_forward_days: 0
                                     },
                                     {
                                         id: 2,
-                                        leave_type_name: "Sick Leave",
+                                        type_name: "Sick Leave",
                                         type_code: "SL",
-                                        is_paid: true,
-                                        requires_approval: false,
-                                        can_carry_forward: true,
+                                        is_paid: 1,
+                                        requires_approval: 0,
+                                        can_carry_forward: 1,
                                         max_carry_forward_days: 3
                                     }
                                 ]
@@ -1583,7 +1517,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/types/update/{id}": {
+        "/api/leaves/types/{id}": {
             put: {
                 summary: "✨ Update Leave Type (Admin)",
                 description: "Update leave type configuration",
@@ -1597,8 +1531,20 @@ const swaggerSpec = {
                 requestBody: {
                     content: {
                         "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    type_name: { type: "string" },
+                                    type_code: { type: "string" },
+                                    description: { type: "string" },
+                                    is_paid: { type: "boolean" },
+                                    requires_approval: { type: "boolean" },
+                                    can_carry_forward: { type: "boolean" },
+                                    max_carry_forward_days: { type: "integer" }
+                                }
+                            },
                             example: {
-                                leave_type_name: "Updated Casual Leave",
+                                type_name: "Updated Casual Leave",
                                 can_carry_forward: true,
                                 max_carry_forward_days: 2
                             }
@@ -1606,7 +1552,17 @@ const swaggerSpec = {
                     }
                 },
                 responses: {
-                    200: { description: "Leave type updated" }
+                    200: {
+                        description: "Leave type updated",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave type updated successfully"
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -1735,7 +1691,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/apply-enhanced": {
+        "/api/leaves/apply": {
             post: {
                 summary: "✨ Apply for Leave (Enhanced with Balance Check)",
                 description: "Apply for leave with automatic balance validation. System checks available days before submission.",
@@ -1750,17 +1706,17 @@ const swaggerSpec = {
                                     leave_type_id: { type: "integer" },
                                     start_date: { type: "string", format: "date" },
                                     end_date: { type: "string", format: "date" },
-                                    reason: { type: "string" },
-                                    contact_number: { type: "string" }
+                                    total_days: { type: "number" },
+                                    reason: { type: "string" }
                                 },
-                                required: ["leave_type_id", "start_date", "end_date", "reason"]
+                                required: ["leave_type_id", "start_date", "end_date", "total_days", "reason"]
                             },
                             example: {
                                 leave_type_id: 1,
                                 start_date: "2025-12-25",
                                 end_date: "2025-12-27",
-                                reason: "Family function",
-                                contact_number: "+91 9876543210"
+                                total_days: 3,
+                                reason: "Family function"
                             }
                         }
                     }
@@ -1772,10 +1728,8 @@ const swaggerSpec = {
                             "application/json": {
                                 example: {
                                     success: true,
-                                    message: "Leave applied successfully",
-                                    leave_id: 15,
-                                    total_days: 3,
-                                    remaining_balance: 6
+                                    leaveId: 15,
+                                    message: "Leave application submitted successfully"
                                 }
                             }
                         }
@@ -1794,7 +1748,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/approve-enhanced/{leaveId}": {
+        "/api/leaves/approve/{leaveId}": {
             put: {
                 summary: "✨ Approve Leave (Auto-deduct from Balance)",
                 description: "Approve leave and automatically deduct days from employee balance",
@@ -1837,7 +1791,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/reject-enhanced/{leaveId}": {
+        "/api/leaves/reject/{leaveId}": {
             put: {
                 summary: "✨ Reject Leave (With Reason)",
                 description: "Reject leave application with mandatory rejection reason",
@@ -1880,7 +1834,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/pending-enhanced": {
+        "/api/leaves/pending": {
             get: {
                 summary: "✨ Get Pending Leave Approvals (Manager/Admin)",
                 description: "Get all pending leave requests with employee details and balance information",
@@ -1911,7 +1865,7 @@ const swaggerSpec = {
                 }
             }
         },
-        "/api/leaves/my-leaves-enhanced": {
+        "/api/leaves/my-leaves": {
             get: {
                 summary: "✨ Get My Leave History",
                 description: "Get my complete leave history with status and balance impact",

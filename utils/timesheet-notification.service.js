@@ -3,7 +3,7 @@
 // ============================================
 // Handles automated reminders for missing timesheets
 
-const db = require('../config/database');
+const { db } = require('../config/database');
 const cron = require('node-cron');
 
 class TimesheetNotificationService {

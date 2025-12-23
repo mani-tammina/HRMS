@@ -52,18 +52,18 @@ router.post("/salary/structure/:empId", auth, admin, async (req, res) => {
     const c = await db();
     
     // Check if structure exists
-    const [existing] = await c.query("SELECT id FROM salary_structure WHERE employee_id = ?", [empId]);
+    const [existing] = await c.query("SELECT id FROM salary_structures WHERE employee_id = ?", [empId]);
     
     if (existing.length > 0) {
         // Update
         await c.query(
-            "UPDATE salary_structure SET basic=?, hra=?, conveyance=?, special_allowance=?, pf=?, esi=?, professional_tax=?, other_deductions=?, gross_salary=?, net_salary=? WHERE employee_id=?",
+            "UPDATE salary_structures SET basic=?, hra=?, conveyance=?, special_allowance=?, pf=?, esi=?, professional_tax=?, other_deductions=?, gross_salary=?, net_salary=? WHERE employee_id=?",
             [basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross, net_salary, empId]
         );
     } else {
         // Insert
         await c.query(
-            "INSERT INTO salary_structure (employee_id, basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross_salary, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO salary_structures (employee_id, basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross_salary, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             [empId, basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross, net_salary]
         );
     }
@@ -75,7 +75,7 @@ router.post("/salary/structure/:empId", auth, admin, async (req, res) => {
 // Get salary structure
 router.get("/salary/structure/:empId", auth, async (req, res) => {
     const c = await db();
-    const [r] = await c.query("SELECT * FROM salary_structure WHERE employee_id = ?", [req.params.empId]);
+    const [r] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [req.params.empId]);
     c.end();
     res.json(r[0] || null);
 });
@@ -102,7 +102,7 @@ router.post("/generate", auth, admin, async (req, res) => {
         
         for (const emp of employees) {
             // Get salary structure
-            const [structure] = await c.query("SELECT * FROM salary_structure WHERE employee_id = ?", [emp.id]);
+            const [structure] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [emp.id]);
             
             if (structure.length === 0) continue;
             
@@ -192,7 +192,7 @@ router.post("/recalculate/:empId", auth, admin, async (req, res) => {
     
     try {
         // Get salary structure
-        const [structure] = await c.query("SELECT * FROM salary_structure WHERE employee_id = ?", [empId]);
+        const [structure] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [empId]);
         
         if (structure.length === 0) {
             c.end();

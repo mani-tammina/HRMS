@@ -604,12 +604,23 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
         let skipped = 0;
         let errors = [];
 
+        // Log first row keys for debugging
+        if (rows.length > 0) {
+            console.log('📋 Excel columns found:', Object.keys(rows[0]));
+        }
+
         for (const r of rows) {
             try {
-                const empNo = r.EmployeeNumber || r['Employee Number'] || null;
+                // Try multiple column name variations
+                const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number || 
+                              r['Employee Code'] || r.employee_code || r.EmployeeCode ||
+                              r['Emp No'] || r['Emp Number'] || r.emp_no || null;
+                
                 if (!empNo) {
                     skipped++;
-                    errors.push("Missing EmployeeNumber");
+                    if (errors.length < 10) { // Limit error messages
+                        errors.push(`Missing EmployeeNumber (Available columns: ${Object.keys(r).slice(0, 5).join(', ')}...)`);
+                    }
                     continue;
                 }
 
