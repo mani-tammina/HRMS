@@ -47,10 +47,10 @@ class TimesheetNotificationService {
       const [pendingEmployees] = await db.query(`
         SELECT DISTINCT
           e.id AS employee_id,
-          e.employee_code,
-          e.first_name,
-          e.last_name,
-          e.email,
+          e.EmployeeNumber AS employee_code,
+          e.FirstName AS first_name,
+          e.LastName AS last_name,
+          e.WorkEmail AS email,
           pa.project_id,
           p.project_name,
           p.client_name,
@@ -94,10 +94,10 @@ class TimesheetNotificationService {
       const [pendingEmployees] = await db.query(`
         SELECT DISTINCT
           e.id AS employee_id,
-          e.employee_code,
-          e.first_name,
-          e.last_name,
-          e.email,
+          e.EmployeeNumber AS employee_code,
+          e.FirstName AS first_name,
+          e.LastName AS last_name,
+          e.WorkEmail AS email,
           pa.project_id,
           p.project_name,
           p.client_name,
@@ -279,9 +279,9 @@ class TimesheetNotificationService {
       const [notifications] = await db.query(`
         SELECT 
           tn.*,
-          e.email AS employee_email,
-          e.first_name,
-          e.last_name
+          e.WorkEmail AS employee_email,
+          e.FirstName AS first_name,
+          e.LastName AS last_name
         FROM timesheet_notifications tn
         INNER JOIN employees e ON tn.employee_id = e.id
         WHERE tn.status = 'pending'
