@@ -75,3 +75,16 @@ ion-list {
     }
   }
 }
+
+.section-header {
+  padding: 1rem 0 0.5rem;
+  margin-top: 1rem;
+  border-top: 1px solid var(--ion-color-light);
+
+  h3 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ion-color-primary);
+  }
+}

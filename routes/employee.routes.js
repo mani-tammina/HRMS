@@ -94,7 +94,7 @@ router.get("/:id/details", auth, async (req, res) => {
     
     // Get recent attendance (last 30 days)
     const [attendance] = await c.query(
-        `SELECT attendance_date, check_in, check_out, total_hours, work_mode, status 
+        `SELECT attendance_date, first_check_in, last_check_out, total_work_hours as total_hours, work_mode, status 
          FROM attendance 
          WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
          ORDER BY attendance_date DESC`,
@@ -222,13 +222,25 @@ router.get("/profile/me", auth, async (req, res) => {
 
 // Update my profile
 router.put("/profile/me", auth, async (req, res) => {
-    const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
-    
-    const c = await db();
-    await c.query("UPDATE employees SET ? WHERE id = ?", [req.body, emp.id]);
-    c.end();
-    res.json({ success: true });
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        // Remove any read-only fields that shouldn't be updated
+        const updateData = { ...req.body };
+        delete updateData.id;
+        delete updateData.EmployeeNumber;
+        delete updateData.WorkEmail;
+        delete updateData.user_id;
+        
+        const c = await db();
+        await c.query("UPDATE employees SET ? WHERE id = ?", [updateData, emp.id]);
+        c.end();
+        res.json({ success: true, message: "Profile updated successfully" });
+    } catch (error) {
+        console.error("Error updating profile:", error);
+        res.status(500).json({ error: error.message || "Failed to update profile" });
+    }
 });
 
 module.exports = router;

@@ -9,7 +9,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { LeaveService, Leave } from '@core/services/leave.service';
 import { addIcons } from 'ionicons';
-import { addOutline, documentTextOutline, checkmarkCircleOutline, closeCircleOutline, timeOutline } from 'ionicons/icons';
+import { addOutline, documentTextOutline, checkmarkCircleOutline, closeCircleOutline, timeOutline, sunnyOutline, medicalOutline, homeOutline, closeCircleOutline as closeCircle } from 'ionicons/icons';
 
 @Component({
   selector: 'app-leaves',
@@ -27,12 +27,13 @@ import { addOutline, documentTextOutline, checkmarkCircleOutline, closeCircleOut
 export class LeavesPage implements OnInit {
   leaves: Leave[] = [];
   leaveBalance: any = null;
+  leaveBalances: any[] = [];
 
   constructor(
     private leaveService: LeaveService,
     private router: Router
   ) {
-    addIcons({ addOutline, documentTextOutline, checkmarkCircleOutline, closeCircleOutline, timeOutline });
+    addIcons({ addOutline, documentTextOutline, checkmarkCircleOutline, closeCircleOutline, timeOutline, sunnyOutline, medicalOutline, homeOutline });
   }
 
   ngOnInit() {
@@ -45,7 +46,17 @@ export class LeavesPage implements OnInit {
     });
 
     this.leaveService.getLeaveBalance().subscribe({
-      next: (balance) => this.leaveBalance = balance
+      next: (balance: any) => {
+        this.leaveBalance = balance;
+        // Store detailed leave balances for display
+        if (balance.balances && Array.isArray(balance.balances)) {
+          this.leaveBalances = balance.balances;
+        } else if (balance.leave_balances && Array.isArray(balance.leave_balances)) {
+          this.leaveBalances = balance.leave_balances;
+        } else if (Array.isArray(balance)) {
+          this.leaveBalances = balance;
+        }
+      }
     });
   }
 
@@ -74,5 +85,18 @@ export class LeavesPage implements OnInit {
 
   requestLeave() {
     this.router.navigate(['/leave-request']);
+  }
+
+  getLeaveIcon(typeCode: string): string {
+    const iconMap: { [key: string]: string } = {
+      'AL': 'sunny-outline',
+      'PL': 'sunny-outline',
+      'SL': 'medical-outline',
+      'ML': 'medical-outline',
+      'CL': 'home-outline',
+      'LWP': 'close-circle-outline',
+      'UL': 'close-circle-outline'
+    };
+    return iconMap[typeCode] || 'calendar-outline';
   }
 }

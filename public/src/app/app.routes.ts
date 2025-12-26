@@ -98,6 +98,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'admin/payroll',
+    loadComponent: () => import('./pages/admin-payroll/admin-payroll.page').then(m => m.AdminPayrollPage),
+    canActivate: [authGuard]
+  },
+  {
     path: 'timesheets',
     loadComponent: () => import('./pages/timesheets/timesheets.page').then(m => m.TimesheetsPage),
     canActivate: [authGuard]

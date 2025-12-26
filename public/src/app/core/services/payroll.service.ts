@@ -53,6 +53,14 @@ export interface SalaryStructure {
   effective_to: string | null;
 }
 
+export interface PayrollDefaults {
+  id?: number;
+  pf_percent: number;
+  esi_percent: number;
+  professional_tax: number;
+  variable_pay_percent: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -126,6 +134,45 @@ export class PayrollService {
     return this.http.put<{ success: boolean; message: string }>(
       `${this.apiUrl}/${runId}/mark-paid`,
       {}
+    );
+  }
+
+  // Get Payroll Defaults (HR/Admin)
+  getPayrollDefaults(): Observable<PayrollDefaults> {
+    return this.http.get<PayrollDefaults>(`${this.apiUrl}/defaults`);
+  }
+
+  // Create Payroll Defaults (Admin)
+  createPayrollDefaults(defaults: PayrollDefaults): Observable<{ id: number; success: boolean }> {
+    return this.http.post<{ id: number; success: boolean }>(
+      `${this.apiUrl}/defaults`,
+      defaults
+    );
+  }
+
+  // Update Payroll Defaults (Admin)
+  updatePayrollDefaults(id: number, defaults: PayrollDefaults): Observable<{ success: boolean }> {
+    return this.http.put<{ success: boolean }>(
+      `${this.apiUrl}/defaults/${id}`,
+      defaults
+    );
+  }
+
+  // Get All Payroll Runs (HR/Admin)
+  getAllPayrollRuns(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/runs`);
+  }
+
+  // Get All Salary Slips (HR/Admin)
+  getAllPayslips(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/slips/all`);
+  }
+
+  // Recalculate Payslip (Admin)
+  recalculatePayslip(employeeId: number, month: number, year: number): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/recalculate/${employeeId}`,
+      { month, year }
     );
   }
 }

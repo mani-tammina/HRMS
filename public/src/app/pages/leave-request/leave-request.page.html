@@ -26,13 +26,13 @@
             <ion-label>
               <h4>{{balance.type_name}} ({{balance.type_code}})</h4>
               <p style="color: var(--ion-color-medium); font-size: 0.9em;">
-                Allocated: {{balance.allocated_days}} | 
-                Used: {{balance.used_days}} | 
-                Pending: {{balance.pending_days}}
+                Used: {{balance.used_days}} / {{balance.allocated_days}} | 
+                <span style="color: var(--ion-color-success); font-weight: 600;">{{balance.available_days}} remaining</span>
+                <span *ngIf="balance.pending_days > 0"> | Pending: {{balance.pending_days}}</span>
               </p>
             </ion-label>
             <ion-badge slot="end" [color]="balance.available_days > 0 ? 'success' : 'danger'">
-              {{balance.available_days}} available
+              {{balance.available_days}}
             </ion-badge>
           </ion-item>
         </ion-list>

@@ -4,20 +4,23 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-  IonAvatar, IonMenuButton, ToastController
+  IonAvatar, IonMenuButton, ToastController, AlertController, IonFab, IonFabButton
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '@core/services/auth.service';
 import { AttendanceService } from '@core/services/attendance.service';
 import { LeaveService } from '@core/services/leave.service';
 import { EmployeeService, Employee } from '@core/services/employee.service';
+import { AnnouncementService, Announcement } from '@core/services/announcement.service';
+import { BirthdayService, BirthdayEmployee } from '@core/services/birthday.service';
 import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { 
   notificationsOutline, calendarOutline, timeOutline, 
   documentTextOutline, peopleOutline, trendingUpOutline,
   checkmarkCircleOutline, closeCircleOutline, hourglassOutline,
-  settingsOutline, cloudUploadOutline, shieldOutline
+  settingsOutline, cloudUploadOutline, shieldOutline, addOutline, balloonOutline,
+  giftOutline, sendOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -30,7 +33,7 @@ import {
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
     IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-    IonAvatar, IonMenuButton
+    IonAvatar, IonMenuButton, IonFab, IonFabButton
   ]
 })
 export class HomePage implements OnInit, OnDestroy {
@@ -53,30 +56,26 @@ export class HomePage implements OnInit, OnDestroy {
     attendanceRate: 0
   };
 
-  announcements = [
-    { title: 'Happy Thanksgiving Day holiday - 27th & 28th Nov Company will remain closed on these dates', time: '26 Dec 2025 • 12:30 PM' },
-    { title: 'Happy Thanksgiving Day holiday - 27th & 28th Nov Company will remain closed on these dates', time: '26 Dec 2025 • 12:30 PM' },
-    { title: 'Happy Thanksgiving Day holiday - 27th & 28th Nov Company will remain closed on these dates', time: '26 Dec 2025 • 12:30 PM' }
-  ];
-
-  celebrations = [
-    { name: 'Jenny Wilson', type: 'Birthday', date: '26 Dec', avatar: 'assets/avatar-placeholder.png' },
-    { name: 'Darrell Steward', type: 'Birthday', date: '26 Dec', avatar: 'assets/avatar-placeholder.png' },
-    { name: 'Shivani Pandey', type: 'Work Anniversary', date: '26 Dec', avatar: 'assets/avatar-placeholder.png' }
-  ];
+  announcements: Announcement[] = [];
+  birthdays: BirthdayEmployee[] = [];
+  isHR = false;
 
   constructor(
     private authService: AuthService,
     private attendanceService: AttendanceService,
     private leaveService: LeaveService,
     private employeeService: EmployeeService,
+    private announcementService: AnnouncementService,
+    private birthdayService: BirthdayService,
     private router: Router,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private alertController: AlertController
   ) {
     addIcons({ 
       notificationsOutline, calendarOutline, timeOutline, 
       documentTextOutline, peopleOutline, trendingUpOutline,
-      settingsOutline, cloudUploadOutline, shieldOutline
+      settingsOutline, cloudUploadOutline, shieldOutline, addOutline,
+      balloonOutline, giftOutline, sendOutline
     });
   }
 
@@ -85,11 +84,14 @@ export class HomePage implements OnInit, OnDestroy {
     this.userSubscription = this.authService.currentUser$.subscribe(user => {
       this.user = user;
       this.isAdmin = user?.role === 'admin' || user?.role === 'hr';
+      this.isHR = user?.role === 'hr' || user?.role === 'admin';
       console.log('Home: User role updated:', user?.role, 'isAdmin:', this.isAdmin);
     });
     
     this.updateTime();
     this.loadData();
+    this.loadAnnouncements();
+    this.loadBirthdays();
     
     // Update time every minute
     setInterval(() => this.updateTime(), 60000);
@@ -223,6 +225,10 @@ export class HomePage implements OnInit, OnDestroy {
     this.router.navigate(['/notifications']);
   }
 
+  goToProfile() {
+    this.router.navigate(['/tabs/profile']);
+  }
+
   handleImageError(event: Event): void {
     const target = event.target as HTMLImageElement;
     target.src = 'assets/avatar-placeholder.png';
@@ -291,5 +297,152 @@ export class HomePage implements OnInit, OnDestroy {
       'UL': 'close-circle-outline'
     };
     return iconMap[typeCode] || 'calendar-outline';
+  }
+
+  loadAnnouncements() {
+    this.announcementService.getAnnouncements().subscribe({
+      next: (announcements) => {
+        this.announcements = announcements.slice(0, 3); // Show only 3 most recent
+        console.log('Loaded announcements:', this.announcements);
+      },
+      error: (error) => console.error('Error loading announcements:', error)
+    });
+  }
+
+  loadBirthdays() {
+    this.birthdayService.getBirthdays('today').subscribe({
+      next: (birthdays) => {
+        this.birthdays = birthdays;
+        console.log('Loaded birthdays:', this.birthdays);
+      },
+      error: (error) => console.error('Error loading birthdays:', error)
+    });
+  }
+
+  async addAnnouncement() {
+    const alert = await this.alertController.create({
+      header: 'New Announcement',
+      inputs: [
+        {
+          name: 'title',
+          type: 'text',
+          placeholder: 'Announcement Title',
+          attributes: {
+            maxlength: 200
+          }
+        },
+        {
+          name: 'message',
+          type: 'textarea',
+          placeholder: 'Announcement Message',
+          attributes: {
+            rows: 4
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Create',
+          handler: (data) => {
+            if (!data.title || !data.message) {
+              this.showToast('Title and message are required', 'warning');
+              return false;
+            }
+            this.createAnnouncement(data);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  createAnnouncement(data: any) {
+    const announcement = {
+      title: data.title,
+      message: data.message
+    };
+
+    this.announcementService.createAnnouncement(announcement).subscribe({
+      next: (response) => {
+        this.showToast('Announcement created successfully!', 'success');
+        this.loadAnnouncements(); // Reload to show new announcement
+      },
+      error: (error) => {
+        console.error('Error creating announcement:', error);
+        this.showToast(error.error?.error || 'Failed to create announcement', 'danger');
+      }
+    });
+  }
+
+  async sendBirthdayWish(employee: BirthdayEmployee) {
+    const alert = await this.alertController.create({
+      header: `Send Birthday Wish to ${employee.FirstName} ${employee.LastName}`,
+      inputs: [
+        {
+          name: 'message',
+          type: 'textarea',
+          placeholder: 'Enter your birthday wish...',
+          value: `Happy Birthday ${employee.FirstName}! 🎉 Wishing you a wonderful day!`,
+          attributes: {
+            rows: 4
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Send Wish',
+          handler: (data) => {
+            if (!data.message) {
+              this.showToast('Please enter a message', 'warning');
+              return false;
+            }
+            this.sendWish(employee.id, data.message);
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  sendWish(employeeId: number, message: string) {
+    this.birthdayService.sendWish(employeeId, message).subscribe({
+      next: (response) => {
+        this.showToast('Birthday wish sent successfully!', 'success');
+      },
+      error: (error) => {
+        console.error('Error sending wish:', error);
+        this.showToast(error.error?.error || 'Failed to send wish', 'danger');
+      }
+    });
+  }
+
+  formatBirthdayDate(dateOfBirth: string): string {
+    if (!dateOfBirth) return '';
+    const date = new Date(dateOfBirth);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  formatAnnouncementDate(dateString: string): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { 
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   }
 }
