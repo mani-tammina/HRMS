@@ -27,6 +27,21 @@
   margin-left: 8px;
 }
 
+.role-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-right: 8px;
+
+  ion-button {
+    margin: 0;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    font-size: 11px;
+    min-width: 70px;
+  }
+}
+
 .quick-actions {
   display: flex;
   flex-direction: column;

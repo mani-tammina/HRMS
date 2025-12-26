@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '@env/environment';
 
 export interface User {
@@ -11,6 +12,9 @@ export interface User {
   email?: string;
   created_at?: string;
   last_login?: string;
+  employee_id?: number;
+  EmployeeNumber?: string;
+  EmploymentStatus?: string;
 }
 
 export interface UserRoleUpdate {
@@ -28,7 +32,9 @@ export class UserService {
 
   // Get all users
   getUsers(): Observable<User[]> {
-    return this.http.get<User[]>(`${this.apiUrl}/users`);
+    return this.http.get<any>(`${this.apiUrl}/users`).pipe(
+      map(response => response.users || response)
+    );
   }
 
   // Get single user

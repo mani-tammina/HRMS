@@ -39,7 +39,7 @@ export class UsersPage implements OnInit {
     admin: 'danger',
     hr: 'warning',
     manager: 'primary',
-    employee: 'medium'
+    employee: 'success'
   };
 
   roleIcons: { [key: string]: string } = {
@@ -100,6 +100,32 @@ export class UsersPage implements OnInit {
       user.email?.toLowerCase().includes(searchTerm) ||
       user.role.toLowerCase().includes(searchTerm)
     );
+  }
+
+  async toggleRole(user: User, targetRole: string) {
+    if (user.role === targetRole) {
+      this.showToast(`User is already ${targetRole}`, 'warning');
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Confirm Role Change',
+      message: `Change ${user.full_name || user.username} from ${user.role.toUpperCase()} to ${targetRole.toUpperCase()}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Confirm',
+          handler: () => {
+            this.updateRole(user, targetRole);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   async changeUserRole(user: User) {

@@ -69,55 +69,48 @@
           <ion-badge [color]="roleColors[user.role]">
             {{ user.role | uppercase }}
           </ion-badge>
-          <span *ngIf="user.last_login" class="user-meta">
-            Last login: {{ user.last_login | date:'short' }}
+          <span *ngIf="user.employee_id" class="user-meta">
+            #{{ user.EmployeeNumber }}
           </span>
         </p>
       </ion-label>
       
-      <ion-button 
-        slot="end" 
-        fill="clear" 
-        size="small"
-        (click)="changeUserRole(user)">
-        Change Role
-      </ion-button>
-    </ion-item>
-  </ion-list>
-
-  <!-- Quick Action Buttons for Testing -->
-  <ion-card *ngIf="filteredUsers.length > 0">
-    <ion-card-content>
-      <h3>Quick Test Actions (First User)</h3>
-      <p class="ion-text-wrap">
-        Testing user: <strong>{{ filteredUsers[0].full_name || filteredUsers[0].username }}</strong>
-        (Current role: <ion-badge [color]="roleColors[filteredUsers[0].role || 'employee']">{{ filteredUsers[0].role }}</ion-badge>)
-      </p>
-      <div class="quick-actions">
+      <div slot="end" class="role-buttons">
         <ion-button 
-          expand="block" 
-          color="warning"
-          (click)="quickActionMakeHR(filteredUsers[0])">
-          <ion-icon name="briefcase-outline" slot="start"></ion-icon>
-          Make HR
+          size="small" 
+          [fill]="user.role === 'admin' ? 'solid' : 'outline'" 
+          [color]="user.role === 'admin' ? 'danger' : 'medium'"
+          (click)="toggleRole(user, 'admin')"
+          [disabled]="isLoading">
+          Admin
         </ion-button>
         <ion-button 
-          expand="block" 
-          color="primary"
-          (click)="quickActionMakeManager(filteredUsers[0])">
-          <ion-icon name="people-outline" slot="start"></ion-icon>
-          Make Manager
+          size="small" 
+          [fill]="user.role === 'hr' ? 'solid' : 'outline'" 
+          [color]="user.role === 'hr' ? 'warning' : 'medium'"
+          (click)="toggleRole(user, 'hr')"
+          [disabled]="isLoading">
+          HR
         </ion-button>
         <ion-button 
-          expand="block" 
-          color="medium"
-          (click)="quickActionMakeEmployee(filteredUsers[0])">
-          <ion-icon name="person-outline" slot="start"></ion-icon>
-          Make Employee
+          size="small" 
+          [fill]="user.role === 'manager' ? 'solid' : 'outline'" 
+          [color]="user.role === 'manager' ? 'primary' : 'medium'"
+          (click)="toggleRole(user, 'manager')"
+          [disabled]="isLoading">
+          Manager
+        </ion-button>
+        <ion-button 
+          size="small" 
+          [fill]="user.role === 'employee' ? 'solid' : 'outline'" 
+          [color]="user.role === 'employee' ? 'success' : 'medium'"
+          (click)="toggleRole(user, 'employee')"
+          [disabled]="isLoading">
+          Employee
         </ion-button>
       </div>
-    </ion-card-content>
-  </ion-card>
+    </ion-item>
+  </ion-list>
 
   <!-- Empty State -->
   <div *ngIf="!isLoading && filteredUsers.length === 0" class="empty-state">
