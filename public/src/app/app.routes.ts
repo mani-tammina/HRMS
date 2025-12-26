@@ -38,6 +38,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/timesheets/timesheets.page').then(m => m.TimesheetsPage)
       },
       {
+        path: 'manager-approvals',
+        loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage)
+      },
+      {
         path: 'profile',
         loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
       },

@@ -56,7 +56,8 @@ export class AuthService {
                 name: employeeData?.FullName || `${employeeData?.FirstName || ''} ${employeeData?.LastName || ''}`.trim() || response.user.username,
                 role: response.user.role || 'employee',
                 department: employeeData?.department_name,
-                position: employeeData?.designation_name
+                position: employeeData?.designation_name,
+                avatar: employeeData?.ProfilePicture || 'assets/avatar-placeholder.png'
               };
               this.setUser(user);
             }),
@@ -66,7 +67,8 @@ export class AuthService {
                 id: response.user.id.toString(),
                 email: response.user.username,
                 name: response.user.username,
-                role: response.user.role || 'employee'
+                role: response.user.role || 'employee',
+                avatar: 'assets/avatar-placeholder.png'
               };
               this.setUser(user);
               return of(response);

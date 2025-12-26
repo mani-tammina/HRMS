@@ -1,19 +1,31 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { 
   IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline } from 'ionicons/icons';
+import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline, peopleOutline } from 'ionicons/icons';
+import { AuthService, User } from '@core/services/auth.service';
 
 @Component({
   selector: 'app-tabs',
   templateUrl: './tabs.page.html',
   styleUrls: ['./tabs.page.scss'],
   standalone: true,
-  imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel]
+  imports: [CommonModule, IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel]
 })
-export class TabsPage {
-  constructor() {
-    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline });
+export class TabsPage implements OnInit {
+  user: User | null = null;
+  isManager = false;
+
+  constructor(private authService: AuthService) {
+    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline });
+  }
+
+  ngOnInit() {
+    this.authService.currentUser$.subscribe(user => {
+      this.user = user;
+      this.isManager = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'hr';
+    });
   }
 }

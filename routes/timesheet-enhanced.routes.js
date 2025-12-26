@@ -717,13 +717,13 @@ router.put("/manager/approve/:timesheetId", auth, async (req, res) => {
         // Update timesheet status
         await c.query(
             `UPDATE timesheets 
-             SET status = 'approved', verified_by = ?, verified_at = NOW()
+             SET status = 'verified', verified_by = ?, verified_at = NOW()
              WHERE id = ?`,
             [req.user.id, req.params.timesheetId]
         );
 
         c.end();
-        res.json({ success: true, message: "Timesheet approved successfully" });
+        res.json({ success: true, message: "Timesheet verified successfully" });
     } catch (error) {
         console.error("Error approving timesheet:", error);
         res.status(500).json({ error: error.message });

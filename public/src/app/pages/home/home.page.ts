@@ -10,6 +10,7 @@ import { CommonModule } from '@angular/common';
 import { AuthService, User } from '@core/services/auth.service';
 import { AttendanceService } from '@core/services/attendance.service';
 import { LeaveService } from '@core/services/leave.service';
+import { EmployeeService, Employee } from '@core/services/employee.service';
 import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { 
@@ -42,6 +43,9 @@ export class HomePage implements OnInit, OnDestroy {
   isLoading = false;
   canPunchIn = true;
   canPunchOut = false;
+  currentEmployee: any = null;
+  teamMembers: Employee[] = [];
+  leaveBalances: any[] = [];
   stats = {
     workHours: '0h 0m',
     leavesUsed: 0,
@@ -65,6 +69,7 @@ export class HomePage implements OnInit, OnDestroy {
     private authService: AuthService,
     private attendanceService: AttendanceService,
     private leaveService: LeaveService,
+    private employeeService: EmployeeService,
     private router: Router,
     private toastController: ToastController
   ) {
@@ -108,6 +113,22 @@ export class HomePage implements OnInit, OnDestroy {
 
   loadData() {
     console.log('Loading dashboard data...');
+    
+    // Load current employee profile
+    this.employeeService.getMyProfile().subscribe({
+      next: (profile) => {
+        console.log('Current employee profile:', profile);
+        this.currentEmployee = profile;
+        
+        // If user is a manager, load team members
+        if (this.user?.role === 'manager' || this.isAdmin) {
+          this.loadTeamMembers(profile.id);
+        }
+      },
+      error: (error) => console.error('Error loading profile:', error)
+    });
+
+    // Load attendance
     this.attendanceService.getTodayStatus().subscribe({
       next: (response) => {
         console.log('Today status data:', response);
@@ -129,19 +150,39 @@ export class HomePage implements OnInit, OnDestroy {
       error: (error) => console.error('Error loading attendance:', error)
     });
 
+    // Load leave balance with details
     this.leaveService.getLeaveBalance().subscribe({
-      next: (balance) => {
+      next: (balance: any) => {
+        console.log('Leave balance data:', balance);
         this.stats.leavesUsed = balance.used || 0;
         this.stats.attendanceRate = balance.attendanceRate || 0;
+        
+        // Store detailed leave balances for display
+        if (balance.balances && Array.isArray(balance.balances)) {
+          this.leaveBalances = balance.balances;
+        } else if (balance.leave_balances && Array.isArray(balance.leave_balances)) {
+          this.leaveBalances = balance.leave_balances;
+        }
       },
       error: (error) => console.error('Error loading leave balance:', error)
     });
 
+    // Load pending leaves count
     this.leaveService.getLeaves().subscribe({
       next: (leaves) => {
         this.stats.leavesPending = leaves.filter(l => l.status === 'pending').length;
       },
       error: (error) => console.error('Error loading leaves:', error)
+    });
+  }
+
+  loadTeamMembers(managerId: string) {
+    this.employeeService.getTeamMembers(managerId).subscribe({
+      next: (members) => {
+        console.log('Team members:', members);
+        this.teamMembers = members.slice(0, 5); // Show only first 5
+      },
+      error: (error) => console.error('Error loading team members:', error)
     });
   }
 
@@ -237,5 +278,18 @@ export class HomePage implements OnInit, OnDestroy {
       position: 'top'
     });
     await toast.present();
+  }
+
+  getLeaveIcon(typeCode: string): string {
+    const iconMap: { [key: string]: string } = {
+      'AL': 'sunny-outline',
+      'PL': 'sunny-outline',
+      'SL': 'medical-outline',
+      'ML': 'medical-outline',
+      'CL': 'home-outline',
+      'LWP': 'close-circle-outline',
+      'UL': 'close-circle-outline'
+    };
+    return iconMap[typeCode] || 'calendar-outline';
   }
 }

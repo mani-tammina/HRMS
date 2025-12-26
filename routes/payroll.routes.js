@@ -176,7 +176,7 @@ router.get("/runs", auth, hr, async (req, res) => {
 router.get("/:run", auth, async (req, res) => {
     const c = await db();
     const [r] = await c.query(
-        "SELECT ps.*, e.FirstName, e.LastName FROM payroll_slips ps LEFT JOIN employees e ON ps.employee_id = e.id WHERE ps.run_id = ?",
+        "SELECT ps.*, e.FirstName, e.LastName FROM payroll_slips ps LEFT JOIN employees e ON ps.employee_id = e.id WHERE ps.payroll_run_id = ?",
         [req.params.run]
     );
     c.end();

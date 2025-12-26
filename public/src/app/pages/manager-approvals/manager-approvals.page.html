@@ -1,0 +1,165 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Team Approvals</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="approvals-container">
+    <!-- Segment Control -->
+    <ion-segment [value]="selectedSegment" (ionChange)="segmentChanged($event)">
+      <ion-segment-button value="leaves">
+        <ion-icon name="calendar-outline"></ion-icon>
+        <ion-label>Leave Requests</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="timesheets">
+        <ion-icon name="time-outline"></ion-icon>
+        <ion-label>Timesheets</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+
+    <!-- Pending Leaves -->
+    <div *ngIf="selectedSegment === 'leaves'">
+      <div class="section-header">
+        <h3>Pending Leave Requests</h3>
+        <ion-badge color="warning">{{ pendingLeaves.length }}</ion-badge>
+      </div>
+
+      <ion-card *ngIf="pendingLeaves.length === 0">
+        <ion-card-content class="empty-state">
+          <ion-icon name="checkmark-circle-outline" size="large" color="success"></ion-icon>
+          <p>No pending leave requests</p>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card *ngFor="let leave of pendingLeaves" class="approval-card">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div>
+              <ion-card-title>{{ leave.FirstName }} {{ leave.LastName }}</ion-card-title>
+              <p class="employee-details">{{ leave.EmployeeNumber }} • {{ leave.WorkEmail }}</p>
+            </div>
+            <ion-badge color="primary">{{ leave.type_name }}</ion-badge>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="leave-details">
+            <div class="detail-row">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span><strong>Period:</strong> {{ leave.start_date | date:'MMM d' }} - {{ leave.end_date | date:'MMM d, y' }}</span>
+            </div>
+            <div class="detail-row">
+              <ion-icon name="time-outline"></ion-icon>
+              <span><strong>Duration:</strong> {{ leave.total_days }} day(s)</span>
+            </div>
+            <div class="detail-row">
+              <ion-icon name="document-text-outline"></ion-icon>
+              <span><strong>Reason:</strong> {{ leave.reason }}</span>
+            </div>
+            <div class="detail-row">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span><strong>Applied:</strong> {{ leave.applied_at | date:'MMM d, y h:mm a' }}</span>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <ion-button 
+              expand="block" 
+              color="success" 
+              (click)="approveLeave(leave)"
+              [disabled]="isLoading">
+              <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+              Approve
+            </ion-button>
+            <ion-button 
+              expand="block" 
+              color="danger" 
+              fill="outline"
+              (click)="rejectLeave(leave)"
+              [disabled]="isLoading">
+              <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+              Reject
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Pending Timesheets -->
+    <div *ngIf="selectedSegment === 'timesheets'">
+      <div class="section-header">
+        <h3>Pending Timesheets</h3>
+        <ion-badge color="warning">{{ pendingTimesheets.length }}</ion-badge>
+      </div>
+
+      <ion-card *ngIf="pendingTimesheets.length === 0">
+        <ion-card-content class="empty-state">
+          <ion-icon name="checkmark-circle-outline" size="large" color="success"></ion-icon>
+          <p>No pending timesheets</p>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card *ngFor="let timesheet of pendingTimesheets" class="approval-card">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div>
+              <ion-card-title>{{ timesheet.FirstName }} {{ timesheet.LastName }}</ion-card-title>
+              <p class="employee-details">{{ timesheet.EmployeeNumber }} • {{ timesheet.WorkEmail }}</p>
+            </div>
+            <ion-badge [color]="timesheet.timesheet_type === 'project' ? 'primary' : 'secondary'">
+              {{ timesheet.timesheet_type | titlecase }}
+            </ion-badge>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="timesheet-details">
+            <div class="detail-row">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span><strong>Date:</strong> {{ timesheet.date | date:'MMM d, y' }}</span>
+            </div>
+            <div class="detail-row">
+              <ion-icon name="time-outline"></ion-icon>
+              <span><strong>Hours:</strong> {{ timesheet.total_hours }}h</span>
+            </div>
+            <div class="detail-row" *ngIf="timesheet.project_name">
+              <ion-icon name="briefcase-outline"></ion-icon>
+              <span><strong>Project:</strong> {{ timesheet.project_name }} ({{ timesheet.project_code }})</span>
+            </div>
+            <div class="detail-row" *ngIf="timesheet.work_description">
+              <ion-icon name="document-text-outline"></ion-icon>
+              <span><strong>Description:</strong> {{ timesheet.work_description }}</span>
+            </div>
+            <div class="detail-row">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <span><strong>Submitted:</strong> {{ timesheet.submission_date | date:'MMM d, y h:mm a' }}</span>
+            </div>
+          </div>
+
+          <div class="action-buttons">
+            <ion-button 
+              expand="block" 
+              color="success" 
+              (click)="approveTimesheet(timesheet)"
+              [disabled]="isLoading">
+              <ion-icon slot="start" name="checkmark-circle-outline"></ion-icon>
+              Approve
+            </ion-button>
+            <ion-button 
+              expand="block" 
+              color="danger" 
+              fill="outline"
+              (click)="rejectTimesheet(timesheet)"
+              [disabled]="isLoading">
+              <ion-icon slot="start" name="close-circle-outline"></ion-icon>
+              Reject
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</ion-content>

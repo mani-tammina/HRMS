@@ -6,14 +6,25 @@ import { environment } from '@env/environment';
 
 export interface Leave {
   id: string;
-  employeeId: string;
-  leaveType: 'sick' | 'casual' | 'annual' | 'unpaid';
-  startDate: string;
-  endDate: string;
-  days: number;
+  employee_id?: number;
+  employeeId?: string;
+  leave_type_id?: number;
+  leaveType?: 'sick' | 'casual' | 'annual' | 'unpaid';
+  type_name?: string;
+  type_code?: string;
+  start_date?: string;
+  startDate?: string;
+  end_date?: string;
+  endDate?: string;
+  total_days?: number;
+  days?: number;
   reason: string;
-  status: 'pending' | 'approved' | 'rejected';
-  createdAt: string;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  applied_at?: string;
+  createdAt?: string;
+  approver_name?: string;
+  approval_date?: string;
+  rejection_reason?: string;
 }
 
 export interface LeaveBalance {
@@ -46,16 +57,16 @@ export interface LeaveTypeOption {
   providedIn: 'root'
 })
 export class LeaveService {
-  private apiUrl = `${environment.apiUrl}/leave`;
+  private apiUrl = `${environment.apiUrl}/leaves`;
 
   constructor(private http: HttpClient) {}
 
   getLeaves(): Observable<Leave[]> {
-    return this.http.get<Leave[]>(`${this.apiUrl}/my`);
+    return this.http.get<Leave[]>(`${this.apiUrl}/my-leaves`);
   }
 
   getLeave(id: string): Observable<Leave> {
-    return this.http.get<Leave[]>(`${this.apiUrl}/my`).pipe(
+    return this.http.get<Leave[]>(`${this.apiUrl}/my-leaves`).pipe(
       map((leaves: Leave[]) => leaves.find(l => l.id === id) || {} as Leave)
     );
   }
@@ -74,18 +85,35 @@ export class LeaveService {
   }
 
   getLeaveBalance(): Observable<any> {
-    return this.http.get<Leave[]>(`${this.apiUrl}/my`).pipe(
-      map((leaves: Leave[]) => {
-        const approved = leaves.filter(l => l.status === 'approved');
-        const used = approved.reduce((sum, l) => sum + (l.days || 0), 0);
-        const pending = leaves.filter(l => l.status === 'pending').length;
-        return {
-          used: used,
-          pending: pending,
-          total: 20,
-          available: 20 - used,
-          attendanceRate: 95
-        };
+    return this.http.get<any>(`${this.apiUrl}/balance`).pipe(
+      map((response: any) => {
+        // If response is an object with balances array
+        if (response && response.balances) {
+          const totalUsed = response.balances.reduce((sum: number, b: any) => sum + (b.used_days || 0), 0);
+          const totalAllocated = response.balances.reduce((sum: number, b: any) => sum + (b.allocated_days || 0), 0);
+          return {
+            used: totalUsed,
+            total: totalAllocated,
+            available: totalAllocated - totalUsed,
+            attendanceRate: response.attendanceRate || 95,
+            balances: response.balances,
+            leave_balances: response.balances
+          };
+        }
+        // If response is direct array
+        if (Array.isArray(response)) {
+          const totalUsed = response.reduce((sum: number, b: any) => sum + (b.used_days || 0), 0);
+          const totalAllocated = response.reduce((sum: number, b: any) => sum + (b.allocated_days || 0), 0);
+          return {
+            used: totalUsed,
+            total: totalAllocated,
+            available: totalAllocated - totalUsed,
+            attendanceRate: 95,
+            balances: response,
+            leave_balances: response
+          };
+        }
+        return response;
       })
     );
   }

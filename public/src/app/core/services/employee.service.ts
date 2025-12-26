@@ -64,4 +64,14 @@ export class EmployeeService {
   deleteEmployee(id: string): Observable<void> {
     return this.http.delete<void>(`${this.apiUrl}/${id}`);
   }
+
+  getTeamMembers(managerId: string): Observable<Employee[]> {
+    return this.http.get<any[]>(`${this.apiUrl}/reporting/${managerId}`).pipe(
+      map(employees => employees.map(emp => this.transformEmployee(emp)))
+    );
+  }
+
+  getMyProfile(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/profile/me`);
+  }
 }

@@ -464,7 +464,15 @@ router.post("/apply", auth, async (req, res) => {
         const emp = await findEmployeeByUserId(req.user.id);
         if (!emp) return res.status(404).json({ error: "Employee not found" });
         
-        const { leave_type_id, start_date, end_date, total_days, reason } = req.body;
+        let { leave_type_id, start_date, end_date, total_days, reason } = req.body;
+        
+        // Calculate total_days if not provided
+        if (!total_days || total_days === null) {
+            const startDate = new Date(start_date);
+            const endDate = new Date(end_date);
+            const timeDiff = endDate.getTime() - startDate.getTime();
+            total_days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+        }
         
         const c = await db();
         await c.beginTransaction();

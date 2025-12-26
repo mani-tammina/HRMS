@@ -61,12 +61,12 @@
             [color]="getStatusColor(leave.status)">
           </ion-icon>
           <ion-label>
-            <h3>{{ leave.leaveType | titlecase }} Leave</h3>
-            <p>{{ leave.startDate | date:'MMM d' }} - {{ leave.endDate | date:'MMM d, y' }}</p>
-            <p>{{ leave.days }} day(s) • {{ leave.reason }}</p>
+            <h3>{{ leave.type_name || leave.leaveType || 'Leave' }}</h3>
+            <p>{{ leave.start_date | date:'MMM d' }} - {{ leave.end_date | date:'MMM d, y' }}</p>
+            <p>{{ leave.total_days || leave.days }} day(s) • {{ leave.reason }}</p>
           </ion-label>
           <ion-badge slot="end" [color]="getStatusColor(leave.status)">
-            {{ leave.status }}
+            {{ leave.status | titlecase }}
           </ion-badge>
         </ion-item>
       </ion-list>
