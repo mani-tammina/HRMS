@@ -13,8 +13,10 @@ const { findEmployeeByUserId } = require("../utils/helpers");
 
 // Check-in (with work mode: Office/WFH/Remote)
 router.post("/checkin", auth, async (req, res) => {
+    console.log('Check-in request from user:', req.user.id, req.user.username);
     const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
+    console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+    if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
     
     const { work_mode, location, notes } = req.body;
     const ip_address = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
@@ -75,8 +77,10 @@ router.post("/checkin", auth, async (req, res) => {
 
 // Check-out
 router.post("/checkout", auth, async (req, res) => {
+    console.log('Check-out request from user:', req.user.id, req.user.username);
     const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
+    console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+    if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
     
     const { notes } = req.body;
     const c = await db();
@@ -114,8 +118,10 @@ router.post("/checkout", auth, async (req, res) => {
 
 // My attendance
 router.get("/me", auth, async (req, res) => {
+    console.log('Get my attendance - user:', req.user.id, req.user.username);
     const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
+    console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+    if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
     
     const { startDate, endDate } = req.query;
     const c = await db();

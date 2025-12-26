@@ -3,7 +3,7 @@ import {
   IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { homeOutline, calendarOutline, documentTextOutline, personOutline } from 'ionicons/icons';
+import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline } from 'ionicons/icons';
 
 @Component({
   selector: 'app-tabs',
@@ -14,6 +14,6 @@ import { homeOutline, calendarOutline, documentTextOutline, personOutline } from
 })
 export class TabsPage {
   constructor() {
-    addIcons({ homeOutline, calendarOutline, documentTextOutline, personOutline });
+    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline });
   }
 }

@@ -105,9 +105,9 @@ export class HomePage implements OnInit, OnDestroy {
     this.attendanceService.getTodayAttendance().subscribe({
       next: (attendance) => {
         this.todayAttendance = attendance;
-        if (attendance?.workHours) {
-          const hours = Math.floor(attendance.workHours);
-          const minutes = Math.round((attendance.workHours - hours) * 60);
+        if (attendance?.total_hours) {
+          const hours = Math.floor(attendance.total_hours);
+          const minutes = Math.round((attendance.total_hours - hours) * 60);
           this.stats.workHours = `${hours}h ${minutes}m`;
         }
       }

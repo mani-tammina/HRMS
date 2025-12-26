@@ -40,14 +40,28 @@ export class AttendancePage implements OnInit {
   }
 
   loadData() {
+    console.log('Loading attendance data...');
     this.attendanceService.getTodayAttendance().subscribe({
-      next: (attendance) => this.todayAttendance = attendance
+      next: (attendance) => {
+        console.log('Today attendance loaded:', attendance);
+        this.todayAttendance = attendance;
+      },
+      error: (error) => {
+        console.error('Error loading today attendance:', error);
+      }
     });
 
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    console.log('Loading recent attendance from', startDate, 'to', endDate);
     this.attendanceService.getAttendance(startDate, endDate).subscribe({
-      next: (attendance) => this.recentAttendance = attendance
+      next: (attendance) => {
+        console.log('Recent attendance loaded:', attendance);
+        this.recentAttendance = attendance;
+      },
+      error: (error) => {
+        console.error('Error loading recent attendance:', error);
+      }
     });
   }
 
@@ -58,32 +72,36 @@ export class AttendancePage implements OnInit {
 
   async checkIn() {
     this.isLoading = true;
+    console.log('Checking in...');
     this.attendanceService.checkIn().subscribe({
-      next: async (attendance) => {
-        this.todayAttendance = attendance;
+      next: async (response) => {
+        console.log('Check-in response:', response);
         this.isLoading = false;
-        await this.showToast('Checked in successfully!', 'success');
+        await this.showToast(response.message || 'Checked in successfully!', 'success');
         this.loadData();
       },
       error: async (error) => {
+        console.error('Check-in error:', error);
         this.isLoading = false;
-        await this.showToast(error.error?.message || 'Check-in failed', 'danger');
+        await this.showToast(error.error?.error || 'Check-in failed', 'danger');
       }
     });
   }
 
   async checkOut() {
     this.isLoading = true;
+    console.log('Checking out...');
     this.attendanceService.checkOut().subscribe({
-      next: async (attendance) => {
-        this.todayAttendance = attendance;
+      next: async (response) => {
+        console.log('Check-out response:', response);
         this.isLoading = false;
-        await this.showToast('Checked out successfully!', 'success');
+        await this.showToast(response.message || 'Checked out successfully!', 'success');
         this.loadData();
       },
       error: async (error) => {
+        console.error('Check-out error:', error);
         this.isLoading = false;
-        await this.showToast(error.error?.message || 'Check-out failed', 'danger');
+        await this.showToast(error.error?.error || 'Check-out failed', 'danger');
       }
     });
   }

@@ -44,6 +44,17 @@
       <span class="type-name">{{getSelectedTypeName()}}</span>
     </div>
 
+    <!-- Debug Info -->
+    <ion-card color="light" style="margin: 8px;">
+      <ion-card-content>
+        <strong>Debug Info:</strong><br>
+        masterData.length: {{masterData.length}}<br>
+        filteredData.length: {{filteredData.length}}<br>
+        isLoading: {{isLoading}}<br>
+        selectedType: {{selectedType}}
+      </ion-card-content>
+    </ion-card>
+
     <!-- Data Cards -->
     <ion-card *ngFor="let item of filteredData" class="data-card">
       <ion-card-content>
@@ -54,7 +65,7 @@
             <p *ngIf="item.description" class="description">{{item.description}}</p>
           </div>
           <div class="item-actions">
-            <ion-badge [color]="item.is_active ? 'success' : 'danger'">
+            <ion-badge *ngIf="item.is_active !== undefined" [color]="item.is_active ? 'success' : 'danger'">
               {{item.is_active ? 'Active' : 'Inactive'}}
             </ion-badge>
           </div>
@@ -136,7 +147,7 @@
           </ion-textarea>
         </ion-item>
 
-        <ion-item>
+        <ion-item *ngIf="hasActiveField()">
           <ion-label>Active</ion-label>
           <ion-toggle [(ngModel)]="currentItem.is_active" slot="end"></ion-toggle>
         </ion-item>

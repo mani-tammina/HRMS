@@ -53,9 +53,12 @@ export class LeaveTypesPage implements OnInit {
   }
 
   loadLeaveTypes() {
+    console.log('=== Loading leave types ===');
     this.isLoading = true;
     this.leavePlanService.getLeaveTypes().subscribe({
       next: (types) => {
+        console.log('Leave types response:', types);
+        console.log('Number of types:', types?.length || 0);
         this.leaveTypes = types;
         this.isLoading = false;
       },

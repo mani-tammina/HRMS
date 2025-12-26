@@ -46,12 +46,13 @@ export interface LeaveType {
   providedIn: 'root'
 })
 export class LeavePlanService {
-  private apiUrl = `${environment.apiUrl}/leave-enhanced`;
+  private apiUrl = `${environment.apiUrl}/leave`;
 
   constructor(private http: HttpClient) {}
 
   // Leave Plans
   getLeavePlans(): Observable<LeavePlan[]> {
+    console.log('LeavePlanService: Calling GET', `${this.apiUrl}/plans`);
     return this.http.get<LeavePlan[]>(`${this.apiUrl}/plans`);
   }
 
@@ -69,6 +70,7 @@ export class LeavePlanService {
 
   // Leave Types
   getLeaveTypes(): Observable<LeaveType[]> {
+    console.log('LeavePlanService: Calling GET', `${this.apiUrl}/types`);
     return this.http.get<LeaveType[]>(`${this.apiUrl}/types`);
   }
 

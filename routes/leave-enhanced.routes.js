@@ -307,6 +307,92 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
     }
 });
 
+// Self-service: Initialize Leave Balances for Current Employee
+router.post("/initialize-my-balance", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const { leave_year } = req.body;
+        
+        const c = await db();
+        await c.beginTransaction();
+        
+        // Get employee's leave plan
+        const [employees] = await c.query(
+            `SELECT leave_plan_id, DateJoined FROM employees WHERE id = ?`,
+            [emp.id]
+        );
+        
+        if (employees.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Employee not found" });
+        }
+        
+        const employee = employees[0];
+        
+        if (!employee.leave_plan_id) {
+            c.end();
+            return res.status(400).json({ error: "You have no leave plan assigned. Please contact HR." });
+        }
+        
+        // Get leave plan allocations
+        const [allocations] = await c.query(`
+            SELECT lpa.*, lt.can_carry_forward, lt.max_carry_forward_days
+            FROM leave_plan_allocations lpa
+            INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
+            WHERE lpa.leave_plan_id = ?
+        `, [employee.leave_plan_id]);
+        
+        const currentYear = leave_year || new Date().getFullYear();
+        
+        // Calculate proration if joining mid-year
+        const joiningDate = new Date(employee.DateJoined);
+        const yearStartDate = new Date(currentYear, 0, 1);
+        const yearEndDate = new Date(currentYear, 11, 31);
+        
+        for (const allocation of allocations) {
+            let allocatedDays = allocation.days_allocated;
+            
+            // Prorate if joining mid-year and proration is enabled
+            if (allocation.prorate_on_joining && joiningDate > yearStartDate) {
+                const daysInYear = (yearEndDate - yearStartDate) / (1000 * 60 * 60 * 24);
+                const remainingDays = (yearEndDate - joiningDate) / (1000 * 60 * 60 * 24);
+                allocatedDays = Math.round((allocation.days_allocated * remainingDays) / daysInYear);
+            }
+            
+            // Check if balance already exists
+            const [existing] = await c.query(
+                `SELECT id FROM employee_leave_balances 
+                 WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+                [emp.id, allocation.leave_type_id, currentYear]
+            );
+            
+            if (existing.length === 0) {
+                // Insert new balance
+                await c.query(
+                    `INSERT INTO employee_leave_balances 
+                     (employee_id, leave_type_id, leave_year, allocated_days, used_days, carry_forward_days, available_days)
+                     VALUES (?, ?, ?, ?, 0, 0, ?)`,
+                    [emp.id, allocation.leave_type_id, currentYear, allocatedDays, allocatedDays]
+                );
+            }
+        }
+        
+        await c.commit();
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            message: "Your leave balances have been initialized successfully",
+            year: currentYear
+        });
+    } catch (error) {
+        console.error("Error initializing leave balances:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get Employee Leave Balance
 router.get("/balance", auth, async (req, res) => {
     try {

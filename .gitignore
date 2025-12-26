@@ -8,6 +8,13 @@ public/WWW/
 public/.vscode/
 public/.github/
 
+# app/
+app/node_modules/
+app/.angular/
+app/.gitignore/
+app/.github/
+
+
 images/
 
 # Debug logs

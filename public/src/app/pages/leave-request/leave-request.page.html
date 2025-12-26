@@ -9,7 +9,38 @@
 
 <ion-content [fullscreen]="true">
   <div class="page-content">
-    <ion-card>
+    <!-- Loading Balance -->
+    <ion-card *ngIf="isLoadingBalance">
+      <ion-card-content class="loading-state">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p>Loading leave balance...</p>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Leave Balance Summary -->
+    <ion-card *ngIf="!isLoadingBalance && leaveBalances.length > 0">
+      <ion-card-content>
+        <h3 style="margin-top: 0;">Your Leave Balance</h3>
+        <ion-list>
+          <ion-item *ngFor="let balance of leaveBalances" lines="none">
+            <ion-label>
+              <h4>{{balance.type_name}} ({{balance.type_code}})</h4>
+              <p style="color: var(--ion-color-medium); font-size: 0.9em;">
+                Allocated: {{balance.allocated_days}} | 
+                Used: {{balance.used_days}} | 
+                Pending: {{balance.pending_days}}
+              </p>
+            </ion-label>
+            <ion-badge slot="end" [color]="balance.available_days > 0 ? 'success' : 'danger'">
+              {{balance.available_days}} available
+            </ion-badge>
+          </ion-item>
+        </ion-list>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Leave Request Form -->
+    <ion-card *ngIf="!isLoadingBalance">
       <ion-card-content>
         <form [formGroup]="leaveForm" (ngSubmit)="onSubmit()">
           <ion-item>
@@ -19,12 +50,30 @@
               labelPlacement="floating"
               formControlName="leaveType"
               placeholder="Select leave type">
-              <ion-select-option value="sick">Sick Leave</ion-select-option>
-              <ion-select-option value="casual">Casual Leave</ion-select-option>
-              <ion-select-option value="annual">Annual Leave</ion-select-option>
-              <ion-select-option value="unpaid">Unpaid Leave</ion-select-option>
+              <ion-select-option 
+                *ngFor="let type of availableLeaveTypes" 
+                [value]="type.id">
+                {{type.type_name}} - {{type.available_days}} days available
+              </ion-select-option>
             </ion-select>
           </ion-item>
+
+          <!-- Selected Leave Balance Info -->
+          <ion-card *ngIf="selectedLeaveBalance" color="light" style="margin: 12px 0;">
+            <ion-card-content style="padding: 12px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <ion-icon name="information-circle-outline" color="primary"></ion-icon>
+                <div>
+                  <strong>{{selectedLeaveBalance.type_name}}</strong><br>
+                  <small style="color: var(--ion-color-medium);">
+                    Available: {{selectedLeaveBalance.available_days}} days | 
+                    Used: {{selectedLeaveBalance.used_days}} days
+                    <span *ngIf="selectedLeaveBalance.is_paid"> | Paid Leave</span>
+                  </small>
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
 
           <ion-item>
             <ion-icon name="calendar-outline" slot="start"></ion-icon>
@@ -59,9 +108,10 @@
           <ion-button 
             expand="block" 
             type="submit" 
-            [disabled]="isLoading"
+            [disabled]="isLoading || availableLeaveTypes.length === 0"
             class="submit-button">
-            Submit Request
+            <ion-spinner *ngIf="isLoading" name="crescent" style="margin-right: 8px;"></ion-spinner>
+            {{isLoading ? 'Submitting...' : 'Submit Request'}}
           </ion-button>
         </form>
       </ion-card-content>

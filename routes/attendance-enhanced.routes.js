@@ -673,4 +673,273 @@ function calculatePunchPairs(punches) {
     return pairs;
 }
 
+/* ============================================
+   SIMPLE CHECK-IN/CHECK-OUT ENDPOINTS
+   Compatibility endpoints for frontend
+   ============================================ */
+
+// Simple Check-in (uses punch-in for multiple punch support)
+router.post("/checkin", auth, async (req, res) => {
+    console.log('Check-in request from user:', req.user.id, req.user.username);
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+        if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
+        
+        const { work_mode, location, notes } = req.body;
+        const ip_address = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const device_info = req.headers['user-agent'];
+        
+        const c = await db();
+        await c.beginTransaction();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        
+        // Check if there's an active punch-in (no punch-out yet)
+        const [activePunch] = await c.query(
+            `SELECT ap.id 
+             FROM attendance_punches ap
+             WHERE ap.employee_id = ? AND ap.punch_date = ? 
+             ORDER BY ap.punch_time DESC LIMIT 1`,
+            [emp.id, today]
+        );
+        
+        if (activePunch.length > 0) {
+            const [lastPunch] = await c.query(
+                `SELECT punch_type FROM attendance_punches WHERE id = ?`,
+                [activePunch[0].id]
+            );
+            
+            if (lastPunch[0].punch_type === 'in') {
+                await c.rollback();
+                c.end();
+                return res.status(400).json({ 
+                    error: "Already checked in. Please check out first.",
+                    message: "You have an active check-in. Check out before checking in again."
+                });
+            }
+        }
+        
+        // Validate work mode
+        const validModes = ['Office', 'WFH', 'Remote', 'Hybrid'];
+        const selectedMode = work_mode || 'Office';
+        
+        if (!validModes.includes(selectedMode)) {
+            await c.rollback();
+            c.end();
+            return res.status(400).json({ error: "Invalid work mode. Use: Office, WFH, Remote, or Hybrid" });
+        }
+        
+        // Get or create attendance record for today
+        let [attendance] = await c.query(
+            `SELECT id FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+            [emp.id, today]
+        );
+        
+        let attendanceId;
+        
+        if (attendance.length === 0) {
+            // Create new attendance record
+            const [result] = await c.query(
+                `INSERT INTO attendance 
+                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status, source)
+                 VALUES (?, ?, ?, ?, ?, ?, 'present', 'web')`,
+                [emp.id, today, today, now, selectedMode, location || selectedMode]
+            );
+            attendanceId = result.insertId;
+        } else {
+            attendanceId = attendance[0].id;
+            
+            // Update first_check_in if this is the actual first punch
+            const [punchCount] = await c.query(
+                `SELECT COUNT(*) as count FROM attendance_punches WHERE attendance_id = ?`,
+                [attendanceId]
+            );
+            
+            if (punchCount[0].count === 0) {
+                await c.query(
+                    `UPDATE attendance SET first_check_in = ?, work_mode = ?, location = ? WHERE id = ?`,
+                    [now, selectedMode, location || selectedMode, attendanceId]
+                );
+            }
+        }
+        
+        // Insert punch record
+        await c.query(
+            `INSERT INTO attendance_punches 
+             (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+             VALUES (?, ?, 'in', ?, ?, ?, ?, ?, ?)`,
+            [attendanceId, emp.id, now, today, ip_address, device_info, location || selectedMode, notes]
+        );
+        
+        await c.commit();
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            message: `Checked in successfully as ${selectedMode}`,
+            work_mode: selectedMode,
+            check_in_time: now,
+            location: location || selectedMode,
+            attendance_id: attendanceId
+        });
+    } catch (error) {
+        console.error("Check-in error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Simple Check-out (uses punch-out for multiple punch support)
+router.post("/checkout", auth, async (req, res) => {
+    console.log('Check-out request from user:', req.user.id, req.user.username);
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+        if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
+        
+        const { notes } = req.body;
+        const ip_address = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+        const device_info = req.headers['user-agent'];
+        
+        const c = await db();
+        await c.beginTransaction();
+        
+        const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        
+        // Check if there's an active attendance record
+        const [attendance] = await c.query(
+            `SELECT id, work_mode FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+            [emp.id, today]
+        );
+        
+        if (attendance.length === 0) {
+            await c.rollback();
+            c.end();
+            return res.status(400).json({ 
+                error: "No attendance record found. Please check in first."
+            });
+        }
+        
+        const attendanceId = attendance[0].id;
+        const workMode = attendance[0].work_mode;
+        
+        // Check last punch
+        const [lastPunch] = await c.query(
+            `SELECT punch_type, punch_time FROM attendance_punches 
+             WHERE attendance_id = ? 
+             ORDER BY punch_time DESC LIMIT 1`,
+            [attendanceId]
+        );
+        
+        if (lastPunch.length === 0) {
+            await c.rollback();
+            c.end();
+            return res.status(400).json({ 
+                error: "No check-in found. Please check in first."
+            });
+        }
+        
+        if (lastPunch[0].punch_type === 'out') {
+            await c.rollback();
+            c.end();
+            return res.status(400).json({ 
+                error: "Already checked out. Check in first to check out again."
+            });
+        }
+        
+        // Insert punch out record
+        await c.query(
+            `INSERT INTO attendance_punches 
+             (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, notes)
+             VALUES (?, ?, 'out', ?, ?, ?, ?, ?)`,
+            [attendanceId, emp.id, now, today, ip_address, device_info, notes]
+        );
+        
+        // Calculate and update hours
+        await calculateAndUpdateHours(c, attendanceId);
+        
+        // Get total hours for response
+        const [updatedAttendance] = await c.query(
+            `SELECT gross_hours FROM attendance WHERE id = ?`,
+            [attendanceId]
+        );
+        
+        await c.commit();
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            message: "Checked out successfully",
+            check_out_time: now,
+            total_hours: updatedAttendance[0]?.gross_hours || 0,
+            work_mode: workMode,
+            attendance_id: attendanceId
+        });
+    } catch (error) {
+        console.error("Check-out error:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// My attendance
+router.get("/me", auth, async (req, res) => {
+    console.log('Get my attendance - user:', req.user.id, req.user.username);
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        console.log('Employee found:', emp ? emp.id : 'NOT FOUND');
+        if (!emp) return res.status(404).json({ error: "Employee record not found. Please ensure your user account is linked to an employee profile." });
+        
+        const { startDate, endDate } = req.query;
+        const c = await db();
+        
+        // Get attendance records
+        const [attendance] = await c.query(
+            `SELECT a.* FROM attendance a
+             WHERE a.employee_id = ? AND a.attendance_date BETWEEN ? AND ? 
+             ORDER BY a.attendance_date DESC`,
+            [emp.id, startDate || '2020-01-01', endDate || '2099-12-31']
+        );
+        
+        // For each attendance, get first and last punch for check_in/check_out compatibility
+        for (let att of attendance) {
+            const [punches] = await c.query(
+                `SELECT punch_type, punch_time FROM attendance_punches
+                 WHERE attendance_id = ?
+                 ORDER BY punch_time ASC`,
+                [att.id]
+            );
+            
+            if (punches.length > 0) {
+                // First punch in as check_in
+                const firstPunchIn = punches.find(p => p.punch_type === 'in');
+                if (firstPunchIn) {
+                    att.check_in = firstPunchIn.punch_time;
+                }
+                
+                // Last punch (any type) determines current state
+                const lastPunch = punches[punches.length - 1];
+                att.last_punch_type = lastPunch.punch_type;
+                
+                // Last punch out as check_out (only if last punch was out)
+                if (lastPunch.punch_type === 'out') {
+                    att.check_out = lastPunch.punch_time;
+                } else {
+                    att.check_out = null; // Still checked in
+                }
+            }
+            
+            // Use gross_hours as total_hours for compatibility
+            att.total_hours = att.gross_hours || att.total_work_hours;
+        }
+        
+        c.end();
+        res.json(attendance);
+    } catch (error) {
+        console.error("Error fetching attendance:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

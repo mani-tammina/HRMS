@@ -59,9 +59,11 @@ export class TimesheetsPage implements OnInit {
   }
 
   checkAssignment() {
+    console.log('Checking project assignment status...');
     this.timesheetService.checkAssignment().subscribe({
       next: (response) => {
-        this.hasProjectAssignment = response.hasAssignment;
+        console.log('Assignment status:', response);
+        this.hasProjectAssignment = response.has_project;
       },
       error: (error: Error) => {
         console.error('Error checking assignment:', error);
@@ -70,6 +72,7 @@ export class TimesheetsPage implements OnInit {
   }
 
   async loadTimesheets(event?: any) {
+    console.log('Loading timesheets...');
     if (!event) {
       this.isLoading = true;
     }
@@ -77,12 +80,19 @@ export class TimesheetsPage implements OnInit {
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    const status = this.selectedStatus !== 'all' ? this.selectedStatus : undefined;
-
-    this.timesheetService.getMyTimesheets(startDate, endDate, status).subscribe({
-      next: (response) => {
-        this.timesheets = response.timesheets.sort((a, b) => 
-          new Date(b.timesheet_date).getTime() - new Date(a.timesheet_date).getTime()
+    // Load regular timesheets (can add project timesheets later if needed)
+    this.timesheetService.getMyRegularTimesheets(startDate, endDate).subscribe({
+      next: (timesheets) => {
+        console.log('Timesheets loaded:', timesheets);
+        // Filter by status if needed
+        if (this.selectedStatus !== 'all') {
+          this.timesheets = timesheets.filter((t: any) => t.status === this.selectedStatus);
+        } else {
+          this.timesheets = timesheets;
+        }
+        
+        this.timesheets = this.timesheets.sort((a: any, b: any) => 
+          new Date(b.date).getTime() - new Date(a.date).getTime()
         );
         this.isLoading = false;
         if (event) event.target.complete();
@@ -120,10 +130,31 @@ export class TimesheetsPage implements OnInit {
     });
     await loading.present();
 
-    this.timesheetService.submitRegularTimesheet(this.newTimesheet).subscribe({
+    // Calculate total hours
+    const startTime = new Date(`2000-01-01 ${this.newTimesheet.shift_start_time}`);
+    const endTime = new Date(`2000-01-01 ${this.newTimesheet.shift_end_time}`);
+    const hours = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+
+    const data = {
+      date: this.newTimesheet.timesheet_date,
+      total_hours: hours || this.newTimesheet.actual_hours_worked,
+      hours_breakdown: {
+        work_mode: this.newTimesheet.work_mode,
+        shift_start: this.newTimesheet.shift_start_time,
+        shift_end: this.newTimesheet.shift_end_time,
+        regular_hours: this.newTimesheet.actual_hours_worked,
+        tasks: this.newTimesheet.tasks_completed
+      },
+      notes: this.newTimesheet.challenges_faced
+    };
+
+    console.log('Submitting timesheet data:', data);
+
+    this.timesheetService.submitRegularTimesheet(data).subscribe({
       next: (response) => {
+        console.log('Timesheet submitted:', response);
         loading.dismiss();
-        this.showToast('Timesheet submitted successfully', 'success');
+        this.showToast(response.message || 'Timesheet submitted successfully', 'success');
         this.closeSubmitModal();
         this.resetForm();
         this.loadTimesheets();

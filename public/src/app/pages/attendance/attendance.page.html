@@ -21,14 +21,14 @@
             <ion-icon name="log-in-outline" color="success"></ion-icon>
             <div>
               <p class="label">Check In</p>
-              <p class="time">{{ todayAttendance?.checkIn || '--:--' }}</p>
+              <p class="time">{{ todayAttendance?.check_in ? (todayAttendance?.check_in | date:'shortTime') : '--:--' }}</p>
             </div>
           </div>
           <div class="time-info">
             <ion-icon name="log-out-outline" color="danger"></ion-icon>
             <div>
               <p class="label">Check Out</p>
-              <p class="time">{{ todayAttendance?.checkOut || '--:--' }}</p>
+              <p class="time">{{ todayAttendance?.check_out ? (todayAttendance?.check_out | date:'shortTime') : '--:--' }}</p>
             </div>
           </div>
         </div>
@@ -36,7 +36,7 @@
         <div class="action-buttons">
           <ion-button 
             expand="block" 
-            [disabled]="isLoading || todayAttendance?.checkIn"
+            [disabled]="isLoading || todayAttendance?.last_punch_type === 'in'"
             (click)="checkIn()">
             <ion-icon slot="start" name="log-in-outline"></ion-icon>
             Check In
@@ -44,16 +44,22 @@
           <ion-button 
             expand="block" 
             color="danger"
-            [disabled]="isLoading || !todayAttendance?.checkIn || todayAttendance?.checkOut"
+            [disabled]="isLoading || !todayAttendance?.check_in || todayAttendance?.last_punch_type === 'out'"
             (click)="checkOut()">
             <ion-icon slot="start" name="log-out-outline"></ion-icon>
             Check Out
           </ion-button>
         </div>
 
-        <div class="work-hours" *ngIf="todayAttendance?.workHours">
+        <div class="work-hours" *ngIf="todayAttendance?.total_hours">
           <ion-icon name="time-outline" color="primary"></ion-icon>
-          <span>Work Hours: {{ todayAttendance?.workHours | number:'1.1-1' }}h</span>
+          <span>Work Hours: {{ todayAttendance?.total_hours | number:'1.1-1' }}h</span>
+        </div>
+
+        <div class="work-mode" *ngIf="todayAttendance?.work_mode">
+          <ion-badge [color]="todayAttendance?.work_mode === 'Office' ? 'primary' : 'tertiary'">
+            {{ todayAttendance?.work_mode }}
+          </ion-badge>
         </div>
       </ion-card-content>
     </ion-card>
@@ -68,9 +74,14 @@
         <ion-item *ngFor="let attendance of recentAttendance" lines="full">
           <ion-icon slot="start" name="calendar-outline" [color]="getStatusColor(attendance.status)"></ion-icon>
           <ion-label>
-            <h3>{{ attendance.date | date:'MMM d, y' }}</h3>
-            <p>{{ attendance.checkIn }} - {{ attendance.checkOut || 'Not checked out' }}</p>
-            <p *ngIf="attendance.workHours">{{ attendance.workHours | number:'1.1-1' }} hours</p>
+            <h3>{{ attendance.attendance_date | date:'MMM d, y' }}</h3>
+            <p>{{ attendance.check_in | date:'shortTime' }} - {{ attendance.check_out ? (attendance.check_out | date:'shortTime') : 'Not checked out' }}</p>
+            <p *ngIf="attendance.total_hours">{{ attendance.total_hours | number:'1.1-1' }} hours</p>
+            <p *ngIf="attendance.work_mode">
+              <ion-badge [color]="attendance.work_mode === 'Office' ? 'primary' : 'tertiary'" style="font-size: 0.7rem;">
+                {{ attendance.work_mode }}
+              </ion-badge>
+            </p>
           </ion-label>
           <ion-badge slot="end" [color]="getStatusColor(attendance.status)">
             {{ attendance.status }}

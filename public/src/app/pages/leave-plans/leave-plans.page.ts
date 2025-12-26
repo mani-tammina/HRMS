@@ -44,14 +44,18 @@ export class LeavePlansPage implements OnInit {
   }
 
   loadPlans() {
+    console.log('=== Loading leave plans ===');
     this.isLoading = true;
     this.leavePlanService.getLeavePlans().subscribe({
       next: (plans) => {
+        console.log('Leave plans response:', plans);
+        console.log('Number of plans:', plans?.length || 0);
         this.plans = plans;
         this.isLoading = false;
       },
       error: (error) => {
         console.error('Error loading leave plans:', error);
+        console.error('Error details:', error.message, error.status);
         this.showToast('Error loading leave plans', 'danger');
         this.isLoading = false;
       }

@@ -88,6 +88,7 @@ export class MasterDataPage implements OnInit {
   }
 
   async loadMasterData() {
+    console.log(`=== Loading master data for type: ${this.selectedType} ===`);
     this.isLoading = true;
     const loading = await this.loadingController.create({
       message: 'Loading data...'
@@ -96,12 +97,18 @@ export class MasterDataPage implements OnInit {
 
     this.masterDataService.getMasterData(this.selectedType).subscribe({
       next: (data: MasterDataItem[]) => {
-        this.masterData = data || [];
+        console.log(`Master data response for ${this.selectedType}:`, data);
+        console.log(`Data type:`, typeof data);
+        console.log(`Is array:`, Array.isArray(data));
+        this.masterData = Array.isArray(data) ? data : [];
         this.filteredData = this.masterData;
+        console.log(`Loaded ${this.masterData.length} records`);
+        console.log(`First record:`, this.masterData[0]);
         this.isLoading = false;
         loading.dismiss();
       },
       error: (error: Error) => {
+        console.error('Error loading master data:', error);
         this.isLoading = false;
         loading.dismiss();
         this.showToast('Failed to load data', 'danger');
@@ -125,7 +132,11 @@ export class MasterDataPage implements OnInit {
 
   openCreateModal() {
     this.isEditMode = false;
-    this.currentItem = { is_active: true };
+    this.currentItem = {};
+    // Only set is_active for types that have this field
+    if (this.hasActiveField()) {
+      this.currentItem.is_active = true;
+    }
     this.showModal = true;
   }
 
@@ -226,6 +237,11 @@ export class MasterDataPage implements OnInit {
   getSelectedTypeName(): string {
     const type = this.masterDataTypes.find(t => t.id === this.selectedType);
     return type ? type.name : '';
+  }
+
+  hasActiveField(): boolean {
+    // Only leave-plans and shift-policies have is_active field in database
+    return this.selectedType === 'leave-plans' || this.selectedType === 'shift-policies';
   }
 
   async showToast(message: string, color: string) {

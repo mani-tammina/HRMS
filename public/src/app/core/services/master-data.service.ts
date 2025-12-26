@@ -38,12 +38,13 @@ export interface ShiftPolicy extends MasterDataItem {
   providedIn: 'root'
 })
 export class MasterDataService {
-  private apiUrl = `${environment.apiUrl}/master`;
+  private apiUrl = `${environment.apiUrl}`;
 
   constructor(private http: HttpClient) {}
 
   // Generic GET for any master data
   getMasterData(type: string): Observable<MasterDataItem[]> {
+    console.log(`Fetching master data for type: ${type}`);
     return this.http.get<MasterDataItem[]>(
       `${this.apiUrl}/${type}`
     );

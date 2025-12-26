@@ -36,8 +36,8 @@
       <ion-card-content>
         <div class="timesheet-header">
           <div>
-            <h3>{{formatDate(timesheet.timesheet_date)}}</h3>
-            <p class="work-mode">{{timesheet.work_mode}}</p>
+            <h3>{{formatDate($any(timesheet).date || timesheet.timesheet_date)}}</h3>
+            <p class="work-mode" *ngIf="$any(timesheet).hours_breakdown?.work_mode">{{$any(timesheet).hours_breakdown.work_mode}}</p>
           </div>
           <ion-badge [color]="getStatusColor(timesheet.status)">
             {{timesheet.status}}
@@ -45,33 +45,33 @@
         </div>
 
         <div class="timesheet-details">
-          <div class="detail-row">
+          <div class="detail-row" *ngIf="$any(timesheet).hours_breakdown?.shift_start && $any(timesheet).hours_breakdown?.shift_end">
             <ion-icon name="time-outline"></ion-icon>
-            <span>{{timesheet.shift_start_time}} - {{timesheet.shift_end_time}}</span>
+            <span>{{$any(timesheet).hours_breakdown.shift_start}} - {{$any(timesheet).hours_breakdown.shift_end}}</span>
           </div>
           <div class="detail-row">
             <ion-icon name="time-outline"></ion-icon>
-            <span>Hours Worked: {{timesheet.actual_hours_worked}}h</span>
+            <span>Hours Worked: {{$any(timesheet).total_hours || timesheet.actual_hours_worked}}h</span>
           </div>
-          <div class="detail-row">
+          <div class="detail-row" *ngIf="$any(timesheet).hours_breakdown?.regular_hours">
             <ion-icon name="checkmark-outline"></ion-icon>
-            <span>Regular: {{timesheet.regular_hours}}h | Overtime: {{timesheet.overtime_hours}}h</span>
+            <span>Regular: {{$any(timesheet).hours_breakdown.regular_hours}}h</span>
           </div>
         </div>
 
-        <div class="tasks-section" *ngIf="timesheet.tasks_completed">
+        <div class="tasks-section" *ngIf="$any(timesheet).hours_breakdown?.tasks">
           <strong>Tasks Completed:</strong>
-          <p>{{timesheet.tasks_completed}}</p>
+          <p>{{$any(timesheet).hours_breakdown.tasks}}</p>
         </div>
 
-        <div class="challenges-section" *ngIf="timesheet.challenges_faced">
-          <strong>Challenges:</strong>
-          <p>{{timesheet.challenges_faced}}</p>
+        <div class="challenges-section" *ngIf="$any(timesheet).notes">
+          <strong>Notes:</strong>
+          <p>{{$any(timesheet).notes}}</p>
         </div>
 
-        <div class="submission-time" *ngIf="timesheet.submission_timestamp">
+        <div class="submission-time" *ngIf="$any(timesheet).submission_date">
           <ion-icon name="calendar-outline"></ion-icon>
-          <span>Submitted: {{formatDate(timesheet.submission_timestamp)}}</span>
+          <span>Submitted: {{formatDate($any(timesheet).submission_date)}}</span>
         </div>
       </ion-card-content>
     </ion-card>

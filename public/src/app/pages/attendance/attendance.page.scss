@@ -70,6 +70,17 @@
       color: var(--ion-color-primary);
     }
   }
+
+  .work-mode {
+    display: flex;
+    justify-content: center;
+    margin-top: 0.5rem;
+
+    ion-badge {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+  }
 }
 
 .section-title {
