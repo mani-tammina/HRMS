@@ -4,7 +4,7 @@ jspm_packages/
 # public/
 public/node_modules/
 public/.angular/
-public/WWW/
+# public/WWW/
 public/.vscode/
 public/.github/
 

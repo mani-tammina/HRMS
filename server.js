@@ -92,11 +92,13 @@ app.use(
     origin: true,
   })
 );
-app.use(express.static(__dirname));
 
-// Home route
+// Serve static files from public/www folder
+app.use(express.static(path.join(__dirname, 'public', 'www')));
+
+// Home route - serve index.html from public/www
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'www', 'index.html'));
 });
 
 // Swagger JSON endpoint (needed for Swagger UI)
