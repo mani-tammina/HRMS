@@ -57,16 +57,15 @@ router.get("/assignment-status", auth, async (req, res) => {
                 ps.shift_name,
                 ps.start_time,
                 ps.end_time,
-                ps.daily_hours,
-                pa.start_date,
-                pa.end_date
+                pa.assignment_start_date as start_date,
+                pa.assignment_end_date as end_date
             FROM project_assignments pa
             JOIN projects p ON pa.project_id = p.id
             LEFT JOIN project_shifts ps ON pa.shift_id = ps.id
             WHERE pa.employee_id = ? 
             AND pa.status = 'active'
-            AND (pa.end_date IS NULL OR pa.end_date >= CURDATE())
-            ORDER BY pa.start_date DESC
+            AND (pa.assignment_end_date IS NULL OR pa.assignment_end_date >= CURDATE())
+            ORDER BY pa.assignment_start_date DESC
         `, [emp.id]);
 
         c.end();
@@ -98,7 +97,7 @@ router.post("/regular/submit", auth, async (req, res) => {
         const [projects] = await c.query(`
             SELECT id FROM project_assignments 
             WHERE employee_id = ? AND status = 'active'
-            AND (end_date IS NULL OR end_date >= ?)
+            AND (assignment_end_date IS NULL OR assignment_end_date >= ?)
         `, [emp.id, date]);
 
         if (projects.length > 0) {

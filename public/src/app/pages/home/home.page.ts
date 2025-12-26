@@ -4,7 +4,7 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-  IonAvatar, IonMenuButton
+  IonAvatar, IonMenuButton, ToastController
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '@core/services/auth.service';
@@ -36,8 +36,12 @@ export class HomePage implements OnInit, OnDestroy {
   user: User | null = null;
   isAdmin: boolean = false;
   todayAttendance: any = null;
+  todayStatus: any = null;
   currentTime: string = '';
   private userSubscription?: Subscription;
+  isLoading = false;
+  canPunchIn = true;
+  canPunchOut = false;
   stats = {
     workHours: '0h 0m',
     leavesUsed: 0,
@@ -61,7 +65,8 @@ export class HomePage implements OnInit, OnDestroy {
     private authService: AuthService,
     private attendanceService: AttendanceService,
     private leaveService: LeaveService,
-    private router: Router
+    private router: Router,
+    private toastController: ToastController
   ) {
     addIcons({ 
       notificationsOutline, calendarOutline, timeOutline, 
@@ -102,29 +107,64 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   loadData() {
-    this.attendanceService.getTodayAttendance().subscribe({
-      next: (attendance) => {
-        this.todayAttendance = attendance;
-        if (attendance?.total_hours) {
-          const hours = Math.floor(attendance.total_hours);
-          const minutes = Math.round((attendance.total_hours - hours) * 60);
+    console.log('Loading dashboard data...');
+    this.attendanceService.getTodayStatus().subscribe({
+      next: (response) => {
+        console.log('Today status data:', response);
+        this.todayStatus = response;
+        this.canPunchIn = response.can_punch_in !== false;
+        this.canPunchOut = response.can_punch_out === true;
+        
+        if (response.has_attendance) {
+          this.todayAttendance = response.attendance;
+          const totalHours = response.attendance.gross_hours || response.attendance.total_work_hours || 0;
+          const hours = Math.floor(totalHours);
+          const minutes = Math.round((totalHours - hours) * 60);
           this.stats.workHours = `${hours}h ${minutes}m`;
+        } else {
+          this.todayAttendance = null;
+          this.stats.workHours = '0h 0m';
         }
-      }
+      },
+      error: (error) => console.error('Error loading attendance:', error)
     });
 
     this.leaveService.getLeaveBalance().subscribe({
       next: (balance) => {
         this.stats.leavesUsed = balance.used || 0;
         this.stats.attendanceRate = balance.attendanceRate || 0;
-      }
+      },
+      error: (error) => console.error('Error loading leave balance:', error)
     });
 
     this.leaveService.getLeaves().subscribe({
       next: (leaves) => {
         this.stats.leavesPending = leaves.filter(l => l.status === 'pending').length;
-      }
+      },
+      error: (error) => console.error('Error loading leaves:', error)
     });
+  }
+
+  formatTime(dateString: string): string {
+    if (!dateString) return '--:--';
+    const date = new Date(dateString);
+    return date.toLocaleTimeString('en-US', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      hour12: true 
+    });
+  }
+
+  get formattedCheckIn(): string {
+    return this.formatTime(this.todayAttendance?.check_in || this.todayAttendance?.first_check_in);
+  }
+
+  get formattedCheckOut(): string {
+    return this.formatTime(this.todayAttendance?.check_out || this.todayAttendance?.last_check_out);
+  }
+
+  get canCheckOut(): boolean {
+    return this.todayAttendance && !this.todayAttendance.check_out && !this.todayAttendance.last_check_out;
   }
 
   handleRefresh(event: any) {
@@ -145,5 +185,57 @@ export class HomePage implements OnInit, OnDestroy {
   handleImageError(event: Event): void {
     const target = event.target as HTMLImageElement;
     target.src = 'assets/avatar-placeholder.png';
+  }
+
+  async punchIn() {
+    this.isLoading = true;
+    this.canPunchIn = false; // Immediately disable to prevent double-click
+    console.log('HomePage: Punching in...');
+    this.attendanceService.punchIn('Office').subscribe({
+      next: async (response) => {
+        console.log('HomePage: Punch-in response:', response);
+        await this.showToast(response.message || 'Punched in successfully!', 'success');
+        // Reload data to get updated status
+        this.loadData();
+        this.isLoading = false;
+      },
+      error: async (error) => {
+        console.error('HomePage: Punch-in error:', error);
+        this.canPunchIn = true; // Re-enable on error
+        this.isLoading = false;
+        await this.showToast(error.error?.error || error.error?.message || 'Punch-in failed', 'danger');
+      }
+    });
+  }
+
+  async punchOut() {
+    this.isLoading = true;
+    this.canPunchOut = false; // Immediately disable to prevent double-click
+    console.log('HomePage: Punching out...');
+    this.attendanceService.punchOut().subscribe({
+      next: async (response) => {
+        console.log('HomePage: Punch-out response:', response);
+        await this.showToast(response.message || 'Punched out successfully!', 'success');
+        // Reload data to get updated status
+        this.loadData();
+        this.isLoading = false;
+      },
+      error: async (error) => {
+        console.error('HomePage: Punch-out error:', error);
+        this.canPunchOut = true; // Re-enable on error
+        this.isLoading = false;
+        await this.showToast(error.error?.error || error.error?.message || 'Punch-out failed', 'danger');
+      }
+    });
+  }
+
+  async showToast(message: string, color: string) {
+    const toast = await this.toastController.create({
+      message,
+      duration: 3000,
+      color,
+      position: 'top'
+    });
+    await toast.present();
   }
 }

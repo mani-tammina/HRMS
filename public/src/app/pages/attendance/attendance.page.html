@@ -36,18 +36,18 @@
         <div class="action-buttons">
           <ion-button 
             expand="block" 
-            [disabled]="isLoading || todayAttendance?.last_punch_type === 'in'"
-            (click)="checkIn()">
+            [disabled]="isLoading || !canPunchIn"
+            (click)="punchIn()">
             <ion-icon slot="start" name="log-in-outline"></ion-icon>
-            Check In
+            Punch In
           </ion-button>
           <ion-button 
             expand="block" 
             color="danger"
-            [disabled]="isLoading || !todayAttendance?.check_in || todayAttendance?.last_punch_type === 'out'"
-            (click)="checkOut()">
+            [disabled]="isLoading || !canPunchOut"
+            (click)="punchOut()">
             <ion-icon slot="start" name="log-out-outline"></ion-icon>
-            Check Out
+            Punch Out
           </ion-button>
         </div>
 

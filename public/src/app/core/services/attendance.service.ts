@@ -11,6 +11,8 @@ export interface Attendance {
   punch_date?: string;
   check_in: string;
   check_out?: string;
+  first_check_in?: string;
+  last_check_out?: string;
   last_punch_type?: 'in' | 'out';
   punch_in_time?: string;
   punch_out_time?: string;
@@ -18,6 +20,9 @@ export interface Attendance {
   location?: string;
   status: 'present' | 'absent' | 'late' | 'half-day' | 'leave';
   total_hours?: number;
+  gross_hours?: number;
+  total_work_hours?: number;
+  total_break_hours?: number;
   notes?: string;
   ip_address?: string;
   device_info?: string;
@@ -32,39 +37,44 @@ export class AttendanceService {
 
   constructor(private http: HttpClient) {}
 
-  getAttendance(startDate?: string, endDate?: string): Observable<Attendance[]> {
+  getAttendance(startDate?: string, endDate?: string): Observable<any[]> {
     const params: any = {};
     if (startDate) params.startDate = startDate;
     if (endDate) params.endDate = endDate;
     console.log('AttendanceService: Fetching attendance with params:', params);
-    return this.http.get<Attendance[]>(`${this.apiUrl}/me`, { params });
+    return this.http.get<any[]>(`${this.apiUrl}/me`, { params });
   }
 
-  checkIn(workMode?: string, location?: string, notes?: string): Observable<any> {
-    console.log('AttendanceService: Checking in with work mode:', workMode);
-    return this.http.post<any>(`${this.apiUrl}/checkin`, {
+  punchIn(workMode?: string, location?: string, notes?: string): Observable<any> {
+    console.log('AttendanceService: Punching in with work mode:', workMode);
+    return this.http.post<any>(`${this.apiUrl}/punch-in`, {
       work_mode: workMode || 'Office',
       location: location,
       notes: notes
     });
   }
 
-  checkOut(notes?: string): Observable<any> {
-    console.log('AttendanceService: Checking out');
-    return this.http.post<any>(`${this.apiUrl}/checkout`, {
+  punchOut(notes?: string): Observable<any> {
+    console.log('AttendanceService: Punching out');
+    return this.http.post<any>(`${this.apiUrl}/punch-out`, {
       notes: notes
     });
   }
 
-  getTodayAttendance(): Observable<Attendance | null> {
-    const today = new Date().toISOString().split('T')[0];
-    console.log('AttendanceService: Fetching today attendance for:', today);
-    return this.http.get<Attendance[]>(`${this.apiUrl}/me`, {
-      params: { startDate: today, endDate: today }
-    }).pipe(
-      map((records: Attendance[]) => {
-        console.log('AttendanceService: Today attendance response:', records);
-        return records.length > 0 ? records[0] : null;
+  getTodayStatus(): Observable<any> {
+    console.log('AttendanceService: Fetching today status');
+    return this.http.get<any>(`${this.apiUrl}/today`);
+  }
+
+  getTodayAttendance(): Observable<any> {
+    console.log('AttendanceService: Fetching today attendance');
+    return this.http.get<any>(`${this.apiUrl}/today`).pipe(
+      map((response: any) => {
+        console.log('AttendanceService: Today attendance response:', response);
+        if (response.has_attendance) {
+          return response.attendance;
+        }
+        return null;
       })
     );
   }

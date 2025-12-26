@@ -93,7 +93,7 @@
             <ion-icon name="log-in-outline" class="time-icon in"></ion-icon>
             <div>
               <p class="time-label">Check In</p>
-              <h3 class="time-value">{{ todayAttendance?.checkIn || '--:--' }}</h3>
+              <h3 class="time-value">{{ formattedCheckIn }}</h3>
             </div>
           </div>
           
@@ -103,7 +103,7 @@
             <ion-icon name="log-out-outline" class="time-icon out"></ion-icon>
             <div>
               <p class="time-label">Check Out</p>
-              <h3 class="time-value">{{ todayAttendance?.checkOut || '--:--' }}</h3>
+              <h3 class="time-value">{{ formattedCheckOut }}</h3>
             </div>
           </div>
           
@@ -119,13 +119,19 @@
         </div>
 
         <div class="action-buttons">
-          <ion-button expand="block" class="check-btn check-in-btn" *ngIf="!todayAttendance" (click)="navigateTo('attendance')">
+          <ion-button expand="block" class="check-btn check-in-btn" 
+            *ngIf="canPunchIn" 
+            [disabled]="isLoading"
+            (click)="punchIn()">
             <ion-icon name="log-in-outline" slot="start"></ion-icon>
-            Check In
+            Punch In
           </ion-button>
-          <ion-button expand="block" class="check-btn check-out-btn" *ngIf="todayAttendance && !todayAttendance.checkOut" (click)="navigateTo('attendance')">
+          <ion-button expand="block" class="check-btn check-out-btn" 
+            *ngIf="canPunchOut" 
+            [disabled]="isLoading"
+            (click)="punchOut()">
             <ion-icon name="log-out-outline" slot="start"></ion-icon>
-            Check Out
+            Punch Out
           </ion-button>
           <div class="quick-action-btns" *ngIf="todayAttendance">
             <ion-button fill="outline" size="small" (click)="navigateTo('leave-request')">

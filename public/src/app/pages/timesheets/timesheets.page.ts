@@ -65,7 +65,7 @@ export class TimesheetsPage implements OnInit {
         console.log('Assignment status:', response);
         this.hasProjectAssignment = response.has_project;
       },
-      error: (error: Error) => {
+      error: (error: any) => {
         console.error('Error checking assignment:', error);
       }
     });
@@ -80,7 +80,7 @@ export class TimesheetsPage implements OnInit {
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-    // Load regular timesheets (can add project timesheets later if needed)
+    // Load regular timesheets
     this.timesheetService.getMyRegularTimesheets(startDate, endDate).subscribe({
       next: (timesheets) => {
         console.log('Timesheets loaded:', timesheets);
@@ -97,9 +97,9 @@ export class TimesheetsPage implements OnInit {
         this.isLoading = false;
         if (event) event.target.complete();
       },
-      error: (error: Error) => {
+      error: (error: any) => {
         console.error('Error loading timesheets:', error);
-        this.showToast('Failed to load timesheets', 'danger');
+        this.showToast(error.error?.error || error.error?.message || 'Failed to load timesheets', 'danger');
         this.isLoading = false;
         if (event) event.target.complete();
       }
@@ -159,10 +159,11 @@ export class TimesheetsPage implements OnInit {
         this.resetForm();
         this.loadTimesheets();
       },
-      error: (error: Error) => {
+      error: (error: any) => {
         loading.dismiss();
         console.error('Error submitting timesheet:', error);
-        this.showToast('Failed to submit timesheet', 'danger');
+        const errorMsg = error.error?.error || error.error?.message || error.message || 'Failed to submit timesheet';
+        this.showToast(errorMsg, 'danger');
       }
     });
   }

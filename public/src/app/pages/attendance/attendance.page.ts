@@ -24,9 +24,12 @@ import { logInOutline, logOutOutline, timeOutline, calendarOutline } from 'ionic
   ]
 })
 export class AttendancePage implements OnInit {
-  todayAttendance: Attendance | null = null;
-  recentAttendance: Attendance[] = [];
+  todayAttendance: any = null;
+  todayStatus: any = null;
+  recentAttendance: any[] = [];
   isLoading = false;
+  canPunchIn = true;
+  canPunchOut = false;
 
   constructor(
     private attendanceService: AttendanceService,
@@ -40,27 +43,35 @@ export class AttendancePage implements OnInit {
   }
 
   loadData() {
-    console.log('Loading attendance data...');
-    this.attendanceService.getTodayAttendance().subscribe({
-      next: (attendance) => {
-        console.log('Today attendance loaded:', attendance);
-        this.todayAttendance = attendance;
+    console.log('AttendancePage: Loading attendance data...');
+    
+    // Get today's status
+    this.attendanceService.getTodayStatus().subscribe({
+      next: (response) => {
+        console.log('AttendancePage: Today status:', response);
+        this.todayStatus = response;
+        this.todayAttendance = response.attendance;
+        this.canPunchIn = response.can_punch_in !== false;
+        this.canPunchOut = response.can_punch_out === true;
       },
       error: (error) => {
-        console.error('Error loading today attendance:', error);
+        console.error('AttendancePage: Error loading today status:', error);
+        this.showToast('Failed to load today\'s attendance', 'danger');
       }
     });
 
+    // Get recent attendance
     const endDate = new Date().toISOString().split('T')[0];
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-    console.log('Loading recent attendance from', startDate, 'to', endDate);
+    console.log('AttendancePage: Loading recent attendance from', startDate, 'to', endDate);
     this.attendanceService.getAttendance(startDate, endDate).subscribe({
       next: (attendance) => {
-        console.log('Recent attendance loaded:', attendance);
+        console.log('AttendancePage: Recent attendance loaded:', attendance);
         this.recentAttendance = attendance;
       },
       error: (error) => {
-        console.error('Error loading recent attendance:', error);
+        console.error('AttendancePage: Error loading recent attendance:', error);
+        this.showToast('Failed to load attendance history', 'danger');
       }
     });
   }
@@ -70,38 +81,38 @@ export class AttendancePage implements OnInit {
     setTimeout(() => event.target.complete(), 1000);
   }
 
-  async checkIn() {
+  async punchIn() {
     this.isLoading = true;
-    console.log('Checking in...');
-    this.attendanceService.checkIn().subscribe({
+    console.log('AttendancePage: Punching in...');
+    this.attendanceService.punchIn('Office').subscribe({
       next: async (response) => {
-        console.log('Check-in response:', response);
+        console.log('AttendancePage: Punch-in response:', response);
         this.isLoading = false;
-        await this.showToast(response.message || 'Checked in successfully!', 'success');
+        await this.showToast(response.message || 'Punched in successfully!', 'success');
         this.loadData();
       },
       error: async (error) => {
-        console.error('Check-in error:', error);
+        console.error('AttendancePage: Punch-in error:', error);
         this.isLoading = false;
-        await this.showToast(error.error?.error || 'Check-in failed', 'danger');
+        await this.showToast(error.error?.error || error.error?.message || 'Punch-in failed', 'danger');
       }
     });
   }
 
-  async checkOut() {
+  async punchOut() {
     this.isLoading = true;
-    console.log('Checking out...');
-    this.attendanceService.checkOut().subscribe({
+    console.log('AttendancePage: Punching out...');
+    this.attendanceService.punchOut().subscribe({
       next: async (response) => {
-        console.log('Check-out response:', response);
+        console.log('AttendancePage: Punch-out response:', response);
         this.isLoading = false;
-        await this.showToast(response.message || 'Checked out successfully!', 'success');
+        await this.showToast(response.message || 'Punched out successfully!', 'success');
         this.loadData();
       },
       error: async (error) => {
-        console.error('Check-out error:', error);
+        console.error('AttendancePage: Punch-out error:', error);
         this.isLoading = false;
-        await this.showToast(error.error?.error || 'Check-out failed', 'danger');
+        await this.showToast(error.error?.error || error.error?.message || 'Punch-out failed', 'danger');
       }
     });
   }
