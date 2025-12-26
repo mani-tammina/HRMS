@@ -8,7 +8,10 @@ import {
 import { CommonModule } from '@angular/common';
 import { EmployeeService, Employee } from '@core/services/employee.service';
 import { addIcons } from 'ionicons';
-import { mailOutline, callOutline, businessOutline, briefcaseOutline, calendarOutline } from 'ionicons/icons';
+import { 
+  mailOutline, callOutline, businessOutline, briefcaseOutline, calendarOutline,
+  locationOutline, cardOutline, personOutline
+} from 'ionicons/icons';
 
 @Component({
   selector: 'app-employee-detail',
@@ -23,14 +26,17 @@ import { mailOutline, callOutline, businessOutline, briefcaseOutline, calendarOu
   ]
 })
 export class EmployeeDetailPage implements OnInit {
-  employee: Employee | null = null;
+  employee: any = null;
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private employeeService: EmployeeService
   ) {
-    addIcons({ mailOutline, callOutline, businessOutline, briefcaseOutline, calendarOutline });
+    addIcons({ 
+      mailOutline, callOutline, businessOutline, briefcaseOutline, calendarOutline,
+      locationOutline, cardOutline, personOutline
+    });
   }
 
   ngOnInit() {
@@ -41,8 +47,19 @@ export class EmployeeDetailPage implements OnInit {
   }
 
   loadEmployee(id: string) {
-    this.employeeService.getEmployee(id).subscribe({
-      next: (employee) => this.employee = employee
+    this.employeeService.getEmployeeDetails(id).subscribe({
+      next: (employee) => {
+        this.employee = employee;
+        console.log('Employee details loaded:', employee);
+      },
+      error: (error) => {
+        console.error('Error loading employee details:', error);
+      }
     });
+  }
+
+  handleImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    target.src = 'assets/avatar-placeholder.png';
   }
 }

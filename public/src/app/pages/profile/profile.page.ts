@@ -1,17 +1,20 @@
-import { Component } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { 
   IonContent, IonHeader, IonTitle, IonToolbar,
   IonCard, IonCardContent, IonList, IonItem, IonLabel, IonIcon,
-  IonButton, IonAvatar, IonBadge, AlertController
+  IonButton, IonAvatar, IonBadge, AlertController, IonSpinner
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '@core/services/auth.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '@env/environment';
+import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { 
   personOutline, mailOutline, callOutline, businessOutline, 
   briefcaseOutline, calendarOutline, logOutOutline, settingsOutline,
-  notificationsOutline
+  notificationsOutline, cardOutline, locationOutline, shieldOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -23,11 +26,14 @@ import {
     CommonModule,
     IonContent, IonHeader, IonTitle, IonToolbar,
     IonCard, IonCardContent, IonList, IonItem, IonLabel, IonIcon,
-    IonButton, IonAvatar, IonBadge
+    IonButton, IonAvatar, IonBadge, IonSpinner
   ]
 })
-export class ProfilePage {
+export class ProfilePage implements OnInit, OnDestroy {
   user: User | null = null;
+  employeeData: any = null;
+  isLoading = true;
+  private userSubscription?: Subscription;
 
   menuItems = [
     { icon: 'person-outline', label: 'Edit Profile', action: 'edit-profile' },
@@ -38,15 +44,45 @@ export class ProfilePage {
 
   constructor(
     private authService: AuthService,
+    private http: HttpClient,
     private router: Router,
     private alertController: AlertController
   ) {
     addIcons({ 
       personOutline, mailOutline, callOutline, businessOutline, 
       briefcaseOutline, calendarOutline, logOutOutline, settingsOutline,
-      notificationsOutline
+      notificationsOutline, cardOutline, locationOutline, shieldOutline
     });
-    this.user = this.authService.getCurrentUser();
+  }
+
+  ngOnInit() {
+    // Subscribe to user changes
+    this.userSubscription = this.authService.currentUser$.subscribe(user => {
+      this.user = user;
+      if (user) {
+        this.loadEmployeeProfile();
+      }
+    });
+  }
+
+  ngOnDestroy() {
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+    }
+  }
+
+  loadEmployeeProfile() {
+    this.isLoading = true;
+    this.http.get<any>(`${environment.apiUrl}/employees/profile/me`).subscribe({
+      next: (data) => {
+        this.employeeData = data;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading profile:', error);
+        this.isLoading = false;
+      }
+    });
   }
 
   async handleMenuClick(action: string) {
@@ -79,5 +115,10 @@ export class ProfilePage {
     });
 
     await alert.present();
+  }
+
+  handleImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    target.src = 'assets/avatar-placeholder.png';
   }
 }

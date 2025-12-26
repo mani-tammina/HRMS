@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, switchMap, catchError, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '@env/environment';
 
@@ -34,11 +34,45 @@ export class AuthService {
   }
 
   login(username: string, password: string): Observable<AuthResponse> {
-    return this.http.post<AuthResponse>(`${environment.apiUrl}/auth/login`, { username, password })
+    // Clear old data first
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    this.currentUserSubject.next(null);
+
+    return this.http.post<any>(`${environment.apiUrl}/auth/login`, { username, password })
       .pipe(
-        tap(response => {
+        tap((response: any) => {
+          // Store token immediately
           this.setToken(response.token);
-          this.setUser(response.user);
+        }),
+        switchMap((response: any) => {
+          // Fetch employee profile data
+          return this.http.get<any>(`${environment.apiUrl}/employees/profile/me`).pipe(
+            tap((employeeData: any) => {
+              // Create user object with employee data
+              const user: User = {
+                id: response.user.id.toString(),
+                email: employeeData?.WorkEmail || response.user.username,
+                name: employeeData?.FullName || `${employeeData?.FirstName || ''} ${employeeData?.LastName || ''}`.trim() || response.user.username,
+                role: response.user.role || 'employee',
+                department: employeeData?.department_name,
+                position: employeeData?.designation_name
+              };
+              this.setUser(user);
+            }),
+            catchError(() => {
+              // If employee fetch fails, use basic user info
+              const user: User = {
+                id: response.user.id.toString(),
+                email: response.user.username,
+                name: response.user.username,
+                role: response.user.role || 'employee'
+              };
+              this.setUser(user);
+              return of(response);
+            }),
+            switchMap(() => of(response))
+          );
         })
       );
   }

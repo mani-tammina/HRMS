@@ -52,7 +52,7 @@
       (click)="viewEmployee(employee.id)"
       lines="full">
       <ion-avatar slot="start">
-        <img [src]="employee.avatar || 'assets/avatar-placeholder.png'" alt="{{ employee.name }}">
+        <img [src]="employee.avatar" alt="{{ employee.name }}" (error)="handleImageError($event)">
       </ion-avatar>
       <ion-label>
         <h2>{{ employee.name }}</h2>

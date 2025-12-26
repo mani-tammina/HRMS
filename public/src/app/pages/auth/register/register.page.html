@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-back-button defaultHref="/login"></ion-back-button>
     </ion-buttons>
-    <ion-title>Register</ion-title>
+    <ion-title>Employee Registration</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -11,91 +11,129 @@
   <div class="register-container">
     <ion-card>
       <ion-card-header>
-        <ion-card-title>Create Account</ion-card-title>
+        <ion-card-title>
+          {{ currentStep === 'check' ? 'Verify Your Email' : 'Set Your Password' }}
+        </ion-card-title>
       </ion-card-header>
 
       <ion-card-content>
-        <form [formGroup]="registerForm" (ngSubmit)="onRegister()">
-          <ion-item>
-            <ion-icon name="person-outline" slot="start"></ion-icon>
-            <ion-input 
-              label="Full Name" 
-              labelPlacement="floating"
-              type="text" 
-              formControlName="name"
-              placeholder="Enter your full name">
-            </ion-input>
-          </ion-item>
+        <!-- Step 1: Check Employee -->
+        <div *ngIf="currentStep === 'check'">
+          <ion-text color="medium" class="description">
+            <p>Enter your work email to verify your employee record.</p>
+          </ion-text>
 
-          <ion-item>
-            <ion-icon name="mail-outline" slot="start"></ion-icon>
-            <ion-input 
-              label="Email" 
-              labelPlacement="floating"
-              type="email" 
-              formControlName="email"
-              placeholder="Enter your email">
-            </ion-input>
-          </ion-item>
+          <form [formGroup]="registerForm">
+            <ion-item>
+              <ion-icon name="mail-outline" slot="start"></ion-icon>
+              <ion-input 
+                label="Work Email" 
+                labelPlacement="floating"
+                type="email" 
+                formControlName="email"
+                placeholder="Enter your work email">
+              </ion-input>
+            </ion-item>
 
-          <ion-item>
-            <ion-icon name="call-outline" slot="start"></ion-icon>
-            <ion-input 
-              label="Phone Number" 
-              labelPlacement="floating"
-              type="tel" 
-              formControlName="phone"
-              placeholder="Enter your phone number">
-            </ion-input>
-          </ion-item>
+            <ion-button 
+              expand="block" 
+              (click)="checkEmployee()"
+              class="register-button">
+              <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+              Verify Email
+            </ion-button>
+          </form>
+        </div>
 
-          <ion-item>
-            <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
-            <ion-input 
-              label="Password" 
-              labelPlacement="floating"
-              type="password" 
-              formControlName="password"
-              placeholder="Enter your password">
-            </ion-input>
-          </ion-item>
+        <!-- Step 2: Create User Account -->
+        <div *ngIf="currentStep === 'create'">
+          <div class="employee-info" *ngIf="employeeData">
+            <ion-text color="success">
+              <h3>
+                <ion-icon name="checkmark-circle-outline"></ion-icon>
+                Employee Verified
+              </h3>
+            </ion-text>
+            <div class="info-item">
+              <ion-text color="medium"><strong>Name:</strong></ion-text>
+              <ion-text>{{ employeeData.FullName }}</ion-text>
+            </div>
+            <div class="info-item">
+              <ion-text color="medium"><strong>Employee No:</strong></ion-text>
+              <ion-text>{{ employeeData.EmployeeNumber }}</ion-text>
+            </div>
+            <div class="info-item" *ngIf="employeeData.Department">
+              <ion-text color="medium"><strong>Department:</strong></ion-text>
+              <ion-text>{{ employeeData.Department }}</ion-text>
+            </div>
+            <div class="info-item" *ngIf="employeeData.Designation">
+              <ion-text color="medium"><strong>Designation:</strong></ion-text>
+              <ion-text>{{ employeeData.Designation }}</ion-text>
+            </div>
+          </div>
 
-          <ion-item>
-            <ion-icon name="business-outline" slot="start"></ion-icon>
-            <ion-select 
-              label="Department" 
-              labelPlacement="floating"
-              formControlName="department"
-              placeholder="Select department">
-              <ion-select-option value="IT">IT</ion-select-option>
-              <ion-select-option value="HR">HR</ion-select-option>
-              <ion-select-option value="Finance">Finance</ion-select-option>
-              <ion-select-option value="Sales">Sales</ion-select-option>
-              <ion-select-option value="Marketing">Marketing</ion-select-option>
-              <ion-select-option value="Operations">Operations</ion-select-option>
-            </ion-select>
-          </ion-item>
+          <ion-text color="medium" class="description">
+            <p>Create a password for your account.</p>
+          </ion-text>
 
-          <ion-item>
-            <ion-icon name="briefcase-outline" slot="start"></ion-icon>
-            <ion-input 
-              label="Position" 
-              labelPlacement="floating"
-              type="text" 
-              formControlName="position"
-              placeholder="Enter your position">
-            </ion-input>
-          </ion-item>
+          <form [formGroup]="registerForm">
+            <ion-item>
+              <ion-icon name="mail-outline" slot="start"></ion-icon>
+              <ion-input 
+                label="Work Email" 
+                labelPlacement="floating"
+                type="email" 
+                formControlName="email"
+                readonly>
+              </ion-input>
+            </ion-item>
 
-          <ion-button 
-            expand="block" 
-            type="submit" 
-            [disabled]="isLoading"
-            class="register-button">
-            <ion-spinner *ngIf="isLoading" name="crescent"></ion-spinner>
-            <span *ngIf="!isLoading">Register</span>
-          </ion-button>
-        </form>
+            <ion-item>
+              <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+              <ion-input 
+                label="Password" 
+                labelPlacement="floating"
+                type="password" 
+                formControlName="password"
+                placeholder="Enter your password">
+              </ion-input>
+            </ion-item>
+            <ion-text color="danger" class="error-text" *ngIf="registerForm.get('password')?.hasError('minlength') && registerForm.get('password')?.touched">
+              <small>Password must be at least 6 characters</small>
+            </ion-text>
+
+            <ion-item>
+              <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+              <ion-input 
+                label="Confirm Password" 
+                labelPlacement="floating"
+                type="password" 
+                formControlName="confirmPassword"
+                placeholder="Re-enter your password">
+              </ion-input>
+            </ion-item>
+            <ion-text color="danger" class="error-text" *ngIf="registerForm.get('confirmPassword')?.hasError('passwordMismatch') && registerForm.get('confirmPassword')?.touched">
+              <small>Passwords do not match</small>
+            </ion-text>
+
+            <div class="button-group">
+              <ion-button 
+                expand="block" 
+                fill="outline"
+                (click)="resetForm()">
+                Back
+              </ion-button>
+              <ion-button 
+                expand="block" 
+                (click)="createUser()"
+                [disabled]="registerForm.invalid"
+                class="register-button">
+                <ion-icon name="person-outline" slot="start"></ion-icon>
+                Create Account
+              </ion-button>
+            </div>
+          </form>
+        </div>
 
         <div class="login-link">
           <ion-text>

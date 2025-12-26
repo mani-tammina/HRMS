@@ -338,6 +338,18 @@
         &.info {
           background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
         }
+        
+        &.danger {
+          background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+        
+        &.secondary {
+          background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        }
+        
+        &.tertiary {
+          background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+        }
       }
       
       p {
@@ -347,6 +359,12 @@
         color: #475569;
         text-align: center;
       }
+    }
+    
+    &.admin-actions {
+      margin-top: 20px;
+      padding-top: 20px;
+      border-top: 2px dashed #e2e8f0;
     }
   }
 }

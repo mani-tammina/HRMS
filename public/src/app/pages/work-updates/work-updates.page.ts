@@ -103,13 +103,13 @@ export class WorkUpdatesPage implements OnInit {
 
   loadProjects() {
     this.workUpdatesService.getMyProjects().subscribe({
-      next: (response: any) => {
+      next: (response: { success: boolean; projects: Project[]; message?: string }) => {
         this.projects = response.projects;
         if (this.projects.length === 0) {
           this.showToast('You are not assigned to any active projects', 'warning');
         }
       },
-      error: (error: any) => {
+      error: (error: Error) => {
         console.error('Error loading projects:', error);
         this.showToast('Failed to load projects', 'danger');
       }
@@ -121,10 +121,10 @@ export class WorkUpdatesPage implements OnInit {
     const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     this.workUpdatesService.getMyUpdates(startDate, endDate).subscribe({
-      next: (response: any) => {
+      next: (response: { success: boolean; updates: any[] }) => {
         this.workUpdates = response.updates;
       },
-      error: (error: any) => {
+      error: (error: Error) => {
         console.error('Error loading work updates:', error);
       }
     });
@@ -237,7 +237,7 @@ export class WorkUpdatesPage implements OnInit {
     }
 
     this.workUpdatesService.submitWorkUpdate(formData).subscribe({
-      next: (response: any) => {
+      next: (response: { success: boolean; message: string }) => {
         loading.dismiss();
         this.showToast(
           isDraft ? 'Work update saved as draft' : 'Work update submitted successfully',
@@ -247,7 +247,7 @@ export class WorkUpdatesPage implements OnInit {
         this.showSubmitModal = false;
         this.loadWorkUpdates();
       },
-      error: (error: any) => {
+      error: (error: Error) => {
         loading.dismiss();
         console.error('Error submitting work update:', error);
         this.showToast('Failed to submit work update', 'danger');
@@ -270,7 +270,7 @@ export class WorkUpdatesPage implements OnInit {
                 this.showToast('Draft deleted successfully', 'success');
                 this.loadWorkUpdates();
               },
-              error: (error: any) => {
+              error: (error: Error) => {
                 console.error('Error deleting update:', error);
                 this.showToast('Failed to delete draft', 'danger');
               }
@@ -284,7 +284,7 @@ export class WorkUpdatesPage implements OnInit {
 
   downloadTimesheet(timesheetId: number) {
     this.workUpdatesService.downloadTimesheet(timesheetId).subscribe({
-      next: (blob: any) => {
+      next: (blob: Blob) => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -294,7 +294,7 @@ export class WorkUpdatesPage implements OnInit {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       },
-      error: (error: any) => {
+      error: (error: Error) => {
         console.error('Error downloading timesheet:', error);
         this.showToast('Failed to download timesheet', 'danger');
       }

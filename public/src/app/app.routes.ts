@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
+import { adminGuard } from './core/guards/admin.guard';
 
 export const routes: Routes = [
   {
@@ -82,5 +83,76 @@ export const routes: Routes = [
     path: 'admin/timesheet/verification-comparison/:id',
     loadComponent: () => import('./pages/verification-comparison/verification-comparison.page').then(m => m.VerificationComparisonPage),
     canActivate: [authGuard]
+  },
+  {
+    path: 'payroll',
+    loadComponent: () => import('./pages/payroll/payroll.page').then(m => m.PayrollPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'timesheets',
+    loadComponent: () => import('./pages/timesheets/timesheets.page').then(m => m.TimesheetsPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'reports',
+    loadComponent: () => import('./pages/reports/reports.page').then(m => m.ReportsPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'holidays',
+    loadComponent: () => import('./pages/holidays/holidays.page').then(m => m.HolidaysPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'announcements',
+    loadComponent: () => import('./pages/announcements/announcements.page').then(m => m.AnnouncementsPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'support',
+    loadComponent: () => import('./pages/support/support.page').then(m => m.SupportPage),
+    canActivate: [authGuard]
+  },
+  {
+    path: 'candidates',
+    loadComponent: () => import('./pages/candidates/candidates.page').then(m => m.CandidatesPage),
+    canActivate: [authGuard]
+  },
+  // Admin-only routes
+  {
+    path: 'admin/dashboard',
+    loadComponent: () => import('./pages/admin-dashboard/admin-dashboard.page').then(m => m.AdminDashboardPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/bulk-upload',
+    loadComponent: () => import('./pages/bulk-upload/bulk-upload.page').then(m => m.BulkUploadPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/master-data',
+    loadComponent: () => import('./pages/master-data/master-data.page').then(m => m.MasterDataPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/users',
+    loadComponent: () => import('./pages/users/users.page').then(m => m.UsersPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/leave-plans',
+    loadComponent: () => import('./pages/leave-plans/leave-plans.page').then(m => m.LeavePlansPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/leave-plans/:id',
+    loadComponent: () => import('./pages/leave-plan-detail/leave-plan-detail.page').then(m => m.LeavePlanDetailPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/leave-types',
+    loadComponent: () => import('./pages/leave-types/leave-types.page').then(m => m.LeaveTypesPage),
+    canActivate: [adminGuard]
   }
 ];

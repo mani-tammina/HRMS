@@ -1,20 +1,22 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Router } from '@angular/router';
 import { 
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-  IonAvatar
+  IonAvatar, IonMenuButton
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '@core/services/auth.service';
 import { AttendanceService } from '@core/services/attendance.service';
 import { LeaveService } from '@core/services/leave.service';
+import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { 
   notificationsOutline, calendarOutline, timeOutline, 
   documentTextOutline, peopleOutline, trendingUpOutline,
-  checkmarkCircleOutline, closeCircleOutline, hourglassOutline
+  checkmarkCircleOutline, closeCircleOutline, hourglassOutline,
+  settingsOutline, cloudUploadOutline, shieldOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -27,13 +29,15 @@ import {
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
     IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-    IonAvatar
+    IonAvatar, IonMenuButton
   ]
 })
-export class HomePage implements OnInit {
+export class HomePage implements OnInit, OnDestroy {
   user: User | null = null;
+  isAdmin: boolean = false;
   todayAttendance: any = null;
   currentTime: string = '';
+  private userSubscription?: Subscription;
   stats = {
     workHours: '0h 0m',
     leavesUsed: 0,
@@ -62,17 +66,30 @@ export class HomePage implements OnInit {
     addIcons({ 
       notificationsOutline, calendarOutline, timeOutline, 
       documentTextOutline, peopleOutline, trendingUpOutline,
-      checkmarkCircleOutline, closeCircleOutline, hourglassOutline
+      settingsOutline, cloudUploadOutline, shieldOutline
     });
   }
 
   ngOnInit() {
-    this.user = this.authService.getCurrentUser();
+    // Subscribe to user changes to update role dynamically
+    this.userSubscription = this.authService.currentUser$.subscribe(user => {
+      this.user = user;
+      this.isAdmin = user?.role === 'admin' || user?.role === 'hr';
+      console.log('Home: User role updated:', user?.role, 'isAdmin:', this.isAdmin);
+    });
+    
     this.updateTime();
     this.loadData();
     
     // Update time every minute
     setInterval(() => this.updateTime(), 60000);
+  }
+
+  ngOnDestroy() {
+    // Clean up subscription
+    if (this.userSubscription) {
+      this.userSubscription.unsubscribe();
+    }
   }
 
   updateTime() {
@@ -123,5 +140,10 @@ export class HomePage implements OnInit {
 
   goToNotifications() {
     this.router.navigate(['/notifications']);
+  }
+
+  handleImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    target.src = 'assets/avatar-placeholder.png';
   }
 }

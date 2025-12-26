@@ -98,13 +98,13 @@ export class AdminComplianceDashboardPage implements OnInit {
     const date = new Date(this.selectedDate).toISOString().split('T')[0];
     
     this.adminTimesheetService.getComplianceDashboard(date, date).subscribe({
-      next: (response) => {
+      next: (response: { success: boolean; dashboard: DashboardData[]; statistics: Statistics }) => {
         this.dashboardData = response.dashboard;
         this.statistics = response.statistics;
         this.applyFilters();
         this.isLoading = false;
       },
-      error: (error) => {
+      error: (error: Error) => {
         console.error('Error loading dashboard:', error);
         this.showToast('Failed to load compliance dashboard', 'danger');
         this.isLoading = false;
@@ -187,12 +187,12 @@ export class AdminComplianceDashboardPage implements OnInit {
     await loading.present();
 
     this.adminTimesheetService.getNonCompliantEmployees(date).subscribe({
-      next: (response) => {
+      next: (response: { success: boolean; nonCompliantEmployees: any[]; date: string }) => {
         loading.dismiss();
         // Show modal or navigate to details page
         console.log('Non-compliant employees:', response.nonCompliantEmployees);
       },
-      error: (error) => {
+      error: (error: Error) => {
         loading.dismiss();
         console.error('Error loading non-compliant employees:', error);
         this.showToast('Failed to load non-compliant employees', 'danger');

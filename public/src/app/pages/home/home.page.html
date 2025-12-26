@@ -13,7 +13,9 @@
       </ion-button>
       <ion-button fill="clear">
         <ion-avatar class="header-avatar">
-          <img [src]="user?.avatar || 'assets/avatar-placeholder.png'" alt="Profile">
+          <img [src]="user?.avatar || 'assets/avatar-placeholder.png'" 
+               alt="Profile" 
+               (error)="handleImageError($event)">
         </ion-avatar>
       </ion-button>
     </ion-buttons>
@@ -169,11 +171,33 @@
                 </div>
                 <p>Directory</p>
               </div>
-              <div class="action-item">
+              <div class="action-item" (click)="navigateTo('payroll')">
                 <div class="action-icon info">
                   <ion-icon name="document-text-outline"></ion-icon>
                 </div>
                 <p>Payslip</p>
+              </div>
+            </div>
+            
+            <!-- Admin Quick Actions -->
+            <div class="action-grid admin-actions" *ngIf="isAdmin">
+              <div class="action-item" (click)="navigateTo('admin/dashboard')">
+                <div class="action-icon danger">
+                  <ion-icon name="shield-outline"></ion-icon>
+                </div>
+                <p>Admin Panel</p>
+              </div>
+              <div class="action-item" (click)="navigateTo('admin/bulk-upload')">
+                <div class="action-icon secondary">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                </div>
+                <p>Bulk Upload</p>
+              </div>
+              <div class="action-item" (click)="navigateTo('admin/master-data')">
+                <div class="action-icon tertiary">
+                  <ion-icon name="settings-outline"></ion-icon>
+                </div>
+                <p>Master Data</p>
               </div>
             </div>
           </ion-card-content>
@@ -383,7 +407,9 @@
             <div class="team-list">
               <div class="team-member" *ngFor="let member of celebrations">
                 <ion-avatar class="member-avatar">
-                  <img [src]="member.avatar || 'assets/avatar-placeholder.png'" [alt]="member.name">
+                  <img [src]="member.avatar || 'assets/avatar-placeholder.png'" 
+                       [alt]="member.name" 
+                       (error)="handleImageError($event)">
                 </ion-avatar>
                 <div class="member-info">
                   <p class="member-name">{{ member.name }}</p>

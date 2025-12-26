@@ -12,12 +12,14 @@
     <!-- Profile Header -->
     <div class="profile-header">
       <ion-avatar class="profile-avatar">
-        <img [src]="employee.avatar || 'assets/avatar-placeholder.png'" alt="{{ employee.name }}">
+        <img [src]="$any(employee).ProfilePicture || 'assets/avatar-placeholder.png'" 
+             alt="{{ $any(employee).FirstName }}" 
+             (error)="handleImageError($event)">
       </ion-avatar>
-      <h1>{{ employee.name }}</h1>
-      <p>{{ employee.position }}</p>
-      <ion-badge [color]="employee.status === 'active' ? 'success' : 'medium'">
-        {{ employee.status }}
+      <h1>{{ $any(employee).FirstName }} {{ $any(employee).LastName }}</h1>
+      <p>{{ $any(employee).designation_name || $any(employee).Designation }}</p>
+      <ion-badge [color]="$any(employee).EmployeeStatus === 'Active' ? 'success' : 'medium'">
+        {{ $any(employee).EmployeeStatus || 'Active' }}
       </ion-badge>
     </div>
 
@@ -32,15 +34,23 @@
             <ion-icon slot="start" name="mail-outline" color="primary"></ion-icon>
             <ion-label>
               <p>Email</p>
-              <h3>{{ employee.email }}</h3>
+              <h3>{{ $any(employee).WorkEmail || $any(employee).PersonalEmail }}</h3>
             </ion-label>
           </ion-item>
 
-          <ion-item *ngIf="employee.phone">
+          <ion-item *ngIf="$any(employee).ContactNumber">
             <ion-icon slot="start" name="call-outline" color="primary"></ion-icon>
             <ion-label>
               <p>Phone</p>
-              <h3>{{ employee.phone }}</h3>
+              <h3>{{ $any(employee).ContactNumber }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="$any(employee).EmergencyContactNumber">
+            <ion-icon slot="start" name="call-outline" color="danger"></ion-icon>
+            <ion-label>
+              <p>Emergency Contact</p>
+              <h3>{{ $any(employee).EmergencyContactNumber }}</h3>
             </ion-label>
           </ion-item>
         </ion-list>
@@ -57,7 +67,15 @@
             <ion-icon slot="start" name="business-outline" color="primary"></ion-icon>
             <ion-label>
               <p>Department</p>
-              <h3>{{ employee.department }}</h3>
+              <h3>{{ $any(employee).department_name || $any(employee).Department }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="$any(employee).sub_department_name">
+            <ion-icon slot="start" name="business-outline" color="secondary"></ion-icon>
+            <ion-label>
+              <p>Sub Department</p>
+              <h3>{{ $any(employee).sub_department_name }}</h3>
             </ion-label>
           </ion-item>
 
@@ -65,15 +83,39 @@
             <ion-icon slot="start" name="briefcase-outline" color="primary"></ion-icon>
             <ion-label>
               <p>Position</p>
-              <h3>{{ employee.position }}</h3>
+              <h3>{{ $any(employee).designation_name || $any(employee).Designation }}</h3>
             </ion-label>
           </ion-item>
 
-          <ion-item>
+          <ion-item *ngIf="$any(employee).EmployeeNumber">
+            <ion-icon slot="start" name="card-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Employee Number</p>
+              <h3>{{ $any(employee).EmployeeNumber }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="$any(employee).location_name">
+            <ion-icon slot="start" name="location-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Location</p>
+              <h3>{{ $any(employee).location_name }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="$any(employee).DateOfJoining">
             <ion-icon slot="start" name="calendar-outline" color="primary"></ion-icon>
             <ion-label>
               <p>Join Date</p>
-              <h3>{{ employee.joinDate | date:'MMM d, y' }}</h3>
+              <h3>{{ $any(employee).DateOfJoining | date:'MMM d, y' }}</h3>
+            </ion-label>
+          </ion-item>
+
+          <ion-item *ngIf="$any(employee).manager_first_name">
+            <ion-icon slot="start" name="person-outline" color="primary"></ion-icon>
+            <ion-label>
+              <p>Manager</p>
+              <h3>{{ $any(employee).manager_first_name }} {{ $any(employee).manager_last_name }}</h3>
             </ion-label>
           </ion-item>
         </ion-list>

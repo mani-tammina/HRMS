@@ -3,7 +3,23 @@
   max-width: 800px;
   margin: 0 auto;
 }
-
+.loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  
+  ion-spinner {
+    transform: scale(1.5);
+    margin-bottom: 1rem;
+  }
+  
+  p {
+    color: var(--ion-color-medium);
+    font-size: 0.9rem;
+  }
+}
 .profile-header-card {
   margin-bottom: 1.5rem;
   overflow: hidden;

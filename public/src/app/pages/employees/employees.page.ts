@@ -43,8 +43,12 @@ export class EmployeesPage implements OnInit {
   loadEmployees() {
     this.employeeService.getEmployees().subscribe({
       next: (employees) => {
+        console.log('Employees loaded:', employees);
         this.employees = employees;
         this.filteredEmployees = employees;
+      },
+      error: (error) => {
+        console.error('Error loading employees:', error);
       }
     });
   }
@@ -80,5 +84,10 @@ export class EmployeesPage implements OnInit {
 
   getDepartmentCount(): number {
     return new Set(this.employees.map(e => e.department)).size;
+  }
+
+  handleImageError(event: Event): void {
+    const target = event.target as HTMLImageElement;
+    target.src = 'assets/avatar-placeholder.png';
   }
 }

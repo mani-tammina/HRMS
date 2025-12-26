@@ -186,7 +186,34 @@ router.get("/profile/me", auth, async (req, res) => {
     if (!emp) return res.status(404).json({ error: "Employee not found" });
     
     const c = await db();
-    const [rows] = await c.query("SELECT * FROM employees WHERE id = ?", [emp.id]);
+    const [rows] = await c.query(
+        `SELECT 
+            e.*,
+            l.name as location_name,
+            d.name as department_name,
+            sd.name as sub_department_name,
+            des.name as designation_name,
+            des2.name as secondary_designation_name,
+            bu.name as business_unit_name,
+            le.name as legal_entity_name,
+            b.name as band_name,
+            pg.name as pay_grade_name,
+            mgr.FirstName as manager_first_name,
+            mgr.LastName as manager_last_name
+         FROM employees e
+         LEFT JOIN locations l ON e.LocationId = l.id
+         LEFT JOIN departments d ON e.DepartmentId = d.id
+         LEFT JOIN sub_departments sd ON e.SubDepartmentId = sd.id
+         LEFT JOIN designations des ON e.DesignationId = des.id
+         LEFT JOIN designations des2 ON e.SecondaryDesignationId = des2.id
+         LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+         LEFT JOIN legal_entities le ON e.LegalEntityId = le.id
+         LEFT JOIN bands b ON e.BandId = b.id
+         LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
+         LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+         WHERE e.id = ?`,
+        [emp.id]
+    );
     c.end();
     
     if (rows.length === 0) return res.status(404).json({ error: "Profile not found" });

@@ -1,0 +1,134 @@
+<ion-header>
+  <ion-toolbar color="primary">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/admin/dashboard"></ion-back-button>
+    </ion-buttons>
+    <ion-title>User Management</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="loadUsers()">
+        <ion-icon slot="icon-only" name="refresh-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+  <ion-toolbar>
+    <ion-searchbar 
+      [(ngModel)]="searchTerm"
+      (ionInput)="filterUsers($event)"
+      placeholder="Search users..."
+      animated>
+    </ion-searchbar>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <!-- Stats Card -->
+  <ion-card>
+    <ion-card-content>
+      <div class="stats-grid">
+        <div class="stat-item">
+          <ion-badge color="primary">{{ getRoleStats().total }}</ion-badge>
+          <ion-label>Total Users</ion-label>
+        </div>
+        <div class="stat-item">
+          <ion-badge color="danger">{{ getRoleStats().admin }}</ion-badge>
+          <ion-label>Admins</ion-label>
+        </div>
+        <div class="stat-item">
+          <ion-badge color="warning">{{ getRoleStats().hr }}</ion-badge>
+          <ion-label>HR</ion-label>
+        </div>
+        <div class="stat-item">
+          <ion-badge color="primary">{{ getRoleStats().manager }}</ion-badge>
+          <ion-label>Managers</ion-label>
+        </div>
+        <div class="stat-item">
+          <ion-badge color="medium">{{ getRoleStats().employee }}</ion-badge>
+          <ion-label>Employees</ion-label>
+        </div>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Users List -->
+  <ion-list *ngIf="!isLoading && filteredUsers.length > 0">
+    <ion-item *ngFor="let user of filteredUsers" lines="full">
+      <ion-icon 
+        [name]="roleIcons[user.role] || 'person-outline'" 
+        slot="start" 
+        [color]="roleColors[user.role]">
+      </ion-icon>
+      
+      <ion-label>
+        <h2>{{ user.full_name || user.username }}</h2>
+        <p>{{ user.email || user.username }}</p>
+        <p class="ion-text-wrap">
+          <ion-badge [color]="roleColors[user.role]">
+            {{ user.role | uppercase }}
+          </ion-badge>
+          <span *ngIf="user.last_login" class="user-meta">
+            Last login: {{ user.last_login | date:'short' }}
+          </span>
+        </p>
+      </ion-label>
+      
+      <ion-button 
+        slot="end" 
+        fill="clear" 
+        size="small"
+        (click)="changeUserRole(user)">
+        Change Role
+      </ion-button>
+    </ion-item>
+  </ion-list>
+
+  <!-- Quick Action Buttons for Testing -->
+  <ion-card *ngIf="filteredUsers.length > 0">
+    <ion-card-content>
+      <h3>Quick Test Actions (First User)</h3>
+      <p class="ion-text-wrap">
+        Testing user: <strong>{{ filteredUsers[0].full_name || filteredUsers[0].username }}</strong>
+        (Current role: <ion-badge [color]="roleColors[filteredUsers[0].role || 'employee']">{{ filteredUsers[0].role }}</ion-badge>)
+      </p>
+      <div class="quick-actions">
+        <ion-button 
+          expand="block" 
+          color="warning"
+          (click)="quickActionMakeHR(filteredUsers[0])">
+          <ion-icon name="briefcase-outline" slot="start"></ion-icon>
+          Make HR
+        </ion-button>
+        <ion-button 
+          expand="block" 
+          color="primary"
+          (click)="quickActionMakeManager(filteredUsers[0])">
+          <ion-icon name="people-outline" slot="start"></ion-icon>
+          Make Manager
+        </ion-button>
+        <ion-button 
+          expand="block" 
+          color="medium"
+          (click)="quickActionMakeEmployee(filteredUsers[0])">
+          <ion-icon name="person-outline" slot="start"></ion-icon>
+          Make Employee
+        </ion-button>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Empty State -->
+  <div *ngIf="!isLoading && filteredUsers.length === 0" class="empty-state">
+    <ion-icon name="people-outline" color="medium"></ion-icon>
+    <h2>No Users Found</h2>
+    <p>{{ searchTerm ? 'Try a different search term' : 'No users available' }}</p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="isLoading" class="loading-state">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Loading users...</p>
+  </div>
+</ion-content>

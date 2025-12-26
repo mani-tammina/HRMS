@@ -90,3 +90,24 @@ ion-item {
     text-decoration: none;
   }
 }
+
+.admin-info {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--ion-color-light);
+  border-radius: var(--radius-md);
+  text-align: center;
+
+  p {
+    margin: 0.25rem 0;
+    font-size: 0.9rem;
+
+    strong {
+      color: var(--ion-color-primary);
+    }
+
+    small {
+      color: var(--ion-color-medium);
+    }
+  }
+}
