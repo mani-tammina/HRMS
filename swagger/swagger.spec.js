@@ -2466,6 +2466,414 @@ const swaggerSpec = {
             }
         },
         
+        // ============ MANAGER ACTIONS ============
+        "/api/leaves/pending": {
+            get: {
+                summary: "Get Pending Leave Requests (Manager/HR)",
+                description: "HR/Admin see all pending leaves. Managers see only their direct reports' pending leaves.",
+                tags: ["👔 Manager Actions"],
+                responses: {
+                    200: {
+                        description: "List of pending leave requests",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 25,
+                                        employee_id: 885,
+                                        EmployeeNumber: "EMP001",
+                                        FirstName: "John",
+                                        LastName: "Doe",
+                                        WorkEmail: "john@company.com",
+                                        leave_type_id: 1,
+                                        type_name: "Casual Leave",
+                                        type_code: "CL",
+                                        start_date: "2025-12-28",
+                                        end_date: "2025-12-30",
+                                        total_days: 3,
+                                        reason: "Family function",
+                                        status: "pending",
+                                        applied_at: "2025-12-26T10:30:00"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leave-enhanced/approve/{leaveId}": {
+            put: {
+                summary: "Approve Leave Request (Manager/HR)",
+                description: "Approve a leave request. Managers can only approve their team's leaves. HR/Admin can approve any leave.",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "leaveId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                responses: {
+                    200: {
+                        description: "Leave approved successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave approved successfully"
+                                }
+                            }
+                        }
+                    },
+                    403: {
+                        description: "Forbidden - Not authorized to approve this leave",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "You can only approve leaves for your direct reports"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/leave-enhanced/reject/{leaveId}": {
+            put: {
+                summary: "Reject Leave Request (Manager/HR)",
+                description: "Reject a leave request. Managers can only reject their team's leaves. HR/Admin can reject any leave.",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "leaveId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    rejection_reason: {
+                                        type: "string",
+                                        example: "Insufficient staffing during requested period"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave rejected successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Leave rejected successfully"
+                                }
+                            }
+                        }
+                    },
+                    403: {
+                        description: "Forbidden - Not authorized to reject this leave"
+                    }
+                }
+            }
+        },
+        "/api/timesheet-enhanced/manager/pending-timesheets": {
+            get: {
+                summary: "Get Pending Timesheets (Manager)",
+                description: "Get all pending (submitted) timesheets from direct reports. Filter by date range and timesheet type.",
+                tags: ["👔 Manager Actions"],
+                parameters: [
+                    {
+                        name: "start_date",
+                        in: "query",
+                        schema: { type: "string", format: "date" },
+                        example: "2025-12-01"
+                    },
+                    {
+                        name: "end_date",
+                        in: "query",
+                        schema: { type: "string", format: "date" },
+                        example: "2025-12-31"
+                    },
+                    {
+                        name: "timesheet_type",
+                        in: "query",
+                        schema: { 
+                            type: "string",
+                            enum: ["regular", "project"]
+                        },
+                        example: "regular"
+                    }
+                ],
+                responses: {
+                    200: {
+                        description: "List of pending timesheets",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 156,
+                                        employee_id: 885,
+                                        EmployeeNumber: "EMP001",
+                                        FirstName: "John",
+                                        LastName: "Doe",
+                                        WorkEmail: "john@company.com",
+                                        date: "2025-12-26",
+                                        timesheet_type: "regular",
+                                        total_hours: 8,
+                                        hours_breakdown: {
+                                            "09:00-13:00": 4,
+                                            "14:00-18:00": 4
+                                        },
+                                        work_description: "Feature development",
+                                        status: "submitted",
+                                        submission_date: "2025-12-26T18:30:00",
+                                        project_name: null,
+                                        project_code: null
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/timesheet-enhanced/manager/team-timesheets/{employeeId}": {
+            get: {
+                summary: "Get Team Member's Timesheets (Manager)",
+                description: "View timesheets of a specific team member. Only accessible for direct reports.",
+                tags: ["👔 Manager Actions"],
+                parameters: [
+                    {
+                        name: "employeeId",
+                        in: "path",
+                        required: true,
+                        schema: { type: "integer" }
+                    },
+                    {
+                        name: "start_date",
+                        in: "query",
+                        schema: { type: "string", format: "date" }
+                    },
+                    {
+                        name: "end_date",
+                        in: "query",
+                        schema: { type: "string", format: "date" }
+                    },
+                    {
+                        name: "month",
+                        in: "query",
+                        schema: { type: "integer" },
+                        example: 12
+                    },
+                    {
+                        name: "year",
+                        in: "query",
+                        schema: { type: "integer" },
+                        example: 2025
+                    }
+                ],
+                responses: {
+                    200: {
+                        description: "Team member's timesheets",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 156,
+                                        employee_id: 885,
+                                        date: "2025-12-26",
+                                        timesheet_type: "project",
+                                        project_id: 5,
+                                        project_name: "Client Portal",
+                                        project_code: "PRJ-2025-005",
+                                        client_name: "Acme Corp",
+                                        total_hours: 9,
+                                        status: "approved",
+                                        verified_by: 100,
+                                        verified_at: "2025-12-27T09:00:00"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    403: {
+                        description: "Forbidden - Employee is not your direct report"
+                    }
+                }
+            }
+        },
+        "/api/timesheet-enhanced/manager/approve/{timesheetId}": {
+            put: {
+                summary: "Approve Timesheet (Manager/HR)",
+                description: "Approve a submitted timesheet. Managers can only approve their team's timesheets. HR/Admin can approve any.",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "timesheetId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                responses: {
+                    200: {
+                        description: "Timesheet approved successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Timesheet approved successfully"
+                                }
+                            }
+                        }
+                    },
+                    403: {
+                        description: "Forbidden - Not authorized to approve this timesheet"
+                    }
+                }
+            }
+        },
+        "/api/timesheet-enhanced/manager/reject/{timesheetId}": {
+            put: {
+                summary: "Reject Timesheet (Manager/HR)",
+                description: "Reject a submitted timesheet. Managers can only reject their team's timesheets. HR/Admin can reject any.",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "timesheetId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    rejection_reason: {
+                                        type: "string",
+                                        example: "Hours mismatch with attendance records"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Timesheet rejected successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Timesheet rejected successfully"
+                                }
+                            }
+                        }
+                    },
+                    403: {
+                        description: "Forbidden - Not authorized to reject this timesheet"
+                    }
+                }
+            }
+        },
+        "/api/attendance-enhanced/report/team": {
+            get: {
+                summary: "Get Team Attendance Report (Manager)",
+                description: "View attendance status for all direct reports for a specific date",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "date",
+                    in: "query",
+                    schema: { type: "string", format: "date" },
+                    example: "2025-12-26"
+                }],
+                responses: {
+                    200: {
+                        description: "Team attendance report",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    team_members: [
+                                        {
+                                            id: 885,
+                                            EmployeeNumber: "EMP001",
+                                            FirstName: "John",
+                                            LastName: "Doe",
+                                            WorkEmail: "john@company.com"
+                                        }
+                                    ],
+                                    date: "2025-12-26",
+                                    attendance: [
+                                        {
+                                            id: 450,
+                                            employee_id: 885,
+                                            EmployeeNumber: "EMP001",
+                                            FirstName: "John",
+                                            LastName: "Doe",
+                                            attendance_date: "2025-12-26",
+                                            status: "present",
+                                            work_mode: "Office",
+                                            first_check_in: "09:15:00",
+                                            last_check_out: "18:30:00",
+                                            total_work_hours: 8.5,
+                                            total_punches: 4
+                                        }
+                                    ],
+                                    summary: {
+                                        total_team: 15,
+                                        present: 13,
+                                        absent: 1,
+                                        on_leave: 1
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/employees/reporting/{managerId}": {
+            get: {
+                summary: "Get Team Members (Manager)",
+                description: "Get list of employees reporting to a specific manager",
+                tags: ["👔 Manager Actions"],
+                parameters: [{
+                    name: "managerId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" }
+                }],
+                responses: {
+                    200: {
+                        description: "List of team members",
+                        content: {
+                            "application/json": {
+                                example: [
+                                    {
+                                        id: 885,
+                                        EmployeeNumber: "EMP001",
+                                        FirstName: "John",
+                                        LastName: "Doe",
+                                        WorkEmail: "john@company.com",
+                                        Department: "Engineering",
+                                        Designation: "Senior Developer",
+                                        reporting_manager_id: 100
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        
         // ============ REPORTS ============
         "/api/reports/attendance": {
             get: {

@@ -542,23 +542,41 @@ router.get("/my-leaves", auth, async (req, res) => {
 });
 
 // Approve Leave (HR/Manager)
-router.put("/approve/:leaveId", auth, hr, async (req, res) => {
+router.put("/approve/:leaveId", auth, async (req, res) => {
     try {
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
         const c = await db();
         await c.beginTransaction();
         
-        // Get leave details
+        // Get leave details with employee info
         const [leaves] = await c.query(
-            `SELECT * FROM leaves WHERE id = ?`,
+            `SELECT l.*, e.reporting_manager_id 
+             FROM leaves l
+             JOIN employees e ON l.employee_id = e.id
+             WHERE l.id = ?`,
             [req.params.leaveId]
         );
         
         if (leaves.length === 0) {
+            await c.rollback();
             c.end();
             return res.status(404).json({ error: "Leave not found" });
         }
         
         const leave = leaves[0];
+        
+        // Check authorization: HR/Admin can approve any, Manager can only approve their team's leaves
+        const isHR = ['admin', 'hr'].includes(req.user.role);
+        const isReportingManager = leave.reporting_manager_id === currentEmp.id;
+        
+        if (!isHR && !isReportingManager) {
+            await c.rollback();
+            c.end();
+            return res.status(403).json({ error: "You can only approve leaves for your direct reports" });
+        }
+        
         const leaveYear = new Date(leave.start_date).getFullYear();
         
         // Update leave status
@@ -586,11 +604,40 @@ router.put("/approve/:leaveId", auth, hr, async (req, res) => {
 });
 
 // Reject Leave (HR/Manager)
-router.put("/reject/:leaveId", auth, hr, async (req, res) => {
+router.put("/reject/:leaveId", auth, async (req, res) => {
     try {
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
         const { rejection_reason } = req.body;
         
         const c = await db();
+        
+        // Get leave details with employee info
+        const [leaves] = await c.query(
+            `SELECT l.*, e.reporting_manager_id 
+             FROM leaves l
+             JOIN employees e ON l.employee_id = e.id
+             WHERE l.id = ?`,
+            [req.params.leaveId]
+        );
+        
+        if (leaves.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Leave not found" });
+        }
+        
+        const leave = leaves[0];
+        
+        // Check authorization: HR/Admin can reject any, Manager can only reject their team's leaves
+        const isHR = ['admin', 'hr'].includes(req.user.role);
+        const isReportingManager = leave.reporting_manager_id === currentEmp.id;
+        
+        if (!isHR && !isReportingManager) {
+            c.end();
+            return res.status(403).json({ error: "You can only reject leaves for your direct reports" });
+        }
+        
         await c.query(
             `UPDATE leaves 
              SET status = 'rejected', approver_id = ?, approval_date = NOW(), rejection_reason = ?
@@ -607,10 +654,16 @@ router.put("/reject/:leaveId", auth, hr, async (req, res) => {
 });
 
 // Get Pending Leaves (HR/Manager)
-router.get("/pending", auth, hr, async (req, res) => {
+router.get("/pending", auth, async (req, res) => {
     try {
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
         const c = await db();
-        const [leaves] = await c.query(`
+        
+        // HR/Admin see all pending leaves, Managers see only their team's pending leaves
+        const isHR = ['admin', 'hr'].includes(req.user.role);
+        let query = `
             SELECT 
                 l.*,
                 lt.type_name,
@@ -622,9 +675,17 @@ router.get("/pending", auth, hr, async (req, res) => {
             FROM leaves l
             INNER JOIN leave_types lt ON l.leave_type_id = lt.id
             INNER JOIN employees e ON l.employee_id = e.id
-            WHERE l.status = 'pending'
-            ORDER BY l.applied_at ASC
-        `);
+            WHERE l.status = 'pending'`;
+        
+        const params = [];
+        if (!isHR) {
+            query += ` AND e.reporting_manager_id = ?`;
+            params.push(currentEmp.id);
+        }
+        
+        query += ` ORDER BY l.applied_at ASC`;
+        
+        const [leaves] = await c.query(query, params);
         c.end();
         res.json(leaves);
     } catch (error) {

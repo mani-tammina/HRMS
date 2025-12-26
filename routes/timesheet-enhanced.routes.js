@@ -577,4 +577,207 @@ router.get("/admin/validation-stats", auth, admin, async (req, res) => {
     }
 });
 
+/* ============ MANAGER TIMESHEET APPROVAL ============ */
+
+// Get pending timesheets for manager's team
+router.get("/manager/pending-timesheets", auth, async (req, res) => {
+    try {
+        const manager = await findEmployeeByUserId(req.user.id);
+        if (!manager) return res.status(404).json({ error: "Manager not found" });
+
+        const { start_date, end_date, timesheet_type } = req.query;
+        const c = await db();
+
+        // Get timesheets from employees reporting to this manager
+        let query = `
+            SELECT 
+                t.*,
+                e.EmployeeNumber,
+                e.FirstName,
+                e.LastName,
+                e.WorkEmail,
+                p.project_name,
+                p.project_code,
+                p.client_name
+            FROM timesheets t
+            INNER JOIN employees e ON t.employee_id = e.id
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE e.reporting_manager_id = ?
+            AND t.status = 'submitted'
+        `;
+        const params = [manager.id];
+
+        if (timesheet_type) {
+            query += " AND t.timesheet_type = ?";
+            params.push(timesheet_type);
+        }
+
+        if (start_date && end_date) {
+            query += " AND t.date BETWEEN ? AND ?";
+            params.push(start_date, end_date);
+        }
+
+        query += " ORDER BY t.submission_date DESC, e.FirstName ASC";
+
+        const [timesheets] = await c.query(query, params);
+        c.end();
+
+        res.json(timesheets);
+    } catch (error) {
+        console.error("Error fetching pending timesheets:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get team member's timesheets (for manager review)
+router.get("/manager/team-timesheets/:employeeId", auth, async (req, res) => {
+    try {
+        const manager = await findEmployeeByUserId(req.user.id);
+        if (!manager) return res.status(404).json({ error: "Manager not found" });
+
+        const { start_date, end_date, month, year } = req.query;
+        const c = await db();
+
+        // Verify the employee reports to this manager
+        const [emp] = await c.query(
+            "SELECT id FROM employees WHERE id = ? AND reporting_manager_id = ?",
+            [req.params.employeeId, manager.id]
+        );
+
+        if (emp.length === 0) {
+            c.end();
+            return res.status(403).json({ error: "You can only view timesheets for your direct reports" });
+        }
+
+        let query = `
+            SELECT 
+                t.*,
+                p.project_name,
+                p.project_code,
+                p.client_name
+            FROM timesheets t
+            LEFT JOIN projects p ON t.project_id = p.id
+            WHERE t.employee_id = ?
+        `;
+        const params = [req.params.employeeId];
+
+        if (start_date && end_date) {
+            query += " AND t.date BETWEEN ? AND ?";
+            params.push(start_date, end_date);
+        } else if (month && year) {
+            query += " AND MONTH(t.date) = ? AND YEAR(t.date) = ?";
+            params.push(month, year);
+        }
+
+        query += " ORDER BY t.date DESC";
+
+        const [timesheets] = await c.query(query, params);
+        c.end();
+
+        res.json(timesheets);
+    } catch (error) {
+        console.error("Error fetching team timesheets:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Approve timesheet (Manager)
+router.put("/manager/approve/:timesheetId", auth, async (req, res) => {
+    try {
+        const manager = await findEmployeeByUserId(req.user.id);
+        if (!manager) return res.status(404).json({ error: "Manager not found" });
+
+        const c = await db();
+
+        // Get timesheet with employee info
+        const [timesheets] = await c.query(
+            `SELECT t.*, e.reporting_manager_id 
+             FROM timesheets t
+             JOIN employees e ON t.employee_id = e.id
+             WHERE t.id = ?`,
+            [req.params.timesheetId]
+        );
+
+        if (timesheets.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Timesheet not found" });
+        }
+
+        const timesheet = timesheets[0];
+
+        // Check authorization: HR/Admin can approve any, Manager can only approve their team's timesheets
+        const isHR = ['admin', 'hr'].includes(req.user.role);
+        const isReportingManager = timesheet.reporting_manager_id === manager.id;
+
+        if (!isHR && !isReportingManager) {
+            c.end();
+            return res.status(403).json({ error: "You can only approve timesheets for your direct reports" });
+        }
+
+        // Update timesheet status
+        await c.query(
+            `UPDATE timesheets 
+             SET status = 'approved', verified_by = ?, verified_at = NOW()
+             WHERE id = ?`,
+            [req.user.id, req.params.timesheetId]
+        );
+
+        c.end();
+        res.json({ success: true, message: "Timesheet approved successfully" });
+    } catch (error) {
+        console.error("Error approving timesheet:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Reject timesheet (Manager)
+router.put("/manager/reject/:timesheetId", auth, async (req, res) => {
+    try {
+        const manager = await findEmployeeByUserId(req.user.id);
+        if (!manager) return res.status(404).json({ error: "Manager not found" });
+
+        const { rejection_reason } = req.body;
+        const c = await db();
+
+        // Get timesheet with employee info
+        const [timesheets] = await c.query(
+            `SELECT t.*, e.reporting_manager_id 
+             FROM timesheets t
+             JOIN employees e ON t.employee_id = e.id
+             WHERE t.id = ?`,
+            [req.params.timesheetId]
+        );
+
+        if (timesheets.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Timesheet not found" });
+        }
+
+        const timesheet = timesheets[0];
+
+        // Check authorization: HR/Admin can reject any, Manager can only reject their team's timesheets
+        const isHR = ['admin', 'hr'].includes(req.user.role);
+        const isReportingManager = timesheet.reporting_manager_id === manager.id;
+
+        if (!isHR && !isReportingManager) {
+            c.end();
+            return res.status(403).json({ error: "You can only reject timesheets for your direct reports" });
+        }
+
+        // Update timesheet status
+        await c.query(
+            `UPDATE timesheets 
+             SET status = 'rejected', verified_by = ?, verified_at = NOW(), validation_remarks = ?
+             WHERE id = ?`,
+            [req.user.id, rejection_reason, req.params.timesheetId]
+        );
+
+        c.end();
+        res.json({ success: true, message: "Timesheet rejected successfully" });
+    } catch (error) {
+        console.error("Error rejecting timesheet:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;
