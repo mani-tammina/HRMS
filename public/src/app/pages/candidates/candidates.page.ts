@@ -47,6 +47,10 @@ export class CandidatesPage implements OnInit {
     this.loadCandidates();
   }
 
+  ionViewWillEnter() {
+    this.loadCandidates();
+  }
+
   async loadCandidates(event?: any) {
     if (!event) {
       this.isLoading = true;

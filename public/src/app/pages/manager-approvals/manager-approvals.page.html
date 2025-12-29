@@ -20,6 +20,10 @@
         <ion-icon name="time-outline"></ion-icon>
         <ion-label>Timesheets</ion-label>
       </ion-segment-button>
+      <ion-segment-button value="team">
+        <ion-icon name="people-outline"></ion-icon>
+        <ion-label>My Team</ion-label>
+      </ion-segment-button>
     </ion-segment>
 
     <!-- Pending Leaves -->
@@ -157,6 +161,57 @@
               <ion-icon slot="start" name="close-circle-outline"></ion-icon>
               Reject
             </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- My Team -->
+    <div *ngIf="selectedSegment === 'team'">
+      <div class="section-header">
+        <h3>{{ teamInfo?.message || 'Team Members' }}</h3>
+        <ion-badge color="primary">{{ teamMembers.length }}</ion-badge>
+      </div>
+
+      <ion-card *ngIf="teamMembers.length === 0">
+        <ion-card-content class="empty-state">
+          <ion-icon name="people-outline" size="large" color="medium"></ion-icon>
+          <p>No team members found</p>
+        </ion-card-content>
+      </ion-card>
+
+      <ion-card *ngFor="let member of teamMembers" class="approval-card" button (click)="viewMemberDetails(member)">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div>
+              <ion-card-title>{{ member.FirstName }} {{ member.LastName }}</ion-card-title>
+              <p class="employee-details">{{ member.EmployeeNumber }} • {{ member.WorkEmail }}</p>
+            </div>
+            <ion-badge [color]="member.status === 'active' ? 'success' : 'medium'">{{ member.status }}</ion-badge>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="leave-details">
+            <div class="detail-row" *ngIf="member.designation_name">
+              <ion-icon name="briefcase-outline"></ion-icon>
+              <span><strong>Designation:</strong> {{ member.designation_name }}</span>
+            </div>
+            <div class="detail-row" *ngIf="member.department_name">
+              <ion-icon name="business-outline"></ion-icon>
+              <span><strong>Department:</strong> {{ member.department_name }}</span>
+            </div>
+            <div class="detail-row" *ngIf="member.location_name">
+              <ion-icon name="location-outline"></ion-icon>
+              <span><strong>Location:</strong> {{ member.location_name }}</span>
+            </div>
+            <div class="detail-row" *ngIf="member.PersonalEmail">
+              <ion-icon name="mail-outline"></ion-icon>
+              <span><strong>Personal Email:</strong> {{ member.PersonalEmail }}</span>
+            </div>
+            <div class="detail-row" *ngIf="member.ContactNumber">
+              <ion-icon name="call-outline"></ion-icon>
+              <span><strong>Contact:</strong> {{ member.ContactNumber }}</span>
+            </div>
           </div>
         </ion-card-content>
       </ion-card>

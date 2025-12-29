@@ -90,12 +90,16 @@ export class HomePage implements OnInit, OnDestroy {
     });
     
     this.updateTime();
-    this.loadData();
-    this.loadAnnouncements();
-    this.loadBirthdays();
     
     // Update time every minute
     setInterval(() => this.updateTime(), 60000);
+  }
+
+  ionViewWillEnter() {
+    // Reload data every time page becomes active
+    this.loadData();
+    this.loadAnnouncements();
+    this.loadBirthdays();
   }
 
   ngOnDestroy() {

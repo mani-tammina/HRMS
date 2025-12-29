@@ -52,6 +52,11 @@ export class HolidaysPage implements OnInit {
     this.loadUpcomingHolidays();
   }
 
+  ionViewWillEnter() {
+    this.loadHolidays();
+    this.loadUpcomingHolidays();
+  }
+
   segmentChanged(event: any) {
     this.view = event.detail.value;
   }

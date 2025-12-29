@@ -41,6 +41,10 @@ export class AnnouncementsPage implements OnInit {
     this.loadAnnouncements();
   }
 
+  ionViewWillEnter() {
+    this.loadAnnouncements();
+  }
+
   async loadAnnouncements(event?: any) {
     if (!event) {
       this.isLoading = true;

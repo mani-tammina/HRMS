@@ -4,14 +4,14 @@ import { Router } from '@angular/router';
 import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonMenuButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle,
-  IonGrid, IonRow, IonCol, IonIcon, IonBadge
+  IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonButton
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
 import { 
   peopleOutline, cloudUploadOutline, settingsOutline, documentTextOutline,
   calendarOutline, megaphoneOutline, helpCircleOutline, briefcaseOutline,
   cashOutline, timeOutline, statsChartOutline, personAddOutline, shieldOutline,
-  clipboardOutline
+  clipboardOutline, homeOutline
 } from 'ionicons/icons';
 import { AuthService, User } from '@core/services/auth.service';
 
@@ -33,7 +33,7 @@ interface AdminCard {
     CommonModule,
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonMenuButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
-    IonGrid, IonRow, IonCol, IonIcon, IonBadge
+    IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonButton
   ]
 })
 export class AdminDashboardPage implements OnInit {
@@ -158,7 +158,8 @@ export class AdminDashboardPage implements OnInit {
       timeOutline,
       statsChartOutline,
       personAddOutline,
-      clipboardOutline
+      clipboardOutline,
+      homeOutline
     });
   }
 
@@ -170,5 +171,9 @@ export class AdminDashboardPage implements OnInit {
 
   navigateTo(route: string) {
     this.router.navigate([route]);
+  }
+
+  goToHome() {
+    this.router.navigate(['/tabs/home']);
   }
 }

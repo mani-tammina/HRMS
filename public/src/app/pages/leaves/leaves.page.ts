@@ -40,6 +40,10 @@ export class LeavesPage implements OnInit {
     this.loadData();
   }
 
+  ionViewWillEnter() {
+    this.loadData();
+  }
+
   loadData() {
     this.leaveService.getLeaves().subscribe({
       next: (leaves) => this.leaves = leaves

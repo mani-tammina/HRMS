@@ -11,7 +11,8 @@ import { environment } from '@env/environment';
 import { addIcons } from 'ionicons';
 import { 
   checkmarkCircleOutline, closeCircleOutline, timeOutline, 
-  calendarOutline, documentTextOutline, peopleOutline 
+  calendarOutline, documentTextOutline, peopleOutline,
+  briefcaseOutline, businessOutline, locationOutline, mailOutline, callOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -28,9 +29,11 @@ import {
   ]
 })
 export class ManagerApprovalsPage implements OnInit {
-  selectedSegment: 'leaves' | 'timesheets' = 'leaves';
+  selectedSegment: 'leaves' | 'timesheets' | 'team' = 'leaves';
   pendingLeaves: any[] = [];
   pendingTimesheets: any[] = [];
+  teamMembers: any[] = [];
+  teamInfo: any = null;
   isLoading = false;
 
   constructor(
@@ -40,11 +43,16 @@ export class ManagerApprovalsPage implements OnInit {
   ) {
     addIcons({ 
       checkmarkCircleOutline, closeCircleOutline, timeOutline, 
-      calendarOutline, documentTextOutline, peopleOutline 
+      calendarOutline, documentTextOutline, peopleOutline,
+      briefcaseOutline, businessOutline, locationOutline, mailOutline, callOutline
     });
   }
 
   ngOnInit() {
+    this.loadData();
+  }
+
+  ionViewWillEnter() {
     this.loadData();
   }
 
@@ -55,6 +63,7 @@ export class ManagerApprovalsPage implements OnInit {
   loadData() {
     this.loadPendingLeaves();
     this.loadPendingTimesheets();
+    this.loadTeamMembers();
   }
 
   loadPendingLeaves() {
@@ -81,6 +90,30 @@ export class ManagerApprovalsPage implements OnInit {
         this.showToast('Error loading pending timesheets', 'danger');
       }
     });
+  }
+
+  loadTeamMembers() {
+    console.log('Loading team members from:', `${environment.apiUrl}/employees/my-team/list`);
+    this.http.get<any>(`${environment.apiUrl}/employees/my-team/list`).subscribe({
+      next: (response) => {
+        console.log('Team members loaded successfully:', response);
+        this.teamMembers = response.team || [];
+        this.teamInfo = response;
+      },
+      error: (error) => {
+        console.error('Error loading team members:', error);
+        console.error('Error status:', error.status);
+        console.error('Error message:', error.message);
+        console.error('Error details:', error.error);
+        this.showToast(error.error?.error || error.message || 'Error loading team members', 'danger');
+      }
+    });
+  }
+
+  viewMemberDetails(member: any) {
+    // Navigate to employee detail page or show modal with details
+    console.log('View member details:', member);
+    this.showToast(`Viewing ${member.FirstName} ${member.LastName}`, 'primary');
   }
 
   async approveLeave(leave: any) {

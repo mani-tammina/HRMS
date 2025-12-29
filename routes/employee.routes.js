@@ -19,6 +19,95 @@ router.get("/", auth, async (req, res) => {
     res.json(r);
 });
 
+// Get my team (reporting team if manager, co-team if employee)
+router.get("/my-team/list", auth, async (req, res) => {
+    console.log('=== GET /my-team/list called ===');
+    console.log('User ID:', req.user?.id);
+    console.log('User Role:', req.user?.role);
+    
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        console.log('Employee found:', emp ? `${emp.FirstName} ${emp.LastName} (ID: ${emp.id})` : 'NOT FOUND');
+        
+        if (!emp) {
+            console.log('Employee not found for user ID:', req.user.id);
+            return res.status(404).json({ error: "Employee not found" });
+        }
+        
+        const c = await db();
+        
+        // Check if user is a manager (has reporting team members)
+        console.log('Checking reporting team for employee ID:', emp.id);
+        const [reportingTeam] = await c.query(
+            `SELECT 
+                e.*,
+                d.name as department_name,
+                des.name as designation_name,
+                l.name as location_name
+             FROM employees e
+             LEFT JOIN departments d ON e.DepartmentId = d.id
+             LEFT JOIN designations des ON e.DesignationId = des.id
+             LEFT JOIN locations l ON e.LocationId = l.id
+             WHERE e.reporting_manager_id = ?
+             ORDER BY e.FirstName, e.LastName`,
+            [emp.id]
+        );
+        
+        console.log('Reporting team count:', reportingTeam.length);
+        
+        // If has reporting team, return them
+        if (reportingTeam.length > 0) {
+            c.end();
+            console.log('Returning reporting team:', reportingTeam.length, 'members');
+            return res.json({ 
+                type: 'reporting_team',
+                team: reportingTeam,
+                message: 'Your reporting team'
+            });
+        }
+        
+        // Otherwise, return co-team members (people with same reporting manager)
+        console.log('Employee reporting_manager_id:', emp.reporting_manager_id);
+        if (emp.reporting_manager_id) {
+            const [coTeam] = await c.query(
+                `SELECT 
+                    e.*,
+                    d.name as department_name,
+                    des.name as designation_name,
+                    l.name as location_name
+                 FROM employees e
+                 LEFT JOIN departments d ON e.DepartmentId = d.id
+                 LEFT JOIN designations des ON e.DesignationId = des.id
+                 LEFT JOIN locations l ON e.LocationId = l.id
+                 WHERE e.reporting_manager_id = ? AND e.id != ?
+                 ORDER BY e.FirstName, e.LastName`,
+                [emp.reporting_manager_id, emp.id]
+            );
+            
+            console.log('Co-team count:', coTeam.length);
+            c.end();
+            return res.json({ 
+                type: 'co_team',
+                team: coTeam,
+                message: 'Your team members'
+            });
+        }
+        
+        // No team found
+        console.log('No team found');
+        c.end();
+        res.json({ 
+            type: 'none',
+            team: [],
+            message: 'No team members found'
+        });
+        
+    } catch (error) {
+        console.error("Error fetching team:", error);
+        res.status(500).json({ error: error.message || "Failed to fetch team" });
+    }
+});
+
 // Create new employee
 router.post("/", auth, admin, async (req, res) => {
     const c = await db();

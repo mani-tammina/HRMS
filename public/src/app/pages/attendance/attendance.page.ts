@@ -42,6 +42,10 @@ export class AttendancePage implements OnInit {
     this.loadData();
   }
 
+  ionViewWillEnter() {
+    this.loadData();
+  }
+
   loadData() {
     console.log('AttendancePage: Loading attendance data...');
     

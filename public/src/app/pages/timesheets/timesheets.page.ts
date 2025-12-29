@@ -58,6 +58,11 @@ export class TimesheetsPage implements OnInit {
     this.loadTimesheets();
   }
 
+  ionViewWillEnter() {
+    this.checkAssignment();
+    this.loadTimesheets();
+  }
+
   checkAssignment() {
     console.log('Checking project assignment status...');
     this.timesheetService.checkAssignment().subscribe({

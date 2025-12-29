@@ -40,6 +40,11 @@ export class EmployeesPage implements OnInit {
     this.loadEmployees();
   }
 
+  ionViewWillEnter() {
+    // Reload employees when page becomes active
+    this.loadEmployees();
+  }
+
   loadEmployees() {
     this.employeeService.getEmployees().subscribe({
       next: (employees) => {
