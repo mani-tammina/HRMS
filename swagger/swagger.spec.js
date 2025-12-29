@@ -414,6 +414,234 @@ const swaggerSpec = {
                 }
             }
         },
+        "/api/auth/user/create-auto": {
+            post: {
+                summary: "🆕 Create User with Auto Role Assignment",
+                description: `Create user account with automatic role assignment based on:
+1. If department is "Human Resource" → HR role
+2. Else if employee has > 4 direct reports → Manager role
+3. Else → Employee role
+
+**Public endpoint - No authentication required (for self-registration)**`,
+                security: [],
+                tags: ["🔐 Authentication"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["employee_id", "password"],
+                                properties: {
+                                    employee_id: { 
+                                        type: "integer", 
+                                        example: 1, 
+                                        description: "Employee ID from employees table" 
+                                    },
+                                    password: { 
+                                        type: "string", 
+                                        example: "SecurePass123!", 
+                                        description: "User login password" 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "User created with auto-assigned role",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        message: { type: "string", example: "User account created successfully with auto-assigned role" },
+                                        employee: {
+                                            type: "object",
+                                            properties: {
+                                                id: { type: "integer" },
+                                                employeeNumber: { type: "string" },
+                                                fullName: { type: "string" },
+                                                email: { type: "string" },
+                                                department: { type: "string" }
+                                            }
+                                        },
+                                        user: {
+                                            type: "object",
+                                            properties: {
+                                                username: { type: "string" },
+                                                role: { type: "string", enum: ["employee", "manager", "hr"] }
+                                            }
+                                        },
+                                        roleAssignmentReason: { 
+                                            type: "string", 
+                                            example: "Has more than 4 direct reports",
+                                            description: "Explanation of why this role was assigned"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Employee ID and password required or employee has no work email" },
+                    403: { description: "Access denied. Admin or HR required" },
+                    404: { description: "Employee not found" },
+                    409: { description: "User account already exists" }
+                }
+            }
+        },
+        "/api/auth/user/preview-role/{employee_id}": {
+            get: {
+                summary: "🆕 Preview Auto Role Assignment",
+                description: `Preview what role would be assigned to an employee without creating the user account.
+Shows department, report count, and suggested role with reasoning.
+
+**Public endpoint - No authentication required (for registration page)**`,
+                security: [],
+                tags: ["🔐 Authentication"],
+                parameters: [{
+                    name: "employee_id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    description: "Employee ID"
+                }],
+                responses: {
+                    200: {
+                        description: "Role preview",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        employee: {
+                                            type: "object",
+                                            properties: {
+                                                id: { type: "integer" },
+                                                employeeNumber: { type: "string" },
+                                                fullName: { type: "string" },
+                                                email: { type: "string" },
+                                                department: { type: "string" }
+                                            }
+                                        },
+                                        reportCount: { type: "integer", example: 6 },
+                                        suggestedRole: { type: "string", enum: ["employee", "manager", "hr"], example: "manager" },
+                                        roleAssignmentReason: { type: "string", example: "Has 6 direct reports (more than 4)" },
+                                        userExists: { type: "boolean", example: false },
+                                        currentRole: { type: "string", nullable: true, description: "Current role if user already exists" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    403: { description: "Access denied. Admin or HR required" },
+                    404: { description: "Employee not found" }
+                }
+            }
+        },
+        "/api/auth/user/create-bulk": {
+            post: {
+                summary: "🆕 Bulk Create Users with Auto Role Assignment",
+                description: `Create multiple user accounts at once with automatic role assignment.
+Each employee will get their role assigned based on department and report count.
+Skips employees who already have user accounts.
+
+**Admin or HR access required**`,
+                tags: ["🔐 Authentication"],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                required: ["employee_ids", "default_password"],
+                                properties: {
+                                    employee_ids: { 
+                                        type: "array", 
+                                        items: { type: "integer" },
+                                        example: [1, 2, 3, 4, 5],
+                                        description: "Array of employee IDs" 
+                                    },
+                                    default_password: { 
+                                        type: "string", 
+                                        example: "Welcome@2025", 
+                                        description: "Default password for all created users" 
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Bulk creation completed",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        message: { type: "string", example: "Bulk user creation completed" },
+                                        summary: {
+                                            type: "object",
+                                            properties: {
+                                                total: { type: "integer", example: 10 },
+                                                success: { type: "integer", example: 7 },
+                                                failed: { type: "integer", example: 1 },
+                                                skipped: { type: "integer", example: 2 }
+                                            }
+                                        },
+                                        results: {
+                                            type: "object",
+                                            properties: {
+                                                success: {
+                                                    type: "array",
+                                                    items: {
+                                                        type: "object",
+                                                        properties: {
+                                                            employee_id: { type: "integer" },
+                                                            employee_number: { type: "string" },
+                                                            full_name: { type: "string" },
+                                                            email: { type: "string" },
+                                                            role: { type: "string" },
+                                                            reason: { type: "string" }
+                                                        }
+                                                    }
+                                                },
+                                                failed: {
+                                                    type: "array",
+                                                    items: {
+                                                        type: "object",
+                                                        properties: {
+                                                            employee_id: { type: "integer" },
+                                                            reason: { type: "string" }
+                                                        }
+                                                    }
+                                                },
+                                                skipped: {
+                                                    type: "array",
+                                                    items: {
+                                                        type: "object",
+                                                        properties: {
+                                                            employee_id: { type: "integer" },
+                                                            employee_number: { type: "string" },
+                                                            email: { type: "string" },
+                                                            reason: { type: "string" }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "employee_ids array and default_password required" },
+                    403: { description: "Access denied. Admin or HR required" }
+                }
+            }
+        },
         "/api/auth/users/{id}": {
             get: {
                 summary: "🆕 Get User by ID",

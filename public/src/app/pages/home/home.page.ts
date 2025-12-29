@@ -218,7 +218,23 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   navigateTo(action: string) {
-    this.router.navigate([`/${action}`]);
+    // Handle different navigation paths
+    const routeMap: { [key: string]: string } = {
+      'attendance': '/tabs/attendance',
+      'leave-request': '/leave-request',
+      'leaves': '/tabs/leaves',
+      'timesheets': '/tabs/timesheets',
+      'employees': '/employees',
+      'payroll': '/payroll',
+      'admin/dashboard': '/admin/dashboard',
+      'admin/bulk-upload': '/admin/bulk-upload',
+      'admin/master-data': '/admin/master-data',
+      'admin/payroll-management': '/admin/payroll-management',
+      'admin/user-management': '/admin/user-management'
+    };
+
+    const route = routeMap[action] || `/${action}`;
+    this.router.navigate([route]);
   }
 
   goToNotifications() {

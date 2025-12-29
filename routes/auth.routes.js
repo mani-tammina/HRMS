@@ -229,6 +229,365 @@ router.post("/user/create", async (req, res) => {
     }
 });
 
+// Create user with automatic role assignment based on department and report count
+// Public endpoint for self-registration
+router.post("/user/create-auto", async (req, res) => {
+    const { employee_id, password } = req.body;
+    if (!employee_id || !password) {
+        return res.status(400).json({ error: "Employee ID/Number and password are required" });
+    }
+
+    const c = await db();
+    try {
+        // Get employee details with department - support ID, EmployeeNumber, or WorkEmail
+        let query = `SELECT 
+                e.id,
+                e.EmployeeNumber,
+                e.FullName,
+                e.WorkEmail,
+                dept.name as Department
+             FROM employees e
+             LEFT JOIN departments dept ON e.DepartmentId = dept.id
+             WHERE `;
+        
+        let param = String(employee_id);
+        
+        // Determine identifier type
+        if (/^\d+$/.test(param) && param.length < 10) {
+            // Numeric and short - employee ID
+            query += `e.id = ?`;
+        } else if (param.includes('@')) {
+            // Contains @ - work email
+            query += `e.WorkEmail = ?`;
+        } else {
+            // Otherwise - employee number
+            query += `e.EmployeeNumber = ?`;
+        }
+        
+        const [emp] = await c.query(query, [param]);
+
+        if (!emp.length) {
+            c.end();
+            return res.status(404).json({ 
+                error: "Employee not found",
+                message: "No employee found with this ID or Employee Number"
+            });
+        }
+
+        const employee = emp[0];
+        
+        if (!employee.WorkEmail) {
+            c.end();
+            return res.status(400).json({ error: "Employee does not have a work email" });
+        }
+
+        // Check if user already exists
+        const [existingUser] = await c.query(
+            "SELECT id FROM users WHERE username = ?",
+            [employee.WorkEmail]
+        );
+        if (existingUser.length > 0) {
+            c.end();
+            return res.status(409).json({ error: "User account already exists for this employee" });
+        }
+
+        // Determine role based on logic:
+        // 1. If department is "Human Resource" -> HR
+        // 2. Else if employee has > 4 direct reports -> Manager
+        // 3. Else -> Employee
+        let assignedRole = 'employee';
+
+        // Priority 1: Check if department is Human Resource
+        if (employee.Department && employee.Department.toLowerCase() === 'human resource') {
+            assignedRole = 'hr';
+        } else {
+            // Priority 2: Check if employee has more than 4 direct reports
+            const [reportCount] = await c.query(
+                `SELECT COUNT(*) as count 
+                 FROM employees 
+                 WHERE reporting_manager_id = ?`,
+                [employee.id]
+            );
+
+            if (reportCount[0].count > 4) {
+                assignedRole = 'manager';
+            }
+        }
+
+        // Create user account
+        const hash = await bcrypt.hash(password, 10);
+        await c.query(
+            "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
+            [employee.WorkEmail, hash, assignedRole, employee.FullName]
+        );
+
+        c.end();
+
+        res.json({ 
+            message: "User account created successfully with auto-assigned role",
+            employee: {
+                id: employee.id,
+                employeeNumber: employee.EmployeeNumber,
+                fullName: employee.FullName,
+                email: employee.WorkEmail,
+                department: employee.Department
+            },
+            user: {
+                username: employee.WorkEmail,
+                role: assignedRole
+            },
+            roleAssignmentReason: 
+                assignedRole === 'hr' ? 'Department is Human Resource' :
+                assignedRole === 'manager' ? 'Has more than 4 direct reports' :
+                'Default role (less than 5 direct reports and not HR department)'
+        });
+    } catch (err) {
+        c.end();
+        console.error('auto user create error', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Preview role assignment for an employee (without creating user)
+// Public endpoint for registration page
+router.get("/user/preview-role/:employee_id", async (req, res) => {
+    const c = await db();
+    try {
+        const { employee_id } = req.params;
+        
+        // Support employee ID, employee number, or work email
+        let query = `SELECT 
+                e.id,
+                e.EmployeeNumber,
+                e.FullName,
+                e.WorkEmail,
+                dept.name as Department,
+                (SELECT COUNT(*) FROM employees WHERE reporting_manager_id = e.id) as report_count
+             FROM employees e
+             LEFT JOIN departments dept ON e.DepartmentId = dept.id
+             WHERE `;
+        
+        let param = employee_id;
+        
+        // Check what type of identifier was provided
+        if (/^\d+$/.test(employee_id) && employee_id.length < 10) {
+            // Numeric and short - likely employee ID
+            query += `e.id = ?`;
+        } else if (employee_id.includes('@')) {
+            // Contains @ - work email
+            query += `e.WorkEmail = ?`;
+        } else {
+            // Otherwise - employee number
+            query += `e.EmployeeNumber = ?`;
+        }
+        
+        const [emp] = await c.query(query, [param]);
+
+        if (!emp.length) {
+            c.end();
+            return res.status(404).json({ 
+                error: "Employee not found",
+                message: "No employee found with this ID or Employee Number. Please verify and try again."
+            });
+        }
+
+        const employee = emp[0];
+        
+        if (!employee.WorkEmail) {
+            c.end();
+            return res.status(400).json({ 
+                error: "No work email",
+                message: "This employee does not have a work email configured. Please contact HR."
+            });
+        }
+        
+        // Determine role based on logic
+        let assignedRole = 'employee';
+        let reason = '';
+
+        if (employee.Department && employee.Department.toLowerCase() === 'human resource') {
+            assignedRole = 'hr';
+            reason = 'Department is Human Resource';
+        } else if (employee.report_count > 4) {
+            assignedRole = 'manager';
+            reason = `Has ${employee.report_count} direct reports (more than 4)`;
+        } else {
+            assignedRole = 'employee';
+            reason = employee.report_count > 0 
+                ? `Has ${employee.report_count} direct reports (4 or fewer)`
+                : 'No direct reports';
+        }
+
+        // Check if user already exists
+        const [existingUser] = await c.query(
+            "SELECT id, role FROM users WHERE username = ?",
+            [employee.WorkEmail]
+        );
+
+        c.end();
+
+        res.json({
+            employee: {
+                id: employee.id,
+                employeeNumber: employee.EmployeeNumber,
+                fullName: employee.FullName,
+                email: employee.WorkEmail,
+                department: employee.Department
+            },
+            reportCount: employee.report_count,
+            suggestedRole: assignedRole,
+            roleAssignmentReason: reason,
+            userExists: existingUser.length > 0,
+            currentRole: existingUser.length > 0 ? existingUser[0].role : null
+        });
+    } catch (err) {
+        c.end();
+        console.error('preview role error', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Bulk create users with auto role assignment
+// Admin/HR only endpoint
+router.post("/user/create-bulk", auth, async (req, res) => {
+    if (req.user.role !== 'admin' && req.user.role !== 'hr') {
+        return res.status(403).json({ error: "Access denied. Admin or HR role required." });
+    }
+
+    const { employee_ids, default_password } = req.body;
+    
+    if (!employee_ids || !Array.isArray(employee_ids) || employee_ids.length === 0) {
+        return res.status(400).json({ error: "employee_ids array is required" });
+    }
+
+    if (!default_password) {
+        return res.status(400).json({ error: "default_password is required" });
+    }
+
+    const c = await db();
+    const results = {
+        success: [],
+        failed: [],
+        skipped: []
+    };
+
+    try {
+        const hash = await bcrypt.hash(default_password, 10);
+
+        for (const employee_id of employee_ids) {
+            try {
+                // Get employee details
+                const [emp] = await c.query(
+                    `SELECT 
+                        e.id,
+                        e.EmployeeNumber,
+                        e.FullName,
+                        e.WorkEmail,
+                        dept.name as Department
+                     FROM employees e
+                     LEFT JOIN departments dept ON e.DepartmentId = dept.id
+                     WHERE e.id = ?`,
+                    [employee_id]
+                );
+
+                if (!emp.length) {
+                    results.failed.push({
+                        employee_id,
+                        reason: "Employee not found"
+                    });
+                    continue;
+                }
+
+                const employee = emp[0];
+
+                if (!employee.WorkEmail) {
+                    results.failed.push({
+                        employee_id,
+                        employee_number: employee.EmployeeNumber,
+                        reason: "No work email"
+                    });
+                    continue;
+                }
+
+                // Check if user already exists
+                const [existingUser] = await c.query(
+                    "SELECT id FROM users WHERE username = ?",
+                    [employee.WorkEmail]
+                );
+
+                if (existingUser.length > 0) {
+                    results.skipped.push({
+                        employee_id,
+                        employee_number: employee.EmployeeNumber,
+                        email: employee.WorkEmail,
+                        reason: "User already exists"
+                    });
+                    continue;
+                }
+
+                // Determine role
+                let assignedRole = 'employee';
+                let reason = '';
+
+                if (employee.Department && employee.Department.toLowerCase() === 'human resource') {
+                    assignedRole = 'hr';
+                    reason = 'HR Department';
+                } else {
+                    const [reportCount] = await c.query(
+                        `SELECT COUNT(*) as count FROM employees WHERE reporting_manager_id = ?`,
+                        [employee_id]
+                    );
+
+                    if (reportCount[0].count > 4) {
+                        assignedRole = 'manager';
+                        reason = `${reportCount[0].count} reports`;
+                    } else {
+                        reason = `${reportCount[0].count} reports`;
+                    }
+                }
+
+                // Create user
+                await c.query(
+                    "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
+                    [employee.WorkEmail, hash, assignedRole, employee.FullName]
+                );
+
+                results.success.push({
+                    employee_id,
+                    employee_number: employee.EmployeeNumber,
+                    full_name: employee.FullName,
+                    email: employee.WorkEmail,
+                    role: assignedRole,
+                    reason: reason
+                });
+
+            } catch (err) {
+                results.failed.push({
+                    employee_id,
+                    reason: err.message
+                });
+            }
+        }
+
+        c.end();
+
+        res.json({
+            message: "Bulk user creation completed",
+            summary: {
+                total: employee_ids.length,
+                success: results.success.length,
+                failed: results.failed.length,
+                skipped: results.skipped.length
+            },
+            results
+        });
+    } catch (err) {
+        c.end();
+        console.error('bulk user create error', err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Get all users (for admin)
 router.get("/users", auth, async (req, res) => {
     if (req.user.role !== 'admin' && req.user.role !== 'hr') {

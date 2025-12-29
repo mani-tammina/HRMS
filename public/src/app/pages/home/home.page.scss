@@ -1,4 +1,4 @@
-// HRMS Dashboard - Minimal
+// HRMS Dashboard - Optimized
 .dashboard-content{--background:#f8f9fa}
 .dashboard-wrapper{max-width:1400px;margin:0 auto;padding:20px}
 .header-toolbar{--background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);--color:#fff;--padding-top:10px;--padding-bottom:10px}
@@ -21,11 +21,11 @@
 .stat-card.stat-success .stat-icon{background:linear-gradient(135deg,#10b981 0%,#059669 100%)}
 .stat-card.stat-warning .stat-icon{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)}
 .stat-card.stat-info .stat-icon{background:linear-gradient(135deg,#3b82f6 0%,#2563eb 100%)}
-.attendance-card{background:#fff;border-radius:16px;padding:24px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.attendance-card .card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
-.attendance-card .header-left h2{margin:0 0 4px;font-size:20px;font-weight:700;color:#1e293b}
+.attendance-card,.quick-actions-card,.announcements-card,.chart-card,.leave-card,.leave-balance-card,.events-card,.team-card,.celebrations-card{background:#fff;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.attendance-card .card-header,.card-header-with-action,.card-header-flex{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.attendance-card .header-left h2,.card-header-with-action ion-card-title,.card-header-flex ion-card-title{margin:0 0 4px;font-size:18px;font-weight:700;color:#1e293b}
 .attendance-card .header-left .date-display{margin:0;font-size:14px;color:#64748b}
-.attendance-card ion-badge{padding:6px 12px;font-size:12px;font-weight:600}
+.attendance-card ion-badge,.card-header-with-action ion-badge,.card-header-flex ion-badge{padding:6px 12px;font-size:12px;font-weight:600}
 .attendance-card .time-display{display:flex;justify-content:space-around;align-items:center;padding:20px;background:#f8f9fa;border-radius:12px;margin-bottom:20px}
 .attendance-card .time-item{display:flex;align-items:center;gap:12px}
 .attendance-card .time-icon{font-size:32px}
@@ -43,17 +43,14 @@
 .attendance-card .quick-action-btns ion-button{--border-radius:12px;--border-width:2px}
 .content-grid{display:grid;grid-template-columns:1fr 400px;gap:20px}
 @media (max-width:1024px){.content-grid{grid-template-columns:1fr}}
-.card-header-with-action,.card-header-flex{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
-.card-header-with-action ion-card-title,.card-header-flex ion-card-title{font-size:18px;font-weight:700;color:#1e293b}
 .card-header-with-action ion-card-title ion-icon,.card-header-flex ion-card-title ion-icon{font-size:20px;color:#667eea}
-.card-header-with-action ion-badge,.card-header-flex ion-badge{font-size:12px;font-weight:600}
 .card-header-flex .view-link{font-size:.85rem;color:var(--ion-color-primary);cursor:pointer;text-decoration:none}
-.quick-actions-card,.announcements-card,.chart-card,.leave-card,.leave-balance-card,.events-card,.team-card,.celebrations-card{background:#fff;border-radius:16px;padding:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .action-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
 @media (max-width:768px){.action-grid{grid-template-columns:repeat(2,1fr)}}
-.action-item{display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px;border-radius:12px;background:#f8f9fa;cursor:pointer}
-.action-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center}
-.action-icon ion-icon{font-size:28px;color:#fff}
+.action-item,.leave-type-item,.leave-item{display:flex;gap:12px;padding:16px;border-radius:12px;background:#f8f9fa}
+.action-item{flex-direction:column;align-items:center;gap:8px;cursor:pointer}
+.action-icon,.leave-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.action-icon ion-icon,.leave-icon ion-icon{font-size:28px;color:#fff}
 .action-item p{margin:0;font-size:13px;font-weight:600;color:#475569;text-align:center}
 .admin-actions{margin-top:20px;padding-top:20px;border-top:2px dashed #e2e8f0}
 .action-icon.primary,.leave-icon.primary{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%)}
@@ -67,12 +64,10 @@
 .announcement-dot{width:8px;height:8px;border-radius:50%;background:#667eea;margin-top:6px;flex-shrink:0}
 .announcement-dot.priority-urgent{background:#ef4444}
 .announcement-dot.priority-high{background:#f59e0b}
-.announcement-dot.priority-normal{background:#667eea}
 .announcement-content{flex:1}
 .announcement-title,.announcement-text{margin:0 0 6px;font-size:14px;font-weight:600;color:#1e293b}
 .announcement-message{margin:0 0 6px;font-size:13px;color:#475569}
 .announcement-time{margin:0;font-size:12px;color:#64748b;display:flex;align-items:center;gap:4px}
-.announcement-time ion-icon{font-size:14px}
 .simple-chart,.chart-placeholder{display:flex;align-items:flex-end;justify-content:space-around;gap:12px;height:200px;padding:20px 0}
 .chart-bar,.bar{flex:1;background:linear-gradient(180deg,#667eea 0%,#764ba2 100%);border-radius:8px 8px 0 0;min-height:20px;position:relative}
 .bar-value{position:absolute;top:-24px;left:50%;transform:translateX(-50%);font-size:12px;font-weight:600;color:#475569}
@@ -80,9 +75,7 @@
 .chart-labels span,.chart-label span{font-size:12px;font-weight:600;color:#64748b;text-align:center}
 .leave-grid{display:grid;gap:16px}
 @media (min-width:768px){.leave-grid{grid-template-columns:repeat(2,1fr)}}
-.leave-type-item,.leave-item{display:flex;align-items:center;gap:16px;padding:16px;border-radius:12px;background:#f8f9fa}
-.leave-icon{width:48px;height:48px;border-radius:12px;flex-shrink:0;display:flex;align-items:center;justify-content:center}
-.leave-icon ion-icon{font-size:24px;color:#fff}
+.leave-icon{width:48px;height:48px;border-radius:12px}
 .leave-info{flex:1}
 .leave-count{margin:0 0 4px;font-size:20px;font-weight:700;color:#1e293b}
 .leave-count span{font-size:14px;color:#94a3b8;font-weight:600}
@@ -92,37 +85,19 @@
 .event-item.holiday{background:linear-gradient(90deg,rgba(239,68,68,.1) 0%,rgba(239,68,68,.05) 100%);border-left:4px solid #ef4444}
 .event-item.birthday{background:linear-gradient(90deg,rgba(16,185,129,.1) 0%,rgba(16,185,129,.05) 100%);border-left:4px solid #10b981}
 .event-item.anniversary{background:linear-gradient(90deg,rgba(102,126,234,.1) 0%,rgba(102,126,234,.05) 100%);border-left:4px solid #667eea}
-.birthday-avatar{width:56px;height:56px;border:2px solid #10b981;box-shadow:0 2px 8px rgba(0,0,0,.1);flex-shrink:0}
+.birthday-avatar,.member-avatar,ion-avatar{width:48px;height:48px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1)}
 .event-date{display:flex;flex-direction:column;align-items:center;justify-content:center;width:56px;height:56px;border-radius:12px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.08);flex-shrink:0}
-.event-date .day{font-size:20px;font-weight:700;color:#1e293b;line-height:1}
+.event-date .day,.holiday-date .day{font-size:20px;font-weight:700;color:#1e293b;line-height:1}
 .event-date .month{font-size:12px;font-weight:600;color:#64748b;text-transform:uppercase;margin-top:4px}
-.event-details{flex:1}
-.event-title{margin:0 0 6px;font-size:15px;font-weight:600;color:#1e293b}
+.event-title,.member-name,.celebration-name{margin:0 0 4px;font-size:14px;font-weight:600;color:#1e293b}
 .event-email{margin:0 0 6px;font-size:12px;color:#64748b}
-.event-type{margin:0;font-size:13px;color:#64748b;display:flex;align-items:center;gap:6px}
-.event-type ion-icon{font-size:16px}
-.birthday-actions{display:flex;gap:4px;align-items:center}
+.event-type,.member-role,.celebration-type{margin:0;font-size:12px;color:#64748b}
+.birthday-actions{display:flex;gap:4px}
 .team-member,.celebration-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;margin-bottom:12px;background:#f8f9fa}
-.member-avatar,ion-avatar{width:48px;height:48px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.1)}
-.member-info,.celebration-info{flex:1}
-.member-name,.celebration-name{margin:0 0 4px;font-size:14px;font-weight:600;color:#1e293b}
-.member-role,.celebration-type{margin:0;font-size:12px;color:#64748b}
-.holiday-banner{background:linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);color:#fff;padding:1.5rem;border-radius:12px;position:relative;overflow:hidden}
-.holiday-date .day{font-size:2.5rem;font-weight:700;margin:0;line-height:1}
+.celebration-info{flex:1}
+.holiday-banner{background:linear-gradient(135deg,#ff6b6b 0%,#ee5a6f 100%);color:#fff;padding:1.5rem;border-radius:12px}
+.holiday-date .day{font-size:2.5rem;margin:0}
 .holiday-date .month{margin:.25rem 0 0;opacity:.9}
-.holiday-info{display:flex;align-items:center;gap:.5rem;margin-top:1rem}
-.holiday-info ion-icon{font-size:1.5rem}
-.holiday-info p{margin:0;font-size:1.1rem;font-weight:600}
-.holiday-decoration{position:absolute;bottom:10px;right:10px;display:flex;gap:.5rem}
-.holiday-decoration .tree{font-size:2rem;animation:sway 2s ease-in-out infinite}
-@keyframes sway{0%,100%{transform:rotate(-2deg)}50%{transform:rotate(2deg)}}
-.quick-links{display:flex;gap:1rem;margin-bottom:1.5rem}
-.quick-links ion-button{flex:1}
-.overview-card .schedule-items{display:flex;flex-direction:column;gap:1rem}
-.schedule-item{display:flex;align-items:center;gap:1rem;padding:.75rem;background:var(--ion-color-light);border-radius:8px}
-.schedule-item ion-icon{font-size:1.8rem}
-.schedule-label{margin:0;font-weight:600;font-size:.95rem}
-.schedule-time{margin:.25rem 0 0;color:var(--ion-color-medium);font-size:.85rem}
 .empty-state{text-align:center;padding:40px 20px;color:#94a3b8}
 .empty-state ion-icon{font-size:64px;opacity:.5;margin-bottom:12px}
 .empty-state p{margin:0;font-size:14px;font-weight:500}
