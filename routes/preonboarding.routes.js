@@ -74,7 +74,7 @@ router.put("/tasks/:id", auth, hr, async (req, res) => {
 });
 
 // Delete task template
-router.delete("/tasks/:id", auth, admin, async (req, res) => {
+router.delete("/tasks/:id", auth, hr, async (req, res) => {
     const c = await db();
     try {
         await c.query("DELETE FROM preonboarding_tasks WHERE id = ?", [req.params.id]);
@@ -201,7 +201,7 @@ router.put("/progress/:progressId", async (req, res) => {
 /* ============ BULK TASK SETUP ============ */
 
 // Create default pre-onboarding tasks (one-time setup)
-router.post("/tasks/setup-defaults", auth, admin, async (req, res) => {
+router.post("/tasks/setup-defaults", auth, hr, async (req, res) => {
     const c = await db();
     try {
         const defaultTasks = [

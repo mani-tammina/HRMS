@@ -42,6 +42,14 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage)
       },
       {
+        path: 'onboarding',
+        loadComponent: () => import('./pages/onboarding/onboarding.page').then(m => m.OnboardingPage)
+      },
+      {
+        path: 'payroll',
+        loadComponent: () => import('./pages/admin-payroll-management/admin-payroll-management.page').then(m => m.AdminPayrollManagementPage)
+      },
+      {
         path: 'profile',
         loadComponent: () => import('./pages/profile/profile.page').then(m => m.ProfilePage)
       },

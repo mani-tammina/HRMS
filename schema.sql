@@ -877,7 +877,7 @@ CREATE TABLE IF NOT EXISTS salary_structures (
 CREATE TABLE IF NOT EXISTS onboarding_steps (
   id INT PRIMARY KEY AUTO_INCREMENT,
   step_name VARCHAR(100),
-  order_num INT,
+  step_order INT,
   required TINYINT DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

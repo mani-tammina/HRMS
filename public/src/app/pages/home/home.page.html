@@ -209,6 +209,17 @@
                 </div>
                 <p>Master Data</p>
               </div>
+              <div class="action-item" (click)="navigateTo('admin/payroll-management')">
+                <div class="action-icon success">
+                  <ion-icon name="cash-outline"></ion-icon>
+                </div>
+                <p>Payroll</p>
+              </div>
+            </div>
+
+            <!-- Employee Quick Actions -->
+            <div class="action-grid employee-actions" *ngIf="!isAdmin">
+              <!-- Quick actions for employees can be added here -->
             </div>
           </ion-card-content>
         </ion-card>

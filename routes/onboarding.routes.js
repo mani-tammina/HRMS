@@ -17,15 +17,15 @@ router.post("/set-password", async (req, res) => {
 // Onboarding steps master
 router.post("/step", auth, admin, async (req, res) => {
     const c = await db();
-    await c.query("INSERT INTO onboarding_steps (step_name, `order`, required) VALUES (?, ?, ?)",
-        [req.body.step_name, req.body.order, req.body.required || 1]);
+    await c.query("INSERT INTO onboarding_steps (step_name, step_order, required) VALUES (?, ?, ?)",
+        [req.body.step_name, req.body.step_order || req.body.order, req.body.required || 1]);
     c.end();
     res.json({ message: "Onboarding step created" });
 });
 
 router.get("/steps", auth, async (req, res) => {
     const c = await db();
-    const [r] = await c.query("SELECT * FROM onboarding_steps ORDER BY `order`");
+    const [r] = await c.query("SELECT * FROM onboarding_steps ORDER BY step_order");
     c.end();
     res.json(r);
 });
@@ -68,7 +68,7 @@ router.get("/status/:empId", auth, async (req, res) => {
     const [r] = await c.query(
         `SELECT op.*, os.step_name FROM onboarding_progress op 
          JOIN onboarding_steps os ON op.step_id = os.id 
-         WHERE op.employee_id = ? ORDER BY os.order`,
+         WHERE op.employee_id = ? ORDER BY os.step_order`,
         [req.params.empId]
     );
     c.end();

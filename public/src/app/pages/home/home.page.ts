@@ -235,6 +235,7 @@ export class HomePage implements OnInit, OnDestroy {
       'timesheets': '/tabs/timesheets',
       'employees': '/employees',
       'payroll': '/payroll',
+      'onboarding': '/onboarding',
       'admin/dashboard': '/admin/dashboard',
       'admin/bulk-upload': '/admin/bulk-upload',
       'admin/master-data': '/admin/master-data',

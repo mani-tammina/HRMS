@@ -7,7 +7,7 @@ const { auth, admin } = require("../middleware/auth");
 const createMasterRoutes = (route, table, col) => {
     router.get(`/${route}`, auth, async (req, res) => {
         const c = await db();
-        const [r] = await c.query(`SELECT * FROM ${table}`);
+        const [r] = await c.query(`SELECT id, name AS ${table === 'locations' ? 'location_name' : table === 'departments' ? 'department_name' : table === 'designations' ? 'designation_name' : 'name'}, created_at FROM ${table}`);
         c.end();
         res.json(r);
     });

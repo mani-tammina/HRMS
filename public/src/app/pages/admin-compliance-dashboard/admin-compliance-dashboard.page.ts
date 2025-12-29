@@ -3,7 +3,7 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonSegment, IonSegmentButton,
   IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge, IonSelect, IonSelectOption,
-  IonChip, IonSearchbar, IonDatetime, IonModal,
+  IonChip, IonSearchbar, IonDatetime, IonModal, IonSpinner,
   ToastController, AlertController, LoadingController,
   IonRefresher, IonRefresherContent
 } from '@ionic/angular/standalone';
@@ -50,7 +50,7 @@ interface Statistics {
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonSegment, IonSegmentButton,
     IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge, IonSelect, IonSelectOption,
-    IonChip, IonSearchbar, IonDatetime, IonModal,
+    IonChip, IonSearchbar, IonDatetime, IonModal, IonSpinner,
     IonRefresher, IonRefresherContent
   ]
 })
@@ -70,11 +70,13 @@ export class AdminComplianceDashboardPage implements OnInit {
   selectedStatus: string = 'all';
   searchText: string = '';
   showFilters: boolean = false;
+  showDatePicker: boolean = false;
 
   // Segment
   viewMode: string = 'summary';
 
   isLoading: boolean = false;
+  loading: boolean = false;
 
   constructor(
     private adminTimesheetService: AdminTimesheetService,
@@ -95,21 +97,44 @@ export class AdminComplianceDashboardPage implements OnInit {
 
   loadDashboard() {
     this.isLoading = true;
+    this.loading = true;
     const date = new Date(this.selectedDate).toISOString().split('T')[0];
     
-    this.adminTimesheetService.getComplianceDashboard(date, date).subscribe({
+    this.adminTimesheetService.getDashboard(date, date).subscribe({
       next: (response: { success: boolean; dashboard: DashboardData[]; statistics: Statistics }) => {
         this.dashboardData = response.dashboard;
         this.statistics = response.statistics;
         this.applyFilters();
         this.isLoading = false;
+        this.loading = false;
       },
       error: (error: Error) => {
         console.error('Error loading dashboard:', error);
         this.showToast('Failed to load compliance dashboard', 'danger');
         this.isLoading = false;
+        this.loading = false;
       }
     });
+  }
+
+  handleRefresh(event: any) {
+    this.loadDashboard();
+    setTimeout(() => {
+      event.target.complete();
+    }, 1000);
+  }
+
+  openDatePicker() {
+    this.showDatePicker = true;
+  }
+
+  getStatusColor(status: string): string {
+    switch (status) {
+      case 'green': return 'success';
+      case 'yellow': return 'warning';
+      case 'red': return 'danger';
+      default: return 'medium';
+    }
   }
 
   applyFilters() {
@@ -128,11 +153,6 @@ export class AdminComplianceDashboardPage implements OnInit {
 
       return true;
     });
-  }
-
-  handleRefresh(event: any) {
-    this.loadDashboard();
-    setTimeout(() => event.target.complete(), 1000);
   }
 
   onDateChange(event: any) {

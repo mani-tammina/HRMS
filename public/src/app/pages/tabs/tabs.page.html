@@ -5,6 +5,16 @@
       <ion-label>Home</ion-label>
     </ion-tab-button>
 
+    <ion-tab-button tab="onboarding" *ngIf="isManager">
+      <ion-icon name="checkmark-done-outline"></ion-icon>
+      <ion-label>Onboarding</ion-label>
+    </ion-tab-button>
+
+    <ion-tab-button tab="payroll" *ngIf="isManager">
+      <ion-icon name="cash-outline"></ion-icon>
+      <ion-label>Payroll</ion-label>
+    </ion-tab-button>
+
     <ion-tab-button tab="profile">
       <ion-icon name="person-outline"></ion-icon>
       <ion-label>Profile</ion-label>
