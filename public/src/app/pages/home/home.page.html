@@ -82,9 +82,14 @@
           <h2>Today's Attendance</h2>
           <p class="date-display">{{ currentTime }}</p>
         </div>
-        <ion-badge [color]="todayAttendance ? 'success' : 'medium'">
-          {{ todayAttendance ? 'Checked In' : 'Not Checked In' }}
-        </ion-badge>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <ion-badge [color]="todayAttendance ? 'success' : 'medium'">
+            {{ todayAttendance ? 'Checked In' : 'Not Checked In' }}
+          </ion-badge>
+          <ion-button fill="clear" size="small" (click)="navigateTo('attendance')">
+            <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+        </div>
       </div>
       
       <div class="attendance-time-section">
@@ -135,13 +140,12 @@
           </ion-button>
           <div class="quick-action-btns" *ngIf="todayAttendance">
             <ion-button fill="outline" size="small" (click)="navigateTo('leave-request')">
-              <ion-icon name="document-text-outline" slot="icon-only"></ion-icon>
+              <ion-icon name="document-text-outline" slot="start"></ion-icon>
+              Apply Leave
             </ion-button>
-            <ion-button fill="outline" size="small" (click)="navigateTo('attendance')">
-              <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
-            </ion-button>
-            <ion-button fill="outline" size="small">
-              <ion-icon name="bar-chart-outline" slot="icon-only"></ion-icon>
+            <ion-button fill="outline" size="small" (click)="navigateTo('timesheets')">
+              <ion-icon name="time-outline" slot="start"></ion-icon>
+              Timesheet
             </ion-button>
           </div>
         </div>

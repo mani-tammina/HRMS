@@ -20,7 +20,7 @@ import {
   documentTextOutline, peopleOutline, trendingUpOutline,
   checkmarkCircleOutline, closeCircleOutline, hourglassOutline,
   settingsOutline, cloudUploadOutline, shieldOutline, addOutline, balloonOutline,
-  giftOutline, sendOutline, eyeOutline
+  giftOutline, sendOutline, eyeOutline, logInOutline, logOutOutline, barChartOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -75,7 +75,8 @@ export class HomePage implements OnInit, OnDestroy {
       notificationsOutline, calendarOutline, timeOutline, 
       documentTextOutline, peopleOutline, trendingUpOutline,
       settingsOutline, cloudUploadOutline, shieldOutline, addOutline,
-      balloonOutline, giftOutline, sendOutline, eyeOutline
+      balloonOutline, giftOutline, sendOutline, eyeOutline,
+      logInOutline, logOutOutline, barChartOutline
     });
   }
 
