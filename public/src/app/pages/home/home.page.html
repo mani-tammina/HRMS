@@ -13,7 +13,7 @@
       </ion-button>
       <ion-button fill="clear" (click)="goToProfile()">
         <ion-avatar class="header-avatar">
-          <img [src]="user?.avatar || 'assets/avatar-placeholder.png'" 
+          <img [src]="getProfileImageUrl()" 
                alt="Profile" 
                (error)="handleImageError($event)">
         </ion-avatar>
@@ -169,17 +169,17 @@
                 </div>
                 <p>Attendance</p>
               </div>
-              <div class="action-item" (click)="navigateTo('leave-request')">
+              <div class="action-item" (click)="navigateTo('leaves')">
                 <div class="action-icon success">
                   <ion-icon name="calendar-outline"></ion-icon>
                 </div>
-                <p>Apply Leave</p>
+                <p>Leave</p>
               </div>
-              <div class="action-item" (click)="navigateTo('employees')">
+              <div class="action-item" (click)="navigateTo('team')">
                 <div class="action-icon warning">
                   <ion-icon name="people-outline"></ion-icon>
                 </div>
-                <p>Directory</p>
+                <p>Team</p>
               </div>
               <div class="action-item" (click)="navigateTo('payroll')">
                 <div class="action-icon info">
@@ -386,12 +386,12 @@
         </ion-card>
 
         <!-- Team Members -->
-        <ion-card class="team-card" *ngIf="(user?.role === 'manager' || isAdmin) && teamMembers.length > 0">
+        <ion-card class="team-card" *ngIf="teamMembers.length > 0">
           <ion-card-header>
             <div class="card-header-with-action">
               <ion-card-title>
                 <ion-icon name="people-outline"></ion-icon>
-                Team Members
+                {{ teamInfo?.type === 'reporting_team' ? 'My Team' : 'Team Members' }}
               </ion-card-title>
               <ion-button fill="clear" size="small" (click)="navigateTo('employees')">
                 View All
@@ -400,18 +400,18 @@
           </ion-card-header>
           <ion-card-content>
             <div class="team-list">
-              <div class="team-member" *ngFor="let member of teamMembers">
+              <div class="team-member" *ngFor="let member of teamMembers.slice(0, 5)">
                 <ion-avatar class="member-avatar">
-                  <img [src]="member.avatar || 'assets/avatar-placeholder.png'" 
-                       [alt]="member.name" 
+                  <img [src]="getTeamMemberImageUrl(member)" 
+                       [alt]="member.FirstName + ' ' + member.LastName" 
                        (error)="handleImageError($event)">
                 </ion-avatar>
                 <div class="member-info">
-                  <p class="member-name">{{ member.name }}</p>
-                  <p class="member-role">{{ member.position }}</p>
+                  <p class="member-name">{{ member.FirstName }} {{ member.LastName }}</p>
+                  <p class="member-role">{{ member.designation_name || member.DesignationName || 'Employee' }}</p>
                 </div>
-                <ion-badge [color]="member.status === 'active' ? 'success' : 'medium'">
-                  {{ member.status === 'active' ? 'Active' : 'Inactive' }}
+                <ion-badge color="success">
+                  Active
                 </ion-badge>
               </div>
             </div>

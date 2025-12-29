@@ -26,10 +26,14 @@
       <ion-card class="profile-header-card">
         <div class="header-gradient">
           <ion-avatar class="profile-avatar">
-            <img [src]="user?.avatar || 'assets/avatar-placeholder.png'" 
+            <img [src]="getProfileImageUrl()" 
                  alt="Profile" 
                  (error)="handleImageError($event)">
           </ion-avatar>
+          <ion-button class="upload-button" fill="clear" (click)="fileInput.click()">
+            <ion-icon slot="icon-only" name="camera-outline"></ion-icon>
+          </ion-button>
+          <input #fileInput type="file" accept="image/*" style="display: none" (change)="onImageSelected($event)">
         </div>
         <div class="profile-info">
           <h1>{{ employeeData?.FullName || user?.name }}</h1>

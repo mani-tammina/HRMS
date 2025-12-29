@@ -17,7 +17,7 @@ import {
   personOutline, mailOutline, callOutline, businessOutline, 
   briefcaseOutline, calendarOutline, logOutOutline, settingsOutline,
   notificationsOutline, cardOutline, locationOutline, shieldOutline,
-  waterOutline, heartOutline
+  waterOutline, heartOutline, cameraOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -61,7 +61,7 @@ export class ProfilePage implements OnInit, OnDestroy {
       personOutline, mailOutline, callOutline, businessOutline, 
       briefcaseOutline, calendarOutline, logOutOutline, settingsOutline,
       notificationsOutline, cardOutline, locationOutline, shieldOutline,
-      waterOutline, heartOutline
+      waterOutline, heartOutline, cameraOutline
     });
   }
 
@@ -225,5 +225,48 @@ export class ProfilePage implements OnInit, OnDestroy {
   handleImageError(event: Event): void {
     const target = event.target as HTMLImageElement;
     target.src = 'assets/avatar-placeholder.png';
+  }
+
+  getProfileImageUrl(): string {
+    if (this.employeeData?.profile_image) {
+      return `${environment.apiUrl.replace('/api', '')}${this.employeeData.profile_image}`;
+    }
+    return 'assets/avatar-placeholder.png';
+  }
+
+  async onImageSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      await this.showToast('Please select an image file', 'warning');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      await this.showToast('Image size should be less than 5MB', 'warning');
+      return;
+    }
+
+    // Upload image
+    const formData = new FormData();
+    formData.append('image', file);
+
+    this.isLoading = true;
+    this.http.post(`${environment.apiUrl}/employees/profile/image`, formData).subscribe({
+      next: async (response: any) => {
+        await this.showToast('Profile image updated successfully!', 'success');
+        // Reload profile to get updated image
+        this.loadEmployeeProfile();
+      },
+      error: async (error) => {
+        console.error('Error uploading image:', error);
+        const errorMessage = error.error?.error || 'Failed to upload image';
+        await this.showToast(errorMessage, 'danger');
+        this.isLoading = false;
+      }
+    });
   }
 }

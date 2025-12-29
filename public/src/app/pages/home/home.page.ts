@@ -7,12 +7,14 @@ import {
   IonAvatar, IonMenuButton, ToastController, AlertController, IonFab, IonFabButton
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
+import { HttpClient } from '@angular/common/http';
 import { AuthService, User } from '@core/services/auth.service';
 import { AttendanceService } from '@core/services/attendance.service';
 import { LeaveService } from '@core/services/leave.service';
 import { EmployeeService, Employee } from '@core/services/employee.service';
 import { AnnouncementService, Announcement } from '@core/services/announcement.service';
 import { BirthdayService, BirthdayEmployee } from '@core/services/birthday.service';
+import { environment } from '@env/environment';
 import { Subscription } from 'rxjs';
 import { addIcons } from 'ionicons';
 import { 
@@ -47,7 +49,8 @@ export class HomePage implements OnInit, OnDestroy {
   canPunchIn = true;
   canPunchOut = false;
   currentEmployee: any = null;
-  teamMembers: Employee[] = [];
+  teamMembers: any[] = [];
+  teamInfo: any = null;
   leaveBalances: any[] = [];
   stats = {
     workHours: '0h 0m',
@@ -69,7 +72,8 @@ export class HomePage implements OnInit, OnDestroy {
     private birthdayService: BirthdayService,
     private router: Router,
     private toastController: ToastController,
-    private alertController: AlertController
+    private alertController: AlertController,
+    private http: HttpClient
   ) {
     addIcons({ 
       notificationsOutline, calendarOutline, timeOutline, 
@@ -127,10 +131,8 @@ export class HomePage implements OnInit, OnDestroy {
         console.log('Current employee profile:', profile);
         this.currentEmployee = profile;
         
-        // If user is a manager, load team members
-        if (this.user?.role === 'manager' || this.isAdmin) {
-          this.loadTeamMembers(profile.id);
-        }
+        // Load team members for all users
+        this.loadTeamMembers();
       },
       error: (error) => console.error('Error loading profile:', error)
     });
@@ -183,11 +185,12 @@ export class HomePage implements OnInit, OnDestroy {
     });
   }
 
-  loadTeamMembers(managerId: string) {
-    this.employeeService.getTeamMembers(managerId).subscribe({
-      next: (members) => {
-        console.log('Team members:', members);
-        this.teamMembers = members.slice(0, 5); // Show only first 5
+  loadTeamMembers() {
+    this.http.get<any>(`${environment.apiUrl}/employees/my-team/list`).subscribe({
+      next: (response) => {
+        console.log('Team members:', response);
+        this.teamMembers = response.team || [];
+        this.teamInfo = response;
       },
       error: (error) => console.error('Error loading team members:', error)
     });
@@ -228,6 +231,7 @@ export class HomePage implements OnInit, OnDestroy {
       'attendance': '/tabs/attendance',
       'leave-request': '/leave-request',
       'leaves': '/tabs/leaves',
+      'team': '/tabs/manager-approvals',
       'timesheets': '/tabs/timesheets',
       'employees': '/employees',
       'payroll': '/payroll',
@@ -253,6 +257,20 @@ export class HomePage implements OnInit, OnDestroy {
   handleImageError(event: Event): void {
     const target = event.target as HTMLImageElement;
     target.src = 'assets/avatar-placeholder.png';
+  }
+
+  getProfileImageUrl(): string {
+    if (this.currentEmployee?.profile_image) {
+      return `${environment.apiUrl.replace('/api', '')}${this.currentEmployee.profile_image}`;
+    }
+    return 'assets/avatar-placeholder.png';
+  }
+
+  getTeamMemberImageUrl(member: any): string {
+    if (member?.profile_image) {
+      return `${environment.apiUrl.replace('/api', '')}${member.profile_image}`;
+    }
+    return 'assets/avatar-placeholder.png';
   }
 
   async punchIn() {

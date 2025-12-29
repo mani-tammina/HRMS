@@ -96,6 +96,9 @@ app.use(
 // Serve static files from public/www folder
 app.use(express.static(path.join(__dirname, 'public', 'www')));
 
+// Serve uploaded files (profile images, documents, etc.)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Home route - serve index.html from public/www
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'www', 'index.html'));

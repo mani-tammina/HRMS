@@ -5,9 +5,38 @@
 
 const express = require("express");
 const router = express.Router();
+const multer = require("multer");
+const path = require("path");
 const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+
+// Configure multer for profile image upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        cb(null, 'uploads/profile_images/');
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+        cb(null, 'profile-' + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadProfileImage = multer({ 
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error('Only image files are allowed!'));
+        }
+    }
+});
 
 /* ============ EMPLOYEE MASTER ============ */
 
@@ -329,6 +358,52 @@ router.put("/profile/me", auth, async (req, res) => {
     } catch (error) {
         console.error("Error updating profile:", error);
         res.status(500).json({ error: error.message || "Failed to update profile" });
+    }
+});
+
+// Upload profile image
+router.post("/profile/image", auth, uploadProfileImage.single('image'), async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ error: "No image file uploaded" });
+        }
+
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        // Save the image path (relative to server root)
+        const imagePath = `/uploads/profile_images/${req.file.filename}`;
+        
+        const c = await db();
+        await c.query("UPDATE employees SET profile_image = ? WHERE id = ?", [imagePath, emp.id]);
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            message: "Profile image uploaded successfully",
+            imagePath: imagePath
+        });
+    } catch (error) {
+        console.error("Error uploading profile image:", error);
+        res.status(500).json({ error: error.message || "Failed to upload profile image" });
+    }
+});
+
+// Get profile image
+router.get("/profile/image/:employeeId", auth, async (req, res) => {
+    try {
+        const c = await db();
+        const [rows] = await c.query("SELECT profile_image FROM employees WHERE id = ?", [req.params.employeeId]);
+        c.end();
+        
+        if (rows.length === 0 || !rows[0].profile_image) {
+            return res.status(404).json({ error: "Profile image not found" });
+        }
+        
+        res.json({ imagePath: rows[0].profile_image });
+    } catch (error) {
+        console.error("Error fetching profile image:", error);
+        res.status(500).json({ error: error.message || "Failed to fetch profile image" });
     }
 });
 

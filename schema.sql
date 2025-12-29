@@ -290,6 +290,11 @@ CREATE TABLE IF NOT EXISTS employees (
   comments TEXT,
 
   -- =========================
+  -- Profile
+  -- =========================
+  profile_image VARCHAR(255),
+
+  -- =========================
   -- Audit
   -- =========================
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
