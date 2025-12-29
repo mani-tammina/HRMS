@@ -44,50 +44,67 @@ router.get("/", auth, async (req, res) => {
 
 // Post birthday wish
 router.post("/wishes", auth, async (req, res) => {
-    const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
-    
-    const { birthday_employee_id, message } = req.body;
-    const c = await db();
-    const [result] = await c.query(
-        "INSERT INTO birthday_wishes (from_employee_id, to_employee_id, message, wished_at) VALUES (?, ?, ?, NOW())",
-        [emp.id, birthday_employee_id, message]
-    );
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const { birthday_employee_id, message } = req.body;
+        const c = await db();
+        const [result] = await c.query(
+            "INSERT INTO birthday_wishes (sender_id, employee_id, message, created_at) VALUES (?, ?, ?, NOW())",
+            [req.user.id, birthday_employee_id, message]
+        );
+        c.end();
+        res.json({ id: result.insertId, success: true });
+    } catch (error) {
+        console.error("Error posting wish:", error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Get wishes for an employee
 router.get("/wishes/:employee_id", auth, async (req, res) => {
-    const c = await db();
-    const [r] = await c.query(
-        `SELECT bw.*, e.FirstName, e.LastName 
-         FROM birthday_wishes bw 
-         LEFT JOIN employees e ON bw.from_employee_id = e.id 
-         WHERE bw.to_employee_id = ? 
-         ORDER BY bw.wished_at DESC`,
-        [req.params.employee_id]
-    );
-    c.end();
-    res.json(r);
+    try {
+        const c = await db();
+        const [r] = await c.query(
+            `SELECT bw.*, u.full_name as sender_name, e.FirstName, e.LastName 
+             FROM birthday_wishes bw 
+             LEFT JOIN users u ON bw.sender_id = u.id
+             LEFT JOIN employees e ON bw.employee_id = e.id 
+             WHERE bw.employee_id = ? 
+             ORDER BY bw.created_at DESC`,
+            [req.params.employee_id]
+        );
+        c.end();
+        res.json(r);
+    } catch (error) {
+        console.error("Error fetching wishes:", error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 // Get my wishes received
 router.get("/wishes/my/received", auth, async (req, res) => {
-    const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
-    
-    const c = await db();
-    const [r] = await c.query(
-        `SELECT bw.*, e.FirstName, e.LastName 
-         FROM birthday_wishes bw 
-         LEFT JOIN employees e ON bw.from_employee_id = e.id 
-         WHERE bw.to_employee_id = ? 
-         ORDER BY bw.wished_at DESC`,
-        [emp.id]
-    );
-    c.end();
-    res.json(r);
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const c = await db();
+        const [r] = await c.query(
+            `SELECT bw.*, u.full_name as sender_name, e.FirstName, e.LastName 
+             FROM birthday_wishes bw 
+             LEFT JOIN users u ON bw.sender_id = u.id
+             LEFT JOIN employees e ON bw.employee_id = e.id 
+             WHERE bw.employee_id = ? 
+             ORDER BY bw.created_at DESC`,
+            [emp.id]
+        );
+        c.end();
+        res.json(r);
+    } catch (error) {
+        console.error("Error fetching my wishes:", error);
+        res.status(500).json({ error: error.message });
+    }
 });
 
 module.exports = router;

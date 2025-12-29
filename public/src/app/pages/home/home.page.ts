@@ -20,7 +20,7 @@ import {
   documentTextOutline, peopleOutline, trendingUpOutline,
   checkmarkCircleOutline, closeCircleOutline, hourglassOutline,
   settingsOutline, cloudUploadOutline, shieldOutline, addOutline, balloonOutline,
-  giftOutline, sendOutline
+  giftOutline, sendOutline, eyeOutline
 } from 'ionicons/icons';
 
 @Component({
@@ -75,7 +75,7 @@ export class HomePage implements OnInit, OnDestroy {
       notificationsOutline, calendarOutline, timeOutline, 
       documentTextOutline, peopleOutline, trendingUpOutline,
       settingsOutline, cloudUploadOutline, shieldOutline, addOutline,
-      balloonOutline, giftOutline, sendOutline
+      balloonOutline, giftOutline, sendOutline, eyeOutline
     });
   }
 
@@ -426,6 +426,54 @@ export class HomePage implements OnInit, OnDestroy {
         this.showToast(error.error?.error || 'Failed to send wish', 'danger');
       }
     });
+  }
+
+  async viewBirthdayWishes(employee: BirthdayEmployee) {
+    // Load wishes for this employee
+    this.birthdayService.getWishesForEmployee(employee.id).subscribe({
+      next: async (wishes) => {
+        if (wishes.length === 0) {
+          await this.showToast('No wishes yet for this birthday!', 'primary');
+          return;
+        }
+
+        // Create formatted message text
+        const wishesText = wishes.map(wish => {
+          const senderName = wish.sender_name || 'Someone';
+          const timeAgo = this.formatWishDate(wish.created_at);
+          return `${senderName}: "${wish.message}" - ${timeAgo}`;
+        }).join('\n\n');
+
+        const alert = await this.alertController.create({
+          header: `🎉 Birthday Wishes for ${employee.FirstName}`,
+          message: wishesText,
+          cssClass: 'wishes-alert',
+          buttons: ['Close']
+        });
+
+        await alert.present();
+      },
+      error: (error) => {
+        console.error('Error loading wishes:', error);
+        this.showToast('Failed to load wishes', 'danger');
+      }
+    });
+  }
+
+  formatWishDate(dateString: string): string {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} minute${diffMins > 1 ? 's' : ''} ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
   }
 
   formatBirthdayDate(dateOfBirth: string): string {

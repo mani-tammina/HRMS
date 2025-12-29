@@ -14,10 +14,11 @@ export interface BirthdayEmployee {
 
 export interface BirthdayWish {
   id: number;
-  from_employee_id: number;
-  to_employee_id: number;
+  sender_id: number;
+  employee_id: number;
   message: string;
-  wished_at: string;
+  created_at: string;
+  sender_name?: string;
   FirstName?: string;
   LastName?: string;
 }

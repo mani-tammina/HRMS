@@ -97,3 +97,16 @@ ion-toolbar {
     }
   }
 }
+
+// Birthday Wishes Alert Styling
+.wishes-alert {
+  .alert-message {
+    white-space: pre-line !important;
+    text-align: left !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    color: var(--text-primary) !important;
+    max-height: 400px !important;
+    overflow-y: auto !important;
+  }
+}
