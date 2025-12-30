@@ -14,7 +14,7 @@ export const routes: Routes = [
   },
   {
     path: 'register',
-    loadComponent: () => import('./pages/register/register.page').then(m => m.RegisterPage)
+    loadComponent: () => import('./pages/auth/register/register.page').then(m => m.RegisterPage)
   },
   {
     path: 'tabs',
@@ -144,6 +144,11 @@ export const routes: Routes = [
   {
     path: 'admin/dashboard',
     loadComponent: () => import('./pages/admin-dashboard/admin-dashboard.page').then(m => m.AdminDashboardPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/compliance-dashboard',
+    loadComponent: () => import('./pages/admin-compliance-dashboard/admin-compliance-dashboard.page').then(m => m.AdminComplianceDashboardPage),
     canActivate: [adminGuard]
   },
   {

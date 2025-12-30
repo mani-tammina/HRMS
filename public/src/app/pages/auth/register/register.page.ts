@@ -1,18 +1,54 @@
-import { Component } from '@angular/core';
-import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { 
-  IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
-  IonCard, IonCardContent, IonCardHeader, IonCardTitle,
-  IonItem, IonLabel, IonInput, IonButton, IonText,
-  IonSpinner, IonIcon, ToastController, LoadingController
-} from '@ionic/angular/standalone';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { AuthService } from '@core/services/auth.service';
-import { HttpClient } from '@angular/common/http';
-import { environment } from '@env/environment';
+import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
+import {
+  IonContent,
+  IonHeader,
+  IonTitle,
+  IonToolbar,
+  IonCard,
+  IonCardHeader,
+  IonCardTitle,
+  IonCardContent,
+  IonItem,
+  IonLabel,
+  IonInput,
+  IonButton,
+  IonText,
+  IonSpinner,
+  IonIcon,
+  IonNote,
+  IonBadge,
+  AlertController,
+  ToastController
+} from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { mailOutline, lockClosedOutline, checkmarkCircleOutline, personOutline } from 'ionicons/icons';
+import { 
+  personOutline, 
+  lockClosedOutline, 
+  mailOutline, 
+  checkmarkCircle,
+  alertCircle,
+  informationCircle
+} from 'ionicons/icons';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../../environments/environment';
+
+interface RolePreview {
+  employee: {
+    id: number;
+    employeeNumber: string;
+    fullName: string;
+    email: string;
+    department: string;
+  };
+  reportCount: number;
+  suggestedRole: string;
+  roleAssignmentReason: string;
+  userExists: boolean;
+  currentRole: string | null;
+}
 
 @Component({
   selector: 'app-register',
@@ -21,129 +57,282 @@ import { mailOutline, lockClosedOutline, checkmarkCircleOutline, personOutline }
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
-    RouterLink,
-    IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
-    IonCard, IonCardContent, IonCardHeader, IonCardTitle,
-    IonItem, IonLabel, IonInput, IonButton, IonText,
-    IonSpinner, IonIcon
+    FormsModule,
+    IonContent,
+    IonHeader,
+    IonTitle,
+    IonToolbar,
+    IonCard,
+    IonCardHeader,
+    IonCardTitle,
+    IonCardContent,
+    IonItem,
+    IonLabel,
+    IonInput,
+    IonButton,
+    IonText,
+    IonSpinner,
+    IonIcon,
+    IonNote,
+    IonBadge
   ]
 })
-export class RegisterPage {
-  registerForm: FormGroup;
-  isLoading = false;
-  employeeChecked = false;
-  employeeData: any = null;
-  currentStep: 'check' | 'create' = 'check';
+export class RegisterPage implements OnInit {
+  employeeId: string = '';
+  password: string = '';
+  confirmPassword: string = '';
+  
+  isChecking = false;
+  isRegistering = false;
+  
+  employeeFound = false;
+  rolePreview: RolePreview | null = null;
+  
+  passwordStrength: 'weak' | 'medium' | 'strong' = 'weak';
 
   constructor(
-    private fb: FormBuilder,
-    private authService: AuthService,
     private http: HttpClient,
     private router: Router,
-    private toastController: ToastController,
-    private loadingController: LoadingController
+    private alertController: AlertController,
+    private toastController: ToastController
   ) {
-    addIcons({ mailOutline, lockClosedOutline, checkmarkCircleOutline, personOutline });
-    
-    this.registerForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(6)]],
-      confirmPassword: ['', [Validators.required]]
-    }, { validators: this.passwordMatchValidator });
+    addIcons({
+      personOutline,
+      lockClosedOutline,
+      mailOutline,
+      checkmarkCircle,
+      alertCircle,
+      informationCircle
+    });
   }
 
-  passwordMatchValidator(form: FormGroup) {
-    const password = form.get('password');
-    const confirmPassword = form.get('confirmPassword');
-    if (password && confirmPassword && password.value !== confirmPassword.value) {
-      confirmPassword.setErrors({ passwordMismatch: true });
-      return { passwordMismatch: true };
-    }
-    return null;
-  }
+  ngOnInit() {}
 
-  async checkEmployee() {
-    const email = this.registerForm.get('email')?.value;
-    if (!email) {
-      await this.showToast('Please enter your work email', 'warning');
+  // Check employee ID and preview role
+  async checkEmployeeId() {
+    if (!this.employeeId || this.employeeId.trim() === '') {
+      await this.showToast('Please enter your Employee ID, Number, or Work Email', 'warning');
       return;
     }
 
-    const loading = await this.loadingController.create({
-      message: 'Checking employee record...'
-    });
-    await loading.present();
+    this.isChecking = true;
+    this.employeeFound = false;
+    this.rolePreview = null;
 
-    this.http.get<any>(`${environment.apiUrl}/auth/employee/check?email=${email}`).subscribe({
-      next: async (response) => {
-        loading.dismiss();
-        if (response.found) {
-          if (response.hasUserAccount) {
-            await this.showToast('User account already exists. Please login instead.', 'warning');
-            this.router.navigate(['/login']);
-          } else {
-            this.employeeChecked = true;
-            this.employeeData = response.employee;
-            this.currentStep = 'create';
-            await this.showToast('Employee found! Please set your password.', 'success');
-          }
+    try {
+      const response = await this.http.get<RolePreview>(
+        `${environment.apiUrl}/auth/user/preview-role/${this.employeeId}`
+      ).toPromise();
+
+      if (response) {
+        this.rolePreview = response;
+        this.employeeFound = true;
+
+        if (response.userExists) {
+          await this.showAlert(
+            'Account Already Exists',
+            `An account already exists for ${response.employee.fullName}. Please login instead.`,
+            'warning'
+          );
         } else {
-          await this.showToast('Employee not found with this email. Please contact HR.', 'danger');
+          await this.showToast('Employee verified! You can now register.', 'success');
         }
-      },
-      error: async (error) => {
-        loading.dismiss();
-        await this.showToast(error.error?.message || 'Failed to check employee record', 'danger');
       }
-    });
+    } catch (error: any) {
+      console.error('Employee check error:', error);
+      
+      if (error.status === 404) {
+        await this.showAlert(
+          'Employee Not Found',
+          error.error?.message || 'No employee found with this ID, Number, or Email. Please check and try again.',
+          'danger'
+        );
+      } else if (error.status === 400) {
+        await this.showAlert(
+          'Validation Error',
+          error.error?.message || error.error?.error || 'Please verify your Employee information with HR.',
+          'warning'
+        );
+      } else {
+        await this.showToast('Failed to verify employee', 'danger');
+      }
+    } finally {
+      this.isChecking = false;
+    }
   }
 
-  async createUser() {
-    if (this.registerForm.invalid) {
-      await this.showToast('Please fill all required fields correctly', 'warning');
+  // Check password strength
+  checkPasswordStrength() {
+    const password = this.password;
+    
+    if (!password) {
+      this.passwordStrength = 'weak';
       return;
     }
 
-    const email = this.registerForm.get('email')?.value;
-    const password = this.registerForm.get('password')?.value;
+    let strength = 0;
+    
+    // Length check
+    if (password.length >= 8) strength++;
+    if (password.length >= 12) strength++;
+    
+    // Contains uppercase
+    if (/[A-Z]/.test(password)) strength++;
+    
+    // Contains lowercase
+    if (/[a-z]/.test(password)) strength++;
+    
+    // Contains numbers
+    if (/[0-9]/.test(password)) strength++;
+    
+    // Contains special characters
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
 
-    const loading = await this.loadingController.create({
-      message: 'Creating user account...'
-    });
-    await loading.present();
+    if (strength <= 2) {
+      this.passwordStrength = 'weak';
+    } else if (strength <= 4) {
+      this.passwordStrength = 'medium';
+    } else {
+      this.passwordStrength = 'strong';
+    }
+  }
 
-    this.http.post<any>(`${environment.apiUrl}/auth/user/create`, {
-      email,
-      password,
-      role: 'employee'
-    }).subscribe({
-      next: async (response) => {
-        loading.dismiss();
-        await this.showToast('Account created successfully! You can now login.', 'success');
-        this.router.navigate(['/login']);
-      },
-      error: async (error) => {
-        loading.dismiss();
-        await this.showToast(error.error?.error || 'Failed to create user account', 'danger');
+  // Register user
+  async register() {
+    // Validations
+    if (!this.employeeId || !this.password || !this.confirmPassword) {
+      await this.showToast('Please fill in all fields', 'warning');
+      return;
+    }
+
+    if (!this.employeeFound || !this.rolePreview) {
+      await this.showToast('Please verify your Employee ID first', 'warning');
+      return;
+    }
+
+    if (this.rolePreview.userExists) {
+      await this.showToast('Account already exists. Please login.', 'warning');
+      return;
+    }
+
+    if (this.password !== this.confirmPassword) {
+      await this.showToast('Passwords do not match', 'danger');
+      return;
+    }
+
+    if (this.password.length < 8) {
+      await this.showToast('Password must be at least 8 characters', 'danger');
+      return;
+    }
+
+    this.isRegistering = true;
+
+    try {
+      const response = await this.http.post(
+        `${environment.apiUrl}/auth/user/create-auto`,
+        {
+          employee_id: this.employeeId, // Send as-is (ID or Number)
+          password: this.password
+        }
+      ).toPromise();
+
+      await this.showSuccessAlert(response);
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      
+      if (error.status === 409) {
+        await this.showAlert('Account Exists', 'An account already exists for this employee.', 'warning');
+      } else if (error.status === 404) {
+        await this.showAlert('Employee Not Found', error.error?.message || 'Please verify your Employee ID or Number.', 'danger');
+      } else if (error.status === 400) {
+        await this.showAlert('Invalid Request', error.error?.message || error.error?.error || 'Please check your input.', 'warning');
+      } else {
+        await this.showToast(error.error?.error || 'Registration failed', 'danger');
       }
+    } finally {
+      this.isRegistering = false;
+    }
+  }
+
+  // Show success alert and redirect to login
+  async showSuccessAlert(response: any) {
+    const message = `Welcome, ${response.employee.fullName}!\n\nYour account has been created successfully.\n\nEmail: ${response.user.username}\nRole: ${response.user.role.toUpperCase()}\n\n${response.roleAssignmentReason}`;
+    
+    const alert = await this.alertController.create({
+      header: '✅ Registration Successful!',
+      message: message,
+      cssClass: 'success-alert',
+      buttons: [
+        {
+          text: 'Go to Login',
+          cssClass: 'alert-button-confirm',
+          handler: () => {
+            this.router.navigate(['/login']);
+          }
+        }
+      ],
+      backdropDismiss: false
     });
+
+    await alert.present();
   }
 
-  resetForm() {
-    this.currentStep = 'check';
-    this.employeeChecked = false;
-    this.employeeData = null;
-    this.registerForm.reset();
+  // Show alert
+  async showAlert(header: string, message: string, type: 'success' | 'warning' | 'danger' = 'success') {
+    const alert = await this.alertController.create({
+      header,
+      message,
+      cssClass: `alert-${type}`,
+      buttons: ['OK']
+    });
+
+    await alert.present();
   }
 
-  async showToast(message: string, color: string) {
+  // Show toast
+  async showToast(message: string, color: string = 'primary') {
     const toast = await this.toastController.create({
       message,
       duration: 3000,
-      color,
-      position: 'top'
+      position: 'top',
+      color
     });
-    toast.present();
+
+    await toast.present();
+  }
+
+  // Navigate to login
+  goToLogin() {
+    this.router.navigate(['/login']);
+  }
+
+  // Get role badge color
+  getRoleBadgeColor(role: string): string {
+    switch (role.toLowerCase()) {
+      case 'hr':
+        return 'primary';
+      case 'manager':
+        return 'success';
+      case 'employee':
+        return 'medium';
+      case 'admin':
+        return 'danger';
+      default:
+        return 'medium';
+    }
+  }
+
+  // Get password strength color
+  getPasswordStrengthColor(): string {
+    switch (this.passwordStrength) {
+      case 'weak':
+        return 'danger';
+      case 'medium':
+        return 'warning';
+      case 'strong':
+        return 'success';
+      default:
+        return 'medium';
+    }
   }
 }
