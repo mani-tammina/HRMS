@@ -17,6 +17,8 @@ import { AuthService, User } from '@core/services/auth.service';
 export class TabsPage implements OnInit {
   user: User | null = null;
   isManager = false;
+  isHR = false;
+  isHROrAdmin = false;
 
   constructor(private authService: AuthService) {
     addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline });
@@ -26,6 +28,8 @@ export class TabsPage implements OnInit {
     this.authService.currentUser$.subscribe(user => {
       this.user = user;
       this.isManager = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'hr';
+      this.isHR = user?.role === 'hr';
+      this.isHROrAdmin = user?.role === 'hr' || user?.role === 'admin';
     });
   }
 }

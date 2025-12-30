@@ -4,9 +4,11 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-  IonAvatar, IonMenuButton, ToastController, AlertController, IonFab, IonFabButton
+  IonAvatar, IonMenuButton, ToastController, AlertController, IonFab, IonFabButton,
+  IonModal, IonRadioGroup, IonRadio, IonItem, IonLabel, IonText
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { AuthService, User } from '@core/services/auth.service';
 import { AttendanceService } from '@core/services/attendance.service';
@@ -22,7 +24,8 @@ import {
   documentTextOutline, peopleOutline, trendingUpOutline,
   checkmarkCircleOutline, closeCircleOutline, hourglassOutline,
   settingsOutline, cloudUploadOutline, shieldOutline, addOutline, balloonOutline,
-  giftOutline, sendOutline, eyeOutline, logInOutline, logOutOutline, barChartOutline
+  giftOutline, sendOutline, eyeOutline, logInOutline, logOutOutline, barChartOutline,
+  businessOutline, homeOutline, globeOutline, close
 } from 'ionicons/icons';
 
 @Component({
@@ -31,11 +34,12 @@ import {
   styleUrls: ['./home.page.scss'],
   standalone: true,
   imports: [
-    CommonModule,
+    CommonModule, FormsModule,
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle, IonCardSubtitle,
     IonGrid, IonRow, IonCol, IonIcon, IonBadge, IonRefresher, IonRefresherContent,
-    IonAvatar, IonMenuButton, IonFab, IonFabButton
+    IonAvatar, IonMenuButton, IonFab, IonFabButton, IonModal, IonRadioGroup,
+    IonRadio, IonItem, IonLabel, IonText
   ]
 })
 export class HomePage implements OnInit, OnDestroy {
@@ -48,6 +52,8 @@ export class HomePage implements OnInit, OnDestroy {
   isLoading = false;
   canPunchIn = true;
   canPunchOut = false;
+  selectedWorkMode: 'Office' | 'WFH' | 'Remote' | 'Hybrid' = 'Office';
+  showWorkModeModal = false;
   currentEmployee: any = null;
   teamMembers: any[] = [];
   teamInfo: any = null;
@@ -80,7 +86,9 @@ export class HomePage implements OnInit, OnDestroy {
       documentTextOutline, peopleOutline, trendingUpOutline,
       settingsOutline, cloudUploadOutline, shieldOutline, addOutline,
       balloonOutline, giftOutline, sendOutline, eyeOutline,
-      logInOutline, logOutOutline, barChartOutline
+      logInOutline, logOutOutline, barChartOutline,
+      businessOutline, homeOutline, globeOutline, close,
+      checkmarkCircleOutline, closeCircleOutline, hourglassOutline
     });
   }
 
@@ -277,10 +285,11 @@ export class HomePage implements OnInit, OnDestroy {
   async punchIn() {
     this.isLoading = true;
     this.canPunchIn = false; // Immediately disable to prevent double-click
-    console.log('HomePage: Punching in...');
-    this.attendanceService.punchIn('Office').subscribe({
+    console.log('HomePage: Punching in with work mode:', this.selectedWorkMode);
+    this.attendanceService.punchIn(this.selectedWorkMode).subscribe({
       next: async (response) => {
         console.log('HomePage: Punch-in response:', response);
+        this.showWorkModeModal = false;
         await this.showToast(response.message || 'Punched in successfully!', 'success');
         // Reload data to get updated status
         this.loadData();
@@ -293,6 +302,19 @@ export class HomePage implements OnInit, OnDestroy {
         await this.showToast(error.error?.error || error.error?.message || 'Punch-in failed', 'danger');
       }
     });
+  }
+
+  openWorkModeModal() {
+    this.showWorkModeModal = true;
+  }
+
+  closeWorkModeModal() {
+    this.showWorkModeModal = false;
+    this.selectedWorkMode = 'Office'; // Reset to default
+  }
+
+  confirmPunchIn() {
+    this.punchIn();
   }
 
   async punchOut() {

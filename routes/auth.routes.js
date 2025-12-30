@@ -29,8 +29,34 @@ router.post("/login", async (req, res) => {
 });
 
 // Logout
-router.post("/logout", auth, (req, res) => {
-    res.json({ message: "Logged out successfully. Please discard token client-side." });
+router.post("/logout", auth, async (req, res) => {
+    try {
+        const c = await db();
+        
+        // Log logout activity for audit trail
+        await c.query(
+            `INSERT INTO notifications (user_id, title, message, type, created_at) 
+             VALUES (?, 'Logout', 'User logged out successfully', 'info', NOW())`,
+            [req.user.id]
+        ).catch(err => console.log('Failed to log logout activity:', err.message));
+        
+        c.end();
+        
+        console.log(`User ${req.user.id} (${req.user.role}) logged out at ${new Date().toISOString()}`);
+        
+        // Note: Since we're using JWT (stateless), the token can't be invalidated server-side
+        // without implementing a token blacklist. The client MUST discard the token.
+        // For enhanced security, consider implementing Redis-based token blacklisting.
+        
+        res.json({ 
+            message: "Logged out successfully. Please discard token client-side.",
+            success: true,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.status(500).json({ error: 'Logout failed', message: error.message });
+    }
 });
 
 // Refresh token

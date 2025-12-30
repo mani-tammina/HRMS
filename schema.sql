@@ -124,8 +124,54 @@ CREATE TABLE IF NOT EXISTS shift_policies (
 -- Weekly Off Policies Master
 CREATE TABLE IF NOT EXISTS weekly_off_policies (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  name VARCHAR(100) UNIQUE NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  policy_code VARCHAR(50) UNIQUE NOT NULL COMMENT 'Unique code like WOP001',
+  name VARCHAR(100) NOT NULL COMMENT 'Policy name like "Standard 5-Day Week"',
+  description TEXT COMMENT 'Detailed description of the policy',
+  
+  -- Effective Period
+  effective_date DATE NOT NULL COMMENT 'When this policy becomes active',
+  end_date DATE NULL COMMENT 'Optional end date for policy',
+  is_active TINYINT(1) DEFAULT 1 COMMENT 'Enable/disable policy',
+  
+  -- Fixed Weekly Off Days (Boolean for each day)
+  sunday_off TINYINT(1) DEFAULT 1 COMMENT '1 = Sunday is off, 0 = working',
+  monday_off TINYINT(1) DEFAULT 0,
+  tuesday_off TINYINT(1) DEFAULT 0,
+  wednesday_off TINYINT(1) DEFAULT 0,
+  thursday_off TINYINT(1) DEFAULT 0,
+  friday_off TINYINT(1) DEFAULT 0,
+  saturday_off TINYINT(1) DEFAULT 0,
+  
+  -- Pattern-based Off (JSON for complex patterns like "2nd & 4th Saturday")
+  -- Example: {"Sat": [2, 4], "Sun": [1, 2, 3, 4, 5]} means 2nd/4th Saturday and every Sunday
+  week_pattern JSON COMMENT 'JSON pattern for alternate/specific week offs',
+  
+  -- Advanced Rules
+  is_payable TINYINT(1) DEFAULT 1 COMMENT 'Whether employee gets paid for week off',
+  holiday_overlap_rule ENUM('ignore', 'compensatory_off', 'carry_forward') DEFAULT 'ignore' COMMENT 'Rule when holiday falls on week off',
+  sandwich_rule TINYINT(1) DEFAULT 0 COMMENT '1 = Count weekends as leave if sandwiched between leaves',
+  minimum_work_days INT DEFAULT 0 COMMENT 'Min days to work in week to earn week off',
+  
+  -- Half Day Rules
+  allow_half_day TINYINT(1) DEFAULT 0 COMMENT 'Allow half day on specific week offs',
+  half_day_pattern JSON COMMENT 'JSON pattern for half day rules',
+  
+  -- Assignment Scope (NULL = applies to all)
+  location_id INT NULL COMMENT 'Specific location, NULL = all locations',
+  department_id INT NULL COMMENT 'Specific department, NULL = all departments',
+  shift_policy_id INT NULL COMMENT 'Tied to specific shift, NULL = all shifts',
+  
+  -- Audit
+  created_by INT NULL,
+  updated_by INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  
+  FOREIGN KEY (location_id) REFERENCES locations(id) ON DELETE SET NULL,
+  FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL,
+  FOREIGN KEY (shift_policy_id) REFERENCES shift_policies(id) ON DELETE SET NULL,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
+  FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
 -- Attendance Policies Master

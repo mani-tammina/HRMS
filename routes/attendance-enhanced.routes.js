@@ -460,31 +460,58 @@ router.get("/report/details/:employeeId/:date", auth, manager, async (req, res) 
 });
 
 /**
- * Get Team Attendance Report (Manager)
+ * Get Team Attendance Report (Available for all authenticated users who manage team members)
+ * Works for: admin, hr, manager, and employee roles (if they have reporting team)
  */
-router.get("/report/team", auth, manager, async (req, res) => {
+router.get("/report/team", auth, async (req, res) => {
     try {
+        console.log(`=== GET /report/team called ===`);
+        console.log(`User ID: ${req.user.id}, Role: ${req.user.role}`);
+        
         const emp = await findEmployeeByUserId(req.user.id);
-        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        if (!emp) {
+            console.log(`Employee not found for user ID: ${req.user.id}`);
+            return res.status(404).json({ error: "Employee not found" });
+        }
+        
+        console.log(`Employee found: ${emp.FirstName} ${emp.LastName} (ID: ${emp.id})`);
         
         const { date } = req.query;
         const targetDate = date || new Date().toISOString().split('T')[0];
+        console.log(`Target date: ${targetDate}`);
         
         const c = await db();
         
-        // Get team members (reporting to this manager)
+        // Get team members (reporting to this manager/employee)
         const [team] = await c.query(
-            `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail 
+            `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
              FROM employees 
-             WHERE reporting_manager_id = ? AND EmploymentStatus = 'Active'`,
+             WHERE reporting_manager_id = ?
+             ORDER BY FirstName, LastName`,
             [emp.id]
         );
+        
+        console.log(`Team members count: ${team.length}`);
+        if (team.length > 0) {
+            console.log(`Sample team member EmploymentStatus: ${team[0].EmploymentStatus}`);
+        }
         
         const teamIds = team.map(t => t.id);
         
         if (teamIds.length === 0) {
             c.end();
-            return res.json({ team_members: [], attendance: [] });
+            console.log(`No team members found for employee ID: ${emp.id}`);
+            return res.json({ 
+                team_members: [], 
+                attendance: [],
+                date: targetDate,
+                summary: {
+                    total_team: 0,
+                    present: 0,
+                    absent: 0,
+                    on_leave: 0
+                }
+            });
         }
         
         // Get attendance for team

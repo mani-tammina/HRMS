@@ -20,6 +20,10 @@
         <ion-icon name="time-outline"></ion-icon>
         <ion-label>Timesheets</ion-label>
       </ion-segment-button>
+      <ion-segment-button value="attendance">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <ion-label>Attendance</ion-label>
+      </ion-segment-button>
       <ion-segment-button value="team">
         <ion-icon name="people-outline"></ion-icon>
         <ion-label>My Team</ion-label>
@@ -164,6 +168,141 @@
           </div>
         </ion-card-content>
       </ion-card>
+    </div>
+
+    <!-- Team Attendance Report -->
+    <div *ngIf="selectedSegment === 'attendance'">
+      <div class="section-header">
+        <h3>
+          <ion-icon name="analytics-outline"></ion-icon>
+          Team Attendance Report
+        </h3>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <ion-button size="small" fill="clear" (click)="toggleDebugInfo()">
+            <ion-icon name="bug-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          <ion-datetime 
+            [(ngModel)]="selectedDate" 
+            (ionChange)="onDateChange($event)"
+            presentation="date"
+            [max]="maxDate"
+            size="small">
+          </ion-datetime>
+        </div>
+      </div>
+
+      <!-- Debug Info Panel -->
+      <ion-card *ngIf="showDebugInfo" style="background: #f0f0f0;">
+        <ion-card-header>
+          <ion-card-title style="font-size: 14px;">Debug Info</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <pre style="font-size: 11px; overflow-x: auto;">{{ getDebugData() | json }}</pre>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Loading State -->
+      <ion-card *ngIf="isLoadingAttendance">
+        <ion-card-content class="empty-state">
+          <ion-icon name="hourglass-outline" size="large" color="primary"></ion-icon>
+          <p>Loading attendance data...</p>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Summary Cards -->
+      <div class="summary-grid" *ngIf="!isLoadingAttendance && teamAttendance?.summary">
+        <ion-card class="summary-card" [style.background]="'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'">
+          <ion-card-content>
+            <ion-icon name="people-outline" style="font-size: 24px; color: white; opacity: 0.8;"></ion-icon>
+            <div class="summary-value" style="color: white;">{{ teamAttendance.summary.total_team || 0 }}</div>
+            <div class="summary-label" style="color: rgba(255,255,255,0.9);">Total Team</div>
+          </ion-card-content>
+        </ion-card>
+        <ion-card class="summary-card present" [style.background]="'linear-gradient(135deg, #11998e 0%, #38ef7d 100%)'">
+          <ion-card-content>
+            <ion-icon name="checkmark-circle" style="font-size: 24px; color: white; opacity: 0.8;"></ion-icon>
+            <div class="summary-value" style="color: white;">{{ teamAttendance.summary.present || 0 }}</div>
+            <div class="summary-label" style="color: rgba(255,255,255,0.9);">Present</div>
+          </ion-card-content>
+        </ion-card>
+        <ion-card class="summary-card absent" [style.background]="'linear-gradient(135deg, #eb3349 0%, #f45c43 100%)'">
+          <ion-card-content>
+            <ion-icon name="close-circle" style="font-size: 24px; color: white; opacity: 0.8;"></ion-icon>
+            <div class="summary-value" style="color: white;">{{ teamAttendance.summary.absent || 0 }}</div>
+            <div class="summary-label" style="color: rgba(255,255,255,0.9);">Absent</div>
+          </ion-card-content>
+        </ion-card>
+        <ion-card class="summary-card on-leave" [style.background]="'linear-gradient(135deg, #f7971e 0%, #ffd200 100%)'">
+          <ion-card-content>
+            <ion-icon name="calendar" style="font-size: 24px; color: white; opacity: 0.8;"></ion-icon>
+            <div class="summary-value" style="color: white;">{{ teamAttendance.summary.on_leave || 0 }}</div>
+            <div class="summary-label" style="color: rgba(255,255,255,0.9);">On Leave</div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Empty State for No Team -->
+      <ion-card *ngIf="!isLoadingAttendance && teamAttendance && teamAttendance.summary && teamAttendance.summary.total_team === 0">
+        <ion-card-content class="empty-state">
+          <ion-icon name="people-outline" size="large" color="medium"></ion-icon>
+          <p><strong>No team members found</strong></p>
+          <small>You need team members reporting to you to view attendance. Please contact HR if this is incorrect.</small>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Empty State for No Attendance -->
+      <ion-card *ngIf="!isLoadingAttendance && teamAttendance && teamAttendance.summary && teamAttendance.summary.total_team > 0 && (!teamAttendance.attendance || teamAttendance.attendance.length === 0)">
+        <ion-card-content class="empty-state">
+          <ion-icon name="calendar-outline" size="large" color="medium"></ion-icon>
+          <p>No attendance records for {{ selectedDate | date:'MMM d, y' }}</p>
+          <small>Your {{ teamAttendance.summary.total_team }} team members haven't marked attendance yet for this date</small>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- Attendance List -->
+      <div *ngIf="!isLoadingAttendance && teamAttendance?.attendance && teamAttendance.attendance.length > 0">
+        <div class="section-header">
+          <h3>Attendance Details ({{ teamAttendance.attendance.length }} records)</h3>
+        </div>
+        <ion-card *ngFor="let record of teamAttendance.attendance" class="approval-card">
+        <ion-card-header>
+          <div class="card-header-content">
+            <div>
+              <ion-card-title>{{ record.FirstName }} {{ record.LastName }}</ion-card-title>
+              <p class="employee-details">{{ record.EmployeeNumber }}</p>
+            </div>
+            <ion-badge [color]="getAttendanceStatusColor(record.status)">
+              <ion-icon [name]="getAttendanceStatusIcon(record.status)" slot="start"></ion-icon>
+              {{ record.status | titlecase }}
+            </ion-badge>
+          </div>
+        </ion-card-header>
+        <ion-card-content>
+          <div class="leave-details">
+            <div class="detail-row" *ngIf="record.check_in_time">
+              <ion-icon name="time-outline" color="success"></ion-icon>
+              <span><strong>Check In:</strong> {{ record.check_in_time | date:'h:mm a' }}</span>
+            </div>
+            <div class="detail-row" *ngIf="record.check_out_time">
+              <ion-icon name="time-outline" color="danger"></ion-icon>
+              <span><strong>Check Out:</strong> {{ record.check_out_time | date:'h:mm a' }}</span>
+            </div>
+            <div class="detail-row" *ngIf="record.work_hours">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <span><strong>Work Hours:</strong> {{ record.work_hours }}h</span>
+            </div>
+            <div class="detail-row" *ngIf="record.work_mode">
+              <ion-icon name="location-outline"></ion-icon>
+              <span><strong>Mode:</strong> {{ record.work_mode }}</span>
+            </div>
+            <div class="detail-row" *ngIf="record.total_punches">
+              <ion-icon name="finger-print-outline"></ion-icon>
+              <span><strong>Total Punches:</strong> {{ record.total_punches }}</span>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+      </div>
     </div>
 
     <!-- My Team -->

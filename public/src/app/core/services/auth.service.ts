@@ -86,10 +86,54 @@ export class AuthService {
   }
 
   logout(): void {
+    // Call server logout API
+    this.http.post(`${environment.apiUrl}/auth/logout`, {}).subscribe({
+      next: () => {
+        console.log('Logout API called successfully');
+      },
+      error: (error) => {
+        console.error('Logout API error:', error);
+        // Continue with logout even if API fails
+      },
+      complete: () => {
+        // Clear ALL session data
+        this.clearAllSessionData();
+        
+        // Navigate to login page
+        this.router.navigate(['/login']);
+      }
+    });
+  }
+
+  /**
+   * Clear all session-related data from storage and memory
+   */
+  private clearAllSessionData(): void {
+    // Clear localStorage items
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Clear any other potential cached data
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('hrms_') || 
+        key.includes('cache') || 
+        key.includes('session')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    // Clear sessionStorage completely
+    sessionStorage.clear();
+    
+    // Reset user state in BehaviorSubject
     this.currentUserSubject.next(null);
-    this.router.navigate(['/login']);
+    
+    console.log('All session data cleared successfully');
   }
 
   getToken(): string | null {

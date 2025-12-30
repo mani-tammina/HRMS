@@ -3,12 +3,14 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle,
   IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge,
-  ToastController, IonRefresher, IonRefresherContent
+  ToastController, IonRefresher, IonRefresherContent,
+  IonModal, IonButtons, IonRadioGroup, IonRadio, IonText
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { AttendanceService, Attendance } from '@core/services/attendance.service';
 import { addIcons } from 'ionicons';
-import { logInOutline, logOutOutline, timeOutline, calendarOutline } from 'ionicons/icons';
+import { logInOutline, logOutOutline, timeOutline, calendarOutline, businessOutline, homeOutline, globeOutline, close } from 'ionicons/icons';
 
 @Component({
   selector: 'app-attendance',
@@ -16,11 +18,12 @@ import { logInOutline, logOutOutline, timeOutline, calendarOutline } from 'ionic
   styleUrls: ['./attendance.page.scss'],
   standalone: true,
   imports: [
-    CommonModule,
+    CommonModule, FormsModule,
     IonContent, IonHeader, IonTitle, IonToolbar,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
     IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge,
-    IonRefresher, IonRefresherContent
+    IonRefresher, IonRefresherContent, IonModal, IonButtons,
+    IonRadioGroup, IonRadio, IonText
   ]
 })
 export class AttendancePage implements OnInit {
@@ -30,12 +33,14 @@ export class AttendancePage implements OnInit {
   isLoading = false;
   canPunchIn = true;
   canPunchOut = false;
+  selectedWorkMode: 'Office' | 'WFH' | 'Remote' | 'Hybrid' = 'Office';
+  showWorkModeModal = false;
 
   constructor(
     private attendanceService: AttendanceService,
     private toastController: ToastController
   ) {
-    addIcons({ logInOutline, logOutOutline, timeOutline, calendarOutline });
+    addIcons({ logInOutline, logOutOutline, timeOutline, calendarOutline, businessOutline, homeOutline, globeOutline, close });
   }
 
   ngOnInit() {
@@ -87,11 +92,12 @@ export class AttendancePage implements OnInit {
 
   async punchIn() {
     this.isLoading = true;
-    console.log('AttendancePage: Punching in...');
-    this.attendanceService.punchIn('Office').subscribe({
+    console.log('AttendancePage: Punching in with work mode:', this.selectedWorkMode);
+    this.attendanceService.punchIn(this.selectedWorkMode).subscribe({
       next: async (response) => {
         console.log('AttendancePage: Punch-in response:', response);
         this.isLoading = false;
+        this.showWorkModeModal = false;
         await this.showToast(response.message || 'Punched in successfully!', 'success');
         this.loadData();
       },
@@ -101,6 +107,19 @@ export class AttendancePage implements OnInit {
         await this.showToast(error.error?.error || error.error?.message || 'Punch-in failed', 'danger');
       }
     });
+  }
+
+  openWorkModeModal() {
+    this.showWorkModeModal = true;
+  }
+
+  closeWorkModeModal() {
+    this.showWorkModeModal = false;
+    this.selectedWorkMode = 'Office'; // Reset to default
+  }
+
+  confirmPunchIn() {
+    this.punchIn();
   }
 
   async punchOut() {

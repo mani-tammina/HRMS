@@ -5,12 +5,12 @@
       <ion-label>Home</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="onboarding" *ngIf="isManager">
+    <ion-tab-button tab="onboarding" *ngIf="isHR">
       <ion-icon name="checkmark-done-outline"></ion-icon>
       <ion-label>Onboarding</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="payroll" *ngIf="isManager">
+    <ion-tab-button tab="payroll" *ngIf="isHROrAdmin">
       <ion-icon name="cash-outline"></ion-icon>
       <ion-label>Payroll</ion-label>
     </ion-tab-button>

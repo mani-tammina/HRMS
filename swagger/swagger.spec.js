@@ -257,9 +257,24 @@ const swaggerSpec = {
         "/api/auth/logout": {
             post: {
                 summary: "Logout User",
+                description: "Logs out the current user. Clears session data on client-side and logs the logout activity for audit trail. Note: JWT tokens cannot be invalidated server-side without a blacklist implementation.",
                 tags: ["🔐 Authentication"],
+                security: [{ bearerAuth: [] }],
                 responses: {
-                    200: { description: "Logged out successfully" }
+                    200: { 
+                        description: "Logged out successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    message: "Logged out successfully. Please discard token client-side.",
+                                    success: true,
+                                    timestamp: "2025-12-30T10:30:00.000Z"
+                                }
+                            }
+                        }
+                    },
+                    401: { description: "Unauthorized - Invalid or missing token" },
+                    500: { description: "Server error during logout" }
                 }
             }
         },
@@ -1108,6 +1123,105 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/employees/profile/image": {
+            post: {
+                summary: "Upload Profile Image",
+                tags: ["👥 Employees"],
+                description: "Upload profile image for the authenticated user. Accepts image files (jpg, jpeg, png). Maximum file size: 5MB.",
+                requestBody: {
+                    required: true,
+                    content: {
+                        "multipart/form-data": {
+                            schema: {
+                                type: "object",
+                                required: ["image"],
+                                properties: {
+                                    image: {
+                                        type: "string",
+                                        format: "binary",
+                                        description: "Image file to upload (jpg, jpeg, png). Field name must be 'image'."
+                                    }
+                                }
+                            },
+                            example: {
+                                image: "(binary file data)"
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Profile image uploaded successfully",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        success: { type: "boolean", example: true },
+                                        message: { type: "string", example: "Profile image uploaded successfully" },
+                                        imagePath: { type: "string", example: "/uploads/profile_images/1735123456789-profile.jpg" }
+                                    }
+                                },
+                                example: {
+                                    success: true,
+                                    message: "Profile image uploaded successfully",
+                                    imagePath: "/uploads/profile_images/1735123456789-profile.jpg"
+                                }
+                            }
+                        }
+                    },
+                    400: { 
+                        description: "No image file uploaded",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "No image file uploaded"
+                                }
+                            }
+                        }
+                    },
+                    500: { 
+                        description: "Failed to upload profile image",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "Failed to upload profile image"
+                                }
+                            }
+                        }
+                    }
+                },
+                security: [{ bearerAuth: [] }]
+            }
+        },
+        "/api/employees/profile/image/{employeeId}": {
+            get: {
+                summary: "Get Profile Image URL",
+                tags: ["👥 Employees"],
+                description: "Get profile image path for a specific employee",
+                parameters: [{
+                    name: "employeeId",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Profile image path retrieved",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    imagePath: "/uploads/profile_images/1735123456789-profile.jpg"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Profile image not found" },
+                    500: { description: "Failed to fetch profile image" }
+                }
+            }
+        },
         "/api/employees/search/query": {
             get: {
                 summary: "Search Employees",
@@ -1405,8 +1519,8 @@ Skips employees who already have user accounts.
         },
         "/api/attendance/report/team": {
             get: {
-                summary: "✨ Team Attendance Report (Manager)",
-                description: "Get attendance for all team members reporting to logged-in manager",
+                summary: "✨ Team Attendance Report",
+                description: "Get attendance for all team members reporting to you. Available for any authenticated user (admin/hr/manager/employee) who has team members. Returns empty result if no team members are found.",
                 tags: ["⏰ Attendance"],
                 parameters: [{
                     name: "date",
@@ -3187,6 +3301,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/locations/{id}": {
+            delete: {
+                summary: "Delete Location (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Location deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "locations deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Location not found" },
+                    500: { description: "Failed to delete location" }
+                }
+            }
+        },
         "/api/departments": {
             get: {
                 summary: "Get All Departments",
@@ -3214,6 +3356,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Department created" }
+                }
+            }
+        },
+        "/api/departments/{id}": {
+            delete: {
+                summary: "Delete Department (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Department deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "departments deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Department not found" },
+                    500: { description: "Failed to delete department" }
                 }
             }
         },
@@ -3247,6 +3417,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/designations/{id}": {
+            delete: {
+                summary: "Delete Designation (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Designation deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "designations deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Designation not found" },
+                    500: { description: "Failed to delete designation" }
+                }
+            }
+        },
         "/api/business-units": {
             get: {
                 summary: "Get All Business Units",
@@ -3274,6 +3472,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Business unit created" }
+                }
+            }
+        },
+        "/api/business-units/{id}": {
+            delete: {
+                summary: "Delete Business Unit (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Business unit deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "business-units deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Business unit not found" },
+                    500: { description: "Failed to delete business unit" }
                 }
             }
         },
@@ -3307,6 +3533,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/legal-entities/{id}": {
+            delete: {
+                summary: "Delete Legal Entity (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Legal entity deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "legal-entities deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Legal Entity not found" },
+                    500: { description: "Failed to delete legal-entity" }
+                }
+            }
+        },
         "/api/cost-centers": {
             get: {
                 summary: "Get All Cost Centers",
@@ -3333,6 +3587,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Cost center created" }
+                }
+            }
+        },
+        "/api/cost-centers/{id}": {
+            delete: {
+                summary: "Delete Cost Center (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Cost center deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "cost-centers deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Cost Center not found" },
+                    500: { description: "Failed to delete cost-center" }
                 }
             }
         },
@@ -3367,6 +3649,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/sub-departments/{id}": {
+            delete: {
+                summary: "Delete Sub-Department (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Sub-department deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "sub-departments deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Sub-Department not found" },
+                    500: { description: "Failed to delete sub-department" }
+                }
+            }
+        },
         "/api/bands": {
             get: {
                 summary: "Get All Bands",
@@ -3394,6 +3704,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Band created" }
+                }
+            }
+        },
+        "/api/bands/{id}": {
+            delete: {
+                summary: "Delete Band (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Band deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "bands deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Band not found" },
+                    500: { description: "Failed to delete band" }
                 }
             }
         },
@@ -3427,6 +3765,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/pay-grades/{id}": {
+            delete: {
+                summary: "Delete Pay Grade (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Pay grade deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "pay-grades deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Pay Grade not found" },
+                    500: { description: "Failed to delete pay-grade" }
+                }
+            }
+        },
         "/api/leave-plans": {
             get: {
                 summary: "Get All Leave Plans",
@@ -3440,6 +3806,34 @@ Skips employees who already have user accounts.
                 tags: ["🏢 Master Data"],
                 responses: {
                     200: { description: "Leave plan created" }
+                }
+            }
+        },
+        "/api/leave-plans/{id}": {
+            delete: {
+                summary: "Delete Leave Plan (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Leave plan deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "leave-plans deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Leave Plan not found" },
+                    500: { description: "Failed to delete leave-plan" }
                 }
             }
         },
@@ -3598,31 +3992,328 @@ Skips employees who already have user accounts.
         },
         "/api/weekly-off-policies": {
             get: {
-                summary: "Get All Weekly Off Policies",
+                summary: "Get All Weekly Off Policies (Enhanced)",
                 tags: ["🏢 Master Data"],
+                description: "Get all weekly off policies with full details including fixed days, patterns (2nd/4th Saturday), rules, and assignments",
                 responses: {
-                    200: { description: "List of weekly off policies" }
+                    200: {
+                        description: "List of weekly off policies with full configuration",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            id: { type: "integer", example: 1 },
+                                            policy_code: { type: "string", example: "WOP001" },
+                                            name: { type: "string", example: "Standard 5-Day Week" },
+                                            description: { type: "string", example: "Monday-Friday work, Sat-Sun off" },
+                                            effective_date: { type: "string", format: "date", example: "2024-01-01" },
+                                            end_date: { type: "string", format: "date", nullable: true },
+                                            is_active: { type: "integer", example: 1 },
+                                            sunday_off: { type: "integer", example: 1 },
+                                            monday_off: { type: "integer", example: 0 },
+                                            tuesday_off: { type: "integer", example: 0 },
+                                            wednesday_off: { type: "integer", example: 0 },
+                                            thursday_off: { type: "integer", example: 0 },
+                                            friday_off: { type: "integer", example: 0 },
+                                            saturday_off: { type: "integer", example: 1 },
+                                            week_pattern: { 
+                                                type: "object", 
+                                                nullable: true,
+                                                example: { "Sat": [2, 4], "Sun": [1, 2, 3, 4, 5] },
+                                                description: "JSON pattern for alternate weeks. Key = day abbrev, Value = array of week numbers (1-5)"
+                                            },
+                                            is_payable: { type: "integer", example: 1 },
+                                            holiday_overlap_rule: { type: "string", enum: ["ignore", "compensatory_off", "carry_forward"], example: "ignore" },
+                                            sandwich_rule: { type: "integer", example: 0 },
+                                            minimum_work_days: { type: "integer", example: 0 },
+                                            allow_half_day: { type: "integer", example: 0 },
+                                            half_day_pattern: { type: "object", nullable: true },
+                                            location_id: { type: "integer", nullable: true },
+                                            department_id: { type: "integer", nullable: true },
+                                            shift_policy_id: { type: "integer", nullable: true },
+                                            location_name: { type: "string", nullable: true },
+                                            department_name: { type: "string", nullable: true },
+                                            shift_policy_name: { type: "string", nullable: true }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             post: {
-                summary: "Create Weekly Off Policy (Admin)",
+                summary: "Create Weekly Off Policy (Admin) - Enhanced",
                 tags: ["🏢 Master Data"],
+                description: "Create comprehensive week-off policy with fixed days, patterns (2nd/4th Saturday), sandwich rules, and scope assignment",
                 requestBody: {
                     required: true,
                     content: {
                         "application/json": {
                             schema: {
                                 type: "object",
-                                required: ["name"],
+                                required: ["policy_code", "name", "effective_date"],
                                 properties: {
-                                    name: { type: "string", example: "5 Day Week (Sat-Sun Off)" }
+                                    policy_code: { type: "string", example: "WOP001", description: "Unique policy code" },
+                                    name: { type: "string", example: "Standard 5-Day Week" },
+                                    description: { type: "string", example: "Mon-Fri work, Sat-Sun off" },
+                                    effective_date: { type: "string", format: "date", example: "2024-01-01" },
+                                    end_date: { type: "string", format: "date", nullable: true },
+                                    is_active: { type: "integer", example: 1, description: "1=active, 0=inactive" },
+                                    
+                                    sunday_off: { type: "integer", example: 1, description: "1=off, 0=working" },
+                                    monday_off: { type: "integer", example: 0 },
+                                    tuesday_off: { type: "integer", example: 0 },
+                                    wednesday_off: { type: "integer", example: 0 },
+                                    thursday_off: { type: "integer", example: 0 },
+                                    friday_off: { type: "integer", example: 0 },
+                                    saturday_off: { type: "integer", example: 0 },
+                                    
+                                    week_pattern: { 
+                                        type: "object",
+                                        example: { "Sat": [2, 4] },
+                                        description: "Alternate week pattern. Example: {\"Sat\": [2, 4]} = 2nd & 4th Saturday off"
+                                    },
+                                    
+                                    is_payable: { type: "integer", example: 1, description: "1=paid, 0=unpaid" },
+                                    holiday_overlap_rule: { 
+                                        type: "string", 
+                                        enum: ["ignore", "compensatory_off", "carry_forward"],
+                                        example: "ignore",
+                                        description: "What happens when public holiday falls on week off"
+                                    },
+                                    sandwich_rule: { type: "integer", example: 0, description: "1=count weekends in sandwiched leaves" },
+                                    minimum_work_days: { type: "integer", example: 0, description: "Min days to work to earn week off" },
+                                    
+                                    allow_half_day: { type: "integer", example: 0 },
+                                    half_day_pattern: { type: "object", nullable: true },
+                                    
+                                    location_id: { type: "integer", nullable: true, description: "NULL = applies to all locations" },
+                                    department_id: { type: "integer", nullable: true, description: "NULL = applies to all departments" },
+                                    shift_policy_id: { type: "integer", nullable: true, description: "NULL = applies to all shifts" }
+                                }
+                            },
+                            examples: {
+                                standard_5_day: {
+                                    summary: "Standard 5-Day Week (Sat-Sun Off)",
+                                    value: {
+                                        policy_code: "WOP001",
+                                        name: "Standard 5-Day Week",
+                                        description: "Monday to Friday working, Saturday and Sunday off",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        monday_off: 0,
+                                        tuesday_off: 0,
+                                        wednesday_off: 0,
+                                        thursday_off: 0,
+                                        friday_off: 0,
+                                        saturday_off: 1,
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "ignore",
+                                        sandwich_rule: 0,
+                                        minimum_work_days: 5
+                                    }
+                                },
+                                alternate_saturday: {
+                                    summary: "Indian 2nd & 4th Saturday Off (Most Common)",
+                                    value: {
+                                        policy_code: "WOP002",
+                                        name: "2nd & 4th Saturday Off",
+                                        description: "Every Sunday off, 2nd and 4th Saturday off (1st, 3rd, 5th Saturday working)",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        monday_off: 0,
+                                        tuesday_off: 0,
+                                        wednesday_off: 0,
+                                        thursday_off: 0,
+                                        friday_off: 0,
+                                        saturday_off: 0,
+                                        week_pattern: { "Sat": [2, 4] },
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "compensatory_off",
+                                        sandwich_rule: 1,
+                                        minimum_work_days: 5
+                                    }
+                                },
+                                six_day_week: {
+                                    summary: "6-Day Work Week (Only Sunday Off)",
+                                    value: {
+                                        policy_code: "WOP003",
+                                        name: "6-Day Work Week",
+                                        description: "Monday to Saturday working, only Sunday off. Common for retail/manufacturing",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        monday_off: 0,
+                                        tuesday_off: 0,
+                                        wednesday_off: 0,
+                                        thursday_off: 0,
+                                        friday_off: 0,
+                                        saturday_off: 0,
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "compensatory_off",
+                                        sandwich_rule: 0,
+                                        minimum_work_days: 6
+                                    }
+                                },
+                                alternate_all_saturdays: {
+                                    summary: "Alternate Saturdays Off (1st, 3rd, 5th Off)",
+                                    value: {
+                                        policy_code: "WOP004",
+                                        name: "1st, 3rd & 5th Saturday Off",
+                                        description: "Every Sunday and odd-week Saturdays off",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        saturday_off: 0,
+                                        week_pattern: { "Sat": [1, 3, 5] },
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "carry_forward",
+                                        sandwich_rule: 1,
+                                        minimum_work_days: 5
+                                    }
+                                },
+                                department_specific: {
+                                    summary: "Department-Specific Policy (IT Department)",
+                                    value: {
+                                        policy_code: "WOP005",
+                                        name: "IT Department Week Off",
+                                        description: "Special week-off policy for IT department with flexible timing",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        saturday_off: 1,
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "compensatory_off",
+                                        sandwich_rule: 0,
+                                        minimum_work_days: 5,
+                                        department_id: 1,
+                                        location_id: null,
+                                        shift_policy_id: null
+                                    }
+                                },
+                                half_day_saturday: {
+                                    summary: "Half Day on 1st & 3rd Saturday",
+                                    value: {
+                                        policy_code: "WOP006",
+                                        name: "Half Day Saturdays",
+                                        description: "2nd & 4th Saturday full off, 1st & 3rd Saturday half day",
+                                        effective_date: "2024-01-01",
+                                        is_active: 1,
+                                        sunday_off: 1,
+                                        saturday_off: 0,
+                                        week_pattern: { "Sat": [2, 4] },
+                                        allow_half_day: 1,
+                                        half_day_pattern: { "Sat": [1, 3] },
+                                        is_payable: 1,
+                                        holiday_overlap_rule: "ignore",
+                                        sandwich_rule: 1,
+                                        minimum_work_days: 5
+                                    }
                                 }
                             }
                         }
                     }
                 },
                 responses: {
-                    200: { description: "Weekly off policy created" }
+                    200: {
+                        description: "Weekly off policy created successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Weekly off policy created successfully",
+                                    id: 1
+                                }
+                            }
+                        }
+                    },
+                    400: { description: "Missing required fields" }
+                }
+            },
+            put: {
+                summary: "Update Weekly Off Policy (Admin)",
+                tags: ["🏢 Master Data"],
+                description: "Update any field of an existing weekly off policy",
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                requestBody: {
+                    required: true,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    name: { type: "string" },
+                                    description: { type: "string" },
+                                    is_active: { type: "integer" },
+                                    sunday_off: { type: "integer" },
+                                    monday_off: { type: "integer" },
+                                    tuesday_off: { type: "integer" },
+                                    wednesday_off: { type: "integer" },
+                                    thursday_off: { type: "integer" },
+                                    friday_off: { type: "integer" },
+                                    saturday_off: { type: "integer" },
+                                    week_pattern: { type: "object" },
+                                    is_payable: { type: "integer" },
+                                    holiday_overlap_rule: { type: "string" },
+                                    sandwich_rule: { type: "integer" },
+                                    minimum_work_days: { type: "integer" }
+                                }
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Policy updated successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Weekly off policy updated successfully"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/weekly-off-policies/{id}": {
+            delete: {
+                summary: "Delete Weekly Off Policy (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Weekly off policy deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Weekly off policy deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Weekly Off Policy not found" },
+                    500: { description: "Failed to delete weekly-off-policy" }
                 }
             }
         },
@@ -3656,6 +4347,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/attendance-policies/{id}": {
+            delete: {
+                summary: "Delete Attendance Policy (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Attendance policy deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "attendance-policies deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Attendance Policy not found" },
+                    500: { description: "Failed to delete attendance-policy" }
+                }
+            }
+        },
         "/api/attendance-capture-schemes": {
             get: {
                 summary: "Get All Attendance Capture Schemes",
@@ -3683,6 +4402,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Attendance capture scheme created" }
+                }
+            }
+        },
+        "/api/attendance-capture-schemes/{id}": {
+            delete: {
+                summary: "Delete Attendance Capture Scheme (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Attendance capture scheme deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "attendance-capture-schemes deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Attendance Capture Scheme not found" },
+                    500: { description: "Failed to delete attendance-capture-scheme" }
                 }
             }
         },
@@ -3716,6 +4463,34 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/holiday-lists/{id}": {
+            delete: {
+                summary: "Delete Holiday List (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Holiday list deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "holiday-lists deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Holiday List not found" },
+                    500: { description: "Failed to delete holiday-list" }
+                }
+            }
+        },
         "/api/expense-policies": {
             get: {
                 summary: "Get All Expense Policies",
@@ -3743,6 +4518,34 @@ Skips employees who already have user accounts.
                 },
                 responses: {
                     200: { description: "Expense policy created" }
+                }
+            }
+        },
+        "/api/expense-policies/{id}": {
+            delete: {
+                summary: "Delete Expense Policy (Admin)",
+                tags: ["🏢 Master Data"],
+                parameters: [{
+                    name: "id",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 1
+                }],
+                responses: {
+                    200: {
+                        description: "Expense policy deleted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "expense-policies deleted successfully"
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Expense Policy not found" },
+                    500: { description: "Failed to delete expense-policy" }
                 }
             }
         },
