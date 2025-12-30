@@ -32,11 +32,10 @@ import {
   ]
 })
 export class ManagerApprovalsPage implements OnInit {
-  selectedSegment: 'leaves' | 'timesheets' | 'team' | 'attendance' = 'leaves';
+  selectedSegment: 'leaves' | 'timesheets' | 'attendance' | 'wfh' = 'leaves';
   pendingLeaves: any[] = [];
+  pendingWFH: any[] = [];
   pendingTimesheets: any[] = [];
-  teamMembers: any[] = [];
-  teamInfo: any = null;
   teamAttendance: any = {
     team_members: [],
     attendance: [],
@@ -77,8 +76,8 @@ export class ManagerApprovalsPage implements OnInit {
 
   loadData() {
     this.loadPendingLeaves();
+    this.loadPendingWFH();
     this.loadPendingTimesheets();
-    this.loadTeamMembers();
     this.loadTeamAttendance();
   }
 
@@ -95,6 +94,19 @@ export class ManagerApprovalsPage implements OnInit {
     });
   }
 
+  loadPendingWFH() {
+    this.http.get<any[]>(`${environment.apiUrl}/leaves/wfh-requests/pending`).subscribe({
+      next: (requests) => {
+        this.pendingWFH = requests;
+        console.log('Pending WFH requests:', requests);
+      },
+      error: (error) => {
+        console.error('Error loading pending WFH requests:', error);
+        this.showToast('Error loading pending WFH requests', 'danger');
+      }
+    });
+  }
+
   loadPendingTimesheets() {
     this.http.get<any[]>(`${environment.apiUrl}/timesheets/manager/pending-timesheets`).subscribe({
       next: (timesheets) => {
@@ -106,30 +118,6 @@ export class ManagerApprovalsPage implements OnInit {
         this.showToast('Error loading pending timesheets', 'danger');
       }
     });
-  }
-
-  loadTeamMembers() {
-    console.log('Loading team members from:', `${environment.apiUrl}/employees/my-team/list`);
-    this.http.get<any>(`${environment.apiUrl}/employees/my-team/list`).subscribe({
-      next: (response) => {
-        console.log('Team members loaded successfully:', response);
-        this.teamMembers = response.team || [];
-        this.teamInfo = response;
-      },
-      error: (error) => {
-        console.error('Error loading team members:', error);
-        console.error('Error status:', error.status);
-        console.error('Error message:', error.message);
-        console.error('Error details:', error.error);
-        this.showToast(error.error?.error || error.message || 'Error loading team members', 'danger');
-      }
-    });
-  }
-
-  viewMemberDetails(member: any) {
-    // Navigate to employee detail page or show modal with details
-    console.log('View member details:', member);
-    this.showToast(`Viewing ${member.FirstName} ${member.LastName}`, 'primary');
   }
 
   async approveLeave(leave: any) {
@@ -280,6 +268,65 @@ export class ManagerApprovalsPage implements OnInit {
                 this.isLoading = false;
                 const errorMsg = error.error?.error || error.error?.message || error.message || 'Error rejecting timesheet';
                 this.showToast(errorMsg, 'danger');
+              }
+            });
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async approveWFH(request: any) {
+    const alert = await this.alertController.create({
+      header: 'Approve WFH Request',
+      message: `Approve ${request.FirstName} ${request.LastName}'s WFH request for ${request.start_date}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Approve',
+          handler: async () => {
+            this.isLoading = true;
+            this.http.put(`${environment.apiUrl}/leaves/approve/${request.id}`, {}).subscribe({
+              next: async () => {
+                await this.showToast('WFH request approved successfully', 'success');
+                this.loadPendingWFH();
+                this.isLoading = false;
+              },
+              error: async (error) => {
+                await this.showToast(error.error?.error || 'Failed to approve WFH request', 'danger');
+                this.isLoading = false;
+              }
+            });
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async rejectWFH(request: any) {
+    const alert = await this.alertController.create({
+      header: 'Reject WFH Request',
+      message: `Reject ${request.FirstName} ${request.LastName}'s WFH request for ${request.start_date}?`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Reject',
+          role: 'destructive',
+          handler: async () => {
+            this.isLoading = true;
+            this.http.put(`${environment.apiUrl}/leaves/reject/${request.id}`, {}).subscribe({
+              next: async () => {
+                await this.showToast('WFH request rejected', 'success');
+                this.loadPendingWFH();
+                this.isLoading = false;
+              },
+              error: async (error) => {
+                await this.showToast(error.error?.error || 'Failed to reject WFH request', 'danger');
+                this.isLoading = false;
               }
             });
             return true;

@@ -161,16 +161,16 @@ const swaggerSpec = {
             },
             WFHRequest: {
                 type: "object",
-                required: ["date", "work_mode", "reason"],
+                required: ["date", "work_mode"],
                 properties: {
-                    date: { type: "string", format: "date", example: "2025-12-25" },
+                    date: { type: "string", format: "date", example: "2025-12-25", description: "Date for WFH/Remote work" },
                     work_mode: { 
                         type: "string", 
                         enum: ["WFH", "Remote"],
                         description: "Work mode - WFH (Work From Home) or Remote (any remote location)",
                         example: "WFH" 
                     },
-                    reason: { type: "string", example: "Personal commitment" }
+                    reason: { type: "string", example: "Personal commitment", description: "Optional reason for the request" }
                 }
             },
             LeaveApplication: {
@@ -1616,6 +1616,7 @@ Skips employees who already have user accounts.
                 summary: "🆕 Request WFH/Remote Work",
                 description: "Submit a request to work from home or remotely for a specific date",
                 tags: ["🏖️ Leave Management"],
+                security: [{ bearerAuth: [] }],
                 requestBody: {
                     required: true,
                     content: {
@@ -1632,16 +1633,17 @@ Skips employees who already have user accounts.
                                 schema: {
                                     type: "object",
                                     properties: {
-                                        id: { type: "integer" },
-                                        success: { type: "boolean" },
-                                        message: { type: "string" },
-                                        status: { type: "string", example: "pending" }
+                                        success: { type: "boolean", example: true },
+                                        id: { type: "integer", example: 123 },
+                                        message: { type: "string", example: "WFH request submitted successfully" }
                                     }
                                 }
                             }
                         }
                     },
-                    400: { description: "Invalid request or duplicate" }
+                    400: { description: "Invalid request - missing date or work_mode, or invalid work_mode value" },
+                    404: { description: "Employee not found" },
+                    500: { description: "Server error" }
                 }
             }
         },
@@ -1650,6 +1652,7 @@ Skips employees who already have user accounts.
                 summary: "🆕 Get My WFH/Remote Requests",
                 description: "Get all my WFH and Remote work requests",
                 tags: ["🏖️ Leave Management"],
+                security: [{ bearerAuth: [] }],
                 responses: {
                     200: { 
                         description: "List of WFH/Remote requests",
@@ -1661,29 +1664,87 @@ Skips employees who already have user accounts.
                                         type: "object",
                                         properties: {
                                             id: { type: "integer" },
-                                            leave_type: { type: "string" },
+                                            employee_id: { type: "integer" },
+                                            leave_type: { type: "string", enum: ["WFH", "Remote"] },
                                             start_date: { type: "string", format: "date" },
                                             end_date: { type: "string", format: "date" },
                                             reason: { type: "string" },
-                                            status: { type: "string" }
+                                            status: { type: "string", enum: ["pending", "approved", "rejected"] },
+                                            applied_at: { type: "string", format: "date-time" },
+                                            FirstName: { type: "string" },
+                                            LastName: { type: "string" },
+                                            EmployeeNumber: { type: "string" }
                                         }
                                     }
                                 }
                             }
                         }
-                    }
+                    },
+                    404: { description: "Employee not found" },
+                    500: { description: "Server error" }
                 }
             }
         },
         "/api/leaves/wfh-requests/pending": {
             get: {
-                summary: "🆕 Get Pending WFH Requests (HR)",
-                description: "Get all pending WFH/Remote requests for approval (HR only)",
+                summary: "🆕 Get Pending WFH Requests (HR/Manager)",
+                description: "Get all pending WFH/Remote requests for approval. Returns empty array for employee role, returns pending requests for manager/hr/admin roles.",
                 tags: ["🏖️ Leave Management"],
+                security: [{ bearerAuth: [] }],
                 responses: {
                     200: { 
-                        description: "Pending WFH/Remote requests with employee details"
-                    }
+                        description: "Pending WFH/Remote requests with employee details (or empty array for employees)",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            id: { type: "integer" },
+                                            employee_id: { type: "integer" },
+                                            leave_type: { type: "string", enum: ["WFH", "Remote"] },
+                                            start_date: { type: "string", format: "date" },
+                                            end_date: { type: "string", format: "date" },
+                                            reason: { type: "string" },
+                                            status: { type: "string", example: "pending" },
+                                            applied_at: { type: "string", format: "date-time" },
+                                            FirstName: { type: "string" },
+                                            LastName: { type: "string" },
+                                            EmployeeNumber: { type: "string" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    500: { description: "Server error" }
+                }
+            }
+        },
+        "/api/leaves/wfh-check-today": {
+            get: {
+                summary: "🆕 Check Today's WFH Status",
+                description: "Check if the logged-in employee has an approved WFH/Remote request for today. Used to auto-select work mode during punch-in.",
+                tags: ["🏖️ Leave Management"],
+                security: [{ bearerAuth: [] }],
+                responses: {
+                    200: { 
+                        description: "WFH status for today",
+                        content: {
+                            "application/json": {
+                                schema: {
+                                    type: "object",
+                                    properties: {
+                                        has_wfh: { type: "boolean", example: true, description: "Whether user has approved WFH/Remote request for today" },
+                                        work_mode: { type: "string", enum: ["Office", "WFH", "Remote"], example: "WFH", description: "Approved work mode for today, or 'Office' if none" }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    404: { description: "Employee not found" },
+                    500: { description: "Server error" }
                 }
             }
         },

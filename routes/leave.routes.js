@@ -6,7 +6,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
-const { auth, admin, hr } = require("../middleware/auth");
+const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
 /* ============ LEAVE MANAGEMENT ============ */
@@ -241,7 +241,7 @@ router.get("/wfh-requests", auth, async (req, res) => {
 });
 
 // Get all pending WFH/Remote requests (HR/Manager)
-router.get("/wfh-requests/pending", auth, hr, async (req, res) => {
+router.get("/wfh-requests/pending", auth, manager, async (req, res) => {
     const c = await db();
     const [r] = await c.query(
         `SELECT l.*, e.FirstName, e.LastName, e.EmployeeNumber 
@@ -252,6 +252,31 @@ router.get("/wfh-requests/pending", auth, hr, async (req, res) => {
     );
     c.end();
     res.json(r);
+});
+
+// Check if today has an approved WFH/Remote request
+router.get("/wfh-check-today", auth, async (req, res) => {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
+    
+    const today = new Date().toISOString().split('T')[0];
+    const c = await db();
+    const [r] = await c.query(
+        `SELECT leave_type FROM leaves 
+         WHERE employee_id = ? 
+         AND start_date = ? 
+         AND leave_type IN ('WFH', 'Remote') 
+         AND status = 'approved' 
+         LIMIT 1`,
+        [emp.id, today]
+    );
+    c.end();
+    
+    if (r.length > 0) {
+        res.json({ has_wfh: true, work_mode: r[0].leave_type });
+    } else {
+        res.json({ has_wfh: false, work_mode: 'Office' });
+    }
 });
 
 /* ============ LEAVE TYPES ============ */

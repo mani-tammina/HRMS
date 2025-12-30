@@ -239,7 +239,7 @@ export class HomePage implements OnInit, OnDestroy {
       'attendance': '/tabs/attendance',
       'leave-request': '/leave-request',
       'leaves': '/tabs/leaves',
-      'team': '/tabs/manager-approvals',
+      'team': '/tabs/team',
       'timesheets': '/tabs/timesheets',
       'employees': '/employees',
       'payroll': '/payroll',
@@ -305,7 +305,19 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   openWorkModeModal() {
-    this.showWorkModeModal = true;
+    // Check WFH status before opening modal
+    this.http.get<any>(`${environment.apiUrl}/leaves/wfh-check-today`).subscribe({
+      next: (response) => {
+        if (response.has_wfh) {
+          this.selectedWorkMode = response.work_mode;
+        }
+        this.showWorkModeModal = true;
+      },
+      error: (error) => {
+        console.error('Error checking WFH status:', error);
+        this.showWorkModeModal = true;
+      }
+    });
   }
 
   closeWorkModeModal() {

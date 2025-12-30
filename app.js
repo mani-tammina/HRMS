@@ -2700,7 +2700,7 @@ app.post("/api/payroll/generate", auth, admin, async (req, res) => {
             empQuery += ` WHERE e.id = ?`;
             empParams.push(employee_id);
         } else if (!include_inactive) {
-            empQuery += ` WHERE e.EmploymentStatus = 'Active'`;
+            empQuery += ` WHERE e.EmploymentStatus = 'Working'`;
         }
         const [emps] = await c.query(empQuery, empParams);
 

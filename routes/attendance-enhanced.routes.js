@@ -482,16 +482,38 @@ router.get("/report/team", auth, async (req, res) => {
         
         const c = await db();
         
-        // Get team members (reporting to this manager/employee)
-        const [team] = await c.query(
-            `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
-             FROM employees 
-             WHERE reporting_manager_id = ?
-             ORDER BY FirstName, LastName`,
-            [emp.id]
-        );
+        // Determine which team to show based on role
+        let team;
         
-        console.log(`Team members count: ${team.length}`);
+        // If user is manager/hr/admin, show reporting team (direct reports)
+        if (['manager', 'hr', 'admin'].includes(req.user.role)) {
+            const [reportingTeam] = await c.query(
+                `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
+                 FROM employees 
+                 WHERE reporting_manager_id = ? AND EmploymentStatus = 'Working'
+                 ORDER BY FirstName, LastName`,
+                [emp.id]
+            );
+            team = reportingTeam;
+            console.log(`Reporting team count: ${team.length}`);
+        } else {
+            // For employee role, show co-team (people reporting to same manager)
+            if (emp.reporting_manager_id) {
+                const [coTeam] = await c.query(
+                    `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
+                     FROM employees 
+                     WHERE reporting_manager_id = ? AND id != ? AND EmploymentStatus = 'Working'
+                     ORDER BY FirstName, LastName`,
+                    [emp.reporting_manager_id, emp.id]
+                );
+                team = coTeam;
+                console.log(`Co-team count: ${team.length}`);
+            } else {
+                team = [];
+                console.log(`Employee has no reporting manager, no co-team available`);
+            }
+        }
+        
         if (team.length > 0) {
             console.log(`Sample team member EmploymentStatus: ${team[0].EmploymentStatus}`);
         }

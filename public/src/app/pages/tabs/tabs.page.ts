@@ -4,7 +4,7 @@ import {
   IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline, peopleOutline, checkmarkDoneOutline, cashOutline } from 'ionicons/icons';
+import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline } from 'ionicons/icons';
 import { AuthService, User } from '@core/services/auth.service';
 
 @Component({
@@ -19,9 +19,10 @@ export class TabsPage implements OnInit {
   isManager = false;
   isHR = false;
   isHROrAdmin = false;
+  isManagerOrHR = false;
 
   constructor(private authService: AuthService) {
-    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline });
+    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline });
   }
 
   ngOnInit() {
@@ -30,6 +31,7 @@ export class TabsPage implements OnInit {
       this.isManager = user?.role === 'manager' || user?.role === 'admin' || user?.role === 'hr';
       this.isHR = user?.role === 'hr';
       this.isHROrAdmin = user?.role === 'hr' || user?.role === 'admin';
+      this.isManagerOrHR = user?.role === 'manager' || user?.role === 'hr' || user?.role === 'admin';
     });
   }
 }

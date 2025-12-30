@@ -65,7 +65,7 @@ router.get("/my-team/list", auth, async (req, res) => {
         
         const c = await db();
         
-        // Check if user is a manager (has reporting team members)
+        // Check if user is a manager (has reporting team members) - only working employees
         console.log('Checking reporting team for employee ID:', emp.id);
         const [reportingTeam] = await c.query(
             `SELECT 
@@ -77,7 +77,7 @@ router.get("/my-team/list", auth, async (req, res) => {
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
              LEFT JOIN locations l ON e.LocationId = l.id
-             WHERE e.reporting_manager_id = ?
+             WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
              ORDER BY e.FirstName, e.LastName`,
             [emp.id]
         );
@@ -95,7 +95,7 @@ router.get("/my-team/list", auth, async (req, res) => {
             });
         }
         
-        // Otherwise, return co-team members (people with same reporting manager)
+        // Otherwise, return co-team members (people with same reporting manager) - only working employees
         console.log('Employee reporting_manager_id:', emp.reporting_manager_id);
         if (emp.reporting_manager_id) {
             const [coTeam] = await c.query(
@@ -108,7 +108,7 @@ router.get("/my-team/list", auth, async (req, res) => {
                  LEFT JOIN departments d ON e.DepartmentId = d.id
                  LEFT JOIN designations des ON e.DesignationId = des.id
                  LEFT JOIN locations l ON e.LocationId = l.id
-                 WHERE e.reporting_manager_id = ? AND e.id != ?
+                 WHERE e.reporting_manager_id = ? AND e.id != ? AND e.EmploymentStatus = 'Working'
                  ORDER BY e.FirstName, e.LastName`,
                 [emp.reporting_manager_id, emp.id]
             );

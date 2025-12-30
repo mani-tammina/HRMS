@@ -6,7 +6,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
-const { auth, admin, hr } = require("../middleware/auth");
+const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
 /* ============================================
@@ -698,6 +698,119 @@ router.get("/pending", auth, async (req, res) => {
         res.json(leaves);
     } catch (error) {
         console.error("Error fetching pending leaves:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/* ============================================
+   WFH/REMOTE WORK REQUEST ENDPOINTS
+   ============================================ */
+
+// Get all WFH/Remote requests
+router.get("/wfh-requests", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const c = await db();
+        const [r] = await c.query(
+            `SELECT l.*, e.FirstName, e.LastName, e.EmployeeNumber 
+             FROM leaves l 
+             LEFT JOIN employees e ON l.employee_id = e.id 
+             WHERE l.employee_id = ? AND l.leave_type IN ('WFH', 'Remote') 
+             ORDER BY l.applied_at DESC`,
+            [emp.id]
+        );
+        c.end();
+        res.json(r);
+    } catch (error) {
+        console.error("Error fetching WFH requests:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get all pending WFH/Remote requests (HR/Manager)
+router.get("/wfh-requests/pending", auth, async (req, res) => {
+    try {
+        // If user is not manager/hr/admin, return empty array
+        if (!['admin', 'hr', 'manager'].includes(req.user.role)) {
+            return res.json([]);
+        }
+        
+        const c = await db();
+        const [r] = await c.query(
+            `SELECT l.*, e.FirstName, e.LastName, e.EmployeeNumber 
+             FROM leaves l 
+             LEFT JOIN employees e ON l.employee_id = e.id 
+             WHERE l.leave_type IN ('WFH', 'Remote') AND l.status = 'pending' 
+             ORDER BY l.applied_at ASC`
+        );
+        c.end();
+        res.json(r);
+    } catch (error) {
+        console.error("Error fetching pending WFH requests:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Check if today has an approved WFH/Remote request
+router.get("/wfh-check-today", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const today = new Date().toISOString().split('T')[0];
+        const c = await db();
+        const [r] = await c.query(
+            `SELECT leave_type FROM leaves 
+             WHERE employee_id = ? AND start_date = ? 
+             AND leave_type IN ('WFH', 'Remote') AND status = 'approved' 
+             LIMIT 1`,
+            [emp.id, today]
+        );
+        c.end();
+        res.json({ 
+            has_wfh: r.length > 0, 
+            work_mode: r.length > 0 ? r[0].leave_type : 'Office' 
+        });
+    } catch (error) {
+        console.error("Error checking WFH status:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Request WFH/Remote work
+router.post("/wfh-request", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        
+        const { date, work_mode, reason } = req.body;
+        
+        if (!date || !work_mode) {
+            return res.status(400).json({ error: "Date and work mode are required" });
+        }
+        
+        if (!['WFH', 'Remote'].includes(work_mode)) {
+            return res.status(400).json({ error: "Work mode must be WFH or Remote" });
+        }
+        
+        const c = await db();
+        const [result] = await c.query(
+            `INSERT INTO leaves 
+             (employee_id, leave_type, start_date, end_date, total_days, reason, status, applied_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())`,
+            [emp.id, work_mode, date, date, 1, reason || `${work_mode} request`]
+        );
+        c.end();
+        
+        res.json({ 
+            success: true, 
+            id: result.insertId,
+            message: `${work_mode} request submitted successfully`
+        });
+    } catch (error) {
+        console.error("Error submitting WFH request:", error);
         res.status(500).json({ error: error.message });
     }
 });

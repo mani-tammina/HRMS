@@ -42,6 +42,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage)
       },
       {
+        path: 'team',
+        loadComponent: () => import('./pages/team/team.page').then(m => m.TeamPage)
+      },
+      {
         path: 'onboarding',
         loadComponent: () => import('./pages/onboarding/onboarding.page').then(m => m.OnboardingPage)
       },
@@ -181,4 +185,5 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/leave-types/leave-types.page').then(m => m.LeaveTypesPage),
     canActivate: [adminGuard]
   }
+
 ];

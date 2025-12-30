@@ -8,7 +8,9 @@ import {
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import { AttendanceService, Attendance } from '@core/services/attendance.service';
+import { environment } from '@env/environment';
 import { addIcons } from 'ionicons';
 import { logInOutline, logOutOutline, timeOutline, calendarOutline, businessOutline, homeOutline, globeOutline, close } from 'ionicons/icons';
 
@@ -38,17 +40,37 @@ export class AttendancePage implements OnInit {
 
   constructor(
     private attendanceService: AttendanceService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private http: HttpClient
   ) {
     addIcons({ logInOutline, logOutOutline, timeOutline, calendarOutline, businessOutline, homeOutline, globeOutline, close });
   }
 
   ngOnInit() {
     this.loadData();
+    this.checkWFHStatus();
   }
 
   ionViewWillEnter() {
     this.loadData();
+    this.checkWFHStatus();
+  }
+
+  checkWFHStatus() {
+    this.http.get<any>(`${environment.apiUrl}/leaves/wfh-check-today`).subscribe({
+      next: (response) => {
+        if (response.has_wfh) {
+          this.selectedWorkMode = response.work_mode;
+          console.log('Approved WFH/Remote found for today, defaulting to:', response.work_mode);
+        } else {
+          this.selectedWorkMode = 'Office';
+        }
+      },
+      error: (error) => {
+        console.error('Error checking WFH status:', error);
+        this.selectedWorkMode = 'Office';
+      }
+    });
   }
 
   loadData() {
@@ -110,7 +132,19 @@ export class AttendancePage implements OnInit {
   }
 
   openWorkModeModal() {
-    this.showWorkModeModal = true;
+    // Check WFH status before opening modal
+    this.http.get<any>(`${environment.apiUrl}/leaves/wfh-check-today`).subscribe({
+      next: (response) => {
+        if (response.has_wfh) {
+          this.selectedWorkMode = response.work_mode;
+        }
+        this.showWorkModeModal = true;
+      },
+      error: (error) => {
+        console.error('Error checking WFH status:', error);
+        this.showWorkModeModal = true;
+      }
+    });
   }
 
   closeWorkModeModal() {

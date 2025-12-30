@@ -246,7 +246,7 @@ async function bulkInitializeLeaveBalances(leaveYear = null) {
             SELECT id, leave_plan_id, DateJoined 
             FROM employees 
             WHERE leave_plan_id IS NOT NULL 
-              AND EmploymentStatus = 'Active'
+              AND EmploymentStatus = 'Working'
         `);
         
         c.end();
