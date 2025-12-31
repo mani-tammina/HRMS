@@ -125,7 +125,6 @@ CREATE TABLE IF NOT EXISTS shift_policies (
 CREATE TABLE IF NOT EXISTS weekly_off_policies (
   id INT PRIMARY KEY AUTO_INCREMENT,
   policy_code VARCHAR(50) UNIQUE NOT NULL COMMENT 'Unique code like WOP001',
-  -- policy_code VARCHAR(50) COMMENT 'Unique code like WOP001',
   name VARCHAR(100) NOT NULL COMMENT 'Policy name like "Standard 5-Day Week"',
   description TEXT COMMENT 'Detailed description of the policy',
   
