@@ -14,7 +14,7 @@ export interface Employee {
   position: string;
   joinDate: string;
   avatar?: string;
-  status: 'active' | 'inactive';
+  EmploymentStatus: string;
 }
 
 @Injectable({
@@ -37,11 +37,11 @@ export class EmployeeService {
       name: `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || 'N/A',
       email: emp.WorkEmail || emp.PersonalEmail || 'N/A',
       phone: emp.ContactNumber || emp.MobileNumber,
-      department: emp.Department || 'N/A',
-      position: emp.Designation || 'N/A',
-      joinDate: emp.DateOfJoining || emp.created_at,
+      department: emp.DepartmentId || 'N/A',
+      position: emp.DesignationId || 'N/A',
+      joinDate: emp.DateJoined || emp.created_at,
       avatar: emp.ProfilePicture || APP_CONSTANTS.DEFAULT_AVATAR,
-      status: emp.EmployeeStatus === 'Active' ? 'active' : 'inactive'
+      EmploymentStatus: emp.EmploymentStatus
     };
   }
 

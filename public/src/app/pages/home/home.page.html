@@ -58,8 +58,8 @@
         </div>
         <div class="stat-content">
           <p class="stat-label">Leaves Used</p>
-          <h2 class="stat-value">{{ stats.leavesUsed | number:'1.0-0' }}/20</h2>
-          <p class="stat-change neutral">{{ (20 - stats.leavesUsed) | number:'1.0-0' }} remaining</p>
+          <h2 class="stat-value">{{ stats.leavesUsed | number:'1.0-0' }}/{{ stats.leavesTotal | number:'1.0-0' }}</h2>
+          <p class="stat-change neutral">{{ (stats.leavesTotal - stats.leavesUsed) | number:'1.0-0' }} remaining</p>
         </div>
       </div>
 
@@ -86,9 +86,9 @@
           <ion-badge [color]="todayAttendance ? 'success' : 'medium'">
             {{ todayAttendance ? 'Checked In' : 'Not Checked In' }}
           </ion-badge>
-          <ion-button fill="clear" size="small" (click)="navigateTo('attendance')">
+          <!-- <ion-button fill="clear" size="small" (click)="navigateTo('attendance')">
             <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
-          </ion-button>
+          </ion-button> -->
         </div>
       </div>
       

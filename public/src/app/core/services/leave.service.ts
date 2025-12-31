@@ -85,39 +85,32 @@ export class LeaveService {
   }
 
   getLeaveBalance(): Observable<any> {
-    return this.http.get<any>(`${this.apiUrl}/balance`).pipe(
-      map((response: any) => {
-        // If response is an object with balances array
-        if (response && response.balances) {
-          const totalUsed = response.balances.reduce((sum: number, b: any) => sum + (b.used_days || 0), 0);
-          const totalAllocated = response.balances.reduce((sum: number, b: any) => sum + (b.allocated_days || 0), 0);
-          return {
-            used: totalUsed,
-            total: totalAllocated,
-            available: totalAllocated - totalUsed,
-            attendanceRate: response.attendanceRate || 95,
-            balances: response.balances,
-            leave_balances: response.balances
-          };
-        }
-        // If response is direct array
-        if (Array.isArray(response)) {
-          const totalUsed = response.reduce((sum: number, b: any) => sum + (b.used_days || 0), 0);
-          const totalAllocated = response.reduce((sum: number, b: any) => sum + (b.allocated_days || 0), 0);
-          return {
-            used: totalUsed,
-            total: totalAllocated,
-            available: totalAllocated - totalUsed,
-            attendanceRate: 95,
-            balances: response,
-            leave_balances: response
-          };
-        }
-        return response;
-      })
-    );
-  }
+  return this.http.get<any>(`${this.apiUrl}/balance`).pipe(
+    map((response: any) => {
+      // Extract the array regardless of whether it's wrapped in an object or direct
+      const balances = response?.balances || (Array.isArray(response) ? response : []);
 
+      // Calculate totals, ensuring we convert strings to numbers
+      const totalUsed = balances.reduce((sum: number, b: any) => 
+        sum + parseFloat(b.used_days || 0), 0
+      );
+      
+      const totalAllocated = balances.reduce((sum: number, b: any) => 
+        sum + parseFloat(b.allocated_days || 0), 0
+      );
+
+      return {
+        used: totalUsed,
+        total: totalAllocated,
+        available: totalAllocated - totalUsed,
+        attendanceRate: response.attendanceRate || 95,
+        balances: balances,
+        leave_balances: balances
+      };
+    })
+  );
+}
+ 
   // Get employee leave balance with details
   getEmployeeLeaveBalance(year?: number): Observable<LeaveBalance[]> {
     const params: any = {};

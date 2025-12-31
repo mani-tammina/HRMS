@@ -84,7 +84,7 @@ export class EmployeesPage implements OnInit {
   }
 
   getActiveCount(): number {
-    return this.filteredEmployees.filter(e => e.status === 'active').length;
+    return this.filteredEmployees.filter(e => e.EmploymentStatus === 'Working').length;
   }
 
   getDepartmentCount(): number {

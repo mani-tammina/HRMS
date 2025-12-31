@@ -61,6 +61,7 @@ export class HomePage implements OnInit, OnDestroy {
   stats = {
     workHours: '0h 0m',
     leavesUsed: 0,
+    leavesTotal:0,
     leavesPending: 0,
     attendanceRate: 0
   };
@@ -172,6 +173,7 @@ export class HomePage implements OnInit, OnDestroy {
       next: (balance: any) => {
         console.log('Leave balance data:', balance);
         this.stats.leavesUsed = balance.used || 0;
+        this.stats.leavesTotal = balance.total || 0;
         this.stats.attendanceRate = balance.attendanceRate || 0;
         
         // Store detailed leave balances for display

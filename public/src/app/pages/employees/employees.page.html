@@ -56,11 +56,11 @@
       </ion-avatar>
       <ion-label>
         <h2>{{ employee.name }}</h2>
-        <p>{{ employee.position }}</p>
-        <p>{{ employee.department }}</p>
+        <p>{{ employee.email }}</p>
+        <p>{{ employee.phone }}</p>
       </ion-label>
-      <ion-badge slot="end" [color]="employee.status === 'active' ? 'success' : 'medium'">
-        {{ employee.status }}
+      <ion-badge slot="end" [color]="employee.EmploymentStatus === 'Working' ? 'success' : 'medium'">
+        {{ employee.EmploymentStatus }}
       </ion-badge>
     </ion-item>
   </ion-list>
