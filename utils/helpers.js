@@ -29,26 +29,74 @@ function toMySQLDateTime(val) {
 }
 
 // Helper: get or create master record and return id
-async function getOrCreateMaster(conn, table, column, value) {
-    if (value === undefined || value === null || String(value).trim() === '') return null;
+async function getOrCreateMaster(conn, table, column, value, context = {}) {
+    if (!value || String(value).trim() === '') return null;
     const val = String(value).trim();
     
     try {
-        // Check if exists
-        const [rows] = await conn.query(`SELECT id FROM \`${table}\` WHERE \`${column}\` = ? LIMIT 1`, [val]);
+        // 1. Check if the master record already exists
+        const [rows] = await conn.query(
+            `SELECT id FROM \`${table}\` WHERE \`${column}\` = ? LIMIT 1`, 
+            [val]
+        );
+        
         if (rows.length) {
-            console.log(`✓ Found existing ${table}: ${val} (ID: ${rows[0].id})`);
+            console.log(`✓ Found existing ${table}: ${val}`);
             return rows[0].id;
         }
         
-        // Create new entry
+        // 2. If it doesn't exist, create it with auto-populated fields
+        console.log(`+ Creating new ${table}: ${val}`);
+
+        if (table === 'weekly_off_policies') {
+            // Generate a unique policy code and use context for links
+            const policyCode = `WOP-${val.replace(/\s+/g, '-').toUpperCase()}-${Date.now().toString().slice(-4)}`;
+            
+            const [res] = await conn.query(
+                `INSERT INTO weekly_off_policies (
+                    name, policy_code, effective_date, 
+                    location_id, department_id, shift_policy_id, is_active
+                ) VALUES (?, ?, CURRENT_DATE, ?, ?, ?, 1)`, 
+                [
+                    val, 
+                    policyCode, 
+                    context.location_id || null, 
+                    context.department_id || null, 
+                    context.shift_policy_id || null
+                ]
+            );
+            return res.insertId;
+        }
+
+        // Default behavior for simple masters (Locations, Departments, etc.)
         const [res] = await conn.query(`INSERT INTO \`${table}\` (\`${column}\`) VALUES (?)`, [val]);
-        console.log(`✓ Created new ${table}: ${val} (ID: ${res.insertId})`);
         return res.insertId;
+
     } catch (error) {
-        console.error(`✗ Error in getOrCreateMaster for ${table}.${column}="${val}":`, error.message);
+        console.error(`✗ Error in getOrCreateMaster for ${table}:`, error.message);
         throw error;
     }
 }
+// async function getOrCreateMaster(conn, table, column, value) {
+//     if (value === undefined || value === null || String(value).trim() === '') return null;
+//     const val = String(value).trim();
+    
+//     try {
+//         // Check if exists
+//         const [rows] = await conn.query(`SELECT id FROM \`${table}\` WHERE \`${column}\` = ? LIMIT 1`, [val]);
+//         if (rows.length) {
+//             console.log(`✓ Found existing ${table}: ${val} (ID: ${rows[0].id})`);
+//             return rows[0].id;
+//         }
+        
+//         // Create new entry
+//         const [res] = await conn.query(`INSERT INTO \`${table}\` (\`${column}\`) VALUES (?)`, [val]);
+//         console.log(`✓ Created new ${table}: ${val} (ID: ${res.insertId})`);
+//         return res.insertId;
+//     } catch (error) {
+//         console.error(`✗ Error in getOrCreateMaster for ${table}.${column}="${val}":`, error.message);
+//         throw error;
+//     }
+// }
 
 module.exports = { findEmployeeByUserId, toMySQLDateTime, getOrCreateMaster };

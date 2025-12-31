@@ -134,30 +134,66 @@ router.put("/shift-policies/:id", auth, admin, async (req, res) => {
 
 // ============ ENHANCED WEEKLY OFF POLICIES ROUTES ============
 router.get("/weekly-off-policies", auth, async (req, res) => {
+    let c;
     try {
-        const c = await db();
+        c = await db();
         const [rows] = await c.query(`
             SELECT 
                 wop.*,
                 l.name as location_name,
                 d.name as department_name,
                 sp.name as shift_policy_name,
-                u1.first_name as created_by_name,
-                u2.first_name as updated_by_name
+                u1.full_name as created_by_name,   -- Fixed: changed from first_name to full_name
+                u2.full_name as updated_by_name    -- Fixed: changed from first_name to full_name
             FROM weekly_off_policies wop
             LEFT JOIN locations l ON wop.location_id = l.id
             LEFT JOIN departments d ON wop.department_id = d.id
             LEFT JOIN shift_policies sp ON wop.shift_policy_id = sp.id
             LEFT JOIN users u1 ON wop.created_by = u1.id
             LEFT JOIN users u2 ON wop.updated_by = u2.id
-            ORDER BY wop.is_active DESC, wop.effective_date DESC
+            ORDER BY wop.is_active DESC, wop.created_at DESC
         `);
-        c.end();
-        res.json(rows);
+
+        // Handle JSON fields for the frontend
+        const formattedRows = rows.map(row => ({
+            ...row,
+            week_pattern: typeof row.week_pattern === 'string' ? JSON.parse(row.week_pattern) : row.week_pattern,
+            half_day_pattern: typeof row.half_day_pattern === 'string' ? JSON.parse(row.half_day_pattern) : row.half_day_pattern
+        }));
+
+        res.json(formattedRows);
     } catch (err) {
+        console.error("GET Policies Error:", err);
         res.status(500).json({ error: err.message });
+    } finally {
+        if (c && c.release) c.release(); 
     }
 });
+// router.get("/weekly-off-policies", auth, async (req, res) => {
+//     try {
+//         const c = await db();
+//         const [rows] = await c.query(`
+//             SELECT 
+//                 wop.*,
+//                 l.name as location_name,
+//                 d.name as department_name,
+//                 sp.name as shift_policy_name,
+//                 u1.first_name as created_by_name,
+//                 u2.first_name as updated_by_name
+//             FROM weekly_off_policies wop
+//             LEFT JOIN locations l ON wop.location_id = l.id
+//             LEFT JOIN departments d ON wop.department_id = d.id
+//             LEFT JOIN shift_policies sp ON wop.shift_policy_id = sp.id
+//             LEFT JOIN users u1 ON wop.created_by = u1.id
+//             LEFT JOIN users u2 ON wop.updated_by = u2.id
+//             ORDER BY wop.is_active DESC, wop.effective_date DESC
+//         `);
+//         c.end();
+//         res.json(rows);
+//     } catch (err) {
+//         res.status(500).json({ error: err.message });
+//     }
+// });
 
 router.post("/weekly-off-policies", auth, admin, async (req, res) => {
     try {

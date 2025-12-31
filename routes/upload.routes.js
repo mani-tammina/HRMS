@@ -45,7 +45,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
             const costCenterCode = r.CostCenter || r.CostCenterCode || null;
             const bandName = r.Band || null;
             const payGradeName = r.PayGrade || r['Pay Grade'] || null;
-            
+
             // Policy lookups - matching exact Excel column names
             const leavePlanName = r.LeavePlan || r['Leave Plan'] || null;
             const shiftPolicyName = r.ShiftPolicyName || r.ShiftPolicy || r['Shift Policy'] || null;
@@ -58,7 +58,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
             // ---- Ensure master data exists and get IDs (only if value provided) ----
             console.log(`\n📋 Processing Employee: ${empNo} - ${r.FullName || r.Name || ''}`);
             console.log(`   Master Data: Location="${locationName}", Dept="${departmentName}", Desig="${designationName}"`);
-            
+
             // Create/update location with country
             let locationId = null;
             if (locationName) {
@@ -73,27 +73,28 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                     locationId = newLoc.insertId;
                 }
             }
+            const locId = locationId;
             const deptId = departmentName ? await getOrCreateMaster(c, 'departments', 'name', departmentName) : null;
-            
+
             // Sub-department needs parent department_id
             let subDeptId = null;
             if (subDepartmentName && deptId) {
                 const [existingSubDept] = await c.query(
-                    'SELECT id FROM sub_departments WHERE name = ? AND department_id = ?', 
+                    'SELECT id FROM sub_departments WHERE name = ? AND department_id = ?',
                     [subDepartmentName, deptId]
                 );
                 if (existingSubDept.length) {
                     subDeptId = existingSubDept[0].id;
                 } else {
                     const [newSubDept] = await c.query(
-                        'INSERT INTO sub_departments (name, department_id) VALUES (?, ?)', 
+                        'INSERT INTO sub_departments (name, department_id) VALUES (?, ?)',
                         [subDepartmentName, deptId]
                     );
                     subDeptId = newSubDept.insertId;
                     console.log(`✓ Created new sub_departments: ${subDepartmentName} (ID: ${subDeptId})`);
                 }
             }
-            
+
             const desgId = designationName ? await getOrCreateMaster(c, 'designations', 'name', designationName) : null;
             const secondaryDesgId = secondaryDesignationName ? await getOrCreateMaster(c, 'designations', 'name', secondaryDesignationName) : null;
             const buId = buName ? await getOrCreateMaster(c, 'business_units', 'name', buName) : null;
@@ -101,16 +102,27 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
             const costId = costCenterCode ? await getOrCreateMaster(c, 'cost_centers', 'code', costCenterCode) : null;
             const bandId = bandName ? await getOrCreateMaster(c, 'bands', 'name', bandName) : null;
             const payGradeId = payGradeName ? await getOrCreateMaster(c, 'pay_grades', 'name', payGradeName) : null;
-            
+
             // Policy IDs
             const leavePlanId = leavePlanName ? await getOrCreateMaster(c, 'leave_plans', 'name', leavePlanName) : null;
             const shiftPolicyId = shiftPolicyName ? await getOrCreateMaster(c, 'shift_policies', 'name', shiftPolicyName) : null;
-            const weeklyOffPolicyId = weeklyOffPolicyName ? await getOrCreateMaster(c, 'weekly_off_policies', 'name', weeklyOffPolicyName) : null;
+            // const weeklyOffPolicyId = weeklyOffPolicyName ? await getOrCreateMaster(c, 'weekly_off_policies', 'name', weeklyOffPolicyName) : null;
+            const weeklyOffPolicyId = await getOrCreateMaster(
+                c,
+                'weekly_off_policies',
+                'name',
+                weeklyOffPolicyName,
+                {
+                    location_id: locId,
+                    department_id: deptId,
+                    shift_policy_id: shiftPolicyId
+                }
+            );
             const attendancePolicyId = attendancePolicyName ? await getOrCreateMaster(c, 'attendance_policies', 'name', attendancePolicyName) : null;
             const attendanceCaptureSchemeId = attendanceCaptureSchemeName ? await getOrCreateMaster(c, 'attendance_capture_schemes', 'name', attendanceCaptureSchemeName) : null;
             const holidayListId = holidayListName ? await getOrCreateMaster(c, 'holiday_lists', 'name', holidayListName) : null;
             const expensePolicyId = expensePolicyName ? await getOrCreateMaster(c, 'expense_policies', 'name', expensePolicyName) : null;
-            
+
             console.log(`   IDs: Loc=${locationId}, Dept=${deptId}, Desig=${desgId}, Band=${bandId}`);
 
             // Reporting Manager lookup (by EmployeeNumber)
@@ -122,7 +134,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                 );
                 if (mgr.length > 0) reportingManagerId = mgr[0].id;
             }
-            
+
             // Dotted Line Manager lookup (by EmployeeNumber)
             let dottedLineManagerId = null;
             if (r.DottedLineManager || r['Dotted Line Manager']) {
@@ -146,7 +158,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                 // ---------- UPDATE ----------
                 // Convert PhysicallyHandicapped to 0/1
                 const physicallyHandicapped = (['Yes', 'YES', 'yes', 'Y', 'y', '1', 1, true].includes(r.PhysicallyHandicapped)) ? 1 : 0;
-                
+
                 // Parse notice_period - extract number from text like "3months" or "Default Notice period - 3months"
                 let noticePeriod = null;
                 if (r.notice_period || r.NoticePeriod) {
@@ -156,7 +168,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         noticePeriod = parseInt(match[1]);
                     }
                 }
-                
+
                 await c.query(
                     `UPDATE employees SET
                         attendance_number = ?,
@@ -267,7 +279,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         r.worker_type || r.WorkerType || null,
                         r.EmploymentStatus || r.Status || null,
                         r.notice_period || r.NoticePeriod || null,
-                        locationId,
+                        locId,
                         deptId,
                         subDeptId,
                         desgId,
@@ -313,7 +325,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                 // ---------- INSERT ----------
                 // Convert PhysicallyHandicapped to 0/1
                 const physicallyHandicapped = (['Yes', 'YES', 'yes', 'Y', 'y', '1', 1, true].includes(r.PhysicallyHandicapped)) ? 1 : 0;
-                
+
                 // Parse notice_period - extract number from text like "3months" or "Default Notice period - 3months"
                 let noticePeriod = null;
                 if (r.notice_period || r.NoticePeriod) {
@@ -323,7 +335,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
                         noticePeriod = parseInt(match[1]);
                     }
                 }
-                
+
                 await c.query(
                     `INSERT INTO employees
                      (EmployeeNumber, attendance_number, FirstName, MiddleName, LastName, FullName, 
@@ -457,7 +469,7 @@ router.post("/employees", auth, admin, upload.single("file"), async (req, res) =
         console.error('❌ Error fetching master counts:', countErr.message);
         masterCounts = [];
     }
-    
+
     c.end();
 
     console.log('\n📊 Master Data Summary After Upload:');
@@ -538,7 +550,7 @@ router.post("/holidays", auth, admin, upload.single("file"), async (req, res) =>
 
 router.get("/test-master-creation", auth, admin, async (req, res) => {
     const c = await db();
-    
+
     try {
         // Test creating entries in all master tables
         const testData = {
@@ -553,9 +565,9 @@ router.get("/test-master-creation", auth, admin, async (req, res) => {
             leavePlan: "Test Leave Plan " + Date.now(),
             shiftPolicy: "Test Shift " + Date.now()
         };
-        
+
         const { getOrCreateMaster } = require("../utils/helpers");
-        
+
         const results = {};
         results.locationId = await getOrCreateMaster(c, 'locations', 'name', testData.location);
         results.departmentId = await getOrCreateMaster(c, 'departments', 'name', testData.department);
@@ -567,9 +579,9 @@ router.get("/test-master-creation", auth, admin, async (req, res) => {
         results.payGradeId = await getOrCreateMaster(c, 'pay_grades', 'name', testData.payGrade);
         results.leavePlanId = await getOrCreateMaster(c, 'leave_plans', 'name', testData.leavePlan);
         results.shiftPolicyId = await getOrCreateMaster(c, 'shift_policies', 'name', testData.shiftPolicy);
-        
+
         c.end();
-        
+
         res.json({
             message: "Master data creation test successful",
             testData,
@@ -593,7 +605,7 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
         const runMonth = req.body.month || new Date().getMonth() + 1;
         const runYear = req.body.year || new Date().getFullYear();
         const payrollType = req.body.payroll_type || rows[0]?.payroll_type || 'regular';
-        
+
         const [runResult] = await c.query(
             "INSERT INTO payroll_runs (payroll_month, payroll_type) VALUES (?, ?)",
             [`${runYear}-${String(runMonth).padStart(2, '0')}`, payrollType]
@@ -612,10 +624,10 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
         for (const r of rows) {
             try {
                 // Try multiple column name variations
-                const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number || 
-                              r['Employee Code'] || r.employee_code || r.EmployeeCode ||
-                              r['Emp No'] || r['Emp Number'] || r.emp_no || null;
-                
+                const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number ||
+                    r['Employee Code'] || r.employee_code || r.EmployeeCode ||
+                    r['Emp No'] || r['Emp Number'] || r.emp_no || null;
+
                 if (!empNo) {
                     skipped++;
                     if (errors.length < 10) { // Limit error messages
@@ -633,11 +645,11 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                 }
 
                 const empId = emp[0].id;
-                
+
                 // Parse all payroll components from Excel
                 const parseNum = (val) => parseFloat(val || 0) || 0;
                 const parseInt2 = (val) => parseInt(val || 0) || 0;
-                
+
                 // Basic info
                 const payrollMonth = r.payroll_month || `${runYear}-${String(runMonth).padStart(2, '0')}`;
                 const employmentStatus = r.employment_status || r.EmploymentStatus || null;
@@ -649,7 +661,7 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                 const payrollStatus = r.status || r.Status || 'processed';
                 const statusDescription = r.status_description || r.StatusDescription || null;
                 const warnings = r.warnings || r.Warnings || null;
-                
+
                 // Days calculation
                 const actualPayableDays = parseNum(r.actual_payable_days);
                 const workingDays = parseNum(r.working_days);
@@ -657,7 +669,7 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                 const daysPayable = parseNum(r.days_payable);
                 const payableUnits = parseNum(r.payable_units);
                 const remunerationAmount = parseNum(r.remuneration_amount);
-                
+
                 // Earnings
                 const basic = parseNum(r.basic);
                 const hra = parseNum(r.hra);
@@ -672,12 +684,12 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                 const otherReimbursement = parseNum(r.other_reimbursement);
                 const relocationBonus = parseNum(r.relocation_bonus);
                 const grossAmount = parseNum(r.gross_a);
-                
+
                 // Employer contributions
                 const pfEmployer = parseNum(r.pf_employer);
                 const esiEmployer = parseNum(r.esi_employer);
                 const totalEmployerContributions = parseNum(r.total || (pfEmployer + esiEmployer));
-                
+
                 // Employee deductions
                 const pfEmployee = parseNum(r.pf_employee);
                 const esiEmployee = parseNum(r.esi_employee);
@@ -689,7 +701,7 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                 const otherDeduction = parseNum(r.other_deduction);
                 const mealCouponDeduction = parseNum(r.meal_coupon);
                 const totalDeductions = parseNum(r.total_deductions_c);
-                
+
                 // Net pay
                 const netPay = parseNum(r.net_pay);
                 const cashAdvance = parseNum(r.cash_advance_d);
@@ -715,17 +727,17 @@ router.post("/payroll", auth, admin, upload.single("file"), async (req, res) => 
                       total_reimbursements, total_net_pay) 
                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                     [runId, empId, employmentStatus, dateOfJoining, dateOfBirth,
-                     locationName, departmentName, jobTitle, payrollStatus, statusDescription, warnings,
-                     actualPayableDays, workingDays, lossOfPayDays, daysPayable, payableUnits, remunerationAmount,
-                     basic, hra, medicalAllowance, transportAllowance, specialAllowance,
-                     mealCoupons, mobileInternetAllowance, newspaperJournalAllowance, childEducationAllowance,
-                     incentives, otherReimbursement, relocationBonus, grossAmount,
-                     pfEmployer, esiEmployer, totalEmployerContributions,
-                     pfEmployee, esiEmployee, totalContributions,
-                     professionalTax, totalIncomeTax, loanDeduction, mealCouponServiceCharge,
-                     otherDeduction, mealCouponDeduction, totalDeductions,
-                     netPay, cashAdvance, settlementAgainstAdvance, socialMediaLoginInvoice,
-                     totalReimbursements, totalNetPay]
+                        locationName, departmentName, jobTitle, payrollStatus, statusDescription, warnings,
+                        actualPayableDays, workingDays, lossOfPayDays, daysPayable, payableUnits, remunerationAmount,
+                        basic, hra, medicalAllowance, transportAllowance, specialAllowance,
+                        mealCoupons, mobileInternetAllowance, newspaperJournalAllowance, childEducationAllowance,
+                        incentives, otherReimbursement, relocationBonus, grossAmount,
+                        pfEmployer, esiEmployer, totalEmployerContributions,
+                        pfEmployee, esiEmployee, totalContributions,
+                        professionalTax, totalIncomeTax, loanDeduction, mealCouponServiceCharge,
+                        otherDeduction, mealCouponDeduction, totalDeductions,
+                        netPay, cashAdvance, settlementAgainstAdvance, socialMediaLoginInvoice,
+                        totalReimbursements, totalNetPay]
                 );
 
                 inserted++;
