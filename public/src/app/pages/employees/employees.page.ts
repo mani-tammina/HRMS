@@ -50,7 +50,7 @@ export class EmployeesPage implements OnInit {
       next: (employees) => {
         console.log('Employees loaded:', employees);
         this.employees = employees;
-        this.filteredEmployees = employees;
+        this.filteredEmployees = employees.filter(emp => emp.EmploymentStatus === 'Working');
       },
       error: (error) => {
         console.error('Error loading employees:', error);

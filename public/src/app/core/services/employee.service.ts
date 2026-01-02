@@ -27,7 +27,18 @@ export class EmployeeService {
 
   getEmployees(): Observable<Employee[]> {
     return this.http.get<any[]>(this.apiUrl).pipe(
-      map(employees => employees.map(emp => this.transformEmployee(emp)))
+      map(employees => employees
+        // .filter(emp => emp.EmploymentStatus === 'Working')
+        .map(emp => this.transformEmployee(emp)))
+    );
+  }
+  // Call it like: this.service.getEmployees('Active')
+  getEmployeesWithStatus(targetStatus: string): Observable<Employee[]> {
+    return this.http.get<any[]>(this.apiUrl).pipe(
+      map(employees => employees
+        .filter(emp => emp.EmploymentStatus === targetStatus)
+        .map(emp => this.transformEmployee(emp))
+      )
     );
   }
 
