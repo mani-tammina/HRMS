@@ -84,12 +84,12 @@ class ComplianceChecker {
                     CONCAT(e.FirstName, ' ', e.LastName) as name,
                     e.WorkEmail,
                     e.PersonalEmail,
-                    d.DepartmentName as department,
+                    d.name as department,
                     m.WorkEmail as manager_email,
                     CONCAT(m.FirstName, ' ', m.LastName) as manager_name
                 FROM employees e
-                LEFT JOIN departments d ON e.DepartmentID = d.id
-                LEFT JOIN employees m ON e.ReportingManagerID = m.id
+                LEFT JOIN departments d ON e.DepartmentId = d.id
+                LEFT JOIN employees m ON e.reporting_manager_id = m.id
                 WHERE e.EmploymentStatus = 'Working'
             `);
 
