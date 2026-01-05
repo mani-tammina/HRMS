@@ -52,6 +52,9 @@ const reportRoutes = require("./routes/report.routes");
 const notificationRoutes = require("./routes/notification.routes");
 const workUpdatesRoutes = require("./routes/workupdates.routes");
 const adminTimesheetRoutes = require("./routes/admin-timesheet.routes");
+const projectRoutes = require("./routes/projects.routes");
+const assetRoutes = require("./routes/assets.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
 
 // Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
@@ -325,6 +328,15 @@ app.use("/api/work-updates", workUpdatesRoutes);
 // Admin Timesheet Verification Routes
 app.use("/api/admin/timesheet", adminTimesheetRoutes);
 
+// Project Management Routes
+app.use("/api/projects", projectRoutes);
+
+// Asset Management Routes
+app.use("/api/assets", assetRoutes);
+
+// Dashboard & Analytics Routes
+app.use("/api/dashboard", dashboardRoutes);
+
 /* ============ SWAGGER API DOCUMENTATION ============ */
 
 // Serve Swagger UI
@@ -362,7 +374,11 @@ app.get("/api/health", (req, res) => {
             birthdays: "✓ Loaded",
             holidays: "✓ Loaded",
             reports: "✓ Loaded",
-            notifications: "✓ Loaded"
+            notifications: "✓ Loaded",
+            projects: "✓ Loaded",
+            assets: "✓ Loaded",
+            dashboard: "✓ Loaded",
+            admin_timesheet: "✓ Loaded"
         }
     });
 });

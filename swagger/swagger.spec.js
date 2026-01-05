@@ -6072,5 +6072,126 @@ Object.assign(swaggerSpec.paths, {
     },
     "/api/payroll/run": {
         post: { summary: "Run payroll for a period", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { period_id: { type: "integer" } } } } } }, responses: { 200: { description: "Payroll run result" } } }
+    },
+    
+    // ============================================
+    // PROJECT MANAGEMENT APIs
+    // ============================================
+    "/api/projects": {
+        get: {
+            summary: "📋 List All Projects",
+            description: "Get all projects with filters for status and client name",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                { name: "status", in: "query", schema: { type: "string", enum: ["active", "on_hold", "completed", "cancelled"] } },
+                { name: "client_name", in: "query", schema: { type: "string" } }
+            ],
+            responses: { 200: { description: "List of projects" } }
+        },
+        post: {
+            summary: "➕ Create New Project",
+            description: "Create a new project (HR/Admin only)",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: { "application/json": { schema: { type: "object", required: ["project_code", "project_name", "client_name", "start_date"], properties: { project_code: { type: "string" }, project_name: { type: "string" }, client_name: { type: "string" }, start_date: { type: "string", format: "date" }, end_date: { type: "string", format: "date" }, status: { type: "string" }, description: { type: "string" }, project_manager_id: { type: "integer" } } } } }
+            },
+            responses: { 200: { description: "Project created successfully" } }
+        }
+    },
+    "/api/projects/{id}": {
+        get: { summary: "🔍 Get Project Details", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project details" } } },
+        put: { summary: "✏️ Update Project", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Project updated" } } },
+        delete: { summary: "🗑️ Close Project", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project closed" } } }
+    },
+    "/api/projects/{id}/shifts": {
+        get: { summary: "⏰ Get Project Shifts", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "List of shifts" } } },
+        post: { summary: "➕ Add Shift", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["shift_name", "start_time", "end_time"] } } } }, responses: { 200: { description: "Shift added" } } }
+    },
+    "/api/projects/shifts/{shiftId}": {
+        put: { summary: "✏️ Update Shift", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Shift updated" } } }
+    },
+    "/api/projects/{id}/assignments": {
+        get: { summary: "👥 Get Project Team", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Team assignments" } } },
+        post: { summary: "➕ Assign Employee", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["employee_id", "assignment_start_date"] } } } }, responses: { 200: { description: "Employee assigned" } } }
+    },
+    "/api/projects/assignments/{assignmentId}": {
+        put: { summary: "✏️ Update Assignment", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Assignment updated" } } },
+        delete: { summary: "🗑️ Remove Employee", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee removed" } } }
+    },
+    "/api/projects/employee/{employeeId}/projects": {
+        get: { summary: "📋 Get Employee Projects", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "employeeId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee's projects" } } }
+    },
+    
+    // ASSET MANAGEMENT APIs
+    "/api/assets": {
+        get: { summary: "📦 List Assets", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "status", in: "query", schema: { type: "string" } }, { name: "asset_type", in: "query", schema: { type: "string" } }], responses: { 200: { description: "Asset list" } } }
+    },
+    "/api/assets/allocate": {
+        post: { summary: "➕ Allocate Asset", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["employee_id", "asset_type", "asset_name", "allocated_date"] } } } }, responses: { 200: { description: "Asset allocated" } } }
+    },
+    "/api/assets/employee/{id}": {
+        get: { summary: "👤 Employee Assets", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee assets" } } }
+    },
+    "/api/assets/{id}": {
+        get: { summary: "🔍 Asset Details", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Asset details" } } }
+    },
+    "/api/assets/{id}/return": {
+        put: { summary: "↩️ Return Asset", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["returned_date", "condition_at_return"] } } } }, responses: { 200: { description: "Asset returned" } } }
+    },
+    "/api/assets/{id}/status": {
+        put: { summary: "✏️ Update Status", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["status"] } } } }, responses: { 200: { description: "Status updated" } } }
+    },
+    "/api/assets/reports": {
+        get: { summary: "📊 Asset Reports", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Asset reports" } } }
+    },
+    
+    // DASHBOARD & ANALYTICS APIs
+    "/api/dashboard/admin": {
+        get: { summary: "👑 Admin Dashboard", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Admin dashboard data" } } }
+    },
+    "/api/dashboard/hr": {
+        get: { summary: "👥 HR Dashboard", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], responses: { 200: { description: "HR dashboard data" } } }
+    },
+    "/api/dashboard/manager": {
+        get: { summary: "👔 Manager Dashboard", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Manager dashboard" } } }
+    },
+    "/api/dashboard/employee": {
+        get: { summary: "🧑‍💼 Employee Dashboard", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Employee dashboard" } } }
+    },
+    "/api/dashboard/analytics/attendance": {
+        get: { summary: "📈 Attendance Analytics", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], parameters: [{ name: "start_date", in: "query", schema: { type: "string", format: "date" } }, { name: "end_date", in: "query", schema: { type: "string", format: "date" } }], responses: { 200: { description: "Attendance analytics" } } }
+    },
+    "/api/dashboard/analytics/leaves": {
+        get: { summary: "🏖️ Leave Analytics", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], parameters: [{ name: "year", in: "query", schema: { type: "integer" } }], responses: { 200: { description: "Leave analytics" } } }
+    },
+    "/api/dashboard/analytics/timesheets": {
+        get: { summary: "⏱️ Timesheet Analytics", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], parameters: [{ name: "month", in: "query", schema: { type: "integer" } }, { name: "year", in: "query", schema: { type: "integer" } }], responses: { 200: { description: "Timesheet analytics" } } }
+    },
+    "/api/dashboard/analytics/payroll": {
+        get: { summary: "💰 Payroll Analytics", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], parameters: [{ name: "year", in: "query", schema: { type: "integer" } }], responses: { 200: { description: "Payroll analytics" } } }
+    },
+    
+    // CLIENT TIMESHEET VERIFICATION APIs
+    "/api/admin/timesheet/verification-queue": {
+        get: { summary: "⏳ Verification Queue", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], parameters: [{ name: "status", in: "query", schema: { type: "string" } }], responses: { 200: { description: "Pending verifications" } } }
+    },
+    "/api/admin/timesheet/verify": {
+        post: { summary: "✅ Verify Timesheet", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["workUpdateId", "verificationStatus"] } } } }, responses: { 200: { description: "Verified successfully" } } }
+    },
+    "/api/admin/timesheet/dashboard": {
+        get: { summary: "🚦 Compliance Dashboard", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Traffic light dashboard" } } }
+    },
+    "/api/admin/timesheet/comparison/{workUpdateId}": {
+        get: { summary: "🔍 Compare Timesheets", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], parameters: [{ name: "workUpdateId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Comparison data" } } }
+    },
+    "/api/admin/timesheet/bulk-verify": {
+        post: { summary: "✅ Bulk Verify", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["workUpdateIds", "verificationStatus"] } } } }, responses: { 200: { description: "Bulk verified" } } }
+    },
+    "/api/admin/timesheet/lock-payroll-period": {
+        post: { summary: "🔒 Lock Payroll Period", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["payrollPeriod"] } } } }, responses: { 200: { description: "Period locked" } } }
     }
 });
+
