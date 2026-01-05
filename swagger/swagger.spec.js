@@ -5918,3 +5918,83 @@ Skips employees who already have user accounts.
 };
 
 module.exports = swaggerSpec;
+
+// --- PATCH: Add Modern Payroll Component-Based APIs ---
+Object.assign(swaggerSpec.paths, {
+    "/api/payroll/components": {
+        get: {
+            summary: "List salary components",
+            tags: ["Payroll"],
+            security: [{ bearerAuth: [] }],
+            responses: { 200: { description: "Array of salary components" } }
+        },
+        post: {
+            summary: "Create salary component",
+            tags: ["Payroll"],
+            security: [{ bearerAuth: [] }],
+            requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { code: { type: "string" }, name: { type: "string" }, description: { type: "string" }, type: { type: "string" }, is_taxable: { type: "boolean" }, is_active: { type: "boolean" } } } } } },
+            responses: { 200: { description: "Created component" } }
+        }
+    },
+    "/api/payroll/components/{id}": {
+        put: {
+            summary: "Update salary component",
+            tags: ["Payroll"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+            requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } },
+            responses: { 200: { description: "Updated component" } }
+        },
+        delete: {
+            summary: "Delete salary component",
+            tags: ["Payroll"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+            responses: { 200: { description: "Deleted component" } }
+        }
+    },
+    "/api/payroll/templates": {
+        get: { summary: "List salary structure templates", tags: ["Payroll"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Array of templates" } } },
+        post: { summary: "Create salary structure template", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { template_name: { type: "string" }, description: { type: "string" }, is_active: { type: "boolean" } } } } } }, responses: { 200: { description: "Created template" } } }
+    },
+    "/api/payroll/templates/{id}": {
+        put: { summary: "Update salary structure template", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Updated template" } } },
+        delete: { summary: "Delete salary structure template", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Deleted template" } } }
+    },
+    "/api/payroll/template/{templateId}/components": {
+        get: { summary: "List components in template", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "templateId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Array of template components" } } },
+        post: { summary: "Add component to template", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "templateId", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { component_id: { type: "integer" }, amount_type: { type: "string" }, value: { type: "number" }, sort_order: { type: "integer" }, is_active: { type: "boolean" } } } } } }, responses: { 200: { description: "Added component" } } }
+    },
+    "/api/payroll/template/{templateId}/components/{id}": {
+        put: { summary: "Update template component", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "templateId", in: "path", required: true, schema: { type: "integer" } }, { name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Updated template component" } } },
+        delete: { summary: "Delete template component", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "templateId", in: "path", required: true, schema: { type: "integer" } }, { name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Deleted template component" } } }
+    },
+    "/api/payroll/contracts": {
+        get: { summary: "List employee salary contracts", tags: ["Payroll"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Array of contracts" } } },
+        post: { summary: "Create employee salary contract", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { employee_id: { type: "integer" }, template_id: { type: "integer" }, contract_start_date: { type: "string", format: "date" }, contract_end_date: { type: "string", format: "date" }, is_active: { type: "boolean" } } } } } }, responses: { 200: { description: "Created contract" } } }
+    },
+    "/api/payroll/contracts/{id}": {
+        put: { summary: "Update employee salary contract", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Updated contract" } } },
+        delete: { summary: "Delete employee salary contract", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Deleted contract" } } }
+    },
+    "/api/payroll/periods": {
+        get: { summary: "List payroll periods", tags: ["Payroll"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Array of periods" } } },
+        post: { summary: "Create payroll period", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { period_code: { type: "string" }, period_start: { type: "string", format: "date" }, period_end: { type: "string", format: "date" }, status: { type: "string" } } } } } }, responses: { 200: { description: "Created period" } } }
+    },
+    "/api/payroll/periods/{id}": {
+        put: { summary: "Update payroll period", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Updated period" } } },
+        delete: { summary: "Delete payroll period", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Deleted period" } } }
+    },
+    "/api/payroll/payslips": {
+        get: { summary: "List payslips", tags: ["Payroll"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Array of payslips" } } }
+    },
+    "/api/payroll/payslips/{id}": {
+        get: { summary: "Get payslip by ID", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Payslip object" } } }
+    },
+    "/api/payroll/payslips/{id}/items": {
+        get: { summary: "List payslip items", tags: ["Payroll"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Array of payslip items" } } }
+    },
+    "/api/payroll/run": {
+        post: { summary: "Run payroll for a period", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { period_id: { type: "integer" } } } } } }, responses: { 200: { description: "Payroll run result" } } }
+    }
+});

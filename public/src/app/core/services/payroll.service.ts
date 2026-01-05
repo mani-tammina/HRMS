@@ -47,8 +47,12 @@ export interface SalaryStructure {
   employee_id: number;
   basic_salary: number;
   hra: number;
+  conveyance: number;
   special_allowance: number;
   pf_contribution: number;
+  esi: number;
+  professional_tax: number;
+  other_deductions: number;
   effective_from: string;
   effective_to: string | null;
 }
@@ -107,16 +111,23 @@ export class PayrollService {
   // Get Salary Structure
   getSalaryStructure(employeeId?: number): Observable<{ success: boolean; salaryStructure: SalaryStructure }> {
     const url = employeeId 
-      ? `${this.apiUrl}/salary-structure/${employeeId}`
-      : `${this.apiUrl}/my-salary-structure`;
-    
+      ? `${this.apiUrl}/salary/structure/${employeeId}`
+      : `${this.apiUrl}/salary/structure/me`;
     return this.http.get<{ success: boolean; salaryStructure: SalaryStructure }>(url);
   }
 
   // Update Salary Structure (Admin)
-  updateSalaryStructure(employeeId: number, structure: Partial<SalaryStructure>): Observable<{ success: boolean; message: string }> {
+  updateSalaryStructure(employeeId: number, structure: any): Observable<{ success: boolean; message: string }> {
     return this.http.put<{ success: boolean; message: string }>(
-      `${this.apiUrl}/salary-structure/${employeeId}`,
+      `${this.apiUrl}/salary/structure/${employeeId}`,
+      structure
+    );
+  }
+
+  // Create Salary Structure (Admin)
+  createSalaryStructure(employeeId: number, structure: any): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/salary/structure/${employeeId}`,
       structure
     );
   }

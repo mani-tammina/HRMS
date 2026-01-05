@@ -41,6 +41,13 @@ export class AdminDashboardPage implements OnInit {
   
   adminCards: AdminCard[] = [
     {
+      title: 'Stepup Payroll',
+      description: 'Setup, run, and manage new payroll (components, templates, contracts)',
+      icon: 'bar-chart-outline',
+      route: '/payroll-admin',
+      color: 'success'
+    },
+    {
       title: 'Bulk Upload',
       description: 'Upload employees, holidays, payroll data',
       icon: 'cloud-upload-outline',

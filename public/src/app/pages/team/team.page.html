@@ -78,7 +78,7 @@
 
       <!-- Attendance List -->
       <div *ngIf="!isLoadingAttendance && teamAttendance?.attendance && teamAttendance.attendance.length > 0">
-        <ion-card *ngFor="let record of teamAttendance.attendance" class="attendance-card">
+        <ion-card *ngFor="let record of teamAttendance.attendance" class="attendance-card" button (click)="viewMemberDetails(record)">
           <ion-card-content>
             <div class="attendance-info">
               <div class="employee-info">

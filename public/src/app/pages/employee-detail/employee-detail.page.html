@@ -4,6 +4,12 @@
       <ion-back-button defaultHref="/employees"></ion-back-button>
     </ion-buttons>
     <ion-title>Employee Details</ion-title>
+    <ion-buttons slot="end">
+      <ion-button *ngIf="isHR" (click)="openEditModal()">
+        <ion-icon name="create-outline"></ion-icon>
+        Edit
+      </ion-button>
+    </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
@@ -381,6 +387,100 @@
       </ion-card-content>
     </ion-card>
   </div>
+
+  <!-- Edit Modal -->
+  <ion-modal [isOpen]="showEditModal" (didDismiss)="closeEditModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Edit Employee Master Details</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeEditModal()">
+              <ion-icon name="close"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <form (ngSubmit)="saveEdits()">
+          <ion-list lines="full">
+            <ion-item>
+              <ion-label position="stacked">Reporting Manager</ion-label>
+              <ion-input placeholder="Search manager..." [(ngModel)]="managerSearch" name="managerSearch" clearInput></ion-input>
+              <ion-select [(ngModel)]="editForm.reporting_manager_id" name="reporting_manager_id" interface="popover">
+                <ion-select-option *ngFor="let mgr of filteredManagers" [value]="mgr.id">{{ mgr.name }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Leave Plan</ion-label>
+              <ion-select [(ngModel)]="editForm.leave_plan_id" name="leave_plan_id">
+                <ion-select-option *ngFor="let plan of masterData.leavePlans" [value]="plan.id">{{ plan.name }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Shift Policy</ion-label>
+              <ion-select [(ngModel)]="editForm.shift_policy_id" name="shift_policy_id">
+                <ion-select-option *ngFor="let sp of masterData.shiftPolicies" [value]="sp.id">{{ sp.name }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Attendance Policy</ion-label>
+              <ion-select [(ngModel)]="editForm.attendance_policy_id" name="attendance_policy_id">
+                <ion-select-option *ngFor="let ap of masterData.attendancePolicies" [value]="ap.id">{{ ap.name }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Pay Grade</ion-label>
+              <ion-select [(ngModel)]="editForm.PayGradeId" name="PayGradeId">
+                <ion-select-option *ngFor="let pg of masterData.payGrades" [value]="pg.id">{{ pg.name }}</ion-select-option>
+              </ion-select>
+            </ion-item>
+          </ion-list>
+          <ion-list lines="full" *ngIf="salaryStructure">
+            <ion-item>
+              <ion-label position="stacked">Basic Salary</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.basic_salary" name="basic_salary"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">HRA</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.hra" name="hra" [readonly]="payrollDefaults?.hra_percent"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Conveyance</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.conveyance" name="conveyance"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Special Allowance</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.special_allowance" name="special_allowance"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">PF Contribution</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.pf_contribution" name="pf_contribution"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">ESI</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.esi" name="esi"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Professional Tax</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.professional_tax" name="professional_tax"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Other Deductions</ion-label>
+              <ion-input type="number" [(ngModel)]="salaryStructure.other_deductions" name="other_deductions"></ion-input>
+            </ion-item>
+            <ion-item>
+              <ion-label position="stacked">Effective From</ion-label>
+              <ion-datetime display-format="YYYY-MM-DD" [(ngModel)]="salaryStructure.effective_from" name="effective_from"></ion-datetime>
+            </ion-item>
+          </ion-list>
+          <ion-footer>
+            <ion-button expand="block" type="submit" color="primary">Save</ion-button>
+          </ion-footer>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
 
   <!-- Empty State -->
   <div *ngIf="!isLoading && !employee" class="empty-state">

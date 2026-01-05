@@ -41,43 +41,42 @@ router.put("/defaults/:id", auth, admin, async (req, res) => {
 /* ============ SALARY STRUCTURE ============ */
 
 // Create/Update salary structure
-router.post("/salary/structure/:empId", auth, admin, async (req, res) => {
+router.post("/salary/structure/:empId", auth, hr, async (req, res) => {
     const { empId } = req.params;
-    const { basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions } = req.body;
-    
-    const gross = parseFloat(basic || 0) + parseFloat(hra || 0) + parseFloat(conveyance || 0) + parseFloat(special_allowance || 0);
-    const total_deductions = parseFloat(pf || 0) + parseFloat(esi || 0) + parseFloat(professional_tax || 0) + parseFloat(other_deductions || 0);
-    const net_salary = gross - total_deductions;
-    
+    const components = [
+        { name: "basic", value: req.body.basic },
+        { name: "hra", value: req.body.hra },
+        { name: "conveyance", value: req.body.conveyance },
+        { name: "special_allowance", value: req.body.special_allowance },
+        { name: "pf", value: req.body.pf },
+        { name: "esi", value: req.body.esi },
+        { name: "professional_tax", value: req.body.professional_tax },
+        { name: "other_deductions", value: req.body.other_deductions }
+    ];
+
     const c = await db();
-    
-    // Check if structure exists
-    const [existing] = await c.query("SELECT id FROM salary_structures WHERE employee_id = ?", [empId]);
-    
-    if (existing.length > 0) {
-        // Update
-        await c.query(
-            "UPDATE salary_structures SET basic=?, hra=?, conveyance=?, special_allowance=?, pf=?, esi=?, professional_tax=?, other_deductions=?, gross_salary=?, net_salary=? WHERE employee_id=?",
-            [basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross, net_salary, empId]
-        );
-    } else {
-        // Insert
-        await c.query(
-            "INSERT INTO salary_structures (employee_id, basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross_salary, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [empId, basic, hra, conveyance, special_allowance, pf, esi, professional_tax, other_deductions, gross, net_salary]
-        );
+    // Remove existing structure for this employee
+    await c.query("DELETE FROM salary_structures WHERE employee_id = ?", [empId]);
+
+    // Insert each component as a row
+    for (const comp of components) {
+        if (comp.value !== undefined && comp.value !== null) {
+            await c.query(
+                "INSERT INTO salary_structures (employee_id, component_name, component_value) VALUES (?, ?, ?)",
+                [empId, comp.name, parseFloat(comp.value) || 0]
+            );
+        }
     }
-    
     c.end();
-    res.json({ success: true, gross_salary: gross, net_salary });
+    res.json({ success: true });
 });
 
 // Get salary structure
 router.get("/salary/structure/:empId", auth, async (req, res) => {
     const c = await db();
-    const [r] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [req.params.empId]);
+    const [rows] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [req.params.empId]);
     c.end();
-    res.json(r[0] || null);
+    res.json({ success: true, salaryStructure: rows });
 });
 
 /* ============ PAYROLL GENERATION ============ */
@@ -101,31 +100,28 @@ router.post("/generate", auth, admin, async (req, res) => {
         let processedCount = 0;
         
         for (const emp of employees) {
-            // Get salary structure
-            const [structure] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [emp.id]);
-            
-            if (structure.length === 0) continue;
-            
-            const s = structure[0];
-            
+            // Get salary structure as rows
+            const [structureRows] = await c.query("SELECT component_name, component_value FROM salary_structures WHERE employee_id = ?", [emp.id]);
+            if (structureRows.length === 0) continue;
+            // Map to object: { basic: value, hra: value, ... }
+            const s = {};
+            for (const row of structureRows) {
+                s[row.component_name] = parseFloat(row.component_value) || 0;
+            }
             // Calculate attendance
             const [attendance] = await c.query(
                 "SELECT COUNT(*) as present_days FROM attendance WHERE employee_id = ? AND MONTH(attendance_date) = ? AND YEAR(attendance_date) = ? AND status = 'present'",
                 [emp.id, month, year]
             );
-            
             const presentDays = attendance[0]?.present_days || 0;
             const workingDays = 30; // You can make this dynamic
-            
             // Pro-rata calculation
             const basicEarned = (s.basic / workingDays) * presentDays;
             const hraEarned = (s.hra / workingDays) * presentDays;
             const conveyanceEarned = (s.conveyance / workingDays) * presentDays;
             const specialAllowanceEarned = (s.special_allowance / workingDays) * presentDays;
-            
             const grossEarned = basicEarned + hraEarned + conveyanceEarned + specialAllowanceEarned;
             const netEarned = grossEarned - (s.pf + s.esi + s.professional_tax + s.other_deductions);
-            
             // Create payslip
             await c.query(
                 `INSERT INTO payroll_slips (run_id, employee_id, month, year, 
@@ -273,6 +269,250 @@ router.get("/slip/:id", auth, async (req, res) => {
 // Generate PDF (placeholder)
 router.get("/slip/:id/pdf", auth, async (req, res) => {
     res.json({ message: "PDF generation not implemented yet" });
+});
+
+
+/* ============ MODERN PAYROLL COMPONENT-BASED MODEL ============ */
+
+const hrOrAdmin = require("../middleware/auth").hr;
+
+// ---- Salary Components CRUD ----
+router.get("/components", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT * FROM salary_components ORDER BY is_active DESC, name ASC");
+    c.end();
+    res.json(rows);
+});
+router.post("/components", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const { code, name, description, type, is_taxable, is_active } = req.body;
+    const [result] = await c.query("INSERT INTO salary_components SET ?", { code, name, description, type, is_taxable, is_active });
+    c.end();
+    res.json({ id: result.insertId, success: true });
+});
+router.put("/components/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("UPDATE salary_components SET ? WHERE id = ?", [req.body, req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+router.delete("/components/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("DELETE FROM salary_components WHERE id = ?", [req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+
+// ---- Salary Structure Templates CRUD ----
+router.get("/templates", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT * FROM salary_structure_templates ORDER BY is_active DESC, template_name ASC");
+    c.end();
+    res.json(rows);
+});
+router.post("/templates", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const { template_name, description, is_active } = req.body;
+    const [result] = await c.query("INSERT INTO salary_structure_templates SET ?", { template_name, description, is_active, created_by: req.user.id });
+    c.end();
+    res.json({ id: result.insertId, success: true });
+});
+router.put("/templates/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("UPDATE salary_structure_templates SET ? WHERE id = ?", [req.body, req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+router.delete("/templates/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("DELETE FROM salary_structure_templates WHERE id = ?", [req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+
+// ---- Structure Composition CRUD ----
+router.get("/template/:templateId/components", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT sc.*, comp.name, comp.type FROM structure_composition sc JOIN salary_components comp ON sc.component_id = comp.id WHERE sc.template_id = ? ORDER BY sc.sort_order ASC", [req.params.templateId]);
+    c.end();
+    res.json(rows);
+});
+router.post("/template/:templateId/components", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const { component_id, amount_type, value, sort_order, is_active } = req.body;
+    const [result] = await c.query("INSERT INTO structure_composition SET ?", { template_id: req.params.templateId, component_id, amount_type, value, sort_order, is_active });
+    c.end();
+    res.json({ id: result.insertId, success: true });
+});
+router.put("/template/:templateId/components/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("UPDATE structure_composition SET ? WHERE id = ? AND template_id = ?", [req.body, req.params.id, req.params.templateId]);
+    c.end();
+    res.json({ success: true });
+});
+router.delete("/template/:templateId/components/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("DELETE FROM structure_composition WHERE id = ? AND template_id = ?", [req.params.id, req.params.templateId]);
+    c.end();
+    res.json({ success: true });
+});
+
+// ---- Employee Salary Contracts CRUD ----
+router.get("/contracts", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT esc.*, e.EmployeeNumber, e.FullName, t.template_name FROM employee_salary_contracts esc JOIN employees e ON esc.employee_id = e.id JOIN salary_structure_templates t ON esc.template_id = t.id ORDER BY esc.is_active DESC, esc.contract_start_date DESC");
+    c.end();
+    res.json(rows);
+});
+router.post("/contracts", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const { employee_id, template_id, contract_start_date, contract_end_date, is_active } = req.body;
+    const [result] = await c.query("INSERT INTO employee_salary_contracts SET ?", { employee_id, template_id, contract_start_date, contract_end_date, is_active, created_by: req.user.id });
+    c.end();
+    res.json({ id: result.insertId, success: true });
+});
+router.put("/contracts/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("UPDATE employee_salary_contracts SET ? WHERE id = ?", [req.body, req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+router.delete("/contracts/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("DELETE FROM employee_salary_contracts WHERE id = ?", [req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+
+// ---- Payroll Periods CRUD ----
+router.get("/periods", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT * FROM payroll_periods ORDER BY period_start DESC");
+    c.end();
+    res.json(rows);
+});
+router.post("/periods", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const { period_code, period_start, period_end, status } = req.body;
+    const [result] = await c.query("INSERT INTO payroll_periods SET ?", { period_code, period_start, period_end, status });
+    c.end();
+    res.json({ id: result.insertId, success: true });
+});
+router.put("/periods/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("UPDATE payroll_periods SET ? WHERE id = ?", [req.body, req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+router.delete("/periods/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    await c.query("DELETE FROM payroll_periods WHERE id = ?", [req.params.id]);
+    c.end();
+    res.json({ success: true });
+});
+
+// ---- Payslips (Read Only) ----
+router.get("/payslips", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT ps.*, e.EmployeeNumber, e.FullName FROM payslips ps JOIN employees e ON ps.employee_id = e.id ORDER BY ps.generated_at DESC");
+    c.end();
+    res.json(rows);
+});
+router.get("/payslips/:id", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT ps.*, e.EmployeeNumber, e.FullName FROM payslips ps JOIN employees e ON ps.employee_id = e.id WHERE ps.id = ?", [req.params.id]);
+    c.end();
+    res.json(rows[0] || null);
+});
+
+// ---- Payslip Items (Read Only) ----
+router.get("/payslips/:id/items", auth, hrOrAdmin, async (req, res) => {
+    const c = await db();
+    const [rows] = await c.query("SELECT pi.*, sc.name, sc.type FROM payslip_items pi JOIN salary_components sc ON pi.component_id = sc.id WHERE pi.payslip_id = ?", [req.params.id]);
+    c.end();
+    res.json(rows);
+});
+
+// ---- Payroll Run Endpoint ----
+router.post("/run", auth, hrOrAdmin, async (req, res) => {
+    const { period_id } = req.body;
+    const c = await db();
+    try {
+        // Get payroll period
+        const [periodRows] = await c.query("SELECT * FROM payroll_periods WHERE id = ?", [period_id]);
+        if (!periodRows.length) throw new Error("Payroll period not found");
+        const period = periodRows[0];
+
+        // Get all employees with active contracts in this period
+        const [contracts] = await c.query(
+            `SELECT esc.*, e.FullName, e.EmployeeNumber, t.template_name FROM employee_salary_contracts esc
+             JOIN employees e ON esc.employee_id = e.id
+             JOIN salary_structure_templates t ON esc.template_id = t.id
+             WHERE esc.is_active = 1 AND (esc.contract_start_date <= ? AND (esc.contract_end_date IS NULL OR esc.contract_end_date >= ?))`,
+            [period.period_end, period.period_start]
+        );
+
+        let processed = 0;
+        for (const contract of contracts) {
+            // Fetch template composition
+            const [composition] = await c.query(
+                `SELECT sc.*, comp.code, comp.name, comp.type FROM structure_composition sc
+                 JOIN salary_components comp ON sc.component_id = comp.id
+                 WHERE sc.template_id = ? AND sc.is_active = 1 ORDER BY sc.sort_order ASC`,
+                [contract.template_id]
+            );
+
+            // Assume CTC is stored in contract or employee (add logic as needed)
+            const ctc = contract.ctc || 0;
+            let net_pay = 0;
+            let items = [];
+            for (const comp of composition) {
+                let amount = 0;
+                if (comp.amount_type === 'fixed') {
+                    amount = comp.value;
+                } else if (comp.amount_type === 'percentage') {
+                    amount = (comp.value / 100) * ctc;
+                }
+                items.push({ component_id: comp.component_id, amount, component_type: comp.type });
+                if (comp.type === 'earning' || comp.type === 'reimbursement') net_pay += amount;
+                if (comp.type === 'deduction' || comp.type === 'contribution') net_pay -= amount;
+            }
+
+            // Insert payslip
+            const [psRes] = await c.query(
+                `INSERT INTO payslips SET ?`,
+                {
+                    employee_id: contract.employee_id,
+                    payroll_period_id: period_id,
+                    contract_id: contract.id,
+                    net_pay,
+                    status: 'finalized',
+                    generated_at: new Date(),
+                    created_by: req.user.id
+                }
+            );
+            const payslip_id = psRes.insertId;
+
+            // Insert payslip items
+            for (const item of items) {
+                await c.query(
+                    `INSERT INTO payslip_items SET ?`,
+                    {
+                        payslip_id,
+                        component_id: item.component_id,
+                        amount: item.amount,
+                        component_type: item.component_type
+                    }
+                );
+            }
+            processed++;
+        }
+        c.end();
+        res.json({ success: true, processed });
+    } catch (err) {
+        c.end();
+        res.status(500).json({ error: err.message });
+    }
 });
 
 module.exports = router;

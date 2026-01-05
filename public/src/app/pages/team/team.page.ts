@@ -14,6 +14,7 @@ import {
   mailOutline, callOutline, analyticsOutline, checkmarkCircleOutline, 
   closeCircleOutline, hourglassOutline, fingerPrintOutline
 } from 'ionicons/icons';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-team',
@@ -45,7 +46,8 @@ export class TeamPage implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private router: Router // Added router for navigation
   ) {
     addIcons({ 
       peopleOutline, briefcaseOutline, businessOutline, locationOutline, 
@@ -92,8 +94,13 @@ export class TeamPage implements OnInit {
   }
 
   viewMemberDetails(member: any) {
-    console.log('View member details:', member);
-    this.showToast(`Viewing ${member.FirstName} ${member.LastName}`, 'primary');
+    if (member && member.id) {
+      this.router.navigate(['/employee', member.id]);
+    } else if (member && member.EmployeeNumber) {
+      this.router.navigate(['/employee', member.EmployeeNumber]);
+    } else {
+      this.showToast('Employee ID not found', 'danger');
+    }
   }
 
   loadTeamAttendance() {

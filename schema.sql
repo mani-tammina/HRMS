@@ -914,6 +914,96 @@ CREATE TABLE IF NOT EXISTS salary_structures (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (employee_id) REFERENCES employees(id)
 );
+-- Salary Components (e.g., Basic, HRA, PF)
+CREATE TABLE IF NOT EXISTS salary_components (
+  component_id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(100) NOT NULL,
+  type ENUM('Earning', 'Deduction', 'Reimbursement') NOT NULL,
+  is_statutory TINYINT(1) DEFAULT 0,
+  is_taxable TINYINT(1) DEFAULT 1,
+  calculation_type ENUM('Flat', 'Percentage', 'Formula') NOT NULL,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Salary Structure Templates (e.g., Standard Corporate Structure)
+CREATE TABLE IF NOT EXISTS salary_structure_templates (
+  template_id INT PRIMARY KEY AUTO_INCREMENT,
+  template_name VARCHAR(100) NOT NULL,
+  description TEXT,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Structure Composition (bridge between templates and components)
+CREATE TABLE IF NOT EXISTS structure_composition (
+  composition_id INT PRIMARY KEY AUTO_INCREMENT,
+  template_id INT NOT NULL,
+  component_id INT NOT NULL,
+  formula_or_value VARCHAR(255) NOT NULL,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (template_id) REFERENCES salary_structure_templates(template_id),
+  FOREIGN KEY (component_id) REFERENCES salary_components(component_id)
+);
+
+-- 2. Employee Assignment Tables
+
+-- Employee Salary Contracts (assigns template to employee)
+CREATE TABLE IF NOT EXISTS employee_salary_contracts (
+  contract_id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  template_id INT NOT NULL,
+  annual_ctc DECIMAL(15,2) NOT NULL,
+  effective_from DATE NOT NULL,
+  status ENUM('Active', 'Superseded') DEFAULT 'Active',
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (template_id) REFERENCES salary_structure_templates(template_id)
+);
+
+-- 3. Transactional (Monthly) Tables
+
+-- Payroll Periods (month/year being processed)
+CREATE TABLE IF NOT EXISTS payroll_periods (
+  period_id INT PRIMARY KEY AUTO_INCREMENT,
+  month INT NOT NULL,
+  year INT NOT NULL,
+  status ENUM('Draft', 'Locked', 'Paid') DEFAULT 'Draft',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Payslips (header)
+CREATE TABLE IF NOT EXISTS payslips (
+  payslip_id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  period_id INT NOT NULL,
+  gross_earnings DECIMAL(15,2) DEFAULT 0,
+  total_deductions DECIMAL(15,2) DEFAULT 0,
+  net_pay DECIMAL(15,2) DEFAULT 0,
+  payment_date DATE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (period_id) REFERENCES payroll_periods(period_id)
+);
+
+-- Payslip Items (details)
+CREATE TABLE IF NOT EXISTS payslip_items (
+  item_id INT PRIMARY KEY AUTO_INCREMENT,
+  payslip_id INT NOT NULL,
+  component_id INT NOT NULL,
+  amount DECIMAL(15,2) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (payslip_id) REFERENCES payslips(payslip_id),
+  FOREIGN KEY (component_id) REFERENCES salary_components(component_id)
+);
 
 -- ============================================
 -- Onboarding Management

@@ -64,18 +64,15 @@ export class EmployeesPage implements OnInit {
   }
 
   filterEmployees(event: any) {
-    const searchTerm = event.target.value.toLowerCase();
-    
+    const searchTerm = event.target.value?.toLowerCase() || '';
     if (!searchTerm) {
       this.filteredEmployees = this.employees;
       return;
     }
-
     this.filteredEmployees = this.employees.filter(employee => 
-      employee.name.toLowerCase().includes(searchTerm) ||
-      employee.email.toLowerCase().includes(searchTerm) ||
-      employee.department.toLowerCase().includes(searchTerm) ||
-      employee.position.toLowerCase().includes(searchTerm)
+      (employee.name && employee.name.toLowerCase().includes(searchTerm)) ||
+      (employee.email && employee.email.toLowerCase().includes(searchTerm)) ||
+      (employee.phone && employee.phone.toLowerCase().includes(searchTerm))
     );
   }
 
