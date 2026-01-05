@@ -46,7 +46,7 @@ export interface LeaveType {
   providedIn: 'root'
 })
 export class LeavePlanService {
-  private apiUrl = `${environment.apiUrl}/leave`;
+  private apiUrl = `${environment.apiUrl}/leaves`;
 
   constructor(private http: HttpClient) {}
 

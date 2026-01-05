@@ -210,9 +210,24 @@ router.get("/types", auth, async (req, res) => {
 router.put("/types/:id", auth, hr, async (req, res) => {
     try {
         const c = await db();
-        await c.query(`UPDATE leave_types SET ? WHERE id = ?`, [req.body, req.params.id]);
+        
+        // Sanitize input data - convert empty strings to appropriate values
+        const updateData = { ...req.body };
+        
+        // Convert empty strings to 0 for integer fields
+        if (updateData.max_carry_forward_days === '' || updateData.max_carry_forward_days === null) {
+            updateData.max_carry_forward_days = 0;
+        }
+        
+        // Convert empty strings to 1/0 for boolean fields
+        if (updateData.is_paid === '') updateData.is_paid = 1;
+        if (updateData.requires_approval === '') updateData.requires_approval = 1;
+        if (updateData.can_carry_forward === '') updateData.can_carry_forward = 0;
+        if (updateData.is_active === '') updateData.is_active = 1;
+        
+        await c.query(`UPDATE leave_types SET ? WHERE id = ?`, [updateData, req.params.id]);
         c.end();
-        res.json({ success: true });
+        res.json({ success: true, message: "Leave type updated successfully" });
     } catch (error) {
         console.error("Error updating leave type:", error);
         res.status(500).json({ error: error.message });
