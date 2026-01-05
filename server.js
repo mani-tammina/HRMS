@@ -44,6 +44,7 @@ const leaveRoutes = require("./routes/leave-enhanced.routes"); // Enhanced leave
 const payrollRoutes = require("./routes/payroll.routes");
 const uploadRoutes = require("./routes/upload.routes");
 const timesheetRoutes = require("./routes/timesheet-enhanced.routes"); // Enhanced timesheet management
+const complianceRoutes = require("./routes/compliance.routes"); // Compliance tracking & enforcement
 const announcementRoutes = require("./routes/announcement.routes");
 const supportRoutes = require("./routes/support.routes");
 const birthdayRoutes = require("./routes/birthday.routes");
@@ -58,6 +59,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 
 // Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
+const complianceChecker = require("./utils/compliance-checker.service");
 
 const app = express();
 const upload = multer({ dest: "uploads/" });
@@ -303,6 +305,9 @@ app.use("/api/upload", uploadRoutes);
 app.use("/api/timesheets", timesheetRoutes);
 app.use("/api/timesheet", timesheetRoutes); // Also mount on singular for compatibility
 
+// Compliance & Enforcement Routes
+app.use("/api/compliance", complianceRoutes);
+
 // Announcement Routes
 app.use("/api/announcements", announcementRoutes);
 
@@ -400,6 +405,10 @@ app.get("/api/health", (req, res) => {
         
         // Start timesheet notification service
         timesheetNotificationService.start();
+        console.log("✅ Timesheet notification service started");
+        
+        // Start compliance checker service
+        complianceChecker.start();
         
         app.listen(PORT, () => {
             console.log(`\n╔══════════════════════════════════════════════╗`);

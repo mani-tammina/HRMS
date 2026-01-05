@@ -44,6 +44,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/timesheets/timesheets.page').then(m => m.TimesheetsPage)
       },
       {
+        path: 'team-compliance',
+        loadComponent: () => import('./pages/team-compliance/team-compliance.page').then(m => m.TeamCompliancePage)
+      },
+      {
         path: 'manager-approvals',
         loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage)
       },

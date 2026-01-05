@@ -4,7 +4,7 @@ import {
   IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
-import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline } from 'ionicons/icons';
+import { homeOutline, calendarOutline, documentTextOutline, personOutline, timeOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline, statsChartOutline } from 'ionicons/icons';
 import { AuthService, User } from '@core/services/auth.service';
 
 @Component({
@@ -22,7 +22,7 @@ export class TabsPage implements OnInit {
   isManagerOrHR = false;
 
   constructor(private authService: AuthService) {
-    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline });
+    addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline, statsChartOutline });
   }
 
   ngOnInit() {

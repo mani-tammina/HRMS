@@ -482,7 +482,7 @@ CREATE TABLE IF NOT EXISTS projects (
 CREATE TABLE IF NOT EXISTS project_shifts (
   id INT PRIMARY KEY AUTO_INCREMENT,
   project_id INT NOT NULL,
-  shift_type ENUM('general', 'night', 'rotating') NOT NULL,
+  shift_type ENUM('day', 'night', 'flexible') NOT NULL,
   shift_name VARCHAR(100) NOT NULL,
   start_time TIME NOT NULL,
   end_time TIME NOT NULL,

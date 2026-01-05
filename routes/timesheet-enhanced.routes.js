@@ -202,13 +202,18 @@ router.post("/project/submit", auth, async (req, res) => {
 
         // Verify employee is assigned to this project
         const [assignment] = await c.query(`
-            SELECT pa.id, ps.daily_hours
+            SELECT pa.id, pa.allocation_percentage,
+                   ps.shift_name, ps.start_time, ps.end_time,
+                   TIMESTAMPDIFF(HOUR, 
+                       CONCAT('2000-01-01 ', ps.start_time), 
+                       CONCAT(CASE WHEN ps.end_time < ps.start_time THEN '2000-01-02' ELSE '2000-01-01' END, ' ', ps.end_time)
+                   ) as daily_hours
             FROM project_assignments pa
             LEFT JOIN project_shifts ps ON pa.shift_id = ps.id
             WHERE pa.employee_id = ? AND pa.project_id = ? 
             AND pa.status = 'active'
-            AND pa.start_date <= ?
-            AND (pa.end_date IS NULL OR pa.end_date >= ?)
+            AND pa.assignment_start_date <= ?
+            AND (pa.assignment_end_date IS NULL OR pa.assignment_end_date >= ?)
         `, [emp.id, project_id, date, date]);
 
         if (assignment.length === 0) {

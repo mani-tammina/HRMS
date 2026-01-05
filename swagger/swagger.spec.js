@@ -6096,29 +6096,203 @@ Object.assign(swaggerSpec.paths, {
             security: [{ bearerAuth: [] }],
             requestBody: {
                 required: true,
-                content: { "application/json": { schema: { type: "object", required: ["project_code", "project_name", "client_name", "start_date"], properties: { project_code: { type: "string" }, project_name: { type: "string" }, client_name: { type: "string" }, start_date: { type: "string", format: "date" }, end_date: { type: "string", format: "date" }, status: { type: "string" }, description: { type: "string" }, project_manager_id: { type: "integer" } } } } }
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object", 
+                            required: ["project_code", "project_name", "client_name", "start_date"], 
+                            properties: { 
+                                project_code: { type: "string", example: "PRJ-2024-001" }, 
+                                project_name: { type: "string", example: "Customer Portal Development" }, 
+                                client_name: { type: "string", example: "ABC Corporation" }, 
+                                start_date: { type: "string", format: "date", example: "2024-02-01" }, 
+                                end_date: { type: "string", format: "date", example: "2024-08-31" }, 
+                                status: { type: "string", enum: ["active", "completed", "on_hold", "cancelled"], example: "active" }, 
+                                description: { type: "string", example: "Development of customer self-service portal with advanced features" }, 
+                                manager_id: { type: "integer", example: 1 } 
+                            } 
+                        },
+                        example: {
+                            project_code: "PRJ-2024-001",
+                            project_name: "Customer Portal Development",
+                            client_name: "ABC Corporation",
+                            start_date: "2024-02-01",
+                            end_date: "2024-08-31",
+                            status: "active",
+                            description: "Development of customer self-service portal with advanced features",
+                            manager_id: 1
+                        }
+                    } 
+                }
             },
             responses: { 200: { description: "Project created successfully" } }
         }
     },
     "/api/projects/{id}": {
         get: { summary: "🔍 Get Project Details", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project details" } } },
-        put: { summary: "✏️ Update Project", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Project updated" } } },
+        put: { 
+            summary: "✏️ Update Project", 
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], 
+            requestBody: { 
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object",
+                            properties: {
+                                project_code: { type: "string", example: "PRJ-2024-001" },
+                                project_name: { type: "string", example: "Customer Portal Development" },
+                                client_name: { type: "string", example: "ABC Corporation" },
+                                start_date: { type: "string", format: "date", example: "2024-02-01" },
+                                end_date: { type: "string", format: "date", example: "2024-08-31" },
+                                status: { type: "string", enum: ["active", "completed", "on_hold", "cancelled"], example: "on_hold" },
+                                description: { type: "string", example: "Updated project description" },
+                                manager_id: { type: "integer", example: 1 }
+                            }
+                        },
+                        example: {
+                            status: "on_hold",
+                            description: "Project temporarily on hold due to client request"
+                        }
+                    } 
+                } 
+            }, 
+            responses: { 200: { description: "Project updated" } } 
+        },
         delete: { summary: "🗑️ Close Project", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project closed" } } }
     },
     "/api/projects/{id}/shifts": {
         get: { summary: "⏰ Get Project Shifts", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "List of shifts" } } },
-        post: { summary: "➕ Add Shift", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["shift_name", "start_time", "end_time"] } } } }, responses: { 200: { description: "Shift added" } } }
+        post: { 
+            summary: "➕ Add Shift", 
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
+            requestBody: { 
+                required: true, 
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object", 
+                            required: ["shift_type", "shift_name", "start_time", "end_time", "timezone"],
+                            properties: {
+                                shift_type: { type: "string", enum: ["day", "night", "flexible"], example: "day" },
+                                shift_name: { type: "string", example: "Morning Shift" },
+                                start_time: { type: "string", pattern: "^([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)$", example: "09:00:00" },
+                                end_time: { type: "string", pattern: "^([01]\\d|2[0-3]):([0-5]\\d):([0-5]\\d)$", example: "18:00:00" },
+                                timezone: { type: "string", example: "UTC" }
+                            }
+                        },
+                        example: {
+                            shift_type: "day",
+                            shift_name: "Morning Shift",
+                            start_time: "09:00:00",
+                            end_time: "18:00:00",
+                            timezone: "UTC"
+                        }
+                    } 
+                } 
+            }, 
+            responses: { 200: { description: "Shift added" } } 
+        }
     },
     "/api/projects/shifts/{shiftId}": {
-        put: { summary: "✏️ Update Shift", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Shift updated" } } }
+        put: { 
+            summary: "✏️ Update Shift", 
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" }, description: "Shift ID" }], 
+            requestBody: { 
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object",
+                            properties: {
+                                shift_type: { type: "string", enum: ["day", "night", "flexible"], example: "night" },
+                                shift_name: { type: "string", example: "Night Shift" },
+                                start_time: { type: "string", example: "21:00:00" },
+                                end_time: { type: "string", example: "06:00:00" },
+                                timezone: { type: "string", example: "UTC" }
+                            }
+                        },
+                        example: {
+                            shift_name: "Night Shift",
+                            start_time: "21:00:00",
+                            end_time: "06:00:00"
+                        }
+                    } 
+                } 
+            }, 
+            responses: { 200: { description: "Shift updated" } } 
+        }
     },
     "/api/projects/{id}/assignments": {
         get: { summary: "👥 Get Project Team", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Team assignments" } } },
-        post: { summary: "➕ Assign Employee", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["employee_id", "assignment_start_date"] } } } }, responses: { 200: { description: "Employee assigned" } } }
+        post: { 
+            summary: "➕ Assign Employee", 
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
+            requestBody: { 
+                required: true, 
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object", 
+                            required: ["employee_id", "role_in_project", "allocation_percentage", "assignment_start_date"],
+                            properties: {
+                                employee_id: { type: "integer", example: 5 },
+                                role_in_project: { type: "string", example: "Full Stack Developer" },
+                                allocation_percentage: { type: "integer", minimum: 0, maximum: 100, example: 100 },
+                                shift_id: { type: "integer", nullable: true, example: 1 },
+                                assignment_start_date: { type: "string", format: "date", example: "2024-02-01" },
+                                assignment_end_date: { type: "string", format: "date", nullable: true, example: "2024-08-31" }
+                            }
+                        },
+                        example: {
+                            employee_id: 5,
+                            role_in_project: "Full Stack Developer",
+                            allocation_percentage: 100,
+                            shift_id: 1,
+                            assignment_start_date: "2024-02-01",
+                            assignment_end_date: "2024-08-31"
+                        }
+                    } 
+                } 
+            }, 
+            responses: { 200: { description: "Employee assigned" } } 
+        }
     },
     "/api/projects/assignments/{assignmentId}": {
-        put: { summary: "✏️ Update Assignment", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" } }], requestBody: { content: { "application/json": { schema: { type: "object" } } } }, responses: { 200: { description: "Assignment updated" } } },
+        put: { 
+            summary: "✏️ Update Assignment", 
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }], 
+            requestBody: { 
+                content: { 
+                    "application/json": { 
+                        schema: { 
+                            type: "object",
+                            properties: {
+                                role_in_project: { type: "string", example: "Senior Full Stack Developer" },
+                                allocation_percentage: { type: "integer", minimum: 0, maximum: 100, example: 80 },
+                                shift_id: { type: "integer", nullable: true, example: 2 },
+                                assignment_start_date: { type: "string", format: "date", example: "2024-02-01" },
+                                assignment_end_date: { type: "string", format: "date", nullable: true, example: "2024-09-30" }
+                            }
+                        },
+                        example: {
+                            role_in_project: "Senior Full Stack Developer",
+                            allocation_percentage: 80,
+                            assignment_end_date: "2024-09-30"
+                        }
+                    } 
+                } 
+            }, 
+            responses: { 200: { description: "Assignment updated" } } 
+        },
         delete: { summary: "🗑️ Remove Employee", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee removed" } } }
     },
     "/api/projects/employee/{employeeId}/projects": {
@@ -6192,6 +6366,560 @@ Object.assign(swaggerSpec.paths, {
     },
     "/api/admin/timesheet/lock-payroll-period": {
         post: { summary: "🔒 Lock Payroll Period", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["payrollPeriod"] } } } }, responses: { 200: { description: "Period locked" } } }
+    },
+
+    // ============ COMPLIANCE TRACKING & ENFORCEMENT ============
+    "/api/compliance/my-status": {
+        get: {
+            summary: "📊 Get My Compliance Status",
+            description: "Get today's timesheet compliance status for logged-in employee",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            responses: {
+                200: {
+                    description: "Compliance status retrieved",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                compliance: {
+                                    date: "2026-01-05",
+                                    submitted: true,
+                                    timesheet_id: 125,
+                                    submission_time: "2026-01-05T14:30:00",
+                                    hours: 8,
+                                    reminder_count: 1,
+                                    last_reminder_sent: "2026-01-05T16:00:00"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/my-history": {
+        get: {
+            summary: "📅 Get My Compliance History",
+            description: "Get compliance history with optional date range filtering",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                {
+                    name: "start_date",
+                    in: "query",
+                    schema: { type: "string", format: "date" },
+                    example: "2026-01-01"
+                },
+                {
+                    name: "end_date",
+                    in: "query",
+                    schema: { type: "string", format: "date" },
+                    example: "2026-01-31"
+                }
+            ],
+            responses: {
+                200: {
+                    description: "Compliance history retrieved",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                history: [
+                                    { date: "2026-01-05", submitted: true, hours: 8, reminder_count: 1 },
+                                    { date: "2026-01-04", submitted: true, hours: 8, reminder_count: 0 },
+                                    { date: "2026-01-03", submitted: false, hours: 0, reminder_count: 3 }
+                                ],
+                                stats: {
+                                    total_days: 3,
+                                    days_submitted: 2,
+                                    compliance_rate: 66.67,
+                                    total_hours: 16,
+                                    avg_hours: 5.33
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/dashboard": {
+        get: {
+            summary: "📊 Admin Compliance Dashboard",
+            description: "Get comprehensive compliance metrics for admin dashboard",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            responses: {
+                200: {
+                    description: "Dashboard data retrieved",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                dashboard: {
+                                    today: {
+                                        date: "2026-01-05",
+                                        total_employees: 150,
+                                        submitted_count: 142,
+                                        non_compliant_count: 8,
+                                        compliance_rate: 94.67,
+                                        non_compliant_employees: [
+                                            {
+                                                id: 45,
+                                                name: "John Doe",
+                                                EmployeeNumber: "EMP001",
+                                                department: "Engineering",
+                                                reminder_count: 2,
+                                                last_reminder_sent: "2026-01-05T18:00:00"
+                                            }
+                                        ]
+                                    },
+                                    this_week: {
+                                        avg_compliance_rate: 92.5,
+                                        total_submitted: 950,
+                                        reminders_sent: 45,
+                                        auto_reminders: 40
+                                    },
+                                    this_month: {
+                                        working_days: 3,
+                                        completed_days: 2,
+                                        avg_compliance_rate: 93.2
+                                    },
+                                    weekly_trends: [
+                                        { date: "2026-01-05", submitted: 142, total: 150, rate: 94.67 },
+                                        { date: "2026-01-04", submitted: 145, total: 150, rate: 96.67 }
+                                    ],
+                                    pending_validations: {
+                                        count: 5,
+                                        items: [
+                                            {
+                                                type: "timesheet",
+                                                employee_name: "Jane Smith",
+                                                date: "2026-01-04"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/non-compliant": {
+        get: {
+            summary: "🚨 Get Non-Compliant Employees",
+            description: "Get list of employees who haven't submitted timesheets for a specific date",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                {
+                    name: "date",
+                    in: "query",
+                    schema: { type: "string", format: "date" },
+                    example: "2026-01-05"
+                }
+            ],
+            responses: {
+                200: {
+                    description: "Non-compliant employees list",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                date: "2026-01-05",
+                                count: 8,
+                                employees: [
+                                    {
+                                        id: 45,
+                                        name: "John Doe",
+                                        EmployeeNumber: "EMP001",
+                                        email: "john.doe@company.com",
+                                        department: "Engineering",
+                                        manager_name: "Jane Manager",
+                                        reminder_count: 2,
+                                        last_reminder_sent: "2026-01-05T18:00:00"
+                                    }
+                                ]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/send-reminders": {
+        post: {
+            summary: "📧 Send Compliance Reminders",
+            description: "Send reminders to specific employees or all non-compliant employees",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: false,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            properties: {
+                                date: {
+                                    type: "string",
+                                    format: "date",
+                                    description: "Date to check compliance (defaults to today)"
+                                },
+                                employee_ids: {
+                                    type: "array",
+                                    items: { type: "integer" },
+                                    description: "Specific employee IDs (optional, sends to all if not provided)"
+                                }
+                            }
+                        },
+                        examples: {
+                            "Send to All": {
+                                value: {
+                                    date: "2026-01-05"
+                                }
+                            },
+                            "Send to Specific": {
+                                value: {
+                                    date: "2026-01-05",
+                                    employee_ids: [45, 67, 89]
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: "Reminders sent successfully",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                message: "Reminders sent to 8 employees",
+                                reminders_sent: 8,
+                                employees: ["John Doe", "Jane Smith"]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/bulk-approve": {
+        post: {
+            summary: "✅ Bulk Approve Timesheets",
+            description: "Approve multiple timesheets at once",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["timesheet_ids"],
+                            properties: {
+                                timesheet_ids: {
+                                    type: "array",
+                                    items: { type: "integer" }
+                                },
+                                notes: {
+                                    type: "string",
+                                    description: "Optional approval notes"
+                                }
+                            }
+                        },
+                        example: {
+                            timesheet_ids: [125, 126, 127, 128],
+                            notes: "Bulk approved for payroll processing"
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: "Timesheets approved",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                message: "4 timesheets approved successfully",
+                                approved_count: 4,
+                                failed_count: 0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/bulk-validate-client-timesheets": {
+        post: {
+            summary: "✅ Bulk Validate Client Timesheets",
+            description: "Validate multiple client timesheet uploads at once",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["validations"],
+                            properties: {
+                                validations: {
+                                    type: "array",
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            employee_id: { type: "integer" },
+                                            month: { type: "integer" },
+                                            year: { type: "integer" },
+                                            status: {
+                                                type: "string",
+                                                enum: ["approved", "rejected"]
+                                            },
+                                            notes: { type: "string" }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        example: {
+                            validations: [
+                                {
+                                    employee_id: 45,
+                                    month: 12,
+                                    year: 2025,
+                                    status: "approved",
+                                    notes: "Verified with client records"
+                                },
+                                {
+                                    employee_id: 67,
+                                    month: 12,
+                                    year: 2025,
+                                    status: "approved"
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: "Client timesheets validated",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                message: "2 client timesheets validated",
+                                validated_count: 2,
+                                failed_count: 0
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/close-month": {
+        post: {
+            summary: "🔒 Close Month",
+            description: "Lock a month's timesheets to prevent further edits (for payroll processing)",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["month", "year"],
+                            properties: {
+                                month: {
+                                    type: "integer",
+                                    minimum: 1,
+                                    maximum: 12
+                                },
+                                year: {
+                                    type: "integer"
+                                }
+                            }
+                        },
+                        example: {
+                            month: 12,
+                            year: 2025
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: "Month closed successfully",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                message: "December 2025 closed successfully",
+                                period: "2025-12",
+                                locked_at: "2026-01-05T10:30:00"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/reopen-month": {
+        post: {
+            summary: "🔓 Reopen Month",
+            description: "Unlock a previously closed month with reason tracking",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["month", "year", "reason"],
+                            properties: {
+                                month: { type: "integer", minimum: 1, maximum: 12 },
+                                year: { type: "integer" },
+                                reason: { type: "string" }
+                            }
+                        },
+                        example: {
+                            month: 12,
+                            year: 2025,
+                            reason: "Correction needed for employee EMP045 - client verification mismatch"
+                        }
+                    }
+                }
+            },
+            responses: {
+                200: {
+                    description: "Month reopened",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                message: "December 2025 reopened successfully",
+                                period: "2025-12"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/period-status/:month/:year": {
+        get: {
+            summary: "🔍 Check Period Status",
+            description: "Check if a specific month is locked or open",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                {
+                    name: "month",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 12
+                },
+                {
+                    name: "year",
+                    in: "path",
+                    required: true,
+                    schema: { type: "integer" },
+                    example: 2025
+                }
+            ],
+            responses: {
+                200: {
+                    description: "Period status",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                period: "2025-12",
+                                is_locked: true,
+                                locked_at: "2026-01-05T10:30:00",
+                                locked_by: "Admin User"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "/api/compliance/admin/monthly-report": {
+        get: {
+            summary: "📊 Monthly Compliance Report",
+            description: "Generate comprehensive compliance report for a month",
+            tags: ["🎯 Compliance"],
+            security: [{ bearerAuth: [] }],
+            parameters: [
+                {
+                    name: "month",
+                    in: "query",
+                    schema: { type: "integer" },
+                    example: 12
+                },
+                {
+                    name: "year",
+                    in: "query",
+                    schema: { type: "integer" },
+                    example: 2025
+                }
+            ],
+            responses: {
+                200: {
+                    description: "Monthly report",
+                    content: {
+                        "application/json": {
+                            example: {
+                                success: true,
+                                report: {
+                                    period: "2025-12",
+                                    total_employees: 150,
+                                    working_days: 22,
+                                    total_submissions: 3245,
+                                    expected_submissions: 3300,
+                                    compliance_rate: 98.33,
+                                    department_breakdown: [
+                                        {
+                                            department: "Engineering",
+                                            employees: 50,
+                                            submissions: 1095,
+                                            compliance_rate: 99.5
+                                        },
+                                        {
+                                            department: "Sales",
+                                            employees: 30,
+                                            submissions: 645,
+                                            compliance_rate: 97.7
+                                        }
+                                    ],
+                                    reminders_sent: 125,
+                                    auto_reminders: 110,
+                                    manual_reminders: 15,
+                                    client_uploads: {
+                                        submitted: 148,
+                                        validated: 145,
+                                        pending: 3,
+                                        rejected: 0
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 });
 
