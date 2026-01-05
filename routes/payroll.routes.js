@@ -279,80 +279,149 @@ const hrOrAdmin = require("../middleware/auth").hr;
 // ---- Salary Components CRUD ----
 router.get("/components", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT * FROM salary_components ORDER BY is_active DESC, name ASC");
+    const [rows] = await c.query("SELECT * FROM salary_components ORDER BY name ASC");
     c.end();
     res.json(rows);
 });
 router.post("/components", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    const { code, name, description, type, is_taxable, is_active } = req.body;
-    const [result] = await c.query("INSERT INTO salary_components SET ?", { code, name, description, type, is_taxable, is_active });
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const c = await db();
+        const { name, type, is_statutory, is_taxable, calculation_type } = req.body;
+        
+        if (!name || !type || !calculation_type) {
+            c.end();
+            return res.status(400).json({ success: false, error: "Missing required fields" });
+        }
+        
+        const [result] = await c.query("INSERT INTO salary_components SET ?", { 
+            name, 
+            type, 
+            is_statutory: is_statutory || 0, 
+            is_taxable: is_taxable || 1, 
+            calculation_type,
+            created_by: req.user.id
+        });
+        c.end();
+        res.json({ id: result.insertId, success: true, message: "Salary component created successfully" });
+    } catch (error) {
+        console.error("Error creating salary component:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.put("/components/:id", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    await c.query("UPDATE salary_components SET ? WHERE id = ?", [req.body, req.params.id]);
-    c.end();
-    res.json({ success: true });
+    try {
+        const c = await db();
+        await c.query("UPDATE salary_components SET ? WHERE component_id = ?", [req.body, req.params.id]);
+        c.end();
+        res.json({ success: true, message: "Salary component updated successfully" });
+    } catch (error) {
+        console.error("Error updating salary component:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.delete("/components/:id", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    await c.query("DELETE FROM salary_components WHERE id = ?", [req.params.id]);
-    c.end();
-    res.json({ success: true });
+    try {
+        const c = await db();
+        await c.query("DELETE FROM salary_components WHERE component_id = ?", [req.params.id]);
+        c.end();
+        res.json({ success: true, message: "Salary component deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting salary component:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ---- Salary Structure Templates CRUD ----
 router.get("/templates", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT * FROM salary_structure_templates ORDER BY is_active DESC, template_name ASC");
+    const [rows] = await c.query("SELECT * FROM salary_structure_templates ORDER BY template_name ASC");
     c.end();
     res.json(rows);
 });
 router.post("/templates", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    const { template_name, description, is_active } = req.body;
-    const [result] = await c.query("INSERT INTO salary_structure_templates SET ?", { template_name, description, is_active, created_by: req.user.id });
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const c = await db();
+        const { template_name, description } = req.body;
+        
+        if (!template_name) {
+            c.end();
+            return res.status(400).json({ success: false, error: "Template name is required" });
+        }
+        
+        const [result] = await c.query("INSERT INTO salary_structure_templates SET ?", { 
+            template_name, 
+            description, 
+            created_by: req.user.id 
+        });
+        c.end();
+        res.json({ id: result.insertId, success: true, message: "Salary template created successfully" });
+    } catch (error) {
+        console.error("Error creating salary template:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.put("/templates/:id", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    await c.query("UPDATE salary_structure_templates SET ? WHERE id = ?", [req.body, req.params.id]);
-    c.end();
-    res.json({ success: true });
+    try {
+        const c = await db();
+        await c.query("UPDATE salary_structure_templates SET ? WHERE template_id = ?", [req.body, req.params.id]);
+        c.end();
+        res.json({ success: true, message: "Salary template updated successfully" });
+    } catch (error) {
+        console.error("Error updating salary template:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.delete("/templates/:id", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    await c.query("DELETE FROM salary_structure_templates WHERE id = ?", [req.params.id]);
-    c.end();
-    res.json({ success: true });
+    try {
+        const c = await db();
+        await c.query("DELETE FROM salary_structure_templates WHERE template_id = ?", [req.params.id]);
+        c.end();
+        res.json({ success: true, message: "Salary template deleted successfully" });
+    } catch (error) {
+        console.error("Error deleting salary template:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 // ---- Structure Composition CRUD ----
 router.get("/template/:templateId/components", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT sc.*, comp.name, comp.type FROM structure_composition sc JOIN salary_components comp ON sc.component_id = comp.id WHERE sc.template_id = ? ORDER BY sc.sort_order ASC", [req.params.templateId]);
+    const [rows] = await c.query("SELECT sc.*, comp.name, comp.type FROM structure_composition sc JOIN salary_components comp ON sc.component_id = comp.component_id WHERE sc.template_id = ? ORDER BY sc.composition_id ASC", [req.params.templateId]);
     c.end();
     res.json(rows);
 });
 router.post("/template/:templateId/components", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    const { component_id, amount_type, value, sort_order, is_active } = req.body;
-    const [result] = await c.query("INSERT INTO structure_composition SET ?", { template_id: req.params.templateId, component_id, amount_type, value, sort_order, is_active });
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const c = await db();
+        const { component_id, formula_or_value } = req.body;
+        
+        if (!component_id || !formula_or_value) {
+            c.end();
+            return res.status(400).json({ success: false, error: "Component and formula/value are required" });
+        }
+        
+        const [result] = await c.query("INSERT INTO structure_composition SET ?", { 
+            template_id: req.params.templateId, 
+            component_id, 
+            formula_or_value, 
+            created_by: req.user.id 
+        });
+        c.end();
+        res.json({ id: result.insertId, success: true, message: "Component added to template successfully" });
+    } catch (error) {
+        console.error("Error adding component to template:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.put("/template/:templateId/components/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("UPDATE structure_composition SET ? WHERE id = ? AND template_id = ?", [req.body, req.params.id, req.params.templateId]);
+    await c.query("UPDATE structure_composition SET ? WHERE composition_id = ? AND template_id = ?", [req.body, req.params.id, req.params.templateId]);
     c.end();
     res.json({ success: true });
 });
 router.delete("/template/:templateId/components/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("DELETE FROM structure_composition WHERE id = ? AND template_id = ?", [req.params.id, req.params.templateId]);
+    await c.query("DELETE FROM structure_composition WHERE composition_id = ? AND template_id = ?", [req.params.id, req.params.templateId]);
     c.end();
     res.json({ success: true });
 });
@@ -360,26 +429,44 @@ router.delete("/template/:templateId/components/:id", auth, hrOrAdmin, async (re
 // ---- Employee Salary Contracts CRUD ----
 router.get("/contracts", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT esc.*, e.EmployeeNumber, e.FullName, t.template_name FROM employee_salary_contracts esc JOIN employees e ON esc.employee_id = e.id JOIN salary_structure_templates t ON esc.template_id = t.id ORDER BY esc.is_active DESC, esc.contract_start_date DESC");
+    const [rows] = await c.query("SELECT esc.*, e.EmployeeNumber, e.FullName, t.template_name FROM employee_salary_contracts esc JOIN employees e ON esc.employee_id = e.id JOIN salary_structure_templates t ON esc.template_id = t.template_id ORDER BY esc.effective_from DESC");
     c.end();
     res.json(rows);
 });
 router.post("/contracts", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    const { employee_id, template_id, contract_start_date, contract_end_date, is_active } = req.body;
-    const [result] = await c.query("INSERT INTO employee_salary_contracts SET ?", { employee_id, template_id, contract_start_date, contract_end_date, is_active, created_by: req.user.id });
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const c = await db();
+        const { employee_id, template_id, annual_ctc, effective_from, status } = req.body;
+        
+        if (!employee_id || !template_id || !annual_ctc || !effective_from) {
+            c.end();
+            return res.status(400).json({ success: false, error: "Missing required fields" });
+        }
+        
+        const [result] = await c.query("INSERT INTO employee_salary_contracts SET ?", { 
+            employee_id, 
+            template_id, 
+            annual_ctc, 
+            effective_from, 
+            status: status || 'Active', 
+            created_by: req.user.id 
+        });
+        c.end();
+        res.json({ id: result.insertId, success: true, message: "Employee contract created successfully" });
+    } catch (error) {
+        console.error("Error creating employee contract:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.put("/contracts/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("UPDATE employee_salary_contracts SET ? WHERE id = ?", [req.body, req.params.id]);
+    await c.query("UPDATE employee_salary_contracts SET ? WHERE contract_id = ?", [req.body, req.params.id]);
     c.end();
     res.json({ success: true });
 });
 router.delete("/contracts/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("DELETE FROM employee_salary_contracts WHERE id = ?", [req.params.id]);
+    await c.query("DELETE FROM employee_salary_contracts WHERE contract_id = ?", [req.params.id]);
     c.end();
     res.json({ success: true });
 });
@@ -387,26 +474,41 @@ router.delete("/contracts/:id", auth, hrOrAdmin, async (req, res) => {
 // ---- Payroll Periods CRUD ----
 router.get("/periods", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT * FROM payroll_periods ORDER BY period_start DESC");
+    const [rows] = await c.query("SELECT * FROM payroll_periods ORDER BY year DESC, month DESC");
     c.end();
     res.json(rows);
 });
 router.post("/periods", auth, hrOrAdmin, async (req, res) => {
-    const c = await db();
-    const { period_code, period_start, period_end, status } = req.body;
-    const [result] = await c.query("INSERT INTO payroll_periods SET ?", { period_code, period_start, period_end, status });
-    c.end();
-    res.json({ id: result.insertId, success: true });
+    try {
+        const c = await db();
+        const { month, year, status } = req.body;
+        
+        if (!month || !year) {
+            c.end();
+            return res.status(400).json({ success: false, error: "Month and year are required" });
+        }
+        
+        const [result] = await c.query("INSERT INTO payroll_periods SET ?", { 
+            month, 
+            year, 
+            status: status || 'Draft' 
+        });
+        c.end();
+        res.json({ id: result.insertId, success: true, message: "Payroll period created successfully" });
+    } catch (error) {
+        console.error("Error creating payroll period:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 router.put("/periods/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("UPDATE payroll_periods SET ? WHERE id = ?", [req.body, req.params.id]);
+    await c.query("UPDATE payroll_periods SET ? WHERE period_id = ?", [req.body, req.params.id]);
     c.end();
     res.json({ success: true });
 });
 router.delete("/periods/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    await c.query("DELETE FROM payroll_periods WHERE id = ?", [req.params.id]);
+    await c.query("DELETE FROM payroll_periods WHERE period_id = ?", [req.params.id]);
     c.end();
     res.json({ success: true });
 });
@@ -420,7 +522,7 @@ router.get("/payslips", auth, hrOrAdmin, async (req, res) => {
 });
 router.get("/payslips/:id", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT ps.*, e.EmployeeNumber, e.FullName FROM payslips ps JOIN employees e ON ps.employee_id = e.id WHERE ps.id = ?", [req.params.id]);
+    const [rows] = await c.query("SELECT ps.*, e.EmployeeNumber, e.FullName FROM payslips ps JOIN employees e ON ps.employee_id = e.id WHERE ps.payslip_id = ?", [req.params.id]);
     c.end();
     res.json(rows[0] || null);
 });
@@ -428,7 +530,7 @@ router.get("/payslips/:id", auth, hrOrAdmin, async (req, res) => {
 // ---- Payslip Items (Read Only) ----
 router.get("/payslips/:id/items", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
-    const [rows] = await c.query("SELECT pi.*, sc.name, sc.type FROM payslip_items pi JOIN salary_components sc ON pi.component_id = sc.id WHERE pi.payslip_id = ?", [req.params.id]);
+    const [rows] = await c.query("SELECT pi.*, sc.name, sc.type FROM payslip_items pi JOIN salary_components sc ON pi.component_id = sc.component_id WHERE pi.payslip_id = ?", [req.params.id]);
     c.end();
     res.json(rows);
 });
@@ -439,7 +541,7 @@ router.post("/run", auth, hrOrAdmin, async (req, res) => {
     const c = await db();
     try {
         // Get payroll period
-        const [periodRows] = await c.query("SELECT * FROM payroll_periods WHERE id = ?", [period_id]);
+        const [periodRows] = await c.query("SELECT * FROM payroll_periods WHERE period_id = ?", [period_id]);
         if (!periodRows.length) throw new Error("Payroll period not found");
         const period = periodRows[0];
 

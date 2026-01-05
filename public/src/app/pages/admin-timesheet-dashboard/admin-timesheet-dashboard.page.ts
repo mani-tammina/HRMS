@@ -97,7 +97,8 @@ export class AdminTimesheetDashboardPage implements OnInit {
   }
 
   loadPayrollStatus() {
-    this.adminTimesheetService.getPayrollStatus().subscribe({
+    const currentPeriod = new Date().toISOString().substring(0, 7); // YYYY-MM
+    this.adminTimesheetService.getPayrollStatus(currentPeriod).subscribe({
       next: (response) => {
         this.payrollStatus = response;
       },
@@ -147,6 +148,16 @@ export class AdminTimesheetDashboardPage implements OnInit {
       'partial': 'warning'
     };
     return colors[status] || 'medium';
+  }
+
+  getPayrollLockStatusColor(status?: string): string {
+    const colors: { [key: string]: string } = {
+      'open': 'success',
+      'review': 'warning',
+      'locked': 'danger',
+      'processed': 'medium'
+    };
+    return colors[status || 'open'] || 'medium';
   }
 
   getComplianceStatusLabel(status: string): string {

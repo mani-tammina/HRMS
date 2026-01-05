@@ -55,8 +55,17 @@ router.post("/", auth, hr, async (req, res) => {
         res.json({
             success: true,
             message: "Project created successfully",
-            project_id: result.insertId,
-            project_code
+            project: {
+                id: result.insertId,
+                project_code,
+                project_name,
+                client_name,
+                start_date,
+                end_date,
+                status: status || 'active',
+                description,
+                project_manager_id
+            }
         });
     } catch (error) {
         console.error("Error creating project:", error);

@@ -190,6 +190,50 @@ export const routes: Routes = [
     path: 'admin/leave-types',
     loadComponent: () => import('./pages/leave-types/leave-types.page').then(m => m.LeaveTypesPage),
     canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/leaves',
+    loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage),
+    canActivate: [adminGuard]
+  },
+  // Projects Management Routes
+  {
+    path: 'admin/projects',
+    loadComponent: () => import('./pages/admin/projects/projects.page').then(m => m.ProjectsPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/projects/:id',
+    loadComponent: () => import('./pages/admin/projects/project-detail/project-detail.page').then(m => m.ProjectDetailPage),
+    canActivate: [adminGuard]
+  },
+  // Assets Management Routes
+  {
+    path: 'admin/assets',
+    loadComponent: () => import('./pages/admin/assets/assets.page').then(m => m.AssetsPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/assets/allocate',
+    loadComponent: () => import('./pages/admin/assets/asset-allocation/asset-allocation.page').then(m => m.AssetAllocationPage),
+    canActivate: [adminGuard]
+  },
+  {
+    path: 'admin/assets/reports',
+    loadComponent: () => import('./pages/admin/assets/asset-reports/asset-reports.page').then(m => m.AssetReportsPage),
+    canActivate: [adminGuard]
+  },
+  // Analytics Dashboard
+  {
+    path: 'admin/analytics',
+    loadComponent: () => import('./pages/admin/analytics/analytics-dashboard.page').then(m => m.AnalyticsDashboardPage),
+    canActivate: [adminGuard]
+  },
+  // Verification Queue (shorter path)
+  {
+    path: 'verification-queue',
+    loadComponent: () => import('./pages/verification-queue/verification-queue.page').then(m => m.VerificationQueuePage),
+    canActivate: [authGuard]
   }
 
 ];

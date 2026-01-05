@@ -11,7 +11,7 @@ import {
   peopleOutline, cloudUploadOutline, settingsOutline, documentTextOutline,
   calendarOutline, megaphoneOutline, helpCircleOutline, briefcaseOutline,
   cashOutline, timeOutline, statsChartOutline, personAddOutline, shieldOutline,
-  clipboardOutline, homeOutline
+  clipboardOutline, homeOutline, cubeOutline, barChartOutline
 } from 'ionicons/icons';
 import { AuthService, User } from '@core/services/auth.service';
 
@@ -40,6 +40,27 @@ export class AdminDashboardPage implements OnInit {
   user: User | null = null;
   
   adminCards: AdminCard[] = [
+    {
+      title: 'Analytics Dashboard',
+      description: 'View comprehensive analytics and insights',
+      icon: 'stats-chart-outline',
+      route: '/admin/analytics',
+      color: 'primary'
+    },
+    {
+      title: 'Projects Management',
+      description: 'Manage projects, shifts, and team assignments',
+      icon: 'briefcase-outline',
+      route: '/admin/projects',
+      color: 'tertiary'
+    },
+    {
+      title: 'Assets Management',
+      description: 'Track and allocate company assets',
+      icon: 'cube-outline',
+      route: '/admin/assets',
+      color: 'success'
+    },
     {
       title: 'Stepup Payroll',
       description: 'Setup, run, and manage new payroll (components, templates, contracts)',
@@ -100,14 +121,14 @@ export class AdminDashboardPage implements OnInit {
       title: 'Holiday Management',
       description: 'Add and manage company holidays',
       icon: 'calendar-outline',
-      route: '/admin/holidays',
+      route: '/holidays',
       color: 'primary'
     },
     {
       title: 'Announcements',
       description: 'Create and manage announcements',
       icon: 'megaphone-outline',
-      route: '/admin/announcements',
+      route: '/announcements',
       color: 'secondary'
     },
     {
@@ -123,13 +144,6 @@ export class AdminDashboardPage implements OnInit {
       icon: 'person-add-outline',
       route: '/candidates',
       color: 'success'
-    },
-    {
-      title: 'Pre-Onboarding',
-      description: 'Manage candidate onboarding',
-      icon: 'briefcase-outline',
-      route: '/admin/preonboarding',
-      color: 'warning'
     },
     {
       title: 'Leave Plans',
@@ -166,7 +180,9 @@ export class AdminDashboardPage implements OnInit {
       statsChartOutline,
       personAddOutline,
       clipboardOutline,
-      homeOutline
+      homeOutline,
+      cubeOutline,
+      barChartOutline
     });
   }
 

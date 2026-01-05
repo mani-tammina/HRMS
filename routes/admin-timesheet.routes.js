@@ -5,7 +5,7 @@
 
 const express = require('express');
 const router = express.Router();
-const db = require('../config/database');
+const { db } = require('../config/database');
 const { authMiddleware, adminAuthMiddleware } = require('../middleware/auth');
 
 // ============================================
@@ -100,10 +100,10 @@ router.get('/non-compliant-employees', authMiddleware, adminAuthMiddleware, asyn
     let query = `
       SELECT 
         e.id AS employee_id,
-        e.employee_code,
-        e.first_name,
-        e.last_name,
-        e.email,
+        e.EmployeeNumber AS employee_code,
+        e.FirstName AS first_name,
+        e.LastName AS last_name,
+        e.WorkEmail AS email,
         p.id AS project_id,
         p.project_name,
         p.client_name,
@@ -140,7 +140,7 @@ router.get('/non-compliant-employees', authMiddleware, adminAuthMiddleware, asyn
       }
     }
 
-    query += ' ORDER BY p.project_name, e.employee_code';
+    query += ' ORDER BY p.project_name, e.EmployeeNumber';
 
     const [employees] = await db.query(query, params);
 
@@ -171,9 +171,9 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
       SELECT 
         wu.id AS work_update_id,
         wu.employee_id,
-        e.employee_code,
-        e.first_name,
-        e.last_name,
+        e.EmployeeNumber AS employee_code,
+        e.FirstName AS first_name,
+        e.LastName AS last_name,
         wu.project_id,
         p.project_name,
         p.client_name,
@@ -259,10 +259,10 @@ router.get('/comparison/:workUpdateId', authMiddleware, adminAuthMiddleware, asy
     const [workUpdate] = await db.query(`
       SELECT 
         wu.*,
-        e.employee_code,
-        e.first_name,
-        e.last_name,
-        e.email,
+        e.EmployeeNumber AS employee_code,
+        e.FirstName AS first_name,
+        e.LastName AS last_name,
+        e.WorkEmail AS email,
         p.project_name,
         p.client_name,
         ps.shift_name,
