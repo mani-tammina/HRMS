@@ -37,7 +37,7 @@ const authRoutes = require("./routes/auth.routes");
 const masterRoutes = require("./routes/master.routes");
 const candidatesRoutes = require("./routes/candidates.routes");
 const preonboardingRoutes = require("./routes/preonboarding.routes");
-const onboardingRoutes = require("./routes/onboarding.routes");
+const onboardingRoutes = require("./routes/onboarding.routes.enhanced.js");
 const employeeRoutes = require("./routes/employee.routes");
 const attendanceRoutes = require("./routes/attendance-enhanced.routes"); // Enhanced with multiple punches
 const leaveRoutes = require("./routes/leave-enhanced.routes"); // Enhanced leave management
@@ -288,7 +288,6 @@ app.use("/api/attendance", attendanceRoutes);
 
 // Leave Routes
 app.use("/api/leaves", leaveRoutes);
-app.use("/api/leave", leaveRoutes); // Also mount on /api/leave for compatibility
 
 // Payroll Routes
 app.use("/api/payroll", payrollRoutes);

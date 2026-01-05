@@ -106,8 +106,8 @@ const swaggerSpec = {
 **Key Features:** ✅ Salary structure templates ✅ Auto-calculation (gross/net) ✅ Bulk Excel upload ✅ Employee self-service view ✅ Monthly payroll runs`
     },
     servers: [
-        { 
-            url: process.env.API_BASE_URL || "http://localhost:3000", 
+        {
+            url: process.env.API_BASE_URL || "http://localhost:3000",
             description: process.env.NODE_ENV === 'production' ? "Production Server" : "Development Server"
         }
     ],
@@ -126,8 +126,8 @@ const swaggerSpec = {
                 properties: {
                     id: { type: "integer" },
                     username: { type: "string" },
-                    role: { 
-                        type: "string", 
+                    role: {
+                        type: "string",
                         enum: ["admin", "hr", "manager", "employee"],
                         description: "User role - admin (full access), hr (HR operations), manager (team management), employee (self-service)"
                     }
@@ -149,11 +149,11 @@ const swaggerSpec = {
                 type: "object",
                 required: ["work_mode"],
                 properties: {
-                    work_mode: { 
-                        type: "string", 
+                    work_mode: {
+                        type: "string",
                         enum: ["Office", "WFH", "Remote", "Hybrid"],
                         description: "Work mode - Office (on-site), WFH (Work From Home), Remote (any remote location), Hybrid (mixed mode)",
-                        example: "WFH" 
+                        example: "WFH"
                     },
                     location: { type: "string", example: "Home - Mumbai" },
                     notes: { type: "string", example: "Working from home today" }
@@ -164,11 +164,11 @@ const swaggerSpec = {
                 required: ["date", "work_mode"],
                 properties: {
                     date: { type: "string", format: "date", example: "2025-12-25", description: "Date for WFH/Remote work" },
-                    work_mode: { 
-                        type: "string", 
+                    work_mode: {
+                        type: "string",
                         enum: ["WFH", "Remote"],
                         description: "Work mode - WFH (Work From Home) or Remote (any remote location)",
-                        example: "WFH" 
+                        example: "WFH"
                     },
                     reason: { type: "string", example: "Personal commitment", description: "Optional reason for the request" }
                 }
@@ -182,11 +182,11 @@ const swaggerSpec = {
                     start_date: { type: "string", format: "date" },
                     end_date: { type: "string", format: "date" },
                     reason: { type: "string" },
-                    status: { 
-                        type: "string", 
+                    status: {
+                        type: "string",
                         enum: ["pending", "approved", "rejected", "cancelled"],
                         description: "Leave status - pending (awaiting approval), approved (approved by manager), rejected (denied), cancelled (withdrawn by employee)",
-                        default: "pending" 
+                        default: "pending"
                     }
                 }
             },
@@ -212,7 +212,7 @@ const swaggerSpec = {
                 }
             }
         },
-        
+
         // ============ AUTHENTICATION ============
         "/api/auth/login": {
             post: {
@@ -236,7 +236,7 @@ const swaggerSpec = {
                     }
                 },
                 responses: {
-                    200: { 
+                    200: {
                         description: "Login successful",
                         content: {
                             "application/json": {
@@ -261,7 +261,7 @@ const swaggerSpec = {
                 tags: ["🔐 Authentication"],
                 security: [{ bearerAuth: [] }],
                 responses: {
-                    200: { 
+                    200: {
                         description: "Logged out successfully",
                         content: {
                             "application/json": {
@@ -314,7 +314,7 @@ const swaggerSpec = {
                                             }
                                         },
                                         hasUserAccount: { type: "boolean", example: false },
-                                        userInfo: { 
+                                        userInfo: {
                                             type: "object",
                                             nullable: true,
                                             properties: {
@@ -448,15 +448,15 @@ const swaggerSpec = {
                                 type: "object",
                                 required: ["employee_id", "password"],
                                 properties: {
-                                    employee_id: { 
-                                        type: "integer", 
-                                        example: 1, 
-                                        description: "Employee ID from employees table" 
+                                    employee_id: {
+                                        type: "integer",
+                                        example: 1,
+                                        description: "Employee ID from employees table"
                                     },
-                                    password: { 
-                                        type: "string", 
-                                        example: "SecurePass123!", 
-                                        description: "User login password" 
+                                    password: {
+                                        type: "string",
+                                        example: "SecurePass123!",
+                                        description: "User login password"
                                     }
                                 }
                             }
@@ -489,8 +489,8 @@ const swaggerSpec = {
                                                 role: { type: "string", enum: ["employee", "manager", "hr"] }
                                             }
                                         },
-                                        roleAssignmentReason: { 
-                                            type: "string", 
+                                        roleAssignmentReason: {
+                                            type: "string",
                                             example: "Has more than 4 direct reports",
                                             description: "Explanation of why this role was assigned"
                                         }
@@ -572,16 +572,16 @@ Skips employees who already have user accounts.
                                 type: "object",
                                 required: ["employee_ids", "default_password"],
                                 properties: {
-                                    employee_ids: { 
-                                        type: "array", 
+                                    employee_ids: {
+                                        type: "array",
                                         items: { type: "integer" },
                                         example: [1, 2, 3, 4, 5],
-                                        description: "Array of employee IDs" 
+                                        description: "Array of employee IDs"
                                     },
-                                    default_password: { 
-                                        type: "string", 
-                                        example: "Welcome@2025", 
-                                        description: "Default password for all created users" 
+                                    default_password: {
+                                        type: "string",
+                                        example: "Welcome@2025",
+                                        description: "Default password for all created users"
                                     }
                                 }
                             }
@@ -997,7 +997,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ EMPLOYEES ============
         "/api/employees": {
             get: {
@@ -1005,7 +1005,7 @@ Skips employees who already have user accounts.
                 description: "Retrieve list of all employees",
                 tags: ["👥 Employees"],
                 responses: {
-                    200: { 
+                    200: {
                         description: "List of employees",
                         content: {
                             "application/json": {
@@ -1077,16 +1077,16 @@ Skips employees who already have user accounts.
                     schema: { type: "integer" }
                 }],
                 responses: {
-                    200: { 
+                    200: {
                         description: "Detailed employee information",
                         content: {
                             "application/json": {
                                 schema: {
                                     type: "object",
                                     properties: {
-                                        employee: { 
+                                        employee: {
                                             type: "object",
-                                            description: "Employee data with all master relationships" 
+                                            description: "Employee data with all master relationships"
                                         },
                                         attendance_summary: {
                                             type: "object",
@@ -1170,7 +1170,7 @@ Skips employees who already have user accounts.
                             }
                         }
                     },
-                    400: { 
+                    400: {
                         description: "No image file uploaded",
                         content: {
                             "application/json": {
@@ -1180,7 +1180,7 @@ Skips employees who already have user accounts.
                             }
                         }
                     },
-                    500: { 
+                    500: {
                         description: "Failed to upload profile image",
                         content: {
                             "application/json": {
@@ -1238,7 +1238,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ ATTENDANCE (MULTIPLE PUNCHES SYSTEM) ============
         "/api/attendance/punch-in": {
             post: {
@@ -1251,11 +1251,11 @@ Skips employees who already have user accounts.
                             schema: {
                                 type: "object",
                                 properties: {
-                                    work_mode: { 
-                                        type: "string", 
-                                        enum: ["Office", "WFH", "Remote", "Hybrid"], 
+                                    work_mode: {
+                                        type: "string",
+                                        enum: ["Office", "WFH", "Remote", "Hybrid"],
                                         description: "Work mode - Office, WFH (Work From Home), Remote, or Hybrid",
-                                        example: "Office" 
+                                        example: "Office"
                                     },
                                     location: { type: "string", example: "Mumbai Office" },
                                     notes: { type: "string", example: "Starting work" }
@@ -1592,7 +1592,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ LEAVES & WFH REQUESTS ============
         "/api/leaves/apply": {
             post: {
@@ -1626,7 +1626,7 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
+                    200: {
                         description: "WFH request submitted",
                         content: {
                             "application/json": {
@@ -1654,7 +1654,7 @@ Skips employees who already have user accounts.
                 tags: ["🏖️ Leave Management"],
                 security: [{ bearerAuth: [] }],
                 responses: {
-                    200: { 
+                    200: {
                         description: "List of WFH/Remote requests",
                         content: {
                             "application/json": {
@@ -1692,7 +1692,7 @@ Skips employees who already have user accounts.
                 tags: ["🏖️ Leave Management"],
                 security: [{ bearerAuth: [] }],
                 responses: {
-                    200: { 
+                    200: {
                         description: "Pending WFH/Remote requests with employee details (or empty array for employees)",
                         content: {
                             "application/json": {
@@ -1729,7 +1729,7 @@ Skips employees who already have user accounts.
                 tags: ["🏖️ Leave Management"],
                 security: [{ bearerAuth: [] }],
                 responses: {
-                    200: { 
+                    200: {
                         description: "WFH status for today",
                         content: {
                             "application/json": {
@@ -1748,7 +1748,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ ENHANCED LEAVE MANAGEMENT SYSTEM ============
         "/api/leaves/plans": {
             post: {
@@ -2119,6 +2119,82 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/leaves/initialize-my-balance": {
+            post: {
+                summary: "🧑‍💼 Initialize My Leave Balance",
+                description: "Self-service API for employees to initialize their own leave balances based on the assigned leave plan. Auto-prorates if the employee joined mid-year.",
+                tags: ["🏖️ Leave Management"],
+                security: [
+                    { bearerAuth: [] }
+                ],
+                requestBody: {
+                    required: false,
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    leave_year: {
+                                        type: "integer",
+                                        description: "Leave year for initialization (defaults to current year)"
+                                    }
+                                }
+                            },
+                            example: {
+                                leave_year: 2025
+                            }
+                        }
+                    }
+                },
+                responses: {
+                    200: {
+                        description: "Leave balances initialized successfully for logged-in employee",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Your leave balances have been initialized successfully",
+                                    year: 2025
+                                }
+                            }
+                        }
+                    },
+                    400: {
+                        description: "Leave plan not assigned",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "You have no leave plan assigned. Please contact HR."
+                                }
+                            }
+                        }
+                    },
+                    401: {
+                        description: "Unauthorized – Invalid or missing token"
+                    },
+                    404: {
+                        description: "Employee not found",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "Employee not found"
+                                }
+                            }
+                        }
+                    },
+                    500: {
+                        description: "Internal server error",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    error: "Something went wrong"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/leaves/balance": {
             get: {
                 summary: "✨ Get My Leave Balance",
@@ -2395,7 +2471,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ PAYROLL ============
         "/api/payroll/generate": {
             post: {
@@ -2494,7 +2570,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ ENHANCED TIMESHEETS ============
         "/api/timesheets/assignment-status": {
             get: {
@@ -2805,8 +2881,8 @@ Skips employees who already have user accounts.
                                     project_id: { type: "integer" },
                                     month: { type: "integer" },
                                     year: { type: "integer" },
-                                    validation_status: { 
-                                        type: "string", 
+                                    validation_status: {
+                                        type: "string",
                                         enum: ["validated", "rejected", "mismatch"],
                                         description: "Validation status - validated (approved), rejected (discrepancies found), mismatch (hours don't match)"
                                     },
@@ -2868,7 +2944,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ MANAGER ACTIONS ============
         "/api/leaves/pending": {
             get: {
@@ -3007,7 +3083,7 @@ Skips employees who already have user accounts.
                     {
                         name: "timesheet_type",
                         in: "query",
-                        schema: { 
+                        schema: {
                             type: "string",
                             enum: ["regular", "project"]
                         },
@@ -3276,7 +3352,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ REPORTS ============
         "/api/reports/attendance": {
             get: {
@@ -3314,14 +3390,14 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ MASTER DATA ============
         "/api/locations": {
             get: {
                 summary: "Get All Locations",
                 tags: ["🏢 Master Data"],
                 responses: {
-                    200: { 
+                    200: {
                         description: "List of locations",
                         content: {
                             "application/json": {
@@ -4080,8 +4156,8 @@ Skips employees who already have user accounts.
                                             thursday_off: { type: "integer", example: 0 },
                                             friday_off: { type: "integer", example: 0 },
                                             saturday_off: { type: "integer", example: 1 },
-                                            week_pattern: { 
-                                                type: "object", 
+                                            week_pattern: {
+                                                type: "object",
                                                 nullable: true,
                                                 example: { "Sat": [2, 4], "Sun": [1, 2, 3, 4, 5] },
                                                 description: "JSON pattern for alternate weeks. Key = day abbrev, Value = array of week numbers (1-5)"
@@ -4124,7 +4200,7 @@ Skips employees who already have user accounts.
                                     effective_date: { type: "string", format: "date", example: "2024-01-01" },
                                     end_date: { type: "string", format: "date", nullable: true },
                                     is_active: { type: "integer", example: 1, description: "1=active, 0=inactive" },
-                                    
+
                                     sunday_off: { type: "integer", example: 1, description: "1=off, 0=working" },
                                     monday_off: { type: "integer", example: 0 },
                                     tuesday_off: { type: "integer", example: 0 },
@@ -4132,26 +4208,26 @@ Skips employees who already have user accounts.
                                     thursday_off: { type: "integer", example: 0 },
                                     friday_off: { type: "integer", example: 0 },
                                     saturday_off: { type: "integer", example: 0 },
-                                    
-                                    week_pattern: { 
+
+                                    week_pattern: {
                                         type: "object",
                                         example: { "Sat": [2, 4] },
                                         description: "Alternate week pattern. Example: {\"Sat\": [2, 4]} = 2nd & 4th Saturday off"
                                     },
-                                    
+
                                     is_payable: { type: "integer", example: 1, description: "1=paid, 0=unpaid" },
-                                    holiday_overlap_rule: { 
-                                        type: "string", 
+                                    holiday_overlap_rule: {
+                                        type: "string",
                                         enum: ["ignore", "compensatory_off", "carry_forward"],
                                         example: "ignore",
                                         description: "What happens when public holiday falls on week off"
                                     },
                                     sandwich_rule: { type: "integer", example: 0, description: "1=count weekends in sandwiched leaves" },
                                     minimum_work_days: { type: "integer", example: 0, description: "Min days to work to earn week off" },
-                                    
+
                                     allow_half_day: { type: "integer", example: 0 },
                                     half_day_pattern: { type: "object", nullable: true },
-                                    
+
                                     location_id: { type: "integer", nullable: true, description: "NULL = applies to all locations" },
                                     department_id: { type: "integer", nullable: true, description: "NULL = applies to all departments" },
                                     shift_policy_id: { type: "integer", nullable: true, description: "NULL = applies to all shifts" }
@@ -4610,7 +4686,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ UPLOADS ============
         "/api/upload/employees": {
             post: {
@@ -4624,8 +4700,8 @@ Skips employees who already have user accounts.
                                 type: "object",
                                 required: ["file"],
                                 properties: {
-                                    file: { 
-                                        type: "string", 
+                                    file: {
+                                        type: "string",
                                         format: "binary",
                                         description: "Excel file (.xlsx or .xls) with employee data"
                                     }
@@ -4635,7 +4711,7 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
+                    200: {
                         description: "Employees uploaded successfully",
                         content: {
                             "application/json": {
@@ -4667,8 +4743,8 @@ Skips employees who already have user accounts.
                                 type: "object",
                                 required: ["file"],
                                 properties: {
-                                    file: { 
-                                        type: "string", 
+                                    file: {
+                                        type: "string",
                                         format: "binary",
                                         description: "Excel file with holiday data"
                                     }
@@ -4678,7 +4754,7 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
+                    200: {
                         description: "Holidays uploaded successfully",
                         content: {
                             "application/json": {
@@ -4709,18 +4785,18 @@ Skips employees who already have user accounts.
                                 type: "object",
                                 required: ["file"],
                                 properties: {
-                                    file: { 
-                                        type: "string", 
+                                    file: {
+                                        type: "string",
                                         format: "binary",
                                         description: "Excel file with payroll data (EmployeeNumber, basic, hra, conveyance, special_allowance, pf, esi, etc.)"
                                     },
-                                    month: { 
-                                        type: "integer", 
+                                    month: {
+                                        type: "integer",
                                         example: 12,
                                         description: "Payroll month (1-12)"
                                     },
-                                    year: { 
-                                        type: "integer", 
+                                    year: {
+                                        type: "integer",
                                         example: 2025,
                                         description: "Payroll year"
                                     }
@@ -4730,7 +4806,7 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
+                    200: {
                         description: "Payroll uploaded and processed successfully",
                         content: {
                             "application/json": {
@@ -4750,7 +4826,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ HOLIDAYS ============
         "/api/holidays": {
             get: {
@@ -4770,7 +4846,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ ANNOUNCEMENTS ============
         "/api/announcements": {
             get: {
@@ -4805,7 +4881,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ SUPPORT ============
         "/api/support": {
             get: {
@@ -4828,11 +4904,11 @@ Skips employees who already have user accounts.
                                 properties: {
                                     subject: { type: "string", example: "Unable to access payroll" },
                                     message: { type: "string", example: "I am getting an error when trying to view my payslip for December 2025" },
-                                    priority: { 
-                                        type: "string", 
+                                    priority: {
+                                        type: "string",
                                         enum: ["Low", "Medium", "High", "Critical"],
                                         default: "Medium",
-                                        example: "High" 
+                                        example: "High"
                                     }
                                 }
                             }
@@ -4853,7 +4929,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ BIRTHDAYS ============
         "/api/birthdays": {
             get: {
@@ -4888,7 +4964,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ NOTIFICATIONS ============
         "/api/notifications": {
             get: {
@@ -4924,7 +5000,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ CANDIDATES & PRE-ONBOARDING ============
         "/api/candidates": {
             get: {
@@ -4943,13 +5019,13 @@ Skips employees who already have user accounts.
                         content: {
                             "application/json": {
                                 example: [
-                                    { 
-                                        id: 1, 
-                                        candidate_id: "CAN001", 
-                                        full_name: "Alice Johnson", 
-                                        email: "alice@example.com", 
-                                        position: "Software Engineer", 
-                                        status: "offer_accepted", 
+                                    {
+                                        id: 1,
+                                        candidate_id: "CAN001",
+                                        full_name: "Alice Johnson",
+                                        email: "alice@example.com",
+                                        position: "Software Engineer",
+                                        status: "offer_accepted",
                                         joining_date: "2024-03-01",
                                         department_name: "Engineering",
                                         designation_name: "Senior Developer"
@@ -4999,14 +5075,14 @@ Skips employees who already have user accounts.
                 responses: {
                     200: {
                         description: "Candidate created successfully",
-                        content: { 
-                            "application/json": { 
-                                example: { 
-                                    success: true, 
-                                    candidate_id: 1, 
-                                    message: "Candidate created successfully" 
-                                } 
-                            } 
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    candidate_id: 1,
+                                    message: "Candidate created successfully"
+                                }
+                            }
                         }
                     },
                     401: { description: "Unauthorized - HR access required" }
@@ -5025,10 +5101,10 @@ Skips employees who already have user accounts.
                         content: {
                             "application/json": {
                                 example: {
-                                    candidate: { 
-                                        id: 1, 
+                                    candidate: {
+                                        id: 1,
                                         candidate_id: "CAN001",
-                                        full_name: "Alice Johnson", 
+                                        full_name: "Alice Johnson",
                                         email: "alice@example.com",
                                         status: "offer_accepted",
                                         joining_date: "2024-03-01",
@@ -5059,24 +5135,24 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
-                            example: { 
-                                phone: "9876543210", 
+                    content: {
+                        "application/json": {
+                            example: {
+                                phone: "9876543210",
                                 joining_date: "2024-03-15",
                                 status: "ready_to_join"
-                            } 
-                        } 
+                            }
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Candidate updated", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Candidate updated successfully" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Candidate updated",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Candidate updated successfully" }
+                            }
+                        }
                     }
                 }
             }
@@ -5088,13 +5164,13 @@ Skips employees who already have user accounts.
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 responses: {
-                    200: { 
-                        description: "Offer sent", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Offer letter sent" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Offer sent",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Offer letter sent" }
+                            }
+                        }
                     }
                 }
             }
@@ -5107,16 +5183,16 @@ Skips employees who already have user accounts.
                 security: [],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 responses: {
-                    200: { 
-                        description: "Offer accepted and tasks assigned", 
-                        content: { 
-                            "application/json": { 
-                                example: { 
-                                    success: true, 
-                                    message: "Offer accepted, pre-onboarding tasks assigned" 
-                                } 
-                            } 
-                        } 
+                    200: {
+                        description: "Offer accepted and tasks assigned",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "Offer accepted, pre-onboarding tasks assigned"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -5130,8 +5206,8 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 required: ["reason"],
@@ -5139,17 +5215,17 @@ Skips employees who already have user accounts.
                                     reason: { type: "string", example: "Accepted another offer" }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Offer declined", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Offer declined" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Offer declined",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Offer declined" }
+                            }
+                        }
                     }
                 }
             }
@@ -5169,8 +5245,8 @@ Skips employees who already have user accounts.
                                 required: ["file", "document_type"],
                                 properties: {
                                     file: { type: "string", format: "binary", description: "Document file" },
-                                    document_type: { 
-                                        type: "string", 
+                                    document_type: {
+                                        type: "string",
                                         enum: ["photo", "resume", "offer_letter", "id_proof", "address_proof", "pan_card", "aadhar_card", "education_certificate", "experience_certificate", "relieving_letter", "salary_slip", "bank_passbook", "cancelled_cheque", "other"],
                                         example: "resume"
                                     },
@@ -5181,13 +5257,13 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Document uploaded", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Document uploaded successfully" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Document uploaded",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Document uploaded successfully" }
+                            }
+                        }
                     }
                 }
             }
@@ -5200,25 +5276,25 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "docId", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 properties: {
                                     remarks: { type: "string", example: "Document verified successfully" }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Document verified", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Document verified" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Document verified",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Document verified" }
+                            }
+                        }
                     }
                 }
             }
@@ -5230,13 +5306,13 @@ Skips employees who already have user accounts.
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 responses: {
-                    200: { 
-                        description: "BGV initiated", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "BGV initiated" } 
-                            } 
-                        } 
+                    200: {
+                        description: "BGV initiated",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "BGV initiated" }
+                            }
+                        }
                     }
                 }
             }
@@ -5249,31 +5325,31 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 required: ["bgv_status"],
                                 properties: {
-                                    bgv_status: { 
-                                        type: "string", 
+                                    bgv_status: {
+                                        type: "string",
                                         enum: ["not_started", "initiated", "in_progress", "completed", "failed"],
-                                        example: "completed" 
+                                        example: "completed"
                                     },
                                     remarks: { type: "string", example: "All checks passed successfully" }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "BGV status updated", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "BGV status updated" } 
-                            } 
-                        } 
+                    200: {
+                        description: "BGV status updated",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "BGV status updated" }
+                            }
+                        }
                     }
                 }
             }
@@ -5285,29 +5361,29 @@ Skips employees who already have user accounts.
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 properties: {
                                     employee_number: { type: "string", example: "EMP12345", description: "Optional - auto-generated if not provided" }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Candidate converted successfully", 
-                        content: { 
-                            "application/json": { 
-                                example: { 
-                                    success: true, 
-                                    employee_id: 100, 
-                                    message: "Candidate converted to employee successfully" 
-                                } 
-                            } 
-                        } 
+                    200: {
+                        description: "Candidate converted successfully",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    employee_id: 100,
+                                    message: "Candidate converted to employee successfully"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -5337,7 +5413,7 @@ Skips employees who already have user accounts.
                 }
             }
         },
-        
+
         // ============ PRE-ONBOARDING TASKS ============
         "/api/preonboarding/tasks": {
             get: {
@@ -5350,12 +5426,12 @@ Skips employees who already have user accounts.
                         content: {
                             "application/json": {
                                 example: [
-                                    { 
-                                        id: 1, 
-                                        task_name: "Upload Photo", 
+                                    {
+                                        id: 1,
+                                        task_name: "Upload Photo",
                                         description: "Upload passport size photograph",
-                                        task_category: "document_submission", 
-                                        is_mandatory: 1, 
+                                        task_category: "document_submission",
+                                        is_mandatory: 1,
                                         task_order: 1,
                                         auto_assign: 1,
                                         assigned_to_role: "candidate"
@@ -5380,18 +5456,18 @@ Skips employees who already have user accounts.
                                 properties: {
                                     task_name: { type: "string", example: "Upload Passport" },
                                     description: { type: "string", example: "Upload passport copy for international travel" },
-                                    task_category: { 
-                                        type: "string", 
+                                    task_category: {
+                                        type: "string",
                                         enum: ["document_submission", "form_filling", "verification", "system_setup", "other"],
-                                        example: "document_submission" 
+                                        example: "document_submission"
                                     },
                                     is_mandatory: { type: "integer", enum: [0, 1], example: 0 },
                                     task_order: { type: "integer", example: 20 },
                                     auto_assign: { type: "integer", enum: [0, 1], example: 1, description: "Auto-assign when offer is accepted?" },
-                                    assigned_to_role: { 
-                                        type: "string", 
+                                    assigned_to_role: {
+                                        type: "string",
                                         enum: ["candidate", "hr", "manager", "admin"],
-                                        example: "candidate" 
+                                        example: "candidate"
                                     }
                                 }
                             }
@@ -5399,17 +5475,17 @@ Skips employees who already have user accounts.
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Task created", 
-                        content: { 
-                            "application/json": { 
-                                example: { 
-                                    success: true, 
-                                    task_id: 10, 
-                                    message: "Pre-onboarding task created" 
-                                } 
-                            } 
-                        } 
+                    200: {
+                        description: "Task created",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    task_id: 10,
+                                    message: "Pre-onboarding task created"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -5422,23 +5498,23 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
-                            example: { 
-                                task_name: "Upload Passport (Updated)", 
-                                is_mandatory: 1 
-                            } 
-                        } 
+                    content: {
+                        "application/json": {
+                            example: {
+                                task_name: "Upload Passport (Updated)",
+                                is_mandatory: 1
+                            }
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Task updated", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Task template updated" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Task updated",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Task template updated" }
+                            }
+                        }
                     }
                 }
             },
@@ -5448,13 +5524,13 @@ Skips employees who already have user accounts.
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
                 responses: {
-                    200: { 
-                        description: "Task deleted", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Task template deleted" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Task deleted",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Task template deleted" }
+                            }
+                        }
                     }
                 }
             }
@@ -5466,30 +5542,30 @@ Skips employees who already have user accounts.
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 parameters: [{ name: "candidateId", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 properties: {
-                                    task_ids: { 
-                                        type: "array", 
+                                    task_ids: {
+                                        type: "array",
                                         items: { type: "integer" },
                                         example: [1, 2, 3],
                                         description: "Array of task IDs to assign. Leave empty to assign all auto-assign tasks."
                                     }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Tasks assigned", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Tasks assigned to candidate" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Tasks assigned",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Tasks assigned to candidate" }
+                            }
+                        }
                     }
                 }
             }
@@ -5507,9 +5583,9 @@ Skips employees who already have user accounts.
                             "application/json": {
                                 example: {
                                     tasks: [
-                                        { 
-                                            id: 1, 
-                                            task_name: "Upload Photo", 
+                                        {
+                                            id: 1,
+                                            task_name: "Upload Photo",
                                             description: "Upload passport size photograph",
                                             task_category: "document_submission",
                                             is_mandatory: 1,
@@ -5523,11 +5599,11 @@ Skips employees who already have user accounts.
                                             status: "in_progress"
                                         }
                                     ],
-                                    stats: { 
-                                        total: 10, 
-                                        completed: 6, 
-                                        pending: 4, 
-                                        completion_percentage: "60.00" 
+                                    stats: {
+                                        total: 10,
+                                        completed: 6,
+                                        pending: 4,
+                                        completion_percentage: "60.00"
                                     }
                                 }
                             }
@@ -5544,31 +5620,31 @@ Skips employees who already have user accounts.
                 parameters: [{ name: "progressId", in: "path", required: true, schema: { type: "integer" } }],
                 requestBody: {
                     required: true,
-                    content: { 
-                        "application/json": { 
+                    content: {
+                        "application/json": {
                             schema: {
                                 type: "object",
                                 required: ["status"],
                                 properties: {
-                                    status: { 
-                                        type: "string", 
+                                    status: {
+                                        type: "string",
                                         enum: ["not_started", "in_progress", "completed", "blocked", "skipped"],
-                                        example: "completed" 
+                                        example: "completed"
                                     },
                                     remarks: { type: "string", example: "Document uploaded successfully" }
                                 }
                             }
-                        } 
+                        }
                     }
                 },
                 responses: {
-                    200: { 
-                        description: "Progress updated", 
-                        content: { 
-                            "application/json": { 
-                                example: { success: true, message: "Task progress updated" } 
-                            } 
-                        } 
+                    200: {
+                        description: "Progress updated",
+                        content: {
+                            "application/json": {
+                                example: { success: true, message: "Task progress updated" }
+                            }
+                        }
                     }
                 }
             }
@@ -5579,16 +5655,16 @@ Skips employees who already have user accounts.
                 description: "One-time setup to create 15 default pre-onboarding tasks including document submissions, form filling, and verification steps. Run this first before creating candidates!",
                 tags: ["🎯 Candidates & Pre-onboarding"],
                 responses: {
-                    200: { 
-                        description: "Default tasks created", 
-                        content: { 
-                            "application/json": { 
-                                example: { 
-                                    success: true, 
-                                    message: "15 default pre-onboarding tasks created" 
-                                } 
-                            } 
-                        } 
+                    200: {
+                        description: "Default tasks created",
+                        content: {
+                            "application/json": {
+                                example: {
+                                    success: true,
+                                    message: "15 default pre-onboarding tasks created"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -5824,10 +5900,10 @@ Skips employees who already have user accounts.
                                 type: "object",
                                 required: ["status"],
                                 properties: {
-                                    status: { 
-                                        type: "string", 
+                                    status: {
+                                        type: "string",
                                         enum: ["offered", "offer_accepted", "offer_declined", "documents_pending", "bgv_initiated", "bgv_completed", "ready_to_join", "joined", "dropped_out"],
-                                        example: "bgv_completed" 
+                                        example: "bgv_completed"
                                     },
                                     remarks: { type: "string", example: "Background verification cleared" }
                                 }
