@@ -37,6 +37,9 @@ export class TeamCompliancePage implements OnInit {
   selectedDate: string = new Date().toISOString().split('T')[0];
   selectedSegment: 'today' | 'week' | 'month' = 'today';
   
+  // Dashboard data
+  dashboard: any = null;
+  
   // Today's data
   nonCompliantEmployees: any[] = [];
   todayStats = {
@@ -46,6 +49,10 @@ export class TeamCompliancePage implements OnInit {
     compliance_rate: 0
   };
 
+  // Week/Month data
+  weeklyTrends: any[] = [];
+  teamReport: any = null;
+  
   // History data
   teamHistory: any[] = [];
   searchTerm = '';
@@ -68,28 +75,53 @@ export class TeamCompliancePage implements OnInit {
 
   loadData() {
     if (this.selectedSegment === 'today') {
-      this.loadTodayCompliance();
+      this.loadManagerDashboard();
+    } else if (this.selectedSegment === 'week') {
+      this.loadManagerDashboard();
     } else {
-      this.loadTeamHistory();
+      this.loadTeamMonthlyReport();
     }
+  }
+
+  loadManagerDashboard() {
+    this.isLoading = true;
+    this.complianceService.getManagerDashboard().subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.dashboard = response.dashboard;
+          
+          // Set today's stats
+          this.todayStats = {
+            total: this.dashboard?.today?.total_employees || 0,
+            submitted: this.dashboard?.today?.submitted_count || 0,
+            pending: this.dashboard?.today?.non_compliant_count || 0,
+            compliance_rate: this.dashboard?.today?.compliance_rate || 0
+          };
+          
+          this.nonCompliantEmployees = this.dashboard?.today?.non_compliant_employees || [];
+          this.weeklyTrends = this.dashboard?.weekly_trends || [];
+        }
+        this.isLoading = false;
+      },
+      error: async (error) => {
+        await this.errorHandler.handleError(error, 'Failed to load team compliance dashboard');
+        this.isLoading = false;
+      }
+    });
   }
 
   loadTodayCompliance() {
     this.isLoading = true;
-    this.complianceService.getNonCompliantEmployees(this.selectedDate).subscribe({
+    this.complianceService.getManagerNonCompliantEmployees(this.selectedDate).subscribe({
       next: (response) => {
         this.nonCompliantEmployees = response.employees || [];
         
-        // Calculate stats
-        const total = response.employees?.length || 0;
-        const submitted = 0; // This would come from a different endpoint
-        const pending = total;
-        
+        // Stats would come from dashboard
         this.todayStats = {
-          total,
-          submitted,
-          pending,
-          compliance_rate: total > 0 ? ((submitted / total) * 100) : 100
+          total: response.non_compliant_count,
+          submitted: 0,
+          pending: response.non_compliant_count,
+          compliance_rate: 0
         };
         
         this.isLoading = false;
@@ -101,22 +133,31 @@ export class TeamCompliancePage implements OnInit {
     });
   }
 
-  loadTeamHistory() {
+  loadTeamMonthlyReport() {
     this.isLoading = true;
+    const now = new Date();
+    const month = now.getMonth() + 1;
+    const year = now.getFullYear();
     
-    // Calculate date range based on selected segment
-    const endDate = new Date();
-    const startDate = new Date();
-    
-    if (this.selectedSegment === 'week') {
-      startDate.setDate(endDate.getDate() - 7);
-    } else if (this.selectedSegment === 'month') {
-      startDate.setMonth(endDate.getMonth() - 1);
-    }
+    this.complianceService.getManagerTeamReport(month, year).subscribe({
+      next: (response) => {
+        if (response.success) {
+          this.teamReport = response;
+          this.teamHistory = response.team_compliance || [];
+          this.weeklyTrends = response.daily_trend || [];
+        }
+        this.isLoading = false;
+      },
+      error: async (error) => {
+        await this.errorHandler.handleError(error, 'Failed to load team report');
+        this.isLoading = false;
+      }
+    });
+  }
 
-    // For now, load non-compliant for today as example
-    // In production, you'd have a dedicated endpoint for team history
-    this.loadTodayCompliance();
+  loadTeamHistory() {
+    // Load monthly report for history view
+    this.loadTeamMonthlyReport();
   }
 
   handleRefresh(event: any) {
@@ -152,20 +193,20 @@ export class TeamCompliancePage implements OnInit {
 
   async confirmSendReminder(employee: any) {
     try {
-      const response = await this.complianceService.sendReminders(
+      const response = await this.complianceService.sendManagerReminders(
         this.selectedDate,
         [employee.id]
       ).toPromise();
       
       const toast = await this.toastController.create({
-        message: `Reminder sent to ${employee.name}`,
+        message: `Reminder sent to ${employee.name || employee.employee_name}`,
         duration: 2000,
         color: 'success'
       });
       await toast.present();
 
       // Reload data to update reminder count
-      this.loadTodayCompliance();
+      this.loadManagerDashboard();
     } catch (error: any) {
       await this.errorHandler.handleError(error, 'Failed to send reminder');
     }
@@ -191,7 +232,7 @@ export class TeamCompliancePage implements OnInit {
   async confirmBulkReminders() {
     try {
       const employeeIds = this.nonCompliantEmployees.map(e => e.id);
-      const response = await this.complianceService.sendReminders(
+      const response = await this.complianceService.sendManagerReminders(
         this.selectedDate,
         employeeIds
       ).toPromise();
@@ -203,7 +244,7 @@ export class TeamCompliancePage implements OnInit {
       });
       await toast.present();
 
-      this.loadTodayCompliance();
+      this.loadManagerDashboard();
     } catch (error: any) {
       await this.errorHandler.handleError(error, 'Failed to send reminders');
     }

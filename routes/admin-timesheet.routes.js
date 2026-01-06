@@ -161,7 +161,7 @@ router.get('/non-compliant-employees', authMiddleware, adminAuthMiddleware, asyn
 
 /**
  * GET /api/admin/timesheet/verification-queue
- * Get pending verification queue
+ * Get pending client timesheet verification queue
  */
 router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (req, res) => {
   try {
@@ -169,67 +169,55 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
 
     let query = `
       SELECT 
-        wu.id AS work_update_id,
-        wu.employee_id,
+        ct.id AS client_timesheet_id,
+        ct.employee_id,
         e.EmployeeNumber AS employee_code,
         e.FirstName AS first_name,
         e.LastName AS last_name,
-        wu.project_id,
+        e.Email AS email,
+        ct.project_id,
         p.project_name,
         p.client_name,
-        wu.update_date,
-        wu.shift_start_time,
-        wu.shift_end_time,
-        wu.hours_worked,
-        wu.work_description,
-        wu.tasks_completed,
-        wu.status AS work_update_status,
-        wu.submission_timestamp,
-        ct.id AS timesheet_id,
+        ct.timesheet_date,
         ct.file_name,
         ct.file_path,
         ct.file_type,
+        ct.file_size,
         ct.uploaded_at,
         ct.is_verified,
-        tv.id AS verification_id,
-        tv.verification_status,
-        tv.verification_notes,
-        tv.hours_discrepancy,
-        tv.verification_timestamp,
-        tv.verified_by,
-        u.full_name AS verified_by_name
-      FROM work_updates wu
-      INNER JOIN employees e ON wu.employee_id = e.id
-      INNER JOIN projects p ON wu.project_id = p.id
-      LEFT JOIN client_timesheets ct ON wu.id = ct.work_update_id
-      LEFT JOIN timesheet_verifications tv ON wu.id = tv.work_update_id
-      LEFT JOIN users u ON tv.verified_by = u.id
-      WHERE wu.status IN ('submitted', 'approved', 'flagged', 'rejected')
+        ct.work_update_id,
+        MONTH(ct.timesheet_date) as month,
+        YEAR(ct.timesheet_date) as year
+      FROM client_timesheets ct
+      INNER JOIN employees e ON ct.employee_id = e.id
+      INNER JOIN projects p ON ct.project_id = p.id
+      WHERE 1=1
     `;
 
     const params = [];
 
-    if (status) {
-      query += ' AND wu.status = ?';
-      params.push(status);
+    if (status === 'pending') {
+      query += ' AND ct.is_verified = 0';
+    } else if (status === 'verified') {
+      query += ' AND ct.is_verified = 1';
     }
 
     if (projectId) {
-      query += ' AND wu.project_id = ?';
+      query += ' AND ct.project_id = ?';
       params.push(projectId);
     }
 
     if (startDate) {
-      query += ' AND wu.update_date >= ?';
+      query += ' AND ct.timesheet_date >= ?';
       params.push(startDate);
     }
 
     if (endDate) {
-      query += ' AND wu.update_date <= ?';
+      query += ' AND ct.timesheet_date <= ?';
       params.push(endDate);
     }
 
-    query += ' ORDER BY wu.submission_timestamp DESC';
+    query += ' ORDER BY ct.uploaded_at DESC';
 
     const [queue] = await db.query(query, params);
 
@@ -242,6 +230,140 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
     res.status(500).json({
       success: false,
       message: 'Failed to fetch verification queue',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/admin/timesheet/client-timesheet/:clientTimesheetId
+ * Get client timesheet details with project timesheets for comparison
+ */
+router.get('/client-timesheet/:clientTimesheetId', authMiddleware, adminAuthMiddleware, async (req, res) => {
+  try {
+    const clientTimesheetId = req.params.clientTimesheetId;
+
+    // Get client timesheet details
+    const [clientTimesheet] = await db.query(`
+      SELECT 
+        ct.*,
+        e.EmployeeNumber AS employee_code,
+        e.FirstName AS first_name,
+        e.LastName AS last_name,
+        e.WorkEmail AS email,
+        p.project_name,
+        p.client_name
+      FROM client_timesheets ct
+      INNER JOIN employees e ON ct.employee_id = e.id
+      INNER JOIN projects p ON ct.project_id = p.id
+      WHERE ct.id = ?
+    `, [clientTimesheetId]);
+
+    if (clientTimesheet.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Client timesheet not found'
+      });
+    }
+
+    const ct = clientTimesheet[0];
+    const month = new Date(ct.timesheet_date).getMonth() + 1;
+    const year = new Date(ct.timesheet_date).getFullYear();
+
+    // Get project timesheets for the same month
+    const [projectTimesheets] = await db.query(`
+      SELECT 
+        date,
+        hours_worked,
+        timesheet_type,
+        status,
+        created_at,
+        updated_at
+      FROM timesheets
+      WHERE employee_id = ? 
+        AND project_id = ?
+        AND MONTH(date) = ?
+        AND YEAR(date) = ?
+        AND timesheet_type = 'project'
+      ORDER BY date ASC
+    `, [ct.employee_id, ct.project_id, month, year]);
+
+    // Get work updates for the same month (if any)
+    const [workUpdates] = await db.query(`
+      SELECT 
+        update_date,
+        hours_worked,
+        work_description,
+        tasks_completed,
+        shift_start_time,
+        shift_end_time,
+        status
+      FROM work_updates
+      WHERE employee_id = ?
+        AND project_id = ?
+        AND MONTH(update_date) = ?
+        AND YEAR(update_date) = ?
+      ORDER BY update_date ASC
+    `, [ct.employee_id, ct.project_id, month, year]);
+
+    // Calculate totals
+    const totalInternalHours = projectTimesheets.reduce((sum, t) => sum + parseFloat(t.hours_worked || 0), 0);
+    const totalWorkUpdateHours = workUpdates.reduce((sum, w) => sum + parseFloat(w.hours_worked || 0), 0);
+
+    res.json({
+      success: true,
+      clientTimesheet: ct,
+      projectTimesheets,
+      workUpdates,
+      summary: {
+        month,
+        year,
+        totalInternalHours,
+        totalWorkUpdateHours,
+        totalDays: projectTimesheets.length
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching client timesheet details:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch client timesheet details',
+      error: error.message
+    });
+  }
+});
+
+/**
+ * POST /api/admin/timesheet/verify-client-timesheet
+ * Verify/approve/reject client timesheet
+ */
+router.post('/verify-client-timesheet', authMiddleware, adminAuthMiddleware, async (req, res) => {
+  try {
+    const { clientTimesheetId, isVerified, notes } = req.body;
+
+    if (!clientTimesheetId) {
+      return res.status(400).json({
+        success: false,
+        message: 'Client timesheet ID is required'
+      });
+    }
+
+    await db.query(`
+      UPDATE client_timesheets
+      SET is_verified = ?,
+          verification_notes = ?
+      WHERE id = ?
+    `, [isVerified ? 1 : 0, notes || null, clientTimesheetId]);
+
+    res.json({
+      success: true,
+      message: isVerified ? 'Client timesheet verified successfully' : 'Client timesheet marked as unverified'
+    });
+  } catch (error) {
+    console.error('Error verifying client timesheet:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to verify client timesheet',
       error: error.message
     });
   }

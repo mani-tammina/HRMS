@@ -190,6 +190,11 @@ router.get('/my-updates', authMiddleware, async (req, res) => {
  * Submit a daily work update with optional client timesheet
  */
 router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (req, res) => {
+  console.log('=== POST /api/work-updates/submit called ===');
+  console.log('req.user:', req.user);
+  console.log('req.body:', req.body);
+  console.log('req.file:', req.file);
+  
   const connection = await db.getConnection();
   
   try {
@@ -209,6 +214,8 @@ router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (
       challengesFaced,
       submitNow
     } = req.body;
+
+    console.log('Extracted data:', { employeeId, userId, projectId, shiftId, updateDate, hoursWorked });
 
     // Validate required fields
     if (!projectId || !updateDate || !hoursWorked || !workDescription) {
@@ -264,6 +271,7 @@ router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (
       );
     } else {
       // Insert new record
+      console.log('Inserting new work_update...');
       const [result] = await connection.query(
         `INSERT INTO work_updates (
           employee_id, project_id, shift_id, update_date,
@@ -276,27 +284,47 @@ router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (
          challengesFaced, status]
       );
       workUpdateId = result.insertId;
+      console.log('Work update inserted with ID:', workUpdateId);
     }
 
     // Handle client timesheet upload
     let timesheetId = null;
     if (req.file) {
-      const [timesheetResult] = await connection.query(
-        `INSERT INTO client_timesheets (
-          work_update_id, employee_id, project_id, timesheet_date,
-          file_name, file_path, file_type, file_size
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [workUpdateId, employeeId, projectId, updateDate,
-         req.file.originalname, req.file.path, req.file.mimetype, req.file.size]
-      );
-      timesheetId = timesheetResult.insertId;
+      console.log('File uploaded, inserting client timesheet:', {
+        workUpdateId,
+        employeeId,
+        projectId,
+        updateDate,
+        fileName: req.file.originalname,
+        filePath: req.file.path,
+        fileType: req.file.mimetype,
+        fileSize: req.file.size
+      });
+
+      try {
+        const [timesheetResult] = await connection.query(
+          `INSERT INTO client_timesheets (
+            work_update_id, employee_id, project_id, timesheet_date,
+            file_name, file_path, file_type, file_size
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [workUpdateId, employeeId, projectId, updateDate,
+           req.file.originalname, req.file.path, req.file.mimetype, req.file.size]
+        );
+        timesheetId = timesheetResult.insertId;
+        console.log('✅ Client timesheet inserted with ID:', timesheetId);
+      } catch (insertError) {
+        console.error('❌ Error inserting client timesheet:', insertError);
+        throw insertError;
+      }
+    } else {
+      console.log('No file uploaded with this work update');
     }
 
-    // Update compliance status
-    await connection.query(
-      'CALL sp_update_compliance_status(?, ?, ?)',
-      [employeeId, projectId, updateDate]
-    );
+    // Update compliance status (stored procedure removed - using triggers instead)
+    // await connection.query(
+    //   'CALL sp_update_compliance_status(?, ?, ?)',
+    //   [employeeId, projectId, updateDate]
+    // );
 
     // Audit log
     await connection.query(
@@ -309,6 +337,9 @@ router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (
 
     await connection.commit();
 
+    console.log('✅ Transaction committed successfully');
+    console.log('Response:', { workUpdateId, timesheetId, status });
+
     res.json({
       success: true,
       message: status === 'submitted' ? 'Work update submitted successfully' : 'Work update saved as draft',
@@ -319,7 +350,8 @@ router.post('/submit', authMiddleware, upload.single('clientTimesheet'), async (
 
   } catch (error) {
     await connection.rollback();
-    console.error('Error submitting work update:', error);
+    console.error('❌ Error submitting work update:', error);
+    console.error('Error stack:', error.stack);
     
     // Clean up uploaded file if there was an error
     if (req.file) {

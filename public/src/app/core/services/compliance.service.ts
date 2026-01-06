@@ -66,6 +66,31 @@ export class ComplianceService {
     return this.http.get<any>(`${this.apiUrl}/my-history`, { params });
   }
 
+  // Manager endpoints
+  getManagerDashboard(): Observable<{ success: boolean; dashboard: ComplianceDashboard }> {
+    return this.http.get<any>(`${this.apiUrl}/manager/dashboard`);
+  }
+
+  getManagerNonCompliantEmployees(date?: string): Observable<any> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get<any>(`${this.apiUrl}/manager/non-compliant`, { params });
+  }
+
+  getManagerTeamReport(month?: number, year?: number): Observable<any> {
+    let params = new HttpParams();
+    if (month) params = params.set('month', month.toString());
+    if (year) params = params.set('year', year.toString());
+    return this.http.get<any>(`${this.apiUrl}/manager/team-report`, { params });
+  }
+
+  sendManagerReminders(date?: string, employeeIds?: number[]): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/manager/send-reminders`, {
+      date,
+      employee_ids: employeeIds
+    });
+  }
+
   // Admin endpoints
   getAdminDashboard(): Observable<{ success: boolean; dashboard: ComplianceDashboard }> {
     return this.http.get<any>(`${this.apiUrl}/admin/dashboard`);

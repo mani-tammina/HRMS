@@ -35,8 +35,8 @@ router.post("/logout", auth, async (req, res) => {
         
         // Log logout activity for audit trail
         await c.query(
-            `INSERT INTO notifications (user_id, title, message, type, created_at) 
-             VALUES (?, 'Logout', 'User logged out successfully', 'info', NOW())`,
+            `INSERT INTO notifications (user_id, message, created_at) 
+             VALUES (?, 'User logged out successfully', NOW())`,
             [req.user.id]
         ).catch(err => console.log('Failed to log logout activity:', err.message));
         

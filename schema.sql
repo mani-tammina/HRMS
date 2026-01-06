@@ -599,19 +599,23 @@ CREATE TABLE IF NOT EXISTS work_updates (
 -- Client Timesheet Uploads
 CREATE TABLE IF NOT EXISTS client_timesheets (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  work_update_id INT NOT NULL,
+  work_update_id INT NULL,
   employee_id INT NOT NULL,
   project_id INT NOT NULL,
   timesheet_date DATE NOT NULL,
   file_name VARCHAR(255) NOT NULL,
   file_path VARCHAR(500) NOT NULL,
-  file_type VARCHAR(50) NOT NULL,
+  file_type VARCHAR(100) NOT NULL,
   file_size INT NOT NULL,
   uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   is_verified TINYINT(1) DEFAULT 0,
+  verified_at TIMESTAMP NULL,
+  verified_by INT NULL,
+  verification_notes TEXT NULL,
   FOREIGN KEY (work_update_id) REFERENCES work_updates(id) ON DELETE CASCADE,
   FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
   FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+  FOREIGN KEY (verified_by) REFERENCES users(id) ON DELETE SET NULL,
   INDEX idx_timesheet_verification (is_verified, timesheet_date),
   INDEX idx_employee_timesheets (employee_id, timesheet_date)
 );

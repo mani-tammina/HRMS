@@ -190,17 +190,44 @@
           <ion-list>
             <ion-item>
               <ion-label position="stacked">Project Code *</ion-label>
-              <ion-input type="text" formControlName="project_code" placeholder="e.g., PRJ-001"></ion-input>
+              <ion-input 
+                type="text" 
+                formControlName="project_code" 
+                placeholder="e.g., PRJ-001"
+                [class.ion-invalid]="isFieldInvalid('project', 'project_code')"
+                [class.ion-valid]="isFieldValid('project', 'project_code')"
+              ></ion-input>
+              @if (isFieldInvalid('project', 'project_code')) {
+                <ion-note slot="error">Project code is required</ion-note>
+              }
             </ion-item>
 
             <ion-item>
               <ion-label position="stacked">Project Name *</ion-label>
-              <ion-input type="text" formControlName="project_name" placeholder="Enter project name"></ion-input>
+              <ion-input 
+                type="text" 
+                formControlName="project_name" 
+                placeholder="Enter project name"
+                [class.ion-invalid]="isFieldInvalid('project', 'project_name')"
+                [class.ion-valid]="isFieldValid('project', 'project_name')"
+              ></ion-input>
+              @if (isFieldInvalid('project', 'project_name')) {
+                <ion-note slot="error">Project name is required</ion-note>
+              }
             </ion-item>
 
             <ion-item>
               <ion-label position="stacked">Client Name *</ion-label>
-              <ion-input type="text" formControlName="client_name" placeholder="Enter client name"></ion-input>
+              <ion-input 
+                type="text" 
+                formControlName="client_name" 
+                placeholder="Enter client name"
+                [class.ion-invalid]="isFieldInvalid('project', 'client_name')"
+                [class.ion-valid]="isFieldValid('project', 'client_name')"
+              ></ion-input>
+              @if (isFieldInvalid('project', 'client_name')) {
+                <ion-note slot="error">Client name is required</ion-note>
+              }
             </ion-item>
 
             <ion-item>
@@ -215,7 +242,15 @@
 
             <ion-item>
               <ion-label position="stacked">Start Date *</ion-label>
-              <ion-input type="date" formControlName="start_date"></ion-input>
+              <ion-input 
+                type="date" 
+                formControlName="start_date"
+                [class.ion-invalid]="isFieldInvalid('project', 'start_date')"
+                [class.ion-valid]="isFieldValid('project', 'start_date')"
+              ></ion-input>
+              @if (isFieldInvalid('project', 'start_date')) {
+                <ion-note slot="error">Start date is required</ion-note>
+              }
             </ion-item>
 
             <ion-item>
@@ -230,7 +265,11 @@
           </ion-list>
 
           <div style="padding: 16px;">
-            <ion-button expand="block" (click)="saveProject()">
+            <ion-button 
+              expand="block" 
+              (click)="saveProject()"
+              [disabled]="!projectForm || projectForm.invalid"
+            >
               <ion-icon name="save-outline" slot="start"></ion-icon>
               Save Project
             </ion-button>

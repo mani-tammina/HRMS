@@ -6,7 +6,7 @@ import {
   IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
   IonCard, IonCardContent, IonCardHeader, IonCardTitle,
   IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge, IonSegment, IonSegmentButton,
-  IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
+  IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime, IonNote,
   ToastController, AlertController, LoadingController
 } from '@ionic/angular/standalone';
 import { addIcons } from 'ionicons';
@@ -29,7 +29,7 @@ import { LoadingComponent } from '@shared/components/loading/loading.component';
     IonContent, IonHeader, IonTitle, IonToolbar, IonButtons, IonBackButton,
     IonCard, IonCardContent, IonCardHeader, IonCardTitle,
     IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge, IonSegment, IonSegmentButton,
-    IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime,
+    IonModal, IonInput, IonTextarea, IonSelect, IonSelectOption, IonDatetime, IonNote,
     LoadingComponent
   ]
 })
@@ -67,6 +67,9 @@ export class ProjectDetailPage implements OnInit {
       saveOutline, trashOutline, addOutline, peopleOutline, timeOutline,
       createOutline, personAddOutline
     });
+    
+    // Initialize forms immediately in constructor to prevent undefined errors
+    this.initForms();
   }
 
   ngOnInit() {
@@ -76,9 +79,12 @@ export class ProjectDetailPage implements OnInit {
       this.loadProject();
     } else {
       this.initNewProject();
+      // Auto-open modal for new project creation
+      setTimeout(() => {
+        this.showEditModal = true;
+      }, 100);
     }
     
-    this.initForms();
     this.loadEmployees();
   }
 
@@ -139,8 +145,10 @@ export class ProjectDetailPage implements OnInit {
 
   initNewProject() {
     this.project = null;
+    this.projectId = null;
     this.projectForm.reset({
-      status: 'active'
+      status: 'active',
+      start_date: new Date().toISOString().split('T')[0]
     });
   }
 
@@ -154,8 +162,36 @@ export class ProjectDetailPage implements OnInit {
     return labels[status] || status;
   }
 
+  // Helper method to safely check if a form control is invalid and touched
+  isFieldInvalid(formName: 'project' | 'shift' | 'assign', fieldName: string): boolean {
+    const form = formName === 'project' ? this.projectForm : 
+                 formName === 'shift' ? this.shiftForm : this.assignForm;
+    const control = form?.get(fieldName);
+    return !!(control && control.invalid && control.touched);
+  }
+
+  // Helper method to safely check if a form control is valid
+  isFieldValid(formName: 'project' | 'shift' | 'assign', fieldName: string): boolean {
+    const form = formName === 'project' ? this.projectForm : 
+                 formName === 'shift' ? this.shiftForm : this.assignForm;
+    const control = form?.get(fieldName);
+    return !!(control && control.valid && control.touched);
+  }
+
   async saveProject() {
-    if (this.projectForm.invalid) {
+    console.log('Save project called');
+    console.log('Form valid:', this.projectForm?.valid);
+    console.log('Form value:', this.projectForm?.value);
+    console.log('Form errors:', this.projectForm?.errors);
+    
+    if (!this.projectForm || this.projectForm.invalid) {
+      console.log('Form is invalid or not initialized');
+      // Mark all fields as touched to show validation errors
+      if (this.projectForm) {
+        Object.keys(this.projectForm.controls).forEach(key => {
+          this.projectForm.get(key)?.markAsTouched();
+        });
+      }
       await this.errorHandler.handleWarning('Please fill all required fields');
       return;
     }
@@ -164,6 +200,7 @@ export class ProjectDetailPage implements OnInit {
     await loading.present();
 
     const projectData = this.projectForm.value;
+    console.log('Sending project data:', projectData);
 
     const operation = this.projectId
       ? this.projectsService.updateProject(this.projectId, projectData)
@@ -171,10 +208,12 @@ export class ProjectDetailPage implements OnInit {
 
     operation.subscribe({
       next: async (response: any) => {
+        console.log('Project saved successfully:', response);
         await loading.dismiss();
         await this.errorHandler.handleSuccess(response.message);
         
         if (!this.projectId && response.project) {
+          // Navigate to the newly created project
           this.router.navigate(['/admin/projects', response.project.id]);
         } else {
           this.showEditModal = false;
@@ -182,6 +221,7 @@ export class ProjectDetailPage implements OnInit {
         }
       },
       error: async (error) => {
+        console.error('Error saving project:', error);
         await loading.dismiss();
         await this.errorHandler.handleError(error, 'Failed to save project');
       }

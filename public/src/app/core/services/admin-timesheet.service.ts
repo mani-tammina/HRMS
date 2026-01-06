@@ -35,25 +35,28 @@ export interface NonCompliantEmployee {
 }
 
 export interface VerificationQueueItem {
-  work_update_id: number;
+  client_timesheet_id: number;
   employee_id: number;
   employee_code: string;
   first_name: string;
   last_name: string;
+  email: string;
   project_id: number;
   project_name: string;
   client_name: string;
-  update_date: string;
-  hours_worked: number;
-  work_description: string;
-  tasks_completed: string;
-  work_update_status: string;
-  submission_timestamp: string;
-  timesheet_id: number | null;
-  file_name: string | null;
+  timesheet_date: string;
+  file_name: string;
+  file_path: string;
+  file_type: string;
+  file_size: number;
+  uploaded_at: string;
   is_verified: boolean;
-  verification_status: string | null;
-  verification_notes: string | null;
+  work_update_id: number | null;
+  month: number;
+  year: number;
+  verified_at?: string;
+  verified_by?: number;
+  verification_notes?: string;
 }
 
 export interface ComparisonData {
@@ -119,6 +122,23 @@ export class AdminTimesheetService {
     return this.http.get<{ success: boolean; verificationQueue: VerificationQueueItem[] }>(
       `${this.apiUrl}/verification-queue`,
       { params }
+    );
+  }
+
+  getClientTimesheetDetails(clientTimesheetId: number): Observable<any> {
+    return this.http.get<any>(
+      `${this.apiUrl}/client-timesheet/${clientTimesheetId}`
+    );
+  }
+
+  verifyClientTimesheet(data: {
+    clientTimesheetId: number;
+    isVerified: boolean;
+    notes?: string;
+  }): Observable<{ success: boolean; message: string }> {
+    return this.http.post<{ success: boolean; message: string }>(
+      `${this.apiUrl}/verify-client-timesheet`,
+      data
     );
   }
 

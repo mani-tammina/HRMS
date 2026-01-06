@@ -6,7 +6,7 @@ import {
   IonButton, IonIcon, IonList, IonItem, IonLabel, IonBadge, IonSelect, IonSelectOption,
   IonCheckbox, IonSearchbar, IonChip,
   ToastController, AlertController, LoadingController,
-  IonRefresher, IonRefresherContent
+  IonRefresher, IonRefresherContent, ViewWillEnter
 } from '@ionic/angular/standalone';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -32,10 +32,10 @@ import { AdminTimesheetService, VerificationQueueItem } from '@core/services/adm
     IonRefresher, IonRefresherContent
   ]
 })
-export class VerificationQueuePage implements OnInit {
+export class VerificationQueuePage implements OnInit, ViewWillEnter {
   queueItems: VerificationQueueItem[] = [];
   selectedItems: Set<number> = new Set();
-  filterStatus: string = 'submitted';
+  filterStatus: string = 'pending';
   searchTerm: string = '';
   isLoading = false;
 
@@ -53,13 +53,21 @@ export class VerificationQueuePage implements OnInit {
   }
 
   ngOnInit() {
+    console.log('VerificationQueuePage ngOnInit called');
+    this.loadQueue();
+  }
+
+  ionViewWillEnter() {
+    console.log('VerificationQueuePage ionViewWillEnter called');
     this.loadQueue();
   }
 
   loadQueue() {
+    console.log('loadQueue called with filterStatus:', this.filterStatus);
     this.isLoading = true;
     this.adminTimesheetService.getVerificationQueue(this.filterStatus).subscribe({
       next: (response) => {
+        console.log('Verification queue loaded:', response);
         this.queueItems = response.verificationQueue;
         this.isLoading = false;
       },
@@ -81,11 +89,11 @@ export class VerificationQueuePage implements OnInit {
     this.loadQueue();
   }
 
-  toggleSelection(workUpdateId: number) {
-    if (this.selectedItems.has(workUpdateId)) {
-      this.selectedItems.delete(workUpdateId);
+  toggleSelection(clientTimesheetId: number) {
+    if (this.selectedItems.has(clientTimesheetId)) {
+      this.selectedItems.delete(clientTimesheetId);
     } else {
-      this.selectedItems.add(workUpdateId);
+      this.selectedItems.add(clientTimesheetId);
     }
   }
 
@@ -93,7 +101,7 @@ export class VerificationQueuePage implements OnInit {
     if (this.selectedItems.size === this.filteredQueue.length) {
       this.selectedItems.clear();
     } else {
-      this.filteredQueue.forEach(item => this.selectedItems.add(item.work_update_id));
+      this.filteredQueue.forEach(item => this.selectedItems.add(item.client_timesheet_id));
     }
   }
 
@@ -108,12 +116,13 @@ export class VerificationQueuePage implements OnInit {
       item.last_name.toLowerCase().includes(term) ||
       item.employee_code.toLowerCase().includes(term) ||
       item.project_name.toLowerCase().includes(term) ||
-      item.client_name.toLowerCase().includes(term)
+      item.client_name.toLowerCase().includes(term) ||
+      item.file_name.toLowerCase().includes(term)
     );
   }
 
-  viewComparison(workUpdateId: number) {
-    this.router.navigate(['/admin/timesheet/verification-comparison', workUpdateId]);
+  viewDetails(clientTimesheetId: number) {
+    this.router.navigate(['/admin/timesheet/client-timesheet', clientTimesheetId]);
   }
 
   async bulkApprove() {
@@ -124,39 +133,12 @@ export class VerificationQueuePage implements OnInit {
 
     const alert = await this.alertController.create({
       header: 'Bulk Approve',
-      message: `Approve ${this.selectedItems.size} selected work update(s)?`,
+      message: `Approve ${this.selectedItems.size} selected client timesheet(s)?`,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
           text: 'Approve',
-          handler: () => this.executeBulkAction('approved')
-        }
-      ]
-    });
-    await alert.present();
-  }
-
-  async bulkFlag() {
-    if (this.selectedItems.size === 0) {
-      this.showToast('Please select items to flag', 'warning');
-      return;
-    }
-
-    const alert = await this.alertController.create({
-      header: 'Bulk Flag',
-      message: `Flag ${this.selectedItems.size} selected work update(s)?`,
-      inputs: [
-        {
-          name: 'notes',
-          type: 'textarea',
-          placeholder: 'Add notes for flagging...'
-        }
-      ],
-      buttons: [
-        { text: 'Cancel', role: 'cancel' },
-        {
-          text: 'Flag',
-          handler: (data) => this.executeBulkAction('flagged', data.notes)
+          handler: () => this.executeBulkAction(true)
         }
       ]
     });
@@ -171,7 +153,7 @@ export class VerificationQueuePage implements OnInit {
 
     const alert = await this.alertController.create({
       header: 'Bulk Reject',
-      message: `Reject ${this.selectedItems.size} selected work update(s)?`,
+      message: `Reject ${this.selectedItems.size} selected client timesheet(s)?`,
       inputs: [
         {
           name: 'notes',
@@ -191,7 +173,7 @@ export class VerificationQueuePage implements OnInit {
               this.showToast('Please provide notes for rejection', 'warning');
               return false;
             }
-            return this.executeBulkAction('rejected', data.notes);
+            return this.executeBulkAction(false, data.notes);
           }
         }
       ]
@@ -199,41 +181,31 @@ export class VerificationQueuePage implements OnInit {
     await alert.present();
   }
 
-  async executeBulkAction(status: 'approved' | 'flagged' | 'rejected', notes?: string) {
+  async executeBulkAction(isVerified: boolean, notes?: string) {
     const loading = await this.loadingController.create({
       message: 'Processing bulk action...'
     });
     await loading.present();
 
-    const data = {
-      workUpdateIds: Array.from(this.selectedItems),
-      verificationStatus: status,
-      verificationNotes: notes || ''
-    };
+    const promises = Array.from(this.selectedItems).map(clientTimesheetId =>
+      this.adminTimesheetService.verifyClientTimesheet({
+        clientTimesheetId,
+        isVerified,
+        notes
+      }).toPromise()
+    );
 
-    this.adminTimesheetService.bulkVerify(data).subscribe({
-      next: (response) => {
-        loading.dismiss();
-        this.showToast(`${response.successCount} items ${status} successfully`, 'success');
-        this.selectedItems.clear();
-        this.loadQueue();
-      },
-      error: (error) => {
-        loading.dismiss();
-        console.error('Error in bulk action:', error);
-        this.showToast('Failed to complete bulk action', 'danger');
-      }
-    });
-  }
-
-  getStatusColor(status: string): string {
-    const colors: { [key: string]: string } = {
-      'submitted': 'primary',
-      'approved': 'success',
-      'flagged': 'warning',
-      'rejected': 'danger'
-    };
-    return colors[status] || 'medium';
+    try {
+      await Promise.all(promises);
+      loading.dismiss();
+      this.showToast(`${this.selectedItems.size} items ${isVerified ? 'verified' : 'rejected'} successfully`, 'success');
+      this.selectedItems.clear();
+      this.loadQueue();
+    } catch (error) {
+      loading.dismiss();
+      console.error('Error in bulk action:', error);
+      this.showToast('Failed to complete bulk action', 'danger');
+    }
   }
 
   async showToast(message: string, color: string = 'primary') {

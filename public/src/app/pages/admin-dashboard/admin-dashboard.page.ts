@@ -11,7 +11,7 @@ import {
   peopleOutline, cloudUploadOutline, settingsOutline, documentTextOutline,
   calendarOutline, megaphoneOutline, helpCircleOutline, briefcaseOutline,
   cashOutline, timeOutline, statsChartOutline, personAddOutline, shieldOutline,
-  clipboardOutline, homeOutline, cubeOutline, barChartOutline
+  clipboardOutline, homeOutline, cubeOutline, barChartOutline, checkmarkDoneOutline
 } from 'ionicons/icons';
 import { AuthService, User } from '@core/services/auth.service';
 
@@ -111,6 +111,13 @@ export class AdminDashboardPage implements OnInit {
       color: 'warning'
     },
     {
+      title: 'Verification Queue',
+      description: 'Review pending timesheet verifications',
+      icon: 'checkmark-done-outline',
+      route: '/admin/timesheet/verification-queue',
+      color: 'warning'
+    },
+    {
       title: 'Reports',
       description: 'View analytics and reports',
       icon: 'stats-chart-outline',
@@ -182,7 +189,8 @@ export class AdminDashboardPage implements OnInit {
       clipboardOutline,
       homeOutline,
       cubeOutline,
-      barChartOutline
+      barChartOutline,
+      checkmarkDoneOutline
     });
   }
 

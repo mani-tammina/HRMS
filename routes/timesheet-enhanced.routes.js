@@ -25,13 +25,31 @@ const storage = multer.diskStorage({
 const upload = multer({
     storage: storage,
     fileFilter: (req, file, cb) => {
-        const allowedTypes = /xlsx|xls|pdf|jpg|jpeg|png/;
-        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-        const mimetype = allowedTypes.test(file.mimetype);
+        console.log('File upload validation:', {
+            originalname: file.originalname,
+            mimetype: file.mimetype,
+            extension: path.extname(file.originalname).toLowerCase()
+        });
+
+        const allowedExtensions = /xlsx|xls|pdf|jpg|jpeg|png/;
+        const allowedMimetypes = [
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+            'application/vnd.ms-excel', // .xls
+            'application/pdf',
+            'image/jpeg',
+            'image/jpg',
+            'image/png'
+        ];
+        
+        const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedMimetypes.includes(file.mimetype);
+        
         if (mimetype && extname) {
+            console.log('✅ File validation passed');
             return cb(null, true);
         } else {
-            cb("Error: Only Excel, PDF, and Image files are allowed!");
+            console.log('❌ File validation failed:', { extname, mimetype });
+            cb(new Error("Only Excel, PDF, and Image files are allowed!"));
         }
     }
 });
@@ -317,28 +335,43 @@ router.get("/project/my-timesheets", auth, async (req, res) => {
 
 // Upload client timesheet for a month
 router.post("/client-timesheet/upload", auth, upload.single("file"), async (req, res) => {
+    console.log('=== POST /api/timesheets/client-timesheet/upload called ===');
+    console.log('req.user:', req.user);
+    console.log('req.body:', req.body);
+    console.log('req.file:', req.file);
+
     try {
         const emp = await findEmployeeByUserId(req.user.id);
-        if (!emp) return res.status(404).json({ error: "Employee not found" });
+        if (!emp) {
+            console.log('❌ Employee not found for user ID:', req.user.id);
+            return res.status(404).json({ error: "Employee not found" });
+        }
+
+        console.log('Employee found:', { id: emp.id, name: emp.FirstName + ' ' + emp.LastName });
 
         if (!req.file) {
+            console.log('❌ No file uploaded');
             return res.status(400).json({ error: "Please upload a file" });
         }
 
         const { month, year, project_id } = req.body;
+        console.log('Upload params:', { month, year, project_id, employeeId: emp.id });
 
         const c = await db();
 
         // Get all timesheets for this month and project
         const [timesheets] = await c.query(`
-            SELECT id FROM timesheets 
+            SELECT id, date FROM timesheets 
             WHERE employee_id = ? AND project_id = ? 
             AND MONTH(date) = ? AND YEAR(date) = ?
             AND timesheet_type = 'project'
         `, [emp.id, project_id, month, year]);
 
+        console.log('Found timesheets:', timesheets.length);
+
         if (timesheets.length === 0) {
             c.end();
+            console.log('❌ No internal timesheets found for this month and project');
             return res.status(400).json({ 
                 error: "No internal timesheets found for this month and project" 
             });
@@ -355,7 +388,64 @@ router.post("/client-timesheet/upload", auth, upload.single("file"), async (req,
             AND timesheet_type = 'project'
         `, [req.file.path, emp.id, project_id, month, year]);
 
+        console.log('✅ Updated timesheets table with client file reference');
+
+        // Also insert/update record into client_timesheets table for verification queue
+        // Use the middle date of the month for timesheet_date
+        const midDate = `${year}-${String(month).padStart(2, '0')}-15`;
+        
+        // Get work_update_id if exists
+        const [workUpdates] = await c.query(`
+            SELECT id FROM work_updates 
+            WHERE employee_id = ? AND project_id = ? 
+            AND MONTH(update_date) = ? AND YEAR(update_date) = ?
+            ORDER BY update_date DESC LIMIT 1
+        `, [emp.id, project_id, month, year]);
+        
+        const workUpdateId = workUpdates.length > 0 ? workUpdates[0].id : null;
+        console.log('Work update ID:', workUpdateId || 'NULL (no work updates for this month)');
+        
+        // Check if client_timesheet already exists for this month/project
+        const [existing] = await c.query(`
+            SELECT id FROM client_timesheets
+            WHERE employee_id = ? AND project_id = ?
+            AND MONTH(timesheet_date) = ? AND YEAR(timesheet_date) = ?
+        `, [emp.id, project_id, month, year]);
+        
+        try {
+            if (existing.length > 0) {
+                // Update existing record
+                const existingId = existing[0].id;
+                await c.query(`
+                    UPDATE client_timesheets
+                    SET work_update_id = ?, file_name = ?, file_path = ?, 
+                        file_type = ?, file_size = ?, uploaded_at = CURRENT_TIMESTAMP,
+                        is_verified = 0
+                    WHERE id = ?
+                `, [workUpdateId, req.file.originalname, req.file.path, 
+                    req.file.mimetype, req.file.size, existingId]);
+                
+                console.log('✅ Updated existing client_timesheets record, ID:', existingId);
+            } else {
+                // Insert new record
+                const [insertResult] = await c.query(`
+                    INSERT INTO client_timesheets (
+                        work_update_id, employee_id, project_id, timesheet_date,
+                        file_name, file_path, file_type, file_size
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `, [workUpdateId, emp.id, project_id, midDate,
+                    req.file.originalname, req.file.path, req.file.mimetype, req.file.size]);
+                
+                console.log('✅ Inserted into client_timesheets table, ID:', insertResult.insertId);
+            }
+        } catch (insertError) {
+            console.error('❌ Failed to insert/update client_timesheets:', insertError.message);
+            throw insertError;
+        }
+
         c.end();
+
+        console.log('✅ Client timesheet upload complete');
 
         res.json({ 
             success: true, 
@@ -364,7 +454,8 @@ router.post("/client-timesheet/upload", auth, upload.single("file"), async (req,
             timesheets_updated: timesheets.length
         });
     } catch (error) {
-        console.error("Error uploading client timesheet:", error);
+        console.error("❌ Error uploading client timesheet:", error);
+        console.error("Error stack:", error.stack);
         res.status(500).json({ error: error.message });
     }
 });

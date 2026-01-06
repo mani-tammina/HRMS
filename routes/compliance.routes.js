@@ -162,6 +162,367 @@ router.get("/my-history", auth, async (req, res) => {
     }
 });
 
+/* ============ MANAGER COMPLIANCE TRACKING ============ */
+
+/**
+ * GET /api/compliance/manager/dashboard
+ * Manager dashboard showing compliance for their reporting employees
+ */
+router.get("/manager/dashboard", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+        const c = await db();
+        const today = new Date().toISOString().split('T')[0];
+
+        // Today's submission stats for reporting employees
+        const [todayStats] = await c.query(`
+            SELECT 
+                COUNT(DISTINCT e.id) as total_employees,
+                COUNT(DISTINCT t.employee_id) as submitted_count,
+                COUNT(DISTINCT e.id) - COUNT(DISTINCT t.employee_id) as pending_count,
+                ROUND(COUNT(DISTINCT t.employee_id) * 100.0 / NULLIF(COUNT(DISTINCT e.id), 0), 2) as compliance_rate
+            FROM employees e
+            LEFT JOIN timesheets t ON e.id = t.employee_id 
+                AND t.date = ? 
+                AND t.status IN ('submitted', 'verified')
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+        `, [today, emp.id]);
+
+        // This week's trends
+        const [weekTrends] = await c.query(`
+            SELECT 
+                DATE(t.date) as date,
+                COUNT(DISTINCT t.employee_id) as submitted,
+                (SELECT COUNT(*) FROM employees WHERE EmploymentStatus = 'Working' AND reporting_manager_id = ?) as total,
+                ROUND(COUNT(DISTINCT t.employee_id) * 100.0 / 
+                    NULLIF((SELECT COUNT(*) FROM employees WHERE EmploymentStatus = 'Working' AND reporting_manager_id = ?), 0), 2) as rate
+            FROM timesheets t
+            INNER JOIN employees e ON t.employee_id = e.id
+            WHERE t.date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            AND t.status IN ('submitted', 'verified')
+            AND e.reporting_manager_id = ?
+            GROUP BY DATE(t.date)
+            ORDER BY date DESC
+        `, [emp.id, emp.id, emp.id]);
+
+        // This week stats
+        const [weekStats] = await c.query(`
+            SELECT 
+                COUNT(DISTINCT e.id) as total_employees,
+                COUNT(DISTINCT t.employee_id) as submitted_employees,
+                COUNT(DISTINCT t.id) as total_submissions,
+                ROUND(AVG(CASE WHEN t.id IS NOT NULL THEN 100 ELSE 0 END), 2) as avg_compliance_rate,
+                SUM(CASE WHEN tn.id IS NOT NULL THEN 1 ELSE 0 END) as reminders_sent,
+                SUM(CASE WHEN tn.notification_type = 'auto_reminder' THEN 1 ELSE 0 END) as auto_reminders
+            FROM employees e
+            CROSS JOIN (
+                SELECT DISTINCT date FROM timesheets 
+                WHERE date >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            ) dates
+            LEFT JOIN timesheets t ON e.id = t.employee_id 
+                AND t.date = dates.date 
+                AND t.status IN ('submitted', 'verified')
+            LEFT JOIN timesheet_notifications tn ON e.id = tn.employee_id 
+                AND DATE(tn.scheduled_at) >= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+        `, [emp.id]);
+
+        // This month stats
+        const [monthStats] = await c.query(`
+            SELECT 
+                COUNT(DISTINCT dates.date) as working_days,
+                COUNT(DISTINCT CASE WHEN t.id IS NOT NULL THEN dates.date END) as completed_days,
+                ROUND(COUNT(DISTINCT CASE WHEN t.id IS NOT NULL THEN dates.date END) * 100.0 / 
+                    NULLIF(COUNT(DISTINCT dates.date), 0), 2) as avg_compliance_rate
+            FROM (
+                SELECT DISTINCT date FROM timesheets 
+                WHERE YEAR(date) = YEAR(NOW()) AND MONTH(date) = MONTH(NOW())
+            ) dates
+            CROSS JOIN (
+                SELECT id FROM employees 
+                WHERE EmploymentStatus = 'Working' AND reporting_manager_id = ?
+            ) e
+            LEFT JOIN timesheets t ON e.id = t.employee_id 
+                AND t.date = dates.date 
+                AND t.status IN ('submitted', 'verified')
+        `, [emp.id]);
+
+        // Non-compliant employees (today)
+        const [nonCompliant] = await c.query(`
+            SELECT 
+                e.id,
+                e.EmployeeNumber,
+                CONCAT(e.FirstName, ' ', e.LastName) as name,
+                e.WorkEmail,
+                d.name as department,
+                COUNT(pa.id) as active_projects
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN project_assignments pa ON e.id = pa.employee_id 
+                AND pa.status = 'active'
+                AND pa.assignment_start_date <= ?
+                AND (pa.assignment_end_date IS NULL OR pa.assignment_end_date >= ?)
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+            AND NOT EXISTS (
+                SELECT 1 FROM timesheets t
+                WHERE t.employee_id = e.id
+                AND t.date = ?
+                AND t.status IN ('submitted', 'verified')
+            )
+            GROUP BY e.id, e.EmployeeNumber, name, e.WorkEmail, d.name
+            ORDER BY active_projects DESC, name
+        `, [today, today, emp.id, today]);
+
+        c.end();
+
+        res.json({
+            success: true,
+            dashboard: {
+                today: {
+                    date: today,
+                    total_employees: todayStats[0].total_employees || 0,
+                    submitted_count: todayStats[0].submitted_count || 0,
+                    non_compliant_count: todayStats[0].pending_count || 0,
+                    compliance_rate: todayStats[0].compliance_rate || 0,
+                    non_compliant_employees: nonCompliant
+                },
+                this_week: {
+                    total_submitted: weekStats[0]?.total_submissions || 0,
+                    avg_compliance_rate: weekStats[0]?.avg_compliance_rate || 0,
+                    reminders_sent: weekStats[0]?.reminders_sent || 0,
+                    auto_reminders: weekStats[0]?.auto_reminders || 0
+                },
+                this_month: {
+                    working_days: monthStats[0]?.working_days || 0,
+                    completed_days: monthStats[0]?.completed_days || 0,
+                    avg_compliance_rate: monthStats[0]?.avg_compliance_rate || 0
+                },
+                weekly_trends: weekTrends
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching manager dashboard:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/compliance/manager/non-compliant
+ * Get list of non-compliant reporting employees for a date
+ */
+router.get("/manager/non-compliant", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+        const { date } = req.query;
+        const checkDate = date || new Date().toISOString().split('T')[0];
+
+        const c = await db();
+
+        const [employees] = await c.query(`
+            SELECT 
+                e.id,
+                e.EmployeeNumber,
+                CONCAT(e.FirstName, ' ', e.LastName) as employee_name,
+                e.WorkEmail,
+                e.ContactNumber,
+                d.name as department,
+                des.name as designation,
+                COUNT(pa.id) as active_projects,
+                GROUP_CONCAT(p.project_name SEPARATOR ', ') as projects,
+                CASE 
+                    WHEN EXISTS (
+                        SELECT 1 FROM timesheets t2
+                        WHERE t2.employee_id = e.id AND t2.date = ? AND t2.status = 'draft'
+                    ) THEN 'draft_saved'
+                    ELSE 'not_started'
+                END as draft_status
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN project_assignments pa ON e.id = pa.employee_id 
+                AND pa.status = 'active'
+                AND pa.assignment_start_date <= ?
+                AND (pa.assignment_end_date IS NULL OR pa.assignment_end_date >= ?)
+            LEFT JOIN projects p ON pa.project_id = p.id
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+            AND NOT EXISTS (
+                SELECT 1 FROM timesheets t
+                WHERE t.employee_id = e.id
+                AND t.date = ?
+                AND t.status IN ('submitted', 'verified')
+            )
+            GROUP BY e.id, e.EmployeeNumber, employee_name, e.WorkEmail, e.ContactNumber,
+                     d.name, des.name
+            ORDER BY active_projects DESC, employee_name
+        `, [checkDate, checkDate, checkDate, emp.id, checkDate]);
+
+        c.end();
+
+        res.json({
+            success: true,
+            date: checkDate,
+            non_compliant_count: employees.length,
+            employees
+        });
+    } catch (error) {
+        console.error("Error fetching non-compliant employees:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/compliance/manager/team-report
+ * Generate compliance report for manager's team
+ */
+router.get("/manager/team-report", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+        const { month, year } = req.query;
+        const reportMonth = month || new Date().getMonth() + 1;
+        const reportYear = year || new Date().getFullYear();
+
+        const c = await db();
+
+        // Team members compliance summary
+        const [teamCompliance] = await c.query(`
+            SELECT 
+                e.id,
+                e.EmployeeNumber,
+                CONCAT(e.FirstName, ' ', e.LastName) as employee_name,
+                d.name as department,
+                COUNT(DISTINCT dates.date) as working_days,
+                COUNT(DISTINCT t.id) as submitted_days,
+                COUNT(DISTINCT dates.date) - COUNT(DISTINCT t.id) as missing_days,
+                ROUND(COUNT(DISTINCT t.id) * 100.0 / NULLIF(COUNT(DISTINCT dates.date), 0), 2) as compliance_rate,
+                SUM(t.total_hours) as total_hours
+            FROM employees e
+            JOIN departments d ON e.DepartmentId = d.id
+            CROSS JOIN (
+                SELECT DISTINCT date FROM timesheets 
+                WHERE YEAR(date) = ? AND MONTH(date) = ?
+            ) dates
+            LEFT JOIN timesheets t ON e.id = t.employee_id 
+                AND t.date = dates.date 
+                AND t.status IN ('submitted', 'verified')
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+            GROUP BY e.id, e.EmployeeNumber, employee_name, d.name
+            ORDER BY compliance_rate ASC, missing_days DESC
+        `, [reportYear, reportMonth, emp.id]);
+
+        // Daily compliance trend for team
+        const [dailyTrend] = await c.query(`
+            SELECT 
+                DATE(dates.date) as date,
+                COUNT(DISTINCT e.id) as total_team_members,
+                COUNT(DISTINCT t.employee_id) as submitted_employees,
+                ROUND(COUNT(DISTINCT t.employee_id) * 100.0 / NULLIF(COUNT(DISTINCT e.id), 0), 2) as compliance_rate
+            FROM (
+                SELECT DISTINCT date FROM timesheets 
+                WHERE YEAR(date) = ? AND MONTH(date) = ?
+            ) dates
+            CROSS JOIN employees e
+            LEFT JOIN timesheets t ON e.id = t.employee_id 
+                AND t.date = dates.date 
+                AND t.status IN ('submitted', 'verified')
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+            GROUP BY DATE(dates.date)
+            ORDER BY date
+        `, [reportYear, reportMonth, emp.id]);
+
+        c.end();
+
+        res.json({
+            success: true,
+            period: `${reportYear}-${String(reportMonth).padStart(2, '0')}`,
+            team_compliance: teamCompliance,
+            daily_trend: dailyTrend
+        });
+    } catch (error) {
+        console.error("Error generating team report:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/**
+ * POST /api/compliance/manager/send-reminders
+ * Send reminders to non-compliant reporting employees
+ */
+router.post("/manager/send-reminders", auth, async (req, res) => {
+    try {
+        const emp = await findEmployeeByUserId(req.user.id);
+        if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+        const { date, employee_ids } = req.body;
+        const reminderDate = date || new Date().toISOString().split('T')[0];
+
+        const c = await db();
+
+        // Get non-compliant reporting employees with their active project assignments
+        let query = `
+            SELECT 
+                e.id, e.EmployeeNumber,
+                CONCAT(e.FirstName, ' ', e.LastName) as name,
+                e.WorkEmail,
+                pa.project_id,
+                p.project_name
+            FROM employees e
+            LEFT JOIN project_assignments pa ON e.id = pa.employee_id AND pa.status = 'active'
+            LEFT JOIN projects p ON pa.project_id = p.id AND p.status = 'active'
+            WHERE e.EmploymentStatus = 'Working'
+            AND e.reporting_manager_id = ?
+            AND NOT EXISTS (
+                SELECT 1 FROM timesheets t
+                WHERE t.employee_id = e.id AND t.date = ? AND t.status IN ('submitted', 'verified')
+            )
+        `;
+
+        const params = [emp.id, reminderDate];
+
+        if (employee_ids && employee_ids.length > 0) {
+            query += ` AND e.id IN (?)`;
+            params.push(employee_ids);
+        }
+
+        const [employees] = await c.query(query, params);
+
+        // Insert notification records
+        const notifications = [];
+        for (const employee of employees) {
+            notifications.push({
+                employee_id: employee.id,
+                employee_name: employee.name,
+                email: employee.WorkEmail,
+                project_id: employee.project_id,
+                project_name: employee.project_name
+            });
+        }
+
+        c.end();
+
+        res.json({
+            success: true,
+            message: `Reminders queued for ${employees.length} team members`,
+            date: reminderDate,
+            notifications
+        });
+    } catch (error) {
+        console.error("Error sending reminders:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 /* ============ ADMIN COMPLIANCE TRACKING ============ */
 
 /**
@@ -230,10 +591,10 @@ router.get("/admin/dashboard", auth, admin, async (req, res) => {
                 e.EmployeeNumber,
                 CONCAT(e.FirstName, ' ', e.LastName) as name,
                 e.WorkEmail,
-                d.DepartmentName as department,
+                d.name as department,
                 COUNT(pa.id) as active_projects
             FROM employees e
-            LEFT JOIN departments d ON e.DepartmentID = d.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
             LEFT JOIN project_assignments pa ON e.id = pa.employee_id 
                 AND pa.status = 'active'
                 AND pa.assignment_start_date <= ?
@@ -245,7 +606,7 @@ router.get("/admin/dashboard", auth, admin, async (req, res) => {
                 AND t.date = ?
                 AND t.status IN ('submitted', 'verified')
             )
-            GROUP BY e.id, e.EmployeeNumber, name, e.WorkEmail, d.DepartmentName
+            GROUP BY e.id, e.EmployeeNumber, name, e.WorkEmail, d.name
             ORDER BY active_projects DESC, name
         `, [today, today, today]);
 
@@ -295,8 +656,8 @@ router.get("/admin/non-compliant", auth, admin, async (req, res) => {
                 CONCAT(e.FirstName, ' ', e.LastName) as employee_name,
                 e.WorkEmail,
                 e.ContactNumber,
-                d.DepartmentName as department,
-                des.DesignationName as designation,
+                d.name as department,
+                des.name as designation,
                 m.FirstName as manager_first_name,
                 m.LastName as manager_last_name,
                 COUNT(pa.id) as active_projects,
@@ -309,9 +670,9 @@ router.get("/admin/non-compliant", auth, admin, async (req, res) => {
                     ELSE 'not_started'
                 END as draft_status
             FROM employees e
-            LEFT JOIN departments d ON e.DepartmentID = d.id
-            LEFT JOIN designations des ON e.DesignationID = des.id
-            LEFT JOIN employees m ON e.ReportingManagerID = m.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employees m ON e.reporting_manager_id = m.id
             LEFT JOIN project_assignments pa ON e.id = pa.employee_id 
                 AND pa.status = 'active'
                 AND pa.assignment_start_date <= ?
@@ -325,7 +686,7 @@ router.get("/admin/non-compliant", auth, admin, async (req, res) => {
                 AND t.status IN ('submitted', 'verified')
             )
             GROUP BY e.id, e.EmployeeNumber, employee_name, e.WorkEmail, e.ContactNumber,
-                     d.DepartmentName, des.DesignationName, m.FirstName, m.LastName
+                     d.name, des.name, m.FirstName, m.LastName
             ORDER BY active_projects DESC, employee_name
         `, [checkDate, checkDate, checkDate, checkDate]);
 
@@ -700,17 +1061,17 @@ router.get("/admin/monthly-report", auth, admin, async (req, res) => {
         // Department-wise compliance
         const [deptCompliance] = await c.query(`
             SELECT 
-                d.DepartmentName as department,
+                d.name as department,
                 COUNT(DISTINCT e.id) as total_employees,
                 COUNT(DISTINCT t.employee_id) as compliant_employees,
                 ROUND(COUNT(DISTINCT t.employee_id) * 100.0 / COUNT(DISTINCT e.id), 2) as compliance_rate
             FROM departments d
-            JOIN employees e ON d.id = e.DepartmentID
+            JOIN employees e ON d.id = e.DepartmentId
             LEFT JOIN timesheets t ON e.id = t.employee_id 
                 AND YEAR(t.date) = ? AND MONTH(t.date) = ?
                 AND t.status IN ('submitted', 'verified')
             WHERE e.EmploymentStatus = 'Working'
-            GROUP BY d.id, d.DepartmentName
+            GROUP BY d.id, d.name
             ORDER BY compliance_rate DESC
         `, [reportYear, reportMonth]);
 
@@ -720,13 +1081,13 @@ router.get("/admin/monthly-report", auth, admin, async (req, res) => {
                 e.id,
                 e.EmployeeNumber,
                 CONCAT(e.FirstName, ' ', e.LastName) as employee_name,
-                d.DepartmentName as department,
+                d.name as department,
                 COUNT(DISTINCT dates.date) as working_days,
                 COUNT(DISTINCT t.id) as submitted_days,
                 COUNT(DISTINCT dates.date) - COUNT(DISTINCT t.id) as missing_days,
                 ROUND(COUNT(DISTINCT t.id) * 100.0 / COUNT(DISTINCT dates.date), 2) as compliance_rate
             FROM employees e
-            JOIN departments d ON e.DepartmentID = d.id
+            JOIN departments d ON e.DepartmentId = d.id
             CROSS JOIN (
                 SELECT DISTINCT date FROM timesheets 
                 WHERE YEAR(date) = ? AND MONTH(date) = ?
@@ -735,7 +1096,7 @@ router.get("/admin/monthly-report", auth, admin, async (req, res) => {
                 AND t.date = dates.date 
                 AND t.status IN ('submitted', 'verified')
             WHERE e.EmploymentStatus = 'Working'
-            GROUP BY e.id, e.EmployeeNumber, employee_name, d.DepartmentName
+            GROUP BY e.id, e.EmployeeNumber, employee_name, d.name
             HAVING compliance_rate < 100
             ORDER BY missing_days DESC
             LIMIT 20

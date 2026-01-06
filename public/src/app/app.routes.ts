@@ -52,6 +52,10 @@ export const routes: Routes = [
         loadComponent: () => import('./pages/manager-approvals/manager-approvals.page').then(m => m.ManagerApprovalsPage)
       },
       {
+        path: 'verification-queue',
+        loadComponent: () => import('./pages/verification-queue/verification-queue.page').then(m => m.VerificationQueuePage)
+      },
+      {
         path: 'team',
         loadComponent: () => import('./pages/team/team.page').then(m => m.TeamPage)
       },

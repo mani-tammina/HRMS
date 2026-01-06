@@ -197,7 +197,11 @@ export class WorkUpdatesPage implements OnInit {
       return;
     }
 
+    console.log('submitUpdate called, isDraft:', isDraft);
+    console.log('updateForm:', this.updateForm);
+
     if (!isDraft && !this.updateForm.clientTimesheet) {
+      console.log('No client timesheet attached for submission');
       const alert = await this.alertController.create({
         header: 'Missing Timesheet',
         message: 'Client timesheet is required for submission. Do you want to save as draft?',
@@ -233,11 +237,14 @@ export class WorkUpdatesPage implements OnInit {
     formData.append('submitNow', (!isDraft).toString());
     
     if (this.updateForm.clientTimesheet) {
+      console.log('Client timesheet attached:', this.updateForm.clientTimesheet.name);
       formData.append('clientTimesheet', this.updateForm.clientTimesheet);
     }
 
+    console.log('Calling API: POST /api/work-updates/submit');
     this.workUpdatesService.submitWorkUpdate(formData).subscribe({
       next: (response: { success: boolean; message: string }) => {
+        console.log('API response:', response);
         loading.dismiss();
         this.showToast(
           isDraft ? 'Work update saved as draft' : 'Work update submitted successfully',
