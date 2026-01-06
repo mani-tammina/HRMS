@@ -114,6 +114,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'admin/timesheet/client-timesheet/:id',
+    loadComponent: () => import('./pages/client-timesheet-verification/client-timesheet-verification.page').then(m => m.ClientTimesheetVerificationPage),
+    canActivate: [authGuard]
+  },
+  {
     path: 'admin/timesheet/verification-comparison/:id',
     loadComponent: () => import('./pages/verification-comparison/verification-comparison.page').then(m => m.VerificationComparisonPage),
     canActivate: [authGuard]

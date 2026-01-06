@@ -20,6 +20,7 @@ export class TabsPage implements OnInit {
   isHR = false;
   isHROrAdmin = false;
   isManagerOrHR = false;
+  isManagerNotAdmin = false;
 
   constructor(private authService: AuthService) {
     addIcons({ homeOutline, calendarOutline, documentTextOutline, timeOutline, personOutline, peopleOutline, checkmarkDoneOutline, cashOutline, checkmarkCircleOutline, statsChartOutline });
@@ -32,6 +33,7 @@ export class TabsPage implements OnInit {
       this.isHR = user?.role === 'hr';
       this.isHROrAdmin = user?.role === 'hr' || user?.role === 'admin';
       this.isManagerOrHR = user?.role === 'manager' || user?.role === 'hr' || user?.role === 'admin';
+      this.isManagerNotAdmin = user?.role === 'manager' || user?.role === 'hr';
     });
   }
 }

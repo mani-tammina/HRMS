@@ -167,6 +167,9 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
   try {
     const { status, projectId, startDate, endDate } = req.query;
 
+    console.log('=== Verification Queue API Called ===');
+    console.log('Query params:', { status, projectId, startDate, endDate });
+
     let query = `
       SELECT 
         ct.id AS client_timesheet_id,
@@ -174,7 +177,7 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
         e.EmployeeNumber AS employee_code,
         e.FirstName AS first_name,
         e.LastName AS last_name,
-        e.Email AS email,
+        e.WorkEmail AS email,
         ct.project_id,
         p.project_name,
         p.client_name,
@@ -198,8 +201,12 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
 
     if (status === 'pending') {
       query += ' AND ct.is_verified = 0';
+      console.log('Filter: Pending (is_verified = 0)');
     } else if (status === 'verified') {
       query += ' AND ct.is_verified = 1';
+      console.log('Filter: Verified (is_verified = 1)');
+    } else {
+      console.log('Filter: All records');
     }
 
     if (projectId) {
@@ -219,7 +226,14 @@ router.get('/verification-queue', authMiddleware, adminAuthMiddleware, async (re
 
     query += ' ORDER BY ct.uploaded_at DESC';
 
+    console.log('Executing query with params:', params);
+
     const [queue] = await db.query(query, params);
+
+    console.log('Query result count:', queue.length);
+    if (queue.length > 0) {
+      console.log('Sample record:', queue[0]);
+    }
 
     res.json({
       success: true,
@@ -274,7 +288,7 @@ router.get('/client-timesheet/:clientTimesheetId', authMiddleware, adminAuthMidd
     const [projectTimesheets] = await db.query(`
       SELECT 
         date,
-        hours_worked,
+        total_hours,
         timesheet_type,
         status,
         created_at,
@@ -307,7 +321,7 @@ router.get('/client-timesheet/:clientTimesheetId', authMiddleware, adminAuthMidd
     `, [ct.employee_id, ct.project_id, month, year]);
 
     // Calculate totals
-    const totalInternalHours = projectTimesheets.reduce((sum, t) => sum + parseFloat(t.hours_worked || 0), 0);
+    const totalInternalHours = projectTimesheets.reduce((sum, t) => sum + parseFloat(t.total_hours || 0), 0);
     const totalWorkUpdateHours = workUpdates.reduce((sum, w) => sum + parseFloat(w.hours_worked || 0), 0);
 
     res.json({

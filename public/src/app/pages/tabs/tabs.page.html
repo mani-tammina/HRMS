@@ -10,7 +10,7 @@
       <ion-label>Timesheet</ion-label>
     </ion-tab-button>
 
-    <ion-tab-button tab="team-compliance" *ngIf="isManagerOrHR">
+    <ion-tab-button tab="team-compliance" *ngIf="isManagerNotAdmin">
       <ion-icon name="stats-chart-outline"></ion-icon>
       <ion-label>Compliance</ion-label>
     </ion-tab-button>
