@@ -144,6 +144,16 @@ export class ProjectDetailPage implements OnInit {
     });
   }
 
+  getStatusLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'active': 'Active',
+      'completed': 'Completed',
+      'on_hold': 'On Hold',
+      'cancelled': 'Cancelled'
+    };
+    return labels[status] || status;
+  }
+
   async saveProject() {
     if (this.projectForm.invalid) {
       await this.errorHandler.handleWarning('Please fill all required fields');

@@ -155,7 +155,7 @@ export class TimesheetService {
   // Upload Client Timesheet (For validation)
   uploadClientTimesheet(formData: FormData): Observable<{ success: boolean; message: string }> {
     return this.http.post<{ success: boolean; message: string }>(
-      `${this.apiUrl}/upload-client-timesheet`,
+      `${this.apiUrl}/client-timesheet/upload`,
       formData
     );
   }

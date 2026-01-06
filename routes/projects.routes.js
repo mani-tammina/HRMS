@@ -9,6 +9,18 @@ const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 
 /* ============================================
+   HELPER FUNCTIONS
+   ============================================ */
+
+// Convert ISO datetime string to MySQL DATE format (YYYY-MM-DD)
+function formatDateForMySQL(dateString) {
+    if (!dateString) return null;
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return null;
+    return date.toISOString().split('T')[0];
+}
+
+/* ============================================
    PROJECT MANAGEMENT
    ============================================ */
 
@@ -47,7 +59,7 @@ router.post("/", auth, hr, async (req, res) => {
             `INSERT INTO projects 
             (project_code, project_name, client_name, start_date, end_date, status, description, project_manager_id, created_by)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-            [project_code, project_name, client_name, start_date, end_date || null, status || 'active', description, project_manager_id, req.user.id]
+            [project_code, project_name, client_name, formatDateForMySQL(start_date), formatDateForMySQL(end_date), status || 'active', description, project_manager_id, req.user.id]
         );
 
         c.end();
@@ -82,9 +94,9 @@ router.get("/", auth, async (req, res) => {
         let query = `
             SELECT 
                 p.*,
-                CONCAT(pm.FirstName, ' ', pm.LastName) as project_manager_name,
-                pm.EmployeeNumber as project_manager_code,
-                COUNT(DISTINCT pa.id) as assigned_employees
+                CONCAT(pm.FirstName, ' ', pm.LastName) as manager_name,
+                pm.EmployeeNumber as manager_code,
+                COUNT(DISTINCT pa.id) as total_employees
             FROM projects p
             LEFT JOIN employees pm ON p.project_manager_id = pm.id
             LEFT JOIN project_assignments pa ON p.id = pa.project_id AND pa.status = 'active'
@@ -108,7 +120,10 @@ router.get("/", auth, async (req, res) => {
         const [projects] = await c.query(query, params);
         c.end();
 
-        res.json(projects);
+        res.json({
+            success: true,
+            projects: projects
+        });
     } catch (error) {
         console.error("Error fetching projects:", error);
         res.status(500).json({ error: error.message });
@@ -168,9 +183,12 @@ router.get("/:id", auth, async (req, res) => {
         c.end();
 
         res.json({
-            ...projects[0],
-            shifts,
-            assignments
+            success: true,
+            project: {
+                ...projects[0],
+                shifts,
+                assignments
+            }
         });
     } catch (error) {
         console.error("Error fetching project details:", error);
@@ -200,13 +218,50 @@ router.put("/:id", auth, hr, async (req, res) => {
             return res.status(404).json({ error: "Project not found" });
         }
 
-        await c.query(
-            `UPDATE projects 
-            SET project_name = ?, client_name = ?, start_date = ?, end_date = ?, 
-                status = ?, description = ?, project_manager_id = ?, updated_at = NOW()
-            WHERE id = ?`,
-            [project_name, client_name, start_date, end_date, status, description, project_manager_id, req.params.id]
-        );
+        // Build dynamic UPDATE query based on provided fields
+        const updates = [];
+        const values = [];
+
+        if (project_name !== undefined) {
+            updates.push("project_name = ?");
+            values.push(project_name);
+        }
+        if (client_name !== undefined) {
+            updates.push("client_name = ?");
+            values.push(client_name);
+        }
+        if (start_date !== undefined) {
+            updates.push("start_date = ?");
+            values.push(formatDateForMySQL(start_date));
+        }
+        if (end_date !== undefined) {
+            updates.push("end_date = ?");
+            values.push(formatDateForMySQL(end_date));
+        }
+        if (status !== undefined) {
+            updates.push("status = ?");
+            values.push(status);
+        }
+        if (description !== undefined) {
+            updates.push("description = ?");
+            values.push(description);
+        }
+        if (project_manager_id !== undefined) {
+            updates.push("project_manager_id = ?");
+            values.push(project_manager_id);
+        }
+
+        if (updates.length === 0) {
+            c.end();
+            return res.status(400).json({ error: "No fields to update" });
+        }
+
+        updates.push("updated_at = NOW()");
+        values.push(req.params.id);
+
+        const query = `UPDATE projects SET ${updates.join(", ")} WHERE id = ?`;
+
+        await c.query(query, values);
 
         c.end();
 

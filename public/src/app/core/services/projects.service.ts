@@ -126,7 +126,7 @@ export class ProjectsService {
     assignment_end_date?: string;
   }): Observable<{ success: boolean; message: string }> {
     return this.http.post<{ success: boolean; message: string }>(
-      `${this.apiUrl}/${assignment.project_id}/assign`,
+      `${this.apiUrl}/${assignment.project_id}/assignments`,
       assignment
     );
   }

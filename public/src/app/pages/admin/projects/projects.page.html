@@ -65,7 +65,7 @@
                 </div>
                 <ion-badge [color]="getStatusColor(project.status)">
                   <ion-icon [name]="getStatusIcon(project.status)"></ion-icon>
-                  {{ project.status | titlecase }}
+                  {{ getStatusLabel(project.status) }}
                 </ion-badge>
               </div>
             </ion-card-header>

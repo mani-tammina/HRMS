@@ -354,15 +354,17 @@ router.post("/admin/send-reminders", auth, admin, async (req, res) => {
 
         const c = await db();
 
-        // Get non-compliant employees
+        // Get non-compliant employees with their active project assignments
         let query = `
             SELECT 
                 e.id, e.EmployeeNumber,
                 CONCAT(e.FirstName, ' ', e.LastName) as name,
                 e.WorkEmail,
-                COUNT(pa.id) as project_count
+                pa.project_id,
+                p.project_name
             FROM employees e
-            LEFT JOIN project_assignments pa ON e.id = pa.employee_id AND pa.status = 'active'
+            INNER JOIN project_assignments pa ON e.id = pa.employee_id AND pa.status = 'active'
+            INNER JOIN projects p ON pa.project_id = p.id AND p.status = 'active'
             WHERE e.EmploymentStatus = 'Working'
             AND NOT EXISTS (
                 SELECT 1 FROM timesheets t
@@ -377,28 +379,33 @@ router.post("/admin/send-reminders", auth, admin, async (req, res) => {
             params.push(employee_ids);
         }
 
-        query += ` GROUP BY e.id, e.EmployeeNumber, name, e.WorkEmail`;
-
         const [employees] = await c.query(query, params);
 
         // Insert notification records
         const notifications = [];
         for (const emp of employees) {
-            await c.query(`
-                INSERT INTO timesheet_notifications 
-                (employee_id, project_id, notification_type, notification_channel, subject, message, scheduled_at, status)
-                VALUES (?, 0, 'reminder', 'in_app', ?, ?, NOW(), 'pending')
-            `, [
-                emp.id,
-                'Timesheet Submission Reminder',
-                `Please submit your timesheet for ${reminderDate}. This is a mandatory requirement.`
-            ]);
+            // try {
+            //     await c.query(`
+            //         INSERT INTO timesheet_notifications 
+            //         (employee_id, project_id, notification_type, notification_channel, subject, message, scheduled_at, status)
+            //         VALUES (?, ?, 'reminder', 'in_app', ?, ?, NOW(), 'pending')
+            //     `, [
+            //         emp.id,
+            //         emp.project_id,
+            //         'Timesheet Submission Reminder',
+            //         `Please submit your timesheet for ${emp.project_name} on ${reminderDate}. This is a mandatory requirement.`
+            //     ]);
 
-            notifications.push({
-                employee_id: emp.id,
-                employee_name: emp.name,
-                email: emp.WorkEmail
-            });
+            //     notifications.push({
+            //         employee_id: emp.id,
+            //         employee_name: emp.name,
+            //         email: emp.WorkEmail,
+            //         project_id: emp.project_id,
+            //         project_name: emp.project_name
+            //     });
+            // } catch (notifError) {
+            //     console.error(`❌ Failed to send reminder to ${emp.name}:`, notifError.message);
+            // }
         }
 
         c.end();

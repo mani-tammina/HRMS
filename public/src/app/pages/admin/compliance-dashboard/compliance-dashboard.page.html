@@ -79,10 +79,10 @@
               </ion-col>
               <ion-col size="6" size-md="3">
                 <div class="stat-box">
-                  <div class="stat-value" 
+                  <!-- <div class="stat-value" 
                        [class]="getComplianceRateColor(dashboard?.today?.compliance_rate || 0)">
                     {{ dashboard?.today?.compliance_rate?.toFixed(1) }}%
-                  </div>
+                  </div> -->
                   <div class="stat-label">Compliance Rate</div>
                 </div>
               </ion-col>
@@ -90,9 +90,9 @@
           </ion-grid>
 
           <div class="progress-bar">
-            <div class="progress-fill success" 
+            <!-- <div class="progress-fill success" 
                  [style.width.%]="dashboard?.today?.compliance_rate || 0">
-            </div>
+            </div> -->
           </div>
         </ion-card-content>
       </ion-card>
@@ -212,7 +212,7 @@
                 <ion-button 
                   expand="block" 
                   (click)="sendReminders()"
-                  [disabled]="!dashboard?.today?.non_compliant_count || dashboard.today.non_compliant_count === 0">
+                  [disabled]="!dashboard?.today?.non_compliant_count || dashboard?.today?.non_compliant_count === 0">
                   <ion-icon name="send-outline" slot="start"></ion-icon>
                   Send Reminders ({{ dashboard?.today?.non_compliant_count || 0 }})
                 </ion-button>

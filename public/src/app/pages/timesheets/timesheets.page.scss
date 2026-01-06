@@ -34,6 +34,23 @@
     margin: 0;
     font-size: 0.85em;
     color: var(--ion-color-medium);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .project-info {
+    margin: 4px 0 0;
+    font-size: 0.85em;
+    color: var(--ion-color-primary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 500;
+    
+    ion-icon {
+      font-size: 1em;
+    }
   }
 }
 
@@ -74,6 +91,41 @@
     color: var(--ion-color-medium);
     font-size: 0.9em;
     line-height: 1.5;
+  }
+}
+
+.client-timesheet-status {
+  margin: 12px 0;
+  padding: 12px;
+  background: rgba(var(--ion-color-primary-rgb), 0.05);
+  border-radius: 8px;
+  border-left: 3px solid var(--ion-color-primary);
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9em;
+    font-weight: 500;
+    
+    ion-icon {
+      color: var(--ion-color-primary);
+      font-size: 1.2em;
+    }
+
+    ion-badge {
+      font-size: 0.85em;
+    }
+  }
+
+  .upload-date {
+    margin-top: 4px;
+    margin-left: 28px;
+    
+    small {
+      color: var(--ion-color-medium);
+      font-size: 0.8em;
+    }
   }
 }
 

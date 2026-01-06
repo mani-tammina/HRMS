@@ -72,7 +72,7 @@
             <ion-item>
               <ion-label>
                 <h3>Status</h3>
-                <p><ion-badge [color]="getStatusColor(project.status)">{{ project.status }}</ion-badge></p>
+                <p><ion-badge [color]="getStatusColor(project.status)">{{ getStatusLabel(project.status) }}</ion-badge></p>
               </ion-label>
             </ion-item>
 

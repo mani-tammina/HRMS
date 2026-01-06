@@ -146,54 +146,54 @@ class ComplianceChecker {
      * Send reminder notifications
      */
     async sendReminders(connection, employees, date, reminderType) {
-        const messages = {
-            afternoon_reminder: {
-                subject: '⏰ Reminder: Submit Your Timesheet',
-                message: `Hi {name},\n\nThis is a friendly reminder to submit your timesheet for ${date}.\n\nPlease complete it by end of day to maintain compliance.\n\nThank you!`
-            },
-            evening_reminder: {
-                subject: '⚠️ Urgent: Timesheet Submission Pending',
-                message: `Hi {name},\n\nYour timesheet for ${date} is still pending.\n\nPlease submit it immediately to avoid non-compliance.\n\nThank you!`
-            },
-            final_reminder: {
-                subject: '🚨 Final Reminder: Timesheet Submission',
-                message: `Hi {name},\n\nThis is the final reminder for your timesheet submission for ${date}.\n\nFailure to submit will be escalated to your manager and will be marked as non-compliant.\n\nPlease submit immediately.\n\nThank you!`
-            }
-        };
+        // const messages = {
+        //     afternoon_reminder: {
+        //         subject: '⏰ Reminder: Submit Your Timesheet',
+        //         message: `Hi {name},\n\nThis is a friendly reminder to submit your timesheet for ${date}.\n\nPlease complete it by end of day to maintain compliance.\n\nThank you!`
+        //     },
+        //     evening_reminder: {
+        //         subject: '⚠️ Urgent: Timesheet Submission Pending',
+        //         message: `Hi {name},\n\nYour timesheet for ${date} is still pending.\n\nPlease submit it immediately to avoid non-compliance.\n\nThank you!`
+        //     },
+        //     final_reminder: {
+        //         subject: '🚨 Final Reminder: Timesheet Submission',
+        //         message: `Hi {name},\n\nThis is the final reminder for your timesheet submission for ${date}.\n\nFailure to submit will be escalated to your manager and will be marked as non-compliant.\n\nPlease submit immediately.\n\nThank you!`
+        //     }
+        // };
 
-        const template = messages[reminderType] || messages.afternoon_reminder;
+        // const template = messages[reminderType] || messages.afternoon_reminder;
 
-        for (const emp of employees) {
-            try {
-                const personalizedMessage = template.message.replace('{name}', emp.name.split(' ')[0]);
+        // for (const emp of employees) {
+        //     try {
+        //         const personalizedMessage = template.message.replace('{name}', emp.name.split(' ')[0]);
 
-                // Insert notification
-                await connection.query(`
-                    INSERT INTO timesheet_notifications
-                    (employee_id, project_id, notification_type, notification_channel, 
-                     subject, message, scheduled_at, status)
-                    VALUES (?, 0, ?, 'in_app', ?, ?, NOW(), 'sent')
-                `, [emp.id, reminderType === 'final_reminder' ? 'escalation' : 'reminder',
-                    template.subject, personalizedMessage]);
+        //         // Insert notification
+        //         await connection.query(`
+        //             INSERT INTO timesheet_notifications
+        //             (employee_id, project_id, notification_type, notification_channel, 
+        //              subject, message, scheduled_at, status)
+        //             VALUES (?, 0, ?, 'in_app', ?, ?, NOW(), 'sent')
+        //         `, [emp.id, reminderType === 'final_reminder' ? 'escalation' : 'reminder',
+        //             template.subject, personalizedMessage]);
 
-                // If final reminder, notify manager
-                if (reminderType === 'final_reminder' && emp.manager_email) {
-                    const managerMessage = `Your team member ${emp.name} (${emp.EmployeeNumber}) has not submitted their timesheet for ${date}.`;
+        //         // If final reminder, notify manager
+        //         if (reminderType === 'final_reminder' && emp.manager_email) {
+        //             const managerMessage = `Your team member ${emp.name} (${emp.EmployeeNumber}) has not submitted their timesheet for ${date}.`;
                     
-                    await connection.query(`
-                        INSERT INTO timesheet_notifications
-                        (employee_id, project_id, notification_type, notification_channel,
-                         subject, message, scheduled_at, status)
-                        VALUES (?, 0, 'escalation', 'email', ?, ?, NOW(), 'pending')
-                    `, [emp.id, `Team Member Timesheet Non-Compliance: ${emp.name}`, managerMessage]);
-                }
+        //             await connection.query(`
+        //                 INSERT INTO timesheet_notifications
+        //                 (employee_id, project_id, notification_type, notification_channel,
+        //                  subject, message, scheduled_at, status)
+        //                 VALUES (?, 0, 'escalation', 'email', ?, ?, NOW(), 'pending')
+        //             `, [emp.id, `Team Member Timesheet Non-Compliance: ${emp.name}`, managerMessage]);
+        //         }
 
-            } catch (error) {
-                console.error(`   ❌ Failed to send reminder to ${emp.name}:`, error.message);
-            }
-        }
+        //     } catch (error) {
+        //         console.error(`   ❌ Failed to send reminder to ${emp.name}:`, error.message);
+        //     }
+        // }
 
-        console.log(`   ✉️  ${employees.length} reminders queued`);
+        // console.log(`   ✉️  ${employees.length} reminders queued`);
     }
 
     /**

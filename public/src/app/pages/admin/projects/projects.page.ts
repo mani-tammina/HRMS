@@ -133,6 +133,16 @@ export class ProjectsPage implements OnInit {
     return icons[status] || 'briefcase-outline';
   }
 
+  getStatusLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'active': 'Active',
+      'completed': 'Completed',
+      'on_hold': 'On Hold',
+      'cancelled': 'Cancelled'
+    };
+    return labels[status] || status;
+  }
+
   formatDate(date: string | null): string {
     if (!date) return 'Ongoing';
     return new Date(date).toLocaleDateString('en-US', {
