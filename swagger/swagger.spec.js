@@ -18,92 +18,7 @@ const swaggerSpec = {
     info: {
         title: "HRMS API - Modular Version",
         version: "2.0.0",
-        description: `Human Resource Management System API - Modular Architecture with Auth, Employees, Payroll, Attendance, Timesheets, and more. Features hybrid work support (Office/WFH/Remote), leave management, and comprehensive reporting.
-
-**🎯 Pre-Onboarding Workflow:**
-1. Login → 2. Create Candidate → 3. Start Pre-onboarding → 4. Create Offer → 5. Send Offer → 6. Candidate Views (no auth) → 7. Candidate Approves → 8. Update Status → 9. Hire → 10. Convert to Employee
-
----
-
-**📝 Timesheet Workflow:**
-**Employee:** Check Assignment Status → Submit Regular/Project Timesheet (hourly breakdown) → View My Timesheets  
-**End of Month:** Upload Client Timesheet (PDF/Excel)  
-**Admin:** Get Pending Validations → Compare Internal vs Client Data → Validate/Reject → View Statistics
-
----
-
-**🏖️ Leave Management Workflow:**
-
-**STEP 1: Admin Setup (One-time)**
-→ POST /api/leaves/plans - Create leave plan with allocations
-   - Define leave types (CL, PL, SL, etc.)
-   - Set days_allocated per type
-   - Enable/disable proration for mid-year joiners
-
-**STEP 2: Employee Leave Application**
-1. **Check Balance**: GET /api/leaves/balance
-   - View available leave balance by type
-   - See allocated, used, available counts
-2. **Apply Leave**: POST /api/leaves/apply
-   - Select: leave_type_id, start_date, end_date
-   - System auto-calculates total_days
-   - Add reason (required)
-   - Status: pending (awaiting approval)
-3. **View My Leaves**: GET /api/leaves/my-leaves
-   - Filter by: leave_year
-   - Shows: status, dates, approver, balance impact
-
-**STEP 3: Manager/HR Approval**
-1. **View Pending Requests**: GET /api/leaves/pending
-   - Shows employee details + leave balance
-2. **Approve**: POST /api/leaves/approve/{id}
-   - Deducts from employee balance automatically
-   - Sends notification to employee
-3. **Reject**: POST /api/leaves/reject/{id}
-   - Add rejection reason
-   - Balance remains unchanged
-
-**WFH/Remote Work:**
-- **Request**: POST /api/leaves/wfh-request (date, work_mode, reason)
-- **View Requests**: GET /api/leaves/wfh-requests
-- **Pending Approvals**: GET /api/leaves/wfh-requests/pending (HR only)
-
-**Key Features:** ✅ Auto balance calculation ✅ Proration support ✅ Multi-level approval ✅ Balance tracking ✅ WFH/Remote requests
-
----
-
-**💰 Payroll Workflow:**
-
-**STEP 1: Employee Salary Structure Setup (Admin)**
-→ POST /api/payroll/salary/structure/{empId}
-   - Define: basic, hra, conveyance, special_allowance
-   - Set deductions: pf, esi, professional_tax
-   - Saved to salary_structures table
-
-**STEP 2: Generate Monthly Payroll (Admin)**
-→ POST /api/payroll/generate
-   - Required: month (1-12), year (2025)
-   - System auto-calculates:
-     • Gross salary (basic + hra + allowances)
-     • Total deductions (pf + esi + tax)
-     • Net salary (gross - deductions)
-   - Creates payroll_run + payroll_slips for all employees
-
-**STEP 3: View Payroll Data**
-1. **Admin View**: GET /api/payroll/runs
-   - All payroll runs with employee counts
-2. **Employee View**: GET /api/payroll/slips/employee/{employee_id}
-   - Own salary slips only
-   - Shows: month, gross, deductions, net_salary
-
-**STEP 4: Bulk Upload (Optional)**
-→ POST /api/upload/payroll (multipart/form-data)
-   - Upload Excel with employee payroll data
-   - Fields: EmployeeNumber, basic, hra, pf, esi, etc.
-   - Params: month, year
-   - Creates slips for multiple employees at once
-
-**Key Features:** ✅ Salary structure templates ✅ Auto-calculation (gross/net) ✅ Bulk Excel upload ✅ Employee self-service view ✅ Monthly payroll runs`
+        description: `Human Resource Management System API - Modular Architecture with Auth, Employees, Payroll, Attendance, Timesheets, and more. Features hybrid work support (Office/WFH/Remote), leave management, and comprehensive reporting.`
     },
     servers: [
         {
@@ -6160,7 +6075,43 @@ Object.assign(swaggerSpec.paths, {
             }, 
             responses: { 200: { description: "Project updated" } } 
         },
-        delete: { summary: "🗑️ Close Project", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project closed" } } }
+        delete: { 
+            summary: "🗑️ Close Project", 
+            description: "Mark project as completed (soft delete). Admin and HR can delete projects",
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
+            responses: { 
+                200: { 
+                    description: "Project marked as completed",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: true },
+                                    message: { type: "string", example: "Project marked as completed" }
+                                }
+                            }
+                        }
+                    }
+                },
+                404: { 
+                    description: "Project not found",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: false },
+                                    message: { type: "string", example: "Project not found" }
+                                }
+                            }
+                        }
+                    }
+                }
+            } 
+        }
     },
     "/api/projects/{id}/shifts": {
         get: { summary: "⏰ Get Project Shifts", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "List of shifts" } } },
@@ -6200,6 +6151,7 @@ Object.assign(swaggerSpec.paths, {
     "/api/projects/shifts/{shiftId}": {
         put: { 
             summary: "✏️ Update Shift", 
+            description: "Update an existing project shift (HR/Admin only)",
             tags: ["🚀 Projects"], 
             security: [{ bearerAuth: [] }], 
             parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" }, description: "Shift ID" }], 
@@ -6213,22 +6165,89 @@ Object.assign(swaggerSpec.paths, {
                                 shift_name: { type: "string", example: "Night Shift" },
                                 start_time: { type: "string", example: "21:00:00" },
                                 end_time: { type: "string", example: "06:00:00" },
-                                timezone: { type: "string", example: "UTC" }
+                                timezone: { type: "string", example: "UTC" },
+                                is_active: { type: "boolean", example: true }
                             }
                         },
                         example: {
                             shift_name: "Night Shift",
                             start_time: "21:00:00",
-                            end_time: "06:00:00"
+                            end_time: "06:00:00",
+                            is_active: true
                         }
                     } 
                 } 
             }, 
-            responses: { 200: { description: "Shift updated" } } 
+            responses: { 
+                200: { 
+                    description: "Shift updated successfully",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: true },
+                                    message: { type: "string", example: "Shift updated successfully" }
+                                }
+                            }
+                        }
+                    }
+                },
+                400: { description: "Bad request" },
+                404: { description: "Shift not found" }
+            } 
+        },
+        delete: {
+            summary: "🗑️ Delete Shift",
+            description: "Delete a project shift. Cannot delete if shift is assigned to active employees (HR/Admin only)",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" }, description: "Shift ID to delete" }],
+            responses: {
+                200: {
+                    description: "Shift deleted successfully",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: true },
+                                    message: { type: "string", example: "Shift deleted successfully" }
+                                }
+                            }
+                        }
+                    }
+                },
+                400: {
+                    description: "Cannot delete shift - assigned to active employees",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: false },
+                                    message: { type: "string", example: "Cannot delete shift. It is assigned to active employees." }
+                                }
+                            }
+                        }
+                    }
+                },
+                404: { description: "Shift not found" }
+            }
         }
     },
     "/api/projects/{id}/assignments": {
-        get: { summary: "👥 Get Project Team", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Team assignments" } } },
+        get: { 
+            summary: "👥 Get Project Team", 
+            description: "Get employees assigned to a project. Returns only active assignments by default. Use status query parameter to get all or specific status.",
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [
+                { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" },
+                { name: "status", in: "query", schema: { type: "string", enum: ["active", "completed", "on_hold"] }, description: "Filter by assignment status (defaults to 'active')" }
+            ],
+            responses: { 200: { description: "Team assignments" } } 
+        },
         post: { 
             summary: "➕ Assign Employee", 
             tags: ["🚀 Projects"], 
@@ -6267,6 +6286,7 @@ Object.assign(swaggerSpec.paths, {
     "/api/projects/assignments/{assignmentId}": {
         put: { 
             summary: "✏️ Update Assignment", 
+            description: "Update employee assignment details (HR/Admin only)",
             tags: ["🚀 Projects"], 
             security: [{ bearerAuth: [] }], 
             parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }], 
@@ -6280,20 +6300,61 @@ Object.assign(swaggerSpec.paths, {
                                 allocation_percentage: { type: "integer", minimum: 0, maximum: 100, example: 80 },
                                 shift_id: { type: "integer", nullable: true, example: 2 },
                                 assignment_start_date: { type: "string", format: "date", example: "2024-02-01" },
-                                assignment_end_date: { type: "string", format: "date", nullable: true, example: "2024-09-30" }
+                                assignment_end_date: { type: "string", format: "date", nullable: true, example: "2024-09-30" },
+                                status: { type: "string", enum: ["active", "completed", "on_hold"], example: "active" }
                             }
                         },
                         example: {
                             role_in_project: "Senior Full Stack Developer",
                             allocation_percentage: 80,
+                            shift_id: 2,
                             assignment_end_date: "2024-09-30"
                         }
                     } 
                 } 
             }, 
-            responses: { 200: { description: "Assignment updated" } } 
+            responses: { 
+                200: { 
+                    description: "Assignment updated successfully",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: true },
+                                    message: { type: "string", example: "Assignment updated successfully" }
+                                }
+                            }
+                        }
+                    }
+                },
+                404: { description: "Assignment not found" }
+            } 
         },
-        delete: { summary: "🗑️ Remove Employee", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee removed" } } }
+        delete: { 
+            summary: "🗑️ Remove Employee", 
+            description: "Remove employee from project (marks assignment as completed). HR/Admin only",
+            tags: ["🚀 Projects"], 
+            security: [{ bearerAuth: [] }], 
+            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }], 
+            responses: { 
+                200: { 
+                    description: "Employee removed from project",
+                    content: {
+                        "application/json": {
+                            schema: {
+                                type: "object",
+                                properties: {
+                                    success: { type: "boolean", example: true },
+                                    message: { type: "string", example: "Employee removed from project" }
+                                }
+                            }
+                        }
+                    }
+                },
+                404: { description: "Assignment not found" }
+            } 
+        }
     },
     "/api/projects/employee/{employeeId}/projects": {
         get: { summary: "📋 Get Employee Projects", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "employeeId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee's projects" } } }

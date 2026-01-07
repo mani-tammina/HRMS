@@ -118,6 +118,12 @@
                     <p>{{ shift.start_time }} - {{ shift.end_time }} ({{ shift.timezone }})</p>
                     <p><ion-badge>{{ shift.shift_type }}</ion-badge></p>
                   </ion-label>
+                  <ion-button slot="end" fill="clear" (click)="editShift(shift)">
+                    <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+                  </ion-button>
+                  <ion-button slot="end" fill="clear" color="danger" (click)="deleteShift(shift.id)">
+                    <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                  </ion-button>
                 </ion-item>
               }
             </ion-list>
@@ -152,11 +158,17 @@
               @for (assignment of project.assignments; track assignment.id) {
                 <ion-item>
                   <ion-label>
-                    <h3>{{ assignment.employee_name || 'Unknown' }}</h3>
+                    <h3>{{ assignment.FirstName || 'Unknown' }}</h3>
                     <p>{{ assignment.role_in_project }}</p>
                     <p>Allocation: {{ assignment.allocation_percentage }}%</p>
                     <p>{{ formatDate(assignment.assignment_start_date) }} - {{ formatDate(assignment.assignment_end_date) }}</p>
                   </ion-label>
+                  <ion-button slot="end" fill="clear" (click)="editAssignment(assignment)">
+                    <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+                  </ion-button>
+                  <ion-button slot="end" fill="clear" color="danger" (click)="removeAssignment(assignment.id)">
+                    <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                  </ion-button>
                 </ion-item>
               }
             </ion-list>
@@ -280,11 +292,11 @@
   </ion-modal>
 
   <!-- Shift Modal -->
-  <ion-modal [isOpen]="showShiftModal" (didDismiss)="showShiftModal = false">
+  <ion-modal [isOpen]="showShiftModal" (didDismiss)="showShiftModal = false; editingShift = null">
     <ng-template>
       <ion-header>
         <ion-toolbar>
-          <ion-title>Add Shift</ion-title>
+          <ion-title>{{ editingShift ? 'Edit Shift' : 'Add Shift' }}</ion-title>
           <ion-buttons slot="end">
             <ion-button (click)="showShiftModal = false">Close</ion-button>
           </ion-buttons>
@@ -326,7 +338,7 @@
           <div style="padding: 16px;">
             <ion-button expand="block" (click)="saveShift()">
               <ion-icon name="save-outline" slot="start"></ion-icon>
-              Add Shift
+              {{ editingShift ? 'Update Shift' : 'Add Shift' }}
             </ion-button>
           </div>
         </form>
@@ -335,11 +347,11 @@
   </ion-modal>
 
   <!-- Assignment Modal -->
-  <ion-modal [isOpen]="showAssignModal" (didDismiss)="showAssignModal = false">
+  <ion-modal [isOpen]="showAssignModal" (didDismiss)="showAssignModal = false; editingAssignment = null">
     <ng-template>
       <ion-header>
         <ion-toolbar>
-          <ion-title>Assign Employee</ion-title>
+          <ion-title>{{ editingAssignment ? 'Edit Assignment' : 'Assign Employee' }}</ion-title>
           <ion-buttons slot="end">
             <ion-button (click)="showAssignModal = false">Close</ion-button>
           </ion-buttons>
@@ -391,12 +403,23 @@
               <ion-label position="stacked">Assignment End Date</ion-label>
               <ion-input type="date" formControlName="assignment_end_date"></ion-input>
             </ion-item>
+
+            @if (editingAssignment) {
+              <ion-item>
+                <ion-label position="stacked">Status *</ion-label>
+                <ion-select formControlName="status">
+                  <ion-select-option value="active">Active</ion-select-option>
+                  <ion-select-option value="completed">Completed</ion-select-option>
+                  <ion-select-option value="on_hold">On Hold</ion-select-option>
+                </ion-select>
+              </ion-item>
+            }
           </ion-list>
 
           <div style="padding: 16px;">
             <ion-button expand="block" (click)="assignEmployee()">
               <ion-icon name="person-add-outline" slot="start"></ion-icon>
-              Assign Employee
+              {{ editingAssignment ? 'Update Assignment' : 'Assign Employee' }}
             </ion-button>
           </div>
         </form>

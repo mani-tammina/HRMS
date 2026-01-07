@@ -9,6 +9,8 @@ export interface Asset {
   asset_type: string;
   asset_tag: string;
   serial_number: string | null;
+  manufacturer: string | null;
+  model: string | null;
   purchase_date: string | null;
   warranty_expiry: string | null;
   status: 'available' | 'allocated' | 'under_maintenance' | 'retired';

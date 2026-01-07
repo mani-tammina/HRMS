@@ -81,7 +81,7 @@ router.post("/", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error creating project:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -126,7 +126,7 @@ router.get("/", auth, async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching projects:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -192,7 +192,7 @@ router.get("/:id", auth, async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching project details:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -215,7 +215,7 @@ router.put("/:id", auth, hr, async (req, res) => {
         
         if (existing.length === 0) {
             c.end();
-            return res.status(404).json({ error: "Project not found" });
+            return res.status(404).json({ success: false, message: "Project not found" });
         }
 
         // Build dynamic UPDATE query based on provided fields
@@ -271,12 +271,12 @@ router.put("/:id", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error updating project:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
 // Delete/Close project
-router.delete("/:id", auth, admin, async (req, res) => {
+router.delete("/:id", auth, hr, async (req, res) => {
     try {
         const c = await db();
 
@@ -285,7 +285,7 @@ router.delete("/:id", auth, admin, async (req, res) => {
         
         if (existing.length === 0) {
             c.end();
-            return res.status(404).json({ error: "Project not found" });
+            return res.status(404).json({ success: false, message: "Project not found" });
         }
 
         // Mark as completed instead of deleting (soft delete)
@@ -302,7 +302,7 @@ router.delete("/:id", auth, admin, async (req, res) => {
         });
     } catch (error) {
         console.error("Error deleting project:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -326,7 +326,7 @@ router.post("/:id/shifts", auth, hr, async (req, res) => {
         
         if (project.length === 0) {
             c.end();
-            return res.status(404).json({ error: "Project not found" });
+            return res.status(404).json({ success: false, message: "Project not found" });
         }
 
         const [result] = await c.query(
@@ -345,7 +345,7 @@ router.post("/:id/shifts", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error adding shift:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -364,7 +364,7 @@ router.get("/:id/shifts", auth, async (req, res) => {
         res.json(shifts);
     } catch (error) {
         console.error("Error fetching shifts:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -390,7 +390,40 @@ router.put("/shifts/:shiftId", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error updating shift:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Delete shift
+router.delete("/shifts/:shiftId", auth, hr, async (req, res) => {
+    try {
+        const c = await db();
+
+        // Check if shift is assigned to any active assignments
+        const [assigned] = await c.query(
+            "SELECT COUNT(*) as count FROM project_assignments WHERE shift_id = ? AND status = 'active'",
+            [req.params.shiftId]
+        );
+
+        if (assigned[0].count > 0) {
+            c.end();
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete shift. It is assigned to active employees."
+            });
+        }
+
+        await c.query("DELETE FROM project_shifts WHERE id = ?", [req.params.shiftId]);
+
+        c.end();
+
+        res.json({
+            success: true,
+            message: "Shift deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting shift:", error);
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -421,7 +454,7 @@ router.post("/:id/assignments", auth, hr, async (req, res) => {
         
         if (employee.length === 0) {
             c.end();
-            return res.status(404).json({ error: "Employee not found" });
+            return res.status(404).json({ success: false, message: "Employee not found" });
         }
 
         // Check for overlapping assignments
@@ -458,7 +491,7 @@ router.post("/:id/assignments", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error assigning employee:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -489,9 +522,12 @@ router.get("/:id/assignments", auth, async (req, res) => {
 
         const params = [req.params.id];
 
+        // Default to active assignments if no status specified
         if (status) {
             query += " AND pa.status = ?";
             params.push(status);
+        } else {
+            query += " AND pa.status = 'active'";
         }
 
         query += " ORDER BY e.FirstName, e.LastName";
@@ -502,7 +538,7 @@ router.get("/:id/assignments", auth, async (req, res) => {
         res.json(assignments);
     } catch (error) {
         console.error("Error fetching assignments:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -535,7 +571,7 @@ router.put("/assignments/:assignmentId", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error updating assignment:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -560,7 +596,7 @@ router.delete("/assignments/:assignmentId", auth, hr, async (req, res) => {
         });
     } catch (error) {
         console.error("Error removing employee:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 
@@ -593,7 +629,7 @@ router.get("/employee/:employeeId/projects", auth, async (req, res) => {
         res.json(projects);
     } catch (error) {
         console.error("Error fetching employee projects:", error);
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ success: false, message: error.message });
     }
 });
 

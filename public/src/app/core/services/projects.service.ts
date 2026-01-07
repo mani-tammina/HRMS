@@ -35,6 +35,8 @@ export interface ProjectAssignment {
   employee_id: number;
   employee_code?: string;
   employee_name?: string;
+  FirstName?:string;
+  LastName?:string;
   role_in_project: string;
   allocation_percentage: number;
   shift_id: number | null;

@@ -236,6 +236,11 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/admin/assets/asset-reports/asset-reports.page').then(m => m.AssetReportsPage),
     canActivate: [adminGuard]
   },
+  {
+    path: 'admin/assets/:id',
+    loadComponent: () => import('./pages/admin/assets/asset-detail/asset-detail.page').then(m => m.AssetDetailPage),
+    canActivate: [adminGuard]
+  },
   // Analytics Dashboard
   {
     path: 'admin/analytics',

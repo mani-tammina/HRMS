@@ -52,6 +52,7 @@ export class ProjectDetailPage implements OnInit {
   // Data
   employees: Employee[] = [];
   editingShift: ProjectShift | null = null;
+  editingAssignment: ProjectAssignment | null = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -113,7 +114,8 @@ export class ProjectDetailPage implements OnInit {
       allocation_percentage: [100, [Validators.required, Validators.min(0), Validators.max(100)]],
       shift_id: [''],
       assignment_start_date: ['', Validators.required],
-      assignment_end_date: ['']
+      assignment_end_date: [''],
+      status: ['active']
     });
   }
 
@@ -211,12 +213,14 @@ export class ProjectDetailPage implements OnInit {
         console.log('Project saved successfully:', response);
         await loading.dismiss();
         await this.errorHandler.handleSuccess(response.message);
+        this.showEditModal = false;
         
         if (!this.projectId && response.project) {
-          // Navigate to the newly created project
-          this.router.navigate(['/admin/projects', response.project.id]);
+          // Small delay to allow modal to close before navigation
+          setTimeout(() => {
+            this.router.navigate(['/admin/projects', response.project.id]);
+          }, 100);
         } else {
-          this.showEditModal = false;
           this.loadProject();
         }
       },
@@ -237,11 +241,16 @@ export class ProjectDetailPage implements OnInit {
     const loading = await this.loadingController.create({ message: 'Saving shift...' });
     await loading.present();
 
-    this.projectsService.addShift(this.projectId, this.shiftForm.value).subscribe({
+    const operation = this.editingShift
+      ? this.projectsService.updateShift(this.editingShift.id, this.shiftForm.value)
+      : this.projectsService.addShift(this.projectId, this.shiftForm.value);
+
+    operation.subscribe({
       next: async (response) => {
         await loading.dismiss();
         await this.errorHandler.handleSuccess(response.message);
         this.showShiftModal = false;
+        this.editingShift = null;
         this.shiftForm.reset({ shift_type: 'day', start_time: '09:00', end_time: '18:00', timezone: 'UTC' });
         this.loadProject();
       },
@@ -258,7 +267,9 @@ export class ProjectDetailPage implements OnInit {
       return;
     }
 
-    const loading = await this.loadingController.create({ message: 'Assigning employee...' });
+    const loading = await this.loadingController.create({ 
+      message: this.editingAssignment ? 'Updating assignment...' : 'Assigning employee...' 
+    });
     await loading.present();
 
     const assignmentData = {
@@ -266,17 +277,22 @@ export class ProjectDetailPage implements OnInit {
       project_id: this.projectId
     };
 
-    this.projectsService.assignEmployee(assignmentData).subscribe({
+    const operation = this.editingAssignment
+      ? this.projectsService.updateAssignment(this.editingAssignment.id, assignmentData)
+      : this.projectsService.assignEmployee(assignmentData);
+
+    operation.subscribe({
       next: async (response) => {
         await loading.dismiss();
         await this.errorHandler.handleSuccess(response.message);
         this.showAssignModal = false;
-        this.assignForm.reset({ allocation_percentage: 100 });
+        this.editingAssignment = null;
+        this.assignForm.reset({ allocation_percentage: 100, status: 'active' });
         this.loadProject();
       },
       error: async (error) => {
         await loading.dismiss();
-        await this.errorHandler.handleError(error, 'Failed to assign employee');
+        await this.errorHandler.handleError(error, 'Failed to save assignment');
       }
     });
   }
@@ -317,6 +333,96 @@ export class ProjectDetailPage implements OnInit {
         await this.errorHandler.handleError(error, 'Failed to delete project');
       }
     });
+  }
+
+  editShift(shift: ProjectShift) {
+    this.editingShift = shift;
+    this.shiftForm.patchValue({
+      shift_type: shift.shift_type,
+      shift_name: shift.shift_name,
+      start_time: shift.start_time,
+      end_time: shift.end_time,
+      timezone: shift.timezone
+    });
+    this.showShiftModal = true;
+  }
+
+  async deleteShift(shiftId: number) {
+    const alert = await this.alertController.create({
+      header: 'Confirm Delete',
+      message: 'Are you sure you want to delete this shift?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Deleting shift...' });
+            await loading.present();
+
+            this.projectsService.deleteShift(shiftId).subscribe({
+              next: async (response) => {
+                await loading.dismiss();
+                await this.errorHandler.handleSuccess(response.message);
+                this.loadProject();
+              },
+              error: async (error) => {
+                await loading.dismiss();
+                await this.errorHandler.handleError(error, 'Failed to delete shift');
+              }
+            });
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  editAssignment(assignment: ProjectAssignment) {
+    this.editingAssignment = assignment;
+    this.assignForm.patchValue({
+      employee_id: assignment.employee_id,
+      role_in_project: assignment.role_in_project,
+      allocation_percentage: assignment.allocation_percentage,
+      shift_id: assignment.shift_id,
+      assignment_start_date: assignment.assignment_start_date,
+      assignment_end_date: assignment.assignment_end_date,
+      status: assignment.status || 'active'
+    });
+    this.showAssignModal = true;
+  }
+
+  async removeAssignment(assignmentId: number) {
+    const alert = await this.alertController.create({
+      header: 'Confirm Remove',
+      message: 'Are you sure you want to remove this employee from the project?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Remove',
+          role: 'destructive',
+          handler: async () => {
+            const loading = await this.loadingController.create({ message: 'Removing assignment...' });
+            await loading.present();
+
+            this.projectsService.removeAssignment(assignmentId).subscribe({
+              next: async (response) => {
+                await loading.dismiss();
+                await this.errorHandler.handleSuccess(response.message);
+                this.loadProject();
+              },
+              error: async (error) => {
+                await loading.dismiss();
+                await this.errorHandler.handleError(error, 'Failed to remove assignment');
+              }
+            });
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   getStatusColor(status: string): string {
