@@ -318,5 +318,44 @@ router.delete("/weekly-off-policies/:id", auth, admin, async (req, res) => {
     }
 });
 
+// Add update (PUT) endpoints for all generic master tables
+const updateMasterRoutes = [
+    { route: "locations", table: "locations", col: "name" },
+    { route: "departments", table: "departments", col: "name" },
+    { route: "designations", table: "designations", col: "name" },
+    { route: "business-units", table: "business_units", col: "name" },
+    { route: "legal-entities", table: "legal_entities", col: "name" },
+    { route: "cost-centers", table: "cost_centers", col: "code" },
+    { route: "sub-departments", table: "sub_departments", col: "name" },
+    { route: "bands", table: "bands", col: "name" },
+    { route: "pay-grades", table: "pay_grades", col: "name" },
+    { route: "leave-plans", table: "leave_plans", col: "name" },
+    { route: "attendance-policies", table: "attendance_policies", col: "name" },
+    { route: "attendance-capture-schemes", table: "attendance_capture_schemes", col: "name" },
+    { route: "holiday-lists", table: "holiday_lists", col: "name" },
+    { route: "expense-policies", table: "expense_policies", col: "name" }
+];
+
+updateMasterRoutes.forEach(({ route, table, col }) => {
+    router.put(`/${route}/:id`, auth, admin, async (req, res) => {
+        try {
+            const c = await db();
+            const value = req.body[col];
+            if (!value) {
+                c.end();
+                return res.status(400).json({ error: `${col} is required` });
+            }
+            const [result] = await c.query(`UPDATE ${table} SET ${col} = ? WHERE id = ?`, [value, req.params.id]);
+            c.end();
+            if (result.affectedRows === 0) {
+                return res.status(404).json({ error: `${route} not found` });
+            }
+            res.json({ success: true, message: `${route} updated successfully` });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+});
+
 module.exports = router;
 
