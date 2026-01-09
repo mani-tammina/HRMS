@@ -675,6 +675,132 @@ router.get("/admin/validation-stats", auth, admin, async (req, res) => {
 
 /* ============ MANAGER TIMESHEET APPROVAL ============ */
 
+// Get team statistics for manager
+router.get("/manager/team-statistics", auth, async (req, res) => {
+    try {
+        const manager = await findEmployeeByUserId(req.user.id);
+        if (!manager) return res.status(404).json({ error: "Manager not found" });
+
+        console.log("📊 Team Statistics Request - Manager ID:", manager.id, "Manager Name:", manager.FirstName, manager.LastName);
+
+        const { start_date, end_date } = req.query;
+        console.log("📅 Date Range:", { start_date, end_date });
+
+        const c = await db();
+
+        // Get total team size (employees reporting to this manager)
+        const [teamCount] = await c.query(`
+            SELECT COUNT(*) as team_size
+            FROM employees
+            WHERE reporting_manager_id = ?
+            AND EmploymentStatus = 'Working'
+        `, [manager.id]);
+
+        console.log("👥 Team Size Query Result:", teamCount[0]);
+
+        // Determine date range for timesheet statistics
+        let dateCondition = "";
+        let dateParams = [];
+        
+        if (start_date && end_date) {
+            dateCondition = "AND t.date BETWEEN ? AND ?";
+            dateParams = [start_date, end_date];
+        } else {
+            // Default to current month if no date range provided
+            dateCondition = "AND MONTH(t.date) = MONTH(CURDATE()) AND YEAR(t.date) = YEAR(CURDATE())";
+        }
+
+        // Get employees who have submitted at least one timesheet in the date range
+        const submittedQuery = `
+            SELECT COUNT(DISTINCT t.employee_id) as submitted_count
+            FROM timesheets t
+            INNER JOIN employees e ON t.employee_id = e.id
+            WHERE e.reporting_manager_id = ?
+            AND e.EmploymentStatus = 'Working'
+            AND t.status IN ('submitted', 'verified')
+            ${dateCondition}
+        `;
+        
+        console.log("📝 Submitted Query:", submittedQuery);
+        console.log("📝 Submitted Params:", [manager.id, ...dateParams]);
+
+        const [submittedCount] = await c.query(submittedQuery, [manager.id, ...dateParams]);
+        console.log("✅ Submitted Count Result:", submittedCount[0]);
+
+        // Get pending approval count (only submitted, not yet verified)
+        const pendingQuery = `
+            SELECT COUNT(*) as pending_count
+            FROM timesheets t
+            INNER JOIN employees e ON t.employee_id = e.id
+            WHERE e.reporting_manager_id = ?
+            AND e.EmploymentStatus = 'Working'
+            AND t.status = 'submitted'
+            ${dateCondition}
+        `;
+        
+        console.log("⏳ Pending Query:", pendingQuery);
+        console.log("⏳ Pending Params:", [manager.id, ...dateParams]);
+
+        const [pendingCount] = await c.query(pendingQuery, [manager.id, ...dateParams]);
+        console.log("⏳ Pending Count Result:", pendingCount[0]);
+
+        const teamSize = teamCount[0]?.team_size || 0;
+        const submitted = submittedCount[0]?.submitted_count || 0;
+        const notSubmitted = teamSize - submitted;
+
+        // Debug: Get team members list for verification
+        const [teamMembers] = await c.query(`
+            SELECT id, EmployeeNumber, FirstName, LastName, reporting_manager_id, EmploymentStatus
+            FROM employees
+            WHERE reporting_manager_id = ?
+            AND EmploymentStatus = 'Working'
+        `, [manager.id]);
+
+        console.log("👥 Team Members List:", teamMembers.map(m => ({
+            id: m.id,
+            name: `${m.FirstName} ${m.LastName}`,
+            emp_no: m.EmployeeNumber
+        })));
+
+        // Debug: Check if there are any timesheets at all for the team
+        const [allTimesheets] = await c.query(`
+            SELECT 
+                t.employee_id,
+                e.FirstName,
+                e.LastName,
+                COUNT(*) as timesheet_count,
+                t.status,
+                MIN(t.date) as earliest_date,
+                MAX(t.date) as latest_date
+            FROM timesheets t
+            INNER JOIN employees e ON t.employee_id = e.id
+            WHERE e.reporting_manager_id = ?
+            GROUP BY t.employee_id, t.status, e.FirstName, e.LastName
+        `, [manager.id]);
+
+        console.log("📋 All Timesheets Summary:", allTimesheets);
+
+        c.end();
+
+        const response = {
+            team_size: teamSize,
+            submitted_count: submitted,
+            not_submitted_count: notSubmitted,
+            pending_approvals: pendingCount[0]?.pending_count || 0,
+            date_range: start_date && end_date ? { start_date, end_date } : 'current_month',
+            manager_id: manager.id,
+            manager_name: `${manager.FirstName} ${manager.LastName}`
+        };
+
+        console.log("📤 Response:", response);
+
+        res.json(response);
+    } catch (error) {
+        console.error("❌ Error fetching team statistics:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 // Get pending timesheets for manager's team
 router.get("/manager/pending-timesheets", auth, async (req, res) => {
     try {
