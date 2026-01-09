@@ -279,7 +279,7 @@ async function checkManagerRole(email) {
          FROM employees e
          LEFT JOIN designations d ON e.DesignationId = d.id
          LEFT JOIN departments dept ON e.DepartmentId = dept.id
-         WHERE e.ReportingManagerId = ?
+         WHERE e.reporting_manager_id = ?
          AND e.EmploymentStatus = 'Active'`,
     [employeeId]
   );
@@ -343,10 +343,10 @@ router.get("/user/check-reporting/:email", async (req, res) => {
   try {
     // Get employee details
     const [emp] = await c.query(
-      `SELECT e.id, e.EmployeeNumber, e.FullName, e.WorkEmail, e.ReportingManagerId,
+      `SELECT e.id, e.EmployeeNumber, e.FullName, e.WorkEmail, e.reporting_manager_id,
                     rm.FullName as ReportingManagerName, rm.WorkEmail as ReportingManagerEmail
              FROM employees e
-             LEFT JOIN employees rm ON e.ReportingManagerId = rm.id
+             LEFT JOIN employees rm ON e.reporting_manager_id = rm.id
              WHERE e.WorkEmail = ?`,
       [email]
     );
@@ -360,8 +360,8 @@ router.get("/user/check-reporting/:email", async (req, res) => {
     const [reportingEmployees] = await c.query(
       `SELECT id, EmployeeNumber, FullName, WorkEmail
              FROM employees
-             WHERE ReportingManagerId = ?
-             AND EmploymentStatus = 'Active'`,
+             WHERE reporting_manager_id = ?
+             AND EmploymentStatus = 'Working'`,
       [emp[0].id]
     );
 
