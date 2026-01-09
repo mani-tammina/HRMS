@@ -1086,6 +1086,88 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/employees/my-team/reporting/{employeeId}": {
+            "get": {
+                "summary": "Get Reporting Team by ID",
+                "description": "Returns a list of all employees who report directly to the specified employee ID.",
+                "tags": ["👥 Employees"],
+                "parameters": [
+                    {
+                        "name": "employeeId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The unique ID of the employee (manager) whose direct reports you want to fetch.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A list of direct reports successfully retrieved.",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "team": [
+                                        {
+                                            "id": "101",
+                                            "FirstName": "John",
+                                            "LastName": "Doe",
+                                            "department_name": "US Insurance",
+                                            "designation_name": "Assistant Manager",
+                                            "location_name": "Visakhapatnam"
+                                        }
+                                    ],
+                                    "message": "Reporting team for employee 101"
+                                }
+                            }
+                        }
+                    },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/api/employees/my-team/co-team/{employeeId}": {
+            "get": {
+                "summary": "Get Co-Team Members by ID",
+                "description": "Returns colleagues who share the same reporting manager as the given employee ID (peers).",
+                "tags": ["👥 Employees"],
+                "parameters": [
+                    {
+                        "name": "employeeId",
+                        "in": "path",
+                        "required": true,
+                        "description": "The unique ID of the employee whose peers you want to fetch.",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "A list of peer employees successfully retrieved.",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "team": [
+                                        {
+                                            "id": "102",
+                                            "FirstName": "Jane",
+                                            "LastName": "Smith",
+                                            "department_name": "US Insurance",
+                                            "designation_name": "Assistant Manager",
+                                            "location_name": "Visakhapatnam"
+                                        }
+                                    ],
+                                    "message": "Co-team members for employee 101"
+                                }
+                            }
+                        }
+                    },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
         "/api/employees/profile/me": {
             get: {
                 summary: "Get My Profile",

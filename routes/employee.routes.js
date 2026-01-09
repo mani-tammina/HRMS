@@ -458,4 +458,59 @@ router.get("/my-team/co-team", auth, async (req, res) => {
     }
 });
 
+// Get reporting team (employees who report to the given employee ID)
+router.get("/my-team/reporting/:employeeId", auth, async (req, res) => {
+    try {
+        const employeeId = req.params.employeeId;
+        const c = await db();
+        const [reportingTeam] = await c.query(
+            `SELECT 
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+             FROM employees e
+             LEFT JOIN departments d ON e.DepartmentId = d.id
+             LEFT JOIN designations des ON e.DesignationId = des.id
+             LEFT JOIN locations l ON e.LocationId = l.id
+             WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
+             ORDER BY e.FirstName, e.LastName`,
+            [employeeId]
+        );
+        c.end();
+        res.json({ team: reportingTeam, message: 'Reporting team for employee ' + employeeId });
+    } catch (error) {
+        console.error("Error fetching reporting team by employeeId:", error);
+        res.status(500).json({ error: error.message || "Failed to fetch reporting team" });
+    }
+});
+
+// Get co-team (employees who share the same reporting manager as the given employee ID)
+router.get("/my-team/co-team/:employeeId", auth, async (req, res) => {
+    try {
+        const employeeId = req.params.employeeId;
+        const c = await db();
+        // Get the reporting manager id for the given employee
+        const [empRows] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [employeeId]);
+        if (!empRows.length || !empRows[0].reporting_manager_id) {
+            c.end();
+            return res.json({ team: [], message: 'No co-team members found' });
+        }
+        const reportingManagerId = empRows[0].reporting_manager_id;
+        const [coTeam] = await c.query(
+            `SELECT 
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+             FROM employees e
+             LEFT JOIN departments d ON e.DepartmentId = d.id
+             LEFT JOIN designations des ON e.DesignationId = des.id
+             LEFT JOIN locations l ON e.LocationId = l.id
+             WHERE e.reporting_manager_id = ? AND e.id != ? AND e.EmploymentStatus = 'Working'
+             ORDER BY e.FirstName, e.LastName`,
+            [reportingManagerId, employeeId]
+        );
+        c.end();
+        res.json({ team: coTeam, message: 'Co-team members for employee ' + employeeId });
+    } catch (error) {
+        console.error("Error fetching co-team by employeeId:", error);
+        res.status(500).json({ error: error.message || "Failed to fetch co-team" });
+    }
+});
+
 module.exports = router;
