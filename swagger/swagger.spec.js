@@ -13,6 +13,11 @@ const ACCESS_MATRIX = {
     }
 };
 
+const baseUrl=
+    process.env.NODE_ENV === 'production'
+        ? process.env.API_BASE_URL
+        : 'http://localhost:3000';
+ 
 const swaggerSpec = {
     openapi: "3.0.0",
     info: {
@@ -21,10 +26,13 @@ const swaggerSpec = {
         description: `Human Resource Management System API - Modular Architecture with Auth, Employees, Payroll, Attendance, Timesheets, and more. Features hybrid work support (Office/WFH/Remote), leave management, and comprehensive reporting.`
     },
     servers: [
-        {
-            url: process.env.API_BASE_URL || "http://localhost:3000",
-            description: process.env.NODE_ENV === 'production' ? "Production Server" : "Development Server"
-        }
+    {
+        url: baseUrl,
+        description:
+            process.env.NODE_ENV === 'production'
+                ? 'Production Server'
+                : 'Local Development Server'
+    }
     ],
     components: {
         securitySchemes: {
