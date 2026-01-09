@@ -1022,6 +1022,70 @@ Skips employees who already have user accounts.
                 }
             }
         },
+        "/api/employees/my-team/reporting": {
+            "get": {
+                "summary": "Get Reporting Team",
+                "description": "Returns a list of employees who report directly to the logged-in user.",
+                "tags": ["👥 Employees"],
+                "security": [{ "bearerAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "List of direct reports",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "team": [
+                                        {
+                                            "id": 10,
+                                            "FirstName": "John",
+                                            "LastName": "Doe",
+                                            "department_name": "US Insurance",
+                                            "designation_name": "Assistant Manager",
+                                            "location_name": "Site 1"
+                                        }
+                                    ],
+                                    "message": "Your reporting team"
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Employee not found" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/api/employees/my-team/co-team": {
+            "get": {
+                "summary": "Get Co-Team Members",
+                "description": "Returns a list of colleagues who share the same reporting manager as the logged-in user.",
+                "tags": ["👥 Employees"],
+                "security": [{ "bearerAuth": [] }],
+                "responses": {
+                    "200": {
+                        "description": "List of co-team members",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "team": [
+                                        {
+                                            "id": 11,
+                                            "FirstName": "Jane",
+                                            "LastName": "Smith",
+                                            "department_name": "US Insurance",
+                                            "designation_name": "Senior Associate",
+                                            "location_name": "Site 1"
+                                        }
+                                    ],
+                                    "message": "Your co-team members"
+                                }
+                            }
+                        }
+                    },
+                    "404": { "description": "Employee not found" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
         "/api/employees/profile/me": {
             get: {
                 summary: "Get My Profile",
@@ -5988,7 +6052,7 @@ Object.assign(swaggerSpec.paths, {
     "/api/payroll/run": {
         post: { summary: "Run payroll for a period", tags: ["Payroll"], security: [{ bearerAuth: [] }], requestBody: { required: true, content: { "application/json": { schema: { type: "object", properties: { period_id: { type: "integer" } } } } } }, responses: { 200: { description: "Payroll run result" } } }
     },
-    
+
     // ============================================
     // PROJECT MANAGEMENT APIs
     // ============================================
@@ -6011,21 +6075,21 @@ Object.assign(swaggerSpec.paths, {
             security: [{ bearerAuth: [] }],
             requestBody: {
                 required: true,
-                content: { 
-                    "application/json": { 
-                        schema: { 
-                            type: "object", 
-                            required: ["project_code", "project_name", "client_name", "start_date"], 
-                            properties: { 
-                                project_code: { type: "string", example: "PRJ-2024-001" }, 
-                                project_name: { type: "string", example: "Customer Portal Development" }, 
-                                client_name: { type: "string", example: "ABC Corporation" }, 
-                                start_date: { type: "string", format: "date", example: "2024-02-01" }, 
-                                end_date: { type: "string", format: "date", example: "2024-08-31" }, 
-                                status: { type: "string", enum: ["active", "completed", "on_hold", "cancelled"], example: "active" }, 
-                                description: { type: "string", example: "Development of customer self-service portal with advanced features" }, 
-                                manager_id: { type: "integer", example: 1 } 
-                            } 
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
+                            required: ["project_code", "project_name", "client_name", "start_date"],
+                            properties: {
+                                project_code: { type: "string", example: "PRJ-2024-001" },
+                                project_name: { type: "string", example: "Customer Portal Development" },
+                                client_name: { type: "string", example: "ABC Corporation" },
+                                start_date: { type: "string", format: "date", example: "2024-02-01" },
+                                end_date: { type: "string", format: "date", example: "2024-08-31" },
+                                status: { type: "string", enum: ["active", "completed", "on_hold", "cancelled"], example: "active" },
+                                description: { type: "string", example: "Development of customer self-service portal with advanced features" },
+                                manager_id: { type: "integer", example: 1 }
+                            }
                         },
                         example: {
                             project_code: "PRJ-2024-001",
@@ -6037,7 +6101,7 @@ Object.assign(swaggerSpec.paths, {
                             description: "Development of customer self-service portal with advanced features",
                             manager_id: 1
                         }
-                    } 
+                    }
                 }
             },
             responses: { 200: { description: "Project created successfully" } }
@@ -6045,15 +6109,15 @@ Object.assign(swaggerSpec.paths, {
     },
     "/api/projects/{id}": {
         get: { summary: "🔍 Get Project Details", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Project details" } } },
-        put: { 
-            summary: "✏️ Update Project", 
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], 
-            requestBody: { 
-                content: { 
-                    "application/json": { 
-                        schema: { 
+        put: {
+            summary: "✏️ Update Project",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+            requestBody: {
+                content: {
+                    "application/json": {
+                        schema: {
                             type: "object",
                             properties: {
                                 project_code: { type: "string", example: "PRJ-2024-001" },
@@ -6070,19 +6134,19 @@ Object.assign(swaggerSpec.paths, {
                             status: "on_hold",
                             description: "Project temporarily on hold due to client request"
                         }
-                    } 
-                } 
-            }, 
-            responses: { 200: { description: "Project updated" } } 
+                    }
+                }
+            },
+            responses: { 200: { description: "Project updated" } }
         },
-        delete: { 
-            summary: "🗑️ Close Project", 
+        delete: {
+            summary: "🗑️ Close Project",
             description: "Mark project as completed (soft delete). Admin and HR can delete projects",
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
-            responses: { 
-                200: { 
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }],
+            responses: {
+                200: {
                     description: "Project marked as completed",
                     content: {
                         "application/json": {
@@ -6096,7 +6160,7 @@ Object.assign(swaggerSpec.paths, {
                         }
                     }
                 },
-                404: { 
+                404: {
                     description: "Project not found",
                     content: {
                         "application/json": {
@@ -6110,22 +6174,22 @@ Object.assign(swaggerSpec.paths, {
                         }
                     }
                 }
-            } 
+            }
         }
     },
     "/api/projects/{id}/shifts": {
         get: { summary: "⏰ Get Project Shifts", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "List of shifts" } } },
-        post: { 
-            summary: "➕ Add Shift", 
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
-            requestBody: { 
-                required: true, 
-                content: { 
-                    "application/json": { 
-                        schema: { 
-                            type: "object", 
+        post: {
+            summary: "➕ Add Shift",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
                             required: ["shift_type", "shift_name", "start_time", "end_time", "timezone"],
                             properties: {
                                 shift_type: { type: "string", enum: ["day", "night", "flexible"], example: "day" },
@@ -6142,23 +6206,23 @@ Object.assign(swaggerSpec.paths, {
                             end_time: "18:00:00",
                             timezone: "UTC"
                         }
-                    } 
-                } 
-            }, 
-            responses: { 200: { description: "Shift added" } } 
+                    }
+                }
+            },
+            responses: { 200: { description: "Shift added" } }
         }
     },
     "/api/projects/shifts/{shiftId}": {
-        put: { 
-            summary: "✏️ Update Shift", 
+        put: {
+            summary: "✏️ Update Shift",
             description: "Update an existing project shift (HR/Admin only)",
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" }, description: "Shift ID" }], 
-            requestBody: { 
-                content: { 
-                    "application/json": { 
-                        schema: { 
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "shiftId", in: "path", required: true, schema: { type: "integer" }, description: "Shift ID" }],
+            requestBody: {
+                content: {
+                    "application/json": {
+                        schema: {
                             type: "object",
                             properties: {
                                 shift_type: { type: "string", enum: ["day", "night", "flexible"], example: "night" },
@@ -6175,11 +6239,11 @@ Object.assign(swaggerSpec.paths, {
                             end_time: "06:00:00",
                             is_active: true
                         }
-                    } 
-                } 
-            }, 
-            responses: { 
-                200: { 
+                    }
+                }
+            },
+            responses: {
+                200: {
                     description: "Shift updated successfully",
                     content: {
                         "application/json": {
@@ -6195,7 +6259,7 @@ Object.assign(swaggerSpec.paths, {
                 },
                 400: { description: "Bad request" },
                 404: { description: "Shift not found" }
-            } 
+            }
         },
         delete: {
             summary: "🗑️ Delete Shift",
@@ -6237,28 +6301,28 @@ Object.assign(swaggerSpec.paths, {
         }
     },
     "/api/projects/{id}/assignments": {
-        get: { 
-            summary: "👥 Get Project Team", 
+        get: {
+            summary: "👥 Get Project Team",
             description: "Get employees assigned to a project. Returns only active assignments by default. Use status query parameter to get all or specific status.",
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
             parameters: [
                 { name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" },
                 { name: "status", in: "query", schema: { type: "string", enum: ["active", "completed", "on_hold"] }, description: "Filter by assignment status (defaults to 'active')" }
             ],
-            responses: { 200: { description: "Team assignments" } } 
+            responses: { 200: { description: "Team assignments" } }
         },
-        post: { 
-            summary: "➕ Assign Employee", 
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }], 
-            requestBody: { 
-                required: true, 
-                content: { 
-                    "application/json": { 
-                        schema: { 
-                            type: "object", 
+        post: {
+            summary: "➕ Assign Employee",
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Project ID" }],
+            requestBody: {
+                required: true,
+                content: {
+                    "application/json": {
+                        schema: {
+                            type: "object",
                             required: ["employee_id", "role_in_project", "allocation_percentage", "assignment_start_date"],
                             properties: {
                                 employee_id: { type: "integer", example: 5 },
@@ -6277,23 +6341,23 @@ Object.assign(swaggerSpec.paths, {
                             assignment_start_date: "2024-02-01",
                             assignment_end_date: "2024-08-31"
                         }
-                    } 
-                } 
-            }, 
-            responses: { 200: { description: "Employee assigned" } } 
+                    }
+                }
+            },
+            responses: { 200: { description: "Employee assigned" } }
         }
     },
     "/api/projects/assignments/{assignmentId}": {
-        put: { 
-            summary: "✏️ Update Assignment", 
+        put: {
+            summary: "✏️ Update Assignment",
             description: "Update employee assignment details (HR/Admin only)",
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }], 
-            requestBody: { 
-                content: { 
-                    "application/json": { 
-                        schema: { 
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }],
+            requestBody: {
+                content: {
+                    "application/json": {
+                        schema: {
                             type: "object",
                             properties: {
                                 role_in_project: { type: "string", example: "Senior Full Stack Developer" },
@@ -6310,11 +6374,11 @@ Object.assign(swaggerSpec.paths, {
                             shift_id: 2,
                             assignment_end_date: "2024-09-30"
                         }
-                    } 
-                } 
-            }, 
-            responses: { 
-                200: { 
+                    }
+                }
+            },
+            responses: {
+                200: {
                     description: "Assignment updated successfully",
                     content: {
                         "application/json": {
@@ -6329,16 +6393,16 @@ Object.assign(swaggerSpec.paths, {
                     }
                 },
                 404: { description: "Assignment not found" }
-            } 
+            }
         },
-        delete: { 
-            summary: "🗑️ Remove Employee", 
+        delete: {
+            summary: "🗑️ Remove Employee",
             description: "Remove employee from project (marks assignment as completed). HR/Admin only",
-            tags: ["🚀 Projects"], 
-            security: [{ bearerAuth: [] }], 
-            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }], 
-            responses: { 
-                200: { 
+            tags: ["🚀 Projects"],
+            security: [{ bearerAuth: [] }],
+            parameters: [{ name: "assignmentId", in: "path", required: true, schema: { type: "integer" }, description: "Assignment ID" }],
+            responses: {
+                200: {
                     description: "Employee removed from project",
                     content: {
                         "application/json": {
@@ -6353,13 +6417,13 @@ Object.assign(swaggerSpec.paths, {
                     }
                 },
                 404: { description: "Assignment not found" }
-            } 
+            }
         }
     },
     "/api/projects/employee/{employeeId}/projects": {
         get: { summary: "📋 Get Employee Projects", tags: ["🚀 Projects"], security: [{ bearerAuth: [] }], parameters: [{ name: "employeeId", in: "path", required: true, schema: { type: "integer" } }], responses: { 200: { description: "Employee's projects" } } }
     },
-    
+
     // ASSET MANAGEMENT APIs
     "/api/assets": {
         get: { summary: "📦 List Assets", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], parameters: [{ name: "status", in: "query", schema: { type: "string" } }, { name: "asset_type", in: "query", schema: { type: "string" } }], responses: { 200: { description: "Asset list" } } }
@@ -6382,7 +6446,7 @@ Object.assign(swaggerSpec.paths, {
     "/api/assets/reports": {
         get: { summary: "📊 Asset Reports", tags: ["💼 Assets"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Asset reports" } } }
     },
-    
+
     // DASHBOARD & ANALYTICS APIs
     "/api/dashboard/admin": {
         get: { summary: "👑 Admin Dashboard", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], responses: { 200: { description: "Admin dashboard data" } } }
@@ -6408,7 +6472,7 @@ Object.assign(swaggerSpec.paths, {
     "/api/dashboard/analytics/payroll": {
         get: { summary: "💰 Payroll Analytics", tags: ["📊 Dashboard"], security: [{ bearerAuth: [] }], parameters: [{ name: "year", in: "query", schema: { type: "integer" } }], responses: { 200: { description: "Payroll analytics" } } }
     },
-    
+
     // CLIENT TIMESHEET VERIFICATION APIs
     "/api/admin/timesheet/verification-queue": {
         get: { summary: "⏳ Verification Queue", tags: ["✅ Verification"], security: [{ bearerAuth: [] }], parameters: [{ name: "status", in: "query", schema: { type: "string" } }], responses: { 200: { description: "Pending verifications" } } }
