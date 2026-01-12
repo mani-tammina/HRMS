@@ -739,17 +739,41 @@ router.get("/report/team", auth, async (req, res) => {
       [teamIds, targetDate]
     );
 
+    // Get approved leaves for team members for today (covering full/partial day)
+    const [onLeave] = await c.query(
+      `SELECT 
+          l.*, 
+          e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail
+        FROM leaves l
+        INNER JOIN employees e ON l.employee_id = e.id
+        WHERE l.employee_id IN (?)
+          AND l.status = 'approved'
+          AND ? BETWEEN l.start_date AND l.end_date`,
+      [teamIds, targetDate]
+    );
+
+    // Merge attendance and leave info for summary
+    // Employees with attendance record marked as 'on-leave' OR with approved leave for today
+    const attendanceOnLeaveIds = attendance
+      .filter((a) => a.status === "on-leave")
+      .map((a) => a.employee_id);
+    const leaveOnLeaveIds = onLeave.map((l) => l.employee_id);
+    const uniqueOnLeaveIds = Array.from(
+      new Set([...attendanceOnLeaveIds, ...leaveOnLeaveIds])
+    );
+
     c.end();
 
     res.json({
       team_members: team,
       date: targetDate,
       attendance,
+      on_leave: onLeave, // List of leave records for today
       summary: {
         total_team: team.length,
         present: attendance.filter((a) => a.status === "present").length,
-        absent: team.length - attendance.length,
-        on_leave: attendance.filter((a) => a.status === "on-leave").length,
+        absent: team.length - attendance.length - uniqueOnLeaveIds.length,
+        on_leave: uniqueOnLeaveIds.length,
       },
     });
   } catch (error) {
@@ -929,12 +953,10 @@ router.post("/checkin", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     console.log("Employee found:", emp ? emp.id : "NOT FOUND");
     if (!emp)
-      return res
-        .status(404)
-        .json({
-          error:
-            "Employee record not found. Please ensure your user account is linked to an employee profile.",
-        });
+      return res.status(404).json({
+        error:
+          "Employee record not found. Please ensure your user account is linked to an employee profile.",
+      });
 
     const { work_mode, location, notes } = req.body;
     const ip_address =
@@ -980,11 +1002,9 @@ router.post("/checkin", auth, async (req, res) => {
     if (!validModes.includes(selectedMode)) {
       await c.rollback();
       c.end();
-      return res
-        .status(400)
-        .json({
-          error: "Invalid work mode. Use: Office, WFH, Remote, or Hybrid",
-        });
+      return res.status(400).json({
+        error: "Invalid work mode. Use: Office, WFH, Remote, or Hybrid",
+      });
     }
 
     // Get or create attendance record for today
@@ -1062,12 +1082,10 @@ router.post("/checkout", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     console.log("Employee found:", emp ? emp.id : "NOT FOUND");
     if (!emp)
-      return res
-        .status(404)
-        .json({
-          error:
-            "Employee record not found. Please ensure your user account is linked to an employee profile.",
-        });
+      return res.status(404).json({
+        error:
+          "Employee record not found. Please ensure your user account is linked to an employee profile.",
+      });
 
     const { notes } = req.body;
     const ip_address =
@@ -1162,12 +1180,10 @@ router.get("/me", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     console.log("Employee found:", emp ? emp.id : "NOT FOUND");
     if (!emp)
-      return res
-        .status(404)
-        .json({
-          error:
-            "Employee record not found. Please ensure your user account is linked to an employee profile.",
-        });
+      return res.status(404).json({
+        error:
+          "Employee record not found. Please ensure your user account is linked to an employee profile.",
+      });
 
     const { startDate, endDate } = req.query;
     const c = await db();
