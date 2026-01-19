@@ -1,7 +1,24 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
-const { auth, admin } = require("../middleware/auth");
+const { auth, admin, hr } = require("../middleware/auth");
+
+// ...existing code...
+
+// Allow HR to delete shift policies
+router.delete("/shift-policies/:id", auth, hr, async (req, res) => {
+    try {
+        const c = await db();
+        const [result] = await c.query('DELETE FROM shift_policies WHERE id = ?', [req.params.id]);
+        c.end();
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Shift policy not found" });
+        }
+        res.json({ success: true, message: "Shift policy deleted successfully" });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 // Generic master creation helper
 const createMasterRoutes = (route, table, col) => {
@@ -12,14 +29,14 @@ const createMasterRoutes = (route, table, col) => {
         res.json(r);
     });
     
-    router.post(`/${route}`, auth, admin, async (req, res) => {
+    router.post(`/${route}`, auth, hr, async (req, res) => {
         const c = await db();
         await c.query(`INSERT INTO ${table}(${col}) VALUES(?)`, [req.body[col]]);
         c.end();
         res.json({ message: `${route} created` });
     });
     
-    router.delete(`/${route}/:id`, auth, admin, async (req, res) => {
+    router.delete(`/${route}/:id`, auth, hr, async (req, res) => {
         try {
             const c = await db();
             const [result] = await c.query(`DELETE FROM ${table} WHERE id = ?`, [req.params.id]);
@@ -71,7 +88,7 @@ router.get("/shift-policies", auth, async (req, res) => {
     }
 });
 
-router.post("/shift-policies", auth, admin, async (req, res) => {
+router.post("/shift-policies", auth, hr, async (req, res) => {
     try {
         const { name, shift_type, start_time, end_time, break_duration_minutes, timezone, description, is_active } = req.body;
         
@@ -101,7 +118,7 @@ router.post("/shift-policies", auth, admin, async (req, res) => {
     }
 });
 
-router.put("/shift-policies/:id", auth, admin, async (req, res) => {
+router.put("/shift-policies/:id", auth,  hr, async (req, res) => {
     try {
         const { name, shift_type, start_time, end_time, break_duration_minutes, timezone, description, is_active } = req.body;
         const c = await db();
@@ -195,7 +212,7 @@ router.get("/weekly-off-policies", auth, async (req, res) => {
 //     }
 // });
 
-router.post("/weekly-off-policies", auth, admin, async (req, res) => {
+router.post("/weekly-off-policies", auth, hr, async (req, res) => {
     try {
         const {
             policy_code, name, description, effective_date, end_date, is_active,
@@ -250,7 +267,7 @@ router.post("/weekly-off-policies", auth, admin, async (req, res) => {
     }
 });
 
-router.put("/weekly-off-policies/:id", auth, admin, async (req, res) => {
+router.put("/weekly-off-policies/:id", auth, hr, async (req, res) => {
     try {
         const c = await db();
         const updates = [];
@@ -302,7 +319,7 @@ router.put("/weekly-off-policies/:id", auth, admin, async (req, res) => {
     }
 });
 
-router.delete("/weekly-off-policies/:id", auth, admin, async (req, res) => {
+router.delete("/weekly-off-policies/:id", auth, hr, async (req, res) => {
     try {
         const c = await db();
         const [result] = await c.query('DELETE FROM weekly_off_policies WHERE id = ?', [req.params.id]);
@@ -337,7 +354,7 @@ const updateMasterRoutes = [
 ];
 
 updateMasterRoutes.forEach(({ route, table, col }) => {
-    router.put(`/${route}/:id`, auth, admin, async (req, res) => {
+    router.put(`/${route}/:id`, auth, hr, async (req, res) => {
         try {
             const c = await db();
             const value = req.body[col];
