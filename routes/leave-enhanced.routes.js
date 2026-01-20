@@ -613,6 +613,27 @@ router.post("/apply", auth, async (req, res) => {
       });
     }
 
+    // Check for duplicate/overlapping leave requests (any status) for every date in the range
+    const start = new Date(start_date);
+    const end = new Date(end_date);
+    let conflict = false;
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      const dStr = d.toISOString().split('T')[0];
+      const [rows] = await c.query(
+        `SELECT id FROM leaves WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ?`,
+        [emp.id, dStr, dStr]
+      );
+      if (rows.length > 0) {
+        conflict = true;
+        break;
+      }
+    }
+    if (conflict) {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed." });
+    }
+
     // Create leave application
     const [result] = await c.query(
       `INSERT INTO leaves 
