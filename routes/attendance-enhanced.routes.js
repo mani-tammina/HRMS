@@ -672,8 +672,19 @@ router.get("/report/team", auth, async (req, res) => {
     // Determine which team to show based on role
     let team;
 
-    // If user is manager/hr/admin, show reporting team (direct reports)
-    if (["manager", "hr", "admin"].includes(req.user.role)) {
+    if (req.user.role === "hr") {
+      // HR sees all employees (except themselves)
+      const [allEmployees] = await c.query(
+        `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
+         FROM employees 
+         WHERE id != ? AND EmploymentStatus = 'Working'
+         ORDER BY FirstName, LastName`,
+        [emp.id]
+      );
+      team = allEmployees;
+      console.log(`HR: All employees count: ${team.length}`);
+    } else if (["manager", "admin"].includes(req.user.role)) {
+      // Manager/admin: show direct reports
       const [reportingTeam] = await c.query(
         `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
                  FROM employees 
