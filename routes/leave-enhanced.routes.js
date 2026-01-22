@@ -573,10 +573,13 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
 // Apply for Leave
 router.post("/apply", auth, async (req, res) => {
   try {
+    console.log('[LEAVE DEBUG] Incoming /apply request:', req.body, 'User:', req.user);
     const emp = await findEmployeeByUserId(req.user.id);
+    console.log('[LEAVE DEBUG] Employee lookup result:', emp);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
     let { leave_type_id, start_date, end_date, total_days, reason } = req.body;
+    console.log('[LEAVE DEBUG] Parsed request data:', { leave_type_id, start_date, end_date, total_days, reason });
 
     // Calculate total_days if not provided
     if (!total_days || total_days === null) {
@@ -584,6 +587,7 @@ router.post("/apply", auth, async (req, res) => {
       const endDate = new Date(end_date);
       const timeDiff = endDate.getTime() - startDate.getTime();
       total_days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
+      console.log('[LEAVE DEBUG] Calculated total_days:', total_days);
     }
 
     const c = await db();
@@ -596,9 +600,11 @@ router.post("/apply", auth, async (req, res) => {
              WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
       [emp.id, leave_type_id, leaveYear]
     );
+    console.log('[LEAVE DEBUG] Leave balance query result:', balances);
 
     if (balances.length === 0) {
       c.end();
+      console.log('[LEAVE DEBUG] No leave balance found for this leave type');
       return res
         .status(400)
         .json({ error: "No leave balance found for this leave type" });
@@ -606,6 +612,7 @@ router.post("/apply", auth, async (req, res) => {
 
     if (balances[0].available_days < total_days) {
       c.end();
+      console.log('[LEAVE DEBUG] Insufficient leave balance:', { available: balances[0].available_days, requested: total_days });
       return res.status(400).json({
         error: "Insufficient leave balance",
         available: balances[0].available_days,
@@ -620,17 +627,20 @@ router.post("/apply", auth, async (req, res) => {
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dStr = d.toISOString().split("T")[0];
       const [rows] = await c.query(
-        `SELECT id FROM leaves WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ?`,
+        `SELECT id, start_date, end_date FROM leaves WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ?`,
         [emp.id, dStr, dStr]
       );
+      console.log(`[LEAVE DEBUG] Checking emp.id=${emp.id}, date=${dStr}, found=${rows.length}`, rows);
       if (rows.length > 0) {
         conflict = true;
+        console.log('[LEAVE DEBUG] Conflict found for date:', dStr, rows);
         break;
       }
     }
     if (conflict) {
       await c.rollback();
       c.end();
+      console.log('[LEAVE DEBUG] Duplicate/overlap detected, aborting request.');
       return res
         .status(400)
         .json({
@@ -646,6 +656,7 @@ router.post("/apply", auth, async (req, res) => {
              VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())`,
       [emp.id, leave_type_id, start_date, end_date, total_days, reason]
     );
+    console.log('[LEAVE DEBUG] Leave application inserted:', result);
 
     await c.commit();
     c.end();
@@ -656,7 +667,7 @@ router.post("/apply", auth, async (req, res) => {
       message: "Leave application submitted successfully",
     });
   } catch (error) {
-    console.error("Error applying for leave:", error);
+    console.error("[LEAVE DEBUG] Error applying for leave:", error);
     res.status(500).json({ error: error.message });
   }
 });
