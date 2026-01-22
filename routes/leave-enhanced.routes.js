@@ -36,7 +36,7 @@ router.post("/plans", auth, hr, async (req, res) => {
         description,
         leave_year_start_month || 1,
         leave_year_start_day || 1,
-      ]
+      ],
     );
 
     const planId = planResult.insertId;
@@ -52,7 +52,7 @@ router.post("/plans", auth, hr, async (req, res) => {
             allocation.leave_type_id,
             allocation.days_allocated,
             allocation.prorate_on_joining !== false ? 1 : 0,
-          ]
+          ],
         );
       }
     }
@@ -124,7 +124,7 @@ router.get("/plans/:id", auth, async (req, res) => {
             WHERE lpa.leave_plan_id = ?
             ORDER BY lt.type_name
         `,
-      [req.params.id]
+      [req.params.id],
     );
 
     c.end();
@@ -167,7 +167,7 @@ router.put("/plans/:id", auth, hr, async (req, res) => {
         leave_year_start_day,
         is_active,
         req.params.id,
-      ]
+      ],
     );
 
     // Update allocations if provided
@@ -175,7 +175,7 @@ router.put("/plans/:id", auth, hr, async (req, res) => {
       // Delete existing allocations
       await c.query(
         `DELETE FROM leave_plan_allocations WHERE leave_plan_id = ?`,
-        [req.params.id]
+        [req.params.id],
       );
 
       // Insert new allocations
@@ -188,7 +188,7 @@ router.put("/plans/:id", auth, hr, async (req, res) => {
             allocation.leave_type_id,
             allocation.days_allocated,
             allocation.prorate_on_joining !== false ? 1 : 0,
-          ]
+          ],
         );
       }
     }
@@ -233,7 +233,7 @@ router.post("/types", auth, hr, async (req, res) => {
         requires_approval !== false ? 1 : 0,
         can_carry_forward || 0,
         max_carry_forward_days || 0,
-      ]
+      ],
     );
     c.end();
 
@@ -311,7 +311,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
     // Get employee's leave plan
     const [employees] = await c.query(
       `SELECT leave_plan_id, DateJoined FROM employees WHERE id = ?`,
-      [employeeId]
+      [employeeId],
     );
 
     if (employees.length === 0) {
@@ -336,7 +336,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
             INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
             WHERE lpa.leave_plan_id = ?
         `,
-      [employee.leave_plan_id]
+      [employee.leave_plan_id],
     );
 
     const currentYear = leave_year || new Date().getFullYear();
@@ -356,7 +356,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
         const remainingDays =
           (yearEndDate - joiningDate) / (1000 * 60 * 60 * 24);
         allocatedDays = Math.round(
-          (allocation.days_allocated * remainingDays) / daysInYear
+          (allocation.days_allocated * remainingDays) / daysInYear,
         );
       }
 
@@ -364,7 +364,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
       const [existing] = await c.query(
         `SELECT id FROM employee_leave_balances 
                  WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
-        [employeeId, allocation.leave_type_id, currentYear]
+        [employeeId, allocation.leave_type_id, currentYear],
       );
 
       if (existing.length === 0) {
@@ -379,7 +379,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
             currentYear,
             allocatedDays,
             allocatedDays,
-          ]
+          ],
         );
       }
     }
@@ -412,7 +412,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
     // Get employee's leave plan
     const [employees] = await c.query(
       `SELECT leave_plan_id, DateJoined FROM employees WHERE id = ?`,
-      [emp.id]
+      [emp.id],
     );
 
     if (employees.length === 0) {
@@ -437,7 +437,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
             INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
             WHERE lpa.leave_plan_id = ?
         `,
-      [employee.leave_plan_id]
+      [employee.leave_plan_id],
     );
 
     const currentYear = leave_year || new Date().getFullYear();
@@ -457,7 +457,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
         const remainingDays =
           (yearEndDate - joiningDate) / (1000 * 60 * 60 * 24);
         allocatedDays = Math.round(
-          (allocation.days_allocated * remainingDays) / daysInYear
+          (allocation.days_allocated * remainingDays) / daysInYear,
         );
       }
 
@@ -465,7 +465,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
       const [existing] = await c.query(
         `SELECT id FROM employee_leave_balances 
                  WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
-        [emp.id, allocation.leave_type_id, currentYear]
+        [emp.id, allocation.leave_type_id, currentYear],
       );
 
       if (existing.length === 0) {
@@ -480,7 +480,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
             currentYear,
             allocatedDays,
             allocatedDays,
-          ]
+          ],
         );
       }
     }
@@ -523,7 +523,7 @@ router.get("/balance", auth, async (req, res) => {
             WHERE elb.employee_id = ? AND elb.leave_year = ?
             ORDER BY lt.type_name
         `,
-      [emp.id, leaveYear]
+      [emp.id, leaveYear],
     );
 
     c.end();
@@ -555,7 +555,7 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
             WHERE elb.employee_id = ? AND elb.leave_year = ?
             ORDER BY lt.type_name
         `,
-      [req.params.employeeId, leaveYear]
+      [req.params.employeeId, leaveYear],
     );
 
     c.end();
@@ -573,13 +573,24 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
 // Apply for Leave
 router.post("/apply", auth, async (req, res) => {
   try {
-    console.log('[LEAVE DEBUG] Incoming /apply request:', req.body, 'User:', req.user);
+    console.log(
+      "[LEAVE DEBUG] Incoming /apply request:",
+      req.body,
+      "User:",
+      req.user,
+    );
     const emp = await findEmployeeByUserId(req.user.id);
-    console.log('[LEAVE DEBUG] Employee lookup result:', emp);
+    console.log("[LEAVE DEBUG] Employee lookup result:", emp);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
     let { leave_type_id, start_date, end_date, total_days, reason } = req.body;
-    console.log('[LEAVE DEBUG] Parsed request data:', { leave_type_id, start_date, end_date, total_days, reason });
+    console.log("[LEAVE DEBUG] Parsed request data:", {
+      leave_type_id,
+      start_date,
+      end_date,
+      total_days,
+      reason,
+    });
 
     // Calculate total_days if not provided
     if (!total_days || total_days === null) {
@@ -587,7 +598,7 @@ router.post("/apply", auth, async (req, res) => {
       const endDate = new Date(end_date);
       const timeDiff = endDate.getTime() - startDate.getTime();
       total_days = Math.ceil(timeDiff / (1000 * 3600 * 24)) + 1; // +1 to include both start and end dates
-      console.log('[LEAVE DEBUG] Calculated total_days:', total_days);
+      console.log("[LEAVE DEBUG] Calculated total_days:", total_days);
     }
 
     const c = await db();
@@ -598,13 +609,13 @@ router.post("/apply", auth, async (req, res) => {
     const [balances] = await c.query(
       `SELECT available_days FROM employee_leave_balances 
              WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
-      [emp.id, leave_type_id, leaveYear]
+      [emp.id, leave_type_id, leaveYear],
     );
-    console.log('[LEAVE DEBUG] Leave balance query result:', balances);
+    console.log("[LEAVE DEBUG] Leave balance query result:", balances);
 
     if (balances.length === 0) {
       c.end();
-      console.log('[LEAVE DEBUG] No leave balance found for this leave type');
+      console.log("[LEAVE DEBUG] No leave balance found for this leave type");
       return res
         .status(400)
         .json({ error: "No leave balance found for this leave type" });
@@ -612,7 +623,10 @@ router.post("/apply", auth, async (req, res) => {
 
     if (balances[0].available_days < total_days) {
       c.end();
-      console.log('[LEAVE DEBUG] Insufficient leave balance:', { available: balances[0].available_days, requested: total_days });
+      console.log("[LEAVE DEBUG] Insufficient leave balance:", {
+        available: balances[0].available_days,
+        requested: total_days,
+      });
       return res.status(400).json({
         error: "Insufficient leave balance",
         available: balances[0].available_days,
@@ -628,25 +642,28 @@ router.post("/apply", auth, async (req, res) => {
       const dStr = d.toISOString().split("T")[0];
       const [rows] = await c.query(
         `SELECT id, start_date, end_date FROM leaves WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ?`,
-        [emp.id, dStr, dStr]
+        [emp.id, dStr, dStr],
       );
-      console.log(`[LEAVE DEBUG] Checking emp.id=${emp.id}, date=${dStr}, found=${rows.length}`, rows);
+      console.log(
+        `[LEAVE DEBUG] Checking emp.id=${emp.id}, date=${dStr}, found=${rows.length}`,
+        rows,
+      );
       if (rows.length > 0) {
         conflict = true;
-        console.log('[LEAVE DEBUG] Conflict found for date:', dStr, rows);
+        console.log("[LEAVE DEBUG] Conflict found for date:", dStr, rows);
         break;
       }
     }
     if (conflict) {
       await c.rollback();
       c.end();
-      console.log('[LEAVE DEBUG] Duplicate/overlap detected, aborting request.');
-      return res
-        .status(400)
-        .json({
-          error:
-            "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.",
-        });
+      console.log(
+        "[LEAVE DEBUG] Duplicate/overlap detected, aborting request.",
+      );
+      return res.status(400).json({
+        error:
+          "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.",
+      });
     }
 
     // Create leave application
@@ -654,9 +671,9 @@ router.post("/apply", auth, async (req, res) => {
       `INSERT INTO leaves 
              (employee_id, leave_type_id, start_date, end_date, total_days, reason, status, applied_at)
              VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-      [emp.id, leave_type_id, start_date, end_date, total_days, reason]
+      [emp.id, leave_type_id, start_date, end_date, total_days, reason],
     );
-    console.log('[LEAVE DEBUG] Leave application inserted:', result);
+    console.log("[LEAVE DEBUG] Leave application inserted:", result);
 
     await c.commit();
     c.end();
@@ -692,7 +709,7 @@ router.get("/my-leaves", auth, async (req, res) => {
             WHERE l.employee_id = ?
             ORDER BY l.applied_at DESC
         `,
-      [emp.id]
+      [emp.id],
     );
 
     c.end();
@@ -719,7 +736,7 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
              FROM leaves l
              JOIN employees e ON l.employee_id = e.id
              WHERE l.id = ?`,
-      [req.params.leaveId]
+      [req.params.leaveId],
     );
 
     if (leaves.length === 0) {
@@ -747,7 +764,7 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
     // Update leave status
     await c.query(
       `UPDATE leaves SET status = 'approved', approver_id = ?, approval_date = NOW() WHERE id = ?`,
-      [req.user.id, req.params.leaveId]
+      [req.user.id, req.params.leaveId],
     );
 
     // Update employee leave balance
@@ -761,7 +778,7 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
         leave.employee_id,
         leave.leave_type_id,
         leaveYear,
-      ]
+      ],
     );
 
     await c.commit();
@@ -791,7 +808,7 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
              FROM leaves l
              JOIN employees e ON l.employee_id = e.id
              WHERE l.id = ?`,
-      [req.params.leaveId]
+      [req.params.leaveId],
     );
 
     if (leaves.length === 0) {
@@ -816,7 +833,7 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
       `UPDATE leaves 
              SET status = 'rejected', approver_id = ?, approval_date = NOW(), rejection_reason = ?
              WHERE id = ?`,
-      [req.user.id, rejection_reason, req.params.leaveId]
+      [req.user.id, rejection_reason, req.params.leaveId],
     );
     c.end();
 
@@ -886,7 +903,7 @@ router.get("/wfh-requests", auth, async (req, res) => {
              LEFT JOIN employees e ON l.employee_id = e.id 
              WHERE l.employee_id = ? AND l.leave_type IN ('WFH', 'Remote') 
              ORDER BY l.applied_at DESC`,
-      [emp.id]
+      [emp.id],
     );
     c.end();
     res.json(r);
@@ -910,7 +927,7 @@ router.get("/wfh-requests/pending", auth, async (req, res) => {
              FROM leaves l 
              LEFT JOIN employees e ON l.employee_id = e.id 
              WHERE l.leave_type IN ('WFH', 'Remote') AND l.status = 'pending' 
-             ORDER BY l.applied_at ASC`
+             ORDER BY l.applied_at ASC`,
     );
     c.end();
     res.json(r);
@@ -940,7 +957,7 @@ router.get("/wfh-check-today", auth, async (req, res) => {
              FROM leaves 
              WHERE employee_id = ? AND leave_type IN ('WFH', 'Remote')
              ORDER BY start_date DESC LIMIT 5`,
-      [emp.id]
+      [emp.id],
     );
     console.log("🔍 All WFH/Remote requests for employee:", allRequests);
 
@@ -953,7 +970,7 @@ router.get("/wfh-check-today", auth, async (req, res) => {
              AND leave_type IN ('WFH', 'Remote') 
              AND status = 'approved' 
              LIMIT 1`,
-      [emp.id, today, today]
+      [emp.id, today, today],
     );
 
     console.log("🔍 Matching WFH request:", r);
@@ -990,7 +1007,7 @@ router.post("/wfh-request", auth, async (req, res) => {
       `INSERT INTO leaves 
              (employee_id, leave_type, start_date, end_date, total_days, reason, status, applied_at)
              VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-      [emp.id, work_mode, date, date, 1, reason || `${work_mode} request`]
+      [emp.id, work_mode, date, date, 1, reason || `${work_mode} request`],
     );
     c.end();
 
