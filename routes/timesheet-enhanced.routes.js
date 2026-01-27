@@ -400,6 +400,7 @@ router.post(
     console.log("req.file:", req.file);
 
     try {
+      console.log("[UPLOAD] Start client timesheet upload");
       const emp = await findEmployeeByUserId(req.user.id);
       if (!emp) {
         console.log("❌ Employee not found for user ID:", req.user.id);
@@ -427,31 +428,43 @@ router.post(
       const c = await db();
 
       // Get all timesheets for this month and project
-      const [timesheets] = await c.query(
-        `
+      let timesheets;
+      try {
+        [timesheets] = await c.query(
+          `
             SELECT id, date FROM timesheets 
             WHERE employee_id = ? AND project_id = ? 
             AND MONTH(date) = ? AND YEAR(date) = ?
             AND timesheet_type = 'project'
-        `,
-        [emp.id, project_id, month, year]
-      );
-
-      console.log("Found timesheets:", timesheets.length);
+          `,
+          [emp.id, project_id, month, year]
+        );
+        console.log("Found timesheets:", timesheets.length);
+      } catch (err) {
+        console.error("[UPLOAD] Error fetching timesheets:", err);
+        c.end();
+        return res.status(500).json({ error: "DB error fetching timesheets: " + err.message });
+      }
 
       if (timesheets.length === 0) {
         c.end();
-        console.log(
-          "❌ No internal timesheets found for this month and project"
-        );
+        console.log("❌ No internal project-based timesheets found for this employee, project, and month/year");
         return res.status(400).json({
-          error: "No internal timesheets found for this month and project",
+          error: "You must submit at least one project-based timesheet for this project and month before uploading a client timesheet.",
+          details: {
+            employee_id: emp.id,
+            project_id,
+            month,
+            year,
+            requirement: "Submit at least one project-based timesheet for this project and month."
+          }
         });
       }
 
       // Update all timesheets with client timesheet file
-      await c.query(
-        `
+      try {
+        await c.query(
+          `
             UPDATE timesheets 
             SET client_timesheet_file = ?, 
                 client_timesheet_upload_date = NOW(),
@@ -459,42 +472,57 @@ router.post(
             WHERE employee_id = ? AND project_id = ? 
             AND MONTH(date) = ? AND YEAR(date) = ?
             AND timesheet_type = 'project'
-        `,
-        [req.file.path, emp.id, project_id, month, year]
-      );
-
-      console.log("✅ Updated timesheets table with client file reference");
+          `,
+          [req.file.path, emp.id, project_id, month, year]
+        );
+        console.log("✅ Updated timesheets table with client file reference");
+      } catch (err) {
+        console.error("[UPLOAD] Error updating timesheets:", err);
+        c.end();
+        return res.status(500).json({ error: "DB error updating timesheets: " + err.message });
+      }
 
       // Also insert/update record into client_timesheets table for verification queue
       // Use the middle date of the month for timesheet_date
       const midDate = `${year}-${String(month).padStart(2, "0")}-15`;
 
       // Get work_update_id if exists
-      const [workUpdates] = await c.query(
-        `
+      let workUpdates;
+      try {
+        [workUpdates] = await c.query(
+          `
             SELECT id FROM work_updates 
             WHERE employee_id = ? AND project_id = ? 
             AND MONTH(update_date) = ? AND YEAR(update_date) = ?
             ORDER BY update_date DESC LIMIT 1
-        `,
-        [emp.id, project_id, month, year]
-      );
+          `,
+          [emp.id, project_id, month, year]
+        );
+      } catch (err) {
+        console.error("[UPLOAD] Error fetching work_updates:", err);
+        c.end();
+        return res.status(500).json({ error: "DB error fetching work_updates: " + err.message });
+      }
 
       const workUpdateId = workUpdates.length > 0 ? workUpdates[0].id : null;
-      console.log(
-        "Work update ID:",
-        workUpdateId || "NULL (no work updates for this month)"
-      );
+      console.log("Work update ID:", workUpdateId || "NULL (no work updates for this month)");
 
       // Check if client_timesheet already exists for this month/project
-      const [existing] = await c.query(
-        `
+      let existing;
+      try {
+        [existing] = await c.query(
+          `
             SELECT id FROM client_timesheets
             WHERE employee_id = ? AND project_id = ?
             AND MONTH(timesheet_date) = ? AND YEAR(timesheet_date) = ?
-        `,
-        [emp.id, project_id, month, year]
-      );
+          `,
+          [emp.id, project_id, month, year]
+        );
+      } catch (err) {
+        console.error("[UPLOAD] Error checking client_timesheets existence:", err);
+        c.end();
+        return res.status(500).json({ error: "DB error checking client_timesheets: " + err.message });
+      }
 
       try {
         if (existing.length > 0) {
@@ -517,11 +545,7 @@ router.post(
               existingId,
             ]
           );
-
-          console.log(
-            "✅ Updated existing client_timesheets record, ID:",
-            existingId
-          );
+          console.log("✅ Updated existing client_timesheets record, ID:", existingId);
         } else {
           // Insert new record
           const [insertResult] = await c.query(
@@ -542,24 +566,16 @@ router.post(
               req.file.size,
             ]
           );
-
-          console.log(
-            "✅ Inserted into client_timesheets table, ID:",
-            insertResult.insertId
-          );
+          console.log("✅ Inserted into client_timesheets table, ID:", insertResult.insertId);
         }
       } catch (insertError) {
-        console.error(
-          "❌ Failed to insert/update client_timesheets:",
-          insertError.message
-        );
-        throw insertError;
+        console.error("❌ Failed to insert/update client_timesheets:", insertError.message, insertError.stack);
+        c.end();
+        return res.status(500).json({ error: "DB error insert/update client_timesheets: " + insertError.message });
       }
 
       c.end();
-
       console.log("✅ Client timesheet upload complete");
-
       res.json({
         success: true,
         message: "Client timesheet uploaded successfully",
@@ -567,8 +583,7 @@ router.post(
         timesheets_updated: timesheets.length,
       });
     } catch (error) {
-      console.error("❌ Error uploading client timesheet:", error);
-      console.error("Error stack:", error.stack);
+      console.error("❌ Error uploading client timesheet:", error, error.stack);
       res.status(500).json({ error: error.message });
     }
   }
