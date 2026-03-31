@@ -123,11 +123,11 @@
         <div *ngIf="selectedLog?.timeline?.length; else noRecords">
           <!-- Daily Performance Summary Card -->
           <div class="daily-summary-card">
-            <div class="summary-header">Today's Summary</div>
             <div class="summary-grid">
               <div class="summary-item">
                 <span class="s-label">EFFECTIVE</span>
-                <span class="s-value">{{ formatHours(selectedLog.total_work_hours, selectedLog.attendance_date) }}</span>
+                <span class="s-value">{{ formatHours(selectedLog.total_work_hours, selectedLog.attendance_date)
+                  }}</span>
               </div>
               <div class="summary-item" style="text-align: right;">
                 <span class="s-label">GROSS TIME</span>
@@ -140,7 +140,7 @@
           <div class="timeline-container">
             <div *ngFor="let ev of selectedLog.timeline; let last = last" class="timeline-item">
               <div class="timeline-dot" [class.active]="ev.type === 'IN'"></div>
-              
+
               <div class="timeline-content">
                 <div class="punch-header">
                   <div class="time-box">
