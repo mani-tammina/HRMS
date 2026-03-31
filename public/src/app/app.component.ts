@@ -23,7 +23,10 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr'] },
-    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['emplPre-onboarding Candidatesoyee', 'manager', 'hr'] },
+    { title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager'], isExpanded: false, children: [
+      { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr'] }
+    ]},
+    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr',] },
     { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'] },
@@ -96,6 +99,12 @@ export class AppComponent implements OnInit, OnDestroy {
    */
   getCustomIconPath(iconName: string): string {
     return this.customIconService.getIconPath(iconName);
+  }
+
+  toggleSubmenu(page: any) {
+    if (page.children) {
+      page.isExpanded = !page.isExpanded;
+    }
   }
 
   logout() {

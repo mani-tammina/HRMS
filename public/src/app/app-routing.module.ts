@@ -71,6 +71,12 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'finance',
+    loadChildren: () => import('./modules/finance/finance.module').then(m => m.FinanceModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['admin', 'hr'] }
+  },
+  {
     path: '**',
     redirectTo: 'login'
   }

@@ -86,6 +86,22 @@ export class FinanceAdminService {
   }
 
   /**
+   * Restore default payroll setup
+   */
+  restoreDefaults(): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/setup/defaults`;
+    return this.http.post<any>(url, {}, { headers: this.getHeaders() });
+  }
+
+  /**
+   * Clear payroll setup
+   */
+  clearSetup(): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/setup/clear`;
+    return this.http.delete<any>(url, { headers: this.getHeaders() });
+  }
+
+  /**
    * Update working employees in memory
    */
   updateWorkingEmployees(employees: EmployeeInfo[]): void {

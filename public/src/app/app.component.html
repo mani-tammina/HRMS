@@ -7,15 +7,41 @@
       <ion-content class="sidenav-content">
         <ion-list lines="none" class="side-menu-list">
           <ng-container *ngFor="let p of appPages">
-            <ion-menu-toggle auto-hide="false" *ngIf="shouldShowPage(p)">
-              <ion-item routerDirection="root" [routerLink]="[p.url]" routerLinkActive="selected" class="menu-nav-item">
-                <div class="row-left">
-                  <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon inactive-icon" />
-                  <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon active-icon" />
-                  <ion-label>{{ p.title }}</ion-label>
+            <ng-container *ngIf="shouldShowPage(p)">
+              <!-- Main Item (Parent) -->
+              <ion-menu-toggle auto-hide="false" *ngIf="!p.children">
+                <ion-item routerDirection="root" [routerLink]="[p.url]" routerLinkActive="selected" class="menu-nav-item">
+                  <div class="row-left">
+                    <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon" />
+                    <ion-label>{{ p.title }}</ion-label>
+                  </div>
+                </ion-item>
+              </ion-menu-toggle>
+
+              <!-- Parent with Children -->
+              <div *ngIf="p.children" class="submenu-wrapper">
+                <ion-item (click)="toggleSubmenu(p)" class="menu-nav-item parent-item" [class.expanded]="p.isExpanded">
+                  <div class="row-left">
+                    <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon" />
+                    <ion-label>{{ p.title }}</ion-label>
+                  </div>
+                  <ion-icon slot="end" [name]="p.isExpanded ? 'chevron-down' : 'chevron-forward'" class="submenu-toggle-icon"></ion-icon>
+                </ion-item>
+
+                <div class="sub-items-container" *ngIf="p.isExpanded">
+                  <ng-container *ngFor="let sub of p.children">
+                    <ion-menu-toggle auto-hide="false" *ngIf="shouldShowPage(sub)">
+                      <ion-item routerDirection="root" [routerLink]="[sub.url]" routerLinkActive="selected" class="menu-nav-item sub-item">
+                        <div class="row-left">
+                          <img [src]="getCustomIconPath(sub.icon)" alt="{{ sub.title }}" class="custom-menu-icon sub-icon" />
+                          <ion-label>{{ sub.title }}</ion-label>
+                        </div>
+                      </ion-item>
+                    </ion-menu-toggle>
+                  </ng-container>
                 </div>
-              </ion-item>
-            </ion-menu-toggle>
+              </div>
+            </ng-container>
           </ng-container>
 
           <ion-item (click)="logout()" class="menu-nav-item logout-item">

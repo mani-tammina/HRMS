@@ -1,0 +1,85 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar class="glass-toolbar">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Financial Admin</ion-title>
+    <div class="subtitle-text">Setup & Configuration</div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="page-container">
+    <div class="header-section fade-in">
+      <div class="header-top">
+        <div class="header-text">
+          <h1>Payroll Master Setup</h1>
+          <p>Configure and manage global payroll components, templates, and reporting structures.</p>
+        </div>
+        <div class="header-actions">
+          <ion-button (click)="onRestoreDefaults()" class="action-btn restore-btn">
+            <ion-icon name="shield-checkmark-outline" slot="start"></ion-icon>
+            SET DEFAULT PAYROLL
+          </ion-button>
+          <ion-button (click)="onClearSetup()" class="action-btn clear-btn">
+            <ion-icon name="trash-outline" slot="start"></ion-icon>
+            CLEAR ALL SETUP
+          </ion-button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-grid">
+      <!-- Payroll Components Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.1s;">
+        <div class="card-accent"></div>
+        <div class="management-content">
+          <h3>Payroll Components</h3>
+          <p>Define earnings, deductions, and statutory components for your organization.</p>
+          <div class="management-footer">
+            <ion-button fill="outline" class="manage-btn" routerLink="/finance/components">
+              Create <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payroll Templates Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.2s;">
+        <div class="card-accent"></div>
+        <div class="management-content">
+          <h3>Payroll Templates</h3>
+          <p>Create and manage reusable salary structure templates for different roles.</p>
+          <div class="management-footer">
+            <ion-button fill="outline" class="manage-btn" routerLink="/finance/templates">
+              Manage <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payroll Structure Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.3s;">
+        <div class="card-accent"></div>
+        <div class="management-content">
+          <h3>Payroll Structure</h3>
+          <p>Map your components to templates and define hierarchy and dependencies.</p>
+          <div class="management-footer">
+            <ion-button fill="outline" class="manage-btn" routerLink="/finance/structure">
+              Configure <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Info Section -->
+    <div class="info-banner glass-card fade-in-up" style="animation-delay: 0.3s;">
+      <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+      <div class="info-text">
+        <h3>System Maintenance Notice</h3>
+        <p>Operational tasks performed here affect the entire organization. Please ensure no payroll runs are in progress before performing these actions.</p>
+      </div>
+    </div>
+  </div>
+</ion-content>

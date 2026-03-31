@@ -1,0 +1,257 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar class="glass-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Payroll Structures</ion-title>
+    <div class="subtitle-text">CTC Distribution & Versions</div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="payroll-container">
+    <!-- Header with Breadcrumb-style Back link -->
+    <div class="header">
+      <div class="header-info">
+        <div class="back-nav">
+          <a (click)="goBack()" class="back-link">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            Back to Payroll Setup
+          </a>
+        </div>
+        <div class="brief-info">
+          <h2>Payroll Structures</h2>
+          <p class="subtitle">
+            <ion-icon name="briefcase-outline"></ion-icon>
+            Configure employee-specific salary structures with CTC breakdowns
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <ion-button class="primary-btn" (click)="openCreateModal()">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Create New Structure
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Summary Metrics -->
+    <div class="summary-grid" *ngIf="!loading && structures.length > 0">
+      <div class="summary-card total">
+        <div class="summary-icon"><ion-icon name="layers-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Total Structures</span>
+          <span class="summary-value">{{ structures.length }}</span>
+        </div>
+      </div>
+      <div class="summary-card active">
+        <div class="summary-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Active</span>
+          <span class="summary-value">{{ activeCount }}</span>
+        </div>
+      </div>
+      <div class="summary-card inactive">
+        <div class="summary-icon"><ion-icon name="close-circle-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Inactive</span>
+          <span class="summary-value">{{ inactiveCount }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content Table -->
+    <div class="structures-card glass-card">
+      <div class="card-header">
+        <div class="title-with-count">
+          <h3>Configured Structures</h3>
+          <span class="count-badge" *ngIf="structures.length">{{ structures.length }}</span>
+        </div>
+        <div class="loading-state" *ngIf="loading">
+          <ion-spinner name="crescent" size="small"></ion-spinner>
+          <span>Updating records...</span>
+        </div>
+      </div>
+
+      <div class="table-container" *ngIf="!loading && structures.length > 0">
+        <div class="custom-table">
+          <div class="table-head">
+            <span class="col-id">ID</span>
+            <span class="col-name">Structure Name</span>
+            <span class="col-emp">Employee</span>
+            <span class="col-ctc">CTC Amount</span>
+            <span class="col-ver">Ver.</span>
+            <span class="col-date">Effective From</span>
+            <span class="col-status">Status</span>
+            <span class="col-action">Actions</span>
+          </div>
+
+          <div class="table-row fade-in" *ngFor="let struct of structures; trackBy: trackById">
+            <span class="col-id text-muted">#{{ struct.id }}</span>
+            <span class="col-name" (click)="viewDetails(struct.id)">
+              <div class="info-cell clickable">
+                <span class="main-text">{{ struct.structure_name }}</span>
+                <span class="sub-text" *ngIf="struct.notes">{{ struct.notes }}</span>
+              </div>
+            </span>
+            <span class="col-emp">
+              <div class="info-cell">
+                <span class="name-text">{{ struct.FullName || 'Not Assigned' }}</span>
+                <span class="id-text">{{ struct.EmployeeNumber || '-' }}</span>
+              </div>
+            </span>
+            <span class="col-ctc highlight-amount">{{ formatCurrency(struct.ctc_amount) }}</span>
+            <span class="col-ver"><span class="ver-badge">v{{ struct.version || 1 }}</span></span>
+            <span class="col-date">{{ struct.effective_from | date:'mediumDate' }}</span>
+            <span class="col-status">
+              <span class="status-pill" [ngClass]="!!struct.is_active ? 'active' : 'inactive'">
+                {{ getStatusLabel(struct.is_active) }}
+              </span>
+            </span>
+            <span class="col-action">
+              <div class="action-buttons">
+                <button class="icon-btn edit" (click)="editStructure(struct)" title="Edit Structure">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn delete" (click)="deleteStructure(struct.id)" title="Delete Structure">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!loading && structures.length === 0" class="empty-layout">
+        <div class="empty-visual">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <h3>No Structures Configured</h3>
+        <p>You haven't set up any employee salary structures yet. Start by creating a CTC breakdown.</p>
+        <ion-button class="start-btn" fill="outline" (click)="openCreateModal()">
+          <ion-icon name="add-outline" slot="start"></ion-icon>
+          Create First Structure
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Structure Management Modal -->
+  <div class="side-modal-overlay pill-overlay" *ngIf="isModalOpen" (click)="isModalOpen = false"></div>
+  <div class="side-modal glass-modal" [class.open]="isModalOpen" style="width: 550px;">
+    <div class="modal-header">
+      <h3>{{ isEditMode ? 'Edit Structure' : 'Create New Structure' }}</h3>
+      <ion-icon name="close-outline" class="close-icon" (click)="isModalOpen = false"></ion-icon>
+    </div>
+    <div class="modal-body">
+      <form [formGroup]="structureForm" (ngSubmit)="saveStructure()" class="structure-form-vertical">
+        <div class="form-container">
+          <!-- Employee Search Dropdown -->
+          <div class="form-group glass-input-group dropdown-stack">
+            <label>Employee Assignment</label>
+            <div class="search-input-wrapper">
+              <ion-icon name="search-outline" class="search-prefix"></ion-icon>
+              <input type="text" placeholder="Search employee..." 
+                     [value]="employeeSearchTerm"
+                     (input)="filterEmployees($event)" 
+                     (focus)="filteredEmployees = employees"
+                     class="glass-input search-field" />
+            </div>
+            
+            <div class="search-dropdown fade-in-sm" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
+              <div class="dropdown-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                <div class="item-avatar">{{ emp.FullName?.charAt(0) }}</div>
+                <div class="item-info">
+                  <span class="item-primary">{{ emp.FullName }}</span>
+                  <span class="item-secondary">{{ emp.EmployeeNumber }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group glass-input-group">
+            <label>Structure Name</label>
+            <input type="text" formControlName="structure_name" placeholder="e.g. 2026 Annual Growth Plan" class="glass-input" />
+          </div>
+
+          <div class="form-group glass-input-group">
+            <label>CTC Amount (Annual)</label>
+            <div class="input-with-prefix">
+              <span class="prefix">₹</span>
+              <input type="number" formControlName="ctc_amount" placeholder="0.00" class="glass-input" />
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group glass-input-group">
+              <label>Effective From</label>
+              <input type="date" formControlName="effective_from" class="glass-input" />
+            </div>
+            <div class="form-group glass-input-group">
+              <label>Effective To (Optional)</label>
+              <input type="date" formControlName="effective_to" class="glass-input" />
+            </div>
+          </div>
+
+          <div class="form-group checkbox-row">
+            <label class="glass-checkbox">
+              <input type="checkbox" formControlName="is_active" />
+              <span class="checkmark"></span>
+              Is Structure Currently Active?
+            </label>
+          </div>
+
+          <!-- Linked Components Management -->
+          <div class="components-section">
+            <div class="section-divider">
+              <span>Pinned Components</span>
+              <span class="badge">{{ selectedComponents.length }}</span>
+            </div>
+
+            <div class="selected-list">
+              <div class="selected-comp-row fade-in-sm" *ngFor="let comp of selectedComponents; let i = index">
+                <div class="comp-meta">
+                  <span class="comp-title">{{ comp.name }}</span>
+                  <span class="comp-details">{{ comp.component_type }} • {{ comp.calculation_type }}</span>
+                </div>
+                <button type="button" class="remove-icon" (click)="removeComponent(i)">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                </button>
+              </div>
+              <div class="empty-selection" *ngIf="selectedComponents.length === 0">
+                <ion-icon name="add-outline"></ion-icon>
+                <p>No components linked to this structure yet.</p>
+              </div>
+            </div>
+
+            <div class="section-divider">
+              <span>Available Master Components</span>
+            </div>
+            <div class="master-selector">
+              <div class="master-item ripple-effect" *ngFor="let comp of availableComponents" (click)="addComponent(comp)">
+                <div class="master-info">
+                  <span class="m-name">{{ comp.name }}</span>
+                  <span class="m-code">({{ comp.code }})</span>
+                </div>
+                <ion-icon name="add-outline" class="add-icon"></ion-icon>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group glass-input-group">
+            <label>Administrative Notes</label>
+            <textarea formControlName="notes" rows="2" placeholder="Internal remarks about this structure..." class="glass-textarea"></textarea>
+          </div>
+        </div>
+        
+        <div class="form-footer">
+          <ion-button type="button" fill="clear" color="medium" (click)="isModalOpen = false">Cancel</ion-button>
+          <ion-button type="submit" class="submit-btn" [disabled]="structureForm.invalid || selectedComponents.length === 0">
+            {{ isEditMode ? 'Update' : 'Save' }} Structure
+          </ion-button>
+        </div>
+      </form>
+    </div>
+  </div>
+</ion-content>

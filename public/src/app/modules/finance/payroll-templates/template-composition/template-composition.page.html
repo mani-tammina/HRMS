@@ -1,0 +1,210 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar class="glass-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button defaultHref="/finance/templates"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Template Composition</ion-title>
+    <div class="subtitle-text">Component Mapping</div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="payroll-container">
+    <div class="header">
+      <div class="header-info">
+        <div class="back-nav">
+          <a routerLink="/finance/templates" class="back-link">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            Back to Templates
+          </a>
+        </div>
+        <div class="template-brief">
+          <h2>{{ templateInfo?.template_name || 'Loading Template...' }}</h2>
+          <p class="subtitle">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            {{ templateInfo?.description || 'Managing salary components for this template structure' }}
+          </p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <ion-button class="primary-btn" (click)="openAddModal()">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+          Add Component
+        </ion-button>
+      </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="summary-grid" *ngIf="!loading && compositionData.length > 0">
+      <div class="summary-card earnings">
+        <div class="summary-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Total Earnings</span>
+          <span class="summary-value">{{ totalEarnings | number:'1.2-2' }}%</span>
+        </div>
+      </div>
+      <div class="summary-card deductions">
+        <div class="summary-icon"><ion-icon name="trending-down-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Total Deductions</span>
+          <span class="summary-value">{{ totalDeductions | number:'1.2-2' }}%</span>
+        </div>
+      </div>
+      <div class="summary-card net">
+        <div class="summary-icon"><ion-icon name="calculator-outline"></ion-icon></div>
+        <div class="summary-content">
+          <span class="summary-label">Net Percentage</span>
+          <span class="summary-value">{{ (totalEarnings - totalDeductions) | number:'1.2-2' }}%</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Components Table Section -->
+    <div class="composition-card glass-card">
+      <div class="card-header">
+        <div class="title-block">
+          <h3>Component Breakdown</h3>
+          <span class="item-count" *ngIf="compositionData.length">{{ compositionData.length }} Items</span>
+        </div>
+        <div class="loading-state" *ngIf="loading">
+          <ion-spinner name="crescent" size="small"></ion-spinner>
+          <span>Fetching details...</span>
+        </div>
+      </div>
+
+      <div class="table-container" *ngIf="!loading && compositionData.length > 0">
+        <div class="composition-table">
+          <div class="table-head">
+            <span class="col-id">#</span>
+            <span class="col-name">Component Detail</span>
+            <span class="col-type">Type</span>
+            <span class="col-calc">Calculation</span>
+            <span class="col-value">Formula/Value</span>
+            <span class="col-status">Taxable</span>
+            <span class="col-status">Prorated</span>
+            <span class="col-action">Actions</span>
+          </div>
+
+          <div class="table-row fade-in" *ngFor="let comp of compositionData; trackBy: trackById">
+            <span class="col-id text-muted">{{ comp.component_id }}</span>
+            <span class="col-name">
+              <div class="info-cell">
+                <span class="main-text">{{ comp.component_name }}</span>
+                <span class="sub-text">{{ comp.component_code }}</span>
+              </div>
+            </span>
+            <span class="col-type">
+              <span class="badge" [ngClass]="comp.component_type?.toLowerCase()">
+                {{ comp.component_type }}
+              </span>
+            </span>
+            <span class="col-calc">
+              <div class="info-cell">
+                <span class="calc-text">{{ comp.calculation_type }}</span>
+                <span class="sub-text" *ngIf="comp.percentage_of_code">of {{ comp.percentage_of_code }}</span>
+              </div>
+            </span>
+            <span class="col-value">
+              <span class="amt-text">{{ comp.value }}</span>
+              <span class="unit" *ngIf="comp.calculation_type === 'PERCENTAGE'">%</span>
+            </span>
+            <span class="col-status text-center">
+              <ion-icon [name]="comp.is_taxable ? 'shield-checkmark' : 'shield-outline'"
+                [color]="comp.is_taxable ? 'success' : 'medium'"></ion-icon>
+            </span>
+            <span class="col-status text-center">
+              <ion-icon [name]="comp.is_prorated ? 'checkmark-circle' : 'close-circle-outline'"
+                [color]="comp.is_prorated ? 'primary' : 'medium'"></ion-icon>
+            </span>
+            <span class="col-action">
+              <div class="action-cell">
+                <button class="icon-btn edit" (click)="editComposition(comp)" title="Edit Mapping">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn delete" (click)="deleteComposition(comp.composition_id)" title="Remove Component">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!loading && compositionData.length === 0" class="empty-layout">
+        <div class="empty-visual">
+          <ion-icon name="layers-outline"></ion-icon>
+        </div>
+        <h3>No Components Linked</h3>
+        <p>This template currently has no components configured in its composition.</p>
+        <ion-button class="attach-btn" fill="outline" (click)="openAddModal()">
+          <ion-icon name="link-outline" slot="start"></ion-icon>
+          Attach First Component
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side Modal -->
+  <div class="side-modal-overlay pill-overlay" *ngIf="isModalOpen" (click)="isModalOpen = false"></div>
+  <div class="side-modal glass-modal" [class.open]="isModalOpen">
+    <div class="modal-header">
+      <h3>{{ isEditMode ? 'Edit Composition Mapping' : 'Add Composition' }}</h3>
+      <ion-icon name="close-outline" class="close-icon" (click)="isModalOpen = false"></ion-icon>
+    </div>
+    <div class="modal-body">
+      <form [formGroup]="compositionForm" (ngSubmit)="saveComposition()" class="composition-form-vertical">
+        <div class="form-container">
+          <!-- Select Component -->
+          <div class="form-group glass-input-group">
+            <label>Master Component</label>
+            <select formControlName="component_id" class="glass-select">
+              <option [ngValue]="null">Choose Component...</option>
+              <option *ngFor="let comp of availableComponents" [value]="comp.id">
+                {{ comp.name }} ({{ comp.code }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Formula or Value -->
+          <div class="form-group glass-input-group">
+            <label>Override Value / Formula</label>
+            <input type="text" formControlName="formula_or_value" 
+                   placeholder="e.g. 40% or 5000" class="glass-input" />
+            <small class="hint-text">Specify a custom percentage or fixed amount for this template mapping.</small>
+          </div>
+
+          <!-- Employee Search / Assignment -->
+          <div class="form-group glass-input-group dropdown-stack">
+            <label>Assigned By</label>
+            <div class="search-input-wrapper">
+              <ion-icon name="search-outline" class="search-prefix"></ion-icon>
+              <input type="text" placeholder="Search administrator..." 
+                     [value]="employeeSearchTerm"
+                     (input)="filterEmployees($event)" 
+                     (focus)="filteredEmployees = employees"
+                     class="glass-input search-field" />
+            </div>
+            
+            <div class="search-dropdown fade-in-sm" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
+              <div class="dropdown-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                <div class="item-avatar">{{ emp.FullName?.charAt(0) }}</div>
+                <div class="item-info">
+                  <span class="item-primary">{{ emp.FullName }}</span>
+                  <span class="item-secondary">{{ emp.EmployeeNumber }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-footer">
+          <ion-button type="button" fill="clear" color="medium" (click)="isModalOpen = false">Cancel</ion-button>
+          <ion-button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
+            {{ isEditMode ? 'Update Mapping' : 'Save Mapping' }}
+          </ion-button>
+        </div>
+      </form>
+    </div>
+  </div>
+</ion-content>
