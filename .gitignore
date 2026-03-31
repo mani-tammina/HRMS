@@ -1,18 +1,14 @@
 # Dependency directories
 node_modules/
+uploads/
 jspm_packages/
 # public/
 public/node_modules/
 public/.angular/
-# public/WWW/
+public/www/
 public/.vscode/
 public/.github/
 
-# app/
-app/node_modules/
-app/.angular/
-app/.gitignore/
-app/.github/
 
 
 images/
