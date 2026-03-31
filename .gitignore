@@ -5,7 +5,7 @@ jspm_packages/
 # public/
 public/node_modules/
 public/.angular/
-public/www/
+public/WWW/
 public/.vscode/
 public/.github/
 
@@ -37,3 +37,4 @@ build/
 
 *.md
 *.bat
+*.sh
