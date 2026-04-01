@@ -21,7 +21,7 @@
             <ion-card-content>
               <div class="today-status">
                 Status today:
-                <ion-badge [color]="status === 'Present' ? 'success' : 'danger'">
+                <ion-badge [ngClass]="status ? status.toLowerCase().split(' ').join('-').replace('(', '').replace(')', '') : ''">
                   {{ status }}
                 </ion-badge>
               </div>

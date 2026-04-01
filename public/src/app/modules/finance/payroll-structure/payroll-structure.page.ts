@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { PayrollService } from '../../../core/services/payroll-service.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { ToasterService } from '../../../core/services/toaster.service';
+import { Subject, debounceTime, distinctUntilChanged, switchMap } from 'rxjs';
 
 @Component({
   selector: 'app-payroll-structure',
@@ -26,6 +27,10 @@ export class PayrollStructurePage implements OnInit {
   employeeSearchTerm: string = '';
   isEditMode = false;
   selectedStructureId: number | null = null;
+  env: string = 'http://tamminademoapps.com:9295'; // Matches the backend base
+  isSearching = false;
+
+  private employeeSearch$ = new Subject<string>();
 
   constructor(
     private payrollService: PayrollService,
@@ -38,8 +43,43 @@ export class PayrollStructurePage implements OnInit {
   ngOnInit() {
     this.initForm();
     this.fetchStructures();
-    this.fetchEmployees();
     this.fetchComponents();
+    this.setupEmployeeSearch();
+  }
+
+  setupEmployeeSearch() {
+    this.employeeSearch$.pipe(
+      debounceTime(300),
+      distinctUntilChanged(),
+      switchMap(term => {
+        if (!term || term.length < 2) {
+          this.isSearching = false;
+          return [];
+        }
+        this.isSearching = true;
+        return this.employeeService.searchEmployees(term, 1, 1000);
+      })
+    ).subscribe({
+      next: (res: any) => {
+        this.filteredEmployees = Array.isArray(res) ? res : (res.data || []);
+        this.isSearching = false;
+      },
+      error: (err: any) => {
+        console.error('Search error:', err);
+        this.filteredEmployees = [];
+        this.isSearching = false;
+      }
+    });
+  }
+
+  onSearchFocus() {
+    if (this.employeeSearchTerm.length >= 2 && this.filteredEmployees.length === 0) {
+      this.employeeSearch$.next(this.employeeSearchTerm);
+    }
+  }
+
+  handleImageError(event: any) {
+    event.target.src = '../../../assets/Profile_Picture.png';
   }
 
   initForm() {
@@ -72,32 +112,21 @@ export class PayrollStructurePage implements OnInit {
   }
 
   fetchEmployees() {
-    this.employeeService.getAllEmployees().subscribe({
-      next: (res) => {
-        this.employees = res;
-        this.filteredEmployees = res;
-      },
-      error: () => this.toaster.showError('Could not load employees')
-    });
+    // We'll primarily use the search API now, but we can load a few initially if needed.
+    // Setting filteredEmployees to empty initially to wait for search.
+    this.filteredEmployees = [];
   }
 
   filterEmployees(event: any) {
-    const term = event.target.value.toLowerCase();
+    const term = event.target.value;
     this.employeeSearchTerm = term;
-    if (!term) {
-      this.filteredEmployees = this.employees;
-      return;
-    }
-    this.filteredEmployees = this.employees.filter(emp =>
-      emp.FullName?.toLowerCase().includes(term) ||
-      emp.EmployeeNumber?.toLowerCase().includes(term)
-    );
+    this.employeeSearch$.next(term);
   }
 
   selectEmployee(emp: any) {
     this.structureForm.patchValue({ employee_id: emp.id });
     this.employeeSearchTerm = emp.FullName;
-    this.filteredEmployees = [];
+    this.filteredEmployees = []; 
   }
 
   fetchComponents() {
@@ -180,7 +209,9 @@ export class PayrollStructurePage implements OnInit {
           this.selectedComponents = comps;
         }
       },
-      error: (err) => console.error('Error fetching structure details:', err)
+      error: (err: any) => {
+        console.error('Error fetching full structure details:', err);
+      }
     });
   }
 
@@ -197,7 +228,7 @@ export class PayrollStructurePage implements OnInit {
           this.toaster.showSuccess('Structure deleted successfully');
           this.fetchStructures();
         },
-        error: (err) => {
+        error: (err: any) => {
           console.error('Error deleting structure:', err);
           this.toaster.showError('Failed to delete structure');
         }
@@ -238,7 +269,7 @@ export class PayrollStructurePage implements OnInit {
         this.isModalOpen = false;
         this.fetchStructures();
       },
-      error: (err) => {
+      error: (err: any) => {
         console.error('Error saving structure:', err);
         this.toaster.showError('Failed to save structure');
       }

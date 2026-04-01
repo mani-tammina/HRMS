@@ -180,4 +180,28 @@ export class PayrollService {
       { headers: this.getHeaders() }
     );
   }
+
+  // 📄 Structure Composition Methods
+  addComponentToStructure(structureId: number, payload: any): Observable<any> {
+    return this.http.post(
+      `${this.payrollUrl}structures/${structureId}/composition`,
+      payload,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  updateStructureComposition(structureId: number, compositionId: number, payload: any): Observable<any> {
+    return this.http.put(
+      `${this.payrollUrl}structures/${structureId}/composition/${compositionId}`,
+      payload,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  deleteStructureComposition(structureId: number, compositionId: number): Observable<any> {
+    return this.http.delete(
+      `${this.payrollUrl}structures/${structureId}/composition/${compositionId}`,
+      { headers: this.getHeaders() }
+    );
+  }
 }

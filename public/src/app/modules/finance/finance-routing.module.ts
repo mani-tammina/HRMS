@@ -21,6 +21,10 @@ const routes: Routes = [
   {
     path: 'structure',
     loadChildren: () => import('./payroll-structure/payroll-structure.module').then(m => m.PayrollStructurePageModule)
+  },
+  {
+    path: 'structure/composition/:id',
+    loadChildren: () => import('./payroll-structure/structure-composition/structure-composition.module').then(m => m.StructureCompositionPageModule)
   }
 ];
 

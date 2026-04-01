@@ -148,23 +148,37 @@
       <form [formGroup]="structureForm" (ngSubmit)="saveStructure()" class="structure-form-vertical">
         <div class="form-container">
           <!-- Employee Search Dropdown -->
-          <div class="form-group glass-input-group dropdown-stack">
+          <div class="form-group glass-input-group dropdown-stack employee-search-container">
             <label>Employee Assignment</label>
             <div class="search-input-wrapper">
               <ion-icon name="search-outline" class="search-prefix"></ion-icon>
-              <input type="text" placeholder="Search employee..." 
+              <input type="text" placeholder="Start typing to search employee..." 
                      [value]="employeeSearchTerm"
                      (input)="filterEmployees($event)" 
-                     (focus)="filteredEmployees = employees"
+                     (focus)="onSearchFocus()"
                      class="glass-input search-field" />
+              <ion-spinner name="crescent" class="field-spinner" *ngIf="isSearching"></ion-spinner>
             </div>
             
-            <div class="search-dropdown fade-in-sm" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
-              <div class="dropdown-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
-                <div class="item-avatar">{{ emp.FullName?.charAt(0) }}</div>
-                <div class="item-info">
-                  <span class="item-primary">{{ emp.FullName }}</span>
-                  <span class="item-secondary">{{ emp.EmployeeNumber }}</span>
+            <div class="search-dropdown-popover fade-in-sm" *ngIf="filteredEmployees.length > 0">
+              <div class="dropdown-header">Matching Employees</div>
+              <div class="dropdown-results-container">
+                <div class="dropdown-item employee-row" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                  <div class="emp-avatar-container">
+                    <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../../assets/Profile_Picture.png'" 
+                         (error)="handleImageError($event)" class="emp-modal-avatar">
+                  </div>
+                  <div class="emp-info-main">
+                    <div class="name-row">
+                      <span class="emp-name">{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</span>
+                      <span class="emp-id-badge">#{{ emp.EmployeeNumber || emp.id }}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="emp-designation">{{ emp.designation_name || emp.designation || 'Staff' }}</span>
+                      <span class="divider">|</span>
+                      <span class="emp-email">{{ emp.WorkEmail || emp.email || '-' }}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

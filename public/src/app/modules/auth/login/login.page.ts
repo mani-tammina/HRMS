@@ -132,6 +132,11 @@ export class LoginPage implements OnInit {
   }
 
   async onSubmit() {
+    if (!this.emailChecked) {
+      this.onNext();
+      return;
+    }
+
     if (this.loginForm.invalid) {
       this.presentToast('Please fill all fields', 'warning');
       return;

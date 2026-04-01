@@ -1,0 +1,220 @@
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="payroll-container">
+    <!-- Header/Back Nav -->
+    <div class="header-section">
+      <div class="header-top">
+        <div class="back-nav">
+          <a (click)="goBack()" class="back-link">
+            <ion-icon name="arrow-back-outline"></ion-icon>
+            Back to Structures
+          </a>
+        </div>
+        <div class="master-header-actions">
+          <button class="action-btn sync-btn" (click)="syncToProfile()">
+            <ion-icon name="sync-outline"></ion-icon>
+            Sync CTC to Profile
+          </button>
+          <button class="action-btn add-btn" (click)="addComponent()">
+            <ion-icon name="add-circle-outline"></ion-icon>
+            Add Component
+          </button>
+        </div>
+      </div>
+      
+      <div class="page-title-row">
+        <h2>{{ structureInfo?.structure_name || 'MASTER_Standard Employee Package' }}</h2>
+        <p class="subtitle-info">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          Viewing details for structure {{ structureInfo?.id || 'undefined' }}
+        </p>
+      </div>
+    </div>
+
+    <!-- Summary Metrics Dashboard -->
+    <div class="summary-dashboard" *ngIf="!loading">
+      <div class="summary-box earning">
+        <div class="box-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+        <div class="box-content">
+          <span class="box-label">Gross Amount (Annual)</span>
+          <span class="box-value">{{ formatCurrency(structureInfo?.ctc_amount || totalEarnings) }}</span>
+        </div>
+      </div>
+      <div class="summary-box deduction">
+        <div class="box-icon"><ion-icon name="trending-down-outline"></ion-icon></div>
+        <div class="box-content">
+          <span class="box-label">Total Deductions (Annual)</span>
+          <span class="box-value">{{ formatCurrency(totalDeductions) }}</span>
+        </div>
+      </div>
+      <div class="summary-box net">
+        <div class="box-icon"><ion-icon name="calculator-outline"></ion-icon></div>
+        <div class="box-content">
+          <span class="box-label">Net Salary (Annual)</span>
+          <span class="box-value">{{ formatCurrency(netCTC) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Toggle -->
+    <div class="view-toggle-container">
+      <div class="toggle-group">
+        <button [class.active]="viewMode === 'annual'" (click)="setViewMode('annual')">Annual</button>
+        <button [class.active]="viewMode === 'monthly'" (click)="setViewMode('monthly')">Monthly</button>
+      </div>
+    </div>
+
+    <!-- Structure Metadata Row -->
+    <div class="structure-summary-row" *ngIf="structureInfo">
+      <div class="summary-item">
+        <label>STRUCTURE NAME</label>
+        <span class="value">{{ structureInfo.structure_name }}</span>
+      </div>
+      <div class="summary-item">
+        <label>CTC AMOUNT (ANNUAL)</label>
+        <span class="value">{{ formatCurrency(structureInfo.ctc_amount) }}</span>
+      </div>
+      <div class="summary-item">
+        <label>EMPLOYEE</label>
+        <span class="value">{{ structureInfo.FullName }}</span>
+      </div>
+      <div class="summary-item">
+        <label>STATUS</label>
+        <span class="status-badge" [ngClass]="!!structureInfo.is_active ? 'active' : 'inactive'">
+          {{ getStatusLabel(structureInfo.is_active) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Breakdown Table -->
+    <div class="composition-card glass-card">
+      <div class="card-title">
+        Structure Breakdown ({{ viewMode === 'annual' ? 'Annual' : 'Monthly' }})
+        <span class="count">{{ compositionData.length }}</span>
+      </div>
+
+      <div class="table-wrapper">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>COMPONENT NAME & CODE</th>
+              <th>TYPE</th>
+              <th>CALCULATION</th>
+              <th>VALUE</th>
+              <th>TAXABLE</th>
+              <th>PRORATED</th>
+              <th>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let comp of compositionData; let i = index" class="fade-in">
+              <td class="col-num">{{ i + 1 }}</td>
+              <td class="col-comp">
+                <div class="comp-info">
+                  <span class="name">{{ comp.name || comp.component_name }}</span>
+                  <span class="code">{{ comp.code || comp.component_code }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="type-badge" [ngClass]="(comp.component_type || '').toLowerCase()">
+                  {{ comp.component_type }}
+                </span>
+              </td>
+              <td class="col-calc">{{ comp.calculation_type }}</td>
+              <td class="col-val">
+                <div class="val-details">
+                  <span class="amount">{{ formatCurrency(comp.value) }}</span>
+                  <span class="pct">({{ getPercentageOfCTC(comp.value) }})</span>
+                </div>
+              </td>
+              <td class="text-center">
+                <ion-icon name="checkmark-circle" [color]="comp.taxable ? 'success' : 'medium'" class="check-icon"></ion-icon>
+              </td>
+              <td class="text-center">
+                <ion-icon name="close-circle" [color]="comp.prorated ? 'primary' : 'medium'" class="check-icon"></ion-icon>
+              </td>
+              <td>
+                <div class="row-actions">
+                  <button class="icon-btn edit"><ion-icon name="create-outline"></ion-icon></button>
+                  <button class="icon-btn delete"><ion-icon name="trash-outline"></ion-icon></button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <div class="loading-overlay" *ngIf="loading">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+    </div>
+  </div>
+
+  <!-- Assign Master Component Modal -->
+  <ion-modal [isOpen]="isAddModalOpen" (didDismiss)="closeAddModal()" class="glass-modal assign-comp-modal">
+    <ng-template>
+      <div class="modal-wrapper">
+        <div class="modal-header">
+          <h2>Assign Master Component</h2>
+          <ion-button fill="clear" (click)="closeAddModal()">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </div>
+
+        <div class="modal-body">
+          <form [formGroup]="assignForm" (ngSubmit)="saveAllocatedComponent()">
+            
+            <div class="form-group glass-input-group">
+              <label>Select Master Component</label>
+              <select class="glass-input" formControlName="component_id">
+                <option value="" disabled selected>Select Component</option>
+                <option *ngFor="let m of masterComponents" [value]="m.id">
+                  {{ m.name }} ({{ m.code }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group glass-input-group">
+              <label>Formula or Value</label>
+              <input type="text" class="glass-input" formControlName="value" placeholder="e.g. 40% or 5000" />
+              <p class="field-hint">Specify a percentage (e.g., 40%) or a fixed amount.</p>
+            </div>
+
+            <!-- Created By Searchable Dropdown -->
+            <div class="form-group glass-input-group relative">
+              <label>Created By (Employee) <span class="optional-text">(Optional)</span></label>
+              <div class="search-wrapper">
+                <ion-icon name="search-outline" class="search-icon"></ion-icon>
+                <input type="text" class="glass-input has-icon" 
+                       formControlName="employee_search"
+                       (input)="onEmployeeSearch($event)"
+                       placeholder="Search Employee..." />
+                <ion-spinner name="crescent" size="small" class="field-spinner" *ngIf="isSearching"></ion-spinner>
+              </div>
+
+              <!-- Search Results -->
+              <div class="search-results-overlay fade-in-sm" *ngIf="filteredEmployees.length > 0">
+                <div class="res-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                  <div class="res-avatar">
+                    <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../../assets/Profile_Picture.png'" 
+                         (error)="handleImageError($event)">
+                  </div>
+                  <div class="res-info">
+                    <span class="res-name">{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</span>
+                    <span class="res-sub">#{{ emp.EmployeeNumber || emp.id }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button type="submit" class="submit-btn" [disabled]="assignForm.invalid">
+                Add to Structure
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </ng-template>
+  </ion-modal>
+</ion-content>
