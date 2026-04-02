@@ -9561,3 +9561,638 @@ Object.assign(swaggerSpec.paths, {
     },
   },
 });
+
+Object.assign(swaggerSpec.paths, {
+  // ============================================
+  // TAXATION WORKFLOW APIs (Compatibility Paths)
+  // ============================================
+  "/api/admin/tax-regimes": {
+    get: {
+      summary: "🧾 Tax Regimes",
+      description: "Get configured tax slabs for a financial year",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          schema: { type: "string", example: "2025-2026" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Tax regimes fetched",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                financial_year: "2025-2026",
+                slabs: [
+                  {
+                    id: 1,
+                    regime_type: "OLD",
+                    min_income: 0,
+                    max_income: 250000,
+                    rate: 0,
+                    cess_rate: 4,
+                    surcharge_rate: 0,
+                    financial_year: "2025-2026",
+                    is_active: 1,
+                  },
+                  {
+                    id: 2,
+                    regime_type: "OLD",
+                    min_income: 250000,
+                    max_income: 500000,
+                    rate: 5,
+                    cess_rate: 4,
+                    surcharge_rate: 0,
+                    financial_year: "2025-2026",
+                    is_active: 1,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/admin/tax-sections": {
+    put: {
+      summary: "📌 Update Tax Sections",
+      description: "Update annual section limits (e.g., 80C, 80D)",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["sections"],
+              properties: {
+                financial_year: { type: "string", example: "2025-2026" },
+                sections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["section_code", "max_limit"],
+                    properties: {
+                      section_code: { type: "string", example: "80C" },
+                      max_limit: { type: "number", example: 150000 },
+                      is_active: { type: "boolean", example: true },
+                    },
+                  },
+                },
+              },
+            },
+            example: {
+              financial_year: "2025-2026",
+              sections: [
+                { section_code: "80C", max_limit: 150000, is_active: true },
+                { section_code: "80D", max_limit: 25000, is_active: true },
+              ],
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Tax sections updated",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                financial_year: "2025-2026",
+                updated: 2,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/admin/config/window": {
+    post: {
+      summary: "🪟 Configure Submission Window",
+      description: "Open/close proof submission window",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["start_at", "end_at"],
+              properties: {
+                window_type: { type: "string", example: "proof_submission" },
+                financial_year: { type: "string", example: "2025-2026" },
+                start_at: { type: "string", format: "date-time" },
+                end_at: { type: "string", format: "date-time" },
+                status: { type: "string", enum: ["OPEN", "CLOSED"] },
+                notes: { type: "string" },
+              },
+            },
+            example: {
+              window_type: "proof_submission",
+              financial_year: "2025-2026",
+              start_at: "2025-04-01T00:00:00",
+              end_at: "2026-01-31T23:59:59",
+              status: "OPEN",
+              notes: "Tax proof window for FY 2025-26",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Window configured",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                window_type: "proof_submission",
+                financial_year: "2025-2026",
+                status: "OPEN",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/admin/pt-slabs": {
+    get: {
+      summary: "🏛️ PT Slabs",
+      description: "Get state-wise professional tax rules",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: "PT slabs fetched",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                slabs: [
+                  {
+                    id: 7,
+                    provider_type: "PT",
+                    state_code: "TS",
+                    percentage: null,
+                    ceiling_limit: 30000,
+                    fixed_amount: 200,
+                    effective_from: "2025-04-01",
+                    effective_to: null,
+                    is_active: 1,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/tax/summary": {
+    get: {
+      summary: "🧮 Employee Tax Summary",
+      description: "Get taxation summary for current employee",
+      tags: ["👤 Employee Tax"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          schema: { type: "string", example: "2025-2026" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Tax summary",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                employee_id: 45,
+                financial_year: "2025-2026",
+                tax_regime: "OLD",
+                pan: "ABCDE1234F",
+                is_tds_exempt: false,
+                declared_investments: { "80C": 120000, "80D": 25000 },
+                tds_paid_ytd: 48250,
+                proofs: [
+                  {
+                    id: 101,
+                    section_code: "80C",
+                    declared_amount: 100000,
+                    extracted_amount: 98000,
+                    ai_confidence: 91.5,
+                    verification_status: "AI_VERIFIED",
+                    created_at: "2025-11-20T08:35:00.000Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/tax/regime-selection": {
+    post: {
+      summary: "⚖️ Select Tax Regime",
+      description: "Employee chooses OLD or NEW regime",
+      tags: ["👤 Employee Tax"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["tax_regime"],
+              properties: {
+                financial_year: { type: "string", example: "2025-2026" },
+                tax_regime: { type: "string", enum: ["OLD", "NEW"] },
+              },
+            },
+            example: {
+              financial_year: "2025-2026",
+              tax_regime: "NEW",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Regime selection saved",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                employee_id: 45,
+                financial_year: "2025-2026",
+                tax_regime: "NEW",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/tax/declarations": {
+    get: {
+      summary: "📄 Get Tax Declarations",
+      tags: ["👤 Employee Tax"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          schema: { type: "string", example: "2025-2026" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "Declarations fetched",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                employee_id: 45,
+                financial_year: "2025-2026",
+                tax_regime: "OLD",
+                declarations: { "80C": 150000, "80D": 25000, HRA: 180000 },
+                updated_at: "2025-11-22T10:15:00.000Z",
+              },
+            },
+          },
+        },
+      },
+    },
+    post: {
+      summary: "📝 Save Tax Declarations",
+      tags: ["👤 Employee Tax"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                financial_year: { type: "string", example: "2025-2026" },
+                tax_regime: { type: "string", enum: ["OLD", "NEW"] },
+                declarations: {
+                  type: "object",
+                  example: { "80C": 150000, "80D": 25000 },
+                },
+              },
+            },
+            example: {
+              financial_year: "2025-2026",
+              tax_regime: "OLD",
+              declarations: {
+                "80C": 150000,
+                "80D": 25000,
+                HRA: 180000,
+                NPS_80CCD_1B: 50000,
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Declarations saved",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                employee_id: 45,
+                financial_year: "2025-2026",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/tax/upload-proof": {
+    post: {
+      summary: "📤 Upload Tax Proof",
+      tags: ["👤 Employee Tax"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["document"],
+              properties: {
+                document: { type: "string", format: "binary" },
+                financial_year: { type: "string", example: "2025-2026" },
+                section_code: { type: "string", example: "80C" },
+                declared_amount: { type: "number", example: 100000 },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Proof uploaded",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                proof_id: 120,
+                status: "PENDING",
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/ai/pending-proofs": {
+    get: {
+      summary: "🤖 AI Pending Proofs",
+      description: "Queue for AI to process pending proofs",
+      tags: ["🤖 AI Verification"],
+      security: [{ bearerAuth: [] }],
+      parameters: [{ name: "limit", in: "query", schema: { type: "integer" } }],
+      responses: {
+        200: {
+          description: "Pending proofs",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                pending: [
+                  {
+                    id: 120,
+                    employee_id: 45,
+                    financial_year: "2025-2026",
+                    section_code: "80C",
+                    original_filename: "lic-receipt.pdf",
+                    declared_amount: 100000,
+                    created_at: "2025-11-23T07:10:00.000Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/ai/verification-result": {
+    post: {
+      summary: "🤖 AI Verification Result",
+      description: "Submit extracted amount and confidence score",
+      tags: ["🤖 AI Verification"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["proof_id"],
+              properties: {
+                proof_id: { type: "integer" },
+                extracted_amount: { type: "number" },
+                confidence_score: { type: "number", example: 91.5 },
+                notes: { type: "string" },
+              },
+            },
+            example: {
+              proof_id: 120,
+              extracted_amount: 98500,
+              confidence_score: 91.5,
+              notes: "Amount extracted from LIC premium receipt",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Verification result saved",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                proof_id: 120,
+                status: "AI_VERIFIED",
+                confidence_score: 91.5,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/admin/verification-queue": {
+    get: {
+      summary: "🧑‍⚖️ Admin Verification Queue",
+      description: "Finance queue for flagged/rejected proofs",
+      tags: ["🤖 AI Verification"],
+      security: [{ bearerAuth: [] }],
+      responses: {
+        200: {
+          description: "Admin verification queue",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                queue: [
+                  {
+                    id: 121,
+                    employee_id: 67,
+                    EmployeeNumber: "EMP067",
+                    FullName: "Priya N",
+                    financial_year: "2025-2026",
+                    section_code: "80D",
+                    original_filename: "mediclaim.jpg",
+                    declared_amount: 25000,
+                    extracted_amount: 12000,
+                    ai_confidence: 62.4,
+                    verification_status: "FLAGGED",
+                    verification_notes: "Blurry image; manual check needed",
+                    verified_at: "2025-11-23T11:15:00.000Z",
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/payroll/run/calculate": {
+    post: {
+      summary: "▶️ Calculate Payroll",
+      description: "Trigger payroll calculation run for payroll month",
+      tags: ["💼 Payroll Execution"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["payroll_month"],
+              properties: {
+                payroll_month: { type: "string", example: "2026-03" },
+              },
+            },
+            example: {
+              payroll_month: "2026-03",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Payroll calculation completed",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                payroll_month: "2026-03",
+                result: {
+                  runId: 52,
+                  cycleId: 14,
+                  totalEmployees: 146,
+                  totalGross: 12345000,
+                  totalDeductions: 3250000,
+                  totalNet: 9095000,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/payroll/payslip/download": {
+    get: {
+      summary: "⬇️ Download Payslip PDF",
+      description: "Generate and download payslip PDF for current employee",
+      tags: ["💼 Payroll Execution"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "payslip_id",
+          in: "query",
+          required: true,
+          schema: { type: "integer" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "PDF file",
+          content: {
+            "application/pdf": {
+              schema: { type: "string", format: "binary" },
+            },
+          },
+        },
+      },
+    },
+  },
+  "/api/payroll/adjustments": {
+    post: {
+      summary: "➕ Payroll Adjustment",
+      description: "Create one-time payroll adjustments (bonus/arrears/deduction)",
+      tags: ["💼 Payroll Execution"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["employee_id", "payroll_month", "adjustment_type", "amount"],
+              properties: {
+                employee_id: { type: "integer", example: 10 },
+                payroll_month: { type: "string", example: "2026-03" },
+                adjustment_type: {
+                  type: "string",
+                  enum: ["BONUS", "ARREAR", "DEDUCTION", "CORRECTION"],
+                },
+                amount: { type: "number", example: 3500 },
+                reason: { type: "string" },
+              },
+            },
+            example: {
+              employee_id: 45,
+              payroll_month: "2026-03",
+              adjustment_type: "BONUS",
+              amount: 5000,
+              reason: "Quarterly performance reward",
+            },
+          },
+        },
+      },
+      responses: {
+        200: {
+          description: "Adjustment recorded",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                adjustment_id: 89,
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+});
