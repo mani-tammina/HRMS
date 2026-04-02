@@ -9147,3 +9147,417 @@ Object.assign(swaggerSpec.paths, {
     },
   },
 });
+
+Object.assign(swaggerSpec.paths, {
+  // ============================================
+  // PAYROLL & TAXATION V1 APIs
+  // ============================================
+  "/api/v1/admin/payroll/statutory-rules": {
+    get: {
+      summary: "⚖️ Get Statutory Rules",
+      description: "List active PF/ESI/PT statutory rules",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      responses: { 200: { description: "Rules fetched" } },
+    },
+    put: {
+      summary: "⚙️ Upsert Statutory Rules",
+      description: "Create/update PF, ESI, PT rule definitions",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                rules: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["provider_type"],
+                    properties: {
+                      provider_type: { type: "string", enum: ["PF", "ESI", "PT"] },
+                      state_code: { type: "string", example: "TS" },
+                      percentage: { type: "number", example: 12 },
+                      ceiling_limit: { type: "number", example: 15000 },
+                      fixed_amount: { type: "number", example: 200 },
+                      effective_from: { type: "string", format: "date" },
+                      effective_to: { type: "string", format: "date", nullable: true },
+                      is_active: { type: "boolean", example: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Rules updated" } },
+    },
+  },
+  "/api/v1/admin/tax/slabs": {
+    get: {
+      summary: "🧾 Get Tax Slabs",
+      description: "Get tax slab configuration for OLD/NEW regimes",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          schema: { type: "string", example: "2025-2026" },
+          description: "Optional financial year filter",
+        },
+      ],
+      responses: { 200: { description: "Slabs fetched" } },
+    },
+    post: {
+      summary: "🧾 Create Tax Slabs",
+      description: "Create tax slab rows for a financial year",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                slabs: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["regime_type", "min_income", "rate", "financial_year"],
+                    properties: {
+                      regime_type: { type: "string", enum: ["OLD", "NEW"] },
+                      min_income: { type: "number", example: 0 },
+                      max_income: { type: "number", nullable: true, example: 300000 },
+                      rate: { type: "number", example: 5 },
+                      cess_rate: { type: "number", example: 4 },
+                      surcharge_rate: { type: "number", example: 0 },
+                      financial_year: { type: "string", example: "2025-2026" },
+                      is_active: { type: "boolean", example: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Slabs created" } },
+    },
+  },
+  "/api/v1/admin/tax/section-limits": {
+    patch: {
+      summary: "📌 Update Tax Section Limits",
+      description: "Upsert limits for 80C/80D and similar sections",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                sections: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    required: ["section_code", "max_limit", "financial_year"],
+                    properties: {
+                      section_code: { type: "string", example: "80C" },
+                      max_limit: { type: "number", example: 150000 },
+                      financial_year: { type: "string", example: "2025-2026" },
+                      is_active: { type: "boolean", example: true },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Section limits updated" } },
+    },
+  },
+  "/api/v1/admin/payroll/components": {
+    post: {
+      summary: "🧩 Upsert Payroll Component",
+      description: "Define component taxability/fixed behavior",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["component_name"],
+              properties: {
+                component_name: { type: "string", example: "HRA" },
+                component_code: { type: "string", example: "HRA" },
+                component_type: {
+                  type: "string",
+                  enum: ["EARNING", "DEDUCTION", "REIMBURSEMENT"],
+                },
+                is_taxable: { type: "boolean", example: true },
+                is_fixed: { type: "boolean", example: false },
+                is_active: { type: "boolean", example: true },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Component saved" } },
+    },
+  },
+  "/api/v1/admin/ai/verification-queue": {
+    get: {
+      summary: "🤖 Proof Verification Queue",
+      description: "List tax proof documents pending AI/manual verification",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "limit", in: "query", schema: { type: "integer", example: 100 } },
+      ],
+      responses: { 200: { description: "Verification queue" } },
+    },
+  },
+  "/api/v1/admin/ai/verify-proof": {
+    post: {
+      summary: "🤖 Verify Tax Proof",
+      description: "Submit AI/manual verification result for one proof",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["proof_id"],
+              properties: {
+                proof_id: { type: "integer", example: 10 },
+                extracted_amount: { type: "number", example: 98000 },
+                verification_status: {
+                  type: "string",
+                  enum: ["AI_VERIFIED", "MANUAL_VERIFIED", "REJECTED"],
+                },
+                verification_notes: { type: "string" },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Proof verified" } },
+    },
+  },
+  "/api/v1/admin/payroll/lop-summary": {
+    get: {
+      summary: "📉 LOP Summary",
+      description: "Get monthly LOP summary derived from attendance",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "payroll_month",
+          in: "query",
+          required: true,
+          schema: { type: "string", example: "2026-03" },
+        },
+      ],
+      responses: { 200: { description: "LOP summary" } },
+    },
+  },
+  "/api/v1/admin/payroll/process-run": {
+    post: {
+      summary: "▶️ Process Payroll Run",
+      description: "Execute payroll calculation engine for a month",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["payroll_month"],
+              properties: {
+                payroll_month: { type: "string", example: "2026-03" },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Payroll run executed" } },
+    },
+  },
+  "/api/v1/admin/payroll/lock-period": {
+    post: {
+      summary: "🔒 Lock Payroll Period",
+      description: "Finance-only endpoint to lock a payroll month",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["payroll_month"],
+              properties: {
+                payroll_month: { type: "string", example: "2026-03" },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Period locked" } },
+    },
+  },
+  "/api/v1/admin/payroll/adjustments": {
+    post: {
+      summary: "➕ Add Payroll Adjustment",
+      description: "Create one-time bonus/arrear/deduction/correction",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["employee_id", "payroll_month", "adjustment_type", "amount"],
+              properties: {
+                employee_id: { type: "integer", example: 12 },
+                payroll_month: { type: "string", example: "2026-03" },
+                adjustment_type: {
+                  type: "string",
+                  enum: ["BONUS", "ARREAR", "DEDUCTION", "CORRECTION"],
+                },
+                amount: { type: "number", example: 2500 },
+                reason: { type: "string", example: "Project completion bonus" },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Adjustment added" } },
+    },
+  },
+  "/api/v1/admin/payroll/reconciliation": {
+    get: {
+      summary: "📊 Payroll Reconciliation",
+      description: "Difference report between current and previous month",
+      tags: ["💰 Payroll V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "payroll_month",
+          in: "query",
+          required: true,
+          schema: { type: "string", example: "2026-03" },
+        },
+      ],
+      responses: { 200: { description: "Reconciliation report" } },
+    },
+  },
+  "/api/v1/employee/tax/computation": {
+    get: {
+      summary: "🧮 My Tax Computation",
+      description: "Get employee tax breakdown for a financial year",
+      tags: ["👤 ESS V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          required: true,
+          schema: { type: "string", example: "2025-2026" },
+        },
+      ],
+      responses: { 200: { description: "Tax computation" } },
+    },
+  },
+  "/api/v1/employee/tax/declaration": {
+    post: {
+      summary: "📝 Save Tax Declaration",
+      description: "Store employee investment declarations for FY",
+      tags: ["👤 ESS V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["financial_year"],
+              properties: {
+                financial_year: { type: "string", example: "2025-2026" },
+                tax_regime: { type: "string", enum: ["OLD", "NEW"], example: "OLD" },
+                pan: { type: "string", example: "ABCDE1234F" },
+                is_tds_exempt: { type: "boolean", example: false },
+                declared_investments: {
+                  type: "object",
+                  example: { "80C": 150000, "80D": 25000 },
+                },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Declaration saved" } },
+    },
+  },
+  "/api/v1/employee/tax/upload-proof": {
+    post: {
+      summary: "📤 Upload Tax Proof",
+      description: "Upload proof document for tax declaration verification",
+      tags: ["👤 ESS V1"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "multipart/form-data": {
+            schema: {
+              type: "object",
+              required: ["document", "financial_year"],
+              properties: {
+                document: { type: "string", format: "binary" },
+                financial_year: { type: "string", example: "2025-2026" },
+                section_code: { type: "string", example: "80C" },
+                declared_amount: { type: "number", example: 120000 },
+              },
+            },
+          },
+        },
+      },
+      responses: { 200: { description: "Proof uploaded" } },
+    },
+  },
+  "/api/v1/employee/payroll/history": {
+    get: {
+      summary: "📚 My Payroll History",
+      description: "Get monthly payroll history for logged-in employee",
+      tags: ["👤 ESS V1"],
+      security: [{ bearerAuth: [] }],
+      responses: { 200: { description: "Payroll history" } },
+    },
+  },
+  "/api/v1/employee/payslip/{id}": {
+    get: {
+      summary: "🧾 My Payslip Snapshot",
+      description: "Get payslip snapshot JSON for a specific payslip id",
+      tags: ["👤 ESS V1"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } },
+      ],
+      responses: { 200: { description: "Payslip details" } },
+    },
+  },
+});

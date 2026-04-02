@@ -59,6 +59,7 @@ const projectRoutes = require("./routes/projects.routes");
 const assetRoutes = require("./routes/assets.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const emailRoutes = require("./routes/email.routes");
+const payrollTaxV1Routes = require("./routes/payroll-tax.v1.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -411,6 +412,9 @@ app.use("/api/dashboard", dashboardRoutes);
 
 // Email Routes
 app.use("/", emailRoutes);
+
+// Payroll + Taxation V1 Routes (Admin/ESS/API blueprint)
+app.use("/api/v1", payrollTaxV1Routes);
 
 /* ============ SWAGGER API DOCUMENTATION ============ */
 
