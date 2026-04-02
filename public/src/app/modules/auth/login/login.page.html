@@ -32,8 +32,12 @@
                 <ion-item class="custom-input-item">
                   <ion-icon name="person-outline" slot="start"></ion-icon>
                   <ion-label position="floating">Username / Employee ID</ion-label>
-                  <ion-input type="text" formControlName="email" [readonly]="emailChecked">
+                  <ion-input type="text" formControlName="email">
                   </ion-input>
+                  <ion-button slot="end" fill="clear" size="small" *ngIf="emailChecked" (click)="resetState()"
+                    class="animate__animated animate__fadeIn">
+                    <ion-icon name="create-outline" slot="icon-only" color="primary"></ion-icon>
+                  </ion-button>
                 </ion-item>
 
                 <!-- PASSWORD -->

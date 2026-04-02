@@ -48,17 +48,35 @@ export class LoginPage implements OnInit {
       password: ['']
     });
 
+    this.loginForm.get('email')?.valueChanges.subscribe(() => {
+      if (this.emailChecked) {
+        this.resetState();
+      }
+    });
+
     this.forgotPasswordForm = this.fb.group({
       employee_id: ['', Validators.required],
       password: ['', Validators.required]
     });
   }
 
-  ionViewWillEnter(): void {
+  public resetState() {
     this.emailChecked = false;
     this.showPassword = false;
     this.showCreatePassword = false;
-    this.loginForm.reset();
+    this.isAdmin = false;
+    this.isEmpId = false;
+    this.empId = null;
+    this.rolePreviewData = null;
+    this.loginForm.get('password')?.clearValidators();
+    this.loginForm.get('password')?.setErrors(null);
+    this.loginForm.get('password')?.setValue('');
+    this.loginForm.get('password')?.updateValueAndValidity();
+  }
+
+  ionViewWillEnter(): void {
+    this.resetState();
+    this.loginForm.get('email')?.setValue('');
   }
 
   private isAdminLogin(value: string): boolean {

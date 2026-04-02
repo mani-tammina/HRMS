@@ -1,55 +1,66 @@
 ion-menu ion-content.sidenav-content {
-  --background: #122E44;
+  --background: #1e293b;
+  /* Consistent Slate 800 for high accessibility */
   height: 100%;
 }
 
-.menu-header {
-  padding: 20px;
-  text-align: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 10px;
-
-  .brand-logo {
-    width: 60px;
-    height: auto;
-  }
-
-  .brand-logo-admin {
-    width: 60px;
-    height: auto;
-    filter: brightness(0) invert(1);
-  }
-}
-
+/* Sidebar Container */
 .side-menu-container {
   max-width: 90px !important;
   --side-width: 90px !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Brand Logo Header */
+.menu-header {
+  padding: 25px 10px;
+  text-align: center;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.05);
+  margin-bottom: 20px;
+
+  .brand-logo {
+    width: 42px;
+    height: auto;
+    filter: brightness(0) invert(1);
+    transition: transform 0.3s ease;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
+}
+
+/* Menu List Styling */
 .side-menu-list {
   background: transparent;
-  padding: 0;
+  padding: 10px 8px;
   display: flex;
   flex-direction: column;
-  height: calc(100% - 100px);
-  margin-top: 30px;
+  height: calc(100% - 120px);
+  margin-top: 35px;
 }
 
+/* Navigation Item */
 .menu-nav-item {
   --background: transparent;
-  --border-radius: 0;
-  --color: #94a3b8;
+  --border-radius: 12px;
+  --color: #ffffff;
   --padding-start: 0;
   --padding-end: 0;
   --inner-padding-end: 0;
   min-height: 80px;
-  cursor: pointer;
+  margin-bottom: 4px;
+  transition: all 0.2s ease;
+  position: relative;
+
+  &:hover {
+    --background: rgba(255, 255, 255, 0.1);
+  }
 
   &.selected {
     --background: rgba(255, 255, 255, 0.15);
-    --color: #fff;
-    border-radius: 10px;
-    position: relative;
+    --color: #ffffff;
 
     &::before {
       content: '';
@@ -58,8 +69,8 @@ ion-menu ion-content.sidenav-content {
       top: 50%;
       transform: translateY(-50%);
       width: 4px;
-      height: 40px;
-      background: #1F74BB;
+      height: 28px;
+      background: #3b82f6;
       border-radius: 0 4px 4px 0;
     }
   }
@@ -70,17 +81,17 @@ ion-menu ion-content.sidenav-content {
     align-items: center;
     justify-content: center;
     width: 100%;
-    gap: 6px;
+    gap: 10px;
+    padding: 12px 0;
 
     ion-label {
-      font-size: 11px;
-      font-weight: 500;
+      font-size: 10.5px;
+      font-weight: 700;
       margin: 0;
-      text-transform: capitalize;
-    }
-
-    ion-icon {
-      font-size: 24px;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: #ffffff;
+      opacity: 0.95;
     }
 
     .custom-menu-icon {
@@ -91,101 +102,139 @@ ion-menu ion-content.sidenav-content {
     }
   }
 
-  .active-menu {
-    display: none;
-  }
-
-  .inactive-menu {
-    display: block;
-  }
-
+  /* Icon visibility based on selection and class */
   .active-icon {
     display: none;
-    filter: invert(1) brightness(1.2);
+    filter: brightness(0) invert(1);
   }
 
   .inactive-icon {
     display: block;
-    filter: grayscale(100%);
-    opacity: 0.7;
+    filter: brightness(0) invert(1);
+    opacity: 0.85;
+    /* Increased opacity for better visibility */
   }
 
   &.selected {
-    .active-menu {
-      display: block;
-    }
-
-    .inactive-menu {
+    .inactive-icon {
       display: none;
     }
 
     .active-icon {
       display: block;
-      filter: invert(1) brightness(1.2);
+      filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
     }
 
-    .inactive-icon {
-      display: none;
+    .row-left ion-label {
+      opacity: 1;
+      color: #fff;
     }
   }
 }
 
+/* Logout Item Special Treatment */
 .logout-item {
   margin-top: auto;
   --color: #ef4444;
 
   &:hover {
     --background: rgba(239, 68, 68, 0.1);
+
+    .custom-menu-icon {
+      filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+    }
+  }
+
+  .inactive-icon,
+  .active-icon {
+    /* Filter to achieve #ef4444 (Vibrant Red) from a black/neutral source */
+    filter: invert(27%) sepia(91%) saturate(6452%) hue-rotate(352deg) brightness(98%) contrast(92%);
+    opacity: 0.9;
+  }
+
+  ion-label {
+    color: #ef4444 !important;
+    opacity: 1 !important;
   }
 }
 
+/* Submenu Wrapper Styles */
 .submenu-wrapper {
+  margin-bottom: 8px;
+
   .parent-item {
     position: relative;
+
     .submenu-toggle-icon {
       position: absolute;
-      right: 5px;
-      top: 10px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.5);
+      right: 4px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      color: rgba(255, 255, 255, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    &.expanded .submenu-toggle-icon {
+      color: #fff;
+      transform: translateY(-50%) rotate(90deg);
     }
   }
 
   .sub-items-container {
-    background: rgba(0, 0, 0, 0.1);
-    border-radius: 0 0 10px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    margin-top: 4px;
+    padding: 4px;
+    animation: slideDown 0.3s ease-out;
 
     .sub-item {
-      min-height: 60px;
-      --background: transparent;
-      
+      min-height: 50px;
+      --border-radius: 8px;
+      margin-bottom: 2px;
+
       .row-left {
         gap: 4px;
+        padding: 8px 0;
+
         ion-label {
-          font-size: 9px;
-          opacity: 0.8;
+          font-size: 8px;
+          opacity: 0.6;
         }
+
         .custom-menu-icon.sub-icon {
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
         }
       }
 
       &.selected {
-        --background: rgba(31, 116, 187, 0.2);
+        --background: rgba(59, 130, 246, 0.15);
+
         &::before {
-          height: 30px;
+          height: 24px;
         }
       }
     }
   }
 }
 
-/* Ensure content fills height */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Base Layout Polish */
 ion-router-outlet {
-  background-color: var(--ion-bg-color);
+  background-color: #f8fafc;
   height: 100%;
-  width: 100%;
 }
 
 ion-split-pane.is-authenticated {
@@ -193,25 +242,30 @@ ion-split-pane.is-authenticated {
   height: calc(100vh - 64px);
 }
 
+/* Mobile Responsive Refinements */
 @media (max-width: 767px) {
   .side-menu-container {
-    max-width: 250px !important;
-    --side-width: 250px !important;
+    max-width: 280px !important;
+    --side-width: 280px !important;
+    --background: #0f172a;
   }
 
   .menu-nav-item {
-    min-height: 60px;
-    padding: 0 10px;
+    min-height: 54px;
+    padding: 0 16px;
+    margin: 4px 12px;
 
     .row-left {
       flex-direction: row;
       justify-content: flex-start;
-      gap: 15px;
-      padding-left: 20px;
+      gap: 16px;
+      padding-left: 8px;
 
       ion-label {
         font-size: 14px;
         text-align: left;
+        text-transform: none;
+        letter-spacing: normal;
       }
 
       .custom-menu-icon {
@@ -219,5 +273,13 @@ ion-split-pane.is-authenticated {
         height: 20px;
       }
     }
+
+    &.selected::before {
+      left: -12px;
+    }
+  }
+
+  .submenu-wrapper .parent-item .submenu-toggle-icon {
+    right: 20px;
   }
 }
