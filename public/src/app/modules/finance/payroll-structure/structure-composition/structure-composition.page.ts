@@ -1,50 +1,51 @@
 import { Component, OnInit } from '@angular/core';
-import { ActivatedRoute, Router } from '@angular/router';
+import { CommonModule } from '@angular/common';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PayrollService } from '../../../../core/services/payroll-service.service';
-import { ToasterService } from '../../../../core/services/toaster.service';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { IonicModule } from '@ionic/angular';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { EmployeeService } from '../../../../core/services/employee.service';
-import { Subject } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap } from 'rxjs/operators';
+
+import { ToasterService } from '../../../../core/services/toaster.service';
 
 @Component({
   selector: 'app-structure-composition',
   templateUrl: './structure-composition.page.html',
   styleUrls: ['./structure-composition.page.scss'],
-  standalone: false
+  standalone: true,
+  imports: [CommonModule, IonicModule, ReactiveFormsModule]
 })
 export class StructureCompositionPage implements OnInit {
   structureId: number | null = null;
   structureInfo: any = null;
   compositionData: any[] = [];
-  loading = true;
+  loading: boolean = false;
+  totalEarnings: number = 0;
+  totalDeductions: number = 0;
   viewMode: 'annual' | 'monthly' = 'annual';
 
-  // Modal related
-  isAddModalOpen = false;
-  assignForm!: FormGroup;
-  masterComponents: any[] = [];
+  isModalOpen = false;
+  isEditMode = false;
+  selectedComponentId: number | null = null;
+  compositionForm!: FormGroup;
+  availableComponents: any[] = [];
+  employees: any[] = [];
   filteredEmployees: any[] = [];
-  isSearching = false;
-  env: string = 'http://tamminademoapps.com:9295';
-  private employeeSearch$ = new Subject<string>();
-
-  totalEarnings = 0;
-  totalDeductions = 0;
-  netCTC = 0;
+  employeeSearchTerm: string = '';
 
   constructor(
     private route: ActivatedRoute,
-    private router: Router,
     private payrollService: PayrollService,
-    private toaster: ToasterService,
     private fb: FormBuilder,
-    private employeeService: EmployeeService
-  ) { 
-    this.initForm();
-  }
+    private employeeService: EmployeeService,
+    private toaster: ToasterService
+  ) { }
 
   ngOnInit() {
+    this.initForm();
+    this.fetchEmployees();
+    this.fetchAvailableComponents();
+
     this.route.paramMap.subscribe(params => {
       const id = params.get('id');
       if (id) {
@@ -52,172 +53,419 @@ export class StructureCompositionPage implements OnInit {
         this.fetchStructureDetails();
       }
     });
-
-    this.fetchMasterComponents();
-    this.setupEmployeeSearch();
   }
 
   initForm() {
-    this.assignForm = this.fb.group({
-      component_id: ['', Validators.required],
-      value: ['', Validators.required],
-      created_by_employee_id: [''],
-      employee_search: ['']
+    this.compositionForm = this.fb.group({
+      // Mapping fields (for Add mode)
+      component_id: [null],
+      formula_or_value: [''],
+
+      // Full fields (for Edit mode / Syncing)
+      code: [''],
+      name: [''],
+      component_type: ['EARNING'],
+      calculation_type: ['FIXED'],
+      value: [0],
+      percentage_of_code: ['BASIC'],
+      taxable: [true],
+      prorated: [false],
+      sequence: [10],
+      notes: [''],
+      created_by: [Number(localStorage.getItem('employee_id')) || 1]
     });
   }
 
-  fetchMasterComponents() {
-    this.payrollService.getPayrollComponents().subscribe({
-      next: (res: any) => {
-        this.masterComponents = res.data || res;
-      }
+  fetchEmployees() {
+    this.employeeService.getAllEmployees().subscribe((res: any) => {
+      this.employees = res;
+      this.filteredEmployees = res;
     });
   }
 
-  setupEmployeeSearch() {
-    this.employeeSearch$.pipe(
-      debounceTime(300),
-      distinctUntilChanged(),
-      switchMap(term => {
-        if (!term || term.length < 2) {
-          this.isSearching = false;
-          return [];
-        }
-        this.isSearching = true;
-        return this.employeeService.searchEmployees(term, 1, 50);
-      })
-    ).subscribe({
-      next: (res: any) => {
-        this.filteredEmployees = Array.isArray(res) ? res : (res.data || []);
-        this.isSearching = false;
-      },
-      error: () => {
-        this.isSearching = false;
-        this.filteredEmployees = [];
-      }
-    });
-  }
-
-  onEmployeeSearch(event: any) {
-    const val = event.target.value;
-    this.employeeSearch$.next(val);
+  filterEmployees(event: any) {
+    const term = event.target.value.toLowerCase();
+    this.employeeSearchTerm = term;
+    if (!term) {
+      this.filteredEmployees = this.employees;
+      return;
+    }
+    this.filteredEmployees = this.employees.filter(emp =>
+      emp.FullName.toLowerCase().includes(term) ||
+      emp.EmployeeNumber?.toLowerCase().includes(term) ||
+      emp.FirstName?.toLowerCase().includes(term) ||
+      emp.LastName?.toLowerCase().includes(term)
+    );
   }
 
   selectEmployee(emp: any) {
-    this.assignForm.patchValue({
-      created_by_employee_id: emp.id,
-      employee_search: emp.FullName || (emp.FirstName + ' ' + emp.LastName)
-    });
+    this.compositionForm.patchValue({ created_by: emp.id });
+    this.employeeSearchTerm = emp.FullName || (emp.FirstName + ' ' + emp.LastName);
     this.filteredEmployees = [];
+  }
+
+  fetchAvailableComponents() {
+    this.payrollService.getPayrollComponents().subscribe((res: any) => {
+      const allComps = Array.isArray(res) ? res : (res.data || []);
+
+      // Filter unique components by code to avoid duplicate entries from multiple employee structures
+      const uniqueComps: any[] = [];
+      const codes = new Set();
+
+      // Priority: Master components (usually those in structures with no employee_id or MASTER_ name)
+      // For now, we take the first unique instance of each code we find
+      allComps.forEach((c: any) => {
+        if (!codes.has(c.code)) {
+          codes.add(c.code);
+          uniqueComps.push(c);
+        }
+      });
+
+      this.availableComponents = uniqueComps;
+    });
   }
 
   fetchStructureDetails() {
     if (!this.structureId) return;
     this.loading = true;
-
     this.payrollService.getPayrollStructureById(this.structureId).subscribe({
       next: (res: any) => {
         const fullData = res.data || res;
-        this.structureInfo = fullData.structure || (fullData.id ? fullData : null);
-        this.compositionData = fullData.components || [];
-        this.calculateFinancials();
+        this.structureInfo = fullData.structure || fullData;
+
+        // Load components into local array for editing
+        this.compositionData = JSON.parse(JSON.stringify(fullData.components || fullData.salary_components || []));
+
+        this.calculateTotals();
         this.loading = false;
+        console.log('📦 Structure Details:', this.structureInfo);
       },
-      error: (err: any) => {
-        console.error('Error fetching structure composition:', err);
-        this.toaster.showError('Could not load structure composition');
+      error: (err) => {
+        console.error('Error fetching structure details:', err);
         this.loading = false;
       }
     });
   }
 
-  calculateFinancials() {
-    this.totalEarnings = this.compositionData
-      .filter(c => (c.component_type || '').toLowerCase() === 'earning')
-      .reduce((sum, c) => sum + (Number(c.value) || 0), 0);
+  calculateTotals() {
+    const ctc = Number(this.structureInfo?.ctc_amount) || 0;
+    const calculatedAmts: { [code: string]: number } = { 'CTC': ctc };
 
-    this.totalDeductions = this.compositionData
-      .filter(c => (c.component_type || '').toLowerCase() === 'deduction')
-      .reduce((sum, c) => sum + (Number(c.value) || 0), 0);
+    // Pass 1: Handle FIXED values and PERCENTAGE OF CTC
+    this.compositionData.forEach(c => {
+      if (c.calculation_type === 'FIXED') {
+        calculatedAmts[c.code] = Number(c.value) || 0;
+      } else if (c.calculation_type === 'PERCENTAGE' && (c.percentage_of_code === 'CTC' || !c.percentage_of_code)) {
+        calculatedAmts[c.code] = (ctc * (Number(c.value) || 0)) / 100;
+      }
+    });
 
-    const baseNet = this.totalEarnings - this.totalDeductions;
-    this.netCTC = Number(this.structureInfo?.ctc_amount) || baseNet;
-  }
+    // Pass 2: Handle PERCENTAGE OF other components (e.g., HRA as % of BASIC)
+    // We do one pass which assumes BASIC is calculated in Pass 1
+    this.compositionData.forEach(c => {
+      if (c.calculation_type === 'PERCENTAGE' && c.percentage_of_code && c.percentage_of_code !== 'CTC') {
+        const baseAmt = calculatedAmts[c.percentage_of_code] || 0;
+        calculatedAmts[c.code] = (baseAmt * (Number(c.value) || 0)) / 100;
+      }
+    });
 
-  setViewMode(mode: 'annual' | 'monthly') {
-    this.viewMode = mode;
-  }
+    // Pass 3: Handle ESI Employer Formula: (CTC - Employer PF) * 3.25 / 103.25
+    this.compositionData.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      const isESIEmployer = code.includes('ESI') &&
+        (code.includes('EMPLOYER') || code.includes('EMPLOYOR') || code.includes('ER') ||
+          name.includes('EMPLOYER') || name.includes('EMPLOYOR') || name.includes('ER'));
 
-  formatCurrency(amount: string | number): string {
-    let num = Number(amount);
-    if (this.viewMode === 'monthly') {
-      num = num / 12;
+      if (isESIEmployer) {
+        let pfm = 0;
+        Object.keys(calculatedAmts).forEach(k => {
+          const keyUpper = k.toUpperCase();
+          if (keyUpper.includes('PF') &&
+            (keyUpper.includes('EMPLOYER') || keyUpper.includes('EMPLOYOR') || keyUpper.includes('ER'))) {
+            pfm = calculatedAmts[k];
+          }
+        });
+        calculatedAmts[c.code] = (ctc - pfm) * (3.25 / 103.25);
+      }
+    });
+
+    // Pass 4: Handle ESI Employee Formula: (Gross - Employer PF - ESI Employer) * 0.75 / 100
+    this.compositionData.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      const isESIEmployee = code.includes('ESI') &&
+        (code.includes('EMPLOYEE') || code.includes('EE') || name.includes('EMPLOYEE') || name.includes('EE')) &&
+        !code.includes('EMPLOYER') && !code.includes('ER');
+
+      if (isESIEmployee) {
+        let pfm = 0;
+        let esier = 0;
+        Object.keys(calculatedAmts).forEach(k => {
+          const keyUpper = k.toUpperCase();
+          if (keyUpper.includes('PF') && (keyUpper.includes('EMPLOYER') || keyUpper.includes('EMPLOYOR') || keyUpper.includes('ER'))) {
+            pfm = calculatedAmts[k];
+          }
+          if (keyUpper.includes('ESI') && (keyUpper.includes('EMPLOYER') || keyUpper.includes('EMPLOYOR') || keyUpper.includes('ER'))) {
+            esier = calculatedAmts[k];
+          }
+        });
+        // Base is effectively Gross (CTC - ER PF - ER ESI)
+        calculatedAmts[c.code] = (ctc - pfm - esier) * (0.75 / 100);
+      }
+    });
+
+    // Final Pass: Sum them up, handle balancing (Special Allowance), and attach amounts for UI
+    this.totalEarnings = 0;
+    this.totalDeductions = 0;
+
+    // 1. First, identify the Special Allowance component
+    const specialAllowanceComp = this.compositionData.find(c =>
+      c.code?.toUpperCase() === 'SPECIAL_ALLOWANCE' ||
+      c.code?.toUpperCase() === 'SPECIAL ALLOWANCE' ||
+      c.name?.toUpperCase() === 'SPECIAL ALLOWANCE'
+    );
+
+    // 2. Calculate sum of ALL other components first
+    let sumOfOthers = 0;
+    this.compositionData.forEach(c => {
+      if (c === specialAllowanceComp) return;
+      sumOfOthers += calculatedAmts[c.code] || 0;
+    });
+
+    // 3. Assign the balance to Special Allowance (Special Allowance = CTC - Sum of all other components)
+    if (specialAllowanceComp) {
+      const balance = Math.max(0, ctc - sumOfOthers);
+      calculatedAmts[specialAllowanceComp.code] = balance;
+      if (specialAllowanceComp.calculation_type === 'FIXED') {
+        specialAllowanceComp.value = balance;
+      }
     }
-    if (isNaN(num)) return '₹0';
-    return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+    // 4. Final total calculation for UI
+    this.totalEarnings = 0;
+    this.totalDeductions = 0;
+
+    this.compositionData.forEach(c => {
+      const annualAmt = calculatedAmts[c.code] || 0;
+      c.annual_amount = Math.round(annualAmt);
+      c.monthly_amount = Math.round(annualAmt / 12);
+
+      const currentAmt = this.viewMode === 'annual' ? c.annual_amount : c.monthly_amount;
+      c.calculated_amount = currentAmt;
+
+      if ((c.component_type)?.toUpperCase() === 'EARNING') {
+        this.totalEarnings += currentAmt;
+      } else if ((c.component_type)?.toUpperCase() === 'DEDUCTION' || (c.component_type)?.toUpperCase() === 'CONTRIBUTION') {
+        this.totalDeductions += currentAmt;
+      }
+    });
   }
 
-  getDisplayValue(val: any): string {
-    return this.formatCurrency(val);
+  toggleView(mode: 'annual' | 'monthly') {
+    this.viewMode = mode;
+    this.calculateTotals();
   }
 
-  getPercentageOfCTC(val: any): string {
-    const ctc = Number(this.structureInfo?.ctc_amount) || this.totalEarnings;
-    if (!ctc) return '0%';
-    const pct = (Number(val) / ctc) * 100;
-    return `${pct.toFixed(2)}%`;
-  }
-
-  goBack() {
-    this.router.navigate(['/finance/structure']);
-  }
-
-  openAddModal() {
-    this.initForm();
-    this.isAddModalOpen = true;
-  }
-
-  closeAddModal() {
-    this.isAddModalOpen = false;
-  }
-
-  saveAllocatedComponent() {
-    if (this.assignForm.invalid || !this.structureId) {
-      this.toaster.showWarning('Please fill all required fields');
+  updateEmployeeCTC() {
+    if (!this.structureInfo?.employee_id || !this.structureInfo?.ctc_amount) {
+      alert('Employee or CTC information missing');
       return;
     }
 
     const payload = {
-      ...this.assignForm.value
+      lpa: Number(this.structureInfo.ctc_amount)
     };
-    delete payload.employee_search;
 
-    this.payrollService.addComponentToStructure(this.structureId, payload).subscribe({
-      next: () => {
-        this.toaster.showSuccess('Component added to structure');
-        this.closeAddModal();
-        this.fetchStructureDetails();
-      },
-      error: (err: any) => {
-        console.error('Error adding component:', err);
-        this.toaster.showError(err.error?.message || 'Failed to add component');
-      }
+    if (confirm(`Do you want to update the employee's Annual CTC to ${this.structureInfo.ctc_amount} in their profile?`)) {
+      this.employeeService.updateEmployeeProfile(this.structureInfo.employee_id, payload).subscribe({
+        next: () => {
+          alert('Employee CTC updated successfully in profile');
+        },
+        error: (err: any) => {
+          console.error('Error updating employee CTC:', err);
+          alert('Failed to update employee CTC');
+        }
+      });
+    }
+  }
+
+  openAddModal() {
+    this.isEditMode = false;
+    this.selectedComponentId = null;
+    this.isModalOpen = true;
+    this.employeeSearchTerm = '';
+    this.filteredEmployees = this.employees;
+
+    // Reset all validators first
+    Object.keys(this.compositionForm.controls).forEach(key => {
+      this.compositionForm.get(key)?.clearValidators();
     });
+
+    this.compositionForm.reset({
+      component_id: null,
+      formula_or_value: '',
+      component_type: 'EARNING',
+      calculation_type: 'FIXED',
+      percentage_of_code: 'BASIC',
+      taxable: true,
+      prorated: false,
+      sequence: 10,
+      value: 0,
+      created_by: Number(localStorage.getItem('employee_id')) || 1
+    });
+
+    // Set Add-specific validators
+    this.compositionForm.get('component_id')?.setValidators([Validators.required]);
+    this.compositionForm.get('formula_or_value')?.setValidators([Validators.required]);
+    this.compositionForm.get('created_by')?.setValidators([Validators.required]);
+
+    this.compositionForm.updateValueAndValidity();
   }
 
-  handleImageError(event: any) {
-    event.target.src = '../../../assets/Profile_Picture.png';
+  editComponent(comp: any) {
+    this.isEditMode = true;
+    this.selectedComponentId = comp.id;
+    this.isModalOpen = true;
+
+    // Reset all validators first
+    Object.keys(this.compositionForm.controls).forEach(key => {
+      this.compositionForm.get(key)?.clearValidators();
+    });
+
+    // Handle employee mapping for "Created By"
+    const creatorId = Number(comp.created_by || this.structureInfo?.created_by || localStorage.getItem('employee_id'));
+    const creator = this.employees.find(e => Number(e.id) === creatorId);
+    this.employeeSearchTerm = creator ? (creator.FullName || (`${creator.FirstName} ${creator.LastName}`)) : (comp.FullName || 'Unknown');
+    this.filteredEmployees = [];
+
+    // Patch form with component details
+    this.compositionForm.patchValue({
+      code: comp.code || comp.component_code,
+      name: comp.name || comp.component_name,
+      component_type: comp.component_type?.toUpperCase() || 'EARNING',
+      calculation_type: comp.calculation_type?.toUpperCase() || 'FIXED',
+      value: comp.value || 0,
+      percentage_of_code: comp.percentage_of_code || 'BASIC',
+      taxable: !!(comp.taxable === 1 || comp.taxable === true),
+      prorated: !!(comp.prorated === 1 || comp.prorated === true),
+      sequence: comp.sequence || 10,
+      notes: comp.notes || '',
+      created_by: creatorId
+    });
+
+    // Set Edit-specific validators after patching
+    this.compositionForm.get('code')?.setValidators([Validators.required]);
+    this.compositionForm.get('name')?.setValidators([Validators.required]);
+    this.compositionForm.get('component_type')?.setValidators([Validators.required]);
+    this.compositionForm.get('calculation_type')?.setValidators([Validators.required]);
+    this.compositionForm.get('value')?.setValidators([Validators.required, Validators.min(0)]);
+    this.compositionForm.get('sequence')?.setValidators([Validators.required]);
+    this.compositionForm.get('created_by')?.setValidators([Validators.required]);
+
+    this.compositionForm.updateValueAndValidity();
+    console.log('🔄 Form Patched for Edit:', this.compositionForm.value);
   }
 
-  syncToProfile() {
-    this.toaster.showSuccess('Syncing CTC to employee profile...');
+  saveComponent() {
+    if (this.compositionForm.invalid || !this.structureId) {
+      this.toaster.showWarning('Please fill all required fields correctly');
+      return;
+    }
+
+    const formValue = this.compositionForm.value;
+    let payload: any;
+
+    if (this.isEditMode) {
+      payload = {
+        structure_id: this.structureId,
+        code: formValue.code,
+        name: formValue.name,
+        component_type: formValue.component_type,
+        calculation_type: formValue.calculation_type,
+        value: Number(formValue.value),
+        percentage_of_code: formValue.percentage_of_code,
+        taxable: !!formValue.taxable,
+        prorated: !!formValue.prorated,
+        sequence: Number(formValue.sequence),
+        notes: formValue.notes,
+        created_by: Number(formValue.created_by)
+      };
+
+      this.payrollService.updatePayrollComponent(this.selectedComponentId!, payload).subscribe({
+        next: () => {
+          this.toaster.showSuccess('Component updated successfully');
+          this.isModalOpen = false;
+          this.fetchStructureDetails();
+        },
+        error: (err) => {
+          console.error('Error updating component:', err);
+          this.toaster.showError(err.error?.message || 'Failed to update component');
+        }
+      });
+    } else {
+      const masterComp = this.availableComponents.find(c => Number(c.id) === Number(formValue.component_id));
+      if (!masterComp) {
+        this.toaster.showWarning('Please select a valid master component');
+        return;
+      }
+
+      let fValue = formValue.formula_or_value.toString();
+      let calculationType = 'FIXED';
+      let numericValue = 0;
+
+      if (fValue.includes('%')) {
+        calculationType = 'PERCENTAGE';
+        numericValue = parseFloat(fValue.replace('%', '').trim());
+      } else {
+        numericValue = parseFloat(fValue.trim());
+      }
+
+      payload = {
+        structure_id: this.structureId,
+        code: masterComp.code,
+        name: masterComp.name,
+        component_type: masterComp.component_type,
+        calculation_type: calculationType,
+        value: numericValue,
+        percentage_of_code: masterComp.percentage_of_code || (calculationType === 'PERCENTAGE' ? 'BASIC' : null),
+        taxable: !!masterComp.taxable,
+        prorated: !!masterComp.prorated,
+        sequence: masterComp.sequence || 10,
+        notes: masterComp.notes || '',
+        created_by: Number(formValue.created_by)
+      };
+
+      this.payrollService.createPayrollComponent(payload).subscribe({
+        next: () => {
+          this.toaster.showSuccess('Component added to structure');
+          this.isModalOpen = false;
+          this.fetchStructureDetails();
+        },
+        error: (err) => {
+          console.error('Error adding component:', err);
+          this.toaster.showError(err.error?.message || 'Failed to add component');
+        }
+      });
+    }
   }
 
-  addComponent() {
-    this.openAddModal();
+  deleteComponent(id: number) {
+    if (confirm('Are you sure you want to remove this component from the structure?')) {
+      this.payrollService.deletePayrollComponent(id).subscribe({
+        next: () => {
+          this.toaster.showSuccess('Component removed successfully');
+          this.fetchStructureDetails();
+        },
+        error: (err) => {
+          console.error('Error deleting component:', err);
+          this.toaster.showError('Failed to remove component');
+        }
+      });
+    }
   }
 
-  getStatusLabel(isActive: any): string {
-    return !!isActive ? 'Active' : 'Inactive';
+  goBack() {
+    window.history.back();
   }
 }

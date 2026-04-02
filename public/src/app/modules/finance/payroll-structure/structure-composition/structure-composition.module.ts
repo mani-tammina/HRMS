@@ -18,8 +18,8 @@ const routes: Routes = [
     FormsModule,
     ReactiveFormsModule,
     IonicModule,
-    RouterModule.forChild(routes)
-  ],
-  declarations: [StructureCompositionPage]
+    RouterModule.forChild(routes),
+    StructureCompositionPage
+  ]
 })
 export class StructureCompositionPageModule {}
