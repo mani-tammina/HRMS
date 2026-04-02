@@ -63,6 +63,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   /* ================= DASHBOARD ================= */
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
+  hasPunchedToday: boolean = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -81,6 +82,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.setupClock();
     this.loadLeaveBalance();
     this.loadAnnouncements();
+    this.refreshAttendanceState();
 
     const year = new Date().getFullYear();
     const month = new Date().getMonth() + 1;
@@ -137,6 +139,7 @@ export class HomePage implements OnInit, OnDestroy {
       const y = new Date().getFullYear();
       const m = new Date().getMonth() + 1;
       this.attendanceService.loadMonthlyReportOnAppStart(this.attendanceApi, y, m);
+      this.refreshAttendanceState();
     });
 
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(() => {
@@ -372,6 +375,14 @@ export class HomePage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private refreshAttendanceState() {
+    this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
+      const punches = res?.punches || [];
+      this.hasPunchedToday = punches.length > 0;
+      this.cdr.detectChanges();
+    });
+  }
+
   setAnnounce(index: number) {
     this.currentAnnounceIndex = index;
     this.startAnnounceCarousel();
@@ -380,15 +391,14 @@ export class HomePage implements OnInit, OnDestroy {
 
   getStatusLabel(): string {
     const isClockedIn = this.attendanceApi.getClockState();
-    if (isClockedIn) return 'IN';
-    const hasPunchedToday = this.todayAttendance && (this.todayAttendance.first_check_in || this.todayAttendance.check_in);
-    return hasPunchedToday ? 'OUT' : 'NOT IN YET';
+    if (isClockedIn) return 'In';
+    return this.hasPunchedToday ? 'Out' : 'Not In Yet';
   }
 
   getStatusClass(): string {
     const label = this.getStatusLabel();
-    if (label === 'IN') return 'status-in';
-    if (label === 'OUT') return 'status-out';
+    if (label === 'In') return 'status-in';
+    if (label === 'Out') return 'status-out';
     return '';
   }
 
