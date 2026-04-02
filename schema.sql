@@ -1541,20 +1541,6 @@ CREATE INDEX idx_task_progress_status ON candidate_task_progress(candidate_id, s
 CREATE INDEX idx_onboarding_events_date ON onboarding_events(employee_id, event_date);
 CREATE INDEX idx_asset_allocations_status ON asset_allocations(employee_id, status);
 
--- ============================================
--- Post-Creation Modifications
--- ============================================
-
--- Convert users.role from ENUM to VARCHAR for flexibility
-ALTER TABLE users MODIFY COLUMN role VARCHAR(50) DEFAULT 'employee';
-
--- ============================================
--- End of Schema
-
--- Statutory Configuration Master
--- Payroll Adjustments Table
--- Payroll Audit Trail Table
-
 -- Integration Logs Table
 CREATE TABLE IF NOT EXISTS integration_logs (
   id INT AUTO_INCREMENT PRIMARY KEY,

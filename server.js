@@ -25,8 +25,6 @@ const swaggerSpec = require("./swagger/swagger.spec.js");
 const { DB, db } = require("./config/database");
 const { JWT_SECRET } = require("./config/constants");
 
-// Import migration runner
-const { runMigrations } = require("./migrations/run-migrations");
 
 // Import middleware
 const { auth, admin, hr, manager, roleAuth } = require("./middleware/auth");
@@ -61,7 +59,7 @@ const projectRoutes = require("./routes/projects.routes");
 const assetRoutes = require("./routes/assets.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const emailRoutes = require("./routes/email.routes");
-const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
+// const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
@@ -364,7 +362,7 @@ app.use("/api/payslips", payrollRoutes); // Also mount for payslips endpoints
 const payrollMasterRoutes = require("./routes/payroll.master.routes");
 app.use("/api/payroll-master", payrollMasterRoutes);
 // Finance Master Configuration Engine
-app.use("/api/finance-config", financeConfigRoutes);
+// app.use("/api/finance-config", financeConfigRoutes);
 // Upload Routes
 app.use("/api/upload", uploadRoutes);
 
@@ -468,14 +466,14 @@ app.get("/api/health", (req, res) => {
         await initializeDatabase();
         console.log("✅ Database initialized\n");
 
-        console.log("🔄 Running database migrations...");
-        const connection = await db.getConnection();
-        try {
-            await runMigrations(connection);
-        } finally {
-            connection.release();
-        }
-        console.log("✅ Migrations completed\n");
+        // console.log("🔄 Running database migrations...");
+        // const connection = await db.getConnection();
+        // try {
+        //     await runMigrations(connection);
+        // } finally {
+        //     connection.release();
+        // }
+        // console.log("✅ Migrations completed\n");
 
         console.log("🔄 Creating default admin user...");
         await ensureAdminUser();
