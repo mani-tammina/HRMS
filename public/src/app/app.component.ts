@@ -5,6 +5,7 @@ import { RouteGuardService } from './core/services/route-guard.service';
 import { EmployeeService } from './core/services/employee.service';
 import { AuthService } from './core/services/auth.service';
 import { CustomIconService } from './core/services/custom-icon.service';
+import './core/icons';
 
 @Component({
   selector: 'app-root',
@@ -23,9 +24,11 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr'] },
-    { title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager'], isExpanded: false, children: [
-      { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr'] }
-    ]},
+    {
+      title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager'], isExpanded: false, children: [
+        { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr'] }
+      ]
+    },
     { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr',] },
     { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },

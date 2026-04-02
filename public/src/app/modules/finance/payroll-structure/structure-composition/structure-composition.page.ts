@@ -29,7 +29,7 @@ export class StructureCompositionPage implements OnInit {
   selectedComponentId: number | null = null;
   compositionForm!: FormGroup;
   availableComponents: any[] = [];
-  employees: any[] = [];
+  employees: any;
   filteredEmployees: any[] = [];
   employeeSearchTerm: string = '';
 
@@ -57,22 +57,23 @@ export class StructureCompositionPage implements OnInit {
 
   initForm() {
     this.compositionForm = this.fb.group({
-      // Mapping fields (for Add mode)
+      // We use formula_or_value to parse input like "40%" or "5000"
+      // This matches the Template Composition functionality requested by the user
       component_id: [null],
-      formula_or_value: [''],
+      formula_or_value: ['', Validators.required],
 
-      // Full fields (for Edit mode / Syncing)
-      code: [''],
-      name: [''],
-      component_type: ['EARNING'],
-      calculation_type: ['FIXED'],
+      // Full fields for deep editing (common in Structure Composition)
+      code: ['', Validators.required],
+      name: ['', Validators.required],
+      component_type: ['EARNING', Validators.required],
+      calculation_type: ['FIXED', Validators.required],
       value: [0],
       percentage_of_code: ['BASIC'],
       taxable: [true],
       prorated: [false],
-      sequence: [10],
+      sequence: [10, Validators.required],
       notes: [''],
-      created_by: [Number(localStorage.getItem('employee_id')) || 1]
+      created_by: [Number(localStorage.getItem('employee_id')) || 1, Validators.required]
     });
   }
 
@@ -90,7 +91,7 @@ export class StructureCompositionPage implements OnInit {
       this.filteredEmployees = this.employees;
       return;
     }
-    this.filteredEmployees = this.employees.filter(emp =>
+    this.filteredEmployees = this.employees.filter((emp: any) =>
       emp.FullName.toLowerCase().includes(term) ||
       emp.EmployeeNumber?.toLowerCase().includes(term) ||
       emp.FirstName?.toLowerCase().includes(term) ||
@@ -297,11 +298,7 @@ export class StructureCompositionPage implements OnInit {
     this.employeeSearchTerm = '';
     this.filteredEmployees = this.employees;
 
-    // Reset all validators first
-    Object.keys(this.compositionForm.controls).forEach(key => {
-      this.compositionForm.get(key)?.clearValidators();
-    });
-
+    // Reset form to clear previous values and validators
     this.compositionForm.reset({
       component_id: null,
       formula_or_value: '',
@@ -315,12 +312,13 @@ export class StructureCompositionPage implements OnInit {
       created_by: Number(localStorage.getItem('employee_id')) || 1
     });
 
-    // Set Add-specific validators
+    // Re-apply Add-specific validators
+    // Note: formula_or_value and created_by are required as per initForm
     this.compositionForm.get('component_id')?.setValidators([Validators.required]);
     this.compositionForm.get('formula_or_value')?.setValidators([Validators.required]);
-    this.compositionForm.get('created_by')?.setValidators([Validators.required]);
-
+    
     this.compositionForm.updateValueAndValidity();
+    console.log('📦 Add Modal Prepared');
   }
 
   editComponent(comp: any) {
@@ -328,19 +326,25 @@ export class StructureCompositionPage implements OnInit {
     this.selectedComponentId = comp.id;
     this.isModalOpen = true;
 
-    // Reset all validators first
-    Object.keys(this.compositionForm.controls).forEach(key => {
-      this.compositionForm.get(key)?.clearValidators();
-    });
-
     // Handle employee mapping for "Created By"
     const creatorId = Number(comp.created_by || this.structureInfo?.created_by || localStorage.getItem('employee_id'));
-    const creator = this.employees.find(e => Number(e.id) === creatorId);
+    const creator = this.employees?.data?.find((e: any) => Number(e.id) === creatorId) || 
+                    this.employees?.find?.((e: any) => Number(e.id) === creatorId);
     this.employeeSearchTerm = creator ? (creator.FullName || (`${creator.FirstName} ${creator.LastName}`)) : (comp.FullName || 'Unknown');
     this.filteredEmployees = [];
 
+    // Helper to format the display value for formula_or_value
+    const displayValue = comp.calculation_type?.toUpperCase() === 'PERCENTAGE' 
+      ? (comp.value + '%') 
+      : (comp.value || 0).toString();
+
+    // In Edit mode, component_id is not required as we are editing the existing component directly
+    this.compositionForm.get('component_id')?.clearValidators();
+
     // Patch form with component details
     this.compositionForm.patchValue({
+      component_id: comp.component_id, 
+      formula_or_value: displayValue,
       code: comp.code || comp.component_code,
       name: comp.name || comp.component_name,
       component_type: comp.component_type?.toUpperCase() || 'EARNING',
@@ -354,26 +358,38 @@ export class StructureCompositionPage implements OnInit {
       created_by: creatorId
     });
 
-    // Set Edit-specific validators after patching
-    this.compositionForm.get('code')?.setValidators([Validators.required]);
-    this.compositionForm.get('name')?.setValidators([Validators.required]);
-    this.compositionForm.get('component_type')?.setValidators([Validators.required]);
-    this.compositionForm.get('calculation_type')?.setValidators([Validators.required]);
-    this.compositionForm.get('value')?.setValidators([Validators.required, Validators.min(0)]);
-    this.compositionForm.get('sequence')?.setValidators([Validators.required]);
-    this.compositionForm.get('created_by')?.setValidators([Validators.required]);
-
     this.compositionForm.updateValueAndValidity();
-    console.log('🔄 Form Patched for Edit:', this.compositionForm.value);
+    console.log('🔄 Edit Modal Prepared for:', comp.code);
   }
 
   saveComponent() {
     if (this.compositionForm.invalid || !this.structureId) {
-      this.toaster.showWarning('Please fill all required fields correctly');
+      // Find invalid fields to help the user
+      const invalidFields = Object.keys(this.compositionForm.controls)
+        .filter(key => this.compositionForm.get(key)?.invalid);
+      console.warn('⚠️ Validation failed for fields:', invalidFields);
+      
+      this.toaster.showWarning(`Missing or invalid: ${invalidFields.join(', ')}`);
       return;
     }
 
     const formValue = this.compositionForm.value;
+    
+    // Consistent parsing of formula_or_value (like Template Composition)
+    let fValue = (formValue.formula_or_value || '').toString();
+    let calculationType = formValue.calculation_type || 'FIXED';
+    let numericValue = 0;
+
+    if (fValue.includes('%')) {
+      calculationType = 'PERCENTAGE';
+      numericValue = parseFloat(fValue.replace('%', '').trim());
+    } else {
+      // If it doesn't have %, we check if the user manually changed calculation_type in Edit mode
+      numericValue = parseFloat(fValue.trim());
+    }
+
+    if (isNaN(numericValue)) numericValue = 0;
+
     let payload: any;
 
     if (this.isEditMode) {
@@ -382,8 +398,8 @@ export class StructureCompositionPage implements OnInit {
         code: formValue.code,
         name: formValue.name,
         component_type: formValue.component_type,
-        calculation_type: formValue.calculation_type,
-        value: Number(formValue.value),
+        calculation_type: calculationType,
+        value: numericValue,
         percentage_of_code: formValue.percentage_of_code,
         taxable: !!formValue.taxable,
         prorated: !!formValue.prorated,
@@ -408,17 +424,6 @@ export class StructureCompositionPage implements OnInit {
       if (!masterComp) {
         this.toaster.showWarning('Please select a valid master component');
         return;
-      }
-
-      let fValue = formValue.formula_or_value.toString();
-      let calculationType = 'FIXED';
-      let numericValue = 0;
-
-      if (fValue.includes('%')) {
-        calculationType = 'PERCENTAGE';
-        numericValue = parseFloat(fValue.replace('%', '').trim());
-      } else {
-        numericValue = parseFloat(fValue.trim());
       }
 
       payload = {

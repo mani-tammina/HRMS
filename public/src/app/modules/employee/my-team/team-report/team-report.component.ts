@@ -11,13 +11,13 @@ import { EmployeeService } from '../../../../core/services/employee.service';
 })
 export class TeamReportComponent implements OnInit {
   @Input() employeeId?: number;
-  
+
   teamMembers: any[] = [];
   selectedEmployeeId?: number;
   reportData: any = null;
   summary: any = null;
   isLoading = false;
-  
+
   startDate: string = '';
   endDate: string = '';
   month: number = new Date().getMonth() + 1;
@@ -27,7 +27,7 @@ export class TeamReportComponent implements OnInit {
     private modalCtrl: ModalController,
     private attendanceService: AttendanceApiService,
     private employeeService: EmployeeService
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.setDefaultDates();
@@ -42,7 +42,7 @@ export class TeamReportComponent implements OnInit {
     const now = new Date();
     const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-    
+
     this.startDate = this.formatDate(firstDay);
     this.endDate = this.formatDate(lastDay);
     this.month = now.getMonth() + 1;
@@ -55,7 +55,8 @@ export class TeamReportComponent implements OnInit {
     const day = '' + d.getDate();
     const year = d.getFullYear();
 
-    return [day, month, year].join('-');
+    return [year, month, day].join('-');
+
   }
 
   loadTeamMembers() {
@@ -90,7 +91,7 @@ export class TeamReportComponent implements OnInit {
 
   fetchReport() {
     if (!this.selectedEmployeeId) return;
-    
+
     this.isLoading = true;
     const params = {
       startDate: this.startDate,

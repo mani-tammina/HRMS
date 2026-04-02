@@ -175,7 +175,14 @@
     <div class="modal-body">
       <form [formGroup]="compositionForm" (ngSubmit)="saveComponent()" class="form-vertical">
         <div class="form-continer">
-        <!-- ADD MODE: Mapping Fields -->
+        <!-- SHARED: Formula or Value (Key requirement for consistency with Template Composition) -->
+        <div class="form-group">
+          <label>Formula or Value</label>
+          <input type="text" formControlName="formula_or_value" placeholder="e.g. 40% or 5000" />
+          <small style="color: #64748b;">Specify a percentage (e.g., 40%) or a fixed amount.</small>
+        </div>
+
+        <!-- ADD MODE: Selecting a Master Component -->
         <ng-container *ngIf="!isEditMode">
           <div class="form-group">
             <label>Select Master Component</label>
@@ -185,12 +192,6 @@
                 {{ comp.name }} ({{ comp.code }})
               </option>
             </select>
-          </div>
-
-          <div class="form-group">
-            <label>Formula or Value</label>
-            <input type="text" formControlName="formula_or_value" placeholder="e.g. 40% or 5000" />
-            <small style="color: #64748b;">Specify a percentage (e.g., 40%) or a fixed amount.</small>
           </div>
         </ng-container>
 
@@ -219,10 +220,6 @@
                 <option value="PERCENTAGE">PERCENTAGE</option>
               </select>
             </div>
-          </div>
-          <div class="form-group">
-            <label>Value</label>
-            <input type="number" formControlName="value" placeholder="e.g. 40" />
           </div>
           <div class="form-group" *ngIf="compositionForm.get('calculation_type')?.value === 'PERCENTAGE'">
             <label>Percentage of Code (Base)</label>
