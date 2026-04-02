@@ -1,14 +1,11 @@
 <ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar class="glass-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Payroll Structures</ion-title>
-    <div class="subtitle-text">CTC Distribution & Versions</div>
-  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="glass-content">
+  <!-- Decorative Background Elements -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+
   <div class="payroll-container">
     <!-- Header with Breadcrumb-style Back link -->
     <div class="header">
@@ -152,21 +149,19 @@
             <label>Employee Assignment</label>
             <div class="search-input-wrapper">
               <ion-icon name="search-outline" class="search-prefix"></ion-icon>
-              <input type="text" placeholder="Start typing to search employee..." 
-                     [value]="employeeSearchTerm"
-                     (input)="filterEmployees($event)" 
-                     (focus)="onSearchFocus()"
-                     class="glass-input search-field" />
+              <input type="text" placeholder="Start typing to search employee..." [value]="employeeSearchTerm"
+                (input)="filterEmployees($event)" (focus)="onSearchFocus()" class="glass-input search-field" />
               <ion-spinner name="crescent" class="field-spinner" *ngIf="isSearching"></ion-spinner>
             </div>
-            
+
             <div class="search-dropdown-popover fade-in-sm" *ngIf="filteredEmployees.length > 0">
               <div class="dropdown-header">Matching Employees</div>
               <div class="dropdown-results-container">
-                <div class="dropdown-item employee-row" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                <div class="dropdown-item employee-row" *ngFor="let emp of filteredEmployees"
+                  (click)="selectEmployee(emp)">
                   <div class="emp-avatar-container">
-                    <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../../assets/Profile_Picture.png'" 
-                         (error)="handleImageError($event)" class="emp-modal-avatar">
+                    <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../../assets/Profile_Picture.png'"
+                      (error)="handleImageError($event)" class="emp-modal-avatar">
                   </div>
                   <div class="emp-info-main">
                     <div class="name-row">
@@ -186,7 +181,8 @@
 
           <div class="form-group glass-input-group">
             <label>Structure Name</label>
-            <input type="text" formControlName="structure_name" placeholder="e.g. 2026 Annual Growth Plan" class="glass-input" />
+            <input type="text" formControlName="structure_name" placeholder="e.g. 2026 Annual Growth Plan"
+              class="glass-input" />
           </div>
 
           <div class="form-group glass-input-group">
@@ -243,7 +239,8 @@
               <span>Available Master Components</span>
             </div>
             <div class="master-selector">
-              <div class="master-item ripple-effect" *ngFor="let comp of availableComponents" (click)="addComponent(comp)">
+              <div class="master-item ripple-effect" *ngFor="let comp of availableComponents"
+                (click)="addComponent(comp)">
                 <div class="master-info">
                   <span class="m-name">{{ comp.name }}</span>
                   <span class="m-code">({{ comp.code }})</span>
@@ -255,13 +252,15 @@
 
           <div class="form-group glass-input-group">
             <label>Administrative Notes</label>
-            <textarea formControlName="notes" rows="2" placeholder="Internal remarks about this structure..." class="glass-textarea"></textarea>
+            <textarea formControlName="notes" rows="2" placeholder="Internal remarks about this structure..."
+              class="glass-textarea"></textarea>
           </div>
         </div>
-        
+
         <div class="form-footer">
           <ion-button type="button" fill="clear" color="medium" (click)="isModalOpen = false">Cancel</ion-button>
-          <ion-button type="submit" class="submit-btn" [disabled]="structureForm.invalid || selectedComponents.length === 0">
+          <ion-button type="submit" class="submit-btn"
+            [disabled]="structureForm.invalid || selectedComponents.length === 0">
             {{ isEditMode ? 'Update' : 'Save' }} Structure
           </ion-button>
         </div>

@@ -1,11 +1,5 @@
 <ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar class="glass-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Payroll Components</ion-title>
-    <div class="subtitle-text">Master Definition & Percentages</div>
-  </ion-toolbar>
+
 </ion-header>
 
 <ion-content [fullscreen]="true" class="glass-content">
@@ -49,7 +43,8 @@
             <span class="sticky-action">Action</span>
           </div>
 
-          <div class="table-row" *ngFor="let comp of components; let i = index" [style.animation-delay]="(i * 0.05) + 's'">
+          <div class="table-row" *ngFor="let comp of components; let i = index"
+            [style.animation-delay]="(i * 0.05) + 's'">
             <span class="sticky-col col-id">#{{ comp.id }}</span>
             <span class="sticky-col col-code">{{ comp.code }}</span>
             <span class="sticky-col col-name">{{ comp.name }}</span>
@@ -74,7 +69,8 @@
             <span class="justify-center">{{ comp.sequence }}</span>
             <span class="sticky-action justify-center">
               <ion-icon name="create-outline" class="edit-icon" (click)="editComponent(comp)" title="Edit"></ion-icon>
-              <ion-icon name="trash-outline" class="delete-icon" (click)="deleteComponent(comp.id)" title="Delete"></ion-icon>
+              <ion-icon name="trash-outline" class="delete-icon" (click)="deleteComponent(comp.id)"
+                title="Delete"></ion-icon>
             </span>
           </div>
 
@@ -112,7 +108,7 @@
               </option>
             </select>
           </div>
-          
+
           <div class="form-row">
             <div class="form-group glass-input-group">
               <label>Component Code</label>
@@ -154,7 +150,8 @@
                 <span class="suffix" *ngIf="componentForm.get('calculation_type')?.value === 'PERCENTAGE'">%</span>
               </div>
             </div>
-            <div class="form-group glass-input-group" *ngIf="componentForm.get('calculation_type')?.value === 'PERCENTAGE'">
+            <div class="form-group glass-input-group"
+              *ngIf="componentForm.get('calculation_type')?.value === 'PERCENTAGE'">
               <label>Calculate % Of (Code)</label>
               <input type="text" formControlName="percentage_of_code" placeholder="e.g. BASIC" class="glass-input" />
             </div>
@@ -173,10 +170,11 @@
 
           <div class="form-group glass-input-group">
             <label>Administrative Notes</label>
-            <textarea formControlName="notes" rows="4" class="glass-textarea" placeholder="Internal documentation or remarks regarding this component..."></textarea>
+            <textarea formControlName="notes" rows="4" class="glass-textarea"
+              placeholder="Internal documentation or remarks regarding this component..."></textarea>
           </div>
         </div>
-        
+
         <div class="form-footer">
           <ion-button type="button" fill="clear" color="medium" (click)="closeModal()">Cancel</ion-button>
           <ion-button type="submit" class="submit-btn" [disabled]="componentForm.invalid">

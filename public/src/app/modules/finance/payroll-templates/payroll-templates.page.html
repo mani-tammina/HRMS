@@ -1,16 +1,14 @@
 <ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar class="glass-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Payroll Templates</ion-title>
-    <div class="subtitle-text">Master Structure Templates</div>
-  </ion-toolbar>
+
 </ion-header>
 
 <ion-content [fullscreen]="true" class="glass-content">
+  <!-- Decorative Background Elements -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+
   <div class="payroll-container">
-    
+
     <!-- Back Navigation -->
     <div class="back-nav">
       <a (click)="goBack()" class="back-link">
@@ -53,7 +51,7 @@
           <!-- Table Rows -->
           <div class="table-row fade-in" *ngFor="let temp of templates">
             <span class="col-id">{{ temp.template_id || temp.id }}</span>
-            
+
             <span class="col-name template-name" (click)="viewComposition(temp.template_id || temp.id)">
               {{ temp.template_name }}
             </span>
@@ -78,7 +76,8 @@
                 <button class="action-icon edit" (click)="editTemplate(temp)" title="Edit Template">
                   <ion-icon name="create-outline"></ion-icon>
                 </button>
-                <button class="action-icon delete" (click)="deleteTemplate(temp.template_id || temp.id)" title="Delete Template">
+                <button class="action-icon delete" (click)="deleteTemplate(temp.template_id || temp.id)"
+                  title="Delete Template">
                   <ion-icon name="trash-outline"></ion-icon>
                 </button>
               </div>
@@ -111,10 +110,10 @@
           <!-- Template Name Input -->
           <div class="form-group glass-input-group">
             <label>Template Name</label>
-            <input type="text" formControlName="template_name" 
-                   placeholder="e.g. Standard Executive Package" 
-                   class="glass-input" />
-            <small class="error-text" *ngIf="templateForm.get('template_name')?.invalid && templateForm.get('template_name')?.touched">
+            <input type="text" formControlName="template_name" placeholder="e.g. Standard Executive Package"
+              class="glass-input" />
+            <small class="error-text"
+              *ngIf="templateForm.get('template_name')?.invalid && templateForm.get('template_name')?.touched">
               Template name is required.
             </small>
           </div>
@@ -122,9 +121,8 @@
           <!-- Description Textarea -->
           <div class="form-group glass-input-group">
             <label>Description (Optional)</label>
-            <textarea formControlName="description" rows="5" 
-                      placeholder="Briefly describe the purpose of this template..." 
-                      class="glass-textarea"></textarea>
+            <textarea formControlName="description" rows="5"
+              placeholder="Briefly describe the purpose of this template..." class="glass-textarea"></textarea>
           </div>
 
           <!-- Active Switch -->
