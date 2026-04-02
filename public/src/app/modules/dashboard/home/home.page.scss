@@ -890,54 +890,6 @@
   overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 
-  // Central Expanding Pulse Animation
-  .central-pulse-container {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 200px;
-    height: 200px;
-    z-index: 1;
-    pointer-events: none;
-
-    .ripple-wave {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 100%;
-      height: 100%;
-      border: 3px solid rgb(72, 55, 110);
-      border-radius: 50%;
-      animation: rippleExpand 8s ease-out infinite;
-
-      &.wave-delay-1 {
-        animation-delay: 2.5s;
-      }
-
-      &.wave-delay-2 {
-        animation-delay: 5s;
-      }
-    }
-  }
-
-  @keyframes rippleExpand {
-    0% {
-      transform: translate(-50%, -50%) scale(0.2);
-      opacity: 0;
-    }
-
-    30% {
-      opacity: 1;
-    }
-
-    100% {
-      transform: translate(-50%, -50%) scale(2.8);
-      opacity: 0;
-    }
-  }
-
   // Background Nebula Effect
   &::before {
     content: '';
@@ -951,7 +903,7 @@
     z-index: 0;
   }
 
-  // Animated Starry Background
+  // Cosmic Starfield Animation - Zooming from Center
   .stars-starsContainer {
     position: absolute;
     top: 0;
@@ -961,6 +913,9 @@
     overflow: hidden;
     z-index: 0;
     pointer-events: none;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
   #stars,
@@ -970,36 +925,45 @@
     height: 2px;
     background: transparent;
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   #stars {
-    box-shadow: 10px 10px #fff, 100px 300px #fff, 250px 150px #fff, 400px 50px #fff, 500px 350px #fff, 70px 450px #fff, 150px 200px #fff, 350px 400px #fff, 450px 250px #fff, 200px 10px #fff;
-    animation: animStar 50s linear infinite;
+    box-shadow: -100px -100px #fff, 100px 100px #fff, -150px 150px #fff, 150px -150px #fff, -200px 0px #fff, 200px 0px #fff, 0px -200px #fff, 0px 200px #fff;
+    animation: zoomStars 8s linear infinite;
   }
 
   #stars2 {
-    width: 3px;
-    height: 3px;
-    box-shadow: 50px 50px #fff, 150px 250px #fff, 350px 100px #fff, 450px 400px #fff, 200px 350px #fff, 10px 450px #fff, 300px 200px #fff, 400px 10px #fff;
-    animation: animStar 100s linear infinite;
+    width: 4px;
+    height: 4px;
+    box-shadow: -50px -50px #fff, 50px 50px #fff, -75px 75px #fff, 75px -75px #fff, -120px 0px #fff, 120px 0px #fff, 0px -120px #fff, 0px 120px #fff;
+    animation: zoomStars 12s linear infinite;
+    animation-delay: 2s;
   }
 
   #stars3 {
     width: 4px;
     height: 4px;
-    box-shadow: 100px 100px #fff, 300px 200px #fff, 450px 150px #fff, 50px 400px #fff, 250px 50px #fff;
-    animation: animStar 150s linear infinite;
+    box-shadow: -80px -40px #fff, 80px 40px #fff, -40px 80px #fff, 40px -80px #fff, -100px -100px #fff, 100px 100px #fff;
+    animation: zoomStars 16s linear infinite;
+    animation-delay: 4s;
   }
 
-  @keyframes animStar {
-    from {
-      transform: translateY(0px);
+  @keyframes zoomStars {
+    0% {
+      transform: translate(-50%, -50%) scale(0.2);
+      opacity: 0;
     }
 
-    to {
-      transform: translateY(-500px);
+    30% {
+      opacity: 0.8;
+    }
+
+    100% {
+      transform: translate(-50%, -50%) scale(2.5);
+      opacity: 0;
     }
   }
 
