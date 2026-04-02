@@ -379,8 +379,33 @@ export class HomePage implements OnInit, OnDestroy {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
       const punches = res?.punches || [];
       this.hasPunchedToday = punches.length > 0;
+      
+      if (this.hasPunchedToday) {
+        // Build the overview data object
+        this.todayAttendance = {
+          ...this.todayAttendance,
+          first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
+          last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length-1].punch_type === 'out' ? punches[punches.length-1].punch_time : null),
+          gross_hours: this.formatMinutesToHours(res.gross_hours),
+          work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
+          effective_hours: this.formatMinutesToHours(res.effective_hours)
+        };
+        
+        const eff = parseFloat(res.effective_hours) || 0;
+        this.todayEffectivePercentage = Math.round((eff / (8 * 60)) * 100);
+      }
+      
       this.cdr.detectChanges();
     });
+  }
+
+  private formatMinutesToHours(val: any): string {
+    if (!val) return '0h 0 m';
+    // Ensure we handle strings like "120" or numeric values correctly
+    const totalMinutes = typeof val === 'number' ? val : parseInt(val.toString().replace(/[^0-9]/g, '')) || 0;
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    return `${hours}h ${minutes} m`;
   }
 
   setAnnounce(index: number) {

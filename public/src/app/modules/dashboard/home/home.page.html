@@ -60,45 +60,84 @@
 
     <ion-row>
       <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
-        <!-- Today Overview card -->
-        <ion-card class="overview-block">
-          <div class="row-space-between border-bottom">
-            <div>
+        <ion-card class="overview-block cosmic-overview">
+          <!-- Central Pulse Animation Elements -->
+          <div class="central-pulse-container">
+            <div class="ripple-wave"></div>
+            <div class="ripple-wave wave-delay-1"></div>
+            <div class="ripple-wave wave-delay-2"></div>
+          </div>
+
+          <!-- Starry Background Animation Items -->
+          <div class="stars-starsContainer">
+            <div id="stars"></div>
+            <div id="stars2"></div>
+            <div id="stars3"></div>
+          </div>
+
+          <div class="card-header-group">
+            <div class="title-section">
               <h3 class="card-header">Today's Overview</h3>
-              <p class="card-dec">Your attendance, progress, and status at a glance</p>
+              <p class="card-dec">Shift performance & active session</p>
+            </div>
+            <div class="status-badge-container">
+              <span class="cosmic-status-badge" [ngClass]="getStatusClass()">
+                <span class="dot"></span>
+                {{ getStatusLabel() || 'Not In Yet' }}
+              </span>
             </div>
           </div>
 
-          <div class="card-content">
-            <ion-row>
-              <ion-col size="7">
-                <div class="row-space-between">
-                  <p class="label-test">Clock In</p>
-                  <p class="time">{{ (todayAttendance?.first_check_in | date:'h:mm a') || '--:--' }}</p>
-                </div>
-                <div class="row-space-between">
-                  <p class="label-test">Last Punch Out</p>
-                  <p class="time">{{ (todayAttendance?.last_check_out | date:'h:mm a') || '--:--' }}</p>
-                </div>
-                <div class="row-space-between">
-                  <p class="label-test">Status</p>
-                  <p class="status">{{ getStatusLabel() }}</p>
-                </div>
-              </ion-col>
-              <ion-col size="5">
-                <div class="row-space-between">
-                  <p class="label-test">Gross Hours</p>
-                  <p class="time">{{ todayAttendance?.gross_hours || '0h 0m' }}</p>
-                </div>
-                <div class="row-space-between">
-                  <p class="label-test">Effective Hours</p>
-                  <p class="time">{{ todayEffectivePercentage }}.00</p>
-                </div>
-                <div class="label" *ngIf="todayAttendance?.work_mode">
-                  <p class="w-auto">Mode: {{todayAttendance.work_mode}}</p>
-                </div>
-              </ion-col>
-            </ion-row>
+          <div class="cosmic-grid">
+            <!-- First Clock In -->
+            <div class="cosmic-card first-in">
+              <div class="icon-image-box">
+                <img src="assets/home-icons/vibrant-in.png" alt="In">
+              </div>
+              <div class="cosmic-content">
+                <div class="cosmic-label-pill">FIRST CLOCK IN</div>
+                <p class="cosmic-value">{{ (todayAttendance?.first_check_in | date:'h:mm a') || '--:--' }}</p>
+              </div>
+            </div>
+
+            <!-- Last Clock Out -->
+            <div class="cosmic-card last-out">
+              <div class="icon-image-box">
+                <img src="assets/home-icons/vibrant-out.png" alt="Out">
+              </div>
+              <div class="cosmic-content">
+                <div class="cosmic-label-pill">LAST CLOCK OUT</div>
+                <p class="cosmic-value">{{ (todayAttendance?.last_check_out | date:'h:mm a') || '--:--' }}</p>
+              </div>
+            </div>
+
+            <!-- Gross Hours -->
+            <div class="cosmic-card gross-h">
+              <div class="icon-image-box">
+                <img src="assets/home-icons/vibrant-gross.png" alt="Gross">
+              </div>
+              <div class="cosmic-content">
+                <div class="cosmic-label-pill">GROSS HOURS</div>
+                <p class="cosmic-value">{{ todayAttendance?.gross_hours || '0h 0 m' }}</p>
+              </div>
+            </div>
+
+            <!-- Effective Hours -->
+            <div class="cosmic-card eff-h">
+              <div class="icon-image-box">
+                <img src="assets/home-icons/vibrant-eff.png" alt="Eff">
+              </div>
+              <div class="cosmic-content">
+                <div class="cosmic-label-pill">EFFECTIVE HOURS</div>
+                <p class="cosmic-value">{{ todayAttendance?.effective_hours || '0h 0 m' }}</p>
+              </div>
+            </div>
+
+            <div class="cosmic-footer" *ngIf="todayAttendance?.work_mode">
+              <div class="cosmic-mode-tag">
+                <span>Working Mode: {{ todayAttendance.work_mode }}</span>
+              </div>
+            </div>
           </div>
         </ion-card>
 

@@ -880,24 +880,330 @@
   border-radius: 50%;
 }
 
-/* ✅ IN (Green) */
-.status-in {
-  color: #1abc9c;
-  background-color: rgba(26, 188, 156, 0.15);
+// Cosmic Overview Redesign - EXACT Image Parity
+.cosmic-overview {
+  margin: 16px;
+  border-radius: 28px;
+  background: radial-gradient(circle at top right, #31115e 0%, #170732 60%, #0d0121 100%);
+  padding: 16px 8px 32px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
 
-  .dot {
-    background-color: #1abc9c;
+  // Central Expanding Pulse Animation
+  .central-pulse-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 200px;
+    height: 200px;
+    z-index: 1;
+    pointer-events: none;
+
+    .ripple-wave {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 100%;
+      height: 100%;
+      border: 3px solid rgb(72, 55, 110);
+      border-radius: 50%;
+      animation: rippleExpand 8s ease-out infinite;
+
+      &.wave-delay-1 {
+        animation-delay: 2.5s;
+      }
+
+      &.wave-delay-2 {
+        animation-delay: 5s;
+      }
+    }
+  }
+
+  @keyframes rippleExpand {
+    0% {
+      transform: translate(-50%, -50%) scale(0.2);
+      opacity: 0;
+    }
+
+    30% {
+      opacity: 1;
+    }
+
+    100% {
+      transform: translate(-50%, -50%) scale(2.8);
+      opacity: 0;
+    }
+  }
+
+  // Background Nebula Effect
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 70% 30%, rgba(139, 92, 246, 0.15) 0%, transparent 50%),
+      radial-gradient(circle at 20% 70%, rgba(236, 72, 153, 0.1) 0%, transparent 50%);
+    z-index: 0;
+  }
+
+  // Animated Starry Background
+  .stars-starsContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  #stars,
+  #stars2,
+  #stars3 {
+    width: 2px;
+    height: 2px;
+    background: transparent;
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+
+  #stars {
+    box-shadow: 10px 10px #fff, 100px 300px #fff, 250px 150px #fff, 400px 50px #fff, 500px 350px #fff, 70px 450px #fff, 150px 200px #fff, 350px 400px #fff, 450px 250px #fff, 200px 10px #fff;
+    animation: animStar 50s linear infinite;
+  }
+
+  #stars2 {
+    width: 3px;
+    height: 3px;
+    box-shadow: 50px 50px #fff, 150px 250px #fff, 350px 100px #fff, 450px 400px #fff, 200px 350px #fff, 10px 450px #fff, 300px 200px #fff, 400px 10px #fff;
+    animation: animStar 100s linear infinite;
+  }
+
+  #stars3 {
+    width: 4px;
+    height: 4px;
+    box-shadow: 100px 100px #fff, 300px 200px #fff, 450px 150px #fff, 50px 400px #fff, 250px 50px #fff;
+    animation: animStar 150s linear infinite;
+  }
+
+  @keyframes animStar {
+    from {
+      transform: translateY(0px);
+    }
+
+    to {
+      transform: translateY(-500px);
+    }
+  }
+
+  .card-header-group {
+    padding: 16px 20px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    z-index: 2; // Above stars
+
+    .title-section {
+      .card-header {
+        margin: 0;
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #ffffff;
+      }
+
+      .card-dec {
+        margin: 4px 0 0;
+        font-size: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-weight: 400;
+      }
+    }
+  }
+
+  .status-badge-container {
+    .cosmic-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 28px;
+      border-radius: 50px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1.5px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      font-size: 0.95rem;
+      font-weight: 600;
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #94a3b8;
+      }
+
+      &.status-in {
+        .dot {
+          background: #2dd4bf;
+          box-shadow: 0 0 15px #2dd4bf;
+          animation: statusPulse 2s infinite;
+        }
+      }
+
+      &.status-out {
+        .dot {
+          background: #f43f5e;
+          box-shadow: 0 0 15px #f43f5e;
+        }
+      }
+    }
+  }
+
+  .cosmic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    padding: 0 16px;
+    position: relative;
+    z-index: 1;
+
+    .cosmic-card {
+      border-radius: 24px;
+      padding: 16px;
+      height: 180px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+
+      .icon-image-box {
+        width: 65px;
+        height: 65px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: -10px;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
+          border-radius: 50%;
+        }
+      }
+
+      .cosmic-content {
+        .cosmic-label-pill {
+          display: inline-block;
+          padding: 6px 16px;
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 50px;
+          font-size: 0.72rem;
+          font-weight: 700;
+          color: rgba(255, 255, 255, 0.9);
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+        }
+
+        .cosmic-value {
+          margin: 0;
+          font-size: 1.7rem;
+          font-weight: 800;
+          color: white;
+          letter-spacing: -0.01em;
+        }
+      }
+
+      // Card Specific Gradients
+      &.first-in {
+        background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
+
+        .clock-inner {
+          border-color: #2dd4bf;
+          box-shadow: inset 0 0 15px #2dd4bf, 0 0 15px #2dd4bf;
+        }
+      }
+
+      &.last-out {
+        background: linear-gradient(135deg, #f97316 0%, #a855f7 100%);
+
+        .clock-inner {
+          border-color: #fbbf24;
+          box-shadow: inset 0 0 15px #fbbf24, 0 0 15px #fbbf24;
+        }
+      }
+
+      &.gross-h {
+        background: linear-gradient(135deg, #ec4899 0%, #6d28d9 100%);
+
+        .clock-inner {
+          border-color: #f472b6;
+          box-shadow: inset 0 0 15px #f472b6, 0 0 15px #f472b6;
+        }
+      }
+
+      &.eff-h {
+        background: linear-gradient(135deg, #38bdf8 0%, #1e3a8a 100%);
+
+        .clock-inner {
+          border-color: #0ea5e9;
+          box-shadow: inset 0 0 15px #0ea5e9, 0 0 15px #0ea5e9;
+        }
+      }
+    }
+
+    .cosmic-footer {
+      grid-column: span 2;
+      margin-top: 12px;
+      display: flex;
+      justify-content: center;
+
+      .cosmic-mode-tag {
+        padding: 12px 60px;
+        border-radius: 50px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1.5px solid rgba(255, 255, 255, 0.1);
+        color: #ff8c42; // Specific orange from image
+        font-size: 1.15rem;
+        font-weight: 700;
+        letter-spacing: 0.01em;
+      }
+    }
   }
 }
 
-/* ❌ OUT (Red) */
-.status-out {
-  color: #e74c3c;
-  background-color: rgba(231, 76, 60, 0.15);
-
-  .dot {
-    background-color: #e74c3c;
+@keyframes statusPulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(0.9);
   }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+
+  100% {
+    opacity: 0.6;
+    transform: scale(0.9);
+  }
+}
+
+.status-in {
+  color: #22c55e;
+}
+
+.status-out {
+  color: #ef4444;
 }
 
 /* 🟡 Optional future statuses */

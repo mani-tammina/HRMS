@@ -96,7 +96,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   }
 
   private loadLastPunch(): void {
-    this.attendanceApi.getTodayAttendance().subscribe({
+    this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
         const punches = res?.punches || [];
         if (!punches.length) {

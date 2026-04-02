@@ -14,8 +14,9 @@ export class AttendanceService {
   constructor(private http: HttpClient) {}
 
   loadMonthlyReportOnAppStart(attendanceApi: AttendanceApiService, year: number, month: number): void {
-    const startDate = `${year}-${month}-01`;
-    const endDate = `${year}-${month}-31`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+    const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
 
     attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).subscribe({
       next: res => {
