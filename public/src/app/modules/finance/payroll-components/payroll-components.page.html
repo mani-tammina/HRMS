@@ -4,7 +4,7 @@
       <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
     </ion-buttons>
     <ion-title>Payroll Components</ion-title>
-    <div class="subtitle-text">Salary Structure Percentages</div>
+    <div class="subtitle-text">Master Definition & Percentages</div>
   </ion-toolbar>
 </ion-header>
 
@@ -13,41 +13,40 @@
     <div class="back-nav">
       <a (click)="goBack()" class="back-link">
         <ion-icon name="arrow-back-outline"></ion-icon>
-        Back to Payroll Setup
+        Back to Payroll Dashboard
       </a>
     </div>
 
-    <div class="header">
+    <div class="header fade-in">
       <div class="header-info">
         <h2>Payroll Components</h2>
-        <p>Configure salary structure percentages and component definitions</p>
+        <p>Configure salary structure percentages, taxable rules and component definitions</p>
       </div>
       <ion-button class="primary-btn" (click)="openCreateModal()">
         <ion-icon name="add-outline" slot="start"></ion-icon>
-        Create Component
+        Create New Component
       </ion-button>
     </div>
 
-    <div class="components-card glass-card">
+    <div class="components-card fade-in-up" style="animation-delay: 0.1s;">
       <div class="component-table-wrapper">
         <div class="component-table">
           <div class="table-head">
             <span class="sticky-col col-id">ID</span>
             <span class="sticky-col col-code">Code</span>
             <span class="sticky-col col-name">Name</span>
-            <span>Type</span>
+            <span class="justify-center">Type</span>
             <span>Calc Type</span>
-            <span>Value</span>
+            <span class="justify-center">Value</span>
             <span>Base Code</span>
-            <span>Taxable</span>
-            <span>Prorated</span>
-            <span>Seq</span>
-            <span>Notes</span>
+            <span class="justify-center">Taxable</span>
+            <span class="justify-center">Prorated</span>
+            <span class="justify-center">Seq</span>
             <span class="sticky-action">Action</span>
           </div>
 
-          <div class="table-row fade-in" *ngFor="let comp of components">
-            <span class="sticky-col col-id">{{ comp.id }}</span>
+          <div class="table-row" *ngFor="let comp of components; let i = index" [style.animation-delay]="(i * 0.05) + 's'">
+            <span class="sticky-col col-id">#{{ comp.id }}</span>
             <span class="sticky-col col-code">{{ comp.code }}</span>
             <span class="sticky-col col-name">{{ comp.name }}</span>
             <span class="justify-center">
@@ -56,36 +55,36 @@
               </span>
             </span>
             <span>{{ comp.calculation_type }}</span>
-            <span class="value">
+            <span class="value justify-center">
               {{ comp.value }}{{ comp.calculation_type === 'PERCENTAGE' ? '%' : '' }}
             </span>
-            <span>{{ comp.percentage_of_code || '-' }}</span>
+            <span class="text-muted">{{ comp.percentage_of_code || '-' }}</span>
             <span class="justify-center">
-              <ion-icon [name]="comp.taxable ? 'checkmark-circle' : 'close-circle'"
-                [color]="comp.taxable ? 'success' : 'danger'"></ion-icon>
+              <ion-icon [name]="comp.taxable ? 'shield-checkmark' : 'shield-outline'"
+                [color]="comp.taxable ? 'success' : 'medium'"></ion-icon>
             </span>
             <span class="justify-center">
-              <ion-icon [name]="comp.prorated ? 'checkmark-circle' : 'close-circle'"
-                [color]="comp.prorated ? 'success' : 'danger'"></ion-icon>
+              <ion-icon [name]="comp.prorated ? 'checkmark-circle' : 'close-circle-outline'"
+                [color]="comp.prorated ? 'primary' : 'medium'"></ion-icon>
             </span>
-            <span>{{ comp.sequence }}</span>
-            <span class="notes-text" [title]="comp.notes">{{ comp.notes || '-' }}</span>
+            <span class="justify-center">{{ comp.sequence }}</span>
             <span class="sticky-action justify-center">
-              <ion-icon name="create-outline" class="edit-icon" (click)="editComponent(comp)"></ion-icon>
-              <ion-icon name="trash-outline" class="delete-icon" (click)="deleteComponent(comp.id)"></ion-icon>
+              <ion-icon name="create-outline" class="edit-icon" (click)="editComponent(comp)" title="Edit"></ion-icon>
+              <ion-icon name="trash-outline" class="delete-icon" (click)="deleteComponent(comp.id)" title="Delete"></ion-icon>
             </span>
           </div>
 
           <div class="empty-state-row" *ngIf="components.length === 0">
-            No components found. Create your first component to get started.
+            <ion-icon name="layers-outline" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.2;"></ion-icon>
+            <p>No components found. Create your first salary component to get started.</p>
           </div>
         </div>
       </div>
 
-      <!-- Footer / Summary -->
-      <div class="table-footer">
+      <!-- Footer Summary -->
+      <div class="table-footer" *ngIf="components.length > 0">
         <div class="total-summary">
-          Total Earnings Value: <strong>{{ getTotal() }}%</strong>
+          Total Earnings Allocation: <strong>{{ getTotal() }}%</strong>
         </div>
       </div>
     </div>
@@ -93,7 +92,7 @@
 
   <!-- Right Side Modal -->
   <div class="side-modal-overlay pill-overlay" *ngIf="isModalOpen" (click)="closeModal()"></div>
-  <div class="side-modal glass-modal" [class.open]="isModalOpen">
+  <div class="side-modal" [class.open]="isModalOpen">
     <div class="modal-header">
       <h3>{{ isEditMode ? 'Edit Component' : 'Create Component' }}</h3>
       <ion-icon name="close-outline" class="close-icon" (click)="closeModal()"></ion-icon>
@@ -102,7 +101,7 @@
       <form [formGroup]="componentForm" (ngSubmit)="saveComponent()" class="component-form-vertical">
         <div class="form-container">
           <div class="form-group glass-input-group">
-            <label>Structure Name</label>
+            <label>Structure Assignment</label>
             <select formControlName="structure_id" class="glass-select">
               <option *ngFor="let structure of structures" [value]="structure.id">
                 {{ structure.structure_name }} ({{ structure.code }})
@@ -112,17 +111,17 @@
           
           <div class="form-row">
             <div class="form-group glass-input-group">
-              <label>Code</label>
+              <label>Component Code</label>
               <input type="text" formControlName="code" placeholder="e.g. BASIC" class="glass-input" />
             </div>
             <div class="form-group glass-input-group">
-              <label>Sequence</label>
-              <input type="number" formControlName="sequence" class="glass-input" />
+              <label>Sort Sequence</label>
+              <input type="number" formControlName="sequence" class="glass-input" placeholder="0" />
             </div>
           </div>
 
           <div class="form-group glass-input-group">
-            <label>Name</label>
+            <label>Component Display Name</label>
             <input type="text" formControlName="name" placeholder="e.g. Basic Salary" class="glass-input" />
           </div>
 
@@ -135,24 +134,24 @@
               </select>
             </div>
             <div class="form-group glass-input-group">
-              <label>Calculation Type</label>
+              <label>Calculation Method</label>
               <select formControlName="calculation_type" class="glass-select">
-                <option value="FIXED">FIXED</option>
-                <option value="PERCENTAGE">PERCENTAGE</option>
+                <option value="FIXED">FIXED AMOUNT</option>
+                <option value="PERCENTAGE">PERCENTAGE %</option>
               </select>
             </div>
           </div>
 
           <div class="form-row">
             <div class="form-group glass-input-group">
-              <label>Value</label>
+              <label>Numeric Value</label>
               <div class="input-with-suffix">
-                <input type="number" formControlName="value" class="glass-input" />
+                <input type="number" formControlName="value" class="glass-input" placeholder="0.00" />
                 <span class="suffix" *ngIf="componentForm.get('calculation_type')?.value === 'PERCENTAGE'">%</span>
               </div>
             </div>
             <div class="form-group glass-input-group" *ngIf="componentForm.get('calculation_type')?.value === 'PERCENTAGE'">
-              <label>Percentage of Code</label>
+              <label>Calculate % Of (Code)</label>
               <input type="text" formControlName="percentage_of_code" placeholder="e.g. BASIC" class="glass-input" />
             </div>
           </div>
@@ -160,26 +159,24 @@
           <div class="form-group checkbox-row">
             <label class="glass-checkbox">
               <input type="checkbox" formControlName="taxable" />
-              <span class="checkmark"></span>
-              Taxable
+              Is Taxable Component
             </label>
             <label class="glass-checkbox">
               <input type="checkbox" formControlName="prorated" />
-              <span class="checkmark"></span>
-              Prorated
+              Enable Proration
             </label>
           </div>
 
           <div class="form-group glass-input-group">
-            <label>Notes</label>
-            <textarea formControlName="notes" rows="3" class="glass-textarea" placeholder="Optional notes..."></textarea>
+            <label>Administrative Notes</label>
+            <textarea formControlName="notes" rows="4" class="glass-textarea" placeholder="Internal documentation or remarks regarding this component..."></textarea>
           </div>
         </div>
         
         <div class="form-footer">
           <ion-button type="button" fill="clear" color="medium" (click)="closeModal()">Cancel</ion-button>
           <ion-button type="submit" class="submit-btn" [disabled]="componentForm.invalid">
-            {{ isEditMode ? 'Update' : 'Save' }} Component
+            {{ isEditMode ? 'Save Changes' : 'Create Component' }}
           </ion-button>
         </div>
       </form>

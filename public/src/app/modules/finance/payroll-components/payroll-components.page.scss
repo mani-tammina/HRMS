@@ -100,8 +100,7 @@
   border-collapse: separate;
   border-spacing: 0 12px;
   min-width: 1200px;
-  display: flex;
-  flex-direction: column;
+  display: table;
 
   .table-head {
     display: table-row;

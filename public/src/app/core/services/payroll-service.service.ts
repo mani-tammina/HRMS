@@ -181,27 +181,19 @@ export class PayrollService {
     );
   }
 
-  // 📄 Structure Composition Methods
+  // 📄 Structure Composition Methods (Linked to salary_components table)
   addComponentToStructure(structureId: number, payload: any): Observable<any> {
-    return this.http.post(
-      `${this.payrollUrl}structures/${structureId}/composition`,
-      payload,
-      { headers: this.getHeaders() }
-    );
+    // For structures, components are direct entries with structure_id
+    const finalPayload = { ...payload, structure_id: structureId };
+    return this.http.post(`${this.payrollUrl}components`, finalPayload, { headers: this.getHeaders() });
   }
 
-  updateStructureComposition(structureId: number, compositionId: number, payload: any): Observable<any> {
-    return this.http.put(
-      `${this.payrollUrl}structures/${structureId}/composition/${compositionId}`,
-      payload,
-      { headers: this.getHeaders() }
-    );
+  updateStructureComposition(structureId: number, componentId: number, payload: any): Observable<any> {
+    // For structures, we update the component record directly
+    return this.http.put(`${this.payrollUrl}components/${componentId}`, payload, { headers: this.getHeaders() });
   }
 
-  deleteStructureComposition(structureId: number, compositionId: number): Observable<any> {
-    return this.http.delete(
-      `${this.payrollUrl}structures/${structureId}/composition/${compositionId}`,
-      { headers: this.getHeaders() }
-    );
+  deleteStructureComposition(structureId: number, componentId: number): Observable<any> {
+    return this.http.delete(`${this.payrollUrl}components/${componentId}`, { headers: this.getHeaders() });
   }
 }

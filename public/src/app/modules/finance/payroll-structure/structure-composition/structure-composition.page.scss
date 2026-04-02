@@ -1,10 +1,10 @@
-ion-content {
+.glass-content {
   --background: #f8fafc;
 }
 
 .payroll-container {
-  padding: 2rem;
-  max-width: 1200px;
+  padding: 2.5rem;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -66,37 +66,33 @@ ion-content {
 }
 
 .primary-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  background: #1e293b;
-  color: white;
-  border: none;
-  padding: 12px 20px;
-  border-radius: 12px;
-  font-weight: 600;
-  cursor: pointer;
+  --background: #6366f1;
+  --color: white;
+  --border-radius: 12px;
+  --padding-start: 24px;
+  --padding-end: 24px;
+  font-weight: 800;
+  --height: 52px;
+  margin: 0;
   transition: all 0.3s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-
-  ion-icon {
-    font-size: 1.2rem;
-  }
 
   &:hover {
+    --background: #4f46e5;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4);
   }
 
   &.outline {
-    background: transparent;
-    border: 2px solid #6366f1;
-    color: #6366f1;
+    --background: transparent;
+    --border-color: #6366f1;
+    --border-style: solid;
+    --border-width: 2px;
+    --color: #6366f1;
     box-shadow: none;
 
     &:hover {
-      background: #6366f1;
-      color: white;
+      --background: #6366f1;
+      --color: white;
     }
   }
 }
@@ -269,7 +265,7 @@ ion-content {
 .component-table {
   .table-head {
     display: grid;
-    grid-template-columns: 50px 2.5fr 1fr 1.5fr 1fr 1fr 1fr 100px;
+    grid-template-columns: 50px 2.5fr 1fr 1.5fr 1fr 1fr 100px;
     padding: 16px 24px;
     background: #f8fafc;
     border-bottom: 1.5px solid #f1f5f9;
@@ -285,7 +281,7 @@ ion-content {
 
   .table-row {
     display: grid;
-    grid-template-columns: 50px 2.5fr 1fr 1.5fr 1fr 1fr 1fr 100px;
+    grid-template-columns: 50px 2.5fr 1fr 1.5fr 1fr 1fr 100px;
     padding: 16px 24px;
     align-items: center;
     border-bottom: 1px solid #f1f5f9;
@@ -390,8 +386,8 @@ ion-content {
 .side-modal {
   position: fixed;
   top: 0;
-  right: -500px;
-  width: 500px;
+  right: -550px;
+  width: 550px;
   height: 100%;
   background: white;
   z-index: 1001;
@@ -424,7 +420,46 @@ ion-content {
   .form-continer {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 18px;
+  }
+
+  .row-group {
+    display: flex;
+    gap: 15px;
+    
+    .form-group {
+      flex: 1;
+    }
+  }
+
+  .checkbox-group {
+    display: flex;
+    gap: 24px;
+    margin: 8px 0;
+    
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+
+      input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        border-radius: 6px;
+        accent-color: #6366f1;
+        cursor: pointer;
+      }
+
+      label {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #475569;
+        margin: 0;
+        cursor: pointer;
+      }
+    }
   }
 
   .form-group {
@@ -457,7 +492,7 @@ ion-content {
     .submit-btn {
       width: 100%;
       padding: 14px;
-      background: #6366f1;
+      background: #1e293b;
       color: white;
       border: none;
       border-radius: 12px;
@@ -467,8 +502,8 @@ ion-content {
       transition: all 0.3s;
       
       &:hover:not(:disabled) {
-        background: #4f46e5;
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        background: #1e293b;
+        box-shadow: 0 4px 12px rgba(30, 41, 59, 0.3);
       }
 
       &:disabled { opacity: 0.5; cursor: not-allowed; }

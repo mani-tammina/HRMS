@@ -1,4 +1,14 @@
-<ion-content [fullscreen]="true">
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar class="glass-toolbar">
+    <ion-buttons slot="start">
+      <ion-back-button (click)="goBack()" defaultHref="/finance/structure"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Structure Composition</ion-title>
+    <div class="subtitle-text">Component Mapping</div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="glass-content">
   <div class="payroll-container">
     <div class="header">
       <div class="header-info">
@@ -17,14 +27,14 @@
         </div>
       </div>
       <div class="header-actions">
-        <button class="primary-btn" (click)="updateEmployeeCTC()" style="margin-right: 10px; background: #6366f1;">
-          <ion-icon name="sync-outline"></ion-icon>
+        <ion-button class="primary-btn" (click)="updateEmployeeCTC()" style="margin-right: 10px;">
+          <ion-icon name="sync-outline" slot="start"></ion-icon>
           Sync CTC to Profile
-        </button>
-        <button class="primary-btn" (click)="openAddModal()">
-          <ion-icon name="add-circle-outline"></ion-icon>
+        </ion-button>
+        <ion-button class="primary-btn" (click)="openAddModal()">
+          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
           Add Component
-        </button>
+        </ion-button>
       </div>
     </div>
 
@@ -34,7 +44,7 @@
         <div class="card-icon"><ion-icon name="wallet-outline"></ion-icon></div>
         <div class="card-content">
           <span class="label">Gross Amount ({{ viewMode | titlecase }})</span>
-          <span class="value">{{ (totalEarnings + totalDeductions) | currency:'INR':'symbol':'1.0-0' }}</span>
+          <span class="value">{{ totalEarnings | currency:'INR':'symbol':'1.0-0' }}</span>
         </div>
       </div>
       <div class="card deductions">
@@ -48,7 +58,7 @@
         <div class="card-icon"><ion-icon name="calculator-outline"></ion-icon></div>
         <div class="card-content">
           <span class="label">Net Salary ({{ viewMode | titlecase }})</span>
-          <span class="value">{{ totalEarnings | currency:'INR':'symbol':'1.0-0' }}</span>
+          <span class="value">{{ (totalEarnings - totalDeductions) | currency:'INR':'symbol':'1.0-0' }}</span>
         </div>
       </div>
     </div>
@@ -104,7 +114,6 @@
           <span>Calculation</span>
           <span>Value</span>
           <span>Taxable</span>
-          <span>Prorated</span>
           <span style="text-align: right;">Actions</span>
         </div>
 
@@ -136,10 +145,6 @@
             <ion-icon [name]="comp.taxable ? 'shield-checkmark' : 'shield-outline'"
               [color]="comp.taxable ? 'success' : 'medium'"></ion-icon>
           </span>
-          <span class="icon-cell">
-            <ion-icon [name]="comp.prorated ? 'checkmark-circle' : 'close-circle-outline'"
-              [color]="comp.prorated ? 'primary' : 'medium'"></ion-icon>
-          </span>
           <span class="actions">
             <button class="icon-btn edit" (click)="editComponent(comp)">
               <ion-icon name="create-outline"></ion-icon>
@@ -158,33 +163,26 @@
       </div>
       <h3>No Components Linked</h3>
       <p>This structure currently has no components configured.</p>
-      <button class="primary-btn outline" style="margin: 20px auto;" (click)="openAddModal()">
+      <ion-button class="primary-btn outline" style="margin: 20px auto;" (click)="openAddModal()">
         Add First Component
-      </button>
+      </ion-button>
     </div>
 
   </div>
 
   <!-- Right Side Modal -->
-  <div class="side-modal-overlay" *ngIf="isModalOpen" (click)="isModalOpen = false"></div>
-  <div class="side-modal" [class.open]="isModalOpen">
+  <div class="side-modal-overlay pill-overlay" *ngIf="isModalOpen" (click)="closeModal()"></div>
+  <div class="side-modal glass-modal" [class.open]="isModalOpen">
     <div class="modal-header">
-      <h3>{{ isEditMode ? 'Edit Component Breakdown' : 'Assign Master Component' }}</h3>
-      <ion-icon name="close" class="close-icon" (click)="isModalOpen = false"></ion-icon>
+      <h3>{{ isEditMode ? 'Edit Component Mapping' : 'Assign Master Component' }}</h3>
+      <ion-icon name="close-outline" class="close-icon" (click)="closeModal()"></ion-icon>
     </div>
     <div class="modal-body">
       <form [formGroup]="compositionForm" (ngSubmit)="saveComponent()" class="form-vertical">
         <div class="form-continer">
-        <!-- SHARED: Formula or Value (Key requirement for consistency with Template Composition) -->
-        <div class="form-group">
-          <label>Formula or Value</label>
-          <input type="text" formControlName="formula_or_value" placeholder="e.g. 40% or 5000" />
-          <small style="color: #64748b;">Specify a percentage (e.g., 40%) or a fixed amount.</small>
-        </div>
-
-        <!-- ADD MODE: Selecting a Master Component -->
-        <ng-container *ngIf="!isEditMode">
-          <div class="form-group">
+          
+          <!-- Master Component Select (Add Mode) -->
+          <div class="form-group" *ngIf="!isEditMode">
             <label>Select Master Component</label>
             <select formControlName="component_id">
               <option [ngValue]="null">Select Component</option>
@@ -193,85 +191,99 @@
               </option>
             </select>
           </div>
-        </ng-container>
 
-        <!-- EDIT MODE: Full Fields (Direct Edit like PayrollCompoents) -->
-        <ng-container *ngIf="isEditMode">
-          <div class="form-group">
-            <label>Component Code</label>
-            <input type="text" formControlName="code" placeholder="e.g. BASIC" />
-          </div>
-          <div class="form-group">
-            <label>Component Name</label>
-            <input type="text" formControlName="name" placeholder="e.g. Basic Salary" />
-          </div>
-          <div class="row-group" style="display: flex; gap: 15px;">
-            <div class="form-group" style="flex: 1;">
-              <label>Component Type</label>
-              <select formControlName="component_type">
-                <option value="EARNING">EARNING</option>
-                <option value="DEDUCTION">DEDUCTION</option>
-              </select>
+          <!-- Component Details (Edit Mode Only - Match PayrollComponentsPage) -->
+          <ng-container *ngIf="isEditMode">
+            <div class="form-group">
+              <label>Component Code</label>
+              <input type="text" formControlName="code" placeholder="e.g. BASIC" />
             </div>
-            <div class="form-group" style="flex: 1;">
-              <label>Calculation Type</label>
-              <select formControlName="calculation_type">
-                <option value="FIXED">FIXED</option>
-                <option value="PERCENTAGE">PERCENTAGE</option>
-              </select>
+            <div class="form-group">
+              <label>Component Name</label>
+              <input type="text" formControlName="name" placeholder="e.g. Basic Salary" />
             </div>
-          </div>
-          <div class="form-group" *ngIf="compositionForm.get('calculation_type')?.value === 'PERCENTAGE'">
-            <label>Percentage of Code (Base)</label>
-            <input type="text" formControlName="percentage_of_code" placeholder="e.g. BASIC" />
-          </div>
-          <div class="row-group" style="display: flex; gap: 20px; align-items: center; margin: 10px 0;">
-            <div class="form-group" style="flex-direction: row; gap: 8px; align-items: center;">
-              <input type="checkbox" formControlName="taxable" id="taxableCheck" />
-              <label for="taxableCheck" style="margin: 0;">Taxable</label>
-            </div>
-            <div class="form-group" style="flex-direction: row; gap: 8px; align-items: center;">
-              <input type="checkbox" formControlName="prorated" id="proratedCheck" />
-              <label for="proratedCheck" style="margin: 0;">Prorated</label>
-            </div>
-          </div>
-          <div class="form-group">
-            <label>Sequence</label>
-            <input type="number" formControlName="sequence" />
-          </div>
-          <div class="form-group">
-            <label>Notes</label>
-            <textarea formControlName="notes" rows="2" placeholder="Internal notes..."></textarea>
-          </div>
-        </ng-container>
-
-        <!-- Common Employee Search -->
-        <div class="form-group dropdown-container">
-          <label>Created By (Employee)</label>
-          <div class="search-box">
-            <ion-icon name="search-outline"></ion-icon>
-            <input type="text" placeholder="Search Employee..." [value]="employeeSearchTerm"
-              (input)="filterEmployees($event)" (focus)="filteredEmployees = employees" />
-          </div>
-          <div class="search-results" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
-            <div class="result-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
-              <div class="emp-avatar">
-                {{ emp.FullName?.charAt(0) }}
+            <div class="row-group" style="display: flex; gap: 15px;">
+              <div class="form-group" style="flex: 1;">
+                <label>Component Type</label>
+                <select formControlName="component_type">
+                  <option value="EARNING">EARNING</option>
+                  <option value="DEDUCTION">DEDUCTION</option>
+                  <option value="CONTRIBUTION">CONTRIBUTION</option>
+                </select>
               </div>
-              <div class="emp-details">
-                <span class="name">{{ emp.FullName }}</span>
-                <span class="id">{{ emp.EmployeeNumber }}</span>
+              <div class="form-group" style="flex: 1;">
+                <label>Calculation Type</label>
+                <select formControlName="calculation_type">
+                  <option value="FIXED">FIXED</option>
+                  <option value="PERCENTAGE">PERCENTAGE</option>
+                </select>
               </div>
             </div>
+
+            <!-- This field is the primary driver for both mode calculations internally -->
+            <div class="form-group" *ngIf="compositionForm.get('calculation_type')?.value === 'PERCENTAGE'">
+              <label>Percentage of Code (Base)</label>
+              <input type="text" formControlName="percentage_of_code" placeholder="e.g. BASIC" />
+            </div>
+
+            <div class="checkbox-group">
+              <div class="check-item">
+                <input type="checkbox" formControlName="taxable" id="taxableCheck" />
+                <label for="taxableCheck">Taxable</label>
+              </div>
+              <div class="check-item">
+                <input type="checkbox" formControlName="prorated" id="proratedCheck" />
+                <label for="proratedCheck">Prorated</label>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label>Sequence (Sort Order)</label>
+              <input type="number" formControlName="sequence" />
+            </div>
+
+            <div class="form-group">
+              <label>Notes</label>
+              <textarea formControlName="notes" rows="2" placeholder="Internal notes..."></textarea>
+            </div>
+          </ng-container>
+
+          <!-- Shared Formula or Value -->
+          <div class="form-group">
+            <label>Formula or Value</label>
+            <input type="text" formControlName="formula_or_value" placeholder="e.g. 40% or 5000" />
+            <small style="color: #64748b;">Specify a percentage (e.g., 40%) or a fixed amount.</small>
           </div>
-          <input type="hidden" formControlName="created_by" />
+
+          <!-- Created By (Employee Search) -->
+          <div class="form-group dropdown-container">
+            <label>Assigned By (Administrator)</label>
+            <div class="search-box">
+              <ion-icon name="search-outline"></ion-icon>
+              <input type="text" placeholder="Search Employee..." 
+                     [value]="employeeSearchTerm"
+                     (input)="filterEmployees($event)" 
+                     (focus)="filteredEmployees = employees" />
+            </div>
+            <div class="search-results" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
+              <div class="result-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
+                <div class="emp-avatar">{{ emp.FullName?.charAt(0) }}</div>
+                <div class="emp-details">
+                  <span class="name">{{ emp.FullName }}</span>
+                  <span class="id">{{ emp.EmployeeNumber }}</span>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" formControlName="created_by" />
+          </div>
         </div>
-      </div>
-      <div class="form-footer"> 
-        <button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
-          {{ isEditMode ? 'Update Component' : 'Add to Structure' }}
-        </button>
-      </div>
+
+        <div class="form-footer"> 
+          <ion-button type="button" fill="clear" color="medium" (click)="closeModal()">Cancel</ion-button>
+          <ion-button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
+            {{ isEditMode ? 'Update Component' : 'Save mapping' }}
+          </ion-button>
+        </div>
       </form>
     </div>
   </div>

@@ -50,7 +50,7 @@
 }
 
 .custom-table {
-  width: 100%; border-collapse: separate; border-spacing: 0 12px; min-width: 1000px; display: flex; flex-direction: column;
+  width: 100%; border-collapse: separate; border-spacing: 0 12px; min-width: 1000px; display: table;
   .table-head {
     display: table-row; background: #f8fafc; border-radius: 12px;
     span { display: table-cell; padding: 18px 20px; color: #94a3b8; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; }
@@ -80,7 +80,7 @@
 }
 
 .side-modal {
-  position: fixed; top: 0; right: -500px; width: 500px; height: 100%; background: white; z-index: 1001; box-shadow: -10px 0 40px rgba(0,0,0,0.1); transition: right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: fixed; top: 0; right: -550px; width: 550px; height: 100%; background: white; z-index: 1001; box-shadow: -10px 0 40px rgba(0,0,0,0.1); transition: right 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex; flex-direction: column; overflow: hidden;
   &.open { right: 0; }
   .modal-header { padding: 30px 40px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center;

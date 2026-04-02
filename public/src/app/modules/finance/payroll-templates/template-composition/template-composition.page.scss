@@ -3,8 +3,8 @@
 }
 
 .payroll-container {
-  padding: 1rem 2.5rem 3rem 2.5rem;
-  max-width: 1400px;
+  padding: 2.5rem;
+  max-width: 1440px;
   margin: 0 auto;
 }
 
@@ -40,17 +40,22 @@
         color: #64748b;
         margin-top: 8px;
         font-size: 1rem;
-        ion-icon { color: #1f74bb; font-size: 1.2rem; }
+        ion-icon { color: #6366f1; font-size: 1.2rem; }
       }
     }
   }
 
   .primary-btn {
-    --background: linear-gradient(135deg, #1f74bb, #1565c0);
+    --background: #6366f1;
+    --color: white;
     --border-radius: 12px;
-    height: 46px;
-    font-weight: 700;
+    --padding-start: 24px;
+    --padding-end: 24px;
+    font-weight: 800;
+    --height: 52px;
     margin: 0;
+    transition: all 0.3s;
+    &:hover { --background: #4f46e5; transform: translateY(-2px); box-shadow: 0 10px 25px rgba(99, 102, 241, 0.4); }
   }
 }
 
@@ -88,9 +93,9 @@
       .summary-value { font-size: 1.6rem; font-weight: 800; color: #1e293b; }
     }
 
-    &.earnings { .summary-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; } }
-    &.deductions { .summary-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; } }
-    &.net { .summary-icon { background: rgba(31, 116, 187, 0.1); color: #1f74bb; } }
+    &.earnings { .summary-icon { background: #e0e7ff; color: #4f46e5; } }
+    &.deductions { .summary-icon { background: #fee2e2; color: #ef4444; } }
+    &.net { .summary-icon { background: #dcfce7; color: #10b981; } }
   }
 }
 
@@ -118,7 +123,7 @@
       .item-count { background: #1a3353; color: white; padding: 4px 10px; border-radius: 30px; font-size: 0.75rem; font-weight: 700; }
     }
 
-    .loading-state { display: flex; align-items: center; gap: 8px; color: #1f74bb; font-weight: 600; font-size: 0.9rem; }
+    .loading-state { display: flex; align-items: center; gap: 8px; color: #6366f1; font-weight: 600; font-size: 0.9rem; }
   }
 }
 
@@ -181,8 +186,8 @@
   .icon-btn {
     background: none; border: none; padding: 10px; border-radius: 10px; cursor: pointer; transition: all 0.2s ease;
     ion-icon { font-size: 1.3rem; }
-    &.edit { color: #1f74bb; &:hover { background: rgba(31, 116, 187, 0.1); } }
-    &.delete { color: #ef4444; &:hover { background: rgba(239, 68, 68, 0.1); } }
+    &.edit { color: #6366f1; &:hover { background: #e0e7ff; } }
+    &.delete { color: #ef4444; &:hover { background: #ffe4e6; } }
   }
 }
 
@@ -201,7 +206,7 @@
 }
 
 .side-modal {
-  position: fixed; top: 0; right: -500px; width: 480px; height: 100vh;
+  position: fixed; top: 0; right: -550px; width: 550px; height: 100vh;
   background: white; z-index: 101; box-shadow: -10px 0 50px rgba(0,0,0,0.1);
   transition: right 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
   display: flex; flex-direction: column;
@@ -225,7 +230,7 @@
   .glass-input, .glass-select {
     padding: 14px 18px; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;
     font-size: 1rem; color: #1e293b; transition: all 0.2s ease;
-    &:focus { outline: none; border-color: #1f74bb; box-shadow: 0 0 0 4px rgba(31, 116, 187, 0.1); }
+    &:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1); }
   }
   .hint-text { font-size: 0.8rem; color: #64748b; font-weight: 500; }
 }
@@ -255,7 +260,7 @@
 
 .form-footer {
   margin-top: 40px; padding-top: 30px; border-top: 1px solid #f1f5f9; display: flex; gap: 12px;
-  .submit-btn { --background: linear-gradient(135deg, #1f74bb, #1565c0); --border-radius: 12px; flex: 1; font-weight: 700; margin: 0; }
+  .submit-btn { --background: #1e293b; --color: white; --border-radius: 12px; font-weight: 800; --padding-start: 25px; --padding-end: 25px; height: 50px; flex: 1; margin: 0; }
 }
 
 .fade-in { animation: fadeIn 0.6s ease-out; }
