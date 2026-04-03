@@ -174,38 +174,54 @@ export class StructureCompositionPage implements OnInit {
       }
     });
 
+    // 1. Calculate ESI Employee first (because the new Employer formula depends on it)
+    this.compositionData.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const isESIEmployee = code.includes('ESI') && !code.includes('EMPLOYER');
+      if (isESIEmployee) {
+        let pfm = 0;
+        Object.keys(calculatedAmts).forEach(k => {
+          if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
+        });
+        // User requested: (Gross salary - Employer PF) * 3.25 / 103.25
+        calculatedAmts[c.code] = (ctc - pfm) * (3.25 / 103.25);
+      }
+    });
+
+    // 2. Calculate ESI Employer second (using the Employee ESI calculated above)
     this.compositionData.forEach(c => {
       const code = (c.code || '').toUpperCase();
       const name = (c.name || '').toUpperCase();
       const isESIEmployer = code.includes('ESI') && (code.includes('EMPLOYER') || name.includes('EMPLOYER'));
       if (isESIEmployer) {
         let pfm = 0;
+        let employeeEsi = 0;
         Object.keys(calculatedAmts).forEach(k => {
           if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
+          // Getting the Employee ESI calculated above
+          if (k.toUpperCase().includes('ESI') && !k.toUpperCase().includes('EMPLOYER')) employeeEsi = calculatedAmts[k];
         });
-        calculatedAmts[c.code] = (ctc - pfm) * (3.25 / 103.25);
+        // User requested: Gross salry-Employeer PF - Employeeor ESI * 0.75
+        calculatedAmts[c.code] = (ctc - pfm - employeeEsi) * (0.75 / 100);
       }
     });
 
-    this.compositionData.forEach(c => {
-      const code = (c.code || '').toUpperCase();
-      const isESIEmployee = code.includes('ESI') && !code.includes('EMPLOYER');
-      if (isESIEmployee) {
-        let pfm = 0;
-        let esier = 0;
-        Object.keys(calculatedAmts).forEach(k => {
-          if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
-          if (k.toUpperCase().includes('ESI') && k.toUpperCase().includes('EMPLOYER')) esier = calculatedAmts[k];
-        });
-        calculatedAmts[c.code] = (ctc - pfm - esier) * (0.75 / 100);
-      }
-    });
+    const isSA = (code: string, name: string) => {
+      const c = (code || '').toUpperCase();
+      const n = (name || '').toUpperCase();
+      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || n.includes('SPECIAL ALLOWANCE');
+    };
 
-    const specialAllowanceComp = this.compositionData.find(c => c.code?.toUpperCase() === 'SPECIAL_ALLOWANCE');
+    const specialAllowanceComp = this.compositionData.find(c => isSA(c.code, c.name));
     let sumOfOthers = 0;
     this.compositionData.forEach(c => {
-      if (c !== specialAllowanceComp) sumOfOthers += calculatedAmts[c.code] || 0;
+      if (c !== specialAllowanceComp) {
+        // Typically, Special Allowance is CTC minus all other Earnings and Employer Contributions.
+        // We will include all components here since the prompt mentioned Basic, Transport, Medical and Deductions.
+        sumOfOthers += calculatedAmts[c.code] || 0;
+      }
     });
+
     if (specialAllowanceComp) {
       calculatedAmts[specialAllowanceComp.code] = Math.max(0, ctc - sumOfOthers);
     }
