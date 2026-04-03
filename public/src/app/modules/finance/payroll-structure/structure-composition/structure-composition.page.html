@@ -1,14 +1,11 @@
 <ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar class="glass-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button (click)="goBack()" defaultHref="/finance/structure"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Structure Composition</ion-title>
-    <div class="subtitle-text">Component Mapping</div>
-  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="glass-content">
+  <!-- Decorative Background Elements -->
+  <div class="bg-blob blob-1"></div>
+  <div class="bg-blob blob-2"></div>
+
   <div class="payroll-container">
     <div class="header">
       <div class="header-info">
@@ -129,12 +126,12 @@
             </span>
           </span>
           <span>
-            <span class="calc-type">{{ comp.calculation_type }}</span>
+            <span class="calc-type" style="padding-left: 0;">{{ comp.calculation_type }}</span>
             <span class="base-code" *ngIf="comp.percentage_of_code">
               of {{ comp.percentage_of_code }}
             </span>
           </span>
-          <span class="value-cell">
+          <span class="value-cell" style="padding-left: 0;">
             <span class="amt">{{ comp.calculated_amount | currency:'INR':'symbol':'1.0-0' }}</span>
             <span class="sub-val" *ngIf="comp.calculation_type === 'PERCENTAGE'"
               style="font-size: 11px; color: #64748b; display: block;">
@@ -180,7 +177,7 @@
     <div class="modal-body">
       <form [formGroup]="compositionForm" (ngSubmit)="saveComponent()" class="form-vertical">
         <div class="form-continer">
-          
+
           <!-- Master Component Select (Add Mode) -->
           <div class="form-group" *ngIf="!isEditMode">
             <label>Select Master Component</label>
@@ -260,10 +257,8 @@
             <label>Assigned By (Administrator)</label>
             <div class="search-box">
               <ion-icon name="search-outline"></ion-icon>
-              <input type="text" placeholder="Search Employee..." 
-                     [value]="employeeSearchTerm"
-                     (input)="filterEmployees($event)" 
-                     (focus)="filteredEmployees = employees" />
+              <input type="text" placeholder="Search Employee..." [value]="employeeSearchTerm"
+                (input)="filterEmployees($event)" (focus)="filteredEmployees = employees" />
             </div>
             <div class="search-results" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
               <div class="result-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
@@ -278,7 +273,7 @@
           </div>
         </div>
 
-        <div class="form-footer"> 
+        <div class="form-footer">
           <ion-button type="button" fill="clear" color="medium" (click)="closeModal()">Cancel</ion-button>
           <ion-button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
             {{ isEditMode ? 'Update Component' : 'Save mapping' }}

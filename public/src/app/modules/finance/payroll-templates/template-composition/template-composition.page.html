@@ -1,11 +1,4 @@
 <ion-header [translucent]="true" class="ion-no-border">
-  <ion-toolbar class="glass-toolbar">
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/finance/templates"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Template Composition</ion-title>
-    <div class="subtitle-text">Component Mapping</div>
-  </ion-toolbar>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="glass-content">
@@ -121,7 +114,8 @@
                 <button class="icon-btn edit" (click)="editComposition(comp)" title="Edit Mapping">
                   <ion-icon name="create-outline"></ion-icon>
                 </button>
-                <button class="icon-btn delete" (click)="deleteComposition(comp.composition_id)" title="Remove Component">
+                <button class="icon-btn delete" (click)="deleteComposition(comp.composition_id)"
+                  title="Remove Component">
                   <ion-icon name="trash-outline"></ion-icon>
                 </button>
               </div>
@@ -169,8 +163,7 @@
           <!-- Formula or Value -->
           <div class="form-group glass-input-group">
             <label>Override Value / Formula</label>
-            <input type="text" formControlName="formula_or_value" 
-                   placeholder="e.g. 40% or 5000" class="glass-input" />
+            <input type="text" formControlName="formula_or_value" placeholder="e.g. 40% or 5000" class="glass-input" />
             <small class="hint-text">Specify a custom percentage or fixed amount for this template mapping.</small>
           </div>
 
@@ -179,14 +172,13 @@
             <label>Assigned By</label>
             <div class="search-input-wrapper">
               <ion-icon name="search-outline" class="search-prefix"></ion-icon>
-              <input type="text" placeholder="Search administrator..." 
-                     [value]="employeeSearchTerm"
-                     (input)="filterEmployees($event)" 
-                     (focus)="filteredEmployees = employees"
-                     class="glass-input search-field" />
+              <input type="text" placeholder="Search administrator..." [value]="employeeSearchTerm"
+                (input)="filterEmployees($event)" (focus)="filteredEmployees = employees"
+                class="glass-input search-field" />
             </div>
-            
-            <div class="search-dropdown fade-in-sm" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
+
+            <div class="search-dropdown fade-in-sm"
+              *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
               <div class="dropdown-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
                 <div class="item-avatar">{{ emp.FullName?.charAt(0) }}</div>
                 <div class="item-info">
