@@ -288,9 +288,9 @@ export class StructureCompositionPage implements OnInit {
     const formValue = this.compositionForm.value;
 
     // Parse "formula_or_value" if it was changed
-    let fValue = (formValue.formula_or_value || '').toString();
-    const calculationType = fValue.includes('%') ? 'PERCENTAGE' : formValue.calculation_type;
-    const numericValue = fValue.includes('%') ? parseFloat(fValue.replace('%', '').trim()) : Number(formValue.value);
+    let fValue = (formValue.formula_or_value || '').toString().trim();
+    const calculationType = fValue.includes('%') ? 'PERCENTAGE' : (formValue.calculation_type || 'FIXED');
+    const numericValue = fValue.includes('%') ? parseFloat(fValue.replace('%', '')) : parseFloat(fValue) || 0;
 
     let payload: any;
 
@@ -335,7 +335,7 @@ export class StructureCompositionPage implements OnInit {
         component_type: masterComp.component_type,
         calculation_type: calculationType,
         value: numericValue,
-        percentage_of_code: calculationType === 'PERCENTAGE',
+        percentage_of_code: calculationType === 'PERCENTAGE' ? formValue.percentage_of_code : null,
         taxable: masterComp.taxable !== undefined ? (masterComp.taxable ? 1 : 0) : 1,
         prorated: masterComp.prorated ? 1 : 0,
         sequence: masterComp.sequence,
