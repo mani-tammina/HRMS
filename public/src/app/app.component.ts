@@ -26,6 +26,7 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr'] },
     {
       title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager'], isExpanded: false, children: [
+        { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['admin', 'hr', 'employee', 'manager'] },
         { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr'] }
       ]
     },

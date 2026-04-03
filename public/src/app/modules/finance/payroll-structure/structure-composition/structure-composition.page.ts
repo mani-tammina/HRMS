@@ -308,7 +308,7 @@ export class StructureCompositionPage implements OnInit {
       component_type: comp.component_type,
       calculation_type: comp.calculation_type,
       value: comp.value,
-      percentage_of_code: comp.percentage_of_code || 'BASIC',
+      percentage_of_code: (comp.code != comp.percentage_of_code) ? comp.percentage_of_code : null,
       taxable: comp.taxable === 1 || comp.taxable === true,
       prorated: comp.prorated === 1 || comp.prorated === true,
       sequence: comp.sequence || 10,

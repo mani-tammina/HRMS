@@ -68,7 +68,8 @@ const routes: Routes = [
   {
     path: 'MyPay',
     loadChildren: () => import('./modules/payroll/payslips/payslips.module').then(m => m.PayslipsPageModule),
-    canActivate: [AuthGuard]
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['employee', 'manager', 'hr'] }
   },
   {
     path: 'finance',
