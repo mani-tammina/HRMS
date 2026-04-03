@@ -72,6 +72,28 @@ export class StructureCompositionPage implements OnInit {
       notes: [''],
       created_by: [Number(localStorage.getItem('employee_id')) || 1, Validators.required]
     });
+
+    this.compositionForm.get('calculation_type')?.valueChanges.subscribe(type => {
+      if (!this.compositionForm) return;
+      let fValue = (this.compositionForm.get('formula_or_value')?.value || '').toString().trim();
+      let hasPct = fValue.includes('%');
+      if (type === 'PERCENTAGE' && fValue && !hasPct) {
+        this.compositionForm.get('formula_or_value')?.setValue(fValue + '%', { emitEvent: false });
+      } else if (type === 'FIXED' && hasPct) {
+        this.compositionForm.get('formula_or_value')?.setValue(fValue.replace('%', '').trim(), { emitEvent: false });
+      }
+    });
+
+    this.compositionForm.get('formula_or_value')?.valueChanges.subscribe(val => {
+      if (!this.compositionForm) return;
+      const strVal = (val || '').toString().trim();
+      const currentType = this.compositionForm.get('calculation_type')?.value;
+      if (strVal.includes('%') && currentType !== 'PERCENTAGE') {
+        this.compositionForm.get('calculation_type')?.setValue('PERCENTAGE', { emitEvent: false });
+      } else if (!strVal.includes('%') && strVal !== '' && currentType === 'PERCENTAGE') {
+        this.compositionForm.get('calculation_type')?.setValue('FIXED', { emitEvent: false });
+      }
+    });
   }
 
   fetchEmployees() {
@@ -289,7 +311,7 @@ export class StructureCompositionPage implements OnInit {
 
     // Parse "formula_or_value" if it was changed
     let fValue = (formValue.formula_or_value || '').toString().trim();
-    const calculationType = fValue.includes('%') ? 'PERCENTAGE' : (formValue.calculation_type || 'FIXED');
+    const calculationType = this.isEditMode ? formValue.calculation_type : (fValue.includes('%') ? 'PERCENTAGE' : 'FIXED');
     const numericValue = fValue.includes('%') ? parseFloat(fValue.replace('%', '')) : parseFloat(fValue) || 0;
 
     let payload: any;
