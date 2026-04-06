@@ -100,4 +100,12 @@ export class TimesheetService {
     const params = new HttpParams().set('startDate', startDate).set('endDate', endDate);
     return this.http.get<any[]>(`${this.baseUrl}/team-report`, { params });
   }
+
+  getTeamMemberTimesheets(employeeId: number, filters: { month?: number; year?: number; startDate?: string; endDate?: string }): Observable<any[]> {
+    let params = new HttpParams();
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) params = params.set(key, value.toString());
+    });
+    return this.http.get<any[]>(`${this.baseUrl}/manager/team-timesheets/${employeeId}`, { params });
+  }
 }

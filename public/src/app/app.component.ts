@@ -34,7 +34,7 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr',] },
     { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'] },
-    { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'manager', 'hr'] },
+    { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr'] },
   ];
 
   constructor(

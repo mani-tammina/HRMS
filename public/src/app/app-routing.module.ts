@@ -53,7 +53,7 @@ const routes: Routes = [
     path: 'workTrack',
     loadChildren: () => import('./modules/attendance/work-track/work-track.module').then(m => m.WorkTrackPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr'] }
+    data: { role: ['employee', 'hr'] }
   },
   {
     path: 'profile',

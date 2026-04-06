@@ -29,10 +29,12 @@
           <ion-icon name="person-circle-outline"></ion-icon>
           <span>Attendance Approval</span>
         </button>
-        <button class="approval-pill" (click)="navigateToTeamReports()">
+        <button class="approval-pill" id="team-reports-trigger">
           <ion-icon name="bar-chart-outline"></ion-icon>
           <span>Team Reports</span>
+          <ion-icon name="chevron-down-outline" style="font-size: 10px; margin-left: 4px;"></ion-icon>
         </button>
+
       </div>
     </div>
 
@@ -188,4 +190,20 @@
       <p>Updating attendance list...</p>
     </div>
   </ng-template>
-</ion-content>
+  <ion-popover trigger="team-reports-trigger" triggerAction="click" [dismissOnSelect]="true" class="reports-popover">
+    <ng-template>
+      <ion-content>
+        <ion-list lines="none" class="popover-list">
+          <ion-item button (click)="navigateToTeamReports()">
+            <ion-icon name="calendar-clear-outline" slot="start"></ion-icon>
+            <ion-label>Team Attendance Reports</ion-label>
+          </ion-item>
+          <ion-item button (click)="navigateToTeamWorkReports()">
+            <ion-icon name="briefcase-outline" slot="start"></ion-icon>
+            <ion-label>Team Work Report</ion-label>
+          </ion-item>
+        </ion-list>
+      </ion-content>
+    </ng-template>
+  </ion-popover>
+</ion-content>

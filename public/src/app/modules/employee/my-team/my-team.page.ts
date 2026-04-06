@@ -7,6 +7,7 @@ import { ManagerLeaveApprovalsComponent } from './manager-leave-approvals/manage
 import { ManagerTimesheetApprovalsComponent } from './manager-timesheet-approvals/manager-timesheet-approvals.component';
 import { ManagerWfhApprovalsComponent } from './manager-wfh-approvals/manager-wfh-approvals.component';
 import { TeamReportComponent } from './team-report/team-report.component';
+import { TeamWorkReportComponent } from './team-work-report/team-work-report.component';
 
 @Component({
   selector: 'app-my-team',
@@ -281,6 +282,15 @@ export class MyTeamPage implements OnInit, OnDestroy {
   async navigateToTeamReports() {
     const modal = await this.modalCtrl.create({
       component: TeamReportComponent,
+      cssClass: 'side-custom-popup team-report-popup',
+      backdropDismiss: false,
+    });
+    await modal.present();
+  }
+
+  async navigateToTeamWorkReports() {
+    const modal = await this.modalCtrl.create({
+      component: TeamWorkReportComponent,
       cssClass: 'side-custom-popup team-report-popup',
       backdropDismiss: false,
     });

@@ -47,6 +47,12 @@
           <ion-select-option *ngFor="let y of [2024, 2025, 2026]" [value]="y">{{ y }}</ion-select-option>
         </ion-select>
       </div>
+
+      <div class="download-section" *ngIf="!isLoading && reportData && reportData.length > 0">
+        <ion-button fill="clear" (click)="downloadAttendanceReport()" class="download-btn">
+          <ion-icon name="download-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
     </div>
   </ion-toolbar>
 </ion-header>
@@ -55,22 +61,27 @@
   <!-- Summary Cards -->
   <div class="summary-section" *ngIf="summary && !isLoading">
     <div class="summary-card total">
+      <div class="card-header-icon"><ion-icon name="people-outline"></ion-icon></div>
       <span class="label">Total Days</span>
       <span class="value">{{ summary.total_days }}</span>
     </div>
     <div class="summary-card present">
+      <div class="card-header-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
       <span class="label">Present</span>
       <span class="value">{{ summary.present_days }}</span>
     </div>
     <div class="summary-card absent">
+      <div class="card-header-icon"><ion-icon name="alert-circle-outline"></ion-icon></div>
       <span class="label">Absent</span>
       <span class="value">{{ summary.absent_days }}</span>
     </div>
     <div class="summary-card leave">
+      <div class="card-header-icon"><ion-icon name="airplane-outline"></ion-icon></div>
       <span class="label">On Leave</span>
       <span class="value">{{ summary.half_days }}</span>
     </div>
     <div class="summary-card total-hours">
+      <div class="card-header-icon"><ion-icon name="time-outline"></ion-icon></div>
       <span class="label">Total Hours</span>
       <span class="value">{{ summary.total_work_hours }}</span>
     </div>
@@ -106,6 +117,7 @@
         </div>
         <div class="col col-status">
           <span class="status-badge" [ngClass]="getStatusClass(row.status)">
+            <ion-icon name="alert-circle-outline" *ngIf="row.status?.toLowerCase() === 'absent'"></ion-icon>
             {{ row.status | uppercase }}
           </span>
         </div>
@@ -113,7 +125,7 @@
           {{ (row.first_check_in | date:'hh:mm a') || '--:--' }}
         </div>
         <div class="col col-out">
-          {{ (row.last_punch_time | date:'hh:mm a') || '--:--' }}
+          {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
         </div>
         <div class="col col-hours">
           {{ row.gross_hours || '0.00' }} hrs

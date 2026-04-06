@@ -128,4 +128,32 @@ export class TeamReportComponent implements OnInit {
     if (status === 'half-day') return 'status-half';
     return '';
   }
+
+  downloadAttendanceReport() {
+    if (!this.reportData || this.reportData.length === 0) return;
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Date,Status,First In,Last Out,Hours,Mode\n";
+
+    this.reportData.forEach((row: any) => {
+      const date = new Date(row.attendance_date).toLocaleDateString();
+      const status = row.status || '---';
+      const firstIn = row.first_check_in ? new Date(row.first_check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
+      const lastOut = row.last_punch_time ? new Date(row.last_punch_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
+      const hours = row.gross_hours || '0.00';
+      const mode = row.work_mode || 'OFFICE';
+      
+      csvContent += `${date},${status},${firstIn},${lastOut},${hours},${mode}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    const emp = this.teamMembers.find(m => m.id === this.selectedEmployeeId);
+    const name = emp ? `${emp.FirstName}_${emp.LastName}` : 'AttendanceReport';
+    link.setAttribute("download", `${name}_Attendance_${this.month}_${this.year}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }

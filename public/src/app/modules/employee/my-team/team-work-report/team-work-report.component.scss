@@ -109,6 +109,7 @@
       color: #71717a;
       text-transform: uppercase;
       margin-top: 4px;
+      text-align: center;
     }
 
     .card-header-icon {
@@ -125,13 +126,14 @@
 
     &.total { border-left: 4px solid #3b82f6; }
     &.present { border-left: 4px solid #10b981; .value { color: #10b981; } }
+    &.verified { border-left: 4px solid #10b981; .value { color: #10b981; } }
     &.absent { border-left: 4px solid #ef4444; .value { color: #ef4444; } }
     &.leave { border-left: 4px solid #f59e0b; .value { color: #f59e0b; } }
     &.total-hours { border-left: 4px solid #8b5cf6; .value { color: #8b5cf6; } }
   }
 }
 
-// Attendance Table
+// Table Style
 .table-container {
   background: #ffffff;
   border-radius: 20px;
@@ -162,7 +164,12 @@
     align-items: center;
     transition: background 0.2s;
 
-    &:hover { background: #f8fafc; }
+    &.clickable-row {
+      cursor: pointer;
+      &:hover { background: #f1f5f9; }
+      &:active { background: #e2e8f0; }
+    }
+
     &:last-child { border-bottom: none; }
 
     .col {
@@ -174,17 +181,17 @@
 
   .col {
     &.col-date {
-      flex: 1.2;
+      flex: 1;
       display: flex;
       flex-direction: column;
       .day { font-size: 0.7rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
       .date { font-weight: 700; color: #1e293b; }
     }
+    &.col-project { flex: 1.5; }
     &.col-status { flex: 1; }
-    &.col-in { flex: 1.2; }
-    &.col-out { flex: 1.2; }
-    &.col-hours { flex: 1; font-weight: 600; color: #1e3a8a; }
-    &.col-mode { flex: 1; text-align: right; font-size: 0.75rem; }
+    &.col-hours { flex: 0.8; font-weight: 600; color: #1e3a8a; }
+    &.col-desc { flex: 2; font-size: 0.85rem; color: #64748b; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    &.col-action { flex: 0.5; text-align: right; .row-view-btn { --padding-start: 0; --padding-end: 0; margin: 0; } }
   }
 }
 
@@ -198,13 +205,12 @@
   gap: 4px;
   width: fit-content;
   text-transform: uppercase;
-
+  
   ion-icon { font-size: 0.9rem; }
   
-  &.status-present { background: #dcfce7; color: #15803d; }
-  &.status-absent { background: #fee2e2; color: #b91c1c; }
-  &.status-leave { background: #fef3c7; color: #b45309; }
-  &.status-half { background: #e0f2fe; color: #0369a1; }
+  &.status-verified, &.status-approved { background: #dcfce7; color: #15803d; }
+  &.status-rejected { background: #fee2e2; color: #b91c1c; }
+  &.status-submitted, &.status-pending { background: #fef3c7; color: #b45309; }
 }
 
 .loading-state, .empty-state {
@@ -224,8 +230,8 @@ ion-spinner { width: 48px; height: 48px; color: #3b82f6; margin-bottom: 16px; }
 
 @media (max-width: 600px) {
   .table-container {
-    .col-out, .col-mode { display: none; }
-    .col-in { flex: 1; }
+    .col-desc { display: none; }
+    .col-project { flex: 1; }
   }
   .filters-toolbar .filter-container .filter-item {
     min-width: 100%;
