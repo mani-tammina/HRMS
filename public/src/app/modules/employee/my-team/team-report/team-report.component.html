@@ -105,8 +105,9 @@
       <div class="col col-status">Status</div>
       <div class="col col-in">First In</div>
       <div class="col col-out">Last Out</div>
-      <div class="col col-hours">Work Hours</div>
+      <div class="col col-hours">Hours</div>
       <div class="col col-mode">Mode</div>
+      <div class="col col-view">View</div>
     </div>
 
     <div class="table-body">
@@ -125,13 +126,18 @@
           {{ (row.first_check_in | date:'hh:mm a') || '--:--' }}
         </div>
         <div class="col col-out">
-          {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
+          {{ (row.last_punch_time | date:'hh:mm a') || '--:--' }}
         </div>
         <div class="col col-hours">
           {{ row.gross_hours || '0.00' }} hrs
         </div>
         <div class="col col-mode">
           {{ row.work_mode || 'OFFICE' }}
+        </div>
+        <div class="col col-view">
+          <ion-button fill="clear" color="primary" (click)="openAttendanceDetails(row)">
+            <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+          </ion-button>
         </div>
       </div>
     </div>

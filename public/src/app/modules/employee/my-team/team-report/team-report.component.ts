@@ -129,6 +129,12 @@ export class TeamReportComponent implements OnInit {
     return '';
   }
 
+  async openAttendanceDetails(row: any) {
+    if (row.status?.toLowerCase() === 'absent') return;
+    // For now we just show a toast or we can implement a punch detail modal
+    console.log('Viewing details for', row.attendance_date);
+  }
+
   downloadAttendanceReport() {
     if (!this.reportData || this.reportData.length === 0) return;
 
