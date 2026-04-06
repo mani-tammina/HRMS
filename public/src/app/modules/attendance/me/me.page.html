@@ -21,7 +21,8 @@
             <ion-card-content>
               <div class="today-status">
                 Status today:
-                <ion-badge [ngClass]="status ? status.toLowerCase().split(' ').join('-').replace('(', '').replace(')', '') : ''">
+                <ion-badge
+                  [ngClass]="status ? status.toLowerCase().split(' ').join('-').replace('(', '').replace(')', '') : ''">
                   {{ status }}
                 </ion-badge>
               </div>
@@ -73,7 +74,8 @@
 
             <ion-card-content>
               <div class="shift-info" *ngIf="shift_policy">
-                {{ shift_policy.shift_name }} : ( {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }} )
+                {{ shift_policy.shift_name }} : ( {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time
+                | timeFormat }} )
               </div>
 
               <div class="days-grid-wrapper">
@@ -92,12 +94,12 @@
               <p class="today-label">
                 Today
                 <strong *ngIf="shift_policy">
-                  ( {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }} )
+                  {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }}
                 </strong>
               </p>
 
               <ion-progress-bar [value]="progressValue"></ion-progress-bar>
-              
+
               <div class="duration-info">
                 <span>Duration: {{ shiftDuration || '9h 0m' }}</span>
                 <span>Break: {{ breakMinutes || 60 }}m</span>
@@ -121,16 +123,18 @@
               </div>
 
               <ion-row class="actions-buttons-row">
-                <ion-col size="4">
+                <ion-col size="4" class="clock-btn-col">
                   <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
                 </ion-col>
-                <ion-col size="8">
+                <ion-col size="8" class="action-btns-col">
                   <div class="action-grid-buttons">
-                    <ion-button (click)="openRemoteClockinModal()" fill="clear" class="clear-action" [disabled]="clockButton?.isClockedIn">
+                    <ion-button (click)="openRemoteClockinModal()" fill="clear" class="clear-action"
+                      [disabled]="clockButton?.isClockedIn">
                       <ion-icon name="wifi-outline" slot="start"></ion-icon>
                       Remote
                     </ion-button>
-                    <ion-button (click)="wfhClockIn()" fill="clear" class="clear-action" [disabled]="clockButton?.isClockedIn">
+                    <ion-button (click)="wfhClockIn()" fill="clear" class="clear-action"
+                      [disabled]="clockButton?.isClockedIn">
                       <ion-icon name="home-outline" slot="start"></ion-icon>
                       WFH
                     </ion-button>

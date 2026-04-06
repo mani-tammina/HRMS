@@ -4,6 +4,12 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(4px);
+  border-radius: 16px;
+  border: 1px solid rgba(102, 126, 234, 0.15);
+  margin-bottom: 16px;
 }
 
 .filters {
@@ -18,94 +24,126 @@
 }
 
 .btn-secondry {
-  padding: 6px 14px;
-  background: #fff;
-  border: 1px solid #DEDEDE;
-  border-radius: 6px;
+  padding: 8px 16px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  border-radius: 10px;
   font-size: 12px;
-  font-weight: 500;
-  color: #334155;
+  font-weight: 600;
+  color: #475569;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(2px);
 
   &.active {
-    background: #3498DB;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: #fff;
-    border-color: #3498DB;
+    border-color: transparent;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
   }
 
   &:hover:not(.active) {
-    background: #f1f5f9;
+    background: rgba(255, 255, 255, 0.9);
+    border-color: rgba(102, 126, 234, 0.3);
   }
 }
 
 .outline-btns {
   display: flex;
   gap: 4px;
+
+  button {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 10px;
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: #475569;
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.9);
+      border-color: rgba(102, 126, 234, 0.4);
+    }
+  }
 }
 
 .attendance-table {
   margin-top: 16px;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.1);
 
   .table-header {
-    background: #f1f5f9;
-    font-weight: 600;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
+    font-weight: 700;
     font-size: 13px;
     color: #475569;
-    border-radius: 8px 8px 0 0;
+    border-radius: 0;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.2);
 
     ion-col {
-      padding: 10px 8px;
+      padding: 14px 12px;
+      display: flex;
+      align-items: center;
     }
   }
 
   .table-row {
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid rgba(102, 126, 234, 0.1);
     font-size: 13px;
     color: #334155;
-    transition: background 0.2s;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.85);
 
     &:hover {
-      background: #f8fafc;
+      background: rgba(102, 126, 234, 0.05);
+      transform: scale(1.01);
+      transform-origin: center;
     }
 
     ion-col {
-      padding: 10px 8px;
+      padding: 12px;
       display: flex;
       align-items: center;
     }
 
     &.weekoff-row {
-      background: #fafafa;
-      color: #999;
+      background: linear-gradient(135deg, rgba(200, 200, 200, 0.08), rgba(220, 220, 220, 0.08));
+      color: #888;
+      border-left: 4px solid rgba(150, 150, 150, 0.3);
     }
 
     &.leave-row {
-      background: #f5f0ff;
+      background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(167, 139, 250, 0.08));
+      border-left: 4px solid rgba(139, 92, 246, 0.3);
     }
   }
 }
 
 .badge-leave {
-  background: #b39ddb;
+  background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   color: #fff;
   font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
   margin-left: 8px;
   vertical-align: middle;
+  box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
 .badge-woff {
-  background: #d7ccc8;
-  color: #795548;
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  color: #fff;
   font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
   margin-left: 8px;
   vertical-align: middle;
+  box-shadow: 0 4px 12px rgba(100, 100, 100, 0.2);
 }
 
 .no-log {
@@ -114,16 +152,20 @@
 }
 
 .clockin-out {
-  background: #f8fafc;
-  border-radius: 8px;
-  padding: 12px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.08));
+  border-radius: 12px;
+  padding: 14px;
   margin-bottom: 8px;
+  border: 1px solid rgba(102, 126, 234, 0.15);
 
   h4 {
     margin: 4px 0 0 0;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
-    color: #334155;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
   }
 }
 
@@ -136,23 +178,25 @@
 
 ion-modal.side-custom-popup {
   --height: 90%;
-  --width: 400px;
+  --width: 420px;
   --border-radius: 20px 0 0 20px;
-  --box-shadow: -10px 0 30px rgba(0, 0, 0, 0.1);
-  --backdrop-opacity: 0.4;
+  --box-shadow: -10px 0 40px rgba(102, 126, 234, 0.2);
+  --backdrop-opacity: 0.5;
   position: fixed;
   right: 0;
 
   &::part(content) {
-    border-left: 1px solid rgba(255, 255, 255, 0.3);
-    backdrop-filter: blur(8px);
+    border-left: 1px solid rgba(102, 126, 234, 0.2);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
   }
 }
 
 .log-modal-header {
-  --background: #f8fafc;
+  --background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
   --border-style: none;
   padding: 8px 0;
+  border-bottom: 1px solid rgba(102, 126, 234, 0.15);
 
   ion-toolbar {
     --background: transparent;
@@ -161,14 +205,17 @@ ion-modal.side-custom-popup {
     ion-title {
       font-size: 16px;
       font-weight: 800;
-      color: #0f172a;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .modal-date {
       font-size: 12px;
       color: #64748b;
       margin: -2px 0 10px 20px;
-      font-weight: 500;
+      font-weight: 600;
     }
   }
 }
@@ -178,19 +225,20 @@ ion-modal.side-custom-popup {
 }
 
 .daily-summary-card {
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 24px;
   color: #fff;
-  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+  box-shadow: 0 12px 28px rgba(102, 126, 234, 0.25);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   .summary-header {
     font-size: 11px;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 1.5px;
     font-weight: 700;
-    opacity: 0.8;
+    opacity: 0.85;
     margin-bottom: 12px;
   }
 
@@ -201,7 +249,7 @@ ion-modal.side-custom-popup {
     .summary-item {
       .s-label {
         font-size: 10px;
-        opacity: 0.7;
+        opacity: 0.75;
         display: block;
         margin-bottom: 4px;
       }
@@ -223,30 +271,45 @@ ion-modal.side-custom-popup {
     left: 20px;
     top: 0;
     bottom: 0;
-    width: 2px;
-    background: #f1f5f9;
+    width: 3px;
+    background: linear-gradient(180deg, rgba(102, 126, 234, 0.4) 0%, rgba(240, 147, 251, 0.4) 100%);
+    border-radius: 2px;
   }
 }
 
 .timeline-item {
   position: relative;
   padding: 0 0 30px 40px;
+  animation: slideIn 0.5s ease-out;
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
 
   .timeline-dot {
     position: absolute;
     left: 17px;
     top: 6px;
-    width: 8px;
-    height: 8px;
+    width: 10px;
+    height: 10px;
     border-radius: 100%;
-    background: #cbd5e1;
-    border: 2px solid #fff;
-    box-shadow: 0 0 0 3px #f1f5f9;
+    background: rgba(200, 200, 200, 0.6);
+    border: 3px solid #fff;
+    box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.2);
     z-index: 1;
+    transition: all 0.3s ease;
 
     &.active {
-      background: #3b82f6;
-      box-shadow: 0 0 0 3px #dbeafe;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.3), 0 4px 12px rgba(102, 126, 234, 0.4);
+      transform: scale(1.15);
     }
   }
 
@@ -259,39 +322,57 @@ ion-modal.side-custom-popup {
 
       .time-box {
         .time {
-          font-size: 15px;
-          font-weight: 700;
-          color: #0f172a;
+          font-size: 16px;
+          font-weight: 800;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
           margin: 0;
         }
         .type-tag {
-          font-size: 9px;
+          font-size: 10px;
           font-weight: 700;
-          padding: 2px 6px;
-          border-radius: 4px;
+          padding: 4px 8px;
+          border-radius: 8px;
           text-transform: uppercase;
           margin-left: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 
-          &.in { background: #dcfce7; color: #15803d; }
-          &.out { background: #fee2e2; color: #b91c1c; }
+          &.in { 
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #fff;
+          }
+          &.out { 
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: #fff;
+          }
         }
       }
 
       .mode-badge {
         font-size: 10px;
-        font-weight: 600;
-        color: #64748b;
-        background: #f1f5f9;
-        padding: 2px 8px;
-        border-radius: 10px;
+        font-weight: 700;
+        color: #667eea;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
+        padding: 4px 10px;
+        border-radius: 12px;
+        border: 1px solid rgba(102, 126, 234, 0.2);
       }
     }
 
     .record-card {
-      background: #ffffff;
-      border: 1px solid #f1f5f9;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.95));
+      border: 1px solid rgba(102, 126, 234, 0.15);
       border-radius: 12px;
-      padding: 12px;
+      padding: 14px;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.08);
+      transition: all 0.3s ease;
+
+      &:hover {
+        box-shadow: 0 6px 16px rgba(102, 126, 234, 0.12);
+        border-color: rgba(102, 126, 234, 0.25);
+      }
       
       .location-info {
         display: flex;
@@ -299,11 +380,15 @@ ion-modal.side-custom-popup {
         font-size: 12px;
         color: #475569;
         margin-bottom: 6px;
+        font-weight: 500;
         
         ion-icon {
           font-size: 16px;
           margin-right: 6px;
-          color: #94a3b8;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
         }
       }
 
@@ -319,17 +404,21 @@ ion-modal.side-custom-popup {
       margin: 15px 0 -15px -40px;
       padding-left: 40px;
       font-size: 10px;
-      font-weight: 600;
-      color: #94a3b8;
+      font-weight: 700;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       display: flex;
       align-items: center;
 
       &::before {
         content: '';
         width: 15px;
-        height: 1px;
-        background: #f1f5f9;
+        height: 2px;
+        background: linear-gradient(90deg, rgba(102, 126, 234, 0.3), rgba(102, 126, 234, 0));
         margin-right: 10px;
+        border-radius: 2px;
       }
     }
   }
@@ -337,13 +426,25 @@ ion-modal.side-custom-popup {
 
 .card-title {
   font-size: 13px;
-  color: #64748B;
+  color: #475569;
   margin: 4px 0;
+  font-weight: 600;
 }
 
 .log-btn {
   --ion-color-base: transparent !important;
   --box-shadow: transparent;
-  --width: 30px;
-  --height: 30px;
+  --width: 36px;
+  --height: 36px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
+  border-radius: 10px;
+  border: 1px solid rgba(102, 126, 234, 0.2);
+  transition: all 0.3s ease;
+  width: 50px;
+  height: 50px;
+
+  &:hover {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(240, 147, 251, 0.2));
+    transform: scale(1.05);
+  }
 }
