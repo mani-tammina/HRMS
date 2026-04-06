@@ -26,6 +26,15 @@ export class OrgSetupPage implements OnInit {
   businessUnits: any[] = [];
   weeklyOffPolicies: any[] = [];
 
+  // Backup Lists (for filtering)
+  locationsBackup: any[] = [];
+  departmentsBackup: any[] = [];
+  shiftPoliciesBackup: any[] = [];
+  announcementsBackup: any[] = [];
+  designationsBackup: any[] = [];
+  businessUnitsBackup: any[] = [];
+  weeklyOffPoliciesBackup: any[] = [];
+
   // Paginated Lists
   paginatedLocations: any[] = [];
   paginatedDepartments: any[] = [];
@@ -63,6 +72,15 @@ export class OrgSetupPage implements OnInit {
   departmentName: string = '';
   designationName: string = '';
   businessUnitName: string = '';
+
+  // Search Filter Terms
+  searchLocationTerm: string = '';
+  searchDepartmentTerm: string = '';
+  searchDesignationTerm: string = '';
+  searchBusinessUnitTerm: string = '';
+  searchShiftTerm: string = '';
+  searchWeeklyOffTerm: string = '';
+  searchAnnouncementTerm: string = '';
 
   shiftForm: ShiftPolicyPayload = {
     name: '',
@@ -123,7 +141,23 @@ export class OrgSetupPage implements OnInit {
 
   setTab(tab: string) {
     this.activeTab = tab;
+    // Clear search term when switching tabs
+    this.clearSearch();
     this.loadData();
+  }
+
+  // Clear search for current tab
+  clearSearch() {
+    const map: any = {
+      locations: () => this.searchLocationTerm = '',
+      departments: () => this.searchDepartmentTerm = '',
+      designations: () => this.searchDesignationTerm = '',
+      businessUnits: () => this.searchBusinessUnitTerm = '',
+      shifts: () => this.searchShiftTerm = '',
+      weeklyOff: () => this.searchWeeklyOffTerm = '',
+      announcements: () => this.searchAnnouncementTerm = ''
+    };
+    map[this.activeTab]?.();
   }
 
   loadData() {
@@ -142,6 +176,7 @@ export class OrgSetupPage implements OnInit {
   loadLocations() {
     this.adminService.getLocations().subscribe(res => {
       this.locations = res || [];
+      this.locationsBackup = JSON.parse(JSON.stringify(this.locations)); // Create backup
       this.calculatePagination('locations');
     });
   }
@@ -164,6 +199,7 @@ export class OrgSetupPage implements OnInit {
   loadDepartments() {
     this.adminService.getDepartments().subscribe(res => {
       this.departments = res || [];
+      this.departmentsBackup = JSON.parse(JSON.stringify(this.departments)); // Create backup
       this.calculatePagination('departments');
     });
   }
@@ -186,6 +222,7 @@ export class OrgSetupPage implements OnInit {
   loadDesignations() {
     this.adminService.getDesignations().subscribe(res => {
       this.designations = res || [];
+      this.designationsBackup = JSON.parse(JSON.stringify(this.designations)); // Create backup
       this.calculatePagination('designations');
     });
   }
@@ -208,6 +245,7 @@ export class OrgSetupPage implements OnInit {
   loadBusinessUnits() {
     this.adminService.getBusinessUnits().subscribe(res => {
       this.businessUnits = res || [];
+      this.businessUnitsBackup = JSON.parse(JSON.stringify(this.businessUnits)); // Create backup
       this.calculatePagination('businessUnits');
     });
   }
@@ -230,6 +268,7 @@ export class OrgSetupPage implements OnInit {
   loadShiftPolicies() {
     this.adminService.getShiftPolicies().subscribe(res => {
       this.shiftPolicies = res || [];
+      this.shiftPoliciesBackup = JSON.parse(JSON.stringify(this.shiftPolicies)); // Create backup
       this.calculatePagination('shifts');
     });
   }
@@ -255,6 +294,7 @@ export class OrgSetupPage implements OnInit {
   loadWeeklyOffPolicies() {
     this.adminService.getWeeklyOffPolicies().subscribe(res => {
       this.weeklyOffPolicies = res || [];
+      this.weeklyOffPoliciesBackup = JSON.parse(JSON.stringify(this.weeklyOffPolicies)); // Create backup
       this.calculatePagination('weeklyOff');
     });
   }
@@ -310,6 +350,7 @@ export class OrgSetupPage implements OnInit {
   loadAnnouncements() {
     this.adminService.getAnnouncements().subscribe(res => {
       this.announcements = res || [];
+      this.announcementsBackup = JSON.parse(JSON.stringify(this.announcements)); // Create backup
       this.calculatePagination('announcements');
     });
   }
@@ -386,6 +427,112 @@ export class OrgSetupPage implements OnInit {
       this.currentPage[entity]--;
       this.updatePaginatedData(entity);
     }
+  }
+
+  // Search/Filter Method
+  onSearch(searchTerm: string) {
+    // Reset to first page when searching
+    this.currentPage[this.activeTab] = 1;
+
+    // Get the appropriate backup data list
+    const backupMap: any = {
+      locations: this.locationsBackup,
+      departments: this.departmentsBackup,
+      designations: this.designationsBackup,
+      businessUnits: this.businessUnitsBackup,
+      shifts: this.shiftPoliciesBackup,
+      weeklyOff: this.weeklyOffPoliciesBackup,
+      announcements: this.announcementsBackup
+    };
+
+    // Restore from backup if search is cleared
+    const restoreMap: any = {
+      locations: () => this.locations = JSON.parse(JSON.stringify(this.locationsBackup)),
+      departments: () => this.departments = JSON.parse(JSON.stringify(this.departmentsBackup)),
+      designations: () => this.designations = JSON.parse(JSON.stringify(this.designationsBackup)),
+      businessUnits: () => this.businessUnits = JSON.parse(JSON.stringify(this.businessUnitsBackup)),
+      shifts: () => this.shiftPolicies = JSON.parse(JSON.stringify(this.shiftPoliciesBackup)),
+      weeklyOff: () => this.weeklyOffPolicies = JSON.parse(JSON.stringify(this.weeklyOffPoliciesBackup)),
+      announcements: () => this.announcements = JSON.parse(JSON.stringify(this.announcementsBackup))
+    };
+
+    const originalData = backupMap[this.activeTab];
+
+    if (!searchTerm || searchTerm.trim() === '') {
+      // No search term, restore original backup data
+      restoreMap[this.activeTab]();
+      this.calculatePagination(this.activeTab);
+      return;
+    }
+
+    const filteredData = originalData.filter((item: any) => {
+      const searchLower = searchTerm.toLowerCase();
+
+      if (this.activeTab === 'shifts') {
+        return (item.name && item.name.toLowerCase().includes(searchLower)) ||
+          (item.start_time && item.start_time.toLowerCase().includes(searchLower)) ||
+          (item.end_time && item.end_time.toLowerCase().includes(searchLower)) ||
+          (item.shift_type && item.shift_type.toLowerCase().includes(searchLower));
+      }
+
+      if (this.activeTab === 'announcements') {
+        return (item.title && item.title.toLowerCase().includes(searchLower)) ||
+          (item.body && item.body.toLowerCase().includes(searchLower));
+      }
+
+      if (this.activeTab === 'weeklyOff') {
+        return (item.name && item.name.toLowerCase().includes(searchLower)) ||
+          (item.policy_code && item.policy_code.toLowerCase().includes(searchLower)) ||
+          (item.description && item.description.toLowerCase().includes(searchLower));
+      }
+
+      // Generic search for locations, departments, etc.
+      return (item.name && item.name.toLowerCase().includes(searchLower));
+    });
+
+    // Update the main data list with filtered results
+    const updateMap: any = {
+      locations: () => this.locations = filteredData,
+      departments: () => this.departments = filteredData,
+      designations: () => this.designations = filteredData,
+      businessUnits: () => this.businessUnits = filteredData,
+      shifts: () => this.shiftPolicies = filteredData,
+      weeklyOff: () => this.weeklyOffPolicies = filteredData,
+      announcements: () => this.announcements = filteredData
+    };
+
+    updateMap[this.activeTab]();
+
+    // Recalculate pagination with filtered data
+    this.calculatePagination(this.activeTab);
+  }
+
+  // Get search term for current tab
+  getSearchTerm(): string {
+    const map: any = {
+      locations: this.searchLocationTerm,
+      departments: this.searchDepartmentTerm,
+      designations: this.searchDesignationTerm,
+      businessUnits: this.searchBusinessUnitTerm,
+      shifts: this.searchShiftTerm,
+      weeklyOff: this.searchWeeklyOffTerm,
+      announcements: this.searchAnnouncementTerm
+    };
+    return map[this.activeTab] || '';
+  }
+
+  // Set search term for current tab
+  setSearchTerm(value: string) {
+    const map: any = {
+      locations: () => this.searchLocationTerm = value,
+      departments: () => this.searchDepartmentTerm = value,
+      designations: () => this.searchDesignationTerm = value,
+      businessUnits: () => this.searchBusinessUnitTerm = value,
+      shifts: () => this.searchShiftTerm = value,
+      weeklyOff: () => this.searchWeeklyOffTerm = value,
+      announcements: () => this.searchAnnouncementTerm = value
+    };
+    map[this.activeTab]();
   }
 
   // Template Helper Methods
