@@ -27,34 +27,31 @@
 
               <!-- Expandable Parent Item -->
               <div *ngIf="p.children" class="submenu-wrapper">
-                <ion-item (click)="toggleSubmenu(p)" class="menu-nav-item parent-item" [class.expanded]="p.isExpanded"
+                <ion-item [id]="'menu-trigger-' + p.icon" class="menu-nav-item parent-item"
                   [class.selected]="currentUrl.includes(p.icon)">
                   <div class="row-left">
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon inactive-icon" />
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon active-icon" />
                     <ion-label>{{ p.title }}</ion-label>
                   </div>
-                  <ion-icon slot="end" [name]="p.isExpanded ? 'chevron-down' : 'chevron-forward'"
-                    class="submenu-toggle-icon"></ion-icon>
                 </ion-item>
 
-                <!-- Submenu Items (Rendered when expanded) -->
-                <div class="sub-items-container" *ngIf="p.isExpanded">
-                  <ng-container *ngFor="let sub of p.children">
-                    <ion-menu-toggle auto-hide="false" *ngIf="shouldShowPage(sub)">
-                      <ion-item routerDirection="root" [routerLink]="[sub.url]" routerLinkActive="selected"
-                        class="menu-nav-item sub-item">
-                        <div class="row-left">
-                          <img [src]="getCustomIconPath(sub.icon)" alt="{{ sub.title }}"
-                            class="custom-menu-icon sub-icon inactive-icon" />
-                          <img [src]="getCustomIconPath(sub.icon)" alt="{{ sub.title }}"
-                            class="custom-menu-icon sub-icon active-icon" />
-                          <ion-label>{{ sub.title }}</ion-label>
-                        </div>
-                      </ion-item>
-                    </ion-menu-toggle>
-                  </ng-container>
-                </div>
+                <!-- Popover Submenu -->
+                <ion-popover [trigger]="'menu-trigger-' + p.icon" side="end" alignment="start" triggerAction="hover"
+                  class="custom-submenu-popover" [showBackdrop]="false" keyboardClose="false">
+                  <ng-template>
+                    <ion-list lines="none" class="submenu-popover-list">
+                      <ng-container *ngFor="let sub of p.children">
+                        <ion-menu-toggle auto-hide="false" *ngIf="shouldShowPage(sub)">
+                          <ion-item routerDirection="root" [routerLink]="[sub.url]" routerLinkActive="selected"
+                            class="submenu-popover-item">
+                            <ion-label>{{ sub.title }}</ion-label>
+                          </ion-item>
+                        </ion-menu-toggle>
+                      </ng-container>
+                    </ion-list>
+                  </ng-template>
+                </ion-popover>
               </div>
             </ng-container>
           </ng-container>
