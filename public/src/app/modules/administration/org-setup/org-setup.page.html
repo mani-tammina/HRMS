@@ -4,12 +4,12 @@
       <ion-back-button defaultHref="/administration" class="custom-back-btn"></ion-back-button>
     </ion-buttons>
     <ion-title>Organization Setup</ion-title>
-    <ion-buttons slot="end">
+    <!-- <ion-buttons slot="end">
       <ion-chip class="admin-badge">
         <ion-icon name="shield-checkmark"></ion-icon>
         <ion-label>Administrator</ion-label>
       </ion-chip>
-    </ion-buttons>
+    </ion-buttons> -->
   </ion-toolbar>
 
   <ion-toolbar class="segment-toolbar">
@@ -28,7 +28,7 @@
         <ion-label>Designations</ion-label>
       </ion-segment-button>
       <ion-segment-button value="businessUnits">
-        <ion-icon name="layers-outline"></ion-icon>
+        <ion-icon name="business-icons"></ion-icon>
         <ion-label>Business Units</ion-label>
       </ion-segment-button>
       <ion-segment-button value="shifts">
@@ -40,7 +40,7 @@
         <ion-label>Weekly Off</ion-label>
       </ion-segment-button>
       <ion-segment-button value="announcements">
-        <ion-icon name="megaphone-outline"></ion-icon>
+        <ion-icon name="anouncement"></ion-icon>
         <ion-label>Announcements</ion-label>
       </ion-segment-button>
     </ion-segment>
@@ -72,7 +72,18 @@
             <div class="header-right" *ngIf="activeTab !== 'announcements'">
               <div class="search-box-mini">
                 <ion-icon name="search-outline"></ion-icon>
-                <input type="text" placeholder="Search..." />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchLocationTerm"
+                  *ngIf="activeTab === 'locations'" (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchDepartmentTerm"
+                  *ngIf="activeTab === 'departments'" (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchDesignationTerm"
+                  *ngIf="activeTab === 'designations'" (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchBusinessUnitTerm"
+                  *ngIf="activeTab === 'businessUnits'" (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchShiftTerm" *ngIf="activeTab === 'shifts'"
+                  (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchWeeklyOffTerm"
+                  *ngIf="activeTab === 'weeklyOff'" (ngModelChange)="onSearch($event)" />
               </div>
             </div>
           </div>
@@ -203,7 +214,7 @@
           <!-- Pagination -->
           <div class="pagination-container" *ngIf="totalPages[getTabKey()] > 1">
             <button (click)="prevPage(getTabKey())" [disabled]="currentPage[getTabKey()] === 1" class="page-nav">
-              <ion-icon name="chevron-back"></ion-icon> Back
+              <ion-icon name="chevron-back"></ion-icon> Previous
             </button>
             <div class="page-numbers">
               <span class="current">{{currentPage[getTabKey()]}}</span>

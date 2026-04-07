@@ -1,0 +1,302 @@
+<ion-header class="payroll-exec-header">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Payroll Execution</ion-title>
+  </ion-toolbar>
+  <!-- Tabs -->
+  <div class="exec-tabs">
+    <button class="exec-tab" [class.active]="activeTab==='run'" (click)="setTab('run')">
+      <ion-icon name="play-circle-outline"></ion-icon> Run Payroll
+    </button>
+    <button class="exec-tab" [class.active]="activeTab==='history'" (click)="setTab('history')">
+      <ion-icon name="time-outline"></ion-icon> History
+    </button>
+    <button class="exec-tab" [class.active]="activeTab==='defaults'" (click)="setTab('defaults')">
+      <ion-icon name="settings-outline"></ion-icon> Defaults
+    </button>
+    <button class="exec-tab" [class.active]="activeTab==='adjustments'" (click)="setTab('adjustments')">
+      <ion-icon name="add-circle-outline"></ion-icon> Adjustments
+    </button>
+  </div>
+</ion-header>
+
+<ion-content class="payroll-exec-content">
+
+  <!-- ═══════════════════════════════════════════
+       TAB 1 — RUN PAYROLL
+  ══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab==='run'" class="tab-panel">
+
+    <!-- Run Payroll Card -->
+    <div class="glass-card run-card">
+      <div class="card-header">
+        <div class="card-icon run-icon">
+          <ion-icon name="flash-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>Run Payroll</h2>
+          <p>Calculate and process salaries for a payroll month</p>
+        </div>
+      </div>
+
+      <form [formGroup]="runForm" class="run-form">
+        <div class="form-row">
+          <div class="form-group">
+            <label>Payroll Month</label>
+            <input type="month" formControlName="payroll_month" class="glass-input" id="payroll-month-input" />
+          </div>
+          <div class="form-group">
+            <label>Engine</label>
+            <div class="toggle-row">
+              <span [class.muted]="runForm.value.use_v2">Legacy</span>
+              <ion-toggle formControlName="use_v2" color="primary"></ion-toggle>
+              <span [class.muted]="!runForm.value.use_v2">V2 (Recommended)</span>
+            </div>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes (optional)</label>
+          <textarea formControlName="notes" class="glass-input" rows="2" placeholder="e.g. March 2025 — includes Q4 bonus" id="payroll-notes-input"></textarea>
+        </div>
+
+        <button class="run-btn" [disabled]="isRunning || runForm.invalid" (click)="onRunPayroll()" id="run-payroll-btn">
+          <ion-spinner *ngIf="isRunning" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isRunning" name="flash-outline"></ion-icon>
+          {{ isRunning ? 'Processing...' : 'Run Payroll' }}
+        </button>
+      </form>
+
+      <!-- Result Banner -->
+      <div *ngIf="lastRunResult" class="result-banner success-banner">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <div class="result-details">
+          <span class="result-title">Payroll Processed Successfully</span>
+          <span *ngIf="lastRunResult.run_id">Run ID: <strong>{{ lastRunResult.run_id }}</strong></span>
+          <span *ngIf="lastRunResult.processed">Employees: <strong>{{ lastRunResult.processed }}</strong></span>
+          <span *ngIf="lastRunResult.processed_employees">Employees: <strong>{{ lastRunResult.processed_employees }}</strong></span>
+          <span *ngIf="lastRunResult.total_gross">Gross: <strong>{{ formatCurrency(lastRunResult.total_gross) }}</strong></span>
+          <span *ngIf="lastRunResult.total_net">Net: <strong>{{ formatCurrency(lastRunResult.total_net) }}</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOP Summary Card -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon warning-icon">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>LOP Summary</h2>
+          <p>Loss of Pay records for a month</p>
+        </div>
+      </div>
+      <div class="inline-search-row">
+        <input type="month" [(ngModel)]="lopMonth" class="glass-input" id="lop-month-input" />
+        <button class="fetch-btn" (click)="loadLOPSummary()" id="lop-fetch-btn">
+          <ion-spinner *ngIf="isLoadingLOP" name="crescent" class="btn-spinner"></ion-spinner>
+          <ion-icon *ngIf="!isLoadingLOP" name="search-outline"></ion-icon>
+          Fetch
+        </button>
+      </div>
+      <div *ngIf="lopSummary.length > 0" class="mini-table-wrap">
+        <table class="mini-table">
+          <thead>
+            <tr><th>Employee</th><th>Emp No.</th><th>LOP Days</th><th>Unpaid Days</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of lopSummary">
+              <td>{{ r.FullName }}</td>
+              <td>{{ r.EmployeeNumber }}</td>
+              <td class="lop-days">{{ r.lop_days }}</td>
+              <td class="lop-days">{{ r.unpaid_days }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p *ngIf="!isLoadingLOP && lopSummary.length === 0" class="empty-msg">No LOP records loaded. Select a month and click Fetch.</p>
+    </div>
+
+    <!-- Reconciliation Card -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon info-icon">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>Reconciliation Report</h2>
+          <p>Calculated vs. paid comparison</p>
+        </div>
+      </div>
+      <div class="inline-search-row">
+        <input type="month" [(ngModel)]="reconcileMonth" class="glass-input" id="recon-month-input" />
+        <button class="fetch-btn" (click)="loadReconciliation()" id="recon-fetch-btn">
+          <ion-spinner *ngIf="isLoadingRecon" name="crescent" class="btn-spinner"></ion-spinner>
+          <ion-icon *ngIf="!isLoadingRecon" name="search-outline"></ion-icon>
+          Fetch
+        </button>
+      </div>
+      <pre *ngIf="reconciliation" class="json-block">{{ reconciliation | json }}</pre>
+      <p *ngIf="!isLoadingRecon && !reconciliation" class="empty-msg">Select a month and click Fetch to load reconciliation data.</p>
+    </div>
+  </div><!-- /run tab -->
+
+
+  <!-- ═══════════════════════════════════════════
+       TAB 2 — HISTORY
+  ══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab==='history'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon">
+          <ion-icon name="time-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>Payroll Run History</h2>
+          <p>All past payroll runs and their statuses</p>
+        </div>
+        <button class="refresh-btn" (click)="loadPayrollRuns()" id="refresh-runs-btn">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div *ngIf="isLoadingRuns" class="center-loader">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+
+      <div *ngIf="!isLoadingRuns && payrollRuns.length === 0" class="empty-msg">
+        No payroll runs found.
+      </div>
+
+      <div *ngIf="!isLoadingRuns && payrollRuns.length > 0" class="runs-grid">
+        <div class="run-item glass-sub-card" *ngFor="let run of payrollRuns">
+          <div class="run-meta">
+            <span class="run-period">{{ run.year }}-{{ run.month | number:'2.0' }}</span>
+            <ion-badge [color]="getStatusColor(run.status)">{{ run.status }}</ion-badge>
+          </div>
+          <div class="run-stats">
+            <div class="stat"><span>Run ID</span><strong>#{{ run.id }}</strong></div>
+            <div class="stat"><span>Employees</span><strong>{{ run.slip_count ?? '—' }}</strong></div>
+            <div class="stat"><span>Total Payout</span><strong>{{ formatCurrency(run.total_payout) }}</strong></div>
+          </div>
+          <div class="run-actions">
+            <button class="icon-btn" (click)="viewRunDetails(run.id)" title="View Details">
+              <ion-icon name="eye-outline"></ion-icon>
+            </button>
+            <button class="icon-btn danger" (click)="lockRun(run.id)" title="Lock Run">
+              <ion-icon name="lock-closed-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /history tab -->
+
+
+  <!-- ═══════════════════════════════════════════
+       TAB 3 — DEFAULTS
+  ══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab==='defaults'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon">
+          <ion-icon name="settings-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>Payroll Defaults</h2>
+          <p>Configure PF %, ESI %, Professional Tax, Variable Pay %</p>
+        </div>
+      </div>
+
+      <div *ngIf="isLoadingDefaults" class="center-loader">
+        <ion-spinner name="crescent"></ion-spinner>
+      </div>
+
+      <form *ngIf="!isLoadingDefaults" [formGroup]="defaultsForm" class="defaults-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>PF Percentage (%)</label>
+            <input type="number" formControlName="pf_percent" class="glass-input" id="pf-percent-input" step="0.01" min="0" max="100" />
+          </div>
+          <div class="form-group">
+            <label>ESI Percentage (%)</label>
+            <input type="number" formControlName="esi_percent" class="glass-input" id="esi-percent-input" step="0.01" min="0" max="100" />
+          </div>
+          <div class="form-group">
+            <label>Professional Tax (₹/month)</label>
+            <input type="number" formControlName="professional_tax" class="glass-input" id="professional-tax-input" min="0" />
+          </div>
+          <div class="form-group">
+            <label>Variable Pay Percentage (%)</label>
+            <input type="number" formControlName="variable_pay_percent" class="glass-input" id="variable-pay-input" step="0.01" min="0" max="100" />
+          </div>
+        </div>
+        <button class="save-btn" (click)="saveDefaults()" [disabled]="isSavingDefaults || defaultsForm.invalid" id="save-defaults-btn">
+          <ion-spinner *ngIf="isSavingDefaults" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSavingDefaults" name="save-outline"></ion-icon>
+          {{ isSavingDefaults ? 'Saving...' : 'Save Defaults' }}
+        </button>
+      </form>
+    </div>
+  </div><!-- /defaults tab -->
+
+
+  <!-- ═══════════════════════════════════════════
+       TAB 4 — ADJUSTMENTS
+  ══════════════════════════════════════════════ -->
+  <div *ngIf="activeTab==='adjustments'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon success-icon">
+          <ion-icon name="add-circle-outline"></ion-icon>
+        </div>
+        <div>
+          <h2>Ad-hoc Payroll Adjustment</h2>
+          <p>Add a one-time bonus, deduction, arrear, or reimbursement</p>
+        </div>
+      </div>
+
+      <form [formGroup]="adjustmentForm" class="adjustment-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Employee ID</label>
+            <input type="number" formControlName="employee_id" class="glass-input" id="adj-employee-id" placeholder="e.g. 5" />
+          </div>
+          <div class="form-group">
+            <label>Payroll Month</label>
+            <input type="month" formControlName="payroll_month" class="glass-input" id="adj-payroll-month" />
+          </div>
+          <div class="form-group">
+            <label>Adjustment Type</label>
+            <select formControlName="adjustment_type" class="glass-input" id="adj-type-select">
+              <option *ngFor="let t of adjustmentTypes" [value]="t">{{ t }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Amount (₹)</label>
+            <input type="number" formControlName="amount" class="glass-input" id="adj-amount" min="1" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <textarea formControlName="reason" class="glass-input" rows="2" id="adj-reason" placeholder="e.g. Performance award Q4"></textarea>
+        </div>
+
+        <div class="adjustment-info">
+          <div class="info-chip" *ngFor="let t of adjustmentTypes"
+               [class.active]="adjustmentForm.value.adjustment_type === t"
+               (click)="adjustmentForm.patchValue({adjustment_type: t})">{{ t }}</div>
+        </div>
+
+        <button class="save-btn" (click)="saveAdjustment()" [disabled]="isSavingAdjustment || adjustmentForm.invalid" id="save-adjustment-btn">
+          <ion-spinner *ngIf="isSavingAdjustment" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSavingAdjustment" name="checkmark-circle-outline"></ion-icon>
+          {{ isSavingAdjustment ? 'Saving...' : 'Save Adjustment' }}
+        </button>
+      </form>
+    </div>
+  </div><!-- /adjustments tab -->
+
+</ion-content>

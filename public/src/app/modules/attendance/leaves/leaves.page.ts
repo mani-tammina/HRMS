@@ -140,7 +140,7 @@ export class LeavesPage implements OnInit, OnDestroy {
         const leavePlanId = profile.leave_plan_id || 1; // Default to 1 if not set
 
         // 2. Call initialization API
-        this.employeeLeaves.initializeBalance(employeeId, leavePlanId, this.currentYear).subscribe({
+        this.employeeLeaves.initializeBalance(this.currentYear).subscribe({
           next: () => {
             this.presentToast('Leave balances initialized successfully', 'success');
             this.loadLeaveBalance(); // Refresh the numbers

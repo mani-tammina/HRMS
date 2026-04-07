@@ -134,13 +134,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           this.employeeProfile = res.profile;
           const woId = res.profile?.weekly_off_policy_id || res.profile?.WeeklyOffPolicyId;
           const sId = res.profile?.shift_policy_id || res.profile?.ShiftPolicyId;
-          
+
           const weekOffPolicies = Array.isArray(res.weekOffPolicies) ? res.weekOffPolicies : (res.weekOffPolicies?.data || []);
           this.weeklyOffPolicy = (weekOffPolicies || []).find((p: any) => p.id === woId) || null;
-          
+
           const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
-          
+
           this.todayPunches = res.today?.punches || [];
           const leaves = Array.isArray(res.leaves) ? res.leaves : (res.leaves.data || res.leaves.leaves || []);
           this.processLeavesIntoMap(leaves);
@@ -187,13 +187,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
         const weekOffDays: number[] = [];
         if (this.weeklyOffPolicy) {
-          if (this.weeklyOffPolicy.sunday_off) weekOffDays.push(0);
-          if (this.weeklyOffPolicy.monday_off) weekOffDays.push(1);
-          if (this.weeklyOffPolicy.tuesday_off) weekOffDays.push(2);
-          if (this.weeklyOffPolicy.wednesday_off) weekOffDays.push(3);
-          if (this.weeklyOffPolicy.thursday_off) weekOffDays.push(4);
-          if (this.weeklyOffPolicy.friday_off) weekOffDays.push(5);
-          if (this.weeklyOffPolicy.saturday_off) weekOffDays.push(6);
+          if (Number(this.weeklyOffPolicy.sunday_off) === 1) weekOffDays.push(0);
+          if (Number(this.weeklyOffPolicy.monday_off) === 1) weekOffDays.push(1);
+          if (Number(this.weeklyOffPolicy.tuesday_off) === 1) weekOffDays.push(2);
+          if (Number(this.weeklyOffPolicy.wednesday_off) === 1) weekOffDays.push(3);
+          if (Number(this.weeklyOffPolicy.thursday_off) === 1) weekOffDays.push(4);
+          if (Number(this.weeklyOffPolicy.friday_off) === 1) weekOffDays.push(5);
+          if (Number(this.weeklyOffPolicy.saturday_off) === 1) weekOffDays.push(6);
         }
 
         this.currentMonthreport = allDates.map(date => {
@@ -267,8 +267,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const today = new Date().toDateString();
     const logDate = new Date(log.attendance_date).toDateString();
     if (today === logDate && this.todayPunches.length) {
-      this.selectedLog = { 
-        ...log, 
+      this.selectedLog = {
+        ...log,
         records: this.mapPunches(this.todayPunches),
         prepared: false
       };
@@ -286,35 +286,35 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (!log?.attendance_date) return;
     const formattedDate = this.formatDateOnly(log.attendance_date);
     this.attendanceApi.getAttendanceDetailsByDate(formattedDate).subscribe({
-      next: (res) => { 
-        this.selectedLog = { 
-          ...log, 
+      next: (res) => {
+        this.selectedLog = {
+          ...log,
           records: this.mapPunches(res?.punches || []),
           prepared: false
-        }; 
+        };
         this.processSelectedLogRecords();
       },
-      error: () => { 
-        this.selectedLog = { ...log, records: [], prepared: true, officeRecords: [], wfhRecords: [], remoteRecords: [] }; 
+      error: () => {
+        this.selectedLog = { ...log, records: [], prepared: true, officeRecords: [], wfhRecords: [], remoteRecords: [] };
       }
     });
   }
 
   private processSelectedLogRecords(): void {
     if (!this.selectedLog || !this.selectedLog.records) return;
-    
+
     const records = this.selectedLog.records;
-    
+
     this.selectedLog.officeRecords = records.filter((r: any) => {
       const loc = r.location?.toLowerCase() || '';
       return r.work_mode === 'Office' || loc.includes('office') || loc.includes('mumbai');
     }).slice().reverse();
 
-    this.selectedLog.wfhRecords = records.filter((r: any) => 
+    this.selectedLog.wfhRecords = records.filter((r: any) =>
       r.work_mode === 'WFH' || r.location?.toLowerCase().includes('home')
     ).slice().reverse();
 
-    this.selectedLog.remoteRecords = records.filter((r: any) => 
+    this.selectedLog.remoteRecords = records.filter((r: any) =>
       r.work_mode === 'Remote'
     ).map((r: any) => ({ ...r, pendingApproval: r.approved !== true })).slice().reverse();
 
@@ -344,7 +344,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     // Sort timeline by time ascending
-    this.selectedLog.timeline = timeline.sort((a, b) => 
+    this.selectedLog.timeline = timeline.sort((a, b) =>
       new Date(a.time).getTime() - new Date(b.time).getTime()
     );
 

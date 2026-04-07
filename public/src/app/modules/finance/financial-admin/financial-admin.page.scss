@@ -76,7 +76,7 @@
 /* Dashboard Grid with Premium Cards */
 .dashboard-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 30px;
   margin-bottom: 3rem;
 }
@@ -97,6 +97,8 @@
     height: 6px;
     width: 100%;
     background: linear-gradient(90deg, #6366f1, #a855f7);
+    &.accent-green  { background: linear-gradient(90deg, #22c55e, #16a34a); }
+    &.accent-orange { background: linear-gradient(90deg, #f59e0b, #d97706); }
   }
 
   .management-content {

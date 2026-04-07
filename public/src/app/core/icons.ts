@@ -12,6 +12,7 @@ import {
   arrowBackOutline,
   arrowDownCircleOutline,
   arrowForward,
+  briefcaseOutline,
   arrowForwardCircleOutline,
   arrowForwardOutline,
   business,
@@ -59,7 +60,8 @@ import {
   shieldCheckmarkOutline,
   sparklesOutline,
   timeOutline,
-  trashOutline
+  trashOutline,
+  megaphoneOutline,
 } from 'ionicons/icons';
 
 // Register all used icons to enable tree shaking
@@ -67,6 +69,7 @@ addIcons({
   'add': add,
   'add-circle': addCircle,
   'airplane': airplane,
+  'anouncement': megaphoneOutline,
   'airplane-outline': airplaneOutline,
   'alert-circle': alertCircle,
   'alert-circle-outline': alertCircleOutline,
@@ -76,7 +79,8 @@ addIcons({
   'arrow-forward-circle-outline': arrowForwardCircleOutline,
   'arrow-forward-outline': arrowForwardOutline,
   'business': business,
-  'business-outline': businessOutline,
+  'business-outline': personCircleOutline,
+  'business-icons': people,
   'calendar-clear-outline': calendarClearOutline,
   'calendar-outline': calendarOutline,
   'checkmark-circle': checkmarkCircle,

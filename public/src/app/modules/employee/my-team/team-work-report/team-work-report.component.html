@@ -1,0 +1,129 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="report-header">
+    <ion-title>{{ isManager ? 'Team Work Report' : 'My Work Report' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Filters Row -->
+  <ion-toolbar class="filters-toolbar">
+    <div class="filter-container">
+      <div class="filter-item" *ngIf="isManager">
+        <ion-label>Member</ion-label>
+        <ion-select placeholder="Select Employee" [(ngModel)]="selectedEmployeeId"
+          (ionChange)="onEmployeeChange($event)" interface="popover" class="custom-select">
+          <ion-select-option *ngFor="let member of teamMembers" [value]="member.id">
+            {{ member.FirstName }} {{ member.LastName }}
+          </ion-select-option>
+        </ion-select>
+      </div>
+
+      <div class="filter-item short-item">
+        <ion-label>Month</ion-label>
+        <ion-select placeholder="Month" [(ngModel)]="month" (ionChange)="onFilterChange()" interface="popover"
+          class="custom-select">
+          <ion-select-option *ngFor="let m of months" [value]="m.value">{{ m.name }}</ion-select-option>
+        </ion-select>
+      </div>
+
+      <div class="filter-item short-item">
+        <ion-label>Year</ion-label>
+        <ion-select placeholder="Year" [(ngModel)]="year" (ionChange)="onFilterChange()" interface="popover"
+          class="custom-select">
+          <ion-select-option *ngFor="let y of years" [value]="y">{{ y }}</ion-select-option>
+        </ion-select>
+      </div>
+
+      <div class="download-section" *ngIf="!isLoading && reportData.length > 0">
+        <ion-button fill="clear" (click)="downloadReport()" class="download-btn">
+          <ion-icon name="download-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="report-content">
+  <!-- Summary Cards -->
+  <div class="summary-section" *ngIf="summary && !isLoading">
+    <div class="summary-card total">
+      <div class="card-header-icon"><ion-icon name="time-outline"></ion-icon></div>
+      <span class="label">Total Hours</span>
+      <span class="value">{{ summary.total_hours }}</span>
+    </div>
+    <div class="summary-card present">
+      <div class="card-header-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+      <span class="label">Days Logged</span>
+      <span class="value">{{ summary.days_logged }}</span>
+    </div>
+    <div class="summary-card verified">
+      <div class="card-header-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+      <span class="label">Verified</span>
+      <span class="value">{{ summary.verified_logs }}</span>
+    </div>
+    <div class="summary-card leave">
+      <div class="card-header-icon"><ion-icon name="hourglass-outline"></ion-icon></div>
+      <span class="label">Pending</span>
+      <span class="value">{{ summary.pending_logs }}</span>
+    </div>
+    <div class="summary-card total-hours">
+      <div class="card-header-icon"><ion-icon name="stats-chart-outline"></ion-icon></div>
+      <span class="label">Avg Hours/Day</span>
+      <span class="value">{{ summary.avg_hours }}</span>
+    </div>
+  </div>
+
+  <div class="loading-state" *ngIf="isLoading">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Generating work report...</p>
+  </div>
+
+  <div class="empty-state" *ngIf="!isLoading && reportData.length === 0">
+    <ion-icon name="document-text-outline" class="big-icon"></ion-icon>
+    <h3>No Work Logs Found</h3>
+    <p>No work reports submitted for the selected period.</p>
+  </div>
+
+  <!-- Work Report Table -->
+  <div class="table-container" *ngIf="!isLoading && reportData.length > 0">
+    <div class="table-header">
+      <div class="col col-date">Date</div>
+      <div class="col col-project">Project</div>
+      <div class="col col-status">Status</div>
+      <div class="col col-hours">Hours</div>
+      <div class="col col-desc">Description</div>
+      <div class="col col-action">View</div>
+    </div>
+
+    <div class="table-body">
+      <div class="table-row clickable-row" *ngFor="let row of reportData" (click)="openPreview(row)">
+        <div class="col col-date">
+          <span class="day">{{ row.date | date:'EEE' }}</span>
+          <span class="date">{{ row.date | date:'dd MMM' }}</span>
+        </div>
+        <div class="col col-project">
+          {{ row.project_name || 'Regular Work' }}
+        </div>
+        <div class="col col-status">
+          <span class="status-badge" [ngClass]="'status-' + (row.status?.toLowerCase() || 'submitted')">
+            {{ row.status || 'Submitted' }}
+          </span>
+        </div>
+        <div class="col col-hours">
+          {{ row.total_hours }} hrs
+        </div>
+        <div class="col col-desc">
+          {{ row.work_description || row.notes || '---' }}
+        </div>
+        <div class="col col-action">
+          <ion-button fill="clear" color="primary" class="row-view-btn">
+            <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>

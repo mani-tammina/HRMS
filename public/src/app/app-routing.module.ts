@@ -53,7 +53,7 @@ const routes: Routes = [
     path: 'workTrack',
     loadChildren: () => import('./modules/attendance/work-track/work-track.module').then(m => m.WorkTrackPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr'] }
+    data: { role: ['employee', 'hr'] }
   },
   {
     path: 'profile',
@@ -68,6 +68,12 @@ const routes: Routes = [
   {
     path: 'MyPay',
     loadChildren: () => import('./modules/payroll/payslips/payslips.module').then(m => m.PayslipsPageModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['employee', 'manager', 'hr'] }
+  },
+  {
+    path: 'MyTax',
+    loadChildren: () => import('./modules/payroll/my-tax/my-tax.module').then(m => m.MyTaxPageModule),
     canActivate: [AuthGuard, RoleGuard],
     data: { role: ['employee', 'manager', 'hr'] }
   },

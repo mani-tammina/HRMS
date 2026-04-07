@@ -5,8 +5,8 @@
     </ion-buttons>
     <ion-title>Finance & Payroll</ion-title>
     <ion-buttons slot="end">
-      <ion-button color="primary">
-        <ion-icon name="download-outline" slot="icon-only"></ion-icon>
+      <ion-button color="primary" routerLink="/MyTax" title="My Tax Portal" id="go-to-tax-portal-btn">
+        <ion-icon name="shield-checkmark-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
@@ -203,9 +203,53 @@
     </main>
   </div>
 
+  <!-- Taxation tab — redirect to full Tax Portal -->
+  <div *ngIf="currentTab === 'taxation'" class="tax-portal-cta">
+    <div class="tax-cta-inner">
+      <div class="tax-cta-icon">
+        <ion-icon name="shield-checkmark-outline"></ion-icon>
+      </div>
+      <h2>Your Tax Portal</h2>
+      <p>Manage your tax regime, submit investment declarations, upload proof documents, view tax computation, and download payslips — all in one place.</p>
+
+      <div class="tax-cta-features">
+        <div class="feature-item">
+          <ion-icon name="swap-horizontal-outline"></ion-icon>
+          <span>Switch Tax Regime (OLD / NEW)</span>
+        </div>
+        <div class="feature-item">
+          <ion-icon name="document-text-outline"></ion-icon>
+          <span>Submit 80C, 80D, HRA Declarations</span>
+        </div>
+        <div class="feature-item">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+          <span>Upload Investment Proof Documents</span>
+        </div>
+        <div class="feature-item">
+          <ion-icon name="calculator-outline"></ion-icon>
+          <span>View Live Tax Computation</span>
+        </div>
+        <div class="feature-item">
+          <ion-icon name="download-outline"></ion-icon>
+          <span>Download Payslip PDF</span>
+        </div>
+        <div class="feature-item">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>View Payroll History</span>
+        </div>
+      </div>
+
+      <ion-button expand="block" class="tax-cta-btn" routerLink="/MyTax" id="open-tax-portal-btn">
+        <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+        Open My Tax Portal
+      </ion-button>
+    </div>
+  </div>
+
   <div *ngIf="loading" class="loader-container"
     style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh;">
     <ion-spinner name="crescent" color="primary"></ion-spinner>
     <p>Loading payslip details...</p>
   </div>
+
 </ion-content>

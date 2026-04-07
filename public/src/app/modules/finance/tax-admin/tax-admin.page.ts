@@ -1,0 +1,379 @@
+import { Component, OnInit } from '@angular/core';
+import { FormBuilder, FormGroup, FormArray, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
+import { AlertController, LoadingController } from '@ionic/angular';
+import {
+  PayrollApiService,
+  StatutoryRule,
+  TaxSlab,
+  SectionLimit,
+  VerificationQueueItem,
+  AIVerificationResult,
+  ConfigWindowPayload
+} from '../../../core/services/payroll-api.service';
+import { ToasterService } from '../../../core/services/toaster.service';
+
+@Component({
+  selector: 'app-tax-admin',
+  templateUrl: './tax-admin.page.html',
+  styleUrls: ['./tax-admin.page.scss'],
+  standalone: false
+})
+export class TaxAdminPage implements OnInit {
+  activeTab: 'statutory' | 'slabs' | 'sections' | 'queue' | 'window' | 'payout' = 'statutory';
+
+  financialYear: string;
+  availableYears: string[] = [];
+
+  // ── Statutory Rules ──
+  statutoryRules: StatutoryRule[] = [];
+  isLoadingStatutory = false;
+  isSavingStatutory = false;
+  statutoryForm!: FormGroup;
+
+  // ── Tax Slabs ──
+  taxSlabs: TaxSlab[] = [];
+  isLoadingSlabs = false;
+  ptSlabs: any[] = [];
+  isLoadingPT = false;
+
+  // ── Section Limits ──
+  sectionLimits: SectionLimit[] = [
+    { section_code: '80C', max_limit: 150000, financial_year: '' },
+    { section_code: '80D', max_limit: 25000, financial_year: '' },
+    { section_code: 'HRA', max_limit: 200000, financial_year: '' },
+    { section_code: '80G', max_limit: 50000, financial_year: '' },
+    { section_code: '80TTA', max_limit: 10000, financial_year: '' },
+    { section_code: 'NPS', max_limit: 50000, financial_year: '' }
+  ];
+  isSavingSections = false;
+
+  // ── Verification Queue ──
+  verificationQueue: VerificationQueueItem[] = [];
+  queueFilter = 'PENDING';
+  isLoadingQueue = false;
+  verifyForm!: FormGroup;
+  selectedProof: VerificationQueueItem | null = null;
+  isSubmittingVerification = false;
+  queueFilters = ['PENDING', 'AI_VERIFIED', 'FLAGGED', 'APPROVED', 'REJECTED'];
+
+  // ── Proof Submission Window ──
+  windowForm!: FormGroup;
+  isSavingWindow = false;
+
+  // ── Payout Management ──
+  payoutForm!: FormGroup;
+  payouts: any[] = [];
+  payoutRunId: number | null = null;
+  isLoadingPayouts = false;
+  isSavingPayout = false;
+  payoutStatusForm!: FormGroup;
+  payoutStatuses = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'];
+
+  constructor(
+    private fb: FormBuilder,
+    private router: Router,
+    private payrollApi: PayrollApiService,
+    private toaster: ToasterService,
+    private alertCtrl: AlertController,
+    private loadingCtrl: LoadingController
+  ) {
+    this.financialYear = this.payrollApi.getCurrentFinancialYear();
+    const fy = new Date().getFullYear();
+    this.availableYears = [
+      `${fy - 2}-${fy - 1}`,
+      `${fy - 1}-${fy}`,
+      `${fy}-${fy + 1}`,
+      `${fy + 1}-${fy + 2}`
+    ];
+  }
+
+  ngOnInit() {
+    this.initForms();
+    this.loadStatutoryRules();
+    this.loadVerificationQueue();
+  }
+
+  // ─────────────────────────────────────────────
+  // Form Initialization
+  // ─────────────────────────────────────────────
+
+  initForms() {
+    this.statutoryForm = this.fb.group({
+      rules: this.fb.array([
+        this.createRuleGroup('PF', 'DEFAULT', 12, 15000, '2025-04-01'),
+        this.createRuleGroup('ESI', 'DEFAULT', 0.75, 21000, '2025-04-01')
+      ])
+    });
+
+    this.verifyForm = this.fb.group({
+      extracted_amount: [0, [Validators.required, Validators.min(0)]],
+      confidence: [90, [Validators.required, Validators.min(0), Validators.max(100)]],
+      verification_status: ['AI_VERIFIED'],
+      notes: ['']
+    });
+
+    const now = new Date();
+    const fyStart = new Date(now.getFullYear(), 0, 1).toISOString();
+    const fyEnd = new Date(now.getFullYear(), 1, 28, 23, 59, 59).toISOString();
+
+    this.windowForm = this.fb.group({
+      window_type: ['proof_submission', Validators.required],
+      financial_year: [this.financialYear, Validators.required],
+      start_at: [fyStart.slice(0, 16), Validators.required],
+      end_at: [fyEnd.slice(0, 16), Validators.required],
+      status: ['OPEN', Validators.required],
+      notes: ['']
+    });
+
+    this.payoutForm = this.fb.group({
+      run_id: [null, [Validators.required, Validators.min(1)]],
+      payout_date: [new Date().toISOString().split('T')[0], Validators.required],
+      payment_mode: ['BANK_TRANSFER', Validators.required]
+    });
+
+    this.payoutStatusForm = this.fb.group({
+      payout_id: [null, [Validators.required, Validators.min(1)]],
+      status: ['COMPLETED', Validators.required],
+      remarks: ['', Validators.required]
+    });
+  }
+
+  get ruleControls(): FormArray { return this.statutoryForm.get('rules') as FormArray; }
+
+  createRuleGroup(type: string, state: string, pct: number, ceiling: number, date: string): FormGroup {
+    return this.fb.group({
+      provider_type: [type, Validators.required],
+      state_code: [state, Validators.required],
+      percentage: [pct, [Validators.required, Validators.min(0), Validators.max(100)]],
+      ceiling_limit: [ceiling, [Validators.required, Validators.min(0)]],
+      effective_from: [date, Validators.required]
+    });
+  }
+
+  addRule() {
+    (this.statutoryForm.get('rules') as FormArray).push(
+      this.createRuleGroup('PF', 'DEFAULT', 12, 15000, new Date().toISOString().split('T')[0])
+    );
+  }
+
+  removeRule(i: number) {
+    (this.statutoryForm.get('rules') as FormArray).removeAt(i);
+  }
+
+  // ─────────────────────────────────────────────
+  // Tab Navigation
+  // ─────────────────────────────────────────────
+
+  setTab(tab: any) {
+    this.activeTab = tab;
+    if (tab === 'statutory') this.loadStatutoryRules();
+    if (tab === 'slabs') { this.loadTaxSlabs(); this.loadPTSlabs(); }
+    if (tab === 'queue') this.loadVerificationQueue();
+    if (tab === 'payout') { /* user loads manually */ }
+  }
+
+  // ─────────────────────────────────────────────
+  // Statutory Rules
+  // ─────────────────────────────────────────────
+
+  loadStatutoryRules() {
+    this.isLoadingStatutory = true;
+    this.payrollApi.getStatutoryRules().subscribe({
+      next: (res: any) => {
+        const rules: StatutoryRule[] = res.rules || [];
+        this.statutoryRules = rules;
+        const arr = this.ruleControls;
+        while (arr.length) arr.removeAt(0);
+        if (rules.length) {
+          rules.forEach(r => arr.push(this.createRuleGroup(r.provider_type, r.state_code, r.percentage, r.ceiling_limit, r.effective_from)));
+        } else {
+          arr.push(this.createRuleGroup('PF', 'DEFAULT', 12, 15000, '2025-04-01'));
+          arr.push(this.createRuleGroup('ESI', 'DEFAULT', 0.75, 21000, '2025-04-01'));
+        }
+        this.isLoadingStatutory = false;
+      },
+      error: () => { this.isLoadingStatutory = false; }
+    });
+  }
+
+  saveStatutoryRules() {
+    if (this.statutoryForm.invalid) return;
+    this.isSavingStatutory = true;
+    this.payrollApi.updateStatutoryRules(this.statutoryForm.value.rules).subscribe({
+      next: () => { this.toaster.showSuccess('Statutory rules updated'); this.isSavingStatutory = false; },
+      error: () => { this.toaster.showError('Failed to update statutory rules'); this.isSavingStatutory = false; }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Tax Slabs
+  // ─────────────────────────────────────────────
+
+  loadTaxSlabs() {
+    this.isLoadingSlabs = true;
+    this.payrollApi.getTaxSlabs(this.financialYear).subscribe({
+      next: (res: any) => {
+        this.taxSlabs = res.slabs || [];
+        this.isLoadingSlabs = false;
+      },
+      error: () => { this.isLoadingSlabs = false; }
+    });
+  }
+
+  loadPTSlabs() {
+    this.isLoadingPT = true;
+    this.payrollApi.getPTSlabs().subscribe({
+      next: (res: any) => { this.ptSlabs = res.slabs || []; this.isLoadingPT = false; },
+      error: () => { this.isLoadingPT = false; }
+    });
+  }
+
+  getNewSlabs(): TaxSlab[] { return this.taxSlabs.filter(s => s.regime_type === 'NEW'); }
+  getOldSlabs(): TaxSlab[] { return this.taxSlabs.filter(s => s.regime_type === 'OLD'); }
+
+  // ─────────────────────────────────────────────
+  // Section Limits
+  // ─────────────────────────────────────────────
+
+  saveSectionLimits() {
+    this.isSavingSections = true;
+    const sections = this.sectionLimits.map(s => ({
+      ...s,
+      financial_year: this.financialYear
+    }));
+    this.payrollApi.updateTaxSections(this.financialYear, sections).subscribe({
+      next: () => { this.toaster.showSuccess('Section limits updated'); this.isSavingSections = false; },
+      error: () => { this.toaster.showError('Failed to update section limits'); this.isSavingSections = false; }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Verification Queue
+  // ─────────────────────────────────────────────
+
+  loadVerificationQueue() {
+    this.isLoadingQueue = true;
+    this.payrollApi.getVerificationQueue(this.queueFilter).subscribe({
+      next: (res: any) => {
+        this.verificationQueue = res.queue || [];
+        this.isLoadingQueue = false;
+      },
+      error: () => { this.isLoadingQueue = false; }
+    });
+  }
+
+  openVerifyModal(proof: VerificationQueueItem) {
+    this.selectedProof = proof;
+    this.verifyForm.patchValue({
+      extracted_amount: proof.declared_amount,
+      confidence: 90,
+      verification_status: 'AI_VERIFIED',
+      notes: ''
+    });
+  }
+
+  closeVerifyModal() { this.selectedProof = null; }
+
+  submitVerification() {
+    if (!this.selectedProof || this.verifyForm.invalid) return;
+    this.isSubmittingVerification = true;
+    const payload: AIVerificationResult = {
+      proof_id: this.selectedProof.id,
+      ...this.verifyForm.value
+    };
+    this.payrollApi.submitAIVerificationResult(payload).subscribe({
+      next: (res: any) => {
+        this.toaster.showSuccess(`Proof #${res.proof_id} verified: ${res.verification_status}`);
+        this.isSubmittingVerification = false;
+        this.selectedProof = null;
+        this.loadVerificationQueue();
+      },
+      error: () => { this.toaster.showError('Verification failed'); this.isSubmittingVerification = false; }
+    });
+  }
+
+  getVerificationColor(status: string): string {
+    const s = (status || '').toUpperCase();
+    if (s === 'AI_VERIFIED' || s === 'APPROVED') return 'success';
+    if (s === 'FLAGGED') return 'warning';
+    if (s === 'REJECTED') return 'danger';
+    return 'medium';
+  }
+
+  // ─────────────────────────────────────────────
+  // Proof Submission Window
+  // ─────────────────────────────────────────────
+
+  saveWindow() {
+    if (this.windowForm.invalid) return;
+    this.isSavingWindow = true;
+    const raw = this.windowForm.value;
+    const payload: ConfigWindowPayload = {
+      ...raw,
+      start_at: new Date(raw.start_at).toISOString(),
+      end_at: new Date(raw.end_at).toISOString()
+    };
+    this.payrollApi.setConfigWindow(payload).subscribe({
+      next: (res: any) => {
+        this.toaster.showSuccess(`Window ${res.status}: ${res.window_type} for ${res.financial_year}`);
+        this.isSavingWindow = false;
+      },
+      error: () => { this.toaster.showError('Failed to update window'); this.isSavingWindow = false; }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Payout Management
+  // ─────────────────────────────────────────────
+
+  initiatePayouts() {
+    if (this.payoutForm.invalid) return;
+    this.isSavingPayout = true;
+    const payload = { ...this.payoutForm.value, run_id: Number(this.payoutForm.value.run_id) };
+    this.payrollApi.initiatePayouts(payload).subscribe({
+      next: (res: any) => {
+        this.toaster.showSuccess('Payouts initiated successfully');
+        this.isSavingPayout = false;
+        this.loadPayoutsForRun(payload.run_id);
+      },
+      error: () => { this.toaster.showError('Failed to initiate payouts'); this.isSavingPayout = false; }
+    });
+  }
+
+  loadPayoutsForRun(runId?: number) {
+    const id = runId || this.payoutRunId;
+    if (!id) return;
+    this.payoutRunId = id;
+    this.isLoadingPayouts = true;
+    this.payrollApi.getPayoutsForRun(id).subscribe({
+      next: (res: any) => {
+        this.payouts = Array.isArray(res) ? res : (res.payouts || []);
+        this.isLoadingPayouts = false;
+      },
+      error: () => { this.isLoadingPayouts = false; }
+    });
+  }
+
+  updatePayoutStatus() {
+    if (this.payoutStatusForm.invalid) return;
+    const { payout_id, status, remarks } = this.payoutStatusForm.value;
+    this.payrollApi.updatePayoutStatus(Number(payout_id), { status, remarks }).subscribe({
+      next: () => {
+        this.toaster.showSuccess('Payout status updated');
+        if (this.payoutRunId) this.loadPayoutsForRun(this.payoutRunId);
+      },
+      error: () => this.toaster.showError('Failed to update payout status')
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Utilities
+  // ─────────────────────────────────────────────
+
+  formatCurrency(val: number): string {
+    return '₹' + (val || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  }
+
+  goBack() { this.router.navigate(['/finance/admin']); }
+}

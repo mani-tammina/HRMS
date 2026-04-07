@@ -43,8 +43,7 @@
             <span class="sticky-action">Action</span>
           </div>
 
-          <div class="table-row" *ngFor="let comp of components; let i = index"
-            [style.animation-delay]="(i * 0.05) + 's'">
+          <div class="table-row" *ngFor="let comp of components; let i = index">
             <span class="sticky-col col-id">#{{ comp.id }}</span>
             <span class="sticky-col col-code">{{ comp.code }}</span>
             <span class="sticky-col col-name">{{ comp.name }}</span>
@@ -54,8 +53,10 @@
               </span>
             </span>
             <span>{{ comp.calculation_type }}</span>
-            <span class="value justify-center">
-              {{ comp.value }}{{ comp.calculation_type === 'PERCENTAGE' ? '%' : '' }}
+            <span class="justify-center">
+              <span class="value-pill">
+                {{ comp.value }}{{ comp.calculation_type === 'PERCENTAGE' ? '%' : '' }}
+              </span>
             </span>
             <span class="text-muted">{{ comp.percentage_of_code || '-' }}</span>
             <span class="justify-center">
@@ -67,7 +68,7 @@
                 [color]="comp.prorated ? 'primary' : 'medium'"></ion-icon>
             </span>
             <span class="justify-center">{{ comp.sequence }}</span>
-            <span class="sticky-action justify-center">
+            <span class="sticky-action">
               <ion-icon name="create-outline" class="edit-icon" (click)="editComponent(comp)" title="Edit"></ion-icon>
               <ion-icon name="trash-outline" class="delete-icon" (click)="deleteComponent(comp.id)"
                 title="Delete"></ion-icon>
@@ -75,7 +76,7 @@
           </div>
 
           <div class="empty-state-row" *ngIf="components.length === 0">
-            <ion-icon name="layers-outline" style="font-size: 3rem; margin-bottom: 20px; opacity: 0.2;"></ion-icon>
+            <ion-icon name="layers-outline" style="font-size: 3rem; opacity: 0.2;"></ion-icon>
             <p>No components found. Create your first salary component to get started.</p>
           </div>
         </div>

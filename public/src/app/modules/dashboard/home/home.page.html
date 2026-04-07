@@ -3,56 +3,66 @@
     <ion-row>
       <ion-col size="12" class="welcome-block">
         <ion-card class="ion-padding">
-          <div class="card-pannel">
-            <ion-row class="actions-card row-space-between border-bottom">
-
-              <ion-col size="12" size-sm="8" size-md="8" size-lg="8" size-xl="8" class="row-left ion-align-items-start">
-                <ion-img *ngIf="currentEmployee" class="profile-img" [src]="profileImageUrl" width="46" alt="Profile">
-                </ion-img>
-
-                <div>
-                  <p class="greeting">{{ greeting }}</p>
-                  <p class="name" *ngIf="currentEmployee as emp">
-                    {{ emp.FullName }}
-                    <span *ngIf="getStatusLabel()" class="attendance_badge" [ngClass]="getStatusClass()">
-                      <span class="dot"></span>
-                      {{ getStatusLabel() }}
-                    </span>
-                  </p>
-
-                  <p class="date">
-                    <span>{{ todayDate }}</span>
-                    <span>
-                      <span *ngIf="currentEmployee as emp"> {{ emp.location_name }}</span>
-                    </span>
-                  </p>
-
-                  <ion-buttons>
-                    <ion-button *ngIf="!isCEO()" (click)="attendance()">
-                      <ion-icon name="calendar-outline" slot="start"></ion-icon>
-                      My Attendance
-                    </ion-button>
-
-                    <ion-button *ngIf="!isCEO()" (click)="leaves()">
-                      <ion-icon name="airplane-outline" slot="start"></ion-icon>
-                      Apply Leave
-                    </ion-button>
-
-                    <ion-button (click)="myteam()">
-                      <ion-icon name="people-outline" slot="start"></ion-icon>
-                      My Team
-                    </ion-button>
-                  </ion-buttons>
+          <div class="neon-welcome-wrapper">
+            <div class="neon-left-section">
+              <div class="user-info-group">
+                <div class="avatar-container">
+                  <img *ngIf="currentEmployee" [src]="profileImageUrl" class="avatar-img" alt="Profile" onerror="this.style.display='none'">
+                  <div class="avatar-placeholder" *ngIf="!currentEmployee || !profileImageUrl">
+                    <ion-icon name="person"></ion-icon>
+                  </div>
                 </div>
-              </ion-col>
+                
+                <div class="user-details">
+                  <p class="greeting">{{ greeting }}</p>
+                  <div class="name-badge-row">
+                    <h2 class="name">{{ currentEmployee?.FullName || 'User' }}</h2>
+                    <span *ngIf="getStatusLabel()" class="neon-status-badge">{{ getStatusLabel() }}</span>
+                  </div>
+                  <p class="date-location">
+                    {{ todayDate }} &nbsp;&nbsp; 
+                    <span class="site" *ngIf="currentEmployee">{{ currentEmployee.location_name }}</span>
+                  </p>
+                </div>
+              </div>
 
-              <ion-col size="12" size-sm="4" size-md="4" size-lg="4" size-xl="4" class="time-block">
-                <p class="clock mb-30">Current Time</p>
-                <p class="time">{{ currentTime }}</p>
-                <app-clock-button *ngIf="!isCEO()"></app-clock-button>
-              </ion-col>
+              <div class="neon-actions">
+                <button class="liquid-button" style="--btn-color: #00e5ff" *ngIf="!isCEO()" (click)="attendance()">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span class="text">My Attendance</span>
+                  <div class="liquid"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                </button>
+                
+                <button class="liquid-button" style="--btn-color: #00b4d8" *ngIf="!isCEO()" (click)="leaves()">
+                  <ion-icon name="airplane-outline"></ion-icon>
+                  <span class="text">Apply Leave</span>
+                  <div class="liquid"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                </button>
+                
+                <button class="liquid-button" style="--btn-color: #48cae4" (click)="myteam()">
+                  <ion-icon name="people-outline"></ion-icon>
+                  <span class="text">My Team</span>
+                  <div class="liquid"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                </button>
+              </div>
+            </div>
 
-            </ion-row>
+            <div class="neon-divider"></div>
+
+            <div class="neon-right-section">
+              <p class="time-label">Current Time</p>
+              <p class="time-display">{{ currentTime }}</p>
+              
+              <div class="clock-btn-wrapper" *ngIf="!isCEO()">
+                <app-clock-button></app-clock-button>
+              </div>
+            </div>
           </div>
         </ion-card>
       </ion-col>

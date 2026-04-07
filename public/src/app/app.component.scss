@@ -1,6 +1,5 @@
 ion-menu ion-content.sidenav-content {
-  --background: #1e293b;
-  /* Consistent Slate 800 for high accessibility */
+  --background: linear-gradient(180deg, #6366f1 0%, #d946ef 100%);
   height: 100%;
 }
 
@@ -9,7 +8,9 @@ ion-menu ion-content.sidenav-content {
   max-width: 90px !important;
   --side-width: 90px !important;
   border-right: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 4px 0 25px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(15px);
+  -webkit-backdrop-filter: blur(15px);
 }
 
 /* Brand Logo Header */
@@ -44,34 +45,39 @@ ion-menu ion-content.sidenav-content {
 /* Navigation Item */
 .menu-nav-item {
   --background: transparent;
-  --border-radius: 12px;
-  --color: #ffffff;
+  --border-radius: 16px;
+  --color: rgba(255, 255, 255, 0.7);
   --padding-start: 0;
   --padding-end: 0;
   --inner-padding-end: 0;
-  min-height: 80px;
-  margin-bottom: 4px;
-  transition: all 0.2s ease;
+  min-height: 85px;
+  margin: 8px 10px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 
   &:hover {
-    --background: rgba(255, 255, 255, 0.1);
+    --background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    --color: #ffffff;
   }
 
   &.selected {
-    --background: rgba(255, 255, 255, 0.15);
+    --background: rgba(255, 255, 255, 0.25);
     --color: #ffffff;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.2);
 
     &::before {
       content: '';
       position: absolute;
-      left: 0;
+      left: -10px;
       top: 50%;
       transform: translateY(-50%);
-      width: 4px;
-      height: 28px;
-      background: #3b82f6;
-      border-radius: 0 4px 4px 0;
+      width: 6px;
+      height: 40px;
+      background: #ffffff;
+      border-radius: 0 40px 40px 0;
+      box-shadow: 0 0 15px rgba(255, 255, 255, 0.5);
     }
   }
 
@@ -85,34 +91,40 @@ ion-menu ion-content.sidenav-content {
     padding: 12px 0;
 
     ion-label {
-      font-size: 10.5px;
-      font-weight: 700;
+      font-size: 10px;
+      font-weight: 600;
       margin: 0;
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      color: #ffffff;
-      opacity: 0.95;
+      letter-spacing: 1px;
+      color: inherit;
+      transition: all 0.3s ease;
     }
 
     .custom-menu-icon {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       object-fit: contain;
       flex-shrink: 0;
+      transition: all 0.3s ease;
     }
   }
 
   /* Icon visibility based on selection and class */
   .active-icon {
     display: none;
-    filter: brightness(0) invert(1);
+    filter: brightness(0) invert(1) drop-shadow(0 0 8px rgba(255, 255, 255, 0.4));
   }
 
   .inactive-icon {
     display: block;
     filter: brightness(0) invert(1);
-    opacity: 0.85;
-    /* Increased opacity for better visibility */
+    opacity: 0.7;
+    transition: all 0.3s ease;
+  }
+
+  &:hover .inactive-icon {
+    opacity: 1;
+    transform: scale(1.1);
   }
 
   &.selected {
@@ -122,12 +134,13 @@ ion-menu ion-content.sidenav-content {
 
     .active-icon {
       display: block;
-      filter: brightness(0) invert(1) drop-shadow(0 0 5px rgba(255, 255, 255, 0.3));
+      filter: brightness(0) invert(1);
+      transform: scale(1.1);
     }
 
     .row-left ion-label {
       opacity: 1;
-      color: #fff;
+      font-weight: 700;
     }
   }
 }
@@ -135,26 +148,27 @@ ion-menu ion-content.sidenav-content {
 /* Logout Item Special Treatment */
 .logout-item {
   margin-top: auto;
-  --color: #ef4444;
+  --color: #000000;
 
   &:hover {
-    --background: rgba(239, 68, 68, 0.1);
+    --background: rgba(0, 0, 0, 0.15);
 
     .custom-menu-icon {
-      filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+      filter: brightness(0) drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
     }
   }
 
   .inactive-icon,
   .active-icon {
-    /* Filter to achieve #ef4444 (Vibrant Red) from a black/neutral source */
-    filter: invert(27%) sepia(91%) saturate(6452%) hue-rotate(352deg) brightness(98%) contrast(92%);
+    /* Filter to achieve solid black from any source */
+    filter: brightness(0);
     opacity: 0.9;
   }
 
   ion-label {
-    color: #ef4444 !important;
+    color: #000000 !important;
     opacity: 1 !important;
+    font-weight: 800 !important;
   }
 }
 

@@ -24,17 +24,18 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr'] },
+
+    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr'] },
+    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr',] },
+    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
+    { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'] },
+    { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr'] },
     {
       title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager'], isExpanded: false, children: [
         { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['admin', 'hr', 'employee', 'manager'] },
         { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr'] }
       ]
     },
-    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr'] },
-    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr',] },
-    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
-    { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'] },
-    { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'manager', 'hr'] },
   ];
 
   constructor(
