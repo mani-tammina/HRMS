@@ -1575,6 +1575,31 @@ CREATE TABLE IF NOT EXISTS payroll_audit_trail (
   FOREIGN KEY (performed_by) REFERENCES users(id),
   FOREIGN KEY (payroll_run_id) REFERENCES payroll_runs(id)
 );
+
+CREATE TABLE IF NOT EXISTS payroll_run_lifecycle (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  run_id INT NOT NULL,
+  state ENUM('DRAFT','CALCULATED','REVIEWED','LOCKED','PAID') NOT NULL,
+  changed_by INT DEFAULT NULL,
+  changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  notes TEXT,
+  KEY idx_run_state_changed (run_id, state, changed_at),
+  FOREIGN KEY (run_id) REFERENCES payroll_runs(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS payroll_change_audit_logs (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  entity_type VARCHAR(64) NOT NULL,
+  entity_id INT DEFAULT NULL,
+  action VARCHAR(64) NOT NULL,
+  before_data JSON DEFAULT NULL,
+  after_data JSON DEFAULT NULL,
+  performed_by INT DEFAULT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  notes TEXT,
+  KEY idx_entity_action_time (entity_type, entity_id, action, created_at)
+);
+
 CREATE TABLE IF NOT EXISTS payroll_adjustments (
   id INT AUTO_INCREMENT PRIMARY KEY,
   employee_id INT NOT NULL,

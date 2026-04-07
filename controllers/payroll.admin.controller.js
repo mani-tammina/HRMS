@@ -1,12 +1,346 @@
 const { db } = require('../config/database');
+const lifecycleService = require('../services/payroll.lifecycle.service');
+const notificationService = require('../services/notification.service.enhanced');
+
+function ok(res, data) {
+  return res.json({ success: true, data, error: null });
+}
+
+function fail(res, status, error) {
+  return res.status(status).json({ success: false, data: null, error });
+}
+
+function parseMonthInput(value) {
+  if (!value || typeof value !== 'string') return null;
+  const parts = value.split('-');
+  if (parts.length !== 2) return null;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  if (!year || !month || month < 1 || month > 12) return null;
+  return { year, month };
+}
+
+async function buildRunValidation(year, month) {
+  const c = await db();
+  try {
+    const [employees] = await c.query(
+      `SELECT id
+       FROM employees
+       WHERE EmploymentStatus IS NULL OR LOWER(EmploymentStatus) IN ('active', 'probation', 'confirmed')`
+    );
+
+    const [withStructure] = await c.query(
+      `SELECT DISTINCT employee_id
+       FROM salary_structures
+       WHERE effective_from <= LAST_DAY(?)
+         AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))`,
+      [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
+    );
+
+    const [attendance] = await c.query(
+      `SELECT DISTINCT employee_id
+       FROM attendance
+       WHERE YEAR(attendance_date) = ? AND MONTH(attendance_date) = ?`,
+      [year, month]
+    );
+
+    const allEmployees = new Set(employees.map((r) => Number(r.id)));
+    const structureEmployees = new Set(withStructure.map((r) => Number(r.employee_id)));
+    const attendanceEmployees = new Set(attendance.map((r) => Number(r.employee_id)));
+
+    const missingStructure = [];
+    const missingAttendance = [];
+
+    for (const empId of allEmployees) {
+      if (!structureEmployees.has(empId)) missingStructure.push(empId);
+      if (!attendanceEmployees.has(empId)) missingAttendance.push(empId);
+    }
+
+    return {
+      month: `${year}-${String(month).padStart(2, '0')}`,
+      totalEmployees: allEmployees.size,
+      withSalaryStructure: structureEmployees.size,
+      withAttendance: attendanceEmployees.size,
+      missingSalaryStructureCount: missingStructure.length,
+      missingAttendanceCount: missingAttendance.length,
+      missingSalaryStructure: missingStructure.slice(0, 50),
+      missingAttendance: missingAttendance.slice(0, 50),
+      valid: missingStructure.length === 0 && missingAttendance.length === 0
+    };
+  } finally {
+    c.end();
+  }
+}
 
 async function previewRun(req, res) {
-  // Returns a preview calculation without committing
   try {
-    // In future: run calculation logic with transaction rollback
-    res.json({ success: true, preview: { message: 'Preview calculation not implemented - stub' } });
+    const year = Number(req.body.year);
+    const month = Number(req.body.month);
+    if (!year || !month) return fail(res, 400, 'year and month required');
+
+    const validation = await buildRunValidation(year, month);
+
+    const c = await db();
+    const [estimateRows] = await c.query(
+      `SELECT
+         COUNT(*) AS employeeCount,
+         COALESCE(SUM(ctc_amount / 12), 0) AS estimatedGross
+       FROM (
+         SELECT ss.employee_id, ss.ctc_amount
+         FROM salary_structures ss
+         JOIN (
+           SELECT employee_id, MAX(version) AS max_version
+           FROM salary_structures
+           WHERE effective_from <= LAST_DAY(?)
+             AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
+           GROUP BY employee_id
+         ) latest ON latest.employee_id = ss.employee_id AND latest.max_version = ss.version
+       ) current_structures`,
+      [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
+    );
+    c.end();
+
+    return ok(res, {
+      mode: 'DRY_RUN',
+      validation,
+      estimate: {
+        employeeCount: Number(estimateRows[0]?.employeeCount || 0),
+        estimatedGross: Number(estimateRows[0]?.estimatedGross || 0)
+      }
+    });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    return fail(res, 500, err.message);
+  }
+}
+
+async function validateRun(req, res) {
+  try {
+    const monthInput = req.query.month || req.body.month;
+    const parsed = parseMonthInput(monthInput);
+    if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
+
+    const validation = await buildRunValidation(parsed.year, parsed.month);
+    return ok(res, validation);
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+}
+
+async function getPayrollDashboard(req, res) {
+  try {
+    const monthInput = req.query.month;
+    const parsed = parseMonthInput(monthInput);
+    if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
+
+    const c = await db();
+    const [summary] = await c.query(
+      `SELECT
+         COUNT(DISTINCT r.id) AS runCount,
+         COALESCE(SUM(r.total_employees), 0) AS totalEmployeesProcessed,
+         COALESCE(SUM(r.total_gross), 0) AS totalGross,
+         COALESCE(SUM(r.total_deductions), 0) AS totalDeductions,
+         COALESCE(SUM(r.total_net), 0) AS totalNet
+       FROM payroll_runs r
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE cy.year = ? AND cy.month = ?`,
+      [parsed.year, parsed.month]
+    );
+
+    const [statusBreakdown] = await c.query(
+      `SELECT status, COUNT(*) AS count
+       FROM payroll_runs r
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE cy.year = ? AND cy.month = ?
+       GROUP BY status`,
+      [parsed.year, parsed.month]
+    );
+
+    const [lifecycleBreakdown] = await c.query(
+      `SELECT prl.state, COUNT(DISTINCT prl.run_id) AS count
+       FROM payroll_run_lifecycle prl
+       JOIN payroll_runs r ON r.id = prl.run_id
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE cy.year = ? AND cy.month = ?
+       GROUP BY prl.state`,
+      [parsed.year, parsed.month]
+    );
+
+    c.end();
+    return ok(res, {
+      month: monthInput,
+      summary: summary[0] || {},
+      statusBreakdown,
+      lifecycleBreakdown
+    });
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+}
+
+async function getEmployeeRunStatus(req, res) {
+  try {
+    const employeeId = Number(req.params.employeeId);
+    const monthInput = req.query.month;
+    const parsed = parseMonthInput(monthInput);
+    if (!employeeId) return fail(res, 400, 'employeeId required');
+    if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
+
+    const c = await db();
+    const [rows] = await c.query(
+      `SELECT
+         r.id AS runId,
+         r.status AS runStatus,
+         cy.year,
+         cy.month,
+         s.gross_earnings AS gross,
+         s.total_deductions AS deductions,
+         s.net_pay AS net,
+         (
+           SELECT prl.state
+           FROM payroll_run_lifecycle prl
+           WHERE prl.run_id = r.id
+           ORDER BY prl.changed_at DESC, prl.id DESC
+           LIMIT 1
+         ) AS lifecycleState
+       FROM payroll_employee_salaries s
+       JOIN payroll_runs r ON r.id = s.run_id
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE s.employee_id = ? AND cy.year = ? AND cy.month = ?
+       ORDER BY r.started_at DESC
+       LIMIT 1`,
+      [employeeId, parsed.year, parsed.month]
+    );
+    c.end();
+
+    if (!rows.length) {
+      return ok(res, {
+        employeeId,
+        month: monthInput,
+        exists: false,
+        status: 'NOT_PROCESSED'
+      });
+    }
+
+    return ok(res, {
+      employeeId,
+      month: monthInput,
+      exists: true,
+      run: rows[0]
+    });
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+}
+
+async function getPayrollReports(req, res) {
+  try {
+    const monthInput = req.query.month;
+    const parsed = parseMonthInput(monthInput);
+    if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
+
+    const c = await db();
+    const [departmentWise] = await c.query(
+      `SELECT
+         e.DepartmentId AS departmentId,
+         COUNT(*) AS employeeCount,
+         COALESCE(SUM(s.gross_earnings), 0) AS gross,
+         COALESCE(SUM(s.total_deductions), 0) AS deductions,
+         COALESCE(SUM(s.net_pay), 0) AS net
+       FROM payroll_employee_salaries s
+       JOIN payroll_runs r ON r.id = s.run_id
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       JOIN employees e ON e.id = s.employee_id
+       WHERE cy.year = ? AND cy.month = ?
+       GROUP BY e.DepartmentId
+       ORDER BY net DESC`,
+      [parsed.year, parsed.month]
+    );
+
+    const [topDeductions] = await c.query(
+      `SELECT
+         td.deduction_code AS code,
+         COALESCE(SUM(td.amount), 0) AS amount
+       FROM payroll_tax_deductions td
+       JOIN payroll_employee_salaries s ON s.id = td.employee_salary_id
+       JOIN payroll_runs r ON r.id = s.run_id
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE cy.year = ? AND cy.month = ?
+       GROUP BY td.deduction_code
+       ORDER BY amount DESC`,
+      [parsed.year, parsed.month]
+    );
+
+    c.end();
+    return ok(res, {
+      month: monthInput,
+      departmentWise,
+      topDeductions
+    });
+  } catch (err) {
+    return fail(res, 500, err.message);
+  }
+}
+
+async function sendPayrollNotifications(req, res) {
+  try {
+    const runId = Number(req.body.runId);
+    if (!runId) return fail(res, 400, 'runId required');
+
+    const c = await db();
+    const [runRows] = await c.query(
+      `SELECT r.id, cy.year, cy.month
+       FROM payroll_runs r
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE r.id = ?
+       LIMIT 1`,
+      [runId]
+    );
+    if (!runRows.length) {
+      c.end();
+      return fail(res, 404, 'Payroll run not found');
+    }
+
+    const [employees] = await c.query(
+      `SELECT s.employee_id AS employeeId, s.net_pay AS netPay
+       FROM payroll_employee_salaries s
+       WHERE s.run_id = ?`,
+      [runId]
+    );
+    c.end();
+
+    if (!employees.length) {
+      return ok(res, { notified: 0, message: 'No employees found in run' });
+    }
+
+    const monthText = `${runRows[0].year}-${String(runRows[0].month).padStart(2, '0')}`;
+    const ids = employees.map((r) => Number(r.employeeId));
+
+    const result = await notificationService.createBulkNotifications(
+      ids,
+      'payslip_generated',
+      {
+        month: monthText,
+        year: String(runRows[0].year),
+        net_pay: 'Available in payslip'
+      },
+      { category: 'payroll' }
+    );
+
+    await lifecycleService.logChange({
+      entityType: 'payroll_run',
+      entityId: runId,
+      action: 'SEND_NOTIFICATIONS',
+      afterData: { notified: result.count || 0 },
+      performedBy: (req.user && req.user.id) || null
+    });
+
+    return ok(res, {
+      runId,
+      month: monthText,
+      notified: result.count || 0
+    });
+  } catch (err) {
+    return fail(res, 500, err.message);
   }
 }
 
@@ -14,12 +348,59 @@ async function lockRun(req, res) {
   try {
     const runId = Number(req.params.runId);
     if (!runId) return res.status(400).json({ error: 'runId required' });
-    const c = await db();
-    await c.query('UPDATE payroll_runs SET status = ? WHERE id = ?', ['LOCKED', runId]);
-    c.end();
-    res.json({ success: true, runId, status: 'LOCKED' });
+    const by = (req.user && req.user.id) || null;
+    const lifecycle = await lifecycleService.appendLifecycleState(runId, lifecycleService.PAYROLL_LIFECYCLE.LOCKED, by, 'Run locked by finance/admin');
+    await lifecycleService.logChange({
+      entityType: 'payroll_run',
+      entityId: runId,
+      action: 'LOCK',
+      beforeData: { status: lifecycle.fromState },
+      afterData: { status: lifecycle.toState },
+      performedBy: by
+    });
+    res.json({ success: true, data: { runId, status: lifecycle.toState }, error: null });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(400).json({ success: false, data: null, error: err.message });
+  }
+}
+
+async function reviewRun(req, res) {
+  try {
+    const runId = Number(req.params.runId);
+    if (!runId) return res.status(400).json({ error: 'runId required' });
+    const by = (req.user && req.user.id) || null;
+    const lifecycle = await lifecycleService.appendLifecycleState(runId, lifecycleService.PAYROLL_LIFECYCLE.REVIEWED, by, 'Run reviewed');
+    await lifecycleService.logChange({
+      entityType: 'payroll_run',
+      entityId: runId,
+      action: 'REVIEW',
+      beforeData: { status: lifecycle.fromState },
+      afterData: { status: lifecycle.toState },
+      performedBy: by
+    });
+    res.json({ success: true, data: { runId, status: lifecycle.toState }, error: null });
+  } catch (err) {
+    res.status(400).json({ success: false, data: null, error: err.message });
+  }
+}
+
+async function markRunPaid(req, res) {
+  try {
+    const runId = Number(req.params.runId);
+    if (!runId) return res.status(400).json({ error: 'runId required' });
+    const by = (req.user && req.user.id) || null;
+    const lifecycle = await lifecycleService.appendLifecycleState(runId, lifecycleService.PAYROLL_LIFECYCLE.PAID, by, 'Run marked as paid');
+    await lifecycleService.logChange({
+      entityType: 'payroll_run',
+      entityId: runId,
+      action: 'MARK_PAID',
+      beforeData: { status: lifecycle.fromState },
+      afterData: { status: lifecycle.toState },
+      performedBy: by
+    });
+    res.json({ success: true, data: { runId, status: lifecycle.toState }, error: null });
+  } catch (err) {
+    res.status(400).json({ success: false, data: null, error: err.message });
   }
 }
 
@@ -52,14 +433,23 @@ async function putTaxProfile(req, res) {
   try {
     const employeeId = Number(req.params.employeeId);
     const payload = req.body || {};
+    const by = (req.user && req.user.id) || null;
     const c = await db();
-    const [existing] = await c.query('SELECT id FROM employee_tax_profiles WHERE employee_id = ? LIMIT 1', [employeeId]);
+    const [existing] = await c.query('SELECT * FROM employee_tax_profiles WHERE employee_id = ? LIMIT 1', [employeeId]);
     if (existing.length) {
       await c.query('UPDATE employee_tax_profiles SET ? WHERE employee_id = ?', [payload, employeeId]);
     } else {
       await c.query('INSERT INTO employee_tax_profiles SET ?', Object.assign({ employee_id: employeeId }, payload));
     }
     c.end();
+    await lifecycleService.logChange({
+      entityType: 'employee_tax_profile',
+      entityId: employeeId,
+      action: existing.length ? 'UPDATE' : 'CREATE',
+      beforeData: existing.length ? existing[0] : null,
+      afterData: payload,
+      performedBy: by
+    });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -126,9 +516,19 @@ async function updatePayoutStatus(req, res) {
   try {
     const payoutId = Number(req.params.payoutId);
     const { status } = req.body;
+    const by = (req.user && req.user.id) || null;
     const c = await db();
+    const [beforeRows] = await c.query('SELECT status FROM payroll_payouts WHERE id = ? LIMIT 1', [payoutId]);
     await c.query('UPDATE payroll_payouts SET status = ? WHERE id = ?', [status, payoutId]);
     c.end();
+    await lifecycleService.logChange({
+      entityType: 'payroll_payout',
+      entityId: payoutId,
+      action: 'STATUS_UPDATE',
+      beforeData: beforeRows.length ? { status: beforeRows[0].status } : null,
+      afterData: { status },
+      performedBy: by
+    });
     res.json({ success: true, payoutId, status });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -137,7 +537,14 @@ async function updatePayoutStatus(req, res) {
 
 module.exports = {
   previewRun,
+  validateRun,
+  getPayrollDashboard,
+  getEmployeeRunStatus,
+  getPayrollReports,
+  sendPayrollNotifications,
   lockRun,
+  reviewRun,
+  markRunPaid,
   lockCycle,
   getTaxProfile,
   putTaxProfile,

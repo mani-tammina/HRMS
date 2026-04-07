@@ -7,10 +7,10 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, finance } = require("../middleware/auth");
-const { findEmployeeByUserId } = require("../utils/helpers");
 const payrollCtrl = require('../controllers/payroll.controller');
 const payrollService = require('../services/payroll.service');
 const payrollAdmin = require('../controllers/payroll.admin.controller');
+const { resolvePayrollEmployeeContext } = require('../middleware/payroll-security');
 
 /* ============ PAYROLL SETTINGS ============ */
 
@@ -47,50 +47,21 @@ router.get("/defaults", auth, finance, async (req, res) => {
 
 /* ============ NEW MODERN API ENDPOINTS (Phase-1) ============ */
 
-// Authorization middleware for payroll data access
-const canViewPayrollData = async (req, res, next) => {
-    try {
-        const requestedEmployeeId = parseInt(req.params.employeeId);
-        const userRole = (req.user.role || '').toLowerCase();
-        
-        // Admin and HR can view anyone's payroll
-        if (userRole === 'admin' || userRole === 'hr') {
-            return next();
-        }
-        
-        // Get viewer's employee record
-        const viewerEmployee = await findEmployeeByUserId(req.user.id);
-        if (!viewerEmployee) {
-            return res.status(403).json({ error: "Unauthorized: Employee record not found" });
-        }
-        
-        // Can only view own payroll data
-        if (viewerEmployee.id !== requestedEmployeeId) {
-            return res.status(403).json({ error: "Unauthorized: You can only view your own payroll data" });
-        }
-        
-        next();
-    } catch (error) {
-        console.error('[canViewPayrollData] Error:', error);
-        res.status(500).json({ error: "Authorization check failed" });
-    }
-};
-
 // Modern v2 API endpoints to avoid clashing with legacy routes
 // POST /api/payroll/v2/run  { year: 2026, month: 2 }
 router.post('/v2/run', auth, finance, payrollCtrl.runPayroll);
 
 // GET /api/payroll/v2/payslips/:employeeId
-router.get('/v2/payslips/:employeeId', auth, canViewPayrollData, payrollCtrl.listPayslips);
+router.get('/v2/payslips/:employeeId', auth, resolvePayrollEmployeeContext, payrollCtrl.listPayslips);
 
 // GET /api/payroll/v2/payslips/:employeeId/:year/:month
-router.get('/v2/payslips/:employeeId/:year/:month', auth, canViewPayrollData, payrollCtrl.payslipDetail);
+router.get('/v2/payslips/:employeeId/:year/:month', auth, resolvePayrollEmployeeContext, payrollCtrl.payslipDetail);
 
 // GET /api/payroll/v2/structure/:employeeId
-router.get('/v2/structure/:employeeId', auth, canViewPayrollData, payrollCtrl.getSalaryStructure);
+router.get('/v2/structure/:employeeId', auth, resolvePayrollEmployeeContext, payrollCtrl.getSalaryStructure);
 
 // GET /api/payroll/v2/attendance-impact/:employeeId?year=2026&month=2
-router.get('/v2/attendance-impact/:employeeId', auth, canViewPayrollData, payrollCtrl.getAttendanceImpact);
+router.get('/v2/attendance-impact/:employeeId', auth, resolvePayrollEmployeeContext, payrollCtrl.getAttendanceImpact);
 
 // GET /api/payroll/v2/run?month=YYYY-MM  -> summary for a month (admin/hr)
 router.get('/v2/run', auth, finance, async (req, res) => {
@@ -144,7 +115,7 @@ router.get('/v2/run/:employeeId', auth, finance, async (req, res) => {
 });
 
 // GET /api/payroll/v2/earnings/:employeeId?month=YYYY-MM
-router.get('/v2/earnings/:employeeId', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/earnings/:employeeId', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const { month } = req.query;
     const employeeId = Number(req.params.employeeId);
     if (!month) return res.status(400).json({ error: 'month query required (YYYY-MM)' });
@@ -171,7 +142,7 @@ router.get('/v2/earnings/:employeeId', auth, canViewPayrollData, async (req, res
 });
 
 // GET /api/payroll/v2/deductions/:employeeId?month=YYYY-MM
-router.get('/v2/deductions/:employeeId', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/deductions/:employeeId', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const { month } = req.query;
     const employeeId = Number(req.params.employeeId);
     if (!month) return res.status(400).json({ error: 'month query required (YYYY-MM)' });
@@ -198,7 +169,7 @@ router.get('/v2/deductions/:employeeId', auth, canViewPayrollData, async (req, r
 });
 
 // GET /api/payroll/v2/tax-summary/:employeeId?year=YYYY
-router.get('/v2/tax-summary/:employeeId', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/tax-summary/:employeeId', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const year = Number(req.query.year);
     const employeeId = Number(req.params.employeeId);
     if (!year) return res.status(400).json({ error: 'year query required' });
@@ -222,7 +193,7 @@ router.get('/v2/tax-summary/:employeeId', auth, canViewPayrollData, async (req, 
 });
 
 // GET /api/payroll/v2/form16/:employeeId?year=YYYY  (placeholder metadata)
-router.get('/v2/form16/:employeeId', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/form16/:employeeId', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const year = Number(req.query.year);
     const employeeId = Number(req.params.employeeId);
     if (!year) return res.status(400).json({ error: 'year query required' });
@@ -231,12 +202,12 @@ router.get('/v2/form16/:employeeId', auth, canViewPayrollData, async (req, res) 
 });
 
 // GET /api/payroll/v2/form16/:employeeId/:year/download (placeholder)
-router.get('/v2/form16/:employeeId/:year/download', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/form16/:employeeId/:year/download', auth, resolvePayrollEmployeeContext, async (req, res) => {
     res.status(501).json({ error: 'Form16 PDF download not implemented' });
 });
 
 // GET /api/payroll/v2/payslips/:employeeId/:month (month=YYYY-MM)
-router.get('/v2/payslips/:employeeId/:month', auth, canViewPayrollData, async (req, res) => {
+router.get('/v2/payslips/:employeeId/:month', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const employeeId = Number(req.params.employeeId);
     const month = req.params.month; // YYYY-MM
     if (!month) return res.status(400).json({ error: 'month required (YYYY-MM)' });
@@ -256,8 +227,32 @@ router.get('/v2/payslips/:employeeId/:month', auth, canViewPayrollData, async (r
 // POST /api/payroll/v2/runs/preview
 router.post('/v2/runs/preview', auth, finance, payrollAdmin.previewRun);
 
+// GET /api/payroll/v2/runs/validate?month=YYYY-MM
+router.get('/v2/runs/validate', auth, finance, payrollAdmin.validateRun);
+
+// GET /api/payroll/v2/dashboard?month=YYYY-MM
+router.get('/v2/dashboard', auth, finance, payrollAdmin.getPayrollDashboard);
+
+// GET /api/payroll/v2/employees/:employeeId/run-status?month=YYYY-MM
+router.get('/v2/employees/:employeeId/run-status', auth, finance, payrollAdmin.getEmployeeRunStatus);
+
+// GET /api/payroll/v2/reports?month=YYYY-MM
+router.get('/v2/reports', auth, finance, payrollAdmin.getPayrollReports);
+
+// POST /api/payroll/v2/runs/:runId/notify
+router.post('/v2/runs/:runId/notify', auth, finance, (req, res, next) => {
+    req.body.runId = Number(req.params.runId);
+    return payrollAdmin.sendPayrollNotifications(req, res, next);
+});
+
 // POST /api/payroll/v2/runs/:runId/lock
 router.post('/v2/runs/:runId/lock', auth, finance, payrollAdmin.lockRun);
+
+// POST /api/payroll/v2/runs/:runId/review
+router.post('/v2/runs/:runId/review', auth, finance, payrollAdmin.reviewRun);
+
+// POST /api/payroll/v2/runs/:runId/paid
+router.post('/v2/runs/:runId/paid', auth, finance, payrollAdmin.markRunPaid);
 
 // PUT /api/payroll/v2/cycles/:cycleId/lock
 router.put('/v2/cycles/:cycleId/lock', auth, finance, payrollAdmin.lockCycle);

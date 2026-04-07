@@ -5574,6 +5574,152 @@ Skips employees who already have user accounts.
       },
     },
 
+    "/api/payroll/v2/runs/preview": {
+      post: {
+        summary: "Dry Run Preview",
+        description: "Preview payroll readiness and estimated totals without creating final payroll records.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["year", "month"],
+                properties: {
+                  year: { type: "integer", example: 2026 },
+                  month: { type: "integer", example: 3 }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Dry run preview generated" } }
+      }
+    },
+
+    "/api/payroll/v2/runs/validate": {
+      get: {
+        summary: "Validate Payroll Readiness",
+        description: "Validate attendance and salary setup coverage before running payroll.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: "2026-03" },
+            description: "Month in YYYY-MM format"
+          }
+        ],
+        responses: { 200: { description: "Validation summary" } }
+      }
+    },
+
+    "/api/payroll/v2/dashboard": {
+      get: {
+        summary: "Payroll Dashboard",
+        description: "Get month-level payroll dashboard metrics including run and lifecycle status breakdown.",
+        tags: ["Payroll - Reports"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: "2026-03" },
+            description: "Month in YYYY-MM format"
+          }
+        ],
+        responses: { 200: { description: "Payroll dashboard metrics" } }
+      }
+    },
+
+    "/api/payroll/v2/reports": {
+      get: {
+        summary: "Payroll Reports",
+        description: "Get department-wise payroll totals and deduction summary for a month.",
+        tags: ["Payroll - Reports"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: "2026-03" },
+            description: "Month in YYYY-MM format"
+          }
+        ],
+        responses: { 200: { description: "Payroll reports generated" } }
+      }
+    },
+
+    "/api/payroll/v2/employees/{employeeId}/run-status": {
+      get: {
+        summary: "Employee Run Status",
+        description: "Get payroll processing status and totals for one employee in a month.",
+        tags: ["Payroll - Reports"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "employeeId", in: "path", required: true, schema: { type: "integer" } },
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            schema: { type: "string", example: "2026-03" },
+            description: "Month in YYYY-MM format"
+          }
+        ],
+        responses: { 200: { description: "Employee run status" } }
+      }
+    },
+
+    "/api/payroll/v2/runs/{runId}/lock": {
+      post: {
+        summary: "Lock Payroll Run",
+        description: "Move payroll run lifecycle to LOCKED.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "runId", in: "path", required: true, schema: { type: "integer" } }],
+        responses: { 200: { description: "Run locked" } }
+      }
+    },
+
+    "/api/payroll/v2/runs/{runId}/review": {
+      post: {
+        summary: "Review Payroll Run",
+        description: "Move payroll run lifecycle to REVIEWED.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "runId", in: "path", required: true, schema: { type: "integer" } }],
+        responses: { 200: { description: "Run reviewed" } }
+      }
+    },
+
+    "/api/payroll/v2/runs/{runId}/paid": {
+      post: {
+        summary: "Mark Payroll Run Paid",
+        description: "Move payroll run lifecycle to PAID.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "runId", in: "path", required: true, schema: { type: "integer" } }],
+        responses: { 200: { description: "Run marked as paid" } }
+      }
+    },
+
+    "/api/payroll/v2/runs/{runId}/notify": {
+      post: {
+        summary: "Send Payroll Notifications",
+        description: "Send payslip-generated notifications to all employees in the run.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "runId", in: "path", required: true, schema: { type: "integer" } }],
+        responses: { 200: { description: "Notifications dispatched" } }
+      }
+    },
+
     // ============ 3️⃣ PAYROLL REPORTS (View & Download) ============
     "/api/payroll/v2/payslips/{employeeId}": {
       get: {
