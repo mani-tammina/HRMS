@@ -11,37 +11,74 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   imports: [CommonModule, IonicModule],
   template: `
   <div class="ion-text-left">
-    <!-- Clock In Button (Web only) -->
     <div class="row-center" *ngIf="!isClockedIn && currentUrl !== '/Me'">
-      <ion-button class="btn-clockin" (click)="clockIn('Office')">Web Clock-In</ion-button>
+      <button class="liquid-button" style="--btn-color: #4caf50" (click)="clockIn('Office')">
+        <span class="text">Web Clock-In</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      </button>
     </div>
 
     <!-- Clock In Button for /Me page -->
     <div *ngIf="!isClockedIn && currentUrl == '/Me'">
-      <ion-button fill="clear" class="clear" (click)="clockIn('Office')">
-        Web Clock-In
-      </ion-button>
+      <button class="liquid-button" style="--btn-color: #4caf50; background: transparent; box-shadow: none" (click)="clockIn('Office')">
+        <span class="text">Web Clock-In</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      </button>
     </div>
 
     <!-- Clock Out Button - Office -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'Office' && currentUrl !== '/Me'">
-      <ion-button class="btn-clockout" (click)="clockOut()">Web Clock-Out</ion-button>
+      <button class="liquid-button" style="--btn-color: #ff2b2b" (click)="clockOut()">
+        <span class="text">Web Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      </button>
     </div>
 
     <!-- Clock Out Button - Remote -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'Remote' && currentUrl !== '/Me'">
-      <ion-button class="btn-clockout" color="warning" (click)="remoteClockOut()">Remote Clock-Out</ion-button>
+      <button class="liquid-button" style="--btn-color: #ff9900" (click)="remoteClockOut()">
+        <span class="text">Remote Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      </button>
     </div>
 
     <!-- Clock Out Button - WFH -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'WFH' && currentUrl !== '/Me'">
-      <ion-button class="btn-clockout" color="secondary" (click)="clockOut()">WFH Clock-Out</ion-button>
+      <button class="liquid-button" style="--btn-color: #00f3ff" (click)="clockOut()">
+        <span class="text">WFH Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      </button>
     </div>
 
     <!-- /Me page buttons -->
-    <ion-button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Office'" class="btn-clockout" (click)="clockOut()">Web Clock-Out</ion-button>
-    <ion-button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Remote'" class="btn-clockout" color="warning" (click)="remoteClockOut()">Remote Clock-Out</ion-button>
-    <ion-button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'WFH'" class="btn-clockout" color="secondary" (click)="clockOut()">WFH Clock-Out</ion-button>
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Office'" class="liquid-button" style="--btn-color: #ff2b2b" (click)="clockOut()">
+      <span class="text">Web Clock-Out</span>
+      <div class="liquid"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+    </button>
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Remote'" class="liquid-button" style="--btn-color: #ff9900" (click)="remoteClockOut()">
+      <span class="text">Remote Clock-Out</span>
+      <div class="liquid"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+    </button>
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'WFH'" class="liquid-button" style="--btn-color: #00f3ff" (click)="clockOut()">
+      <span class="text">WFH Clock-Out</span>
+      <div class="liquid"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+    </button>
   </div>
   `,
   styles: [`
