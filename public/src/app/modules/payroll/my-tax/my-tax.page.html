@@ -1,0 +1,345 @@
+<ion-header class="my-tax-header">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button (click)="goBack()" defaultHref="/MyPay"></ion-back-button>
+    </ion-buttons>
+    <ion-title>My Tax Portal</ion-title>
+    <ion-buttons slot="end">
+      <select [(ngModel)]="financialYear" (ngModelChange)="loadTaxSummary()" class="fy-select" id="my-tax-fy-select">
+        <option *ngFor="let y of availableYears" [value]="y">FY {{ y }}</option>
+      </select>
+    </ion-buttons>
+  </ion-toolbar>
+  <div class="tax-tabs">
+    <button class="tax-tab" [class.active]="activeTab==='summary'"      (click)="setTab('summary')">
+      <ion-icon name="pie-chart-outline"></ion-icon> Summary
+    </button>
+    <button class="tax-tab" [class.active]="activeTab==='computation'"  (click)="setTab('computation')">
+      <ion-icon name="calculator-outline"></ion-icon> Computation
+    </button>
+    <button class="tax-tab" [class.active]="activeTab==='declarations'" (click)="setTab('declarations')">
+      <ion-icon name="document-text-outline"></ion-icon> Declarations
+    </button>
+    <button class="tax-tab" [class.active]="activeTab==='proof'"        (click)="setTab('proof')">
+      <ion-icon name="cloud-upload-outline"></ion-icon> Proof Upload
+    </button>
+    <button class="tax-tab" [class.active]="activeTab==='history'"      (click)="setTab('history')">
+      <ion-icon name="time-outline"></ion-icon> History
+    </button>
+  </div>
+</ion-header>
+
+<ion-content class="my-tax-content">
+
+  <!-- ══════════════════════════════════
+       SUMMARY
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='summary'" class="tab-panel">
+    <div *ngIf="isLoadingSummary" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+    <!-- Regime Banner -->
+    <div *ngIf="taxSummary" class="regime-banner glass-card">
+      <div class="regime-pill" [class.new-regime]="taxSummary.tax_regime==='NEW'" [class.old-regime]="taxSummary.tax_regime==='OLD'">
+        {{ taxSummary.tax_regime }} REGIME
+      </div>
+      <div class="regime-info">
+        <span class="pan">{{ taxSummary.pan || 'PAN not set' }}</span>
+        <span class="tds-badge" *ngIf="taxSummary.is_tds_exempt">TDS Exempt</span>
+      </div>
+      <div class="tds-bar">
+        <span class="tds-label">TDS Paid YTD</span>
+        <span class="tds-val">{{ formatCurrency(taxSummary.tds_paid_ytd) }}</span>
+      </div>
+    </div>
+
+    <!-- Declarations Summary -->
+    <div *ngIf="taxSummary?.declared_investments" class="glass-card">
+      <div class="card-header">
+        <div class="card-icon decl-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+        <div><h2>Investment Declarations</h2><p>FY {{ financialYear }}</p></div>
+      </div>
+      <div class="decl-grid">
+        <div class="decl-item" *ngFor="let entry of taxSummary!.declared_investments | keyvalue">
+          <span class="decl-section">{{ entry.key }}</span>
+          <span class="decl-amount">{{ formatCurrency(+entry.value) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submitted Proofs -->
+    <div *ngIf="taxSummary?.proofs?.length" class="glass-card">
+      <div class="card-header">
+        <div class="card-icon"><ion-icon name="document-attach-outline"></ion-icon></div>
+        <div><h2>Submitted Proofs</h2></div>
+      </div>
+      <div class="proof-list">
+        <div class="proof-row" *ngFor="let p of taxSummary!.proofs">
+          <span class="proof-section">{{ p.section_code }}</span>
+          <span class="proof-amount">{{ formatCurrency(p.declared_amount) }}</span>
+          <ion-badge [color]="getProofStatusColor(p.verification_status)">{{ p.verification_status }}</ion-badge>
+          <span *ngIf="p.ai_confidence" class="confidence">{{ p.ai_confidence }}% confidence</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Regime Switcher -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon switch-icon"><ion-icon name="swap-horizontal-outline"></ion-icon></div>
+        <div><h2>Switch Tax Regime</h2><p>Choose once per financial year — affects your TDS</p></div>
+      </div>
+      <div class="regime-switch">
+        <div class="regime-option" [class.selected]="selectedRegime==='NEW'" (click)="selectedRegime='NEW'" id="regime-new">
+          <div class="regime-tag new-tag">NEW</div>
+          <p>Lower rates, no deductions</p>
+        </div>
+        <div class="regime-option" [class.selected]="selectedRegime==='OLD'" (click)="selectedRegime='OLD'" id="regime-old">
+          <div class="regime-tag old-tag">OLD</div>
+          <p>Higher rates + section deductions (80C, HRA, etc.)</p>
+        </div>
+      </div>
+      <button class="action-btn" (click)="saveRegimeSelection()" [disabled]="isSavingRegime" id="save-regime-btn">
+        <ion-spinner *ngIf="isSavingRegime" name="crescent"></ion-spinner>
+        <ion-icon *ngIf="!isSavingRegime" name="save-outline"></ion-icon>
+        {{ isSavingRegime ? 'Saving...' : 'Confirm Regime Selection' }}
+      </button>
+    </div>
+
+    <!-- Payslip Download -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon download-icon"><ion-icon name="download-outline"></ion-icon></div>
+        <div><h2>Download Payslip PDF</h2><p>Get your monthly payslip as a PDF</p></div>
+      </div>
+      <div class="download-row">
+        <input type="month" [(ngModel)]="selectedPayslipMonth" class="glass-input" id="payslip-month-select" />
+        <button class="download-btn" (click)="downloadPayslipPDF()" [disabled]="isDownloadingPDF" id="download-payslip-btn">
+          <ion-spinner *ngIf="isDownloadingPDF" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isDownloadingPDF" name="cloud-download-outline"></ion-icon>
+          {{ isDownloadingPDF ? 'Preparing...' : 'Download PDF' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       COMPUTATION
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='computation'" class="tab-panel">
+    <div *ngIf="isLoadingComputation" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+    <div *ngIf="!isLoadingComputation && !taxComputation" class="glass-card empty-card">
+      <p class="empty-msg">No tax computation data found for FY {{ financialYear }}.</p>
+      <button class="action-btn" (click)="loadTaxComputation()" id="reload-computation-btn">
+        <ion-icon name="refresh-outline"></ion-icon> Load Computation
+      </button>
+    </div>
+
+    <div *ngIf="taxComputation" class="computation-grid">
+
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-icon calc-icon"><ion-icon name="calculator-outline"></ion-icon></div>
+          <div><h2>Tax Computation</h2><p>{{ taxComputation.financial_year }} · {{ taxComputation.regime_type }} Regime</p></div>
+        </div>
+        <div class="comp-rows">
+          <div class="comp-row">
+            <span>Gross Annual Income</span>
+            <strong class="positive">{{ formatCurrency(taxComputation.gross_annual_income) }}</strong>
+          </div>
+          <div class="comp-row deduction">
+            <span>Total Deductions</span>
+            <strong class="negative">- {{ formatCurrency(taxComputation.total_deductions) }}</strong>
+          </div>
+          <div class="comp-row total-row">
+            <span>Taxable Income</span>
+            <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div class="glass-card">
+        <div class="card-header">
+          <div class="card-icon tax-icon"><ion-icon name="cash-outline"></ion-icon></div>
+          <div><h2>Tax Liability</h2></div>
+        </div>
+        <div class="comp-rows">
+          <div class="comp-row">
+            <span>Income Tax</span>
+            <strong>{{ formatCurrency(taxComputation.income_tax) }}</strong>
+          </div>
+          <div class="comp-row">
+            <span>Cess (4%)</span>
+            <strong>{{ formatCurrency(taxComputation.cess) }}</strong>
+          </div>
+          <div class="comp-row" *ngIf="taxComputation.surcharge">
+            <span>Surcharge</span>
+            <strong>{{ formatCurrency(taxComputation.surcharge) }}</strong>
+          </div>
+          <div class="comp-row total-row highlight-row">
+            <span>Total Tax Liability</span>
+            <strong class="tax-total">{{ formatCurrency(taxComputation.total_tax_liability) }}</strong>
+          </div>
+          <div class="comp-row monthly-tds">
+            <span>Monthly TDS</span>
+            <strong class="tds-monthly">{{ formatCurrency(taxComputation.monthly_tds) }}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       DECLARATIONS
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='declarations'" class="tab-panel">
+    <div *ngIf="isLoadingDeclarations" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+    <div *ngIf="!isLoadingDeclarations" class="glass-card">
+      <div class="card-header">
+        <div class="card-icon decl-icon"><ion-icon name="document-text-outline"></ion-icon></div>
+        <div>
+          <h2>Investment Declarations</h2>
+          <p>FY {{ financialYear }} · {{ existingRegime || selectedRegime }} Regime
+            <span *ngIf="existingDeclaredAt"> · Updated {{ existingDeclaredAt | date:'mediumDate' }}</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Regime toggle inside declarations -->
+      <div class="mini-regime-toggle">
+        <button [class.active-regime]="selectedRegime==='OLD'" (click)="selectedRegime='OLD'" id="decl-old-regime">OLD</button>
+        <button [class.active-regime]="selectedRegime==='NEW'" (click)="selectedRegime='NEW'" id="decl-new-regime">NEW</button>
+      </div>
+
+      <div class="decl-form-grid">
+        <div class="decl-form-item glass-sub-card" *ngFor="let s of sectionMeta">
+          <div class="decl-code">{{ s.code }}</div>
+          <div class="decl-label">{{ s.label }}</div>
+          <div class="max-hint">Max: {{ formatCurrency(s.maxHint) }}</div>
+          <input type="number" [(ngModel)]="declarations[s.code]" class="glass-input"
+                 [attr.id]="'decl-'+s.code" min="0" [max]="s.maxHint"
+                 placeholder="₹ 0" />
+          <div class="progress-bar">
+            <div class="progress-fill" [style.width.%]="Math.min(100, (declarations[s.code]/s.maxHint)*100)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="decl-footer">
+        <div class="total-declared">
+          Total Declared: <span>{{ formatCurrency(getTotalDeclared()) }}</span>
+        </div>
+        <button class="action-btn" (click)="saveDeclared()" [disabled]="isSavingDeclarations" id="save-declarations-btn">
+          <ion-spinner *ngIf="isSavingDeclarations" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSavingDeclarations" name="checkmark-circle-outline"></ion-icon>
+          {{ isSavingDeclarations ? 'Submitting...' : 'Submit Declarations' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       PROOF UPLOAD
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='proof'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon upload-icon"><ion-icon name="cloud-upload-outline"></ion-icon></div>
+        <div>
+          <h2>Upload Investment Proof</h2>
+          <p>Submit PDF / JPG / PNG documents for each deduction section</p>
+        </div>
+      </div>
+
+      <form [formGroup]="proofForm" class="proof-upload-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Section Code</label>
+            <select formControlName="section_code" class="glass-input" id="proof-section">
+              <option *ngFor="let s of sectionMeta" [value]="s.code">{{ s.code }} — {{ s.label }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Declared Amount (₹)</label>
+            <input type="number" formControlName="declared_amount" class="glass-input" id="proof-amount" min="1" />
+          </div>
+          <div class="form-group">
+            <label>Financial Year</label>
+            <select formControlName="financial_year" class="glass-input" id="proof-fy">
+              <option *ngFor="let y of availableYears" [value]="y">FY {{ y }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- File Drop Zone -->
+        <div class="drop-zone" id="proof-drop-zone">
+          <ion-icon name="document-outline" class="drop-icon"></ion-icon>
+          <p>Click to select or drag & drop your document</p>
+          <span class="formats">PDF, JPG, PNG accepted</span>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="onFileSelected($event)" id="proof-file-input" class="file-input" />
+        </div>
+        <div *ngIf="selectedFile" class="selected-file">
+          <ion-icon name="document-attach-outline"></ion-icon>
+          <span>{{ selectedFile.name }}</span>
+          <button type="button" class="clear-file" (click)="selectedFile=null">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+
+        <button class="action-btn upload-btn" (click)="uploadProof()" [disabled]="!selectedFile || isUploadingProof || proofForm.invalid" id="upload-proof-btn">
+          <ion-spinner *ngIf="isUploadingProof" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isUploadingProof" name="cloud-upload-outline"></ion-icon>
+          {{ isUploadingProof ? 'Uploading...' : 'Upload Proof' }}
+        </button>
+      </form>
+
+      <div *ngIf="uploadResult" class="upload-result success-result">
+        <ion-icon name="checkmark-circle-outline"></ion-icon>
+        <div>
+          <strong>Proof uploaded successfully!</strong>
+          <span>Proof ID: {{ uploadResult.proof_id }} · Status: {{ uploadResult.status }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       HISTORY
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='history'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon"><ion-icon name="time-outline"></ion-icon></div>
+        <div><h2>Payroll History</h2><p>Your month-wise salary records</p></div>
+        <button class="refresh-btn" (click)="loadPayrollHistory()" id="refresh-history-btn">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div *ngIf="isLoadingHistory" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+      <div *ngIf="!isLoadingHistory && payrollHistory.length === 0" class="empty-msg">
+        No payroll records found.
+      </div>
+
+      <div *ngIf="!isLoadingHistory" class="history-grid">
+        <div class="history-item glass-sub-card" *ngFor="let h of payrollHistory">
+          <div class="hist-period">{{ getMonthName(h.month) }} {{ h.year }}</div>
+          <div class="hist-stats">
+            <div class="hist-stat">
+              <span>Gross</span>
+              <strong class="gross">{{ formatCurrency(h.gross_earnings) }}</strong>
+            </div>
+            <div class="hist-stat">
+              <span>Net Pay</span>
+              <strong class="net">{{ formatCurrency(h.net_pay) }}</strong>
+            </div>
+          </div>
+          <ion-badge [color]="getStatusColor(h.status)">{{ h.status }}</ion-badge>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</ion-content>

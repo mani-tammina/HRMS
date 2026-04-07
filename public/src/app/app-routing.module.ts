@@ -72,6 +72,12 @@ const routes: Routes = [
     data: { role: ['employee', 'manager', 'hr'] }
   },
   {
+    path: 'MyTax',
+    loadChildren: () => import('./modules/payroll/my-tax/my-tax.module').then(m => m.MyTaxPageModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['employee', 'manager', 'hr'] }
+  },
+  {
     path: 'finance',
     loadChildren: () => import('./modules/finance/finance.module').then(m => m.FinanceModule),
     canActivate: [AuthGuard, RoleGuard],

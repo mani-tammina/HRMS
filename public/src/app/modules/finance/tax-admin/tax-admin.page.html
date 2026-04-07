@@ -1,0 +1,480 @@
+<ion-header class="tax-admin-header">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
+    </ion-buttons>
+    <ion-title>Tax Administration</ion-title>
+    <ion-buttons slot="end">
+      <div class="fy-selector">
+        <select [(ngModel)]="financialYear" class="fy-select" id="fy-select">
+          <option *ngFor="let y of availableYears" [value]="y">FY {{ y }}</option>
+        </select>
+      </div>
+    </ion-buttons>
+  </ion-toolbar>
+  <!-- Tabs -->
+  <div class="admin-tabs">
+    <button class="admin-tab" [class.active]="activeTab==='statutory'" (click)="setTab('statutory')">
+      <ion-icon name="shield-checkmark-outline"></ion-icon> Statutory
+    </button>
+    <button class="admin-tab" [class.active]="activeTab==='slabs'" (click)="setTab('slabs')">
+      <ion-icon name="layers-outline"></ion-icon> Tax Slabs
+    </button>
+    <button class="admin-tab" [class.active]="activeTab==='sections'" (click)="setTab('sections')">
+      <ion-icon name="list-outline"></ion-icon> 80C/80D Limits
+    </button>
+    <button class="admin-tab" [class.active]="activeTab==='queue'" (click)="setTab('queue')">
+      <ion-icon name="checkmark-circle-outline"></ion-icon> Verify Queue
+    </button>
+    <button class="admin-tab" [class.active]="activeTab==='window'" (click)="setTab('window')">
+      <ion-icon name="calendar-outline"></ion-icon> Proof Window
+    </button>
+    <button class="admin-tab" [class.active]="activeTab==='payout'" (click)="setTab('payout')">
+      <ion-icon name="cash-outline"></ion-icon> Payouts
+    </button>
+  </div>
+</ion-header>
+
+<ion-content class="tax-admin-content">
+
+  <!-- ══════════════════════════════════
+       STATUTORY RULES
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='statutory'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon shield-icon"><ion-icon name="shield-checkmark-outline"></ion-icon></div>
+        <div>
+          <h2>Statutory Rules (PF / ESI / PT)</h2>
+          <p>Configure contribution percentages and ceiling limits</p>
+        </div>
+      </div>
+
+      <div *ngIf="isLoadingStatutory" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+      <form *ngIf="!isLoadingStatutory" [formGroup]="statutoryForm">
+        <div formArrayName="rules">
+          <div class="rule-row" *ngFor="let rule of ruleControls.controls; let i=index" [formGroupName]="i">
+            <div class="form-grid-5">
+              <div class="form-group">
+                <label>Type</label>
+                <select formControlName="provider_type" class="glass-input" [id]="'rule-type-'+i">
+                  <option value="PF">PF</option>
+                  <option value="ESI">ESI</option>
+                  <option value="PT">PT</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>State Code</label>
+                <input formControlName="state_code" class="glass-input" [id]="'rule-state-'+i" placeholder="DEFAULT" />
+              </div>
+              <div class="form-group">
+                <label>% Rate</label>
+                <input type="number" formControlName="percentage" class="glass-input" [id]="'rule-pct-'+i" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label>Ceiling (₹)</label>
+                <input type="number" formControlName="ceiling_limit" class="glass-input" [id]="'rule-ceiling-'+i" />
+              </div>
+              <div class="form-group">
+                <label>Effective From</label>
+                <input type="date" formControlName="effective_from" class="glass-input" [id]="'rule-date-'+i" />
+              </div>
+            </div>
+            <button class="remove-btn" (click)="removeRule(i)" type="button">
+              <ion-icon name="close-circle-outline"></ion-icon>
+            </button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button class="add-rule-btn" (click)="addRule()" type="button" id="add-rule-btn">
+            <ion-icon name="add-outline"></ion-icon> Add Rule
+          </button>
+          <button class="save-btn" (click)="saveStatutoryRules()" [disabled]="isSavingStatutory" id="save-statutory-btn">
+            <ion-spinner *ngIf="isSavingStatutory" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!isSavingStatutory" name="save-outline"></ion-icon>
+            {{ isSavingStatutory ? 'Saving...' : 'Save Rules' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       TAX SLABS
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='slabs'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon layers-icon"><ion-icon name="layers-outline"></ion-icon></div>
+        <div>
+          <h2>Income Tax Slabs — FY {{ financialYear }}</h2>
+          <p>Tax rates for Old and New regime</p>
+        </div>
+        <button class="refresh-btn" (click)="loadTaxSlabs()" id="refresh-slabs-btn">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div *ngIf="isLoadingSlabs" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+      <div *ngIf="!isLoadingSlabs" class="slabs-split">
+        <!-- NEW regime -->
+        <div class="regime-col">
+          <h3 class="regime-title new-regime">NEW Regime</h3>
+          <table class="slab-table" *ngIf="getNewSlabs().length">
+            <thead>
+              <tr><th>Income Range</th><th>Rate %</th><th>Cess %</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of getNewSlabs()">
+                <td>{{ formatCurrency(s.min_income) }} – {{ s.max_income ? formatCurrency(s.max_income) : '∞' }}</td>
+                <td><span class="rate-chip">{{ s.rate }}%</span></td>
+                <td>{{ s.cess_rate || 0 }}%</td>
+              </tr>
+            </tbody>
+          </table>
+          <p *ngIf="!getNewSlabs().length" class="empty-msg">No slabs loaded</p>
+        </div>
+
+        <!-- OLD regime -->
+        <div class="regime-col">
+          <h3 class="regime-title old-regime">OLD Regime</h3>
+          <table class="slab-table" *ngIf="getOldSlabs().length">
+            <thead>
+              <tr><th>Income Range</th><th>Rate %</th><th>Cess %</th></tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let s of getOldSlabs()">
+                <td>{{ formatCurrency(s.min_income) }} – {{ s.max_income ? formatCurrency(s.max_income) : '∞' }}</td>
+                <td><span class="rate-chip old-chip">{{ s.rate }}%</span></td>
+                <td>{{ s.cess_rate || 0 }}%</td>
+              </tr>
+            </tbody>
+          </table>
+          <p *ngIf="!getOldSlabs().length" class="empty-msg">No slabs loaded</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- PT Slabs -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon pt-icon"><ion-icon name="business-outline"></ion-icon></div>
+        <div>
+          <h2>Professional Tax Slabs</h2>
+          <p>State-wise PT ceiling and fixed amounts</p>
+        </div>
+        <button class="refresh-btn" (click)="loadPTSlabs()" id="refresh-pt-btn">
+          <ion-icon name="refresh-outline"></ion-icon>
+        </button>
+      </div>
+      <div *ngIf="isLoadingPT" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+      <table *ngIf="!isLoadingPT && ptSlabs.length" class="slab-table">
+        <thead>
+          <tr><th>State</th><th>Ceiling (₹)</th><th>Fixed Amount (₹)</th><th>Effective From</th></tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of ptSlabs">
+            <td>{{ s.state_code }}</td>
+            <td>{{ formatCurrency(s.ceiling_limit) }}</td>
+            <td>{{ formatCurrency(s.fixed_amount) }}</td>
+            <td>{{ s.effective_from | date:'mediumDate' }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p *ngIf="!isLoadingPT && !ptSlabs.length" class="empty-msg">No PT slabs found</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SECTION LIMITS
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='sections'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon list-icon"><ion-icon name="list-outline"></ion-icon></div>
+        <div>
+          <h2>Section Deduction Limits — FY {{ financialYear }}</h2>
+          <p>Set maximum allowed amounts for each deduction section</p>
+        </div>
+      </div>
+
+      <div class="sections-grid">
+        <div class="section-item glass-sub-card" *ngFor="let s of sectionLimits; let i=index">
+          <div class="section-code">{{ s.section_code }}</div>
+          <div class="form-group">
+            <label>Max Limit (₹)</label>
+            <input type="number" [(ngModel)]="sectionLimits[i].max_limit" class="glass-input"
+                   [attr.id]="'section-limit-'+s.section_code" min="0" />
+          </div>
+        </div>
+      </div>
+
+      <button class="save-btn" (click)="saveSectionLimits()" [disabled]="isSavingSections" id="save-sections-btn">
+        <ion-spinner *ngIf="isSavingSections" name="crescent"></ion-spinner>
+        <ion-icon *ngIf="!isSavingSections" name="save-outline"></ion-icon>
+        {{ isSavingSections ? 'Saving...' : 'Save Section Limits' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       VERIFICATION QUEUE
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='queue'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon verify-icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+        <div>
+          <h2>Proof Verification Queue</h2>
+          <p>Review employee-submitted tax proof documents</p>
+        </div>
+      </div>
+
+      <!-- Filter chips -->
+      <div class="filter-chips">
+        <button class="filter-chip" *ngFor="let f of queueFilters"
+                [class.active]="queueFilter===f"
+                (click)="queueFilter=f; loadVerificationQueue()"
+                [id]="'queue-filter-'+f">{{ f }}</button>
+      </div>
+
+      <div *ngIf="isLoadingQueue" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+      <div *ngIf="!isLoadingQueue && verificationQueue.length === 0" class="empty-msg">
+        No proofs in this queue.
+      </div>
+
+      <div *ngIf="!isLoadingQueue" class="queue-list">
+        <div class="queue-item glass-sub-card" *ngFor="let q of verificationQueue">
+          <div class="queue-top">
+            <div>
+              <div class="queue-name">{{ q.FullName }}</div>
+              <div class="queue-meta">{{ q.EmployeeNumber }} · {{ q.section_code }} · FY {{ q.financial_year }}</div>
+            </div>
+            <ion-badge [color]="getVerificationColor(q.verification_status)">{{ q.verification_status }}</ion-badge>
+          </div>
+          <div class="queue-body">
+            <div class="queue-info">
+              <span>File</span><strong>{{ q.original_filename }}</strong>
+            </div>
+            <div class="queue-info">
+              <span>Declared</span><strong>{{ formatCurrency(q.declared_amount) }}</strong>
+            </div>
+            <div class="queue-info" *ngIf="q.extracted_amount">
+              <span>Extracted</span><strong>{{ formatCurrency(q.extracted_amount) }}</strong>
+            </div>
+            <div class="queue-info" *ngIf="q.ai_confidence">
+              <span>AI Confidence</span><strong>{{ q.ai_confidence }}%</strong>
+            </div>
+          </div>
+          <button class="verify-btn" (click)="openVerifyModal(q)" [id]="'verify-btn-'+q.id">
+            <ion-icon name="checkmark-done-outline"></ion-icon> Verify
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verification Modal -->
+    <div class="overlay" *ngIf="selectedProof" (click)="closeVerifyModal()"></div>
+    <div class="verify-modal glass-card" *ngIf="selectedProof">
+      <div class="modal-header">
+        <h3>Verify Proof #{{ selectedProof.id }}</h3>
+        <button class="close-btn" (click)="closeVerifyModal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="proof-summary">
+        <span><strong>Employee:</strong> {{ selectedProof.FullName }}</span>
+        <span><strong>Section:</strong> {{ selectedProof.section_code }}</span>
+        <span><strong>Declared:</strong> {{ formatCurrency(selectedProof.declared_amount) }}</span>
+        <span><strong>File:</strong> {{ selectedProof.original_filename }}</span>
+      </div>
+      <form [formGroup]="verifyForm" class="verify-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Extracted Amount (₹)</label>
+            <input type="number" formControlName="extracted_amount" class="glass-input" id="extracted-amount" min="0" />
+          </div>
+          <div class="form-group">
+            <label>AI Confidence (%)</label>
+            <input type="number" formControlName="confidence" class="glass-input" id="ai-confidence" min="0" max="100" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Override Status</label>
+          <select formControlName="verification_status" class="glass-input" id="verify-status-select">
+            <option value="AI_VERIFIED">AI_VERIFIED ✅</option>
+            <option value="FLAGGED">FLAGGED ⚠️</option>
+            <option value="APPROVED">APPROVED ✅</option>
+            <option value="REJECTED">REJECTED ❌</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea formControlName="notes" class="glass-input" rows="2" id="verify-notes" placeholder="Optional reviewer notes"></textarea>
+        </div>
+        <button class="save-btn" (click)="submitVerification()" [disabled]="isSubmittingVerification" id="submit-verify-btn">
+          <ion-spinner *ngIf="isSubmittingVerification" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSubmittingVerification" name="checkmark-circle-outline"></ion-icon>
+          {{ isSubmittingVerification ? 'Submitting...' : 'Submit Verification' }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       PROOF SUBMISSION WINDOW
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='window'" class="tab-panel">
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon calendar-icon"><ion-icon name="calendar-outline"></ion-icon></div>
+        <div>
+          <h2>Proof Submission Window</h2>
+          <p>Open or close the window for employees to submit investment proofs</p>
+        </div>
+      </div>
+
+      <form [formGroup]="windowForm" class="window-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Window Type</label>
+            <input formControlName="window_type" class="glass-input" id="window-type" placeholder="proof_submission" />
+          </div>
+          <div class="form-group">
+            <label>Financial Year</label>
+            <select formControlName="financial_year" class="glass-input" id="window-fy">
+              <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Start Date & Time</label>
+            <input type="datetime-local" formControlName="start_at" class="glass-input" id="window-start" />
+          </div>
+          <div class="form-group">
+            <label>End Date & Time</label>
+            <input type="datetime-local" formControlName="end_at" class="glass-input" id="window-end" />
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <div class="status-toggle">
+            <button type="button" class="status-btn"
+                    [class.active-open]="windowForm.value.status==='OPEN'"
+                    (click)="windowForm.patchValue({status:'OPEN'})" id="window-open-btn">
+              <ion-icon name="lock-open-outline"></ion-icon> OPEN
+            </button>
+            <button type="button" class="status-btn"
+                    [class.active-closed]="windowForm.value.status==='CLOSED'"
+                    (click)="windowForm.patchValue({status:'CLOSED'})" id="window-close-btn">
+              <ion-icon name="lock-closed-outline"></ion-icon> CLOSED
+            </button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea formControlName="notes" class="glass-input" rows="2" id="window-notes" placeholder="Optional notes for employees"></textarea>
+        </div>
+        <button class="save-btn" (click)="saveWindow()" [disabled]="isSavingWindow" id="save-window-btn">
+          <ion-spinner *ngIf="isSavingWindow" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSavingWindow" name="save-outline"></ion-icon>
+          {{ isSavingWindow ? 'Saving...' : 'Save Window Configuration' }}
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       PAYOUT MANAGEMENT
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='payout'" class="tab-panel">
+    <!-- Initiate Payout -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon cash-icon"><ion-icon name="cash-outline"></ion-icon></div>
+        <div>
+          <h2>Initiate Salary Payouts</h2>
+          <p>Initiate actual fund disbursements after payroll is finalized</p>
+        </div>
+      </div>
+      <form [formGroup]="payoutForm" class="payout-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Payroll Run ID</label>
+            <input type="number" formControlName="run_id" class="glass-input" id="payout-run-id" placeholder="e.g. 15" />
+          </div>
+          <div class="form-group">
+            <label>Payout Date</label>
+            <input type="date" formControlName="payout_date" class="glass-input" id="payout-date" />
+          </div>
+          <div class="form-group">
+            <label>Payment Mode</label>
+            <select formControlName="payment_mode" class="glass-input" id="payout-mode">
+              <option value="BANK_TRANSFER">BANK_TRANSFER</option>
+              <option value="CHEQUE">CHEQUE</option>
+              <option value="CASH">CASH</option>
+            </select>
+          </div>
+        </div>
+        <button class="save-btn initiate-btn" (click)="initiatePayouts()" [disabled]="isSavingPayout || payoutForm.invalid" id="initiate-payout-btn">
+          <ion-spinner *ngIf="isSavingPayout" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isSavingPayout" name="send-outline"></ion-icon>
+          {{ isSavingPayout ? 'Initiating...' : 'Initiate Payouts' }}
+        </button>
+      </form>
+    </div>
+
+    <!-- Update Payout Status -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon"><ion-icon name="pencil-outline"></ion-icon></div>
+        <div>
+          <h2>Update Payout Status</h2>
+          <p>Mark individual payouts as completed, failed, etc.</p>
+        </div>
+      </div>
+      <form [formGroup]="payoutStatusForm" class="payout-form">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>Payout ID</label>
+            <input type="number" formControlName="payout_id" class="glass-input" id="update-payout-id" placeholder="e.g. 7" />
+          </div>
+          <div class="form-group">
+            <label>New Status</label>
+            <select formControlName="status" class="glass-input" id="update-payout-status">
+              <option *ngFor="let s of payoutStatuses" [value]="s">{{ s }}</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Remarks</label>
+          <textarea formControlName="remarks" class="glass-input" rows="2" id="payout-remarks" placeholder="e.g. Transferred via NEFT batch 001"></textarea>
+        </div>
+        <button class="save-btn" (click)="updatePayoutStatus()" [disabled]="payoutStatusForm.invalid" id="update-payout-btn">
+          <ion-icon name="checkmark-circle-outline"></ion-icon> Update Status
+        </button>
+      </form>
+    </div>
+
+    <!-- Payouts for a Run -->
+    <div class="glass-card">
+      <div class="card-header">
+        <div class="card-icon"><ion-icon name="list-outline"></ion-icon></div>
+        <div>
+          <h2>Payouts for Run</h2>
+        </div>
+      </div>
+      <div class="inline-search-row">
+        <input type="number" [(ngModel)]="payoutRunId" class="glass-input small-input" id="view-payouts-run-id" placeholder="Run ID" />
+        <button class="fetch-btn" (click)="loadPayoutsForRun()" id="view-payouts-btn">
+          <ion-icon name="search-outline"></ion-icon> Fetch
+        </button>
+      </div>
+      <div *ngIf="isLoadingPayouts" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+      <pre *ngIf="!isLoadingPayouts && payouts.length" class="json-block">{{ payouts | json }}</pre>
+      <p *ngIf="!isLoadingPayouts && !payouts.length" class="empty-msg">Enter a Run ID and click Fetch</p>
+    </div>
+  </div>
+
+</ion-content>

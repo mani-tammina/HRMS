@@ -25,6 +25,14 @@ const routes: Routes = [
   {
     path: 'structure/composition/:id',
     loadChildren: () => import('./payroll-structure/structure-composition/structure-composition.module').then(m => m.StructureCompositionPageModule)
+  },
+  {
+    path: 'execution',
+    loadChildren: () => import('./payroll-execution/payroll-execution.module').then(m => m.PayrollExecutionPageModule)
+  },
+  {
+    path: 'tax-admin',
+    loadChildren: () => import('./tax-admin/tax-admin.module').then(m => m.TaxAdminPageModule)
   }
 ];
 
