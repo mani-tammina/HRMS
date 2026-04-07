@@ -1,4 +1,5 @@
-<ion-content fullscreen scroll-y="false" class="leaves-block">
+<ion-content fullscreen class="leaves-block">
+
 
   <div class="content-wrapper">
     <!-- Premium Page Header -->
@@ -10,10 +11,7 @@
 
       <div class="header-actions">
         <!-- Team Reports Button (Manager Only) -->
-        <ion-button (click)="navigateToTeamReports()" fill="clear" color="primary" class="init-btn" *ngIf="isManager">
-          <ion-icon name="podium-outline" slot="start"></ion-icon>
-          Team Reports
-        </ion-button>
+
 
         <!-- Initialize Leaves Button -->
         <ion-button (click)="initializeLeaves()" fill="outline" class="init-btn" [disabled]="initializingLeaves">
@@ -32,10 +30,10 @@
     <!-- Main Dashboard Container -->
     <div class="glass-dashboard">
       <div class="dashboard-grid">
-        
+
         <!-- Left Column: Balances & Pending -->
         <div class="main-column">
-          
+
           <!-- Balance Section -->
           <section class="balances-section">
             <div class="section-header">
@@ -51,8 +49,7 @@
                     <span class="quota">Annual Quota: {{ leave.allocated_days }}</span>
                   </div>
                   <div class="icon-circle">
-                    <ion-icon 
-                      [name]="leave.title?.toLowerCase().includes('sick') ? 'medkit-outline' : 
+                    <ion-icon [name]="leave.title?.toLowerCase().includes('sick') ? 'medkit-outline' : 
                              (leave.title?.toLowerCase().includes('vacation') || leave.title?.toLowerCase().includes('earned') ? 'airplane-outline' :
                              (leave.title?.toLowerCase().includes('casual') ? 'sunny-outline' : 'calendar-outline'))">
                     </ion-icon>
@@ -63,12 +60,12 @@
                   <div class="chart-container">
                     <svg viewBox="0 0 36 36">
                       <circle class="bg" cx="18" cy="18" r="15.9" />
-                      <circle class="active" cx="18" cy="18" r="15.9" 
-                              [style.stroke-dasharray]="leave.usedPercent + ', 100'" />
+                      <circle class="active" cx="18" cy="18" r="15.9"
+                        [style.stroke-dasharray]="leave.usedPercent + ', 100'" />
                     </svg>
                     <div class="center">
                       <span class="val">{{ leave.available }}</span>
-                      <span class="lbl">Days Left</span>
+                      <span class="lbl">Days</span>
                     </div>
                   </div>
 
@@ -242,7 +239,8 @@
             <ion-item>
               <ion-label>
                 <h2>Period</h2>
-                <p>{{ selectedLeave?.from_date | date:'MMMM d, y' }} — {{ selectedLeave?.to_date | date:'MMMM d, y' }}</p>
+                <p>{{ selectedLeave?.from_date | date:'MMMM d, y' }} — {{ selectedLeave?.to_date | date:'MMMM d, y' }}
+                </p>
                 <p><strong>{{ selectedLeave?.days }} Days Total</strong></p>
               </ion-label>
             </ion-item>
@@ -258,4 +256,4 @@
     </ng-template>
   </ion-modal>
 
-</ion-content>
+</ion-content>

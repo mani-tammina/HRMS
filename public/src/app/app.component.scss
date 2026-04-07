@@ -148,26 +148,27 @@ ion-menu ion-content.sidenav-content {
 /* Logout Item Special Treatment */
 .logout-item {
   margin-top: auto;
-  --color: #ef4444;
+  --color: #000000;
 
   &:hover {
-    --background: rgba(239, 68, 68, 0.1);
+    --background: rgba(0, 0, 0, 0.15);
 
     .custom-menu-icon {
-      filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.4));
+      filter: brightness(0) drop-shadow(0 0 8px rgba(0, 0, 0, 0.4));
     }
   }
 
   .inactive-icon,
   .active-icon {
-    /* Filter to achieve #ef4444 (Vibrant Red) from a black/neutral source */
-    filter: invert(27%) sepia(91%) saturate(6452%) hue-rotate(352deg) brightness(98%) contrast(92%);
+    /* Filter to achieve solid black from any source */
+    filter: brightness(0);
     opacity: 0.9;
   }
 
   ion-label {
-    color: #ef4444 !important;
+    color: #000000 !important;
     opacity: 1 !important;
+    font-weight: 800 !important;
   }
 }
 

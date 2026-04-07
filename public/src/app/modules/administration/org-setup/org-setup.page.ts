@@ -185,10 +185,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateLocation(this.editingLocationId, { name: this.locationName })
       : this.adminService.createLocation({ name: this.locationName });
 
-    action.subscribe(() => {
-      this.showToast(`Location ${this.editingLocationId ? 'updated' : 'saved'}`, 'success');
-      this.loadLocations();
-      this.cancelLocation();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Location ${this.editingLocationId ? 'updated' : 'saved'}`, 'success');
+        this.loadLocations();
+        this.cancelLocation();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'STSS_15 Already Exists please check';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editLocation(loc: any) { this.locationName = loc.name; this.editingLocationId = loc.id; }
@@ -208,10 +214,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateDepartment(this.editingDepartmentId, { name: this.departmentName })
       : this.adminService.createDepartment({ name: this.departmentName });
 
-    action.subscribe(() => {
-      this.showToast(`Department ${this.editingDepartmentId ? 'updated' : 'saved'}`, 'success');
-      this.loadDepartments();
-      this.cancelDepartment();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Department ${this.editingDepartmentId ? 'updated' : 'saved'}`, 'success');
+        this.loadDepartments();
+        this.cancelDepartment();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'STSS_15 Already Exists please check';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editDepartment(dept: any) { this.departmentName = dept.name; this.editingDepartmentId = dept.id; }
@@ -231,10 +243,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateDesignation(this.editingDesignationId, { name: this.designationName })
       : this.adminService.createDesignation({ name: this.designationName });
 
-    action.subscribe(() => {
-      this.showToast(`Designation ${this.editingDesignationId ? 'updated' : 'saved'}`, 'success');
-      this.loadDesignations();
-      this.cancelDesignation();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Designation ${this.editingDesignationId ? 'updated' : 'saved'}`, 'success');
+        this.loadDesignations();
+        this.cancelDesignation();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'STSS_15 Already Exists please check';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editDesignation(des: any) { this.designationName = des.name; this.editingDesignationId = des.id; }
@@ -254,10 +272,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateBusinessUnit(this.editingBusinessUnitId, { name: this.businessUnitName })
       : this.adminService.createBusinessUnit({ name: this.businessUnitName });
 
-    action.subscribe(() => {
-      this.showToast(`Business Unit ${this.editingBusinessUnitId ? 'updated' : 'saved'}`, 'success');
-      this.loadBusinessUnits();
-      this.cancelBusinessUnit();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Business Unit ${this.editingBusinessUnitId ? 'updated' : 'saved'}`, 'success');
+        this.loadBusinessUnits();
+        this.cancelBusinessUnit();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'STSS_15 Already Exists please check';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editBusinessUnit(bu: any) { this.businessUnitName = bu.name; this.editingBusinessUnitId = bu.id; }
@@ -277,10 +301,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateShiftPolicy(this.editingShiftId, this.shiftForm)
       : this.adminService.createShiftPolicy(this.shiftForm);
 
-    action.subscribe(() => {
-      this.showToast(`Shift ${this.editingShiftId ? 'updated' : 'saved'}`, 'success');
-      this.loadShiftPolicies();
-      this.cancelShift();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Shift ${this.editingShiftId ? 'updated' : 'saved'}`, 'success');
+        this.loadShiftPolicies();
+        this.cancelShift();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'STSS_15 Already Exists please check';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editShift(shift: any) { this.shiftForm = { ...shift }; this.editingShiftId = shift.id; }
@@ -359,10 +389,16 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.updateAnnouncement(this.editingAnnouncementId, this.announcementForm)
       : this.adminService.createAnnouncement(this.announcementForm);
 
-    action.subscribe(() => {
-      this.showToast(`Announcement ${this.editingAnnouncementId ? 'updated' : 'saved'}`, 'success');
-      this.loadAnnouncements();
-      this.cancelAnnouncement();
+    action.subscribe({
+      next: () => {
+        this.showToast(`Announcement ${this.editingAnnouncementId ? 'updated' : 'saved'}`, 'success');
+        this.loadAnnouncements();
+        this.cancelAnnouncement();
+      },
+      error: (err) => {
+        const errorMsg = err.error?.message || err.error?.error || 'Failed to save announcement';
+        this.showToast(errorMsg, 'danger');
+      }
     });
   }
   editAnnouncement(ann: any) { this.announcementForm = { ...ann }; this.editingAnnouncementId = ann.id; }
