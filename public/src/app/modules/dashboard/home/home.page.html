@@ -6,18 +6,19 @@
           <div class="glass-overlay"></div>
           <div class="glow-flare flare-1"></div>
           <div class="glow-flare flare-2"></div>
-          
+
           <div class="welcome-main-layout">
             <div class="welcome-left-panel">
               <div class="user-profile-group">
                 <div class="premium-avatar-wrapper">
                   <div class="avatar-glow"></div>
-                  <img *ngIf="currentEmployee" [src]="profileImageUrl" class="premium-avatar-img" alt="Profile" onerror="this.style.display='none'">
+                  <img *ngIf="currentEmployee" [src]="profileImageUrl" class="premium-avatar-img" alt="Profile"
+                    onerror="this.style.display='none'">
                   <div class="premium-avatar-placeholder" *ngIf="!currentEmployee || !profileImageUrl">
                     <ion-icon name="person"></ion-icon>
                   </div>
                 </div>
-                
+
                 <div class="premium-user-details">
                   <p class="premium-greeting">{{ greeting }}</p>
                   <div class="premium-name-row">
@@ -25,7 +26,7 @@
                     <span *ngIf="getStatusLabel()" class="premium-status-badge">{{ getStatusLabel() }}</span>
                   </div>
                   <p class="premium-meta-info">
-                    {{ todayDate }} &nbsp;•&nbsp; 
+                    {{ todayDate }} &nbsp;•&nbsp;
                     <span class="site-name" *ngIf="currentEmployee">{{ currentEmployee.location_name }}</span>
                   </p>
                 </div>
@@ -33,15 +34,15 @@
 
               <div class="premium-action-row">
                 <button class="glass-action-btn" *ngIf="!isCEO()" (click)="attendance()">
-                  <ion-icon name="calendar"></ion-icon>
+                  <ion-icon name="person-circle-outline"></ion-icon>
                   <span>My Attendance</span>
                 </button>
-                
+
                 <button class="glass-action-btn" *ngIf="!isCEO()" (click)="leaves()">
-                  <ion-icon name="paper-plane"></ion-icon>
+                  <ion-icon name="calendar-outline"></ion-icon>
                   <span>Apply Leave</span>
                 </button>
-                
+
                 <button class="glass-action-btn" (click)="myteam()">
                   <ion-icon name="people"></ion-icon>
                   <span>My Team</span>
@@ -56,7 +57,7 @@
                 <p class="time-label">Current Time</p>
                 <p class="premium-clock-display">{{ currentTime }}</p>
               </div>
-              
+
               <div class="premium-clock-action" *ngIf="!isCEO()">
                 <app-clock-button></app-clock-button>
               </div>

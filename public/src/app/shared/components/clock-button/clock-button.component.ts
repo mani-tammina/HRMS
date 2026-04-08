@@ -10,7 +10,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   standalone: true,
   imports: [CommonModule, IonicModule],
   template: `
-  <div class="clock-btn-container">
+  <div class="clock-btn-container" [class.mini-layout]="currentUrl === '/Me'">
     <div class="row-center" *ngIf="!isClockedIn && currentUrl !== '/Me'">
       <button class="uiverse-button" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
         <span class="text">Web Clock-In</span>
@@ -21,8 +21,8 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     </div>
 
     <!-- Clock In Button for /Me page -->
-    <div *ngIf="!isClockedIn && currentUrl == '/Me'">
-      <button class="uiverse-button" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
+    <div *ngIf="!isClockedIn && currentUrl == '/Me'" class="row-center">
+      <button class="uiverse-button mini" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
         <span class="text">Web Clock-In</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -61,24 +61,26 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     </div>
 
     <!-- /Me page buttons -->
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Office'" class="uiverse-button out" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
-      <span class="text">Web Clock-Out</span>
-      <div class="liquid"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-    </button>
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Remote'" class="uiverse-button out" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
-      <span class="text">Remote Clock-Out</span>
-      <div class="liquid"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-    </button>
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'WFH'" class="uiverse-button out" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
-      <span class="text">WFH Clock-Out</span>
-      <div class="liquid"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-      <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-    </button>
+    <div class="row-center" *ngIf="isClockedIn && currentUrl == '/Me'">
+        <button *ngIf="workMode === 'Office'" class="uiverse-button out mini" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
+        <span class="text">Web Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        </button>
+        <button *ngIf="workMode === 'Remote'" class="uiverse-button out mini" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
+        <span class="text">Remote Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        </button>
+        <button *ngIf="workMode === 'WFH'" class="uiverse-button out mini" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
+        <span class="text">WFH Clock-Out</span>
+        <div class="liquid"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+        </button>
+    </div>
   </div>
   `,
   styles: [`
@@ -102,6 +104,15 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       display: flex;
       align-items: center;
       justify-content: center;
+      user-select: none;
+    }
+
+    .uiverse-button.mini {
+      min-width: 180px;
+      height: 48px;
+      padding: 10px 20px;
+      font-size: 15px;
+      border-radius: 25px;
     }
 
     .text {
@@ -122,6 +133,11 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
       transition: 0.5s ease;
       z-index: 1;
+    }
+
+    .mini .liquid {
+      top: -110px;
+      height: 180px;
     }
 
     .liquid::before,
@@ -159,6 +175,10 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     .uiverse-button:hover .liquid {
       top: -120px;
+    }
+
+    .uiverse-button.mini:hover .liquid {
+      top: -140px;
     }
 
     .uiverse-button:active {
@@ -220,6 +240,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       align-items: center;
     }
   `]
+
 
 })
 export class ClockButtonComponent implements OnInit, OnDestroy {
