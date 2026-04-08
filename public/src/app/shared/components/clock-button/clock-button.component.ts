@@ -10,9 +10,9 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   standalone: true,
   imports: [CommonModule, IonicModule],
   template: `
-  <div class="ion-text-left">
+  <div class="clock-btn-container">
     <div class="row-center" *ngIf="!isClockedIn && currentUrl !== '/Me'">
-      <button class="liquid-button" style="--btn-color: #4caf50" (click)="clockIn('Office')">
+      <button class="uiverse-button" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
         <span class="text">Web Clock-In</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -22,7 +22,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     <!-- Clock In Button for /Me page -->
     <div *ngIf="!isClockedIn && currentUrl == '/Me'">
-      <button class="liquid-button" style="--btn-color: #4caf50; background: transparent; box-shadow: none" (click)="clockIn('Office')">
+      <button class="uiverse-button" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
         <span class="text">Web Clock-In</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -32,7 +32,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     <!-- Clock Out Button - Office -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'Office' && currentUrl !== '/Me'">
-      <button class="liquid-button" style="--btn-color: #ff2b2b" (click)="clockOut()">
+      <button class="uiverse-button out" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
         <span class="text">Web Clock-Out</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -42,7 +42,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     <!-- Clock Out Button - Remote -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'Remote' && currentUrl !== '/Me'">
-      <button class="liquid-button" style="--btn-color: #ff9900" (click)="remoteClockOut()">
+      <button class="uiverse-button out" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
         <span class="text">Remote Clock-Out</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -52,7 +52,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     <!-- Clock Out Button - WFH -->
     <div class="row-center" *ngIf="isClockedIn && workMode === 'WFH' && currentUrl !== '/Me'">
-      <button class="liquid-button" style="--btn-color: #00f3ff" (click)="clockOut()">
+      <button class="uiverse-button out" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
         <span class="text">WFH Clock-Out</span>
         <div class="liquid"></div>
         <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -61,19 +61,19 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     </div>
 
     <!-- /Me page buttons -->
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Office'" class="liquid-button" style="--btn-color: #ff2b2b" (click)="clockOut()">
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Office'" class="uiverse-button out" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
       <span class="text">Web Clock-Out</span>
       <div class="liquid"></div>
       <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
       <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
     </button>
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Remote'" class="liquid-button" style="--btn-color: #ff9900" (click)="remoteClockOut()">
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'Remote'" class="uiverse-button out" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
       <span class="text">Remote Clock-Out</span>
       <div class="liquid"></div>
       <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
       <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
     </button>
-    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'WFH'" class="liquid-button" style="--btn-color: #00f3ff" (click)="clockOut()">
+    <button *ngIf="isClockedIn && currentUrl == '/Me' && workMode === 'WFH'" class="uiverse-button out" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
       <span class="text">WFH Clock-Out</span>
       <div class="liquid"></div>
       <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
@@ -82,21 +82,145 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   </div>
   `,
   styles: [`
-    .btn-clockin {
-      --background: #1F74BB;
-      --border-radius: 76px;
-      --padding-end: 20px;
-      --padding-start: 20px;
-      font-weight: 600;
+    .uiverse-button {
+      position: relative;
+      padding: 16px 40px;
+      display: inline-block;
+      text-decoration: none;
+      color: #fff;
+      font-size: 20px;
+      font-weight: bold;
+      text-transform: uppercase;
+      overflow: hidden;
+      border-radius: 40px;
+      border: 2px solid var(--btn-color);
+      background-color: rgba(0, 0, 0, 0.2);
+      cursor: pointer;
+      transition: all 0.3s ease, transform 0.1s ease;
+      min-width: 260px;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
-    .btn-clockout {
-      --background: #dc2626;
-      --border-radius: 76px;
-      --padding-end: 20px;
-      --padding-start: 20px;
-      font-weight: 600;
+
+    .text {
+      position: relative;
+      z-index: 10;
+      transition: all 0.3s ease;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+      pointer-events: none;
+    }
+
+    .liquid {
+      position: absolute;
+      top: -80px;
+      left: 0;
+      width: 100%;
+      height: 200px;
+      background: var(--btn-color);
+      box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
+      transition: 0.5s ease;
+      z-index: 1;
+    }
+
+    .liquid::before,
+    .liquid::after {
+      content: "";
+      position: absolute;
+      width: 200%;
+      height: 200%;
+      top: 0;
+      left: 50%;
+      transform: translate(-50%, -75%);
+    }
+
+    .liquid::before {
+      border-radius: 45%;
+      background: rgba(3, 8, 34, 0.9);
+      animation: rotate 5s linear infinite;
+    }
+
+    .liquid::after {
+      border-radius: 40%;
+      background: rgba(3, 8, 34, 0.4);
+      animation: rotate 10s linear infinite;
+    }
+
+    .uiverse-button:hover {
+      background-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 20px var(--glow-color);
+      animation: glow 1.5s ease-in-out infinite;
+    }
+
+    .uiverse-button:hover .text {
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .uiverse-button:hover .liquid {
+      top: -120px;
+    }
+
+    .uiverse-button:active {
+      background-color: rgba(255, 255, 255, 0.2);
+      transform: scale(0.98);
+    }
+
+    .bubble {
+      position: absolute;
+      bottom: -20px;
+      border-radius: 50%;
+      opacity: 0;
+      z-index: 5;
+      animation: rise var(--rise-duration) ease-in infinite var(--rise-delay);
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .bubble::before {
+      content: "";
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(
+        circle at 75% 25%,
+        rgba(255, 255, 255, 0.6) 5%,
+        rgba(255, 255, 255, 0.2) 40%,
+        rgba(255, 255, 255, 0) 60%
+      );
+      border-radius: 50%;
+    }
+
+    .bubble:nth-child(1) { left: 10%; width: 20px; height: 20px; --rise-duration: 4s; --rise-delay: 0s; }
+    .bubble:nth-child(2) { left: 25%; width: 15px; height: 15px; --rise-duration: 3.5s; --rise-delay: 0.5s; }
+    .bubble:nth-child(3) { left: 40%; width: 10px; height: 10px; --rise-duration: 3s; --rise-delay: 1s; }
+    .bubble:nth-child(4) { left: 55%; width: 22px; height: 22px; --rise-duration: 4.5s; --rise-delay: 1.5s; }
+    .bubble:nth-child(5) { left: 70%; width: 18px; height: 18px; --rise-duration: 3.8s; --rise-delay: 2s; }
+    .bubble:nth-child(6) { left: 85%; width: 12px; height: 12px; --rise-duration: 3.2s; --rise-delay: 2.5s; }
+
+    @keyframes rotate {
+      0% { transform: translate(-50%, -75%) rotate(0deg); }
+      100% { transform: translate(-50%, -75%) rotate(360deg); }
+    }
+
+    @keyframes rise {
+      0% { bottom: -20px; opacity: 0; }
+      5% { opacity: 0.8; }
+      95% { opacity: 0.8; }
+      100% { bottom: 120%; opacity: 0; }
+    }
+
+    @keyframes glow {
+      0%, 100% { box-shadow: 0 0 5px var(--glow-color); }
+      50% { box-shadow: 0 0 20px var(--glow-color); }
+    }
+
+    .row-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
   `]
+
 })
 export class ClockButtonComponent implements OnInit, OnDestroy {
   currentUrl: any;

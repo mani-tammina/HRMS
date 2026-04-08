@@ -2,69 +2,68 @@
   <ion-grid class="ion-margin main-block">
     <ion-row>
       <ion-col size="12" class="welcome-block">
-        <ion-card class="ion-padding">
-          <div class="neon-welcome-wrapper">
-            <div class="neon-left-section">
-              <div class="user-info-group">
-                <div class="avatar-container">
-                  <img *ngIf="currentEmployee" [src]="profileImageUrl" class="avatar-img" alt="Profile" onerror="this.style.display='none'">
-                  <div class="avatar-placeholder" *ngIf="!currentEmployee || !profileImageUrl">
+        <ion-card class="welcome-card-premium">
+          <div class="glass-overlay"></div>
+          <div class="glow-flare flare-1"></div>
+          <div class="glow-flare flare-2"></div>
+          
+          <div class="welcome-main-layout">
+            <div class="welcome-left-panel">
+              <div class="user-profile-group">
+                <div class="premium-avatar-wrapper">
+                  <div class="avatar-glow"></div>
+                  <img *ngIf="currentEmployee" [src]="profileImageUrl" class="premium-avatar-img" alt="Profile" onerror="this.style.display='none'">
+                  <div class="premium-avatar-placeholder" *ngIf="!currentEmployee || !profileImageUrl">
                     <ion-icon name="person"></ion-icon>
                   </div>
                 </div>
                 
-                <div class="user-details">
-                  <p class="greeting">{{ greeting }}</p>
-                  <div class="name-badge-row">
-                    <h2 class="name">{{ currentEmployee?.FullName || 'User' }}</h2>
-                    <span *ngIf="getStatusLabel()" class="neon-status-badge">{{ getStatusLabel() }}</span>
+                <div class="premium-user-details">
+                  <p class="premium-greeting">{{ greeting }}</p>
+                  <div class="premium-name-row">
+                    <h2 class="premium-name">{{ currentEmployee?.FullName || 'User' }}</h2>
+                    <span *ngIf="getStatusLabel()" class="premium-status-badge">{{ getStatusLabel() }}</span>
                   </div>
-                  <p class="date-location">
-                    {{ todayDate }} &nbsp;&nbsp; 
-                    <span class="site" *ngIf="currentEmployee">{{ currentEmployee.location_name }}</span>
+                  <p class="premium-meta-info">
+                    {{ todayDate }} &nbsp;•&nbsp; 
+                    <span class="site-name" *ngIf="currentEmployee">{{ currentEmployee.location_name }}</span>
                   </p>
                 </div>
               </div>
 
-              <div class="neon-actions">
-                <button class="liquid-button" style="--btn-color: #00e5ff" *ngIf="!isCEO()" (click)="attendance()">
-                  <ion-icon name="calendar-outline"></ion-icon>
-                  <span class="text">My Attendance</span>
-                  <div class="liquid"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+              <div class="premium-action-row">
+                <button class="glass-action-btn" *ngIf="!isCEO()" (click)="attendance()">
+                  <ion-icon name="calendar"></ion-icon>
+                  <span>My Attendance</span>
                 </button>
                 
-                <button class="liquid-button" style="--btn-color: #00b4d8" *ngIf="!isCEO()" (click)="leaves()">
-                  <ion-icon name="airplane-outline"></ion-icon>
-                  <span class="text">Apply Leave</span>
-                  <div class="liquid"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                <button class="glass-action-btn" *ngIf="!isCEO()" (click)="leaves()">
+                  <ion-icon name="paper-plane"></ion-icon>
+                  <span>Apply Leave</span>
                 </button>
                 
-                <button class="liquid-button" style="--btn-color: #48cae4" (click)="myteam()">
-                  <ion-icon name="people-outline"></ion-icon>
-                  <span class="text">My Team</span>
-                  <div class="liquid"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-                  <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+                <button class="glass-action-btn" (click)="myteam()">
+                  <ion-icon name="people"></ion-icon>
+                  <span>My Team</span>
                 </button>
               </div>
             </div>
 
-            <div class="neon-divider"></div>
+            <div class="welcome-v-divider"></div>
 
-            <div class="neon-right-section">
-              <p class="time-label">Current Time</p>
-              <p class="time-display">{{ currentTime }}</p>
+            <div class="welcome-right-panel">
+              <div class="time-container">
+                <p class="time-label">Current Time</p>
+                <p class="premium-clock-display">{{ currentTime }}</p>
+              </div>
               
-              <div class="clock-btn-wrapper" *ngIf="!isCEO()">
+              <div class="premium-clock-action" *ngIf="!isCEO()">
                 <app-clock-button></app-clock-button>
               </div>
             </div>
           </div>
         </ion-card>
+
       </ion-col>
     </ion-row>
 
