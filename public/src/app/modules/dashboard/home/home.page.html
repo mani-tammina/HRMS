@@ -245,9 +245,16 @@
         </ion-card>
 
         <!-- Birthdays & Work Anniversaries card -->
-        <ion-card class="overview-block milestone-container">
-          <div class="row-space-between border-bottom pb-12">
-            <div>
+        <ion-card class="overview-block cosmic-overview milestone-container">
+          <!-- Starry Background Animation Items -->
+          <div class="stars-starsContainer">
+            <div id="stars"></div>
+            <div id="stars2"></div>
+            <div id="stars3"></div>
+          </div>
+
+          <div class="card-header-group">
+            <div class="title-section">
               <h3 class="card-header">Birthdays &amp; Work Anniversaries</h3>
               <p class="card-dec">Celebrate your teammates' special moments</p>
             </div>
@@ -259,56 +266,63 @@
               <p>No milestones coming up this week. Keep the spirits high!</p>
             </div>
 
-            <div class="milestone-item" *ngFor="let milestone of birthdays; trackBy: trackById"
+            <div class="cosmic-milestone-item" *ngFor="let milestone of birthdays; trackBy: trackById"
               [class.today]="milestone.isToday">
               <div class="item-main">
-                <div class="avatar-block">
-                  <img [src]="milestone.fullImageUrl" [alt]="milestone.FirstName">
-                  <div class="event-icon-badge" [class.birthday-badge]="milestone.eventType === 'Birthday'"
+                <div class="premium-avatar-box">
+                  <div class="avatar-ring" [class.birthday]="milestone.eventType === 'Birthday'"
+                    [class.anniversary]="milestone.eventType === 'Anniversary'"></div>
+                  <img [src]="milestone.fullImageUrl" [alt]="milestone.FirstName" class="cosmic-avatar">
+                  <div class="event-badge" [class.birthday-badge]="milestone.eventType === 'Birthday'"
                     [class.anniversary-badge]="milestone.eventType === 'Anniversary'">
                     <ion-icon [name]="milestone.eventType === 'Birthday' ? 'gift' : 'medal'"></ion-icon>
                   </div>
                 </div>
 
-                <div class="info-block" (click)="$event.stopPropagation()">
-                  <div class="name-row">
+                <div class="cosmic-info" (click)="$event.stopPropagation()">
+                  <div class="name-pill-row">
                     <span class="emp-name">{{ milestone.FirstName }} {{ milestone.LastName }}</span>
-                    <span class="today-tag" *ngIf="milestone.isToday">TODAY</span>
+                    <span class="cosmic-today-pill" *ngIf="milestone.isToday">TODAY</span>
                   </div>
-                  <p class="event-desc">
-                    <span class="event-type">{{ milestone.eventType }}</span>
-                    <span class="dot-separator">•</span>
-                    <span class="event-date">{{ milestone.originalDate | date:'MMM dd' }}</span>
-                    <span class="anniversary-years" *ngIf="milestone.eventType === 'Anniversary'">
-                      <span class="dot-separator">•</span>
-                      {{ milestone.years }} {{ milestone.years > 1 ? 'years' : 'year' }}
+                  <div class="event-meta">
+                    <span class="cosmic-event-type" [class.text-birthday]="milestone.eventType === 'Birthday'"
+                      [class.text-anniversary]="milestone.eventType === 'Anniversary'">
+                      {{ milestone.eventType }}
                     </span>
-                  </p>
+                    <span class="cosmic-dot">•</span>
+                    <span class="event-date">{{ milestone.originalDate | date:'MMM dd' }}</span>
+                    <span class="years-pill" *ngIf="milestone.eventType === 'Anniversary'">
+                      {{ milestone.years }}{{ milestone.years > 1 ? 'y' : 'y' }}
+                    </span>
+                  </div>
                 </div>
 
-                <div class="action-block" *ngIf="activeWishEmployeeId !== milestone.id">
-                  <ion-button fill="clear" (click)="viewWishes(milestone)" class="view-btn" title="View Wishes">
-                    <ion-icon slot="icon-only" name="eye-outline"></ion-icon>
-                  </ion-button>
-                  <ion-button fill="clear" (click)="showWishInput(milestone.id)" class="wish-btn" title="Send Wish">
-                    <ion-icon slot="icon-only" name="paper-plane-outline"></ion-icon>
-                  </ion-button>
+                <div class="cosmic-actions" *ngIf="activeWishEmployeeId !== milestone.id">
+                  <button class="cosmic-action-btn view" (click)="viewWishes(milestone)" title="View Wishes">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </button>
+                  <button class="cosmic-action-btn wish" (click)="showWishInput(milestone.id)" title="Send Wish">
+                    <ion-icon name="paper-plane-outline"></ion-icon>
+                  </button>
                 </div>
               </div>
 
               <!-- Inline Wish Input -->
-              <div class="wish-reveal-input" *ngIf="activeWishEmployeeId === milestone.id">
+              <div class="cosmic-wish-input-reveal" *ngIf="activeWishEmployeeId === milestone.id">
                 <ion-input [(ngModel)]="wishMessages[milestone.id]" placeholder="Write a warm note..."></ion-input>
-                <div class="reveal-actions">
-                  <ion-button fill="clear" color="medium" (click)="hideWishInput()">Cancel</ion-button>
-                  <ion-button fill="solid" class="send-small-btn" (click)="sendWish(milestone.id)">Send</ion-button>
+                <div class="reveal-btns">
+                  <button class="cancel-btn" (click)="hideWishInput()">Cancel</button>
+                  <button class="send-btn" (click)="sendWish(milestone.id)">
+                    <ion-icon name="paper-plane-outline"></ion-icon>
+                    Send
+                  </button>
                 </div>
               </div>
 
-              <div class="mini-wish-list" *ngIf="milestone.isToday">
-                <div class="wish-count" (click)="viewWishes(milestone)">
-                  <ion-icon name="heart" color="danger"></ion-icon>
-                  <span>See celebration notes</span>
+              <div class="celebration-footer" *ngIf="milestone.isToday">
+                <div class="notes-link" (click)="viewWishes(milestone)">
+                  <ion-icon name="heart" class="heart-pulse"></ion-icon>
+                  <span>View celebration notes</span>
                 </div>
               </div>
             </div>
@@ -316,35 +330,52 @@
         </ion-card>
 
         <!-- View Wishes Modal -->
-        <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()" class="wishes-modal">
+        <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()" class="wishes-modal premium-colorful-modal">
           <ng-template>
-            <ion-header class="ion-no-border">
-              <ion-toolbar>
-                <ion-title>Wishes for {{ viewingMilestoneName }}</ion-title>
-                <ion-buttons slot="end">
-                  <ion-button (click)="closeWishesModal()">
-                    <ion-icon slot="icon-only" name="close"></ion-icon>
-                  </ion-button>
-                </ion-buttons>
-              </ion-toolbar>
-            </ion-header>
-            <ion-content class="ion-padding">
-              <div class="modal-wishes-list" *ngIf="wishesToView.length > 0; else noWishes">
-                <div class="wish-card-item" *ngFor="let wish of wishesToView">
-                  <div class="wish-header">
-                    <span class="sender">{{ wish.sender_name }}</span>
-                    <span class="time">{{ wish.created_at | date:'MMM dd, h:mm a' }}</span>
+            <div class="modal-wrapper">
+              <ion-header class="ion-no-border">
+                <ion-toolbar class="colorful-header">
+                  <div class="header-content">
+                    <ion-icon name="sparkles" class="star-icon"></ion-icon>
+                    <ion-title>Celebration Wall for {{ viewingMilestoneName }}</ion-title>
                   </div>
-                  <p class="wish-text">{{ wish.message }}</p>
+                  <ion-buttons slot="end">
+                    <ion-button (click)="closeWishesModal()" class="close-circle">
+                      <ion-icon slot="icon-only" name="close-circle"></ion-icon>
+                    </ion-button>
+                  </ion-buttons>
+                </ion-toolbar>
+              </ion-header>
+
+              <ion-content class="modal-content-area">
+                <div class="wishes-grid" *ngIf="wishesToView.length > 0; else noWishes">
+                  <div class="wish-glass-card" *ngFor="let wish of wishesToView">
+                    <div class="wish-card-inner">
+                      <div class="sender-avatar-small">
+                        {{ (wish.sender_name || 'U').charAt(0) }}
+                      </div>
+                      <div class="wish-body">
+                        <div class="wish-header">
+                          <span class="sender-name">{{ wish.sender_name }}</span>
+                          <span class="wish-time">{{ wish.created_at | date:'MMM dd' }}</span>
+                        </div>
+                        <p class="wish-message">{{ wish.message }}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <ng-template #noWishes>
-                <div class="no-wishes-state">
-                  <ion-icon name="heart-dislike-outline"></ion-icon>
-                  <p>No celebrations yet. Be the first to send a note!</p>
-                </div>
-              </ng-template>
-            </ion-content>
+
+                <ng-template #noWishes>
+                  <div class="empty-wishes-state">
+                    <div class="empty-icon-box">
+                      <ion-icon name="heart-outline"></ion-icon>
+                    </div>
+                    <h2>No celebrations yet!</h2>
+                    <p>Be the first to brighten their day with a warm message.</p>
+                  </div>
+                </ng-template>
+              </ion-content>
+            </div>
           </ng-template>
         </ion-modal>
       </ion-col>

@@ -252,112 +252,235 @@
 }
 
 /* =========================================
-   Employee Details Modal Styles
+   Employee Details Modal Styles (Vibrant & Colorful)
 ========================================= */
 .employee-details-modal {
-  --height: 450px;
-  --max-height: 90vh;
-  --width: 90%;
-  --max-width: 700px;
-  --border-radius: 20px;
-  --box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  --height: 100%;
+  --max-height: 95vh;
+  --width: 95%;
+  --max-width: 800px;
+  --border-radius: 40px;
+  --box-shadow: 0 40px 100px rgba(0, 0, 0, 0.15);
 
   ion-header {
+    background: transparent;
+
     ion-toolbar {
       --background: transparent;
-      --color: #0f172a;
+      --padding-top: 20px;
+      --padding-end: 20px;
 
       ion-title {
-        font-weight: 600;
-        font-size: 18px;
+        display: none;
       }
 
-      ion-icon {
-        color: #64748b;
-        font-size: 28px;
+      ion-button {
+        --color: #ffffff;
+        --background: rgba(0, 0, 0, 0.1);
+        --border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        backdrop-filter: blur(5px);
+
+        &:hover {
+          --background: rgba(0, 0, 0, 0.2);
+        }
       }
     }
   }
 
   .employee-modal-content-area {
-    --background: #f8fafc;
+    --background: #ffffff;
+    --padding-top: 0;
   }
 
   .employee-modal-content {
     background: #ffffff;
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    padding: 20px 28px 45px 28px;
+    position: relative;
+    overflow: hidden;
+
+    /* Dynamic Multi-Color Mesh Background */
+    &::before {
+      content: '';
+      position: absolute;
+      top: -180px;
+      left: -100px;
+      right: -100px;
+      height: 400px;
+      background:
+        radial-gradient(at 0% 0%, hsla(217, 100%, 93%, 1) 0, transparent 50%),
+        radial-gradient(at 100% 0%, hsla(271, 100%, 94%, 1) 0, transparent 50%),
+        radial-gradient(at 50% 100%, hsla(160, 100%, 94%, 1) 0, transparent 50%);
+      filter: blur(40px);
+      z-index: 0;
+      pointer-events: none;
+    }
 
     .employee-modal-header {
+      position: relative;
+      z-index: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      border-bottom: 1px solid #e2e8f0;
-      padding-bottom: 16px;
-      margin-bottom: 16px;
+      margin-bottom: 40px;
 
       .avatar-block {
-        margin-bottom: 8px;
+        margin-bottom: 20px;
+        position: relative;
+
+        /* Vivid Gradient Border Ring */
+        &::after {
+          content: '';
+          position: absolute;
+          inset: -8px;
+          border-radius: 50%;
+          padding: 3px;
+          background: linear-gradient(135deg, #3b82f6, #d946ef, #10b981);
+          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+          -webkit-mask-composite: xor;
+          mask-composite: exclude;
+          opacity: 0.6;
+          animation: rotateRing 10s linear infinite;
+        }
 
         .emp-modal-avatar {
-          width: 72px;
-          height: 72px;
+          width: 110px;
+          height: 110px;
           border-radius: 50%;
           object-fit: cover;
-          border: 3px solid #f1f5f9;
-          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          border: 4px solid #ffffff;
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+          position: relative;
+          z-index: 1;
         }
       }
 
       h2.emp-modal-name {
-        margin: 0 0 4px 0;
-        font-size: 18px;
-        font-weight: 700;
-        color: #0f172a;
+        margin: 0 0 8px 0;
+        font-size: 26px;
+        font-weight: 900;
+        color: #1e293b;
+        letter-spacing: -0.8px;
       }
 
       p.emp-modal-designation {
         margin: 0;
         font-size: 14px;
-        color: #64748b;
-        font-weight: 500;
+        color: #feffff;
+        font-weight: 700;
+        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        padding: 6px 20px;
+        border-radius: 30px;
+        box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
       }
     }
 
     .employee-info-cards {
+      position: relative;
+      z-index: 1;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 12px;
+      gap: 18px;
 
       .info-card {
         display: flex;
         align-items: center;
-        background: #f8fafc;
-        padding: 12px;
-        border-radius: 10px;
-        border: 1px solid #e2e8f0;
+        padding: 20px;
+        border-radius: 24px;
+        border: 1px solid rgba(0, 0, 0, 0.03);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+
+        /* Individual Card Tints */
+        &:nth-child(1) {
+          background: #f0f9ff;
+        }
+
+        /* ID - Blue */
+        &:nth-child(2) {
+          background: #f3f4ff;
+        }
+
+        /* Email - Purple/Indigo */
+        &:nth-child(3) {
+          background: #ecfdf5;
+        }
+
+        /* Attendance - Green */
+        &:nth-child(4) {
+          background: #fff7ed;
+        }
+
+        /* Shift - Orange */
+        &:nth-child(5) {
+          background: #fef2f2;
+        }
+
+        /* Dept - Rose */
+
+        &::after {
+          content: '';
+          position: absolute;
+          width: 60px;
+          height: 60px;
+          background: rgba(255, 255, 255, 0.4);
+          border-radius: 50%;
+          top: -20px;
+          right: -20px;
+          filter: blur(20px);
+        }
+
+        &:hover {
+          transform: translateY(-5px) scale(1.02);
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+          border-color: rgba(255, 255, 255, 0.5);
+        }
 
         &.full-width {
           grid-column: span 2;
         }
 
         .icon-box {
-          width: 32px;
-          height: 32px;
-          border-radius: 8px;
-          background: #e0f2fe;
+          width: 44px;
+          height: 44px;
+          border-radius: 14px;
+          background: #ffffff;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-right: 12px;
+          margin-right: 18px;
           flex-shrink: 0;
+          box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
 
           ion-icon {
-            font-size: 16px;
-            color: #0284c7;
+            font-size: 20px;
           }
+        }
+
+        /* Unique icon colors */
+        &:nth-child(1) .icon-box ion-icon {
+          color: #0ea5e9;
+        }
+
+        &:nth-child(2) .icon-box ion-icon {
+          color: #6366f1;
+        }
+
+        &:nth-child(3) .icon-box ion-icon {
+          color: #10b981;
+        }
+
+        &:nth-child(4) .icon-box ion-icon {
+          color: #f97316;
+        }
+
+        &:nth-child(5) .icon-box ion-icon {
+          color: #f43f5e;
         }
 
         .info-text {
@@ -367,21 +490,18 @@
           overflow: hidden;
 
           .info-label {
-            font-size: 11px;
-            color: #64748b;
+            font-size: 10px;
+            color: rgba(0, 0, 0, 0.4);
             text-transform: uppercase;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-            margin-bottom: 2px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            font-weight: 800;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
           }
 
           .info-value {
-            font-size: 13px;
-            color: #0f172a;
-            font-weight: 500;
+            font-size: 15px;
+            color: #1e293b;
+            font-weight: 800;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -389,23 +509,25 @@
             &.attendance-status {
               display: inline-flex;
               align-items: center;
-              color: #dc2626;
 
               &::before {
                 content: '';
                 display: inline-block;
-                width: 6px;
-                height: 6px;
+                width: 10px;
+                height: 10px;
                 border-radius: 50%;
-                background: #dc2626;
-                margin-right: 6px;
+                background: #f43f5e;
+                margin-right: 8px;
+                box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
+                animation: pulseStatus 2s infinite;
               }
 
               &.status-in {
-                color: #16a34a;
+                color: #059669;
 
                 &::before {
-                  background: #16a34a;
+                  background: #10b981;
+                  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
                 }
               }
             }
@@ -413,5 +535,32 @@
         }
       }
     }
+  }
+}
+
+@keyframes rotateRing {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseStatus {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }

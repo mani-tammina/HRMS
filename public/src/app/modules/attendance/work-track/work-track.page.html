@@ -1,527 +1,358 @@
-<ion-content class="ion-padding page-containerOn">
-
-  <!-- ======= TOP BAR ======= -->
-  <div class="top-bar">
-    <div>
-      <h1>Work Track</h1>
-      <p>Track your daily work hours and manage timesheets</p>
-    </div>
-    <div class="stats-chips">
-      <ion-chip color="primary">
-        <ion-icon name="time-outline"></ion-icon>
-        <ion-label>Today</ion-label>
-      </ion-chip>
-    </div>
-  </div>
-  <div *ngIf="hasProject">
-
-    <div class="project-banner">
-      <ion-icon name="briefcase"></ion-icon>
-      <span>You are assigned to a project</span>
-    </div>
-
-    <ion-card *ngFor="let a of assignments" class="worklog-block project-assignment-card ion-margin-bottom">
-      <ion-card-content>
-        <div class="project-info-grid">
-          <div class="info-item">
-            <ion-icon name="rocket-outline" color="primary"></ion-icon>
-            <div>
-              <label>Project Name</label>
-              <p>{{ a.project_name }}</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <ion-icon name="code-slash-outline" color="primary"></ion-icon>
-            <div>
-              <label>Project Code</label>
-              <p>{{ a.project_code }}</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <ion-icon name="business-outline" color="primary"></ion-icon>
-            <div>
-              <label>Client</label>
-              <p>{{ a.client_name }}</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <ion-icon name="time-outline" color="primary"></ion-icon>
-            <div>
-              <label>Shift</label>
-              <p>{{ a.shift_name }}</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <ion-icon name="alarm-outline" color="primary"></ion-icon>
-            <div>
-              <label>Working Hours</label>
-              <p>{{ a.start_time }} - {{ a.end_time }}</p>
-            </div>
-          </div>
-          <div class="info-item">
-            <ion-icon name="calendar-outline" color="primary"></ion-icon>
-            <div>
-              <label>Duration </label>
-              <p>{{ a.start_date | date:'mediumDate' }} to {{ a.end_date | date:'mediumDate' }}</p>
-            </div>
-          </div>
-        </div>
-        <!-- Client Timesheet Upload UI -->
-        <div class="client-upload-block ion-margin-top">
-          <ion-item lines="none" class="upload-file">
-            <ion-label position="stacked">Upload Client Timesheet</ion-label>
-            <div class="button-wrapper">
-              <span class="label"> Upload File</span>
-              <input type="file" id="upload" class="upload-box" (change)="onClientUploadFileChange($event)"
-                accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" />
-            </div>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label position="stacked">Month</ion-label>
-            <ion-select [(ngModel)]="clientUploadMonth" interface="popover" toggleIcon="chevron-down"
-              expandedIcon="chevron-up">
-              <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
-            </ion-select>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label position="stacked">Year</ion-label>
-            <ion-select [(ngModel)]="clientUploadYear" interface="popover" toggleIcon="chevron-down"
-              expandedIcon="chevron-up">
-              <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
-            </ion-select>
-          </ion-item>
-          <ion-button class="primary-btn ion-margin-top" (click)="uploadClientTimesheet(a.project_id)"
-            [disabled]="!clientUploadFile || clientUploadLoading">
-            <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
-            {{ clientUploadLoading ? 'Uploading...' : 'Upload Client Timesheet' }}
-          </ion-button>
-          <ion-note *ngIf="clientUploadFile" color="success">
-            Selected: {{clientUploadFile.name}}
-          </ion-note>
-        </div>
-      </ion-card-content>
-    </ion-card>
-
-    <!-- ================= MY PROJECT TIMESHEETS ================= -->
-    <ion-card class="worklog-block timesheets-card">
-      <ion-card-header>
-        <div class="header-content">
-          <div>
-            <ion-card-title>
-              <ion-icon name="documents-outline"></ion-icon>
-              My Project Reports
-            </ion-card-title>
-            <p>View and manage your submitted project work reports</p>
-          </div>
-        </div>
-      </ion-card-header>
-
-      <ion-card-content>
-
-        <!-- FILTERS -->
-        <div class="filter-section">
-          <ion-grid>
-            <ion-row>
-              <ion-col size="6">
-                <ion-item lines="none">
-                  <ion-label position="stacked">Month</ion-label>
-                  <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover"
-                    toggleIcon="chevron-down" expandedIcon="chevron-up">
-                    <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-              </ion-col>
-              <ion-col size="6">
-                <ion-item lines="none">
-                  <ion-label position="stacked">Year</ion-label>
-                  <ion-select [value]="selectedYear" (ionChange)="onYearChange($event)" interface="popover"
-                    toggleIcon="chevron-down" expandedIcon="chevron-up">
-                    <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-              </ion-col>
-            </ion-row>
-          </ion-grid>
-        </div>
-
-        <ion-spinner *ngIf="loadingList"></ion-spinner>
-
-        <ion-grid class="table-block ion-no-padding" *ngIf="!loadingList && paginatedTimesheets.length">
-          <ion-row class="table-header">
-            <ion-col size="2">
-              <p><ion-icon name="calendar"></ion-icon> Date</p>
-            </ion-col>
-            <ion-col size="4">
-              <p><ion-icon name="document-text"></ion-icon> Work Description</p>
-            </ion-col>
-            <ion-col size="2">
-              <p><ion-icon name="time"></ion-icon> Total Hours</p>
-            </ion-col>
-            <ion-col size="2">
-              <p><ion-icon name="checkmark-circle"></ion-icon> Status</p>
-            </ion-col>
-            <ion-col size="2">
-              <p>Actions</p>
-            </ion-col>
-          </ion-row>
-          <ion-row class="table-list-row" *ngFor="let t of paginatedTimesheets">
-            <ion-col size="2">
-              {{ t.date | date }}
-            </ion-col>
-            <ion-col size="4">
-              {{ t.work_description || t.notes || 'No description' }}
-            </ion-col>
-            <ion-col size="2">
-              {{ t.total_hours }}
-            </ion-col>
-            <ion-col size="2">
-              <ion-badge [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</ion-badge>
-            </ion-col>
-            <ion-col size="2">
-              <!-- EDIT -->
-              <ion-button fill="clear"
-                *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                (click)="editTimesheet(t)">
-                <ion-icon name="create-outline" color="primary" style="font-size: 20px;"></ion-icon>
-              </ion-button>
-
-              <ion-button fill="clear" (click)="openPreview(t)">
-                <ion-img src="../../../assets/Icons/Eye-blue.svg"></ion-img>
-              </ion-button>
-
-              <!-- EXCEL -->
-              <ion-button fill="clear" (click)="downloadExcel(t)">
-                <ion-img src="../../../assets/Icons/dowload-blue.svg"></ion-img>
-              </ion-button>
-            </ion-col>
-          </ion-row>
-
-        </ion-grid>
-
-        <!-- PAGINATION -->
-        <div class="pagination-controls" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
-          <ion-button fill="clear" size="small" [disabled]="currentPage === 1" (click)="previousPage()">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </ion-button>
-
-          <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
-
-          <ion-button fill="clear" size="small" [disabled]="currentPage === totalPages" (click)="nextPage()">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </ion-button>
-        </div>
-
-        <div class="no-leaves-img">
-          <p *ngIf="!loadingList && !myTimesheets.length" class="empty-data ">
-            <ion-img src="../../../assets/no_leavedata_img.svg"></ion-img>
-            No timesheets found for {{ months[selectedMonth - 1].name }} {{ selectedYear }}
-          </p>
-        </div>
-
-      </ion-card-content>
-    </ion-card>
-
+<ion-content class="ion-padding premium-page-container">
+  <!-- Glass Background Elements -->
+  <div class="glass-background">
+    <div class="glass-overlay"></div>
+    <div class="glow-flare flare-1"></div>
+    <div class="glow-flare flare-2"></div>
+    <div class="bokeh-sparkle"></div>
   </div>
 
-  <!-- ================= NO PROJECT ASSIGNED ================= -->
-  <div *ngIf="!hasProject">
-    <!-- <ion-card class="worklog-block">
-      <ion-card-content>
-        <div style="text-align: center; padding: 40px 20px;">
-          <ion-icon name="briefcase-outline" color="medium"
-            style="font-size: 80px; display: block; margin-bottom: 20px;"></ion-icon>
-          <h3>No Project Assigned</h3>
-          <p color="medium">You are not currently assigned to any project. Please contact your administrator to get
-            assigned to a project.</p>
+  <div class="page-content-wrapper">
+    <!-- ======= TOP BAR ======= -->
+    <div class="premium-top-bar">
+      <div class="title-group">
+        <h1 class="main-title">Work Track</h1>
+        <p class="sub-title">Track your daily work hours and manage timesheets</p>
+      </div>
+      <div class="top-actions">
+        <div class="status-pill highlight">
+          <ion-icon name="time-outline"></ion-icon>
+          <span>Today: {{ todayDate }}</span>
         </div>
-      </ion-card-content>
-    </ion-card> -->
-  </div>
+      </div>
+    </div>
 
-  <!-- ================= DAILY WORK LOG - SHOWN FOR ALL EMPLOYEES ================= -->
-  <div>
-    <!-- ================= CREATE TIMESHEET ================= -->
-    <ion-card id="daily-work-log-card" class="worklog-block create-card">
-      <ion-card-header>
-        <div class="header-content">
-          <div>
+    <div *ngIf="hasProject" class="animate-in">
+      <div class="project-banner-card">
+        <div class="banner-inner">
+          <ion-icon name="briefcase" class="banner-icon"></ion-icon>
+          <div class="banner-text">
+            <h2>Active Project Assignment</h2>
+            <p>Complete your daily logs to stay compliant</p>
+          </div>
+        </div>
+      </div>
+
+      <ion-card *ngFor="let a of assignments" class="glass-card project-assignment-premium ion-margin-bottom">
+        <ion-card-content>
+          <div class="project-info-grid">
+            <div class="info-item">
+              <div class="icon-wrap"><ion-icon name="rocket-outline"></ion-icon></div>
+              <div class="content">
+                <label>Project Name</label>
+                <p>{{ a.project_name }}</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="icon-wrap"><ion-icon name="code-slash-outline"></ion-icon></div>
+              <div class="content">
+                <label>Project Code</label>
+                <p>{{ a.project_code }}</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="icon-wrap"><ion-icon name="business-outline"></ion-icon></div>
+              <div class="content">
+                <label>Client</label>
+                <p>{{ a.client_name }}</p>
+              </div>
+            </div>
+            <div class="info-item">
+              <div class="icon-wrap"><ion-icon name="calendar-outline"></ion-icon></div>
+              <div class="content">
+                <label>Duration</label>
+                <p>{{ a.start_date | date:'mediumDate' }} - {{ a.end_date | date:'mediumDate' }}</p>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Client Timesheet Upload UI -->
+          <div class="premium-upload-section">
+            <div class="section-title">Upload Client Timesheet</div>
+            <div class="upload-controls">
+                <div class="file-drop-zone">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                  <span *ngIf="!clientUploadFile">Select File</span>
+                  <span *ngIf="clientUploadFile" class="selected-filename">{{clientUploadFile.name}}</span>
+                  <input type="file" (change)="onClientUploadFileChange($event)" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" />
+                </div>
+                
+                <div class="select-group">
+                  <ion-item lines="none" class="glass-select">
+                    <ion-select [(ngModel)]="clientUploadMonth" interface="popover" placeholder="Month">
+                      <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                  <ion-item lines="none" class="glass-select">
+                    <ion-select [(ngModel)]="clientUploadYear" interface="popover" placeholder="Year">
+                      <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                </div>
+
+                <button class="premium-action-btn primary" (click)="uploadClientTimesheet(a.project_id)" [disabled]="!clientUploadFile || clientUploadLoading">
+                  <ion-icon [name]="clientUploadLoading ? 'refresh-outline' : 'cloud-upload'"></ion-icon>
+                  <span>{{ clientUploadLoading ? 'Uploading...' : 'Upload' }}</span>
+                </button>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+
+      <!-- ================= MY PROJECT TIMESHEETS ================= -->
+      <ion-card class="glass-card timesheets-premium">
+        <ion-card-header>
+          <div class="card-header-flex">
+            <div class="title-group">
+              <ion-card-title>
+                <ion-icon name="documents-outline"></ion-icon>
+                My Project Reports
+              </ion-card-title>
+              <p>Review your submitted project work logs</p>
+            </div>
+            <div class="filter-controls">
+              <ion-item lines="none" class="glass-select mini">
+                <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover">
+                  <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
+                </ion-select>
+              </ion-item>
+              <ion-item lines="none" class="glass-select mini">
+                <ion-select [value]="selectedYear" (ionChange)="onYearChange($event)" interface="popover">
+                  <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
+                </ion-select>
+              </ion-item>
+            </div>
+          </div>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="premium-table-container">
+            <ion-spinner *ngIf="loadingList" class="center-spinner"></ion-spinner>
+
+            <table class="premium-table" *ngIf="!loadingList && paginatedTimesheets.length">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Work Description</th>
+                  <th>Hours</th>
+                  <th>Status</th>
+                  <th class="actions-cell">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let t of paginatedTimesheets">
+                  <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
+                  <td class="desc-cell">{{ t.work_description || t.notes || 'No description' }}</td>
+                  <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
+                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span></td>
+                  <td class="actions-cell">
+                    <div class="action-buttons">
+                      <button class="icon-btn edit" *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')" (click)="editTimesheet(t)">
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+                      <button class="icon-btn view" (click)="openPreview(t)">
+                        <ion-icon name="eye-outline"></ion-icon>
+                      </button>
+                      <button class="icon-btn download" (click)="downloadExcel(t)">
+                        <ion-icon name="download-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- PAGINATION -->
+          <div class="premium-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
+            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+            <span class="page-info">Page <b>{{ currentPage }}</b> of {{ totalPages }}</span>
+            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="empty-state" *ngIf="!loadingList && !myTimesheets.length">
+            <ion-icon name="document-text-outline" class="empty-icon"></ion-icon>
+            <p>No project reports found for this period</p>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- ================= DAILY WORK LOG ================= -->
+    <div class="animate-in delay-1">
+      <ion-card id="daily-work-log-card" class="glass-card worklog-premium">
+        <ion-card-header>
+          <div class="header-content">
             <ion-card-title>
               <ion-icon name="create-outline"></ion-icon>
               Daily Work Log
             </ion-card-title>
-            <p>Track your work hours and tasks for today</p>
+            <p>Define your tasks and track accurate hours</p>
           </div>
-        </div>
-      </ion-card-header>
+        </ion-card-header>
 
-      <ion-card-content>
-        <form [formGroup]="workTrackForm">
-          <div class="date-selector">
-            <label>Select Date</label>
-            <div class="date-picker-input" id="open-date-modal">
-              <ion-icon name="calendar-outline" color="primary"></ion-icon>
-              <span>{{ workTrackForm.get('date')?.value | date:'mediumDate' }}</span>
-              <ion-icon name="chevron-down-outline" slot="end" class="chevron"></ion-icon>
+        <ion-card-content>
+          <form [formGroup]="workTrackForm" class="premium-form">
+            <div class="form-grid">
+              <!-- Date Picker -->
+              <div class="input-card">
+                <label>Work Date</label>
+                <div class="custom-datepicker" id="open-date-modal">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>{{ workTrackForm.get('date')?.value | date:'longDate' }}</span>
+                  <ion-icon name="chevron-down-outline" class="chevron"></ion-icon>
+                </div>
+                <div class="date-status" *ngIf="selectedDateStatus">
+                  <span [class]="selectedDateStatus.toLowerCase().includes('leave') ? 'status-leave' : 'status-off'">{{ selectedDateStatus }}</span>
+                </div>
+              </div>
+
+              <!-- Project Selection -->
+              <div class="input-card" *ngIf="hasProject">
+                <label>Assigned Project</label>
+                <div class="glass-select-wrap">
+                  <ion-item lines="none" class="glass-select">
+                    <ion-select formControlName="project_id" interface="popover" placeholder="Select Project">
+                      <ion-select-option *ngFor="let a of assignments" [value]="a.project_id">{{ a.project_name }}</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                </div>
+              </div>
             </div>
 
-            <!-- Status Display (Leave/Week Off) -->
-            <div class="date-status-msg" *ngIf="selectedDateStatus">
-              <span [class.leave]="selectedDateStatus.includes('Leave')"
-                [class.weekoff]="selectedDateStatus.includes('Off')" [title]="selectedDateStatus">
-                {{ selectedDateStatus }}
-              </span>
-            </div>
-
-            <!-- Date Modal -->
-            <ion-modal trigger="open-date-modal" class="date-picker-modal">
+            <!-- Modal -->
+            <ion-modal trigger="open-date-modal" class="premium-datepicker-modal">
               <ng-template>
                 <ion-content>
-                  <ion-datetime #datetime presentation="date" [max]="today" [highlightedDates]="highlightedDates"
+                  <ion-datetime presentation="date" [max]="today" [highlightedDates]="highlightedDates"
                     [value]="workTrackForm.get('date')?.value" (ionChange)="onDateChange($event)">
                     <div slot="title">Select Work Date</div>
                   </ion-datetime>
                 </ion-content>
               </ng-template>
             </ion-modal>
-          </div>
 
-          <!-- Project & Work Description (For Project Employees) -->
-          <div class="project-selection-section" *ngIf="hasProject">
-            <ion-grid class="ion-no-padding">
-              <ion-row>
-                <ion-col size="12" size-md="4">
-                  <div class="form-group">
-                    <label>Assigned Project</label>
-                    <ion-item lines="none" class="custom-item">
-                      <ion-select formControlName="project_id" interface="popover" toggleIcon="chevron-down"
-                        expandedIcon="chevron-up" placeholder="Select Project">
-                        <ion-select-option *ngFor="let a of assignments" [value]="a.project_id">
-                          {{ a.project_name }}
-                        </ion-select-option>
-                      </ion-select>
-                    </ion-item>
-                  </div>
-                </ion-col>
-                <!-- <ion-col size="12" size-md="8">
-                  <div class="form-group">
-                    <label>Work Description</label>
-                    <ion-item lines="none" class="custom-item">
-                      <ion-input formControlName="work_description" placeholder="Summary of your work today..."></ion-input>
-                    </ion-item>
-                  </div>
-                </ion-col> -->
-              </ion-row>
-            </ion-grid>
-          </div>
-
-          <ion-grid class="table-block ion-no-padding">
-            <ion-row class="table-header">
-              <ion-col size="2">
-                <p>Time Slot</p>
-              </ion-col>
-              <ion-col size="8">
-                <p>Task Description</p>
-              </ion-col>
-              <ion-col size="1">
-                <p>Hours</p>
-              </ion-col>
-              <ion-col size="1">
-                <p>Action</p>
-              </ion-col>
-            </ion-row>
-            <div formArrayName="hours_breakdown">
-              <ion-row class="table-list-row" *ngFor="let row of breakdowns.controls; let i = index"
-                [formGroupName]="i">
-                <ion-col size="2">
-                  <ion-input formControlName="hour" placeholder="Add Time"></ion-input>
-                </ion-col>
-                <ion-col size="8">
-                  <ion-textarea formControlName="task" placeholder="Add task details"></ion-textarea>
-                </ion-col>
-                <ion-col size="1">
-                  <ion-input type="number" formControlName="hours" placeholder="1" (ionChange)="onHoursChange(i)">
-                  </ion-input>
-                </ion-col>
-                <ion-col size="1">
-                  <ion-button fill="clear" color="danger" size="small" *ngIf="!(breakdowns.length>1)"
-                    (click)="removeRow(i)" disabled>
-                    <ion-img src="../../../assets/delete.svg"></ion-img>
-                  </ion-button>
-                  <ion-button fill="clear" color="danger" size="small" *ngIf="breakdowns.length > 1"
-                    (click)="removeRow(i)">
-                    <ion-img src="../../../assets/delete.svg"></ion-img>
-                  </ion-button>
-                </ion-col>
-              </ion-row>
+            <div class="log-table-wrapper">
+              <table class="log-table">
+                <thead>
+                  <tr>
+                    <th style="width: 15%">Time Slot</th>
+                    <th style="width: 65%">Task Description</th>
+                    <th style="width: 10%">Hrs</th>
+                    <th style="width: 10%"></th>
+                  </tr>
+                </thead>
+                <tbody formArrayName="hours_breakdown">
+                  <tr *ngFor="let row of breakdowns.controls; let i = index" [formGroupName]="i">
+                    <td><input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input"></td>
+                    <td><textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea" rows="1"></textarea></td>
+                    <td><input type="number" formControlName="hours" (ionChange)="onHoursChange(i)" class="glass-input center"></td>
+                    <td class="actions-cell">
+                      <button class="remove-btn" (click)="removeRow(i)" [disabled]="breakdowns.length <= 1">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <!-- TOTAL -->
-            <div class="total-hours-card">
-              <div class="total-content">
-                <ion-icon name="time" color="primary"></ion-icon>
-                <span class="total-label">Total Hours</span>
+
+            <div class="form-footer">
+              <div class="total-hours-hero">
+                <ion-icon name="pulse-outline"></ion-icon>
+                <div class="text">
+                  <span>Total Calculated</span>
+                  <h2>{{ calculateTotalHours() }} Hours</h2>
+                </div>
               </div>
-              <ion-badge class="total-badge">{{ calculateTotalHours() }} hrs</ion-badge>
+
+              <div class="footer-actions">
+                <button type="button" class="premium-action-btn secondary" (click)="addRow()">
+                  <ion-icon name="add-outline"></ion-icon>
+                  <span>Add Slot</span>
+                </button>
+                <button type="button" class="premium-action-btn primary large" (click)="submit()" [disabled]="loading">
+                  <ion-icon [name]="loading ? 'refresh-outline' : 'send-outline'"></ion-icon>
+                  <span>{{ loading ? 'Submitting...' : 'Submit Log' }}</span>
+                </button>
+              </div>
             </div>
-            <ion-row>
-              <ion-col size="12" class="row-right pr-30">
-                <ion-button class="primary-outline-btn mr-8" (click)="addRow()">
-                  + Add Time Slot
-                </ion-button>
-                <!-- SUBMIT -->
-                <ion-button class="primary-btn" (click)="submit()" [disabled]="loading">
-                  {{ loading ? 'Submitting...' : 'Submit Work Log' }}
-                </ion-button>
-              </ion-col>
-            </ion-row>
-          </ion-grid>
+          </form>
+        </ion-card-content>
+      </ion-card>
 
-
-
-
-
-          <!-- NOTES -->
-          <!-- <div class="notes-section">
-            <label>
-              <ion-icon name="reader-outline"></ion-icon>
-              Additional Notes (Optional)
-            </label>
-            <ion-textarea formControlName="notes" placeholder="Add any additional context or notes about your work..."
-              rows="3">
-            </ion-textarea>
-          </div> -->
-
-
-        </form>
-      </ion-card-content>
-    </ion-card>
-
-    <!-- ================= MY TIMESHEETS ================= -->
-    <ion-card class="worklog-block timesheets-card" *ngIf="!hasProject">
-      <ion-card-header>
-        <div class="header-content">
-          <div>
-            <ion-card-title>
-              <ion-icon name="calendar-outline"></ion-icon>
-              My Timesheets
-            </ion-card-title>
-            <p>View and manage your submitted work logs</p>
+      <!-- Standard Timesheets (No Project) -->
+      <ion-card class="glass-card timesheets-premium" *ngIf="!hasProject">
+        <ion-card-header>
+          <div class="card-header-flex">
+            <div class="title-group">
+              <ion-card-title><ion-icon name="calendar-outline"></ion-icon> My Timesheets</ion-card-title>
+              <p>Manage your submitted work logs</p>
+            </div>
+            <div class="filter-controls">
+              <ion-item lines="none" class="glass-select mini">
+                <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover">
+                  <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
+                </ion-select>
+              </ion-item>
+              <ion-item lines="none" class="glass-select mini">
+                <ion-select [value]="selectedYear" (ionChange)="onYearChange($event)" interface="popover">
+                  <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
+                </ion-select>
+              </ion-item>
+            </div>
           </div>
-        </div>
-      </ion-card-header>
+        </ion-card-header>
 
-      <ion-card-content>
+        <ion-card-content>
+          <div class="premium-table-container">
+            <ion-spinner *ngIf="loadingList" class="center-spinner"></ion-spinner>
 
-        <!-- FILTERS -->
-        <div class="filter-section">
-          <ion-grid>
-            <ion-row>
-              <ion-col size="6">
-                <ion-item lines="none">
-                  <ion-label position="stacked">Month</ion-label>
-                  <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover"
-                    toggleIcon="chevron-down" expandedIcon="chevron-up">
-                    <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-              </ion-col>
-              <ion-col size="6">
-                <ion-item lines="none">
-                  <ion-label position="stacked">Year</ion-label>
-                  <ion-select [value]="selectedYear" (ionChange)="onYearChange($event)" interface="popover"
-                    toggleIcon="chevron-down" expandedIcon="chevron-up">
-                    <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
-                  </ion-select>
-                </ion-item>
-              </ion-col>
-            </ion-row>
-          </ion-grid>
-        </div>
-
-        <ion-spinner *ngIf="loadingList"></ion-spinner>
-
-        <ion-grid class="table-block ion-no-padding" *ngIf="!loadingList && paginatedTimesheets.length">
-          <ion-row class="table-header">
-            <ion-col size="2">
-              <p><ion-icon name="calendar"></ion-icon> Date</p>
-            </ion-col>
-            <ion-col size="2">
-              <p><ion-icon name="time"></ion-icon> Total Hours</p>
-            </ion-col>
-            <ion-col size="2">
-              <p><ion-icon name="checkmark-circle"></ion-icon> Status</p>
-            </ion-col>
-            <ion-col size="4">
-              <p><ion-icon name="document-text"></ion-icon> Remarks</p>
-            </ion-col>
-            <ion-col size="2">
-              <p>Actions</p>
-            </ion-col>
-          </ion-row>
-          <ion-row class="table-list-row" *ngFor="let t of paginatedTimesheets">
-            <ion-col size="2">
-              {{ t.date | date }}
-            </ion-col>
-            <ion-col size="2">
-              {{ t.total_hours }}
-            </ion-col>
-            <ion-col size="2">
-              <ion-badge [color]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</ion-badge>
-            </ion-col>
-            <ion-col size="4">
-              No Remarks
-            </ion-col>
-            <ion-col size="2">
-              <!-- EDIT -->
-              <ion-button fill="clear"
-                *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                (click)="editTimesheet(t)">
-                <ion-icon name="create-outline" color="primary" style="font-size: 20px;"></ion-icon>
-              </ion-button>
-
-              <ion-button fill="clear" (click)="openPreview(t)">
-                <ion-img src="../../../assets/Icons/Eye-blue.svg"></ion-img>
-              </ion-button>
-
-              <!-- EXCEL -->
-              <ion-button fill="clear" (click)="downloadExcel(t)">
-                <ion-img src="../../../assets/Icons/dowload-blue.svg"></ion-img>
-              </ion-button>
-            </ion-col>
-
-          </ion-row>
-
-        </ion-grid>
-
-        <!-- PAGINATION -->
-        <div class="pagination-controls" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
-          <ion-button fill="clear" size="small" [disabled]="currentPage === 1" (click)="previousPage()">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-          </ion-button>
-
-          <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
-
-          <ion-button fill="clear" size="small" [disabled]="currentPage === totalPages" (click)="nextPage()">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-          </ion-button>
-        </div>
-
-        <div class="no-leaves-img">
-          <p *ngIf="!loadingList && !myTimesheets.length" class="empty-data ">
-            <ion-img src="../../../assets/no_leavedata_img.svg"></ion-img>
-            No timesheets found for {{ months[selectedMonth - 1].name }} {{ selectedYear }}
-          </p>
-        </div>
-
-
-      </ion-card-content>
-    </ion-card>
-
+            <table class="premium-table" *ngIf="!loadingList && paginatedTimesheets.length">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Hours</th>
+                  <th>Status</th>
+                  <th>Remarks</th>
+                  <th class="actions-cell">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let t of paginatedTimesheets">
+                  <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
+                  <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
+                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span></td>
+                  <td class="desc-cell">No Remarks</td>
+                  <td class="actions-cell">
+                    <div class="action-buttons">
+                      <button class="icon-btn edit" *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')" (click)="editTimesheet(t)">
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+                      <button class="icon-btn view" (click)="openPreview(t)">
+                        <ion-icon name="eye-outline"></ion-icon>
+                      </button>
+                      <button class="icon-btn download" (click)="downloadExcel(t)">
+                        <ion-icon name="download-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div class="premium-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
+            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()"><ion-icon name="chevron-back-outline"></ion-icon></button>
+            <span class="page-info">Page <b>{{ currentPage }}</b> of {{ totalPages }}</span>
+            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
   </div>
-
-
-
-
-
-
-
 </ion-content>

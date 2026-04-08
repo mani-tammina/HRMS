@@ -100,7 +100,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       cursor: pointer;
       transition: all 0.3s ease, transform 0.1s ease;
       min-width: 260px;
-      height: 60px;
+      height: 55px;
       display: flex;
       align-items: center;
       justify-content: center;
