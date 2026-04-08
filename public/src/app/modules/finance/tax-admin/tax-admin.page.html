@@ -119,42 +119,62 @@
 
       <div *ngIf="isLoadingSlabs" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
 
-      <div *ngIf="!isLoadingSlabs" class="slabs-split">
-        <!-- NEW regime -->
-        <div class="regime-col">
-          <h3 class="regime-title new-regime">NEW Regime</h3>
-          <table class="slab-table" *ngIf="getNewSlabs().length">
-            <thead>
-              <tr><th>Income Range</th><th>Rate %</th><th>Cess %</th></tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of getNewSlabs()">
-                <td>{{ formatCurrency(s.min_income) }} – {{ s.max_income ? formatCurrency(s.max_income) : '∞' }}</td>
-                <td><span class="rate-chip">{{ s.rate }}%</span></td>
-                <td>{{ s.cess_rate || 0 }}%</td>
-              </tr>
-            </tbody>
-          </table>
-          <p *ngIf="!getNewSlabs().length" class="empty-msg">No slabs loaded</p>
-        </div>
+      <div *ngIf="!isLoadingSlabs" class="slabs-container">
+        <form [formGroup]="taxSlabsForm">
+          <div class="regime-section">
+            <h3 class="regime-title new-regime">NEW Regime</h3>
+            <div class="slab-rows">
+              <div class="slab-row-header">
+                <div>Min (₹)</div><div>Max (₹)</div><div>Tax %</div><div>Cess %</div><div></div>
+              </div>
+              <ng-container formArrayName="slabs">
+                <div *ngFor="let ctrl of taxSlabControls.controls; let i=index" [formGroupName]="i" class="slab-edit-row">
+                  <ng-container *ngIf="ctrl.value.regime_type === 'NEW'">
+                    <input type="number" formControlName="min_income" class="glass-input small" />
+                    <input type="number" formControlName="max_income" class="glass-input small" placeholder="∞" />
+                    <input type="number" formControlName="rate" class="glass-input tiny" />
+                    <input type="number" formControlName="cess_rate" class="glass-input tiny" />
+                    <button class="remove-tiny" (click)="removeTaxSlab(i)"><ion-icon name="close-outline"></ion-icon></button>
+                  </ng-container>
+                </div>
+              </ng-container>
+              <button type="button" class="add-slab-btn" (click)="addTaxSlab('NEW')">
+                <ion-icon name="add-outline"></ion-icon> Add New Regime Slab
+              </button>
+            </div>
+          </div>
 
-        <!-- OLD regime -->
-        <div class="regime-col">
-          <h3 class="regime-title old-regime">OLD Regime</h3>
-          <table class="slab-table" *ngIf="getOldSlabs().length">
-            <thead>
-              <tr><th>Income Range</th><th>Rate %</th><th>Cess %</th></tr>
-            </thead>
-            <tbody>
-              <tr *ngFor="let s of getOldSlabs()">
-                <td>{{ formatCurrency(s.min_income) }} – {{ s.max_income ? formatCurrency(s.max_income) : '∞' }}</td>
-                <td><span class="rate-chip old-chip">{{ s.rate }}%</span></td>
-                <td>{{ s.cess_rate || 0 }}%</td>
-              </tr>
-            </tbody>
-          </table>
-          <p *ngIf="!getOldSlabs().length" class="empty-msg">No slabs loaded</p>
-        </div>
+          <div class="regime-section">
+            <h3 class="regime-title old-regime">OLD Regime</h3>
+            <div class="slab-rows">
+              <div class="slab-row-header">
+                <div>Min (₹)</div><div>Max (₹)</div><div>Tax %</div><div>Cess %</div><div></div>
+              </div>
+              <ng-container formArrayName="slabs">
+                <div *ngFor="let ctrl of taxSlabControls.controls; let i=index" [formGroupName]="i" class="slab-edit-row">
+                  <ng-container *ngIf="ctrl.value.regime_type === 'OLD'">
+                    <input type="number" formControlName="min_income" class="glass-input small" />
+                    <input type="number" formControlName="max_income" class="glass-input small" placeholder="∞" />
+                    <input type="number" formControlName="rate" class="glass-input tiny" />
+                    <input type="number" formControlName="cess_rate" class="glass-input tiny" />
+                    <button class="remove-tiny" (click)="removeTaxSlab(i)"><ion-icon name="close-outline"></ion-icon></button>
+                  </ng-container>
+                </div>
+              </ng-container>
+              <button type="button" class="add-slab-btn" (click)="addTaxSlab('OLD')">
+                <ion-icon name="add-outline"></ion-icon> Add Old Regime Slab
+              </button>
+            </div>
+          </div>
+
+          <div class="action-row">
+            <button class="save-btn" (click)="saveTaxSlabs()" [disabled]="isSavingSlabs" id="save-slabs-btn">
+              <ion-spinner *ngIf="isSavingSlabs" name="crescent"></ion-spinner>
+              <ion-icon *ngIf="!isSavingSlabs" name="save-outline"></ion-icon>
+              {{ isSavingSlabs ? 'Saving...' : 'Save All Slabs' }}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
 
@@ -171,20 +191,33 @@
         </button>
       </div>
       <div *ngIf="isLoadingPT" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
-      <table *ngIf="!isLoadingPT && ptSlabs.length" class="slab-table">
-        <thead>
-          <tr><th>State</th><th>Ceiling (₹)</th><th>Fixed Amount (₹)</th><th>Effective From</th></tr>
-        </thead>
-        <tbody>
-          <tr *ngFor="let s of ptSlabs">
-            <td>{{ s.state_code }}</td>
-            <td>{{ formatCurrency(s.ceiling_limit) }}</td>
-            <td>{{ formatCurrency(s.fixed_amount) }}</td>
-            <td>{{ s.effective_from | date:'mediumDate' }}</td>
-          </tr>
-        </tbody>
-      </table>
-      <p *ngIf="!isLoadingPT && !ptSlabs.length" class="empty-msg">No PT slabs found</p>
+      
+      <form *ngIf="!isLoadingPT" [formGroup]="ptSlabsForm" class="pt-slabs-form">
+        <div class="slab-rows" formArrayName="slabs">
+          <div class="slab-row-header-pt">
+            <div>State</div><div>Ceiling (₹)</div><div>Fixed Amt (₹)</div><div>Effective Date</div><div></div>
+          </div>
+          <div *ngFor="let ctrl of ptSlabControls.controls; let i=index" [formGroupName]="i" class="slab-edit-row-pt">
+            <input type="text" formControlName="state_code" class="glass-input" placeholder="e.g. MH" />
+            <input type="number" formControlName="ceiling_limit" class="glass-input" />
+            <input type="number" formControlName="fixed_amount" class="glass-input" />
+            <input type="date" formControlName="effective_from" class="glass-input" />
+            <button class="remove-tiny" (click)="removePTSlab(i)"><ion-icon name="close-outline"></ion-icon></button>
+          </div>
+        </div>
+
+        <div class="action-row">
+          <button type="button" class="add-slab-btn" (click)="addPTSlab()">
+            <ion-icon name="add-outline"></ion-icon> Add PT Slab
+          </button>
+          <button class="save-btn" (click)="savePTSlabs()" [disabled]="isSavingPT" id="save-pt-btn">
+            <ion-spinner *ngIf="isSavingPT" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!isSavingPT" name="save-outline"></ion-icon>
+            {{ isSavingPT ? 'Saving...' : 'Save PT Slabs' }}
+          </button>
+        </div>
+      </form>
+      <p *ngIf="!isLoadingPT && !ptSlabControls.length" class="empty-msg">No PT slabs found</p>
     </div>
   </div>
 

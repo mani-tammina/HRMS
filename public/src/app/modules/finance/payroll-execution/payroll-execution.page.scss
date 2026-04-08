@@ -274,18 +274,43 @@ textarea.glass-input { resize: vertical; min-height: 60px; }
   .lop-days { color: var(--danger); font-weight: 600; }
 }
 
-.json-block {
-  background: rgba(0,0,0,0.3);
-  border: 1px solid var(--glass-border);
-  border-radius: 10px;
-  padding: 14px;
-  color: #7dd3fc;
-  font-size: 12px;
-  overflow-x: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  max-height: 300px;
-  overflow-y: auto;
+.recon-summary {
+  margin-top: 20px;
+  .recon-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+    @media (min-width: 600px) { grid-template-columns: repeat(4, 1fr); }
+  }
+  .recon-card {
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    &.final { border-color: var(--primary); background: var(--primary-light); }
+    .recon-label { font-size: 10px; color: var(--text-secondary); text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+    .recon-value {
+      font-size: 16px; font-weight: 700; color: #fff;
+      &.negative { color: var(--danger); }
+    }
+  }
+  .recon-note {
+    font-size: 12px; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px;
+    ion-icon { font-size: 16px; color: var(--info); }
+  }
+}
+
+.mini-table-wrap {
+  margin-top: 16px; border-radius: 12px; border: 1px solid var(--glass-border); overflow: hidden;
+  .mini-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    th { background: rgba(255,255,255,0.06); padding: 8px 12px; text-align: left; color: var(--text-secondary); font-size: 11px; text-transform: uppercase; }
+    td { padding: 10px 12px; border-top: 1px solid var(--glass-border); color: #fff; }
+    .lop-days { color: var(--warning); font-weight: 600; text-align: center; }
+  }
 }
 
 // ── Runs Grid ──

@@ -110,11 +110,16 @@ export interface TaxSummaryItem {
 }
 
 export interface StatutoryRule {
-  provider_type: string;
+  provider_type: 'PF' | 'ESI' | 'PT';
   state_code: string;
   percentage: number;
   ceiling_limit: number;
   effective_from: string;
+}
+
+export interface StatutoryRuleResponse {
+  success: boolean;
+  rules: StatutoryRule[];
 }
 
 export interface TaxSlab {
@@ -124,6 +129,12 @@ export interface TaxSlab {
   rate: number;
   cess_rate: number;
   surcharge_rate?: number;
+  financial_year: string;
+}
+
+export interface TaxSlabResponse {
+  success: boolean;
+  slabs: TaxSlab[];
   financial_year: string;
 }
 
@@ -139,6 +150,24 @@ export interface LOPRecord {
   EmployeeNumber: string;
   lop_days: number;
   unpaid_days: number;
+}
+
+export interface LOPSummaryResponse {
+  success: boolean;
+  month: string;
+  lop_records: LOPRecord[];
+}
+
+export interface ReconciliationReport {
+  success: boolean;
+  payroll_month: string;
+  summary: {
+    total_calculated: number;
+    total_adjustments: number;
+    total_final: number;
+    employee_count: number;
+  };
+  details: any[];
 }
 
 export interface PayrollAdjustment {
@@ -196,12 +225,47 @@ export interface VerificationQueueItem {
   verification_status: string;
 }
 
+export interface VerificationQueueResponse {
+  success: boolean;
+  total: number;
+  queue: VerificationQueueItem[];
+}
+
 export interface AIVerificationResult {
   proof_id: number;
   extracted_amount: number;
   confidence: number;
-  verification_status?: 'AI_VERIFIED' | 'FLAGGED' | 'REJECTED';
+  verification_status?: 'AI_VERIFIED' | 'FLAGGED' | 'REJECTED' | 'APPROVED';
   notes?: string;
+}
+
+export interface PendingAIProofsResponse {
+  success: boolean;
+  total: number;
+  proofs: any[];
+}
+
+export interface TaxRegimeResponse {
+  success: boolean;
+  financial_year: string;
+  slabs: TaxSlab[];
+}
+
+export interface Payout {
+  id: number;
+  run_id: number;
+  employee_id: number;
+  payout_date: string;
+  amount: number;
+  payment_mode: string;
+  status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  remarks?: string;
+}
+
+export interface PayoutResponse {
+  success: boolean;
+  run_id: number;
+  payouts: Payout[];
 }
 
 export interface ProcessRunPayload {
@@ -414,8 +478,8 @@ export class PayrollApiService {
   }
 
   /** GET /api/payroll/v2/payouts/:runId — Get payouts for a run */
-  getPayoutsForRun(runId: number): Observable<any> {
-    return this.http.get(`${this.baseUrl}/payroll/v2/payouts/${runId}`, { headers: this.getHeaders() });
+  getPayoutsForRun(runId: number): Observable<PayoutResponse> {
+    return this.http.get<PayoutResponse>(`${this.baseUrl}/payroll/v2/payouts/${runId}`, { headers: this.getHeaders() });
   }
 
   /** PUT /api/payroll/v2/payouts/:payoutId/status — Update payout status */
@@ -428,8 +492,8 @@ export class PayrollApiService {
   // ─────────────────────────────────────────────
 
   /** GET /api/v1/admin/payroll/statutory-rules — Get active statutory rules (PF/ESI/PT) */
-  getStatutoryRules(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/v1/admin/payroll/statutory-rules`, { headers: this.getHeaders() });
+  getStatutoryRules(): Observable<StatutoryRuleResponse> {
+    return this.http.get<StatutoryRuleResponse>(`${this.baseUrl}/v1/admin/payroll/statutory-rules`, { headers: this.getHeaders() });
   }
 
   /** PUT /api/v1/admin/payroll/statutory-rules — Create/update statutory rules */
@@ -438,9 +502,9 @@ export class PayrollApiService {
   }
 
   /** GET /api/v1/admin/tax/slabs?financial_year=YYYY-YYYY — Get income tax slabs */
-  getTaxSlabs(financialYear: string): Observable<any> {
+  getTaxSlabs(financialYear: string): Observable<TaxSlabResponse> {
     const params = new HttpParams().set('financial_year', financialYear);
-    return this.http.get(`${this.baseUrl}/v1/admin/tax/slabs`, { headers: this.getHeaders(), params });
+    return this.http.get<TaxSlabResponse>(`${this.baseUrl}/v1/admin/tax/slabs`, { headers: this.getHeaders(), params });
   }
 
   /** POST /api/v1/admin/tax/slabs — Create income tax slabs */
@@ -459,9 +523,9 @@ export class PayrollApiService {
   }
 
   /** GET /api/v1/admin/payroll/lop-summary?payroll_month=YYYY-MM — Get LOP summary */
-  getLOPSummary(payrollMonth: string): Observable<any> {
+  getLOPSummary(payrollMonth: string): Observable<LOPSummaryResponse> {
     const params = new HttpParams().set('payroll_month', payrollMonth);
-    return this.http.get(`${this.baseUrl}/v1/admin/payroll/lop-summary`, { headers: this.getHeaders(), params });
+    return this.http.get<LOPSummaryResponse>(`${this.baseUrl}/v1/admin/payroll/lop-summary`, { headers: this.getHeaders(), params });
   }
 
   /** POST /api/v1/admin/payroll/process-run — Process payroll run (V1) */
@@ -480,9 +544,9 @@ export class PayrollApiService {
   }
 
   /** GET /api/v1/admin/payroll/reconciliation?payroll_month=YYYY-MM — Get reconciliation report */
-  getReconciliationReport(payrollMonth: string): Observable<any> {
+  getReconciliationReport(payrollMonth: string): Observable<ReconciliationReport> {
     const params = new HttpParams().set('payroll_month', payrollMonth);
-    return this.http.get(`${this.baseUrl}/v1/admin/payroll/reconciliation`, { headers: this.getHeaders(), params });
+    return this.http.get<ReconciliationReport>(`${this.baseUrl}/v1/admin/payroll/reconciliation`, { headers: this.getHeaders(), params });
   }
 
   // ─────────────────────────────────────────────
@@ -520,9 +584,9 @@ export class PayrollApiService {
   // ─────────────────────────────────────────────
 
   /** GET /api/admin/tax-regimes?financial_year=YYYY-YYYY — Get income tax regimes & slabs */
-  getTaxRegimes(financialYear: string): Observable<any> {
+  getTaxRegimes(financialYear: string): Observable<TaxRegimeResponse> {
     const params = new HttpParams().set('financial_year', financialYear);
-    return this.http.get(`${this.baseUrl}/admin/tax-regimes`, { headers: this.getHeaders(), params });
+    return this.http.get<TaxRegimeResponse>(`${this.baseUrl}/admin/tax-regimes`, { headers: this.getHeaders(), params });
   }
 
   /** PUT /api/admin/tax-sections — Update tax sections (80C/80D limits) */
@@ -536,15 +600,15 @@ export class PayrollApiService {
   }
 
   /** GET /api/admin/pt-slabs — Get professional tax slabs */
-  getPTSlabs(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/admin/pt-slabs`, { headers: this.getHeaders() });
+  getPTSlabs(): Observable<TaxSlabResponse> {
+    return this.http.get<TaxSlabResponse>(`${this.baseUrl}/admin/pt-slabs`, { headers: this.getHeaders() });
   }
 
   /** GET /api/admin/verification-queue?status=PENDING — Get admin verification queue */
-  getVerificationQueue(status?: string): Observable<any> {
+  getVerificationQueue(status?: string): Observable<VerificationQueueResponse> {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
-    return this.http.get(`${this.baseUrl}/admin/verification-queue`, { headers: this.getHeaders(), params });
+    return this.http.get<VerificationQueueResponse>(`${this.baseUrl}/admin/verification-queue`, { headers: this.getHeaders(), params });
   }
 
   // ─────────────────────────────────────────────
@@ -583,9 +647,9 @@ export class PayrollApiService {
   // ─────────────────────────────────────────────
 
   /** GET /api/ai/pending-proofs?limit=50 — Get all pending AI proofs */
-  getPendingAIProofs(limit: number = 50): Observable<any> {
+  getPendingAIProofs(limit: number = 50): Observable<PendingAIProofsResponse> {
     const params = new HttpParams().set('limit', limit.toString());
-    return this.http.get(`${this.baseUrl}/ai/pending-proofs`, { headers: this.getHeaders(), params });
+    return this.http.get<PendingAIProofsResponse>(`${this.baseUrl}/ai/pending-proofs`, { headers: this.getHeaders(), params });
   }
 
   /** POST /api/ai/verification-result — Submit AI verification result */

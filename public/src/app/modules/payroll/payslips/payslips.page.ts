@@ -4,6 +4,7 @@ import { takeUntil } from 'rxjs/operators';
 import { LoadingController } from '@ionic/angular';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { PayrollService } from '../../../core/services/payroll.service';
+import { PayrollApiService } from '../../../core/services/payroll-api.service';
 
 @Component({
   selector: 'app-payslips',
@@ -20,6 +21,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   payableDays: number = 31;
   lopDays: number = 0;
+
+  // Taxation data
+  taxComputation: any;
+  taxSummary: any;
+  isLoadingTax = false;
+  financialYear: string;
 
   // Salary data
   monthlySalary: number | null = null;
@@ -48,11 +55,42 @@ export class PayslipsPage implements OnInit, OnDestroy {
   constructor(
     private employeeService: EmployeeService,
     private payrollService: PayrollService,
+    private payrollApi: PayrollApiService,
     private loadingController: LoadingController
-  ) { }
+  ) { 
+    this.financialYear = this.payrollApi.getCurrentFinancialYear();
+  }
 
   ngOnInit() {
     this.loadData();
+    this.loadTaxData();
+  }
+
+  setTab(event: any) {
+    const tab = event.detail.value;
+    if (!tab) return;
+    this.currentTab = tab;
+    if (tab === 'taxation' && !this.taxComputation) {
+      this.loadTaxData();
+    }
+  }
+
+  loadTaxData() {
+    this.isLoadingTax = true;
+    this.payrollApi.getTaxComputation(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.taxComputation = res;
+        this.isLoadingTax = false;
+      },
+      error: () => { this.isLoadingTax = false; }
+    });
+
+    this.payrollApi.getMyTaxSummary(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.taxSummary = res;
+      },
+      error: () => {}
+    });
   }
 
   async loadData() {
@@ -267,6 +305,20 @@ export class PayslipsPage implements OnInit, OnDestroy {
       words += " and " + this.convert(paise) + " Paise";
     }
     return words + " Only";
+  }
+
+  formatCurrency(val: number): string {
+    return (val || 0).toLocaleString('en-IN', { 
+      style: 'currency', 
+      currency: 'INR', 
+      maximumFractionDigits: 0 
+    });
+  }
+
+  getProgressBarColor(pct: number): string {
+    if (pct > 80) return '#ef4444';
+    if (pct > 50) return '#f59e0b';
+    return '#10b981';
   }
 
 
