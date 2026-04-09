@@ -138,7 +138,32 @@
           Fetch
         </button>
       </div>
-      <pre *ngIf="reconciliation" class="json-block">{{ reconciliation | json }}</pre>
+      <div *ngIf="reconciliation" class="recon-summary">
+        <div class="recon-grid">
+          <div class="recon-card glass-sub-card">
+            <div class="recon-label">Calculated</div>
+            <div class="recon-value">{{ formatCurrency(reconciliation.summary.total_calculated) }}</div>
+          </div>
+          <div class="recon-card glass-sub-card">
+            <div class="recon-label">Adjustments</div>
+            <div class="recon-value" [class.negative]="reconciliation.summary.total_adjustments < 0">
+              {{ reconciliation.summary.total_adjustments > 0 ? '+' : '' }}{{ formatCurrency(reconciliation.summary.total_adjustments) }}
+            </div>
+          </div>
+          <div class="recon-card glass-sub-card final">
+            <div class="recon-label">Final Payout</div>
+            <div class="recon-value">{{ formatCurrency(reconciliation.summary.total_final) }}</div>
+          </div>
+          <div class="recon-card glass-sub-card">
+            <div class="recon-label">Employees</div>
+            <div class="recon-value">{{ reconciliation.summary.employee_count }}</div>
+          </div>
+        </div>
+        <p class="recon-note" *ngIf="reconciliation.details?.length">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          Detailed reconciliation for {{ reconciliation.details.length }} employees available in run details.
+        </p>
+      </div>
       <p *ngIf="!isLoadingRecon && !reconciliation" class="empty-msg">Select a month and click Fetch to load reconciliation data.</p>
     </div>
   </div><!-- /run tab -->

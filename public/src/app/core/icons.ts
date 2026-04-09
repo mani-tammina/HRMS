@@ -124,5 +124,5 @@ addIcons({
   'shield-checkmark-outline': shieldCheckmarkOutline,
   'sparkles-outline': sparklesOutline,
   'time-outline': timeOutline,
-  'trash-outline': trashOutline
+  'trash-outline': trashOutline,
 });

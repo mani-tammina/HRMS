@@ -101,6 +101,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   years: number[] = [];
 
   today = this.formatDate(new Date());
+  todayDate = '';
 
   /* ================= ASSIGNMENT STATE ================= */
   loadingStatus = true;
@@ -128,7 +129,13 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   ngOnInit() {
     this.initForm();
     this.initializeYears();
+    this.setupDisplayDate();
     this.loadAllData();
+  }
+
+  setupDisplayDate() {
+    const d = new Date();
+    this.todayDate = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: '2-digit' });
   }
 
   ngOnDestroy() {
