@@ -24,6 +24,13 @@ exports.getStructure = (req, res) => payrollMasterService.getStructure(req, res)
 exports.updateStructure = (req, res) => payrollMasterService.updateStructure(req, res);
 exports.deleteStructure = (req, res) => payrollMasterService.deleteStructure(req, res);
 
+// Employee Salary Contracts
+exports.listContracts = (req, res) => payrollMasterService.listContracts(req, res);
+exports.createContract = (req, res) => payrollMasterService.createContract(req, res);
+exports.getContract = (req, res) => payrollMasterService.getContract(req, res);
+exports.updateContract = (req, res) => payrollMasterService.updateContract(req, res);
+exports.terminateContract = (req, res) => payrollMasterService.terminateContract(req, res);
+
 // Structure Composition (template-component mapping)
 exports.listComposition = (req, res) => payrollMasterService.listComposition(req, res);
 exports.addComposition = (req, res) => payrollMasterService.addComposition(req, res);

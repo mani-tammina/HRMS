@@ -5,7 +5,6 @@ const multer = require("multer");
 const { db } = require("../config/database");
 const { auth, finance } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
-const payrollService = require("../services/payroll.service");
 
 const router = express.Router();
 const proofUpload = multer({ dest: path.join("uploads", "candidate_docs") });
@@ -359,40 +358,6 @@ router.get("/tax/summary", auth, async (req, res) => {
   }
 });
 
-router.post("/tax/regime-selection", auth, async (req, res) => {
-  let c = null;
-  try {
-    const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
-
-    const financialYear = req.body.financial_year || currentFinancialYear();
-    const taxRegime = String(req.body.tax_regime || "").toUpperCase();
-    if (!["OLD", "NEW"].includes(taxRegime)) {
-      return res.status(400).json({ error: "tax_regime must be OLD or NEW" });
-    }
-
-    c = await db();
-    await c.beginTransaction();
-
-    await c.query(
-      `INSERT INTO employee_tax_profiles (employee_id, financial_year, tax_regime, updated_at)
-       VALUES (?, ?, ?, NOW())
-       ON DUPLICATE KEY UPDATE tax_regime = VALUES(tax_regime), updated_at = NOW()`,
-      [employee.id, financialYear, taxRegime],
-    );
-
-    await writeAudit(c, "TAX_REGIME_SELECTION", req.user.id, null, JSON.stringify({ employee_id: employee.id, financialYear, taxRegime }));
-    await c.commit();
-
-    res.json({ success: true, employee_id: employee.id, financial_year: financialYear, tax_regime: taxRegime });
-  } catch (error) {
-    if (c) await c.rollback();
-    res.status(500).json({ error: error.message });
-  } finally {
-    if (c) await c.end();
-  }
-});
-
 router.get("/tax/declarations", auth, async (req, res) => {
   let c = null;
   try {
@@ -592,28 +557,6 @@ router.get("/admin/verification-queue", auth, finance, async (req, res) => {
   }
 });
 
-router.post("/payroll/run/calculate", auth, finance, async (req, res) => {
-  try {
-    const monthInfo = normalizeMonth(req.body.payroll_month);
-    if (!monthInfo) {
-      return res.status(400).json({ error: "payroll_month is required in YYYY-MM format" });
-    }
-
-    const result = await payrollService.runPayroll(monthInfo.year, monthInfo.month, req.user.id);
-
-    const c = await db();
-    try {
-      await writeAudit(c, "RUN", req.user.id, result.runId, JSON.stringify({ payroll_month: req.body.payroll_month }));
-    } finally {
-      await c.end();
-    }
-
-    res.json({ success: true, payroll_month: req.body.payroll_month, result });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 router.get("/payroll/payslip/download", auth, async (req, res) => {
   let c = null;
   try {
@@ -651,44 +594,6 @@ router.get("/payroll/payslip/download", auth, async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename=payslip-${rows[0].id}.pdf`);
     res.send(pdf);
   } catch (error) {
-    res.status(500).json({ error: error.message });
-  } finally {
-    if (c) await c.end();
-  }
-});
-
-router.post("/payroll/adjustments", auth, finance, async (req, res) => {
-  let c = null;
-  try {
-    const { employee_id, payroll_month, adjustment_type, amount, reason } = req.body;
-    if (!employee_id || !payroll_month || !adjustment_type || amount == null) {
-      return res.status(400).json({
-        error: "employee_id, payroll_month, adjustment_type and amount are required",
-      });
-    }
-
-    c = await db();
-    await c.beginTransaction();
-
-    const [result] = await c.query(
-      `INSERT INTO payroll_adjustments
-       (employee_id, payroll_month, adjustment_type, amount, reason, created_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [employee_id, payroll_month, adjustment_type, Number(amount), reason || null, req.user.id],
-    );
-
-    await writeAudit(
-      c,
-      "ADJUSTMENT",
-      req.user.id,
-      null,
-      JSON.stringify({ adjustment_id: result.insertId, employee_id, payroll_month, adjustment_type, amount }),
-    );
-
-    await c.commit();
-    res.json({ success: true, adjustment_id: result.insertId });
-  } catch (error) {
-    if (c) await c.rollback();
     res.status(500).json({ error: error.message });
   } finally {
     if (c) await c.end();

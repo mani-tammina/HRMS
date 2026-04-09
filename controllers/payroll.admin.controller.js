@@ -20,6 +20,10 @@ function parseMonthInput(value) {
   return { year, month };
 }
 
+function isValidFinancialYear(value) {
+  return typeof value === 'string' && /^\d{4}-\d{4}$/.test(value);
+}
+
 async function buildRunValidation(year, month) {
   const c = await db();
   try {
@@ -420,8 +424,16 @@ async function lockCycle(req, res) {
 async function getTaxProfile(req, res) {
   try {
     const employeeId = Number(req.params.employeeId);
+    const financialYear = String(req.query.financial_year || '').trim();
+    if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+    if (!isValidFinancialYear(financialYear)) {
+      return res.status(400).json({ error: 'financial_year query required in YYYY-YYYY format' });
+    }
     const c = await db();
-    const [rows] = await c.query('SELECT * FROM employee_tax_profiles WHERE employee_id = ?', [employeeId]);
+    const [rows] = await c.query(
+      'SELECT * FROM employee_tax_profiles WHERE employee_id = ? AND financial_year = ? LIMIT 1',
+      [employeeId, financialYear]
+    );
     c.end();
     res.json(rows[0] || null);
   } catch (err) {
@@ -433,13 +445,25 @@ async function putTaxProfile(req, res) {
   try {
     const employeeId = Number(req.params.employeeId);
     const payload = req.body || {};
+    const financialYear = String(req.query.financial_year || payload.financial_year || '').trim();
+    if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+    if (!isValidFinancialYear(financialYear)) {
+      return res.status(400).json({ error: 'financial_year required in query or body, format YYYY-YYYY' });
+    }
+
+    const writePayload = Object.assign({}, payload, { financial_year: financialYear });
+    delete writePayload.employee_id;
+
     const by = (req.user && req.user.id) || null;
     const c = await db();
-    const [existing] = await c.query('SELECT * FROM employee_tax_profiles WHERE employee_id = ? LIMIT 1', [employeeId]);
+    const [existing] = await c.query(
+      'SELECT * FROM employee_tax_profiles WHERE employee_id = ? AND financial_year = ? LIMIT 1',
+      [employeeId, financialYear]
+    );
     if (existing.length) {
-      await c.query('UPDATE employee_tax_profiles SET ? WHERE employee_id = ?', [payload, employeeId]);
+      await c.query('UPDATE employee_tax_profiles SET ? WHERE employee_id = ? AND financial_year = ?', [writePayload, employeeId, financialYear]);
     } else {
-      await c.query('INSERT INTO employee_tax_profiles SET ?', Object.assign({ employee_id: employeeId }, payload));
+      await c.query('INSERT INTO employee_tax_profiles SET ?', Object.assign({ employee_id: employeeId }, writePayload));
     }
     c.end();
     await lifecycleService.logChange({
@@ -447,7 +471,7 @@ async function putTaxProfile(req, res) {
       entityId: employeeId,
       action: existing.length ? 'UPDATE' : 'CREATE',
       beforeData: existing.length ? existing[0] : null,
-      afterData: payload,
+      afterData: writePayload,
       performedBy: by
     });
     res.json({ success: true });

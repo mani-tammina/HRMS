@@ -3,19 +3,157 @@
 
 const { db } = require('../config/database');
 
-// --- Salary Components (within a structure) ---
-// Note: salary_components are linked to salary_structures, not standalone
+async function ensureTemplateModelTables(c) {
+  await c.query(
+    `CREATE TABLE IF NOT EXISTS salary_master_components (
+      component_id INT PRIMARY KEY AUTO_INCREMENT,
+      code VARCHAR(64) NOT NULL UNIQUE,
+      name VARCHAR(128) NOT NULL,
+      component_type ENUM('EARNING','DEDUCTION') NOT NULL DEFAULT 'EARNING',
+      calculation_type ENUM('FIXED','PERCENTAGE') NOT NULL DEFAULT 'FIXED',
+      value DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+      percentage_of_code VARCHAR(64) DEFAULT NULL,
+      taxable TINYINT(1) NOT NULL DEFAULT 1,
+      prorated TINYINT(1) NOT NULL DEFAULT 0,
+      sequence INT NOT NULL DEFAULT 10,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      notes TEXT,
+      created_by INT DEFAULT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`
+  );
+
+  const [masterColumn] = await c.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'structure_composition'
+       AND COLUMN_NAME = 'master_component_id'`
+  );
+
+  if (Number(masterColumn[0].count || 0) === 0) {
+    await c.query('ALTER TABLE structure_composition ADD COLUMN master_component_id INT NULL AFTER template_id');
+  }
+
+  const [legacyNullable] = await c.query(
+    `SELECT IS_NULLABLE AS nullable_flag
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'structure_composition'
+       AND COLUMN_NAME = 'component_id'`
+  );
+
+  if (legacyNullable.length > 0 && legacyNullable[0].nullable_flag === 'NO') {
+    await c.query('ALTER TABLE structure_composition MODIFY COLUMN component_id INT NULL');
+  }
+
+  const [masterIndex] = await c.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'structure_composition'
+       AND INDEX_NAME = 'idx_structure_composition_master_component'`
+  );
+
+  if (Number(masterIndex[0].count || 0) === 0) {
+    await c.query('CREATE INDEX idx_structure_composition_master_component ON structure_composition(master_component_id)');
+  }
+
+  const [masterFk] = await c.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'structure_composition'
+       AND COLUMN_NAME = 'master_component_id'
+       AND REFERENCED_TABLE_NAME = 'salary_master_components'`
+  );
+
+  if (Number(masterFk[0].count || 0) === 0) {
+    await c.query(
+      `ALTER TABLE structure_composition
+       ADD CONSTRAINT fk_structure_comp_master_component
+       FOREIGN KEY (master_component_id) REFERENCES salary_master_components(component_id)`
+    );
+  }
+
+  const [effectiveToColumn] = await c.query(
+    `SELECT COUNT(*) AS count
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'employee_salary_contracts'
+       AND COLUMN_NAME = 'effective_to'`
+  );
+
+  if (Number(effectiveToColumn[0].count || 0) === 0) {
+    await c.query('ALTER TABLE employee_salary_contracts ADD COLUMN effective_to DATE NULL AFTER effective_from');
+  }
+}
+
+async function upsertMasterComponentFromLegacy(c, legacyComponentId, createdBy) {
+  const [legacyRows] = await c.query('SELECT * FROM salary_components WHERE id = ?', [legacyComponentId]);
+  if (legacyRows.length === 0) return null;
+
+  const comp = legacyRows[0];
+
+  await c.query(
+    `INSERT INTO salary_master_components
+      (code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+       name = VALUES(name),
+       component_type = VALUES(component_type),
+       calculation_type = VALUES(calculation_type),
+       value = VALUES(value),
+       percentage_of_code = VALUES(percentage_of_code),
+       taxable = VALUES(taxable),
+       prorated = VALUES(prorated),
+       sequence = VALUES(sequence),
+       notes = VALUES(notes),
+       is_active = 1`,
+    [
+      comp.code,
+      comp.name,
+      comp.component_type,
+      comp.calculation_type,
+      comp.value,
+      comp.percentage_of_code,
+      comp.taxable,
+      comp.prorated,
+      comp.sequence,
+      'Migrated from legacy salary_components mapping',
+      createdBy || null
+    ]
+  );
+
+  const [masterRows] = await c.query('SELECT component_id FROM salary_master_components WHERE code = ? LIMIT 1', [comp.code]);
+  return masterRows.length > 0 ? masterRows[0].component_id : null;
+}
+
+// --- Master Salary Components ---
 exports.listComponents = async (req, res) => {
   try {
     const c = await db();
-    const structureId = req.query.structure_id;
-    let query = 'SELECT * FROM salary_components';
+    await ensureTemplateModelTables(c);
+
+    const componentType = req.query.component_type;
+    const activeOnly = String(req.query.active_only || 'true').toLowerCase() !== 'false';
+    let query = 'SELECT * FROM salary_master_components';
     let params = [];
-    if (structureId) {
-      query += ' WHERE structure_id = ?';
-      params.push(structureId);
+
+    const where = [];
+    if (componentType) {
+      where.push('component_type = ?');
+      params.push(componentType);
+    }
+    if (activeOnly) {
+      where.push('is_active = 1');
+    }
+    if (where.length > 0) {
+      query += ` WHERE ${where.join(' AND ')}`;
     }
     query += ' ORDER BY sequence ASC';
+
     const [rows] = await c.query(query, params);
     c.end();
     res.json(rows);
@@ -27,18 +165,33 @@ exports.listComponents = async (req, res) => {
 exports.createComponent = async (req, res) => {
   try {
     const c = await db();
-    const { structure_id, code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes } = req.body;
+    await ensureTemplateModelTables(c);
+
+    const { code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes, created_by } = req.body;
     
     // Validate required fields
-    if (!structure_id || !code || !name || !component_type || !calculation_type || value === undefined) {
+    if (!code || !name || !component_type || !calculation_type || value === undefined) {
       c.end();
-      return res.status(400).json({ error: 'structure_id, code, name, component_type, calculation_type, and value are required' });
+      return res.status(400).json({ error: 'code, name, component_type, calculation_type, and value are required' });
     }
 
     const [result] = await c.query(
-      `INSERT INTO salary_components (structure_id, code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes) 
+      `INSERT INTO salary_master_components
+        (code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes, created_by)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [structure_id, code, name, component_type || 'EARNING', calculation_type || 'FIXED', value, percentage_of_code || null, taxable !== false ? 1 : 0, prorated ? 1 : 0, sequence || 10, notes || null]
+      [
+        String(code).toUpperCase(),
+        name,
+        component_type || 'EARNING',
+        calculation_type || 'FIXED',
+        value,
+        percentage_of_code || null,
+        taxable !== false ? 1 : 0,
+        prorated ? 1 : 0,
+        sequence || 10,
+        notes || null,
+        created_by || null
+      ]
     );
     c.end();
     res.json({ success: true, id: result.insertId });
@@ -50,7 +203,8 @@ exports.createComponent = async (req, res) => {
 exports.getComponent = async (req, res) => {
   try {
     const c = await db();
-    const [rows] = await c.query('SELECT * FROM salary_components WHERE id = ?', [req.params.component_id]);
+    await ensureTemplateModelTables(c);
+    const [rows] = await c.query('SELECT * FROM salary_master_components WHERE component_id = ?', [req.params.component_id]);
     c.end();
     if (rows.length === 0) return res.status(404).json({ error: 'Component not found' });
     res.json(rows[0]);
@@ -62,10 +216,13 @@ exports.getComponent = async (req, res) => {
 exports.updateComponent = async (req, res) => {
   try {
     const c = await db();
+    await ensureTemplateModelTables(c);
     const { code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes } = req.body;
     const [result] = await c.query(
-      `UPDATE salary_components SET code=?, name=?, component_type=?, calculation_type=?, value=?, percentage_of_code=?, taxable=?, prorated=?, sequence=?, notes=?, updated_at=NOW() WHERE id=?`,
-      [code, name, component_type, calculation_type, value, percentage_of_code, taxable ? 1 : 0, prorated ? 1 : 0, sequence, notes, req.params.component_id]
+      `UPDATE salary_master_components
+       SET code=?, name=?, component_type=?, calculation_type=?, value=?, percentage_of_code=?, taxable=?, prorated=?, sequence=?, notes=?, updated_at=NOW()
+       WHERE component_id=?`,
+      [String(code).toUpperCase(), name, component_type, calculation_type, value, percentage_of_code, taxable ? 1 : 0, prorated ? 1 : 0, sequence, notes, req.params.component_id]
     );
     c.end();
     res.json({ success: result.affectedRows > 0 });
@@ -77,7 +234,11 @@ exports.updateComponent = async (req, res) => {
 exports.deleteComponent = async (req, res) => {
   try {
     const c = await db();
-    const [result] = await c.query('DELETE FROM salary_components WHERE id = ?', [req.params.component_id]);
+    await ensureTemplateModelTables(c);
+    const [result] = await c.query(
+      'UPDATE salary_master_components SET is_active = 0, updated_at = NOW() WHERE component_id = ?',
+      [req.params.component_id]
+    );
     c.end();
     res.json({ success: result.affectedRows > 0 });
   } catch (err) {
@@ -276,12 +437,161 @@ exports.deleteStructure = async (req, res) => {
   }
 };
 
+// --- Employee Salary Contracts (template assignment source of truth) ---
+exports.listContracts = async (req, res) => {
+  try {
+    const c = await db();
+    await ensureTemplateModelTables(c);
+    const employeeId = req.query.employee_id;
+    const status = req.query.status;
+
+    let query = `SELECT esc.*, t.template_name, e.EmployeeNumber, e.FullName
+                 FROM employee_salary_contracts esc
+                 LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+                 LEFT JOIN employees e ON e.id = esc.employee_id`;
+    const params = [];
+    const where = [];
+
+    if (employeeId) {
+      where.push('esc.employee_id = ?');
+      params.push(employeeId);
+    }
+    if (status) {
+      where.push('esc.status = ?');
+      params.push(status);
+    }
+
+    if (where.length > 0) {
+      query += ` WHERE ${where.join(' AND ')}`;
+    }
+
+    query += ' ORDER BY esc.effective_from DESC, esc.contract_id DESC';
+
+    const [rows] = await c.query(query, params);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.createContract = async (req, res) => {
+  try {
+    const c = await db();
+    await ensureTemplateModelTables(c);
+    const { employee_id, template_id, annual_ctc, effective_from, effective_to, created_by } = req.body;
+
+    if (!employee_id || !template_id || !annual_ctc || !effective_from) {
+      c.end();
+      return res.status(400).json({ error: 'employee_id, template_id, annual_ctc, effective_from are required' });
+    }
+
+    await c.beginTransaction();
+    try {
+      await c.query(
+        `UPDATE employee_salary_contracts
+         SET status = 'Superseded', effective_to = DATE_SUB(?, INTERVAL 1 DAY), updated_at = NOW()
+         WHERE employee_id = ? AND status = 'Active' AND effective_from <= ?`,
+        [effective_from, employee_id, effective_from]
+      );
+
+      const [result] = await c.query(
+        `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, effective_to, status, created_by)
+         VALUES (?, ?, ?, ?, ?, 'Active', ?)`,
+        [employee_id, template_id, annual_ctc, effective_from, effective_to || null, created_by || null]
+      );
+
+      await c.commit();
+      c.end();
+      res.json({ success: true, id: result.insertId });
+    } catch (err) {
+      await c.rollback();
+      c.end();
+      throw err;
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.getContract = async (req, res) => {
+  try {
+    const c = await db();
+    await ensureTemplateModelTables(c);
+    const [rows] = await c.query(
+      `SELECT esc.*, t.template_name, e.EmployeeNumber, e.FullName
+       FROM employee_salary_contracts esc
+       LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+       LEFT JOIN employees e ON e.id = esc.employee_id
+       WHERE esc.contract_id = ?`,
+      [req.params.contract_id]
+    );
+    c.end();
+    if (rows.length === 0) return res.status(404).json({ error: 'Contract not found' });
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.updateContract = async (req, res) => {
+  try {
+    const c = await db();
+    await ensureTemplateModelTables(c);
+    const { template_id, annual_ctc, effective_from, effective_to, status } = req.body;
+    const [result] = await c.query(
+      `UPDATE employee_salary_contracts
+       SET template_id = ?, annual_ctc = ?, effective_from = ?, effective_to = ?, status = ?, updated_at = NOW()
+       WHERE contract_id = ?`,
+      [template_id, annual_ctc, effective_from, effective_to || null, status || 'Active', req.params.contract_id]
+    );
+    c.end();
+    res.json({ success: result.affectedRows > 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.terminateContract = async (req, res) => {
+  try {
+    const c = await db();
+    await ensureTemplateModelTables(c);
+    const effectiveTo = req.body && req.body.effective_to ? req.body.effective_to : new Date().toISOString().slice(0, 10);
+    const [result] = await c.query(
+      `UPDATE employee_salary_contracts
+       SET status = 'Superseded', effective_to = ?, updated_at = NOW()
+       WHERE contract_id = ?`,
+      [effectiveTo, req.params.contract_id]
+    );
+    c.end();
+    res.json({ success: result.affectedRows > 0 });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
 
 // --- Structure Composition (template-component mapping) ---
 exports.listComposition = async (req, res) => {
   try {
     const c = await db();
-    const [rows] = await c.query('SELECT * FROM structure_composition WHERE template_id = ?', [req.params.template_id]);
+    await ensureTemplateModelTables(c);
+    const [rows] = await c.query(
+      `SELECT sc.*,
+              COALESCE(mc.code, lc.code) AS component_code,
+              COALESCE(mc.name, lc.name) AS component_name,
+              COALESCE(mc.component_type, lc.component_type) AS component_type,
+              COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+              COALESCE(mc.value, lc.value) AS default_value,
+              COALESCE(mc.sequence, lc.sequence) AS sequence
+       FROM structure_composition sc
+       LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+       LEFT JOIN salary_components lc ON lc.id = sc.component_id
+       WHERE sc.template_id = ?
+       ORDER BY COALESCE(mc.sequence, lc.sequence, 999), sc.composition_id`,
+      [req.params.template_id]
+    );
+    c.end();
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -290,11 +600,25 @@ exports.listComposition = async (req, res) => {
 exports.addComposition = async (req, res) => {
   try {
     const c = await db();
-    const { component_id, formula_or_value, created_by } = req.body;
+    await ensureTemplateModelTables(c);
+
+    const { master_component_id, component_id, formula_or_value, created_by } = req.body;
+    let resolvedMasterId = master_component_id || null;
+
+    if (!resolvedMasterId && component_id) {
+      resolvedMasterId = await upsertMasterComponentFromLegacy(c, component_id, created_by);
+    }
+
+    if (!resolvedMasterId && !component_id) {
+      c.end();
+      return res.status(400).json({ error: 'master_component_id or component_id is required' });
+    }
+
     const [result] = await c.query(
-      'INSERT INTO structure_composition (template_id, component_id, formula_or_value, created_by) VALUES (?, ?, ?, ?)',
-      [req.params.template_id, component_id, formula_or_value, created_by]
+      'INSERT INTO structure_composition (template_id, master_component_id, component_id, formula_or_value, created_by) VALUES (?, ?, ?, ?, ?)',
+      [req.params.template_id, resolvedMasterId, component_id || null, formula_or_value, created_by]
     );
+    c.end();
     res.json({ success: true, id: result.insertId });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -303,11 +627,22 @@ exports.addComposition = async (req, res) => {
 exports.updateComposition = async (req, res) => {
   try {
     const c = await db();
-    const { formula_or_value } = req.body;
+    await ensureTemplateModelTables(c);
+
+    const { formula_or_value, master_component_id, component_id } = req.body;
+    let resolvedMasterId = master_component_id || null;
+
+    if (!resolvedMasterId && component_id) {
+      resolvedMasterId = await upsertMasterComponentFromLegacy(c, component_id, req.body.updated_by || null);
+    }
+
     const [result] = await c.query(
-      'UPDATE structure_composition SET formula_or_value=? WHERE composition_id=? AND template_id=?',
-      [formula_or_value, req.params.composition_id, req.params.template_id]
+      `UPDATE structure_composition
+       SET formula_or_value=?, master_component_id=COALESCE(?, master_component_id), component_id=COALESCE(?, component_id), updated_at=NOW()
+       WHERE composition_id=? AND template_id=?`,
+      [formula_or_value, resolvedMasterId, component_id || null, req.params.composition_id, req.params.template_id]
     );
+    c.end();
     res.json({ success: result.affectedRows > 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -317,6 +652,7 @@ exports.deleteComposition = async (req, res) => {
   try {
     const c = await db();
     const [result] = await c.query('DELETE FROM structure_composition WHERE composition_id = ? AND template_id = ?', [req.params.composition_id, req.params.template_id]);
+    c.end();
     res.json({ success: result.affectedRows > 0 });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -327,6 +663,7 @@ exports.deleteComposition = async (req, res) => {
 exports.populateDefaults = async (req, res) => {
   try {
     const c = await db();
+    await ensureTemplateModelTables(c);
     await c.beginTransaction();
     
     try {
@@ -334,7 +671,7 @@ exports.populateDefaults = async (req, res) => {
       const results = {
         templates: [],
         master_structures: [],
-        employee_structures: [],
+        employee_contracts: [],
         components_created: 0,
         compositions_created: 0,
         message: ''
@@ -445,7 +782,47 @@ exports.populateDefaults = async (req, res) => {
               'Master component definition'
             ]
           );
-          componentIds.push({ id: compResult.insertId, ...comp });
+
+          await c.query(
+            `INSERT INTO salary_master_components
+              (code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes, created_by)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+               name = VALUES(name),
+               component_type = VALUES(component_type),
+               calculation_type = VALUES(calculation_type),
+               value = VALUES(value),
+               percentage_of_code = VALUES(percentage_of_code),
+               taxable = VALUES(taxable),
+               prorated = VALUES(prorated),
+               sequence = VALUES(sequence),
+               notes = VALUES(notes),
+               is_active = 1`,
+            [
+              comp.code,
+              comp.name,
+              comp.type,
+              comp.calc,
+              comp.value,
+              comp.pct_of || null,
+              comp.type === 'EARNING' ? 1 : 0,
+              0,
+              comp.seq,
+              'Master component catalog seed',
+              createdBy
+            ]
+          );
+
+          const [masterCompRows] = await c.query(
+            'SELECT component_id FROM salary_master_components WHERE code = ? LIMIT 1',
+            [comp.code]
+          );
+
+          componentIds.push({
+            id: compResult.insertId,
+            master_component_id: masterCompRows.length > 0 ? masterCompRows[0].component_id : null,
+            ...comp
+          });
           results.components_created++;
         }
 
@@ -467,14 +844,14 @@ exports.populateDefaults = async (req, res) => {
         for (const comp of componentIds) {
           const formula = comp.pct_of ? `${comp.value}% of ${comp.pct_of}` : `${comp.value}`;
           await c.query(
-            'INSERT INTO structure_composition (template_id, component_id, formula_or_value, created_by) VALUES (?, ?, ?, ?)',
-            [templateId, comp.id, formula, createdBy]
+            'INSERT INTO structure_composition (template_id, master_component_id, component_id, formula_or_value, created_by) VALUES (?, ?, ?, ?, ?)',
+            [templateId, comp.master_component_id, comp.id, formula, createdBy]
           );
           results.compositions_created++;
         }
       }
 
-      // STEP 4: Get first 3-5 employees and create sample structures
+      // STEP 4: Assign first 3-5 employees to template contracts (source of truth)
       const [employees] = await c.query('SELECT id, FullName FROM employees WHERE EmploymentStatus = "Active" LIMIT 5');
       
       if (employees.length > 0) {
@@ -482,48 +859,18 @@ exports.populateDefaults = async (req, res) => {
           const emp = employees[i];
           const template = defaultTemplates[i % defaultTemplates.length]; // Rotate through templates
           const templateData = results.templates.find(t => t.name === template.name);
-          
-          // Get next version number for this employee
-          const [empVersionRows] = await c.query(
-            'SELECT COALESCE(MAX(version), 0) + 1 as next_version FROM salary_structures WHERE employee_id = ?',
-            [emp.id]
-          );
-          const empVersion = empVersionRows[0].next_version;
-          
-          // Create employee structure
-          const [empStructResult] = await c.query(
-            `INSERT INTO salary_structures (employee_id, structure_name, ctc_amount, effective_from, is_active, version, notes, created_by) 
-             VALUES (?, ?, ?, CURDATE(), 1, ?, ?, ?)`,
-            [emp.id, `${emp.FullName} - ${template.name}`, template.ctc, empVersion, `Applied ${template.name} template`, createdBy]
-          );
-          
-          const empStructId = empStructResult.insertId;
-          
-          // Copy components from master structure to employee structure
-          for (const comp of template.components) {
-            await c.query(
-              `INSERT INTO salary_components (structure_id, code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes) 
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-              [
-                empStructId,
-                comp.code,
-                comp.name,
-                comp.type,
-                comp.calc,
-                comp.value,
-                comp.pct_of || null,
-                comp.type === 'EARNING' ? 1 : 0,
-                0,
-                comp.seq,
-                `From ${template.name} template`
-              ]
-            );
-          }
 
-          results.employee_structures.push({
+          const [contractResult] = await c.query(
+            `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, effective_to, status, created_by)
+             VALUES (?, ?, ?, CURDATE(), NULL, 'Active', ?)`,
+            [emp.id, templateData.id, template.ctc, createdBy]
+          );
+
+          results.employee_contracts.push({
             employee_id: emp.id,
             employee_name: emp.FullName,
-            structure_id: empStructId,
+            contract_id: contractResult.insertId,
+            template_id: templateData.id,
             template: template.name,
             ctc: template.ctc
           });
@@ -541,16 +888,16 @@ exports.populateDefaults = async (req, res) => {
           templates: results.templates.length,
           components: results.components_created,
           compositions: results.compositions_created,
-          employee_structures: results.employee_structures.length
+          employee_contracts: results.employee_contracts.length
         },
         templates: results.templates,
-        employee_structures: results.employee_structures,
+        employee_contracts: results.employee_contracts,
         message: results.message,
-        note: 'Complete payroll setup ready. Templates, components, compositions, and sample employee structures created.',
+        note: 'Complete payroll setup ready. Templates, master components, compositions, and sample employee contracts created.',
         next_steps: [
           '1. Run payroll: POST /api/payroll/v2/run with year and month',
           '2. View payslips: GET /api/payroll/v2/payslips/{employeeId}',
-          '3. Assign more employees: POST /api/payroll-master/structures'
+          '3. Assign more employees: POST /api/payroll-master/contracts'
         ]
       });
       
@@ -574,6 +921,9 @@ exports.clearMasterData = async (req, res) => {
       // Delete in correct order to avoid FK constraints
       // 1. Delete structure composition first
       const [compResult] = await c.query('DELETE FROM structure_composition');
+
+      // 1.1 Delete employee salary contracts
+      const [contractsResult] = await c.query('DELETE FROM employee_salary_contracts');
       
       // 2. Delete salary components (this includes both master and employee components)
       // Delete all components linked to any salary structures (will cascade from structure deletion)
@@ -588,6 +938,10 @@ exports.clearMasterData = async (req, res) => {
       
       // 4. Delete templates
       const [templateResult] = await c.query('DELETE FROM salary_structure_templates');
+
+      // 5. Delete master component catalog
+      await ensureTemplateModelTables(c);
+      const [masterComponentsResult] = await c.query('DELETE FROM salary_master_components');
       
       await c.commit();
       c.end();
@@ -599,7 +953,9 @@ exports.clearMasterData = async (req, res) => {
           templates: templateResult.affectedRows,
           structures: structuresResult.affectedRows,
           components: componentsResult.affectedRows,
-          compositions: compResult.affectedRows
+          compositions: compResult.affectedRows,
+          contracts: contractsResult.affectedRows,
+          master_components: masterComponentsResult.affectedRows
         }
       });
     } catch (err) {

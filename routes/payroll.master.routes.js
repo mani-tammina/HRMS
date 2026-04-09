@@ -28,6 +28,13 @@ router.get('/structures/:id', ctrl.getStructure);
 router.put('/structures/:id', ctrl.updateStructure);
 router.delete('/structures/:id', ctrl.deleteStructure);
 
+// Employee Salary Contracts (template assignment)
+router.get('/contracts', ctrl.listContracts);
+router.post('/contracts', ctrl.createContract);
+router.get('/contracts/:contract_id', ctrl.getContract);
+router.put('/contracts/:contract_id', ctrl.updateContract);
+router.delete('/contracts/:contract_id', ctrl.terminateContract);
+
 // Structure Composition (template-component mapping)
 router.get('/templates/:template_id/composition', ctrl.listComposition);
 router.post('/templates/:template_id/composition', ctrl.addComposition);

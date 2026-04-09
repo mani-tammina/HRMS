@@ -5457,7 +5457,7 @@ Skips employees who already have user accounts.
     "/api/payroll-master/setup/defaults": {
       post: {
         summary: "Auto-Populate Complete Payroll Setup",
-        description: "⚡ Complete setup: Creates templates, master components, structure compositions, AND assigns sample employees. Creates 3 templates (Standard/Senior/Manager), 21 components, composition mappings, and assigns first 3-5 active employees to templates. Everything ready to run payroll immediately!",
+        description: "⚡ Complete normalized setup: Creates global master components, salary templates, template composition mappings, and sample employee salary contracts. Payroll then resolves structure from employee contract -> template -> composition, while employee salary structures remain runtime snapshots / legacy fallback.",
         tags: ["Payroll - Setup"],
         security: [{ bearerAuth: [] }],
         responses: {
@@ -5471,24 +5471,24 @@ Skips employees who already have user accounts.
                     templates: 3,
                     components: 21,
                     compositions: 21,
-                    employee_structures: 3
+                    employee_contracts: 3
                   },
                   templates: [
                     { id: 1, name: "Standard Employee Package", components: 6, master_structure_id: 1 },
                     { id: 2, name: "Senior Employee Package", components: 7, master_structure_id: 2 },
                     { id: 3, name: "Manager Package", components: 8, master_structure_id: 3 }
                   ],
-                  employee_structures: [
-                    { employee_id: 1, employee_name: "John Doe", structure_id: 4, template: "Standard Employee Package", ctc: 500000 },
-                    { employee_id: 2, employee_name: "Jane Smith", structure_id: 5, template: "Senior Employee Package", ctc: 800000 },
-                    { employee_id: 3, employee_name: "Bob Wilson", structure_id: 6, template: "Manager Package", ctc: 1200000 }
+                  employee_contracts: [
+                    { employee_id: 1, employee_name: "John Doe", contract_id: 4, template_id: 1, template: "Standard Employee Package", ctc: 500000, effective_from: "2026-04-01", effective_to: null },
+                    { employee_id: 2, employee_name: "Jane Smith", contract_id: 5, template_id: 2, template: "Senior Employee Package", ctc: 800000, effective_from: "2026-04-01", effective_to: null },
+                    { employee_id: 3, employee_name: "Bob Wilson", contract_id: 6, template_id: 3, template: "Manager Package", ctc: 1200000, effective_from: "2026-04-01", effective_to: null }
                   ],
                   message: "Successfully created complete payroll master data",
-                  note: "Complete payroll setup ready. Templates, components, compositions, and sample employee structures created.",
+                  note: "Complete normalized payroll setup ready. Master components, templates, composition mappings, and sample employee contracts created.",
                   next_steps: [
                     "1. Run payroll: POST /api/payroll/v2/run with year and month",
                     "2. View payslips: GET /api/payroll/v2/payslips/{employeeId}",
-                    "3. Assign more employees: POST /api/payroll-master/structures"
+                    "3. Assign more employees: POST /api/payroll-master/contracts"
                   ]
                 }
               }
@@ -5512,7 +5512,7 @@ Skips employees who already have user accounts.
     "/api/payroll-master/setup/clear": {
       delete: {
         summary: "Clear All Payroll Data",
-        description: "⚠️ CAUTION: Deletes ALL payroll data - templates, components, structures, compositions, employee assignments. For testing/reset only. Use before re-populating defaults.",
+        description: "⚠️ CAUTION: Deletes normalized payroll master data used for setup/reset, including templates, master components, composition mappings, legacy template structures, and employee salary contracts.",
         tags: ["Payroll - Setup"],
         security: [{ bearerAuth: [] }],
         responses: {
@@ -5527,7 +5527,9 @@ Skips employees who already have user accounts.
                     templates: 3,
                     structures: 6,
                     components: 63,
-                    compositions: 21
+                    compositions: 21,
+                    contracts: 3,
+                    master_components: 21
                   }
                 }
               }
@@ -5809,18 +5811,82 @@ Skips employees who already have user accounts.
       },
     },
 
+    "/api/payroll/v2/employees/{employeeId}/tax-profile": {
+      get: {
+        summary: "Get Employee Tax Profile",
+        description: "Get employee tax profile for a specific financial year.",
+        tags: ["Payroll - Reports"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "employeeId", in: "path", required: true, schema: { type: "integer" } },
+          {
+            name: "financial_year",
+            in: "query",
+            required: true,
+            schema: { type: "string", pattern: "^\\d{4}-\\d{4}$", example: "2026-2027" },
+            description: "Financial year in YYYY-YYYY format"
+          }
+        ],
+        responses: {
+          200: { description: "Tax profile for employee and financial year" },
+          400: { description: "Invalid employeeId or financial_year" }
+        },
+      },
+      put: {
+        summary: "Upsert Employee Tax Profile",
+        description: "Create or update employee tax profile scoped to a financial year. financial_year must be provided in query or request body.",
+        tags: ["Payroll - Processing"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "employeeId", in: "path", required: true, schema: { type: "integer" } },
+          {
+            name: "financial_year",
+            in: "query",
+            required: false,
+            schema: { type: "string", pattern: "^\\d{4}-\\d{4}$", example: "2026-2027" },
+            description: "Financial year in YYYY-YYYY format (required if not present in body)"
+          }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  financial_year: { type: "string", pattern: "^\\d{4}-\\d{4}$", example: "2026-2027" },
+                  tax_regime: { type: "string", enum: ["OLD", "NEW"], example: "OLD" },
+                  pan: { type: "string", example: "ABCDE1234F", nullable: true },
+                  is_tds_exempt: { type: "boolean", example: false },
+                  declared_investments: {
+                    type: "object",
+                    additionalProperties: true,
+                    example: { "80C": 150000, "80D": 25000 }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Tax profile created or updated" },
+          400: { description: "financial_year missing or invalid" }
+        },
+      },
+    },
+
     // ============ 4️⃣ MASTER DATA - Components ============
     "/api/payroll-master/components": {
       get: {
         summary: "List All Components",
-        description: "Get all salary components (BASIC, HRA, PF, etc.) with their calculation types.",
+        description: "Get all global master salary components (BASIC, HRA, PF, etc.) used by template composition.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         responses: { 200: { description: "List of salary components" } },
       },
       post: {
         summary: "Create Component",
-        description: "Create a new salary component (earning or deduction) with calculation rules.",
+        description: "Create a new global master salary component (earning or deduction) with calculation defaults.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -5830,7 +5896,6 @@ Skips employees who already have user accounts.
               schema: {
                 type: "object",
                 properties: {
-                  structure_id: { type: "integer", description: "Reference to salary_structures.id", example: 1 },
                   code: { type: "string", description: "Component code (e.g., BASIC, HRA)", example: "BASIC" },
                   name: { type: "string", description: "Component name", example: "Basic Salary" },
                   component_type: { type: "string", enum: ["EARNING", "DEDUCTION"], description: "Type of component" },
@@ -5840,9 +5905,10 @@ Skips employees who already have user accounts.
                   taxable: { type: "boolean", default: true, description: "Whether component is taxable" },
                   prorated: { type: "boolean", default: false, description: "Whether component is prorated" },
                   sequence: { type: "integer", default: 10, description: "Display order" },
-                  notes: { type: "string", description: "Additional notes", nullable: true }
+                  notes: { type: "string", description: "Additional notes", nullable: true },
+                  created_by: { type: "integer", description: "User ID who created the component", example: 1, nullable: true }
                 },
-                required: ["structure_id", "code", "name", "component_type", "calculation_type", "value"]
+                required: ["code", "name", "component_type", "calculation_type", "value"]
               },
             },
           },
@@ -5853,7 +5919,7 @@ Skips employees who already have user accounts.
     "/api/payroll-master/components/{component_id}": {
       get: {
         summary: "Get Component Details",
-        description: "Get details of a specific salary component.",
+        description: "Get details of a specific global master salary component.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "component_id", in: "path", required: true, schema: { type: "integer" } }],
@@ -5861,7 +5927,7 @@ Skips employees who already have user accounts.
       },
       put: {
         summary: "Update Component",
-        description: "Update an existing salary component.",
+        description: "Update an existing global master salary component.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "component_id", in: "path", required: true, schema: { type: "integer" } }],
@@ -5892,7 +5958,7 @@ Skips employees who already have user accounts.
       },
       delete: {
         summary: "Delete Component",
-        description: "Delete a salary component (only if not used in any template).",
+        description: "Soft-delete a global master salary component by marking it inactive.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "component_id", in: "path", required: true, schema: { type: "integer" } }],
@@ -5973,18 +6039,18 @@ Skips employees who already have user accounts.
         responses: { 200: { description: "Template deleted" } },
       },
     },
-    // ============ 6️⃣ MASTER DATA - Structures (Employee Assignments) ============
+    // ============ 6️⃣ MASTER DATA - Structures (Legacy / Snapshot) ============
     "/api/payroll-master/structures": {
       get: {
         summary: "List All Structures",
-        description: "Get all employee salary assignments (which employee has which template).",
+        description: "Get legacy or runtime snapshot salary structures. Normalized source of truth is employee salary contracts, not this endpoint.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         responses: { 200: { description: "List of salary structures" } },
       },
       post: {
         summary: "Create Salary Structure",
-        description: "Create a salary structure for an employee with CTC and components.",
+        description: "Create a legacy/manual employee salary structure with CTC and components. Prefer employee salary contracts for normalized payroll configuration.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         requestBody: {
@@ -6034,7 +6100,7 @@ Skips employees who already have user accounts.
     "/api/payroll-master/structures/{id}": {
       get: {
         summary: "Get Structure Details",
-        description: "Get details of a specific employee salary structure.",
+        description: "Get details of a specific legacy/manual or runtime snapshot salary structure.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
@@ -6042,7 +6108,7 @@ Skips employees who already have user accounts.
       },
       put: {
         summary: "Update Salary Structure",
-        description: "Update an employee's salary structure details.",
+        description: "Update a legacy/manual employee salary structure.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" }, description: "Structure ID from salary_structures table" }],
@@ -6069,18 +6135,114 @@ Skips employees who already have user accounts.
       },
       delete: {
         summary: "Remove Structure",
-        description: "Remove a salary structure assignment from an employee.",
+        description: "Remove a legacy/manual salary structure or runtime snapshot.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
         responses: { 200: { description: "Structure deleted" } },
       },
     },
+    "/api/payroll-master/contracts": {
+      get: {
+        summary: "List Employee Contracts",
+        description: "Get employee salary contracts. This is the normalized assignment layer that connects employees to templates using effective date ranges.",
+        tags: ["Payroll - Master Data"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "employee_id", in: "query", required: false, schema: { type: "integer" }, description: "Filter by employee ID" },
+          { name: "status", in: "query", required: false, schema: { type: "string", enum: ["Active", "Superseded"] }, description: "Filter by contract status" }
+        ],
+        responses: { 200: { description: "List of employee salary contracts" } },
+      },
+      post: {
+        summary: "Create Employee Contract",
+        description: "Assign a salary template to an employee with annual CTC and effective date range. Previous active contracts are end-dated automatically when needed.",
+        tags: ["Payroll - Master Data"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  employee_id: { type: "integer", description: "Employee ID from employees table", example: 1 },
+                  template_id: { type: "integer", description: "Template ID from salary_structure_templates table", example: 2 },
+                  annual_ctc: { type: "number", format: "float", description: "Annual CTC for this contract", example: 850000 },
+                  effective_from: { type: "string", format: "date", description: "Contract effective from date", example: "2026-04-01" },
+                  effective_to: { type: "string", format: "date", description: "Contract effective to date (optional; null for open-ended)", nullable: true, example: null },
+                  created_by: { type: "integer", description: "User ID who created the contract", example: 1, nullable: true }
+                },
+                required: ["employee_id", "template_id", "annual_ctc", "effective_from"]
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Employee contract created successfully" } },
+      },
+    },
+    "/api/payroll-master/contracts/{contract_id}": {
+      get: {
+        summary: "Get Employee Contract",
+        description: "Get one employee salary contract including template and employee details.",
+        tags: ["Payroll - Master Data"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "contract_id", in: "path", required: true, schema: { type: "integer" } }],
+        responses: { 200: { description: "Employee contract details" } },
+      },
+      put: {
+        summary: "Update Employee Contract",
+        description: "Update template assignment, CTC, status, and effective date range for an employee contract.",
+        tags: ["Payroll - Master Data"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "contract_id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  template_id: { type: "integer", description: "Template ID from salary_structure_templates table", example: 2 },
+                  annual_ctc: { type: "number", format: "float", description: "Annual CTC for this contract", example: 900000 },
+                  effective_from: { type: "string", format: "date", description: "Contract effective from date", example: "2026-04-01" },
+                  effective_to: { type: "string", format: "date", description: "Contract effective to date (optional; null for open-ended)", nullable: true, example: "2027-03-31" },
+                  status: { type: "string", enum: ["Active", "Superseded"], description: "Contract status", example: "Active" }
+                },
+                required: ["template_id", "annual_ctc", "effective_from"]
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Employee contract updated successfully" } },
+      },
+      delete: {
+        summary: "Terminate Employee Contract",
+        description: "Terminate a contract by setting status to Superseded and populating effective_to.",
+        tags: ["Payroll - Master Data"],
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "contract_id", in: "path", required: true, schema: { type: "integer" } }],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  effective_to: { type: "string", format: "date", description: "Termination end date. Defaults to current date if omitted.", example: "2026-09-30" }
+                }
+              }
+            }
+          }
+        },
+        responses: { 200: { description: "Employee contract terminated successfully" } },
+      },
+    },
     // ============ 7️⃣ MASTER DATA - Template Composition (Components in Template) ============
     "/api/payroll-master/templates/{template_id}/composition": {
       get: {
         summary: "List Template Components",
-        description: "Get all components configured in a template (BASIC 40%, HRA 20%, etc.).",
+        description: "Get all master components configured in a template with formula/value overrides.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "template_id", in: "path", required: true, schema: { type: "integer" } }],
@@ -6088,7 +6250,7 @@ Skips employees who already have user accounts.
       },
       post: {
         summary: "Add Component to Template",
-        description: "Add a salary component to a template with calculation formula/value.",
+        description: "Add a master salary component to a template with calculation formula/value. master_component_id is preferred; legacy component_id is accepted for backward compatibility.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [{ name: "template_id", in: "path", required: true, schema: { type: "integer" }, description: "Template ID from salary_structure_templates table" }],
@@ -6099,11 +6261,12 @@ Skips employees who already have user accounts.
               schema: {
                 type: "object",
                 properties: {
-                  component_id: { type: "integer", description: "Component ID from salary_components table", example: 1 },
+                  master_component_id: { type: "integer", description: "Component ID from salary_master_components table", example: 1, nullable: true },
+                  component_id: { type: "integer", description: "Legacy component ID from salary_components table", example: 1, nullable: true },
                   formula_or_value: { type: "string", description: "Formula or fixed value (e.g., '40%', '50000')", example: "40%" },
                   created_by: { type: "integer", description: "User ID who created the composition", example: 1 }
                 },
-                required: ["component_id", "formula_or_value"]
+                required: ["formula_or_value"]
               },
             },
           },
@@ -6114,7 +6277,7 @@ Skips employees who already have user accounts.
     "/api/payroll-master/templates/{template_id}/composition/{composition_id}": {
       put: {
         summary: "Update Template Component",
-        description: "Update a component in a template (change formula/value).",
+        description: "Update a template composition row. You can change formula/value and optionally remap to a different master component.",
         tags: ["Payroll - Master Data"],
         security: [{ bearerAuth: [] }],
         parameters: [
@@ -6128,6 +6291,8 @@ Skips employees who already have user accounts.
               schema: {
                 type: "object",
                 properties: {
+                  master_component_id: { type: "integer", description: "Component ID from salary_master_components table", example: 2, nullable: true },
+                  component_id: { type: "integer", description: "Legacy component ID from salary_components table", example: 2, nullable: true },
                   formula_or_value: { type: "string", description: "Formula or fixed value (e.g., '45%', '60000')", example: "45%" }
                 },
                 required: ["formula_or_value"]
@@ -9947,48 +10112,6 @@ Object.assign(swaggerSpec.paths, {
       },
     },
   },
-  "/api/tax/regime-selection": {
-    post: {
-      summary: "⚖️ Select Tax Regime",
-      description: "Employee chooses OLD or NEW regime",
-      tags: ["👤 Employee Tax"],
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              required: ["tax_regime"],
-              properties: {
-                financial_year: { type: "string", example: "2025-2026" },
-                tax_regime: { type: "string", enum: ["OLD", "NEW"] },
-              },
-            },
-            example: {
-              financial_year: "2025-2026",
-              tax_regime: "NEW",
-            },
-          },
-        },
-      },
-      responses: {
-        200: {
-          description: "Regime selection saved",
-          content: {
-            "application/json": {
-              example: {
-                success: true,
-                employee_id: 45,
-                financial_year: "2025-2026",
-                tax_regime: "NEW",
-              },
-            },
-          },
-        },
-      },
-    },
-  },
   "/api/tax/declarations": {
     get: {
       summary: "📄 Get Tax Declarations",
@@ -10220,52 +10343,6 @@ Object.assign(swaggerSpec.paths, {
       },
     },
   },
-  "/api/payroll/run/calculate": {
-    post: {
-      summary: "▶️ Calculate Payroll",
-      description: "Trigger payroll calculation run for payroll month",
-      tags: ["💼 Payroll Execution"],
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              required: ["payroll_month"],
-              properties: {
-                payroll_month: { type: "string", example: "2026-03" },
-              },
-            },
-            example: {
-              payroll_month: "2026-03",
-            },
-          },
-        },
-      },
-      responses: {
-        200: {
-          description: "Payroll calculation completed",
-          content: {
-            "application/json": {
-              example: {
-                success: true,
-                payroll_month: "2026-03",
-                result: {
-                  runId: 52,
-                  cycleId: 14,
-                  totalEmployees: 146,
-                  totalGross: 12345000,
-                  totalDeductions: 3250000,
-                  totalNet: 9095000,
-                },
-              },
-            },
-          },
-        },
-      },
-    },
-  },
   "/api/payroll/payslip/download": {
     get: {
       summary: "⬇️ Download Payslip PDF",
@@ -10286,55 +10363,6 @@ Object.assign(swaggerSpec.paths, {
           content: {
             "application/pdf": {
               schema: { type: "string", format: "binary" },
-            },
-          },
-        },
-      },
-    },
-  },
-  "/api/payroll/adjustments": {
-    post: {
-      summary: "➕ Payroll Adjustment",
-      description: "Create one-time payroll adjustments (bonus/arrears/deduction)",
-      tags: ["💼 Payroll Execution"],
-      security: [{ bearerAuth: [] }],
-      requestBody: {
-        required: true,
-        content: {
-          "application/json": {
-            schema: {
-              type: "object",
-              required: ["employee_id", "payroll_month", "adjustment_type", "amount"],
-              properties: {
-                employee_id: { type: "integer", example: 10 },
-                payroll_month: { type: "string", example: "2026-03" },
-                adjustment_type: {
-                  type: "string",
-                  enum: ["BONUS", "ARREAR", "DEDUCTION", "CORRECTION"],
-                },
-                amount: { type: "number", example: 3500 },
-                reason: { type: "string" },
-              },
-            },
-            example: {
-              employee_id: 45,
-              payroll_month: "2026-03",
-              adjustment_type: "BONUS",
-              amount: 5000,
-              reason: "Quarterly performance reward",
-            },
-          },
-        },
-      },
-      responses: {
-        200: {
-          description: "Adjustment recorded",
-          content: {
-            "application/json": {
-              example: {
-                success: true,
-                adjustment_id: 89,
-              },
             },
           },
         },

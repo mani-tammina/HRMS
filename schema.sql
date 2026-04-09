@@ -1167,16 +1167,37 @@ CREATE TABLE IF NOT EXISTS salary_structure_templates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+-- Master Salary Components (global payroll component catalog)
+CREATE TABLE IF NOT EXISTS salary_master_components (
+  component_id INT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(64) NOT NULL UNIQUE,
+  name VARCHAR(128) NOT NULL,
+  component_type ENUM('EARNING','DEDUCTION') NOT NULL DEFAULT 'EARNING',
+  calculation_type ENUM('FIXED','PERCENTAGE') NOT NULL DEFAULT 'FIXED',
+  value DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+  percentage_of_code VARCHAR(64) DEFAULT NULL,
+  taxable TINYINT(1) NOT NULL DEFAULT 1,
+  prorated TINYINT(1) NOT NULL DEFAULT 0,
+  sequence INT NOT NULL DEFAULT 10,
+  is_active TINYINT(1) NOT NULL DEFAULT 1,
+  notes TEXT,
+  created_by INT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
 -- Structure Composition (bridge between templates and components)
 CREATE TABLE IF NOT EXISTS structure_composition (
   composition_id INT PRIMARY KEY AUTO_INCREMENT,
   template_id INT NOT NULL,
-  component_id INT NOT NULL,
+  master_component_id INT NULL,
+  component_id INT NULL,
   formula_or_value VARCHAR(255) NOT NULL,
   created_by INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (template_id) REFERENCES salary_structure_templates(template_id),
+  FOREIGN KEY (master_component_id) REFERENCES salary_master_components(component_id),
   FOREIGN KEY (component_id) REFERENCES salary_components(id)
 );
 
@@ -1187,6 +1208,7 @@ CREATE TABLE IF NOT EXISTS employee_salary_contracts (
   template_id INT NOT NULL,
   annual_ctc DECIMAL(15,2) NOT NULL,
   effective_from DATE NOT NULL,
+  effective_to DATE DEFAULT NULL,
   status ENUM('Active', 'Superseded') DEFAULT 'Active',
   created_by INT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,

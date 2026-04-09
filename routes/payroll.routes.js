@@ -287,8 +287,16 @@ router.put("/defaults/:id", auth, finance, async (req, res) => {
 
 /* ============ SALARY STRUCTURE ============ */
 
+function markLegacySalaryStructureRoute(res) {
+    res.set('Deprecation', 'true');
+    res.set('Sunset', '2026-12-31');
+    res.set('Link', '</api/payroll/master/templates>; rel="successor-version"');
+    res.set('Warning', '299 - "Legacy salary/structure route is deprecated. Use template contracts and v2 structure APIs."');
+}
+
 // Create/Update salary structure
 router.post("/salary/structure/:empId", auth, finance, async (req, res) => {
+    markLegacySalaryStructureRoute(res);
     const { empId } = req.params;
     const components = [
         { name: "basic", value: req.body.basic },
@@ -316,7 +324,11 @@ router.post("/salary/structure/:empId", auth, finance, async (req, res) => {
                 );
             }
         }
-        res.json({ success: true });
+        res.json({
+            success: true,
+            deprecated: true,
+            message: 'Legacy path updated. Migrate to template contracts for source-of-truth payroll.'
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     } finally {
@@ -326,6 +338,7 @@ router.post("/salary/structure/:empId", auth, finance, async (req, res) => {
 
 // Get salary structure
 router.get("/salary/structure/:empId", auth, async (req, res) => {
+    markLegacySalaryStructureRoute(res);
     const empId = parseInt(req.params.empId);
     const userRole = (req.user.role || '').toLowerCase();
     
@@ -341,7 +354,12 @@ router.get("/salary/structure/:empId", auth, async (req, res) => {
     try {
         c = await db();
         const [rows] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [empId]);
-        res.json({ success: true, salaryStructure: rows });
+        res.json({
+            success: true,
+            deprecated: true,
+            salaryStructure: rows,
+            message: 'Legacy path. Prefer /api/payroll/v2/structure/:employeeId for template-driven structure view.'
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     } finally {
