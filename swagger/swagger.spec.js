@@ -1849,6 +1849,197 @@ Skips employees who already have user accounts.
         },
       },
     },
+    "/api/attendance/regularization/lock-status": {
+      get: {
+        summary: "🧷 Attendance Lock Status for Regularization",
+        description:
+          "Check whether payroll period is locked/processed for a given attendance date before backdated regularization.",
+        tags: ["⏰ Attendance"],
+        parameters: [
+          {
+            name: "date",
+            in: "query",
+            required: true,
+            schema: { type: "string", format: "date" },
+            example: "2026-04-05",
+          },
+        ],
+        responses: {
+          200: {
+            description: "Lock status for the payroll period of the date",
+            content: {
+              "application/json": {
+                example: {
+                  success: true,
+                  date: "2026-04-05",
+                  lock: {
+                    payroll_period: "2026-04",
+                    lock_status: "open",
+                    is_locked: false,
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Missing or invalid date query" },
+        },
+      },
+    },
+    "/api/attendance/regularization/backdate": {
+      post: {
+        summary: "🛠️ Backdate Attendance Regularization",
+        description:
+          "Regularize attendance for previous dates by HR/Admin/Manager (manager can update self or direct reports only). Blocked when payroll period is locked or processed.",
+        tags: ["⏰ Attendance"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["employee_id", "attendance_date"],
+                properties: {
+                  employee_id: { type: "integer", example: 12 },
+                  attendance_date: {
+                    type: "string",
+                    format: "date",
+                    example: "2026-04-05",
+                  },
+                  status: {
+                    type: "string",
+                    enum: ["present", "absent", "half-day", "late", "on-leave"],
+                    example: "present",
+                  },
+                  first_check_in: {
+                    type: "string",
+                    description: "Time (HH:mm or HH:mm:ss) or full datetime",
+                    example: "09:15",
+                  },
+                  last_check_out: {
+                    type: "string",
+                    description: "Time (HH:mm or HH:mm:ss) or full datetime",
+                    example: "18:20",
+                  },
+                  work_mode: {
+                    type: "string",
+                    example: "Office",
+                  },
+                  location: {
+                    type: "string",
+                    example: "Mumbai Office",
+                  },
+                  reason: {
+                    type: "string",
+                    example: "Missed punching due to field interview",
+                  },
+                },
+              },
+              example: {
+                employee_id: 12,
+                attendance_date: "2026-04-05",
+                status: "present",
+                first_check_in: "09:15",
+                last_check_out: "18:20",
+                work_mode: "Office",
+                location: "Mumbai Office",
+                reason: "Missed punching due to field interview",
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Attendance regularized successfully",
+            content: {
+              "application/json": {
+                example: {
+                  success: true,
+                  message: "Attendance regularized successfully",
+                  data: {
+                    attendance_id: 245,
+                    employee_id: 12,
+                    attendance_date: "2026-04-05",
+                    status: "present",
+                    lock: {
+                      payroll_period: "2026-04",
+                      lock_status: "open",
+                      is_locked: false,
+                    },
+                  },
+                },
+              },
+            },
+          },
+          400: {
+            description:
+              "Validation error, non-backdated date, invalid status/time, or payroll period locked",
+          },
+          403: {
+            description: "Manager not allowed for non-direct-report employee",
+          },
+        },
+      },
+    },
+    "/api/attendance/regularization/history/{employeeId}": {
+      get: {
+        summary: "📚 Regularization History by Employee",
+        description:
+          "Get monthly attendance records for an employee to review regularized entries. Manager scope is limited to self/direct reports.",
+        tags: ["⏰ Attendance"],
+        parameters: [
+          {
+            name: "employeeId",
+            in: "path",
+            required: true,
+            schema: { type: "integer" },
+            example: 12,
+          },
+          {
+            name: "month",
+            in: "query",
+            required: true,
+            description: "Month in YYYY-MM format",
+            schema: { type: "string", pattern: "^\\d{4}-\\d{2}$" },
+            example: "2026-04",
+          },
+        ],
+        responses: {
+          200: {
+            description: "Employee monthly regularization history",
+            content: {
+              "application/json": {
+                example: {
+                  success: true,
+                  data: {
+                    employee_id: 12,
+                    month: "2026-04",
+                    count: 2,
+                    records: [
+                      {
+                        id: 245,
+                        employee_id: 12,
+                        attendance_date: "2026-04-05",
+                        first_check_in: "2026-04-05T09:15:00.000Z",
+                        last_check_out: "2026-04-05T18:20:00.000Z",
+                        total_work_hours: 9.08,
+                        gross_hours: 9.08,
+                        work_mode: "Office",
+                        location: "Mumbai Office",
+                        status: "present",
+                        notes: "[REGULARIZED HR user:3] Missed punching due to field interview",
+                        updated_at: "2026-04-09T10:45:21.000Z",
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          },
+          400: { description: "Missing employeeId or invalid month format" },
+          403: { description: "Access restricted by manager scope" },
+        },
+      },
+    },
     "/api/attendance/my-report": {
       get: {
         summary: "✨ My Attendance Report",
@@ -5784,6 +5975,62 @@ Skips employees who already have user accounts.
           { name: "year", in: "query", required: true, schema: { type: "integer", example: 2026 } }
         ],
         responses: { 200: { description: "Tax summary for employee" } },
+      },
+    },
+    "/api/payroll/v2/tax-summary/{employeeId}/detailed": {
+      get: {
+        summary: "Get Detailed Tax Summary (FY)",
+        description: "Get consolidated financial-year tax summary including employee tax profile, declared investments, payroll annual totals, and statutory deductions.",
+        tags: ["Payroll - Reports"],
+        security: [{ bearerAuth: [] }],
+        parameters: [
+          { name: "employeeId", in: "path", required: true, schema: { type: "integer" } },
+          {
+            name: "financial_year",
+            in: "query",
+            required: true,
+            schema: { type: "string", pattern: "^\\d{4}-\\d{4}$", example: "2026-2027" },
+            description: "Financial year in YYYY-YYYY format"
+          }
+        ],
+        responses: {
+          200: {
+            description: "Detailed FY tax summary",
+            content: {
+              "application/json": {
+                example: {
+                  success: true,
+                  data: {
+                    employee_id: 885,
+                    financial_year: "2026-2027",
+                    profile: {
+                      tax_regime: "OLD",
+                      pan: "ABCDE1234F",
+                      is_tds_exempt: false,
+                      declared_investments: { "80C": 150000, "80D": 25000 },
+                      updated_at: "2026-04-09T10:30:00.000Z"
+                    },
+                    annual_summary: {
+                      annual_gross: 960000,
+                      annual_deductions: 165000,
+                      annual_net: 795000
+                    },
+                    statutory_deductions: [
+                      { deduction_code: "PF_EMP", deduction_name: "Employee PF", total_amount: 43200 },
+                      { deduction_code: "TDS", deduction_name: "TDS", total_amount: 97800 }
+                    ],
+                    totals: {
+                      total_statutory_deductions: 141000,
+                      tds_paid_ytd: 97800
+                    }
+                  },
+                  error: null
+                }
+              }
+            }
+          },
+          400: { description: "Invalid employeeId or financial_year" }
+        },
       },
     },
     "/api/payroll/v2/structure/{employeeId}": {

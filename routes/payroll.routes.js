@@ -192,6 +192,110 @@ router.get('/v2/tax-summary/:employeeId', auth, resolvePayrollEmployeeContext, a
     }
 });
 
+// GET /api/payroll/v2/tax-summary/:employeeId/detailed?financial_year=YYYY-YYYY
+router.get('/v2/tax-summary/:employeeId/detailed', auth, resolvePayrollEmployeeContext, async (req, res) => {
+    const employeeId = Number(req.params.employeeId);
+    const financialYear = String(req.query.financial_year || '').trim();
+    if (!employeeId) return res.status(400).json({ error: 'employeeId required' });
+    if (!/^\d{4}-\d{4}$/.test(financialYear)) {
+        return res.status(400).json({ error: 'financial_year query required in YYYY-YYYY format' });
+    }
+
+    const [fyStartYear, fyEndYear] = financialYear.split('-').map(Number);
+    if (!fyStartYear || !fyEndYear || fyEndYear !== fyStartYear + 1) {
+        return res.status(400).json({ error: 'invalid financial_year range' });
+    }
+
+    const fyStart = `${fyStartYear}-04-01`;
+    const fyEnd = `${fyEndYear}-03-31`;
+
+    const parseJson = (value, fallback = null) => {
+        if (value == null) return fallback;
+        if (typeof value === 'object') return value;
+        try {
+            return JSON.parse(value);
+        } catch (_) {
+            return fallback;
+        }
+    };
+
+    let c = null;
+    try {
+        c = await db();
+
+        const [profileRows] = await c.query(
+            `SELECT employee_id, financial_year, tax_regime, pan, is_tds_exempt, declared_investments, updated_at
+             FROM employee_tax_profiles
+             WHERE employee_id = ? AND financial_year = ?
+             LIMIT 1`,
+            [employeeId, financialYear]
+        );
+
+        const [taxRows] = await c.query(
+            `SELECT td.deduction_code, td.deduction_name, COALESCE(SUM(td.amount), 0) as total_amount
+             FROM payroll_tax_deductions td
+             JOIN payroll_employee_salaries s ON s.id = td.employee_salary_id
+             JOIN payroll_cycles cy ON cy.id = s.cycle_id
+             WHERE s.employee_id = ? AND cy.start_date >= ? AND cy.end_date <= ?
+             GROUP BY td.deduction_code, td.deduction_name
+             ORDER BY td.deduction_code ASC`,
+            [employeeId, fyStart, fyEnd]
+        );
+
+        const [annualRows] = await c.query(
+            `SELECT COALESCE(SUM(s.gross_earnings),0) as annual_gross,
+                    COALESCE(SUM(s.total_deductions),0) as annual_deductions,
+                    COALESCE(SUM(s.net_pay),0) as annual_net
+             FROM payroll_employee_salaries s
+             JOIN payroll_cycles cy ON cy.id = s.cycle_id
+             WHERE s.employee_id = ? AND cy.start_date >= ? AND cy.end_date <= ?`,
+            [employeeId, fyStart, fyEnd]
+        );
+
+        const profile = profileRows[0] || null;
+        const totalStatutory = taxRows.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+        const tdsOnly = taxRows
+            .filter((r) => ['TDS', 'INCOME_TAX'].includes(String(r.deduction_code || '').toUpperCase()))
+            .reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+
+        return res.json({
+            success: true,
+            data: {
+                employee_id: employeeId,
+                financial_year: financialYear,
+                profile: profile
+                    ? {
+                        tax_regime: profile.tax_regime,
+                        pan: profile.pan,
+                        is_tds_exempt: Boolean(profile.is_tds_exempt),
+                        declared_investments: parseJson(profile.declared_investments, {}),
+                        updated_at: profile.updated_at
+                    }
+                    : null,
+                annual_summary: {
+                    annual_gross: Number(annualRows[0]?.annual_gross || 0),
+                    annual_deductions: Number(annualRows[0]?.annual_deductions || 0),
+                    annual_net: Number(annualRows[0]?.annual_net || 0)
+                },
+                statutory_deductions: taxRows.map((r) => ({
+                    deduction_code: r.deduction_code,
+                    deduction_name: r.deduction_name,
+                    total_amount: Number(r.total_amount || 0)
+                })),
+                totals: {
+                    total_statutory_deductions: Number(totalStatutory.toFixed(2)),
+                    tds_paid_ytd: Number(tdsOnly.toFixed(2))
+                }
+            },
+            error: null
+        });
+    } catch (err) {
+        return res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
 // GET /api/payroll/v2/form16/:employeeId?year=YYYY  (placeholder metadata)
 router.get('/v2/form16/:employeeId', auth, resolvePayrollEmployeeContext, async (req, res) => {
     const year = Number(req.query.year);

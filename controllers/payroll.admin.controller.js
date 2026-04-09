@@ -24,6 +24,80 @@ function isValidFinancialYear(value) {
   return typeof value === 'string' && /^\d{4}-\d{4}$/.test(value);
 }
 
+function normalizeTaxProfilePayload(payload) {
+  const normalized = Object.assign({}, payload || {});
+
+  if (normalized.tax_regime != null) {
+    const regime = String(normalized.tax_regime).toUpperCase();
+    if (!['OLD', 'NEW'].includes(regime)) {
+      const err = new Error('tax_regime must be OLD or NEW');
+      err.statusCode = 400;
+      throw err;
+    }
+    normalized.tax_regime = regime;
+  }
+
+  if (normalized.pan != null) {
+    normalized.pan = String(normalized.pan).trim() || null;
+  }
+
+  if (normalized.is_tds_exempt != null) {
+    if (typeof normalized.is_tds_exempt === 'boolean') {
+      normalized.is_tds_exempt = normalized.is_tds_exempt ? 1 : 0;
+    } else {
+      normalized.is_tds_exempt = Number(normalized.is_tds_exempt) ? 1 : 0;
+    }
+  }
+
+  if (Object.prototype.hasOwnProperty.call(normalized, 'declared_investments')) {
+    const value = normalized.declared_investments;
+
+    if (value === null) {
+      normalized.declared_investments = null;
+    } else if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        normalized.declared_investments = null;
+      } else {
+        try {
+          const parsed = JSON.parse(trimmed);
+          normalized.declared_investments = JSON.stringify(parsed);
+        } catch (_) {
+          const err = new Error('declared_investments must be valid JSON');
+          err.statusCode = 400;
+          throw err;
+        }
+      }
+    } else if (typeof value === 'object') {
+      normalized.declared_investments = JSON.stringify(value);
+    } else {
+      const err = new Error('declared_investments must be object, JSON string, or null');
+      err.statusCode = 400;
+      throw err;
+    }
+  }
+
+  return normalized;
+}
+
+function normalizeTaxProfileRead(row) {
+  if (!row) return null;
+  const normalized = Object.assign({}, row);
+  if (typeof normalized.declared_investments === 'string') {
+    const raw = normalized.declared_investments.trim();
+    if (!raw) {
+      normalized.declared_investments = null;
+    } else {
+      try {
+        normalized.declared_investments = JSON.parse(raw);
+      } catch (_) {
+        normalized.declared_investments = null;
+      }
+    }
+  }
+  return normalized;
+}
+
 async function buildRunValidation(year, month) {
   const c = await db();
   try {
@@ -435,7 +509,7 @@ async function getTaxProfile(req, res) {
       [employeeId, financialYear]
     );
     c.end();
-    res.json(rows[0] || null);
+    res.json(normalizeTaxProfileRead(rows[0] || null));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -451,7 +525,7 @@ async function putTaxProfile(req, res) {
       return res.status(400).json({ error: 'financial_year required in query or body, format YYYY-YYYY' });
     }
 
-    const writePayload = Object.assign({}, payload, { financial_year: financialYear });
+    const writePayload = normalizeTaxProfilePayload(Object.assign({}, payload, { financial_year: financialYear }));
     delete writePayload.employee_id;
 
     const by = (req.user && req.user.id) || null;
@@ -476,7 +550,7 @@ async function putTaxProfile(req, res) {
     });
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.statusCode || 500).json({ error: err.message });
   }
 }
 
