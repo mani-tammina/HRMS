@@ -77,12 +77,18 @@
 
     &:focus-within {
       border-color: vars.$color-primary;
-      --background: #{vars.$color-white};
       box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.08);
+      --background-color: transparent !important;
+
     }
 
-    ::ng-deep .searchbar-input-container { height: 40px; }
-    ::ng-deep .searchbar-input { font-size: vars.$fs-body; }
+    ::ng-deep .searchbar-input-container {
+      height: 40px;
+    }
+
+    ::ng-deep .searchbar-input {
+      font-size: vars.$fs-body;
+    }
   }
 }
 
@@ -124,7 +130,9 @@
       border-bottom: 1px solid vars.$color-border-light;
       transition: vars.$transition-fast;
 
-      &:last-child { border-bottom: none; }
+      &:last-child {
+        border-bottom: none;
+      }
 
       .search-avatar {
         width: 44px;
@@ -132,7 +140,9 @@
         margin-right: 14px;
         border: 2px solid vars.$color-border-light;
 
-        img { object-fit: cover; }
+        img {
+          object-fit: cover;
+        }
       }
 
       .search-label {
@@ -199,7 +209,9 @@
 }
 
 // ── User Greeting ──
-.user-greeting { display: none; }
+.user-greeting {
+  display: none;
+}
 
 @media (min-width: 768px) {
   .user-greeting {
@@ -237,7 +249,9 @@
   &:hover {
     --background: #{vars.$color-bg-hover};
 
-    .nav-icon { color: vars.$color-primary; }
+    .nav-icon {
+      color: vars.$color-primary;
+    }
   }
 
   .nav-icon {
@@ -320,7 +334,9 @@
     &.danger-item {
       --color: #{vars.$color-danger};
 
-      ion-icon { color: vars.$color-danger; }
+      ion-icon {
+        color: vars.$color-danger;
+      }
     }
   }
 }
@@ -342,7 +358,9 @@
       --padding-top: 16px;
       --padding-end: 16px;
 
-      ion-title { display: none; }
+      ion-title {
+        display: none;
+      }
 
       ion-button {
         --color: #{vars.$color-text-muted};
@@ -449,7 +467,9 @@
           background: vars.$color-white;
         }
 
-        &.full-width { grid-column: span 2; }
+        &.full-width {
+          grid-column: span 2;
+        }
 
         .icon-box {
           width: 40px;
@@ -469,10 +489,37 @@
         }
 
         // Varied icon bg per card
-        &:nth-child(2) .icon-box { background: vars.$color-success-light; ion-icon { color: vars.$color-success; } }
-        &:nth-child(3) .icon-box { background: vars.$color-warning-light;  ion-icon { color: vars.$color-warning; } }
-        &:nth-child(4) .icon-box { background: vars.$color-indigo-light;   ion-icon { color: vars.$color-indigo; } }
-        &:nth-child(5) .icon-box { background: vars.$color-danger-light;   ion-icon { color: vars.$color-danger; } }
+        &:nth-child(2) .icon-box {
+          background: vars.$color-success-light;
+
+          ion-icon {
+            color: vars.$color-success;
+          }
+        }
+
+        &:nth-child(3) .icon-box {
+          background: vars.$color-warning-light;
+
+          ion-icon {
+            color: vars.$color-warning;
+          }
+        }
+
+        &:nth-child(4) .icon-box {
+          background: vars.$color-indigo-light;
+
+          ion-icon {
+            color: vars.$color-indigo;
+          }
+        }
+
+        &:nth-child(5) .icon-box {
+          background: vars.$color-danger-light;
+
+          ion-icon {
+            color: vars.$color-danger;
+          }
+        }
 
         .info-text {
           flex: 1;
@@ -523,6 +570,15 @@
 }
 
 @keyframes pulseStatus {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50%       { transform: scale(1.2); opacity: 0.7; }
+
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+
+  50% {
+    transform: scale(1.2);
+    opacity: 0.7;
+  }
 }

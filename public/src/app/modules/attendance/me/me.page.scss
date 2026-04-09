@@ -24,7 +24,7 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      height: 340px;
+      height: 420px;
       overflow: hidden;
       transition: vars.$transition-smooth;
 
@@ -195,99 +195,230 @@ ion-progress-bar {
 }
 
 /* Actions Card & Chart Styling */
-.actions {
-  flex: 1;
+.cosmic-card-wrapper {
+  position: relative;
+  height: auto;
+
+  .glow-flare {
+    position: absolute;
+    top: -40px;
+    right: -40px;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(var(--ion-color-primary-rgb), 0.1) 0%, transparent 70%);
+    z-index: 0;
+    pointer-events: none;
+    filter: blur(30px);
+  }
+}
+
+.premium-cosmic-card {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(243, 244, 246, 0.8)) !important;
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.05), 0 5px 15px rgba(0, 0, 0, 0.02) !important;
+  height: auto !important;
+  min-height: 420px !important;
+  margin: 12px !important;
+  color: vars.$color-text-primary;
   display: flex;
   flex-direction: column;
+  overflow: visible !important;
+  position: relative;
+  z-index: 10;
+  border-radius: vars.$radius-2xl !important;
 
-  .today-logs-status {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 0;
-    margin-bottom: 24px;
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 25px 45px rgba(0, 0, 0, 0.08) !important;
+    border-color: rgba(var(--ion-color-primary-rgb), 0.2) !important;
+  }
 
-    .chart-wrapper {
-      position: relative;
-      height: 160px;
-      width: 100%;
-      margin: 0 auto;
-      padding: 20px;
-      background: vars.$color-bg-subtle;
-      border-radius: vars.$radius-lg;
-      border: 1px solid vars.$color-border-light;
+  ion-card-header {
+    background: transparent !important;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+    padding: 20px 24px !important;
+
+    .header-content {
       display: flex;
       align-items: center;
-      justify-content: center;
-      overflow: hidden;
+      gap: 12px;
 
-      canvas {
-        position: relative;
-        z-index: 1;
-        max-height: 100%;
+      .title-icon {
+        font-size: 20px;
+        color: vars.$color-primary;
+        filter: drop-shadow(0 2px 4px rgba(var(--ion-color-primary-rgb), 0.2));
+      }
+
+      ion-card-title {
+        color: vars.$color-text-primary !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        text-transform: uppercase !important;
+        margin: 0 !important;
       }
     }
   }
 
-  .actions-buttons-row {
-    margin-top: auto;
-    padding-top: 20px;
-    border-top: 1px solid vars.$color-border-light;
-    align-items: stretch;
+  ion-card-content {
+    padding: 16px 20px !important;
+    flex: 1;
     display: flex;
-    gap: 12px;
+    flex-direction: column;
+    justify-content: flex-start;
+    gap: 16px;
+  }
 
-    ion-col {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 !important;
+  .today-logs-status {
+    flex: 0 0 auto;
+    margin-bottom: 8px;
 
-      &:first-child {
-        justify-content: flex-start;
+    .chart-container {
+      position: relative;
+      background: rgba(255, 255, 255, 0.5);
+      border-radius: vars.$radius-xl;
+      border: 1px solid rgba(0, 0, 0, 0.03);
+      padding: 12px;
+      overflow: hidden;
+      box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.01);
+
+      .chart-glass-overlay {
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.4) 0%, transparent 100%);
+        pointer-events: none;
       }
 
-      &:last-child {
-        justify-content: flex-end;
+      .chart-wrapper {
+        height: 125px;
+        position: relative;
+        z-index: 1;
+      }
+    }
+  }
+
+  .actions-section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    .clock-control {
+      background: rgba(var(--ion-color-primary-rgb), 0.03);
+      border-radius: vars.$radius-xl;
+      padding: 6px;
+      border: 1px solid rgba(var(--ion-color-primary-rgb), 0.05);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      ::ng-deep .attendance-btn-container {
+        padding: 0 !important;
+
+        .modern-clock-btn {
+          min-width: 160px !important;
+          height: 48px !important;
+          border-radius: vars.$radius-lg !important;
+          box-shadow: 0 8px 16px rgba(var(--ion-color-primary-rgb), 0.15) !important;
+
+          .btn-content {
+            gap: 8px !important;
+
+            ion-icon {
+              font-size: 20px !important;
+            }
+
+            .text {
+              font-size: 14px !important;
+            }
+          }
+        }
       }
     }
 
-    .action-grid-buttons {
+    .secondary-actions {
       display: flex;
-      flex-wrap: nowrap;
       gap: 10px;
-      justify-content: flex-end;
-      align-items: center;
+      justify-content: space-between;
 
-      .clear-action {
-        --padding-start: 16px;
-        --padding-end: 16px;
-        font-size: 11px;
-        font-weight: vars.$fw-bold;
-        height: 40px;
-        margin: 0;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        --background: #{vars.$color-primary};
-        --color: white;
-        --border-radius: #{vars.$radius-md};
-        transition: vars.$transition-smooth;
-        --box-shadow: #{vars.$shadow-sm};
+      .cosmic-action-btn {
+        flex: 1;
+        position: relative;
+        background: #ffffff;
+        border: 1px solid rgba(0, 0, 0, 0.06);
+        border-radius: vars.$radius-xl;
+        padding: 12px 6px;
+        color: vars.$color-text-secondary;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        overflow: hidden;
+        min-height: 70px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+
+        .btn-glow {
+          position: absolute;
+          inset: 0;
+          background: radial-gradient(circle at center, rgba(var(--ion-color-primary-rgb), 0) 0%, transparent 70%);
+          transition: all 0.4s ease;
+        }
 
         ion-icon {
-          font-size: 16px;
-          margin-right: 6px;
+          font-size: 20px;
+          color: vars.$color-text-muted;
+          transition: all 0.3s ease;
+        }
+
+        span {
+          font-size: 10px;
+          font-weight: 750;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+          color: vars.$color-text-muted;
         }
 
         &:hover:not([disabled]) {
-          --background: #{vars.$color-primary-dark};
+          background: rgba(var(--ion-color-primary-rgb), 0.05);
+          border-color: rgba(var(--ion-color-primary-rgb), 0.2);
+          color: vars.$color-primary;
           transform: translateY(-2px);
-          --box-shadow: #{vars.$shadow-md};
+          box-shadow: 0 8px 20px rgba(var(--ion-color-primary-rgb), 0.1);
+
+          ion-icon {
+            transform: scale(1.1);
+            color: vars.$color-primary;
+          }
+
+          span {
+            color: vars.$color-primary;
+          }
+
+          .btn-glow {
+            background: radial-gradient(circle at center, rgba(var(--ion-color-primary-rgb), 0.1) 0%, transparent 70%);
+          }
+        }
+
+        &:active:not([disabled]) {
+          transform: scale(0.95);
         }
 
         &[disabled] {
           opacity: 0.5;
+          cursor: not-allowed;
+          background: #f3f4f6;
+        }
+
+        &.req:hover:not([disabled]) {
+          border-color: #f472b6;
+          background: rgba(244, 114, 182, 0.05);
+
+          ion-icon,
+          span {
+            color: #f472b6;
+          }
         }
       }
     }
@@ -298,169 +429,235 @@ app-clock-button {
   display: contents;
 }
 
-.timings-card {
-  position: relative;
+.premium-timings-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05) !important;
+  color: vars.$color-text-primary;
+  height: auto !important;
+  min-height: 420px !important;
+  margin: 12px !important;
   overflow: visible !important;
+  position: relative;
+  border-radius: vars.$radius-2xl !important;
 
-  .shift-info {
-    font-size: vars.$fs-small;
-    color: vars.$color-text-secondary;
-    margin-bottom: 24px;
-    text-align: center;
-    background: vars.$color-primary-light;
-    padding: 16px;
-    border-radius: vars.$radius-lg;
-    font-weight: vars.$fw-bold;
-    border: 1px solid rgba(vars.$color-primary, 0.1);
-    position: relative;
-    overflow: hidden;
+  ion-card-header {
+    background: #f8fafc !important;
+    border-bottom: 1px solid #e2e8f0 !important;
+    padding: 16px 24px !important;
 
-    &::after {
-      content: '⏰';
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 20px;
-      opacity: 0.15;
+    .header-flex {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+
+      .header-icon {
+        font-size: 20px;
+        color: vars.$color-primary;
+      }
+
+      ion-card-title {
+        color: vars.$color-text-primary !important;
+        font-size: 14px !important;
+        font-weight: 800 !important;
+        letter-spacing: 0.5px !important;
+        text-transform: uppercase !important;
+        margin: 0 !important;
+      }
+    }
+  }
+
+  ion-card-content {
+    padding: 24px !important;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .shift-badge {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: vars.$radius-xl;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      background: #16a34a; // Solid green
+      border-radius: 50%;
+    }
+
+    .shift-name {
+      color: #0f172a;
+      font-weight: 800;
+      font-size: 13px;
+    }
+
+    .shift-hours {
+      color: #475569;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: auto;
+      background: #ffffff;
+      padding: 4px 10px;
+      border-radius: vars.$radius-md;
+      border: 1px solid #e2e8f0;
     }
   }
 
   .days-grid-wrapper {
-    margin: 24px 0 24px;
-    padding: 0;
-
-    ion-row {
-      gap: 8px;
-      justify-content: center;
-    }
-
-    ion-col {
+    .days-row {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 !important;
-      flex: 0 0 auto;
-    }
-  }
-
-  .day-container {
-    position: relative;
-    width: 44px;
-    height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: vars.$radius-md;
-    background: vars.$color-bg-subtle;
-    border: 1px solid vars.$color-border-light;
-    cursor: pointer;
-    transition: vars.$transition-smooth;
-    font-weight: vars.$fw-bold;
-    color: vars.$color-text-muted;
-
-    &:hover:not(.highlight-today):not(.highlight-weekoff) {
-      transform: translateY(-2px);
-      background: vars.$color-bg-hover;
-      border-color: vars.$color-border-medium;
-      color: vars.$color-text-primary;
+      justify-content: space-between;
+      gap: 6px;
     }
 
-    .day-of-week {
-      font-weight: vars.$fw-bold;
-      font-size: 11px;
-      margin: 0;
-      text-transform: uppercase;
-    }
-  }
-
-  .highlight-today {
-    background: vars.$color-primary;
-    border: 1px solid vars.$color-primary;
-    box-shadow: vars.$shadow-md;
-    transform: scale(1.1);
-    z-index: 2;
-
-    .day-of-week {
-      color: #fff;
-      font-weight: vars.$fw-bold;
-    }
-  }
-
-  .highlight-weekoff {
-    background: vars.$color-bg-page;
-    border: 1px solid vars.$color-border-xlight;
-    opacity: 0.5;
-
-    .day-of-week {
-      color: vars.$color-text-placeholder;
-    }
-
-    &:hover {
-      opacity: 0.8;
-      transform: none;
-    }
-  }
-
-  .today-label {
-    font-size: 11px;
-    font-weight: vars.$fw-bold;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: vars.$color-text-muted;
-    margin-bottom: 16px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-
-    strong {
-      color: vars.$color-primary;
-      font-weight: vars.$fw-bold;
-    }
-  }
-
-  ion-progress-bar {
-    height: 10px;
-    border-radius: vars.$radius-pill;
-    --background: #{vars.$color-bg-subtle} !important;
-    --progress-background: #{vars.$color-primary} !important;
-    margin: 16px 0;
-    box-shadow: none;
-    border: 1px solid vars.$color-border-light;
-  }
-
-  .duration-info {
-    margin-top: auto;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
-    font-size: 11px;
-    color: vars.$color-text-secondary;
-    font-weight: vars.$fw-bold;
-    padding-top: 16px;
-    padding-bottom: 8px;
-    border-top: 1px solid vars.$color-border-light;
-
-    span {
+    .day-slot {
       flex: 1;
+      height: 48px;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: vars.$radius-lg;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      background: vars.$color-bg-subtle;
-      padding: 10px;
-      border-radius: vars.$radius-md;
-      border: 1px solid vars.$color-border-xlight;
-      transition: vars.$transition-base;
-      cursor: default;
+      transition: all 0.2s ease;
 
-      &:hover {
-        background: vars.$color-bg-hover;
-        border-color: vars.$color-border-medium;
+      .day-name {
+        font-size: 10px;
+        font-weight: 800;
+        color: #94a3b8;
+        text-transform: uppercase;
+      }
+
+      &.is-today {
+        background: vars.$color-primary;
+        border-color: vars.$color-primary;
+        box-shadow: 0 4px 12px rgba(vars.$color-primary, 0.25);
         transform: translateY(-2px);
+
+        .day-name {
+          color: #ffffff;
+        }
+
+        .today-indicator {
+          display: none;
+        }
+      }
+
+      &.is-weekoff {
+        background: #f8fafc;
+        border-style: dashed;
+        opacity: 0.6;
       }
     }
+  }
+
+  .progress-section {
+    .progress-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+
+      .label-text {
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .percentage-text {
+        font-size: 15px;
+        color: vars.$color-primary;
+        font-weight: 900;
+      }
+    }
+
+    .premium-progress {
+      height: 8px;
+      border-radius: vars.$radius-pill;
+      --background: #f1f5f9 !important;
+      --progress-background: #{vars.$color-primary} !important;
+    }
+  }
+
+  .stats-footer {
+    display: flex;
+    gap: 12px;
+    margin-top: auto;
+
+    .stat-item {
+      flex: 1;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: vars.$radius-xl;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      ion-icon {
+        font-size: 18px;
+        color: #64748b;
+      }
+
+      .stat-text {
+        display: flex;
+        flex-direction: column;
+
+        .s-label {
+          font-size: 9px;
+          font-weight: 800;
+          color: #94a3b8;
+          text-transform: uppercase;
+        }
+
+        .s-value {
+          font-size: 13px;
+          font-weight: 800;
+          color: #1e293b;
+        }
+      }
+
+      &.duration:hover {
+        border-color: vars.$color-primary;
+        background: #ffffff;
+
+        ion-icon {
+          color: vars.$color-primary;
+        }
+      }
+
+      &.break:hover {
+        border-color: #f59e0b;
+        background: #ffffff;
+
+        ion-icon {
+          color: #f59e0b;
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  }
+
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(16, 185, 129, 0);
+  }
+
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
   }
 }
 

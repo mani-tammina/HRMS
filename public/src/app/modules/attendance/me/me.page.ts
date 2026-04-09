@@ -250,36 +250,44 @@ export class MePage implements OnInit, AfterViewInit {
       return `${h}h ${m}m`;
     };
 
-    // Custom plugin for center text
-    const centerTextPlugin = {
-      id: 'centerText',
-      afterDraw: (chart: any) => {
-        const { ctx, chartArea: { top, width, height } } = chart;
-        ctx.save();
-        ctx.font = 'bold 14px sans-serif';
-        ctx.fillStyle = '#1e293b';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.grossHours || '00:00', width / 2, (height / 2) + top + 5);
-        ctx.font = '10px sans-serif';
-        ctx.fillStyle = '#64748b';
-        ctx.fillText('Gross', width / 2, (height / 2) + top + 22);
-        ctx.restore();
-      }
-    };
-
     const data = {
       labels: ['Late', 'Effective', 'Break'],
       datasets: [
         {
           data: hasData ? [late, effective, totalBreak] : [0, 0, 1],
           backgroundColor: hasData 
-            ? ['rgba(245, 158, 11, 1)', 'rgba(16, 185, 129, 1)', 'rgba(239, 68, 68, 1)'] 
-            : ['rgba(226, 232, 240, 1)'],
-          borderWidth: 0,
+            ? ['#f59e0b', '#06b6d4', '#ec4899'] // Amber, Cyan, Pink
+            : ['#f1f5f9'],
+          hoverBackgroundColor: hasData
+            ? ['#d97706', '#0891b2', '#db2777']
+            : ['#e2e8f0'],
+          borderWidth: 2,
+          borderColor: '#ffffff',
           cutout: '75%',
-          borderRadius: 4
+          borderRadius: 10
         }
       ]
+    };
+
+    const centerTextPlugin = {
+      id: 'centerText',
+      afterDraw: (chart: any) => {
+        const { ctx, chartArea: { top, width, height } } = chart;
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        
+        // Value
+        ctx.font = 'bold 24px "Outfit", "Inter", sans-serif';
+        ctx.fillStyle = '#1e293b'; // Dark slate
+        ctx.fillText(this.grossHours || '00:00', width / 2, (height / 2) + top - 5);
+        
+        // Label
+        ctx.font = '700 10px "Outfit", "Inter", sans-serif';
+        ctx.fillStyle = '#64748b'; // Slate muted
+        ctx.fillText('GROSS HRS', width / 2, (height / 2) + top + 18);
+        ctx.restore();
+      }
     };
 
     const config: any = {
@@ -295,14 +303,23 @@ export class MePage implements OnInit, AfterViewInit {
             labels: { 
               boxWidth: 8, 
               usePointStyle: true, 
-              padding: 10,
-              font: { size: 10 }
+              padding: 12,
+              color: '#475569',
+              font: { size: 10, weight: '700' }
             } 
           },
           tooltip: { 
             enabled: hasData,
+            backgroundColor: '#ffffff',
+            titleColor: '#1e293b',
+            bodyColor: '#475569',
+            borderColor: '#e2e8f0',
+            borderWidth: 1,
+            padding: 12,
+            boxPadding: 4,
+            cornerRadius: 10,
             callbacks: {
-              label: (item: any) => `${item.label}: ${formatDuration(item.raw)}`
+              label: (item: any) => ` ${item.label}: ${formatDuration(item.raw)}`
             }
           }
         }

@@ -67,42 +67,56 @@
 
         <!-- Timings Card -->
         <ion-col size="12" size-sm="12" size-md="6" size-lg="4" size-xl="4">
-          <ion-card class="timings-card">
+          <ion-card class="timings-card premium-timings-card">
             <ion-card-header>
-              <ion-card-title>Timings</ion-card-title>
+              <div class="header-flex">
+                <ion-icon name="time-outline" class="header-icon"></ion-icon>
+                <ion-card-title>Timings</ion-card-title>
+              </div>
             </ion-card-header>
 
             <ion-card-content>
-              <div class="shift-info" *ngIf="shift_policy">
-                {{ shift_policy.shift_name }} : ( {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time
-                | timeFormat }} )
+              <div class="shift-badge" *ngIf="shift_policy">
+                <span class="pulse-dot"></span>
+                <span class="shift-name">{{ shift_policy.shift_name }}</span>
+                <span class="shift-hours">{{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }}</span>
               </div>
 
               <div class="days-grid-wrapper">
-                <ion-row>
-                  <ion-col *ngFor="let day of days; trackBy: trackByDate" class="ion-text-center">
-                    <div class="day-container" [ngClass]="{
-                        'highlight-today': isToday(day),
-                        'highlight-weekoff': isWeekOffDay(day)
+                <div class="days-row">
+                  <div *ngFor="let day of days; trackBy: trackByDate" class="day-slot" [ngClass]="{
+                        'is-today': isToday(day),
+                        'is-weekoff': isWeekOffDay(day)
                     }">
-                      <p class="day-of-week">{{ day | date:'E' }}</p>
-                    </div>
-                  </ion-col>
-                </ion-row>
+                    <span class="day-name">{{ day | date:'EE' }}</span>
+                    <div class="today-indicator" *ngIf="isToday(day)"></div>
+                  </div>
+                </div>
               </div>
 
-              <p class="today-label">
-                Today
-                <strong *ngIf="shift_policy">
-                  {{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }}
-                </strong>
-              </p>
+              <div class="progress-section">
+                <div class="progress-labels">
+                  <span class="label-text">Shift Progress</span>
+                  <span class="percentage-text">{{ (progressValue * 100) | number:'1.0-0' }}%</span>
+                </div>
+                <ion-progress-bar [value]="progressValue" class="premium-progress"></ion-progress-bar>
+              </div>
 
-              <ion-progress-bar [value]="progressValue"></ion-progress-bar>
-
-              <div class="duration-info">
-                <span>Duration: {{ shiftDuration || '9h 0m' }}</span>
-                <span>Break: {{ breakMinutes || 60 }}m</span>
+              <div class="stats-footer">
+                <div class="stat-item duration">
+                  <ion-icon name="hourglass-outline"></ion-icon>
+                  <div class="stat-text">
+                    <span class="s-label">Duration</span>
+                    <span class="s-value">{{ shiftDuration || '9h 0m' }}</span>
+                  </div>
+                </div>
+                <div class="stat-item break">
+                  <ion-icon name="cafe-outline"></ion-icon>
+                  <div class="stat-text">
+                    <span class="s-label">Break</span>
+                    <span class="s-value">{{ breakMinutes || 60 }}m</span>
+                  </div>
+                </div>
               </div>
             </ion-card-content>
           </ion-card>
@@ -110,43 +124,54 @@
 
         <!-- Actions Card -->
         <ion-col size="12" size-sm="12" size-md="12" size-lg="4" size-xl="4">
-          <ion-card class="actions">
-            <ion-card-header>
-              <ion-card-title>Today's Activity & Actions</ion-card-title>
-            </ion-card-header>
-            <ion-card-content>
-              <!-- Today's Chart Section -->
-              <div class="today-logs-status">
-                <div class="chart-wrapper">
-                  <canvas #attendanceChart></canvas>
+          <div class="cosmic-card-wrapper">
+            <div class="glow-flare"></div>
+            <ion-card class="actions premium-cosmic-card">
+              <ion-card-header>
+                <div class="header-content">
+                  <ion-icon name="flash-outline" class="title-icon"></ion-icon>
+                  <ion-card-title>Today's Activity & Actions</ion-card-title>
                 </div>
-              </div>
-
-              <ion-row class="actions-buttons-row">
-                <ion-col size="4" class="clock-btn-col">
-                  <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
-                </ion-col>
-                <ion-col size="8" class="action-btns-col">
-                  <div class="action-grid-buttons">
-                    <ion-button (click)="openRemoteClockinModal()" fill="clear" class="clear-action"
-                      [disabled]="clockButton?.isClockedIn">
-                      <ion-icon name="wifi-outline" slot="start"></ion-icon>
-                      Remote
-                    </ion-button>
-                    <ion-button (click)="wfhClockIn()" fill="clear" class="clear-action"
-                      [disabled]="clockButton?.isClockedIn">
-                      <ion-icon name="home-outline" slot="start"></ion-icon>
-                      WFH
-                    </ion-button>
-                    <ion-button (click)="openWFHModal()" fill="clear" class="clear-action">
-                      <ion-icon name="add-circle-outline" slot="start"></ion-icon>
-                      Req WFH
-                    </ion-button>
+              </ion-card-header>
+              <ion-card-content>
+                <!-- Today's Chart Section -->
+                <div class="today-logs-status">
+                  <div class="chart-container">
+                    <div class="chart-glass-overlay"></div>
+                    <div class="chart-wrapper">
+                      <canvas #attendanceChart></canvas>
+                    </div>
                   </div>
-                </ion-col>
-              </ion-row>
-            </ion-card-content>
-          </ion-card>
+                </div>
+
+                <div class="actions-section">
+                  <div class="clock-control">
+                    <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
+                  </div>
+                  
+                  <div class="secondary-actions">
+                    <button class="cosmic-action-btn remote" (click)="openRemoteClockinModal()" [disabled]="clockButton?.isClockedIn">
+                      <div class="btn-glow"></div>
+                      <ion-icon name="wifi-outline"></ion-icon>
+                      <span>Remote</span>
+                    </button>
+                    
+                    <button class="cosmic-action-btn wfh" (click)="wfhClockIn()" [disabled]="clockButton?.isClockedIn">
+                      <div class="btn-glow"></div>
+                      <ion-icon name="home-outline"></ion-icon>
+                      <span>WFH</span>
+                    </button>
+                    
+                    <button class="cosmic-action-btn req" (click)="openWFHModal()">
+                      <div class="btn-glow"></div>
+                      <ion-icon name="add-circle-outline"></ion-icon>
+                      <span>Req WFH</span>
+                    </button>
+                  </div>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
         </ion-col>
       </ion-row>
     </div>

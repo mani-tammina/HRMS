@@ -25,13 +25,20 @@
     <div class="dashboard-grid">
       <!-- Payroll Components Card -->
       <div class="management-card fade-in-up" style="animation-delay: 0.1s;">
-        <div class="card-accent"></div>
-        <div class="management-content">
+        <div class="card-accent accent-blue"></div>
+        <div class="card-body">
+          <div class="card-icon">
+            <ion-icon name="layers-outline"></ion-icon>
+          </div>
           <h3>Payroll Components</h3>
           <p>Define earnings, deductions, and statutory components for your organization.</p>
-          <div class="management-footer">
-            <ion-button fill="outline" class="manage-btn" routerLink="/finance/components">
-              Create <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Active Components</span>
+              <span class="stat-value">24</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/components">
+              Configure <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
@@ -39,12 +46,19 @@
 
       <!-- Payroll Templates Card -->
       <div class="management-card fade-in-up" style="animation-delay: 0.2s;">
-        <div class="card-accent"></div>
-        <div class="management-content">
+        <div class="card-accent accent-indigo"></div>
+        <div class="card-body">
+          <div class="card-icon">
+            <ion-icon name="document-text-outline"></ion-icon>
+          </div>
           <h3>Payroll Templates</h3>
           <p>Create and manage reusable salary structure templates for different roles.</p>
-          <div class="management-footer">
-            <ion-button fill="outline" class="manage-btn" routerLink="/finance/templates">
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Total Templates</span>
+              <span class="stat-value">12</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/templates">
               Manage <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
@@ -53,12 +67,19 @@
 
       <!-- Payroll Structure Card -->
       <div class="management-card fade-in-up" style="animation-delay: 0.3s;">
-        <div class="card-accent"></div>
-        <div class="management-content">
+        <div class="card-accent accent-purple"></div>
+        <div class="card-body">
+          <div class="card-icon">
+            <ion-icon name="git-network-outline"></ion-icon>
+          </div>
           <h3>Payroll Structure</h3>
           <p>Map your components to templates and define hierarchy and dependencies.</p>
-          <div class="management-footer">
-            <ion-button fill="outline" class="manage-btn" routerLink="/finance/structure">
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Structures Defined</span>
+              <span class="stat-value">8</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/structure">
               Configure <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
@@ -68,11 +89,18 @@
       <!-- Payroll Execution Card -->
       <div class="management-card fade-in-up" style="animation-delay: 0.4s;">
         <div class="card-accent accent-green"></div>
-        <div class="management-content">
+        <div class="card-body">
+          <div class="card-icon icon-green">
+            <ion-icon name="flash-outline"></ion-icon>
+          </div>
           <h3>Payroll Execution</h3>
-          <p>Run payroll, view history, manage defaults, LOP summary, and ad-hoc adjustments.</p>
-          <div class="management-footer">
-            <ion-button fill="outline" class="manage-btn" routerLink="/finance/execution">
+          <p>Run payroll, view history, manage defaults, LOP summary, and adjustments.</p>
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Last Run</span>
+              <span class="stat-value">Mar 2024</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn btn-green" routerLink="/finance/execution">
               Execute <ion-icon name="flash-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
@@ -82,12 +110,19 @@
       <!-- Tax Administration Card -->
       <div class="management-card fade-in-up" style="animation-delay: 0.5s;">
         <div class="card-accent accent-orange"></div>
-        <div class="management-content">
+        <div class="card-body">
+          <div class="card-icon icon-orange">
+            <ion-icon name="shield-checkmark-outline"></ion-icon>
+          </div>
           <h3>Tax Administration</h3>
-          <p>Manage statutory rules, tax slabs, section limits, proof verification queue, and payouts.</p>
-          <div class="management-footer">
-            <ion-button fill="outline" class="manage-btn" routerLink="/finance/tax-admin">
-              Manage <ion-icon name="shield-checkmark-outline" slot="end"></ion-icon>
+          <p>Manage statutory rules, tax slabs, limits, proofs, and payouts.</p>
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Pending Verifications</span>
+              <span class="stat-value">15</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn btn-orange" routerLink="/finance/tax-admin">
+              Manage <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
@@ -95,12 +130,14 @@
     </div>
 
     <!-- Info Section -->
-    <div class="info-banner glass-card fade-in-up" style="animation-delay: 0.3s;">
-      <ion-icon name="information-circle-outline" slot="start"></ion-icon>
+    <div class="info-banner glass-card fade-in-up" style="animation-delay: 0.6s;">
+      <div class="info-icon">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+      </div>
       <div class="info-text">
         <h3>System Maintenance Notice</h3>
         <p>Operational tasks performed here affect the entire organization. Please ensure no payroll runs are in
-          progress before performing these actions.</p>
+          progress before performing these sensitive configuration actions.</p>
       </div>
     </div>
   </div>
