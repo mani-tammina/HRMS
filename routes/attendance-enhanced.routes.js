@@ -1247,4 +1247,294 @@ router.get("/me", auth, async (req, res) => {
   }
 });
 
+/* ============================================
+   BACKDATED ATTENDANCE REGULARIZATION (HR/MANAGER)
+   ============================================ */
+
+function toIsoDate(value) {
+  if (!value) return null;
+  const asString = String(value).trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(asString)) return null;
+  return asString;
+}
+
+function parseAttendanceDateTime(attendanceDate, value) {
+  if (value == null || value === "") return null;
+  const raw = String(value).trim();
+
+  if (/^\d{2}:\d{2}(:\d{2})?$/.test(raw)) {
+    const seconds = raw.length === 5 ? `${raw}:00` : raw;
+    return `${attendanceDate} ${seconds}`;
+  }
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return null;
+
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const hh = String(date.getHours()).padStart(2, "0");
+  const mi = String(date.getMinutes()).padStart(2, "0");
+  const ss = String(date.getSeconds()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+}
+
+async function getPayrollPeriodLockStatus(connection, attendanceDate) {
+  const payrollPeriod = attendanceDate.slice(0, 7);
+  const [rows] = await connection.query(
+    `SELECT lock_status
+     FROM payroll_period_locks
+     WHERE payroll_period = ?
+     LIMIT 1`,
+    [payrollPeriod]
+  );
+
+  const status = rows.length ? String(rows[0].lock_status || "open").toLowerCase() : "open";
+  return {
+    payroll_period: payrollPeriod,
+    lock_status: status,
+    is_locked: ["locked", "processed"].includes(status),
+  };
+}
+
+async function assertManagerOrHrScope(req, connection, employeeId) {
+  const role = String(req.user.role || "").toLowerCase();
+  if (role === "admin" || role === "hr") return;
+
+  if (role !== "manager") {
+    throw new Error("Manager/HR/Admin only");
+  }
+
+  const managerEmployee = await findEmployeeByUserId(req.user.id);
+  if (!managerEmployee) {
+    throw new Error("Manager employee profile not found");
+  }
+
+  if (Number(managerEmployee.id) === Number(employeeId)) return;
+
+  const [rows] = await connection.query(
+    `SELECT id FROM employees WHERE id = ? AND reporting_manager_id = ? LIMIT 1`,
+    [employeeId, managerEmployee.id]
+  );
+
+  if (!rows.length) {
+    throw new Error("You can regularize attendance only for your direct reports");
+  }
+}
+
+// GET /api/attendance/regularization/lock-status?date=YYYY-MM-DD
+router.get("/regularization/lock-status", auth, manager, async (req, res) => {
+  let c = null;
+  try {
+    const attendanceDate = toIsoDate(req.query.date);
+    if (!attendanceDate) {
+      return res.status(400).json({ error: "date query required in YYYY-MM-DD format" });
+    }
+
+    c = await db();
+    const lock = await getPayrollPeriodLockStatus(c, attendanceDate);
+    return res.json({ success: true, date: attendanceDate, lock });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// POST /api/attendance/regularization/backdate
+router.post("/regularization/backdate", auth, manager, async (req, res) => {
+  let c = null;
+  try {
+    const employeeId = Number(req.body.employee_id);
+    const attendanceDate = toIsoDate(req.body.attendance_date);
+    const status = String(req.body.status || "present").toLowerCase();
+    const workMode = req.body.work_mode || "Office";
+    const location = req.body.location || null;
+    const reason = req.body.reason || null;
+
+    if (!employeeId || !attendanceDate) {
+      return res.status(400).json({ error: "employee_id and attendance_date are required" });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    if (attendanceDate >= today) {
+      return res.status(400).json({ error: "Only previous days attendance can be regularized" });
+    }
+
+    const allowedStatus = ["present", "absent", "half-day", "late", "on-leave"];
+    if (!allowedStatus.includes(status)) {
+      return res.status(400).json({ error: "Invalid status" });
+    }
+
+    const firstCheckIn = parseAttendanceDateTime(attendanceDate, req.body.first_check_in);
+    const lastCheckOut = parseAttendanceDateTime(attendanceDate, req.body.last_check_out);
+
+    if (req.body.first_check_in && !firstCheckIn) {
+      return res.status(400).json({ error: "Invalid first_check_in format" });
+    }
+    if (req.body.last_check_out && !lastCheckOut) {
+      return res.status(400).json({ error: "Invalid last_check_out format" });
+    }
+    if (firstCheckIn && lastCheckOut && new Date(lastCheckOut) <= new Date(firstCheckIn)) {
+      return res.status(400).json({ error: "last_check_out must be after first_check_in" });
+    }
+
+    c = await db();
+
+    await assertManagerOrHrScope(req, c, employeeId);
+
+    const lock = await getPayrollPeriodLockStatus(c, attendanceDate);
+    if (lock.is_locked) {
+      return res.status(400).json({
+        error: `Payroll period ${lock.payroll_period} is ${lock.lock_status}; regularization not allowed`
+      });
+    }
+
+    const role = String(req.user.role || "").toUpperCase();
+    const regularizedNote = reason
+      ? `[REGULARIZED ${role} user:${req.user.id}] ${reason}`
+      : `[REGULARIZED ${role} user:${req.user.id}]`;
+
+    await c.beginTransaction();
+
+    const [existing] = await c.query(
+      `SELECT id, notes
+       FROM attendance
+       WHERE employee_id = ? AND attendance_date = ?
+       LIMIT 1`,
+      [employeeId, attendanceDate]
+    );
+
+    let attendanceId;
+    if (!existing.length) {
+      const [ins] = await c.query(
+        `INSERT INTO attendance
+          (employee_id, attendance_date, punch_date, first_check_in, last_check_out, work_mode, location, status, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [employeeId, attendanceDate, attendanceDate, firstCheckIn, lastCheckOut, workMode, location, status, regularizedNote]
+      );
+      attendanceId = ins.insertId;
+    } else {
+      attendanceId = existing[0].id;
+      const mergedNotes = existing[0].notes
+        ? `${existing[0].notes}\n${regularizedNote}`
+        : regularizedNote;
+
+      await c.query(
+        `UPDATE attendance
+         SET punch_date = ?, first_check_in = ?, last_check_out = ?, work_mode = ?, location = ?, status = ?, notes = ?
+         WHERE id = ?`,
+        [attendanceDate, firstCheckIn, lastCheckOut, workMode, location, status, mergedNotes, attendanceId]
+      );
+    }
+
+    await c.query(`DELETE FROM attendance_punches WHERE attendance_id = ?`, [attendanceId]);
+
+    if (firstCheckIn) {
+      await c.query(
+        `INSERT INTO attendance_punches
+          (attendance_id, employee_id, punch_type, punch_time, punch_date, notes)
+         VALUES (?, ?, 'in', ?, ?, ?)`,
+        [attendanceId, employeeId, firstCheckIn, attendanceDate, regularizedNote]
+      );
+    }
+
+    if (lastCheckOut) {
+      await c.query(
+        `INSERT INTO attendance_punches
+          (attendance_id, employee_id, punch_type, punch_time, punch_date, notes)
+         VALUES (?, ?, 'out', ?, ?, ?)`,
+        [attendanceId, employeeId, lastCheckOut, attendanceDate, regularizedNote]
+      );
+    }
+
+    if (firstCheckIn && lastCheckOut) {
+      await calculateAndUpdateHours(c, attendanceId);
+    } else {
+      await c.query(
+        `UPDATE attendance
+         SET total_work_hours = 0, total_break_hours = 0, gross_hours = 0
+         WHERE id = ?`,
+        [attendanceId]
+      );
+    }
+
+    await c.commit();
+
+    return res.json({
+      success: true,
+      message: "Attendance regularized successfully",
+      data: {
+        attendance_id: attendanceId,
+        employee_id: employeeId,
+        attendance_date: attendanceDate,
+        status,
+        lock
+      }
+    });
+  } catch (error) {
+    if (c) {
+      try {
+        await c.rollback();
+      } catch (_) {}
+    }
+
+    const statusCode =
+      error.message === "Manager/HR/Admin only" ||
+      error.message === "Manager employee profile not found" ||
+      error.message.includes("direct reports")
+        ? 403
+        : 500;
+
+    return res.status(statusCode).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// GET /api/attendance/regularization/history/:employeeId?month=YYYY-MM
+router.get("/regularization/history/:employeeId", auth, manager, async (req, res) => {
+  let c = null;
+  try {
+    const employeeId = Number(req.params.employeeId);
+    const month = String(req.query.month || "").trim();
+
+    if (!employeeId || !/^\d{4}-\d{2}$/.test(month)) {
+      return res.status(400).json({ error: "employeeId and month (YYYY-MM) are required" });
+    }
+
+    c = await db();
+    await assertManagerOrHrScope(req, c, employeeId);
+
+    const [rows] = await c.query(
+      `SELECT id, employee_id, attendance_date, first_check_in, last_check_out, total_work_hours, gross_hours, work_mode, location, status, notes, updated_at
+       FROM attendance
+       WHERE employee_id = ?
+         AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+       ORDER BY attendance_date DESC`,
+      [employeeId, month]
+    );
+
+    return res.json({
+      success: true,
+      data: {
+        employee_id: employeeId,
+        month,
+        count: rows.length,
+        records: rows,
+      }
+    });
+  } catch (error) {
+    const statusCode =
+      error.message === "Manager/HR/Admin only" ||
+      error.message === "Manager employee profile not found" ||
+      error.message.includes("direct reports")
+        ? 403
+        : 500;
+    return res.status(statusCode).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
 module.exports = router;
