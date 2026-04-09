@@ -1,3 +1,7 @@
+@use '../../../../theme/_variables' as vars;
+
+// ── App Header — Professional Single Theme ──
+
 .custom-app-header {
   position: fixed;
   top: 0;
@@ -5,114 +9,129 @@
   height: 64px;
   width: 100%;
   z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  box-shadow: vars.$shadow-md;
 
   .header-toolbar {
-    --background: linear-gradient(135deg, #6366f1 0%, #d946ef 100%);
-    --padding-start: 24px;
-    --padding-end: 24px;
+    --background: #{vars.$color-white};
+    --padding-start: 20px;
+    --padding-end: 20px;
     --min-height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid vars.$color-border;
   }
 }
 
+// ── Brand Logo ──
 .brand-logo {
-  height: 70px;
+  height: 42px;
   width: auto;
   vertical-align: middle;
-  padding: 10px;
-  transition: transform 0.3s ease;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: vars.$transition-base;
+  object-fit: contain;
 
   &:hover {
-    transform: scale(1.02);
+    opacity: 0.85;
+    transform: scale(1.03);
   }
 }
 
+.brand-name {
+  font-size: vars.$fs-heading-sm;
+  font-weight: vars.$fw-bold;
+  color: vars.$color-text-primary;
+  margin-left: 10px;
+  letter-spacing: vars.$ls-tight;
+}
+
+// ── Left Section ──
 .header-left {
   display: flex;
   align-items: center;
+  gap: 8px;
 }
 
+// ── Search ──
 .search-container {
   flex: 1;
-  max-width: 400px;
+  max-width: 380px;
   margin: 0 auto;
   position: relative;
 
   .custom-searchbar {
-    --background: #ffffff;
-    --color: #0f172a;
-    --placeholder-color: #64748b;
-    --icon-color: #64748b;
-    --border-radius: 20px;
+    --background: #{vars.$color-bg-subtle};
+    --color: #{vars.$color-text-primary};
+    --placeholder-color: #{vars.$color-text-placeholder};
+    --icon-color: #{vars.$color-text-muted};
+    --border-radius: #{vars.$radius-lg};
     --box-shadow: none;
+    border: 1px solid vars.$color-border;
+    border-radius: vars.$radius-lg;
     padding-top: 0;
     padding-bottom: 0;
     height: 40px;
     margin: 0;
+    transition: vars.$transition-base;
 
-    ::ng-deep .searchbar-input-container {
-      height: 40px;
+    &:focus-within {
+      border-color: vars.$color-primary;
+      --background: #{vars.$color-white};
+      box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.08);
     }
 
-    ::ng-deep .searchbar-input {
-      font-size: 0.95rem;
-    }
+    ::ng-deep .searchbar-input-container { height: 40px; }
+    ::ng-deep .searchbar-input { font-size: vars.$fs-body; }
   }
 }
 
+// ── Employee Search Popover ──
 .custom-employee-popover {
-  --width: 450px;
+  --width: 460px;
   --max-height: 500px;
-  --border-radius: 12px;
-  --box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  margin-top: 5px;
+  --border-radius: #{vars.$radius-lg};
+  --box-shadow: #{vars.$shadow-xl};
+  margin-top: 6px;
 
   .dropdown-content {
     --padding-top: 0;
     --padding-bottom: 0;
+    --background: #{vars.$color-white};
   }
 
   .search-results-header {
-    font-size: 14px;
-    font-weight: 600;
-    color: #64748b;
-    padding: 16px 16px 8px 16px;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
+    font-size: vars.$fs-small;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-muted;
+    text-transform: uppercase;
+    letter-spacing: vars.$ls-wide;
+    padding: 14px 16px 10px;
+    background: vars.$color-bg-subtle;
+    border-bottom: 1px solid vars.$color-border-light;
   }
 
   .search-results-list {
-    background: #ffffff;
+    background: vars.$color-white;
     padding: 0;
 
     .search-item {
       --padding-start: 16px;
       --padding-end: 16px;
       --inner-padding-end: 0;
-      --background-hover: #f8fafc;
+      --background-hover: #{vars.$color-bg-hover};
       cursor: pointer;
-      border-bottom: 1px solid #f1f5f9;
+      border-bottom: 1px solid vars.$color-border-light;
+      transition: vars.$transition-fast;
 
-      &:last-child {
-        border-bottom: none;
-      }
+      &:last-child { border-bottom: none; }
 
       .search-avatar {
-        width: 48px;
-        height: 48px;
-        margin-right: 16px;
-        border: 2px solid #e2e8f0;
+        width: 44px;
+        height: 44px;
+        margin-right: 14px;
+        border: 2px solid vars.$color-border-light;
 
-        img {
-          object-fit: cover;
-        }
+        img { object-fit: cover; }
       }
 
       .search-label {
@@ -123,25 +142,27 @@
           align-items: center;
           margin-bottom: 4px;
           flex-wrap: wrap;
+          gap: 6px;
 
           h2 {
-            font-size: 15px;
-            font-weight: 600;
-            color: #0f172a;
+            font-size: vars.$fs-body;
+            font-weight: vars.$fw-bold;
+            color: vars.$color-text-primary;
             margin: 0;
-            margin-right: 8px;
           }
 
           .emp-designation {
-            font-size: 13px;
-            color: #475569;
-            margin-right: 4px;
+            font-size: vars.$fs-small;
+            color: vars.$color-text-muted;
           }
 
           .emp-id {
-            font-size: 13px;
-            font-weight: 500;
-            color: #3b82f6;
+            font-size: vars.$fs-small;
+            font-weight: vars.$fw-semibold;
+            color: vars.$color-primary;
+            background: vars.$color-primary-light;
+            padding: 1px 8px;
+            border-radius: vars.$radius-pill;
           }
         }
 
@@ -154,13 +175,13 @@
           .detail-item {
             display: flex;
             align-items: center;
-            font-size: 12px;
-            color: #64748b;
+            font-size: vars.$fs-xs;
+            color: vars.$color-text-subtle;
 
             ion-icon {
-              font-size: 14px;
+              font-size: 13px;
               margin-right: 4px;
-              color: #94a3b8;
+              color: vars.$color-text-placeholder;
             }
           }
         }
@@ -169,63 +190,92 @@
   }
 }
 
+// ── Right Section ──
 .header-right {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 4px;
 }
 
-.user-greeting {
-  display: none;
-}
+// ── User Greeting ──
+.user-greeting { display: none; }
 
 @media (min-width: 768px) {
   .user-greeting {
-    display: block;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-right: 4px;
   }
 
   .user-name {
-    color: #ffffff;
-    font-weight: 500;
-    font-size: 0.95rem;
+    color: vars.$color-text-primary;
+    font-weight: vars.$fw-semibold;
+    font-size: vars.$fs-small;
+    line-height: 1.2;
+  }
+
+  .user-role {
+    color: vars.$color-text-muted;
+    font-size: vars.$fs-xs;
   }
 }
 
+// ── Nav Icon Buttons ──
 .nav-icon-btn {
-  --padding-start: 10px;
-  --padding-end: 10px;
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --background: transparent;
+  --background-hover: #{vars.$color-bg-hover};
+  --border-radius: #{vars.$radius-md};
   margin: 0;
-  height: 40px;
-  transition: all 0.3s ease;
+  height: 38px;
+  width: 38px;
+  transition: vars.$transition-base;
 
   &:hover {
-    transform: translateY(-2px);
-    --background: rgba(255, 255, 255, 0.1);
+    --background: #{vars.$color-bg-hover};
+
+    .nav-icon { color: vars.$color-primary; }
   }
 
   .nav-icon {
-    font-size: 1.45rem;
-    color: #ffffff;
-    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+    font-size: 1.3rem;
+    color: vars.$color-text-muted;
+    transition: vars.$transition-base;
+  }
+
+  // Badge over icon
+  position: relative;
+
+  .notif-badge {
+    position: absolute;
+    top: 6px;
+    right: 4px;
+    width: 8px;
+    height: 8px;
+    background: vars.$color-danger;
+    border-radius: vars.$radius-circle;
+    border: 1.5px solid vars.$color-white;
   }
 }
 
+// ── Profile Button ──
 .profile-btn {
   --padding-start: 0;
   --padding-end: 0;
-  height: 42px;
-  width: 42px;
-  border-radius: 50%;
+  height: 38px;
+  width: 38px;
+  border-radius: vars.$radius-circle;
   overflow: hidden;
-  margin-left: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  margin-left: 6px;
+  border: 2px solid vars.$color-border;
+  transition: vars.$transition-smooth;
 
   &:hover {
-    transform: scale(1.05);
-    border-color: #ffffff;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+    border-color: vars.$color-primary;
+    box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.12);
+    transform: scale(1.04);
   }
 
   .profile-pic {
@@ -233,255 +283,195 @@
     width: 100%;
     height: 100%;
   }
+
+  .profile-placeholder {
+    width: 100%;
+    height: 100%;
+    background: vars.$color-primary;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: vars.$color-white;
+    font-size: vars.$fs-body;
+    font-weight: vars.$fw-bold;
+    text-transform: uppercase;
+  }
 }
 
+// ── Profile Dropdown ──
 .profile-dropdown {
   --width: 220px;
-  --border-radius: 12px;
-  --box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  --border-radius: #{vars.$radius-lg};
+  --box-shadow: #{vars.$shadow-xl};
 
   ion-item {
-    --min-height: 48px;
-    font-size: 0.95rem;
+    --min-height: 44px;
+    --background-hover: #{vars.$color-bg-hover};
+    font-size: vars.$fs-small;
+    transition: vars.$transition-fast;
 
     ion-icon {
-      font-size: 1.2rem;
-      margin-right: 12px;
+      font-size: 1.1rem;
+      margin-right: 10px;
+      color: vars.$color-text-muted;
+    }
+
+    &.danger-item {
+      --color: #{vars.$color-danger};
+
+      ion-icon { color: vars.$color-danger; }
     }
   }
 }
 
-/* =========================================
-   Employee Details Modal Styles (Vibrant & Colorful)
-========================================= */
+// ── Employee Details Modal ──
 .employee-details-modal {
   --height: 100%;
-  --max-height: 95vh;
+  --max-height: 92vh;
   --width: 95%;
-  --max-width: 800px;
-  --border-radius: 40px;
-  --box-shadow: 0 40px 100px rgba(0, 0, 0, 0.15);
+  --max-width: 760px;
+  --border-radius: #{vars.$radius-3xl};
+  --box-shadow: #{vars.$shadow-2xl};
 
   ion-header {
     background: transparent;
 
     ion-toolbar {
       --background: transparent;
-      --padding-top: 20px;
-      --padding-end: 20px;
+      --padding-top: 16px;
+      --padding-end: 16px;
 
-      ion-title {
-        display: none;
-      }
+      ion-title { display: none; }
 
       ion-button {
-        --color: #ffffff;
-        --background: rgba(0, 0, 0, 0.1);
-        --border-radius: 50%;
-        width: 40px;
-        height: 40px;
-        backdrop-filter: blur(5px);
+        --color: #{vars.$color-text-muted};
+        --background: #{vars.$color-bg-hover};
+        --border-radius: #{vars.$radius-circle};
+        width: 36px;
+        height: 36px;
 
         &:hover {
-          --background: rgba(0, 0, 0, 0.2);
+          --background: #{vars.$color-border};
+          --color: #{vars.$color-text-primary};
         }
       }
     }
   }
 
   .employee-modal-content-area {
-    --background: #ffffff;
+    --background: #{vars.$color-white};
     --padding-top: 0;
   }
 
   .employee-modal-content {
-    background: #ffffff;
-    padding: 20px 28px 45px 28px;
-    position: relative;
-    overflow: hidden;
+    background: vars.$color-white;
+    padding: 20px 28px 48px;
 
-    /* Dynamic Multi-Color Mesh Background */
-    &::before {
-      content: '';
-      position: absolute;
-      top: -180px;
-      left: -100px;
-      right: -100px;
-      height: 400px;
-      background:
-        radial-gradient(at 0% 0%, hsla(217, 100%, 93%, 1) 0, transparent 50%),
-        radial-gradient(at 100% 0%, hsla(271, 100%, 94%, 1) 0, transparent 50%),
-        radial-gradient(at 50% 100%, hsla(160, 100%, 94%, 1) 0, transparent 50%);
-      filter: blur(40px);
-      z-index: 0;
-      pointer-events: none;
-    }
-
+    // ── Modal Header ──
     .employee-modal-header {
-      position: relative;
-      z-index: 1;
       display: flex;
       flex-direction: column;
       align-items: center;
       text-align: center;
-      margin-bottom: 40px;
+      margin-bottom: 32px;
+      padding: 24px;
+      background: vars.$color-bg-subtle;
+      border-radius: vars.$radius-2xl;
+      border: 1px solid vars.$color-border-light;
 
       .avatar-block {
-        margin-bottom: 20px;
+        margin-bottom: 16px;
         position: relative;
 
-        /* Vivid Gradient Border Ring */
+        .emp-modal-avatar {
+          width: 96px;
+          height: 96px;
+          border-radius: vars.$radius-circle;
+          object-fit: cover;
+          border: 3px solid vars.$color-white;
+          box-shadow: vars.$shadow-md;
+        }
+
+        // Online status indicator
         &::after {
           content: '';
           position: absolute;
-          inset: -8px;
-          border-radius: 50%;
-          padding: 3px;
-          background: linear-gradient(135deg, #3b82f6, #d946ef, #10b981);
-          -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-          -webkit-mask-composite: xor;
-          mask-composite: exclude;
-          opacity: 0.6;
-          animation: rotateRing 10s linear infinite;
-        }
-
-        .emp-modal-avatar {
-          width: 110px;
-          height: 110px;
-          border-radius: 50%;
-          object-fit: cover;
-          border: 4px solid #ffffff;
-          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
-          position: relative;
-          z-index: 1;
+          bottom: 4px;
+          right: 4px;
+          width: 14px;
+          height: 14px;
+          background: vars.$color-success;
+          border-radius: vars.$radius-circle;
+          border: 2px solid vars.$color-white;
         }
       }
 
       h2.emp-modal-name {
-        margin: 0 0 8px 0;
-        font-size: 26px;
-        font-weight: 900;
-        color: #1e293b;
-        letter-spacing: -0.8px;
+        margin: 0 0 8px;
+        font-size: vars.$fs-heading-md;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        letter-spacing: vars.$ls-tight;
       }
 
       p.emp-modal-designation {
         margin: 0;
-        font-size: 14px;
-        color: #feffff;
-        font-weight: 700;
-        background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
-        padding: 6px 20px;
-        border-radius: 30px;
-        box-shadow: 0 5px 15px rgba(99, 102, 241, 0.3);
+        font-size: vars.$fs-small;
+        color: vars.$color-primary;
+        font-weight: vars.$fw-semibold;
+        background: vars.$color-primary-light;
+        padding: 4px 16px;
+        border-radius: vars.$radius-pill;
+        border: 1px solid rgba(vars.$color-primary, 0.15);
       }
     }
 
+    // ── Info Cards Grid ──
     .employee-info-cards {
-      position: relative;
-      z-index: 1;
       display: grid;
       grid-template-columns: repeat(2, 1fr);
-      gap: 18px;
+      gap: 14px;
 
       .info-card {
         display: flex;
         align-items: center;
-        padding: 20px;
-        border-radius: 24px;
-        border: 1px solid rgba(0, 0, 0, 0.03);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
-        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        position: relative;
-        overflow: hidden;
-
-        /* Individual Card Tints */
-        &:nth-child(1) {
-          background: #f0f9ff;
-        }
-
-        /* ID - Blue */
-        &:nth-child(2) {
-          background: #f3f4ff;
-        }
-
-        /* Email - Purple/Indigo */
-        &:nth-child(3) {
-          background: #ecfdf5;
-        }
-
-        /* Attendance - Green */
-        &:nth-child(4) {
-          background: #fff7ed;
-        }
-
-        /* Shift - Orange */
-        &:nth-child(5) {
-          background: #fef2f2;
-        }
-
-        /* Dept - Rose */
-
-        &::after {
-          content: '';
-          position: absolute;
-          width: 60px;
-          height: 60px;
-          background: rgba(255, 255, 255, 0.4);
-          border-radius: 50%;
-          top: -20px;
-          right: -20px;
-          filter: blur(20px);
-        }
+        padding: 18px;
+        border-radius: vars.$radius-xl;
+        border: 1px solid vars.$color-border;
+        background: vars.$color-bg-subtle;
+        transition: vars.$transition-smooth;
 
         &:hover {
-          transform: translateY(-5px) scale(1.02);
-          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
-          border-color: rgba(255, 255, 255, 0.5);
+          transform: translateY(-2px);
+          box-shadow: vars.$shadow-md;
+          border-color: vars.$color-border-medium;
+          background: vars.$color-white;
         }
 
-        &.full-width {
-          grid-column: span 2;
-        }
+        &.full-width { grid-column: span 2; }
 
         .icon-box {
-          width: 44px;
-          height: 44px;
-          border-radius: 14px;
-          background: #ffffff;
+          width: 40px;
+          height: 40px;
+          border-radius: vars.$radius-md;
+          background: vars.$color-primary-light;
           display: flex;
           align-items: center;
           justify-content: center;
-          margin-right: 18px;
+          margin-right: 14px;
           flex-shrink: 0;
-          box-shadow: 0 8px 15px rgba(0, 0, 0, 0.05);
 
           ion-icon {
-            font-size: 20px;
+            font-size: 19px;
+            color: vars.$color-primary;
           }
         }
 
-        /* Unique icon colors */
-        &:nth-child(1) .icon-box ion-icon {
-          color: #0ea5e9;
-        }
-
-        &:nth-child(2) .icon-box ion-icon {
-          color: #6366f1;
-        }
-
-        &:nth-child(3) .icon-box ion-icon {
-          color: #10b981;
-        }
-
-        &:nth-child(4) .icon-box ion-icon {
-          color: #f97316;
-        }
-
-        &:nth-child(5) .icon-box ion-icon {
-          color: #f43f5e;
-        }
+        // Varied icon bg per card
+        &:nth-child(2) .icon-box { background: vars.$color-success-light; ion-icon { color: vars.$color-success; } }
+        &:nth-child(3) .icon-box { background: vars.$color-warning-light;  ion-icon { color: vars.$color-warning; } }
+        &:nth-child(4) .icon-box { background: vars.$color-indigo-light;   ion-icon { color: vars.$color-indigo; } }
+        &:nth-child(5) .icon-box { background: vars.$color-danger-light;   ion-icon { color: vars.$color-danger; } }
 
         .info-text {
           flex: 1;
@@ -490,18 +480,18 @@
           overflow: hidden;
 
           .info-label {
-            font-size: 10px;
-            color: rgba(0, 0, 0, 0.4);
+            font-size: vars.$fs-xs;
+            color: vars.$color-text-subtle;
             text-transform: uppercase;
-            font-weight: 800;
-            letter-spacing: 1px;
+            font-weight: vars.$fw-bold;
+            letter-spacing: vars.$ls-wide;
             margin-bottom: 4px;
           }
 
           .info-value {
-            font-size: 15px;
-            color: #1e293b;
-            font-weight: 800;
+            font-size: vars.$fs-body;
+            color: vars.$color-text-primary;
+            font-weight: vars.$fw-semibold;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -509,26 +499,19 @@
             &.attendance-status {
               display: inline-flex;
               align-items: center;
+              gap: 6px;
 
               &::before {
                 content: '';
                 display: inline-block;
-                width: 10px;
-                height: 10px;
+                width: 8px;
+                height: 8px;
                 border-radius: 50%;
-                background: #f43f5e;
-                margin-right: 8px;
-                box-shadow: 0 0 10px rgba(244, 63, 94, 0.5);
-                animation: pulseStatus 2s infinite;
+                background: vars.$color-danger;
               }
 
-              &.status-in {
-                color: #059669;
-
-                &::before {
-                  background: #10b981;
-                  box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
-                }
+              &.status-in::before {
+                background: vars.$color-success;
               }
             }
           }
@@ -538,29 +521,7 @@
   }
 }
 
-@keyframes rotateRing {
-  from {
-    transform: rotate(0deg);
-  }
-
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @keyframes pulseStatus {
-  0% {
-    transform: scale(1);
-    opacity: 1;
-  }
-
-  50% {
-    transform: scale(1.2);
-    opacity: 0.7;
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%       { transform: scale(1.2); opacity: 0.7; }
 }

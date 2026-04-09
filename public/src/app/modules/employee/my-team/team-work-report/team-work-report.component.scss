@@ -1,13 +1,17 @@
+@use '../../../../../theme/_variables' as vars;
+
 .report-header {
-  --background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
-  --color: #ffffff;
+  --background: #{vars.$color-sidebar};
+  --color: #{vars.$color-white};
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+
   ion-title {
-    font-weight: 700;
-    font-size: 1.1rem;
-    letter-spacing: 0.5px;
+    font-weight: vars.$fw-bold;
+    font-size: vars.$fs-heading-sm;
+    letter-spacing: vars.$ls-tight;
   }
   ion-button {
-    --color: #ffffff;
+    --color: #{vars.$color-white};
   }
 }
 
@@ -45,17 +49,20 @@
     }
 
     .custom-select {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      padding: 8px 12px;
-      font-size: 0.9rem;
-      font-weight: 500;
-      color: #334155;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      --placeholder-color: #94a3b8;
-      --icon-color: #1e40af;
+      background: vars.$color-white;
+      border: 1px solid vars.$color-border;
+      border-radius: vars.$radius-md;
+      padding: 10px 14px;
+      font-size: vars.$fs-small;
+      font-weight: vars.$fw-semibold;
+      color: vars.$color-text-primary;
+      box-shadow: vars.$shadow-xs;
+      --placeholder-color: #{vars.$color-text-placeholder};
+      --icon-color: #{vars.$color-primary};
+      transition: vars.$transition-base;
       
+      &:focus { border-color: vars.$color-primary; box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.08); }
+
       &::part(icon) {
         opacity: 1;
       }
@@ -85,51 +92,53 @@
 // Summary Cards 
 .summary-section {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  gap: 12px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
   padding: 16px;
   
   .summary-card {
-    background: #ffffff;
-    border-radius: 16px;
-    padding: 16px;
+    background: vars.$color-bg-card;
+    border-radius: vars.$radius-lg;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-    border: 1px solid #f1f5f9;
-    transition: transform 0.2s;
+    box-shadow: vars.$shadow-sm;
+    border: 1px solid vars.$color-border;
+    transition: vars.$transition-smooth;
 
-    &:hover { transform: translateY(-2px); }
+    &:hover { transform: translateY(-4px); box-shadow: vars.$shadow-md; border-color: vars.$color-primary; }
 
     .label {
-      font-size: 0.7rem;
-      font-weight: 600;
-      color: #71717a;
+      font-size: 10px;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-muted;
       text-transform: uppercase;
-      margin-top: 4px;
+      margin-top: 8px;
       text-align: center;
+      letter-spacing: 0.5px;
     }
 
     .card-header-icon {
-      font-size: 1.2rem;
-      color: #94a3b8;
-      margin-bottom: 2px;
+      font-size: 24px;
+      color: vars.$color-text-placeholder;
+      margin-bottom: 4px;
+      transition: vars.$transition-base;
     }
 
     .value {
-      font-size: 1.4rem;
-      font-weight: 800;
-      color: #18181b;
+      font-size: vars.$fs-heading-sm;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-primary;
     }
 
-    &.total { border-left: 4px solid #3b82f6; }
-    &.present { border-left: 4px solid #10b981; .value { color: #10b981; } }
-    &.verified { border-left: 4px solid #10b981; .value { color: #10b981; } }
-    &.absent { border-left: 4px solid #ef4444; .value { color: #ef4444; } }
-    &.leave { border-left: 4px solid #f59e0b; .value { color: #f59e0b; } }
-    &.total-hours { border-left: 4px solid #8b5cf6; .value { color: #8b5cf6; } }
+    &.total { border-left: 4px solid vars.$color-primary; }
+    &.present { border-left: 4px solid vars.$color-success; .value { color: vars.$color-success; } }
+    &.verified { border-left: 4px solid vars.$color-success; .value { color: vars.$color-success; } }
+    &.absent { border-left: 4px solid vars.$color-danger; .value { color: vars.$color-danger; } }
+    &.leave { border-left: 4px solid vars.$color-warning; .value { color: vars.$color-warning; } }
+    &.total-hours { border-left: 4px solid vars.$color-info; .value { color: vars.$color-info; } }
   }
 }
 

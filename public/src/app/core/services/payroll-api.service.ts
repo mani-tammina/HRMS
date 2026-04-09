@@ -52,7 +52,7 @@ export interface PayrollRun {
   month: number;
   year: number;
   status: string;
-  slip_count: number;
+  slip_count?: number | null;
   total_payout: number;
 }
 

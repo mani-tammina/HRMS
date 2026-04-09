@@ -1,0 +1,551 @@
+// ============================================================
+//  HRMS DESIGN SYSTEM — _variables.scss
+//  Single Professional Theme — No Gradients
+//  Primary: Deep Navy Blue  |  Mode: Light
+// ============================================================
+
+@use "sass:math";
+
+// ─────────────────────────────────────────────
+// 1. FONT FAMILY TOKENS
+// ─────────────────────────────────────────────
+
+$font-primary:   'Inter', 'Open Sans', sans-serif;
+$font-display:   'Inter', sans-serif;
+$font-mono:      'JetBrains Mono', 'Courier New', monospace;
+
+// Font weight scale
+$fw-light:       300;
+$fw-regular:     400;
+$fw-medium:      500;
+$fw-semibold:    600;
+$fw-bold:        700;
+$fw-extrabold:   800;
+$fw-black:       900;
+
+// ─────────────────────────────────────────────
+// 2. BRAND COLOR PALETTE (Single Theme — No Gradients)
+// ─────────────────────────────────────────────
+
+// ── Primary Brand Blue ──
+$color-primary:          #1a5fa8;   // Core brand blue
+$color-primary-hover:    #175191;   // Hover state (slightly darker)
+$color-primary-dark:     #154c88;   // Active / pressed
+$color-primary-light:    #e8f0fb;   // Soft tint for bg badges
+$color-primary-xlight:   #f0f5ff;   // Lightest background tint
+$color-primary-rgb:      26, 95, 168;
+
+// ── Font Aliases ──
+$ff-main:                $font-primary;
+$ff-mono:                $font-mono;
+
+// ── Sidebar ──
+$color-sidebar:          #0f2b4a;   // Dark navy sidebar
+$color-sidebar-hover:    #1a3d65;   // Nav item hover bg
+$color-sidebar-active:   #1a5fa8;   // Active nav item bg
+$color-sidebar-item:     #a0b4cc;   // Inactive nav text/icon
+$color-sidebar-text:     #ffffff;   // Active nav text
+
+// ── Semantic Colors ──
+$color-success:          #16a34a;
+$color-success-dark:     #15803d;
+$color-success-light:    #f0fdf4;
+$color-success-border:   #bbf7d0;
+
+$color-warning:          #d97706;
+$color-warning-light:    #fffbeb;
+$color-warning-border:   #fde68a;
+
+$color-danger:           #dc2626;
+$color-danger-light:     #fef2f2;
+$color-danger-border:    #fecaca;
+
+$color-info:             #0284c7;
+$color-info-light:       #f0f9ff;
+$color-info-border:      #bae6fd;
+
+// ── Neutral / Grays ──
+$color-white:            #ffffff;
+$color-black:            #000000;
+
+$color-text-primary:     #0f172a;   // Slate 900 — main headings
+$color-text-secondary:   #1e293b;   // Slate 800 — body text
+$color-text-muted:       #475569;   // Slate 600 — helper text
+$color-text-subtle:      #64748b;   // Slate 500 — captions
+$color-text-placeholder: #94a3b8;   // Slate 400 — placeholders
+$color-text-disabled:    #cbd5e1;   // Slate 300 — disabled
+
+// ── Borders ──
+$color-border:           #e2e8f0;   // Default border (slate 200)
+$color-border-light:     #f1f5f9;   // Subtle divider (slate 100)
+$color-border-xlight:    #f8fafc;   // Lightest divider (slate 50)
+$color-border-medium:    #cbd5e1;   // Medium border (slate 300)
+
+// ── Backgrounds ──
+$color-bg-page:          #f4f7fb;   // Overall page background
+$color-bg-card:          #ffffff;   // Card backgrounds
+$color-bg-surface:       #ffffff;   // Elevated surface
+$color-bg-subtle:        #f8fafc;   // Table alt rows / subtle
+$color-bg-hover:         #f1f5f9;   // Hover backgrounds
+
+// ── Shadows ──
+$shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md:    0 4px 8px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+$shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+$shadow-inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06);
+
+// ── Slate aliases ──
+$color-slate-50:         #f8fafc;
+$color-slate-100:        #f1f5f9;
+$color-slate-200:        #e2e8f0;
+$color-slate-300:        #cbd5e1;
+$color-slate-400:        #94a3b8;
+$color-slate-500:        #64748b;
+$color-slate-600:        #475569;
+$color-slate-700:        #334155;
+$color-slate-800:        #1e293b;
+$color-slate-900:        #0f172a;
+
+// ── Finance / Indigo Module ──
+$color-indigo:           #4f46e5;
+$color-indigo-dark:      #4338ca;
+$color-indigo-light:     #eef2ff;
+$color-indigo-border:    #c7d2fe;
+
+// ── Cosmic tokens (legacy — kept for component compat) ──
+$color-cosmic-bg:        $color-sidebar;
+$color-cosmic-card:      #0d2240;
+$color-cosmic-purple:    #4B0082;
+$color-neon-cyan:        #38bdf8;
+$color-neon-magenta:     #818cf8;
+$color-neon-blue:        $color-primary;
+$color-neon-blue-2:      #60a5fa;
+$shadow-neon:            0 0 0 transparent;
+
+// ─────────────────────────────────────────────
+// 3. CSS CUSTOM PROPERTIES (runtime tokens)
+// ─────────────────────────────────────────────
+
+:root {
+  // ── Ionic Color System ──
+  --ion-color-primary:              #{$color-primary};
+  --ion-color-primary-rgb:          #{$color-primary-rgb};
+  --ion-color-primary-contrast:     #{$color-white};
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade:        #{$color-primary-dark};
+  --ion-color-primary-tint:         #{$color-primary-hover};
+
+  --ion-color-secondary:            #334155;
+  --ion-color-secondary-rgb:        51, 65, 85;
+  --ion-color-secondary-contrast:   #{$color-white};
+  --ion-color-secondary-contrast-rgb: 255, 255, 255;
+  --ion-color-secondary-shade:      #1e293b;
+  --ion-color-secondary-tint:       #475569;
+
+  --ion-color-tertiary:             #{$color-indigo};
+  --ion-color-tertiary-rgb:         79, 70, 229;
+  --ion-color-tertiary-contrast:    #{$color-white};
+  --ion-color-tertiary-contrast-rgb: 255, 255, 255;
+  --ion-color-tertiary-shade:       #{$color-indigo-dark};
+  --ion-color-tertiary-tint:        #6366f1;
+
+  --ion-color-success:              #{$color-success};
+  --ion-color-success-rgb:          22, 163, 74;
+  --ion-color-success-contrast:     #{$color-white};
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade:        #15803d;
+  --ion-color-success-tint:         #22c55e;
+
+  --ion-color-warning:              #{$color-warning};
+  --ion-color-warning-rgb:          217, 119, 6;
+  --ion-color-warning-contrast:     #{$color-white};
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade:        #b45309;
+  --ion-color-warning-tint:         #f59e0b;
+
+  --ion-color-danger:               #{$color-danger};
+  --ion-color-danger-rgb:           220, 38, 38;
+  --ion-color-danger-contrast:      #{$color-white};
+  --ion-color-danger-contrast-rgb:  255, 255, 255;
+  --ion-color-danger-shade:         #b91c1c;
+  --ion-color-danger-tint:          #ef4444;
+
+  --ion-color-dark:                 #{$color-slate-900};
+  --ion-color-dark-rgb:             15, 23, 42;
+  --ion-color-dark-contrast:        #{$color-white};
+  --ion-color-dark-contrast-rgb:    255, 255, 255;
+  --ion-color-dark-shade:           #020617;
+  --ion-color-dark-tint:            #{$color-slate-800};
+
+  --ion-color-medium:               #{$color-slate-400};
+  --ion-color-medium-rgb:           148, 163, 184;
+  --ion-color-medium-contrast:      #{$color-white};
+  --ion-color-medium-contrast-rgb:  255, 255, 255;
+  --ion-color-medium-shade:         #{$color-slate-500};
+  --ion-color-medium-tint:          #{$color-slate-300};
+
+  --ion-color-light:                #{$color-bg-card};
+  --ion-color-light-rgb:            255, 255, 255;
+  --ion-color-light-contrast:       #{$color-text-primary};
+  --ion-color-light-contrast-rgb:   15, 23, 42;
+  --ion-color-light-shade:          #{$color-slate-100};
+  --ion-color-light-tint:           #{$color-bg-subtle};
+
+  // ── App-level design tokens ──
+  --ion-bg-color:                   #{$color-bg-page};
+  --ion-bg-primary:                 #{$color-bg-card};
+  --ion-text-color:                 #{$color-text-primary};
+  --ion-border-color:               #{$color-border};
+  --ion-subtle-text:                #{$color-text-subtle};
+  --ion-white-color:                #{$color-white};
+  --ion-side-bar-color:             #{$color-sidebar};
+  --ion-bg-color-primary:           #{$color-bg-card};
+
+  // ── Semantic shorthands ──
+  --clr-primary:                    #{$color-primary};
+  --clr-primary-light:              #{$color-primary-light};
+  --clr-primary-xlight:             #{$color-primary-xlight};
+  --clr-secondary:                  #{$color-slate-700};
+  --clr-indigo:                     #{$color-indigo};
+  --clr-success:                    #{$color-success};
+  --clr-success-bg:                 #{$color-success-light};
+  --clr-warning:                    #{$color-warning};
+  --clr-warning-bg:                 #{$color-warning-light};
+  --clr-danger:                     #{$color-danger};
+  --clr-danger-bg:                  #{$color-danger-light};
+  --clr-info:                       #{$color-info};
+  --clr-info-bg:                    #{$color-info-light};
+  --clr-text:                       #{$color-text-primary};
+  --clr-text-muted:                 #{$color-text-muted};
+  --clr-text-subtle:                #{$color-text-subtle};
+  --clr-border:                     #{$color-border};
+  --clr-border-light:               #{$color-border-light};
+  --clr-bg-page:                    #{$color-bg-page};
+  --clr-bg-card:                    #{$color-bg-card};
+  --clr-bg-surface:                 #{$color-bg-surface};
+  --clr-bg-subtle:                  #{$color-bg-subtle};
+  --clr-sidebar:                    #{$color-sidebar};
+
+  // ── Legacy cosmic tokens (kept for compat) ──
+  --clr-cosmic-bg:                  #{$color-sidebar};
+  --clr-cosmic-card:                #{$color-cosmic-card};
+  --clr-neon-cyan:                  #{$color-neon-cyan};
+  --clr-neon-magenta:               #{$color-neon-magenta};
+  --clr-neon-blue:                  #{$color-primary};
+}
+
+// ─────────────────────────────────────────────
+// 4. BREAKPOINTS
+// ─────────────────────────────────────────────
+
+$bp-xs:   320px;
+$bp-sm:   576px;
+$bp-md:   768px;
+$bp-lg:   1024px;
+$bp-xl:   1280px;
+$bp-2xl:  1440px;
+
+// ─────────────────────────────────────────────
+// 5. TYPE SCALE
+// ─────────────────────────────────────────────
+
+$fs-display:       clamp(1.75rem, 3vw + 0.5rem, 3rem);
+$fs-heading-xl:    clamp(1.375rem, 2vw + 0.5rem, 2.25rem);
+$fs-heading-lg:    clamp(1.125rem, 1.5vw + 0.3rem, 1.75rem);
+$fs-heading-md:    clamp(1rem, 1vw + 0.25rem, 1.375rem);
+$fs-heading-sm:    clamp(0.9375rem, 0.75vw + 0.2rem, 1.25rem);
+$fs-body:          clamp(0.875rem, 0.5vw + 0.5rem, 1rem);
+$fs-body-lg:       clamp(0.9375rem, 0.4vw + 0.6rem, 1.0625rem);
+$fs-small:         clamp(0.75rem, 0.3vw + 0.4rem, 0.8125rem);
+$fs-xs:            clamp(0.625rem, 0.2vw + 0.3rem, 0.75rem);
+$fs-table:         clamp(0.75rem, 0.4vw + 0.45rem, 0.8125rem);
+$fs-nav-label:     clamp(0.5625rem, 0.3vw + 0.2rem, 0.6875rem);
+
+// Icon sizes
+$icon-sm:          1rem;
+$icon-md:          1.25rem;
+$icon-lg:          1.5rem;
+$icon-xl:          2rem;
+$icon-2xl:         3rem;
+
+// ─────────────────────────────────────────────
+// 6. LINE HEIGHT & LETTER SPACING
+// ─────────────────────────────────────────────
+
+$lh-tight:   1.2;
+$lh-snug:    1.35;
+$lh-normal:  1.5;
+$lh-relaxed: 1.65;
+$lh-loose:   2;
+
+$ls-tight:   -0.05em;
+$ls-normal:  0;
+$ls-wide:    0.025em;
+$ls-wider:   0.05em;
+$ls-widest:  0.1em;
+$ls-badge:   0.06em;
+
+// ─────────────────────────────────────────────
+// 7. SPACING SCALE
+// ─────────────────────────────────────────────
+
+$space-1:  4px;
+$space-2:  8px;
+$space-3:  12px;
+$space-4:  16px;
+$space-5:  20px;
+$space-6:  24px;
+$space-7:  28px;
+$space-8:  32px;
+$space-10: 40px;
+$space-12: 48px;
+$space-14: 56px;
+$space-16: 64px;
+
+// ─────────────────────────────────────────────
+// 8. BORDER RADIUS
+// ─────────────────────────────────────────────
+
+$radius-sm:     4px;
+$radius-md:     8px;
+$radius-lg:     12px;
+$radius-xl:     16px;
+$radius-2xl:    20px;
+$radius-3xl:    24px;
+$radius-4xl:    30px;
+$radius-pill:   9999px;
+$radius-circle: 50%;
+
+// ─────────────────────────────────────────────
+// 9. SHADOWS (No colored glow — clean professional)
+// ─────────────────────────────────────────────
+
+$shadow-xs:    0 1px 2px rgba(0, 0, 0, 0.05);
+$shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-md:    0 4px 8px rgba(0, 0, 0, 0.06), 0 2px 4px rgba(0, 0, 0, 0.04);
+$shadow-lg:    0 8px 24px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.04);
+$shadow-xl:    0 16px 40px rgba(0, 0, 0, 0.10), 0 8px 16px rgba(0, 0, 0, 0.05);
+$shadow-2xl:   0 24px 60px rgba(0, 0, 0, 0.12);
+
+// Sidebar shadow
+$shadow-sidebar:  4px 0 24px rgba(0, 0, 0, 0.15);
+
+// Card hover shadow
+$shadow-card-hover: 0 12px 32px rgba(0, 0, 0, 0.10);
+
+// Brand-colored shadows (subtle, for key CTAs only)
+$shadow-primary:  0 4px 16px rgba(26, 95, 168, 0.22);
+$shadow-success:  0 4px 12px rgba(22, 163, 74, 0.18);
+$shadow-danger:   0 4px 12px rgba(220, 38, 38, 0.18);
+
+// Legacy aliases
+$shadow-indigo:   0 4px 16px rgba(79, 70, 229, 0.20);
+$shadow-neon:     0 0 0 transparent;
+
+// ─────────────────────────────────────────────
+// 10. TRANSITIONS
+// ─────────────────────────────────────────────
+
+$transition-fast:    all 0.12s ease;
+$transition-base:    all 0.20s ease;
+$transition-smooth:  all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+$transition-bounce:  all 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+$transition-slide:   all 0.45s cubic-bezier(0.19, 1, 0.22, 1);
+
+// ─────────────────────────────────────────────
+// 11. TYPOGRAPHY MIXINS
+// ─────────────────────────────────────────────
+
+@mixin font-bold {
+  font-weight: $fw-semibold;
+  letter-spacing: $ls-wide;
+}
+
+@mixin font-normal {
+  font-weight: $fw-regular;
+  letter-spacing: $ls-normal;
+}
+
+@mixin font-display {
+  font-family: $font-display;
+  letter-spacing: $ls-tight;
+  line-height: $lh-tight;
+}
+
+@mixin text-display {
+  font-size: $fs-display;
+  font-weight: $fw-black;
+  line-height: $lh-tight;
+  @include font-display;
+}
+
+@mixin text-heading-xl {
+  font-size: $fs-heading-xl;
+  font-weight: $fw-extrabold;
+  line-height: $lh-tight;
+  @include font-display;
+}
+
+@mixin text-heading-lg {
+  font-size: $fs-heading-lg;
+  font-weight: $fw-bold;
+  line-height: $lh-snug;
+}
+
+@mixin text-heading-md {
+  font-size: $fs-heading-md;
+  font-weight: $fw-bold;
+  line-height: $lh-snug;
+}
+
+@mixin text-heading-sm {
+  font-size: $fs-heading-sm;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+
+@mixin text-body {
+  font-size: $fs-body;
+  font-weight: $fw-regular;
+  line-height: $lh-normal;
+}
+
+@mixin text-body-bold {
+  font-size: $fs-body;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+
+@mixin text-small {
+  font-size: $fs-small;
+  font-weight: $fw-regular;
+  line-height: $lh-normal;
+}
+
+@mixin text-small-bold {
+  font-size: $fs-small;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+
+@mixin text-xs {
+  font-size: $fs-xs;
+  font-weight: $fw-regular;
+  line-height: $lh-normal;
+}
+
+@mixin text-table {
+  font-size: $fs-table;
+  font-weight: $fw-regular;
+  line-height: $lh-snug;
+}
+
+@mixin text-table-bold {
+  font-size: $fs-table;
+  font-weight: $fw-semibold;
+  line-height: $lh-snug;
+}
+
+@mixin text-badge {
+  font-size: $fs-xs;
+  font-weight: $fw-bold;
+  letter-spacing: $ls-badge;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+@mixin text-nav-label {
+  font-size: $fs-nav-label;
+  font-weight: $fw-medium;
+  line-height: $lh-normal;
+}
+
+// ── Legacy mixin aliases ──
+@mixin page-header       { @include text-display; }
+@mixin page-header-title { @include text-heading-xl; }
+@mixin card-header       { @include text-heading-lg; }
+@mixin card-header-title { @include text-heading-md; }
+@mixin card-sub-title    { @include text-heading-sm; }
+@mixin text-style-normal { @include text-body; }
+@mixin text-style-bold   { @include text-body-bold; }
+@mixin body-text         { @include text-small; }
+@mixin text-bold         { @include text-small-bold; }
+@mixin table-text        { @include text-table; }
+@mixin table-text-bold   { @include text-table-bold; }
+@mixin normal-text       { font-size: $fs-body; font-weight: $fw-bold; line-height: 1.35; }
+@mixin normal-text-unbold{ font-size: $fs-body; font-weight: $fw-regular; line-height: 1.35; }
+@mixin small-text        { @include text-xs; }
+@mixin small-text-bold   { font-size: $fs-xs; font-weight: $fw-semibold; line-height: $lh-normal; }
+
+// ─────────────────────────────────────────────
+// 12. RESPONSIVE BASE FONT SIZE
+// ─────────────────────────────────────────────
+
+:root { font-size: 16px; }
+
+@media screen and (min-width: $bp-2xl) { :root { font-size: 17px; } }
+@media screen and (max-width: $bp-xl)  { :root { font-size: 15px; } }
+@media screen and (max-width: $bp-lg)  { :root { font-size: 14px; } }
+@media screen and (max-width: $bp-md)  { :root { font-size: 14px; } }
+@media screen and (max-width: $bp-sm)  { :root { font-size: 13px; } }
+
+// ─────────────────────────────────────────────
+// 13. SCROLLBAR MIXIN
+// ─────────────────────────────────────────────
+
+@mixin scroll-style {
+  &::-webkit-scrollbar {
+    width: 5px !important;
+    height: 5px !important;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: $radius-pill;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: $color-border-medium;
+    border-radius: $radius-pill;
+    transition: background 0.2s ease;
+
+    &:hover {
+      background: rgba($color-primary, 0.5);
+    }
+  }
+
+  &::-webkit-scrollbar-button { display: none; }
+
+  scrollbar-width: thin;
+  scrollbar-color: $color-border-medium transparent;
+}
+
+// ─────────────────────────────────────────────
+// 14. CARD MIXIN
+// ─────────────────────────────────────────────
+
+@mixin card-base {
+  background: $color-bg-card;
+  border-radius: $radius-xl;
+  border: 1px solid $color-border;
+  box-shadow: $shadow-sm;
+  transition: $transition-smooth;
+
+  &:hover {
+    box-shadow: $shadow-card-hover;
+    border-color: $color-border-medium;
+  }
+}
+
+// ─────────────────────────────────────────────
+// 15. BASELINE BODY STYLES
+// ─────────────────────────────────────────────
+
+body {
+  font-family: $font-primary;
+  color: $color-text-primary;
+  background-color: $color-bg-page;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}

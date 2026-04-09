@@ -1,28 +1,71 @@
 <ion-content class="ion-no-border login-content" [fullscreen]="true">
+  <!-- Background decorative overlay -->
   <div class="login-bg-overlay"></div>
 
   <div class="login-page-container animate__animated animate__fadeIn">
-    <div class="brand-section">
-      <div class="brand-content animate__animated animate__fadeInLeft">
-        <img src="https://techtammina.com/wp-content/uploads/2025/05/techlogo.png" alt="Company Logo"
-          class="brand-logo" />
-        <h1 class="brand-title">Master HRMS</h1>
-        <p class="brand-subtitle">Experience the future of HR Management.</p>
+
+    <!-- ── Brand Left Panel ── -->
+    <div class="brand-section animate__animated animate__fadeInLeft">
+      <img src="https://techtammina.com/wp-content/uploads/2025/05/techlogo.png"
+           alt="Tech Tammina Logo" class="brand-logo" />
+      <h1 class="brand-title">Master HRMS</h1>
+      <p class="brand-subtitle">
+        A unified platform to manage your workforce, attendance, payroll, and more — all in one place.
+      </p>
+
+      <div class="brand-features">
+        <div class="feature-item">
+          <div class="feature-icon">
+            <ion-icon name="people-outline"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <p>
+              <strong>Employee Management</strong>
+              Complete employee lifecycle management
+            </p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">
+            <ion-icon name="time-outline"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <p>
+              <strong>Attendance & Leave</strong>
+              Real-time tracking and leave workflows
+            </p>
+          </div>
+        </div>
+        <div class="feature-item">
+          <div class="feature-icon">
+            <ion-icon name="card-outline"></ion-icon>
+          </div>
+          <div class="feature-text">
+            <p>
+              <strong>Payroll & Finance</strong>
+              Automated payroll with tax compliance
+            </p>
+          </div>
+        </div>
       </div>
     </div>
 
+    <!-- ── Divider ── -->
+    <div class="brand-divider"></div>
+
+    <!-- ── Login Form Section ── -->
     <div class="login-form-section animate__animated animate__fadeInRight">
-      <!-- GLASS CARD -->
       <ion-card class="login-glass-card" [class.is-flipped]="showForgotPassword">
         <div class="card-faces">
+
           <!-- LOGIN FACE -->
           <div class="face front-face" *ngIf="!showForgotPassword">
             <div class="card-header">
-              <div class="user-icon-circle animate__animated animate__zoomIn">
+              <div class="user-icon-circle">
                 <ion-icon name="person-circle-outline"></ion-icon>
                 <div class="status-dot"></div>
               </div>
-              <h2 class="form-title accent-text">Welcome Tech Buddies</h2>
+              <h2 class="form-title">Welcome Back</h2>
               <p class="form-subtitle">Enter your credentials to continue</p>
             </div>
 
@@ -32,8 +75,7 @@
                 <ion-item class="custom-input-item">
                   <ion-icon name="person-outline" slot="start"></ion-icon>
                   <ion-label position="floating">Username / Employee ID</ion-label>
-                  <ion-input type="text" formControlName="email">
-                  </ion-input>
+                  <ion-input type="text" formControlName="email"></ion-input>
                   <ion-button slot="end" fill="clear" size="small" *ngIf="emailChecked" (click)="resetState()"
                     class="animate__animated animate__fadeIn">
                     <ion-icon name="create-outline" slot="icon-only" color="primary"></ion-icon>
@@ -58,17 +100,18 @@
               <div class="form-actions ion-padding-top">
                 <ion-button expand="block" class="login-button" type="button" *ngIf="!emailChecked" (click)="onNext()"
                   [disabled]="loginForm.get('email')?.invalid">
-                  Next
-                  <ion-icon slot="end" name="arrow-forward"></ion-icon>
+                  Continue
+                  <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
                 </ion-button>
 
                 <ion-button expand="block" class="login-button" type="submit" *ngIf="showPassword" [disabled]="loading">
-                  Login
+                  <span *ngIf="!loading">Sign In</span>
+                  <ion-spinner *ngIf="loading" name="crescent" color="light"></ion-spinner>
                 </ion-button>
 
-                <ion-button expand="block" fill="outline" class="create-button" type="submit" *ngIf="showCreatePassword"
-                  [disabled]="loading">
-                  Create & Login
+                <ion-button expand="block" fill="outline" class="create-button" type="submit"
+                  *ngIf="showCreatePassword" [disabled]="loading">
+                  Create & Sign In
                 </ion-button>
               </div>
 
@@ -83,8 +126,11 @@
           <!-- FORGOT PASSWORD FACE -->
           <div class="face back-face" *ngIf="showForgotPassword">
             <div class="card-header">
+              <div class="user-icon-circle">
+                <ion-icon name="lock-open-outline"></ion-icon>
+              </div>
               <h2 class="form-title">Reset Password</h2>
-              <p class="form-subtitle">Enter your employee ID</p>
+              <p class="form-subtitle">Enter your employee ID to reset</p>
             </div>
 
             <form [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPasswordSubmit()" class="form-body">
@@ -103,19 +149,21 @@
               </ion-list>
 
               <div class="form-actions ion-padding-top">
-                <ion-button expand="block" class="login-button" type="submit" [disabled]="forgotPasswordForm.invalid">
+                <ion-button expand="block" class="login-button" type="submit"
+                  [disabled]="forgotPasswordForm.invalid">
                   Reset Password
                 </ion-button>
 
                 <ion-button expand="block" fill="clear" color="medium" (click)="toggleForgotPassword()">
-                  Back to Login
+                  <ion-icon slot="start" name="arrow-back-outline"></ion-icon>
+                  Back to Sign In
                 </ion-button>
               </div>
             </form>
           </div>
+
         </div>
       </ion-card>
     </div>
   </div>
-  <div class="login-bg-overlay"></div>
 </ion-content>

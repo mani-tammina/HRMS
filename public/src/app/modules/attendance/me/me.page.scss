@@ -1,67 +1,56 @@
+@use '../../../../theme/_variables' as vars;
+
 .dashboard {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #4facfe 75%, #00f2fe 100%);
-  background-size: 400% 400%;
-  animation: gradientShift 15s ease infinite;
-  padding: 20px;
-  gap: 20px;
-  @keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
+  background: vars.$color-bg-page;
+  padding: 32px 24px;
+  gap: 24px;
+  min-height: 100vh;
 
   .attendance-block {
-    margin-bottom: 30px;
+    margin-bottom: 32px;
 
     ion-row {
       display: flex;
       flex-wrap: wrap;
-      margin: -10px;
+      margin: -12px;
     }
 
     ion-card {
-      border-radius: 24px;
-      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
-      border: 1px solid rgba(255, 255, 255, 0.25);
-      background: rgba(255, 255, 255, 0.85);
-      backdrop-filter: blur(4px);
-      -webkit-backdrop-filter: blur(4px);
-      margin: 0;
+      border-radius: vars.$radius-xl;
+      box-shadow: vars.$shadow-md;
+      border: 1px solid vars.$color-border;
+      background: vars.$color-bg-card;
+      margin: 12px;
       flex: 1;
       display: flex;
       flex-direction: column;
-      height: 330px;
+      height: 340px;
       overflow: hidden;
-      width: 95%;
-      margin: auto;
-      transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      transition: vars.$transition-smooth;
 
       &:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 20px 40px rgba(31, 38, 135, 0.25);
-        border: 1px solid rgba(255, 255, 255, 0.5);
-        background: rgba(255, 255, 255, 0.95);
+        transform: translateY(-4px);
+        box-shadow: vars.$shadow-lg;
+        border-color: vars.$color-primary;
       }
 
       ion-card-header {
-        padding: 20px 24px 15px;
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(240, 147, 251, 0.1));
-        border-bottom: 1px solid rgba(102, 126, 234, 0.2);
+        padding: 24px;
+        background: vars.$color-white;
+        border-bottom: 1px solid vars.$color-border-light;
 
         ion-card-title {
-          font-size: 16px;
-          font-weight: 800;
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
-          letter-spacing: -0.02em;
+          font-size: vars.$fs-body;
+          font-weight: vars.$fw-bold;
+          color: vars.$color-text-primary;
+          letter-spacing: vars.$ls-tight;
           text-align: left;
+          text-transform: uppercase;
         }
       }
 
       ion-card-content {
-        padding: 20px 24px;
+        padding: 24px;
         flex: 1;
         display: flex;
         flex-direction: column;
@@ -70,202 +59,125 @@
   }
 
   .days-grid {
-    padding: 10px;
-  }
-
-  .day-container {
-    position: relative;
-
-    &::before {
-      content: "";
-      transition: all 0.3s ease;
-      width: 40px;
-      position: absolute;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      top: -8px;
-      height: 12px;
-      left: 5px;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-    }
-
-    .day-of-week {
-      font-weight: bold;
-      font-size: 1em;
-      margin: 0;
-      text-overflow: initial;
-      overflow: hidden;
-      white-space: nowrap;
-      padding: 4px;
-      color: #333;
-    }
-  }
-
-  .highlight-today {
-    &::before {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4);
-    }
-  }
-
-  .highlight-weekoff {
-    font-weight: 600;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-top: -6px;
-    margin-left: 6px;
-
-    &::before {
-      background: linear-gradient(135deg, #ddd 0%, #eee 100%);
-      box-shadow: 0 4px 15px rgba(200, 200, 200, 0.3);
-    }
+    padding: 0;
   }
 }
 
 ion-progress-bar {
   height: 8px;
-  border-radius: 8px;
-  --background: rgba(255, 255, 255, 0.3) !important;
-  --progress-background: linear-gradient(90deg, #667eea 0%, #764ba2 100%) !important;
-  margin-top: 10px;
-  margin-bottom: 10px;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+  border-radius: vars.$radius-pill;
+  --background: #{vars.$color-border-light} !important;
+  --progress-background: #{vars.$color-primary} !important;
+  margin-top: 12px;
+  margin-bottom: 12px;
+  box-shadow: none;
 }
 
 .attendance-status {
   padding-bottom: 0;
 
   .today-status {
-    font-size: 14px;
-    font-weight: 600;
-    color: #475569;
-    margin-bottom: 20px;
+    font-size: vars.$fs-small;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-secondary;
+    margin-bottom: 24px;
     display: flex;
     align-items: center;
 
     ion-badge {
-      padding: 8px 14px;
-      font-size: 12px;
-      border-radius: 12px;
-      margin-left: 10px;
-      font-weight: 700;
+      padding: 6px 14px;
+      font-size: 11px;
+      border-radius: vars.$radius-pill;
+      margin-left: 12px;
+      font-weight: vars.$fw-bold;
       letter-spacing: 0.5px;
-      text-transform: capitalize;
-      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+      text-transform: uppercase;
+      box-shadow: vars.$shadow-xs;
 
       &.present {
-        --background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
-        color: #fff;
+        background: vars.$color-success-light !important;
+        color: vars.$color-success !important;
+        border: 1px solid vars.$color-success-border;
       }
 
       &.absent {
-        --background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
-        color: #fff;
+        background: vars.$color-danger-light !important;
+        color: vars.$color-danger !important;
+        border: 1px solid vars.$color-danger-border;
       }
 
       &.not-in-yet {
-        --background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
-        color: #fff;
+        background: vars.$color-warning-light !important;
+        color: vars.$color-warning !important;
+        border: 1px solid vars.$color-warning-border;
       }
 
       &.leave {
-        --background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%) !important;
-        color: #fff;
+        background: vars.$color-primary-light !important;
+        color: vars.$color-primary !important;
+        border: 1px solid rgba(vars.$color-primary, 0.15);
       }
     }
   }
 
   .monthly-stats {
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.08));
-    padding: 18px;
-    border-radius: 16px;
-    border: 1px solid rgba(102, 126, 234, 0.15);
+    background: vars.$color-bg-subtle;
+    padding: 20px;
+    border-radius: vars.$radius-lg;
+    border: 1px solid vars.$color-border-light;
     margin-bottom: auto;
-    backdrop-filter: blur(2px);
 
     .stat-label {
-      font-size: 11px;
-      color: #475569;
+      font-size: 10px;
+      color: vars.$color-text-muted;
       margin-bottom: 6px;
       text-transform: uppercase;
-      font-weight: 700;
+      font-weight: vars.$fw-bold;
       letter-spacing: 1px;
     }
 
     .stat-value {
-      font-size: 22px;
-      font-weight: 800;
+      font-size: vars.$fs-heading-lg;
+      font-weight: vars.$fw-bold;
       margin: 0;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: vars.$color-text-primary;
     }
 
-    .text-success {
-      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .text-danger {
-      background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .text-info {
-      background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .text-warning {
-      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
+    .text-success { color: vars.$color-success; }
+    .text-danger  { color: vars.$color-danger; }
+    .text-info    { color: vars.$color-primary; }
+    .text-warning { color: vars.$color-warning; }
   }
 
   .today-summary {
     display: flex;
     justify-content: space-between;
-    padding: 18px 0 0;
-    border-top: 1px solid rgba(102, 126, 234, 0.2);
-    margin-top: 15px;
+    padding: 20px 0 0;
+    border-top: 1px solid vars.$color-border-light;
+    margin-top: 20px;
 
     .label-box {
       text-align: center;
       flex: 1;
 
       .l-l {
-        font-size: 11px;
-        color: #64748b;
+        font-size: 10px;
+        color: vars.$color-text-muted;
         display: block;
         margin-bottom: 6px;
         text-transform: uppercase;
-        font-weight: 700;
+        font-weight: vars.$fw-bold;
+        letter-spacing: 0.5px;
       }
 
       .l-v {
-        font-size: 16px;
-        font-weight: 800;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
+        font-size: vars.$fs-body;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
       }
 
       &:not(:last-child) {
-        border-right: 1px solid rgba(102, 126, 234, 0.15);
+        border-right: 1px solid vars.$color-border-xlight;
       }
     }
   }
@@ -283,31 +195,21 @@ ion-progress-bar {
     flex-direction: column;
     justify-content: center;
     padding: 0;
-    margin-bottom: 20px;
+    margin-bottom: 24px;
 
     .chart-wrapper {
       position: relative;
       height: 160px;
-      width: 57%;
+      width: 100%;
       margin: 0 auto;
       padding: 20px;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.08));
-      border-radius: 16px;
-      border: 1px solid rgba(102, 126, 234, 0.15);
+      background: vars.$color-bg-subtle;
+      border-radius: vars.$radius-lg;
+      border: 1px solid vars.$color-border-light;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
-      position: relative;
-
-      &::before {
-        content: '';
-        position: absolute;
-        inset: 0;
-        background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
-        pointer-events: none;
-        border-radius: 16px;
-      }
 
       canvas {
         position: relative;
@@ -319,11 +221,11 @@ ion-progress-bar {
 
   .actions-buttons-row {
     margin-top: auto;
-    padding-top: 18px;
-    border-top: 2px solid rgba(102, 126, 234, 0.15);
+    padding-top: 20px;
+    border-top: 1px solid vars.$color-border-light;
     align-items: stretch;
     display: flex;
-    gap: 0;
+    gap: 12px;
 
     ion-col {
       display: flex;
@@ -331,127 +233,67 @@ ion-progress-bar {
       justify-content: center;
       padding: 0 !important;
 
-      &:first-child {
-        justify-content: flex-start;
-      }
-
-      &:last-child {
-        justify-content: flex-end;
-      }
+      &:first-child { justify-content: flex-start; }
+      &:last-child { justify-content: flex-end; }
     }
 
     .action-grid-buttons {
       display: flex;
       flex-wrap: nowrap;
-      gap: 8px;
+      gap: 10px;
       justify-content: flex-end;
       align-items: center;
 
       .clear-action {
-        --padding-start: 10px;
-        --padding-end: 10px;
-        --padding-top: 6px;
-        --padding-bottom: 6px;
+        --padding-start: 16px;
+        --padding-end: 16px;
         font-size: 11px;
-        font-weight: 700;
-        height: auto;
+        font-weight: vars.$fw-bold;
+        height: 40px;
         margin: 0;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-radius: 10px;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        border: none;
-        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.25);
-        position: relative;
-        overflow: hidden;
-
-        &::before {
-          content: '';
-          position: absolute;
-          inset: 0;
-          background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
-          opacity: 0;
-          transition: opacity 0.3s ease;
-        }
+        --background: #{vars.$color-primary};
+        --color: white;
+        --border-radius: #{vars.$radius-md};
+        transition: vars.$transition-smooth;
+        --box-shadow: #{vars.$shadow-sm};
 
         ion-icon {
           font-size: 16px;
-          margin-right: 4px;
+          margin-right: 6px;
         }
 
         &:hover:not([disabled]) {
-          box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
-          transform: translateY(-3px);
-          --background: linear-gradient(135deg, #764ba2 0%, #f093fb 100%);
-
-          &::before {
-            opacity: 0.5;
-          }
+          --background: #{vars.$color-primary-dark};
+          transform: translateY(-2px);
+          --box-shadow: #{vars.$shadow-md};
         }
 
-        &:active:not([disabled]) {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-        }
-
-        &[disabled] {
-          opacity: 0.5;
-          cursor: not-allowed;
-          box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
-        }
+        &[disabled] { opacity: 0.5; }
       }
     }
   }
 }
 
-/* Clock Button Wrapper */
-app-clock-button {
-  display: contents;
-}
-
-.clock-btn-col {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0 !important;
-}
-
-.action-btns-col {
-  display: flex !important;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 !important;
-}
+app-clock-button { display: contents; }
 
 .timings-card {
   position: relative;
   overflow: visible !important;
 
   .shift-info {
-    font-size: 13px;
-    color: #333;
-    margin-bottom: 20px;
+    font-size: vars.$fs-small;
+    color: vars.$color-text-secondary;
+    margin-bottom: 24px;
     text-align: center;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(240, 147, 251, 0.12));
+    background: vars.$color-primary-light;
     padding: 16px;
-    border-radius: 14px;
-    font-weight: 600;
-    border: 1px solid rgba(102, 126, 234, 0.25);
+    border-radius: vars.$radius-lg;
+    font-weight: vars.$fw-bold;
+    border: 1px solid rgba(vars.$color-primary, 0.1);
     position: relative;
     overflow: hidden;
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-      animation: shimmer 3s infinite;
-    }
 
     &::after {
       content: '⏰';
@@ -460,179 +302,92 @@ app-clock-button {
       top: 50%;
       transform: translateY(-50%);
       font-size: 20px;
-      opacity: 0.3;
-    }
-
-    @keyframes shimmer {
-      0%, 100% { transform: translateX(-100%); }
-      50% { transform: translateX(100%); }
+      opacity: 0.15;
     }
   }
 
   .days-grid-wrapper {
-    margin: 24px 0 20px;
+    margin: 24px 0 24px;
     padding: 0;
 
-    ion-row {
-      gap: 6px;
-    }
-
-    ion-col {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 !important;
-    }
+    ion-row { gap: 8px; justify-content: center; }
+    ion-col { display: flex; align-items: center; justify-content: center; padding: 0 !important; flex: 0 0 auto; }
   }
 
   .day-container {
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 12px;
-    background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.08));
-    border: 1px solid rgba(102, 126, 234, 0.15);
+    border-radius: vars.$radius-md;
+    background: vars.$color-bg-subtle;
+    border: 1px solid vars.$color-border-light;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-weight: 700;
-    color: #475569;
+    transition: vars.$transition-smooth;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-muted;
 
     &:hover:not(.highlight-today):not(.highlight-weekoff) {
-      transform: translateY(-4px) scale(1.05);
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(240, 147, 251, 0.15));
-      border-color: rgba(102, 126, 234, 0.3);
-      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.2);
-    }
-
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      border-radius: 12px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent);
-      opacity: 0;
-      transition: opacity 0.3s ease;
+      transform: translateY(-2px);
+      background: vars.$color-bg-hover;
+      border-color: vars.$color-border-medium;
+      color: vars.$color-text-primary;
     }
 
     .day-of-week {
-      font-weight: 700;
-      font-size: 12px;
+      font-weight: vars.$fw-bold;
+      font-size: 11px;
       margin: 0;
-      text-overflow: initial;
-      overflow: hidden;
-      white-space: nowrap;
-      padding: 0;
-      position: relative;
-      z-index: 1;
-      color: #475569;
-    }
-
-    &:hover {
-      &::before {
-        opacity: 0.5;
-      }
+      text-transform: uppercase;
     }
   }
 
   .highlight-today {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: 2px solid rgba(255, 255, 255, 0.6);
-    box-shadow: 0 8px 24px rgba(102, 126, 234, 0.35);
-    transform: scale(1.12);
+    background: vars.$color-primary;
+    border: 1px solid vars.$color-primary;
+    box-shadow: vars.$shadow-md;
+    transform: scale(1.1);
+    z-index: 2;
 
-    .day-of-week {
-      color: #fff;
-      font-weight: 800;
-    }
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      border-radius: 12px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.3), transparent);
-      pointer-events: none;
-    }
-
-    animation: pulse-ring 2s infinite;
-
-    @keyframes pulse-ring {
-      0%, 100% { box-shadow: 0 8px 24px rgba(102, 126, 234, 0.35); }
-      50% { box-shadow: 0 8px 32px rgba(102, 126, 234, 0.5); }
-    }
+    .day-of-week { color: #fff; font-weight: vars.$fw-bold; }
   }
 
   .highlight-weekoff {
-    background: linear-gradient(135deg, rgba(180, 180, 180, 0.15), rgba(200, 200, 200, 0.15));
-    border: 1px solid rgba(150, 150, 150, 0.25);
-    opacity: 0.6;
+    background: vars.$color-bg-page;
+    border: 1px solid vars.$color-border-xlight;
+    opacity: 0.5;
 
-    .day-of-week {
-      color: #888;
-      font-weight: 600;
-    }
-
-    &:hover {
-      opacity: 0.8;
-      transform: none;
-    }
+    .day-of-week { color: vars.$color-text-placeholder; }
+    &:hover { opacity: 0.8; transform: none; }
   }
 
   .today-label {
-    font-size: 12px;
-    font-weight: 700;
+    font-size: 11px;
+    font-weight: vars.$fw-bold;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: #64748b;
-    margin-bottom: 12px;
+    color: vars.$color-text-muted;
+    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
 
-    &::before {
-      content: '📅';
-      margin-right: 6px;
-      font-size: 14px;
-    }
-
     strong {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      font-weight: 800;
-      font-size: 13px;
+      color: vars.$color-primary;
+      font-weight: vars.$fw-bold;
     }
   }
 
   ion-progress-bar {
     height: 10px;
-    border-radius: 8px;
-    --background: rgba(102, 126, 234, 0.08) !important;
-    --progress-background: linear-gradient(90deg, #667eea 0%, #764ba2 50%, #f093fb 100%) !important;
-    margin: 14px 0;
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(102, 126, 234, 0.15);
-    position: relative;
-    overflow: hidden;
-
-    &::after {
-      content: '';
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-      animation: progress-shimmer 2s infinite;
-    }
-
-    @keyframes progress-shimmer {
-      0%, 100% { transform: translateX(-100%); }
-      50% { transform: translateX(100%); }
-    }
+    border-radius: vars.$radius-pill;
+    --background: #{vars.$color-bg-subtle} !important;
+    --progress-background: #{vars.$color-primary} !important;
+    margin: 16px 0;
+    box-shadow: none;
+    border: 1px solid vars.$color-border-light;
   }
 
   .duration-info {
@@ -641,45 +396,31 @@ app-clock-button {
     justify-content: space-between;
     align-items: center;
     gap: 12px;
-    font-size: 12px;
-    color: #334155;
-    font-weight: 700;
-    padding-top: 14px;
+    font-size: 11px;
+    color: vars.$color-text-secondary;
+    font-weight: vars.$fw-bold;
+    padding-top: 16px;
     padding-bottom: 8px;
-    border-top: 1px solid rgba(102, 126, 234, 0.15);
-    position: relative;
+    border-top: 1px solid vars.$color-border-light;
 
     span {
       flex: 1;
       display: flex;
       align-items: center;
-      gap: 6px;
-      background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(240, 147, 251, 0.08));
-      padding: 10px 12px;
-      border-radius: 10px;
-      border: 1px solid rgba(102, 126, 234, 0.12);
-      transition: all 0.3s ease;
+      justify-content: center;
+      gap: 8px;
+      background: vars.$color-bg-subtle;
+      padding: 10px;
+      border-radius: vars.$radius-md;
+      border: 1px solid vars.$color-border-xlight;
+      transition: vars.$transition-base;
       cursor: default;
 
       &:hover {
-        background: linear-gradient(135deg, rgba(102, 126, 234, 0.12), rgba(240, 147, 251, 0.12));
-        border-color: rgba(102, 126, 234, 0.25);
+        background: vars.$color-bg-hover;
+        border-color: vars.$color-border-medium;
         transform: translateY(-2px);
       }
-
-      &::before {
-        min-width: 16px;
-        font-size: 14px;
-        text-align: center;
-      }
-    }
-
-    span:first-child::before {
-      content: '⏱️';
-    }
-
-    span:last-child::before {
-      content: '☕';
     }
   }
 }
@@ -688,96 +429,61 @@ app-clock-button {
 .custom-tabs {
   width: fit-content;
   display: flex;
-  gap: 0;
+  background: vars.$color-bg-subtle;
+  padding: 4px;
+  border-radius: vars.$radius-lg;
+  border: 1px solid vars.$color-border-light;
 
   button {
-    &:first-child {
-      border-bottom-left-radius: 12px;
-      border-top-left-radius: 12px;
-    }
-
-    &:last-child {
-      border-bottom-right-radius: 12px;
-      border-top-right-radius: 12px;
-    }
-
-    padding: 12px 24px;
-    background: rgba(255, 255, 255, 0.6);
-    border: 1px solid rgba(102, 126, 234, 0.2);
-    font-size: 13px;
-    font-weight: 600;
-    color: #475569;
+    padding: 10px 24px;
+    border-radius: vars.$radius-md;
+    border: none;
+    font-size: 12px;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-muted;
     cursor: pointer;
-    transition: all 0.3s ease;
-    backdrop-filter: blur(2px);
+    transition: vars.$transition-base;
+    background: transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 
-    &:hover:not(.active) {
-      background: rgba(255, 255, 255, 0.8);
-      border-color: rgba(102, 126, 234, 0.3);
-    }
+    &:hover:not(.active) { color: vars.$color-text-primary; }
 
     &.active {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: #fff;
-      border-color: transparent;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+      background: vars.$color-white;
+      color: vars.$color-primary;
+      box-shadow: vars.$shadow-sm;
     }
   }
 }
 
 .attendance-log-card {
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.05), rgba(240, 147, 251, 0.05));
-  padding: 20px;
-  gap: 20px;
+  background: vars.$color-bg-subtle;
+  padding: 24px;
+  gap: 24px;
+  border-radius: vars.$radius-lg;
+  border: 1px solid vars.$color-border-light;
 
   h2 {
-    font-size: 18px;
-    font-weight: 700;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 12px;
+    font-size: vars.$fs-body;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-primary;
+    margin-bottom: 16px;
+    text-transform: uppercase;
   }
 }
 
 /* Utility */
-.row-left {
-  display: flex;
-  align-items: center;
-}
-
-.row-space-between {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.mb-8 {
-  margin-bottom: 8px;
-}
-
-.mb-10 {
-  margin-bottom: 10px;
-}
-
-.mb-15 {
-  margin-bottom: 15px;
-}
-
-.mr-8 {
-  margin-right: 8px;
-}
-
-.pl-5 {
-  padding-left: 5px;
-}
-
-.text-center {
-  text-align: center;
-}
+.row-left { display: flex; align-items: center; }
+.row-space-between { display: flex; justify-content: space-between; align-items: center; }
+.mb-8  { margin-bottom: 8px; }
+.mb-10 { margin-bottom: 10px; }
+.mb-15 { margin-bottom: 15px; }
+.mr-8  { margin-right: 8px; }
+.pl-5  { padding-left: 5px; }
+.text-center { text-align: center; }
 
 ion-modal {
   --height: 70%;
-  --border-radius: 16px;
+  --border-radius: #{vars.$radius-xl};
 }

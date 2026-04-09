@@ -1,125 +1,138 @@
-@use '../../../../global.scss' as *;
+@use '../../../../theme/_variables' as vars;
 
 .admin-dashboard {
-  --background: var(--ion-background-color, #f4f5f8);
+  --background: #{vars.$color-bg-page};
+  padding: 32px 24px;
 
   .top-bar {
-    padding: 24px 16px;
-    background: white;
-    margin-bottom: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    padding: 32px;
+    background: vars.$color-white;
+    margin-bottom: 32px;
+    border-radius: vars.$radius-xl;
+    box-shadow: vars.$shadow-sm;
+    border: 1px solid vars.$color-border-light;
 
     h1 {
-      @include card-header();
+      font-size: vars.$fs-heading-lg;
+      font-weight: vars.$fw-bold;
       margin: 0 0 8px 0;
-      color: var(--ion-color-dark);
+      color: vars.$color-text-primary;
+      letter-spacing: vars.$ls-tight;
     }
 
     p {
-      @include normal-text-unbold();
-      color: var(--ion-color-medium);
+      font-size: vars.$fs-body;
+      color: vars.$color-text-muted;
       margin: 0;
+      font-weight: vars.$fw-medium;
     }
   }
 
   .manage-block {
     display: flex;
     flex-wrap: wrap;
-    gap: 20px;
+    gap: 24px;
     justify-content: flex-start;
 
     .clickable-card {
       margin: 0;
-      width: calc(33.33% - 14px);
-      min-width: 300px;
-      border-radius: 16px;
+      width: calc(33.333% - 16px);
+      min-width: 320px;
+      border-radius: vars.$radius-xl;
       cursor: pointer;
-      transition: all 0.3s ease;
-      background: linear-gradient(135deg, #1F74BB 0%, #0E3555 100%);
-      border: none;
+      transition: vars.$transition-smooth;
+      background: vars.$color-bg-card;
+      border: 1px solid vars.$color-border;
       position: relative;
       overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: vars.$shadow-sm;
 
       &:hover {
         transform: translateY(-8px);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+        box-shadow: vars.$shadow-lg;
+        border-color: vars.$color-primary;
         
-        &::after {
-            opacity: 0.1;
+        .card-icon-wrapper {
+            background: vars.$color-primary;
+            color: white;
+            img { filter: brightness(0) invert(1); }
         }
-      }
-
-      &::after {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: white;
-        opacity: 0;
-        transition: opacity 0.3s ease;
+        
+        ion-card-title { color: vars.$color-primary; }
       }
 
       ion-card-header {
-        padding: 24px;
+        padding: 32px;
         display: flex;
         flex-direction: column;
         align-items: flex-start;
+        flex: 1;
       }
 
       .card-icon-wrapper {
-        background: rgba(255, 255, 255, 0.2);
-        backdrop-filter: blur(4px);
-        padding: 12px;
-        border-radius: 12px;
-        margin-bottom: 20px;
+        background: vars.$color-primary-light;
+        padding: 16px;
+        border-radius: vars.$radius-lg;
+        margin-bottom: 24px;
+        transition: vars.$transition-base;
+        color: vars.$color-primary;
+        display: flex; align-items: center; justify-content: center;
+        border: 1px solid rgba(vars.$color-primary, 0.1);
 
         img {
           display: block;
-          filter: brightness(0) invert(1);
+          width: 32px;
+          height: 32px;
+          transition: vars.$transition-base;
           
           &.blue-img {
             filter: none;
             background: white;
             border-radius: 50%;
-            padding: 8px;
+            padding: 4px;
           }
         }
       }
 
       ion-card-title {
-        @include card-sub-title();
-        color: white;
+        color: vars.$color-text-primary;
         margin-bottom: 12px;
-        font-size: 20px;
-        font-weight: 700;
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        transition: vars.$transition-base;
+        letter-spacing: vars.$ls-tight;
       }
 
       p {
-        @include text-style-normal();
-        color: rgba(255, 255, 255, 0.8);
-        margin: 0 0 20px 0;
-        line-height: 1.5;
+        font-size: vars.$fs-small;
+        color: vars.$color-text-secondary;
+        margin: 0 0 24px 0;
+        line-height: 1.6;
         flex-grow: 1;
+        font-weight: vars.$fw-medium;
       }
 
       .card-btn {
         padding: 0;
-        font-weight: 600;
-        font-size: 14px;
-        --color: white;
+        font-weight: vars.$fw-bold;
+        font-size: 13px;
+        color: vars.$color-primary;
         margin: 0;
+        display: flex; align-items: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
         
         ion-icon {
             margin-left: 8px;
+            font-size: 18px;
             transition: transform 0.3s ease;
         }
       }
 
       &:hover .card-btn ion-icon {
-          transform: translateX(4px);
+          transform: translateX(6px);
       }
     }
   }
@@ -128,7 +141,7 @@
 /* Responsive Grid */
 @media (max-width: 1200px) {
   .admin-dashboard .manage-block .clickable-card {
-    width: calc(50% - 10px);
+    width: calc(50% - 12px);
   }
 }
 
@@ -139,5 +152,8 @@
   
   .admin-dashboard .top-bar {
       text-align: center;
+      padding: 24px;
   }
+  
+  .admin-dashboard { padding: 20px; }
 }
