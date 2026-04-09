@@ -12,14 +12,15 @@
   box-shadow: vars.$shadow-md;
 
   .header-toolbar {
-    --background: #{vars.$color-white};
-    --padding-start: 20px;
-    --padding-end: 20px;
+    --background: #{vars.$color-sidebar};
+    --color: #{vars.$color-white};
+    --padding-start: 24px;
+    --padding-end: 24px;
     --min-height: 64px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    border-bottom: 1px solid vars.$color-border;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 
@@ -40,7 +41,7 @@
 .brand-name {
   font-size: vars.$fs-heading-sm;
   font-weight: vars.$fw-bold;
-  color: vars.$color-text-primary;
+  color: vars.$color-white;
   margin-left: 10px;
   letter-spacing: vars.$ls-tight;
 }
@@ -60,13 +61,13 @@
   position: relative;
 
   .custom-searchbar {
-    --background: #{vars.$color-bg-subtle};
-    --color: #{vars.$color-text-primary};
-    --placeholder-color: #{vars.$color-text-placeholder};
-    --icon-color: #{vars.$color-text-muted};
+    --background: rgba(255, 255, 255, 0.08);
+    --color: #{vars.$color-white};
+    --placeholder-color: rgba(255, 255, 255, 0.4);
+    --icon-color: rgba(255, 255, 255, 0.5);
     --border-radius: #{vars.$radius-lg};
     --box-shadow: none;
-    border: 1px solid vars.$color-border;
+    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: vars.$radius-lg;
     padding-top: 0;
     padding-bottom: 0;
@@ -209,14 +210,14 @@
   }
 
   .user-name {
-    color: vars.$color-text-primary;
+    color: vars.$color-white;
     font-weight: vars.$fw-semibold;
     font-size: vars.$fs-small;
     line-height: 1.2;
   }
 
   .user-role {
-    color: vars.$color-text-muted;
+    color: rgba(255, 255, 255, 0.5);
     font-size: vars.$fs-xs;
   }
 }
@@ -241,7 +242,7 @@
 
   .nav-icon {
     font-size: 1.3rem;
-    color: vars.$color-text-muted;
+    color: rgba(255, 255, 255, 0.7);
     transition: vars.$transition-base;
   }
 

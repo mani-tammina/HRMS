@@ -84,9 +84,9 @@
               <p class="card-dec">Shift performance & active session</p>
             </div>
             <div class="status-badge-container">
-              <span class="cosmic-status-badge" [ngClass]="getStatusClass()">
-                <span class="dot"></span>
-                {{ getStatusLabel() || 'Not In Yet' }}
+              <span class="premium-status-badge" [ngClass]="getStatusClass()">
+                <span class="pulse-dot"></span>
+                <span class="status-text">{{ getStatusLabel() || 'Not In Yet' }}</span>
               </span>
             </div>
           </div>
@@ -98,7 +98,7 @@
                 <img src="assets/home-icons/vibrant-in.png" alt="In">
               </div>
               <div class="cosmic-content">
-                <div class="cosmic-label-pill">CLOCK IN</div>
+                <div class="cosmic-label-pill">FIRST CLOCK IN</div>
                 <p class="cosmic-value">{{ (todayAttendance?.first_check_in | date:'h:mm a') || '--:--' }}</p>
               </div>
             </div>
@@ -109,7 +109,7 @@
                 <img src="assets/home-icons/vibrant-out.png" alt="Out">
               </div>
               <div class="cosmic-content">
-                <div class="cosmic-label-pill">CLOCK OUT</div>
+                <div class="cosmic-label-pill">LAST CLOCK OUT</div>
                 <p class="cosmic-value">{{ (todayAttendance?.last_check_out | date:'h:mm a') || '--:--' }}</p>
               </div>
             </div>
@@ -145,7 +145,7 @@
         </ion-card>
 
         <!-- Leave balance card -->
-        <ion-card class="overview-block">
+        <ion-card class="overview-block light-modern-card leave-balance-card">
           <div class="row-space-between border-bottom">
             <div>
               <h3 class="card-header">Leave balance</h3>
@@ -205,7 +205,7 @@
 
       <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
         <!-- Announcements card -->
-        <ion-card class="overview-block carousel-parent">
+        <ion-card class="overview-block light-modern-card announcement-carousel-card carousel-parent">
           <div class="row-space-between border-bottom">
             <div>
               <h3 class="card-header">Announcements</h3>
@@ -330,7 +330,8 @@
         </ion-card>
 
         <!-- View Wishes Modal -->
-        <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()" class="wishes-modal premium-colorful-modal">
+        <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()"
+          class="wishes-modal premium-colorful-modal">
           <ng-template>
             <div class="modal-wrapper">
               <ion-header class="ion-no-border">

@@ -10,228 +10,172 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   standalone: true,
   imports: [CommonModule, IonicModule],
   template: `
-  <div class="clock-btn-container" [class.mini-layout]="currentUrl === '/Me'">
-    <div class="row-center" *ngIf="!isClockedIn && currentUrl !== '/Me'">
-      <button class="uiverse-button" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
-        <span class="text">Web Clock-In</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+  <div class="attendance-btn-container" [class.mini-layout]="currentUrl === '/Me'">
+    <!-- Clock In Button -->
+    <div *ngIf="!isClockedIn" class="row-center">
+      <button class="modern-clock-btn in" (click)="clockIn('Office')">
+        <div class="inner-pulse"></div>
+        <div class="btn-content">
+          <ion-icon name="log-in-outline"></ion-icon>
+          <span class="text">Clock In</span>
+        </div>
       </button>
     </div>
 
-    <!-- Clock In Button for /Me page -->
-    <div *ngIf="!isClockedIn && currentUrl == '/Me'" class="row-center">
-      <button class="uiverse-button mini" style="--btn-color: #4caf50; --glow-color: rgba(76, 175, 80, 0.7)" (click)="clockIn('Office')">
-        <span class="text">Web Clock-In</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+    <!-- Clock Out Button Group -->
+    <div *ngIf="isClockedIn" class="row-center">
+      <!-- Office Out -->
+      <button *ngIf="workMode === 'Office'" class="modern-clock-btn out" (click)="clockOut()">
+        <div class="inner-pulse red"></div>
+        <div class="btn-content">
+          <ion-icon name="log-out-outline"></ion-icon>
+          <span class="text">Clock Out</span>
+        </div>
       </button>
-    </div>
 
-    <!-- Clock Out Button - Office -->
-    <div class="row-center" *ngIf="isClockedIn && workMode === 'Office' && currentUrl !== '/Me'">
-      <button class="uiverse-button out" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
-        <span class="text">Web Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      <!-- Remote Out -->
+      <button *ngIf="workMode === 'Remote'" class="modern-clock-btn remote" (click)="remoteClockOut()">
+        <div class="inner-pulse orange"></div>
+        <div class="btn-content">
+          <ion-icon name="cloud-offline-outline"></ion-icon>
+          <span class="text">Remote Out</span>
+        </div>
       </button>
-    </div>
 
-    <!-- Clock Out Button - Remote -->
-    <div class="row-center" *ngIf="isClockedIn && workMode === 'Remote' && currentUrl !== '/Me'">
-      <button class="uiverse-button out" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
-        <span class="text">Remote Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
+      <!-- WFH Out -->
+      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockOut()">
+        <div class="inner-pulse cyan"></div>
+        <div class="btn-content">
+          <ion-icon name="home-outline"></ion-icon>
+          <span class="text">WFH Out</span>
+        </div>
       </button>
-    </div>
-
-    <!-- Clock Out Button - WFH -->
-    <div class="row-center" *ngIf="isClockedIn && workMode === 'WFH' && currentUrl !== '/Me'">
-      <button class="uiverse-button out" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
-        <span class="text">WFH Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-      </button>
-    </div>
-
-    <!-- /Me page buttons -->
-    <div class="row-center" *ngIf="isClockedIn && currentUrl == '/Me'">
-        <button *ngIf="workMode === 'Office'" class="uiverse-button out mini" style="--btn-color: #f44336; --glow-color: rgba(244, 67, 54, 0.7)" (click)="clockOut()">
-        <span class="text">Web Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        </button>
-        <button *ngIf="workMode === 'Remote'" class="uiverse-button out mini" style="--btn-color: #ff9800; --glow-color: rgba(255, 152, 0, 0.7)" (click)="remoteClockOut()">
-        <span class="text">Remote Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        </button>
-        <button *ngIf="workMode === 'WFH'" class="uiverse-button out mini" style="--btn-color: #00bcd4; --glow-color: rgba(0, 188, 212, 0.7)" (click)="clockOut()">
-        <span class="text">WFH Clock-Out</span>
-        <div class="liquid"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        <div class="bubble"></div><div class="bubble"></div><div class="bubble"></div>
-        </button>
     </div>
   </div>
   `,
   styles: [`
-    .uiverse-button {
+    .attendance-btn-container {
+      padding: 10px;
+      
+      &.mini-layout {
+        .modern-clock-btn {
+          min-width: 140px;
+          height: 44px;
+          padding: 0 16px;
+          .btn-content {
+            gap: 8px;
+            ion-icon { font-size: 18px; }
+            .text { font-size: 13px; font-weight: 700; }
+          }
+        }
+      }
+    }
+
+    .modern-clock-btn {
       position: relative;
-      padding: 16px 40px;
-      display: inline-block;
-      text-decoration: none;
-      color: #fff;
-      font-size: 20px;
-      font-weight: bold;
-      text-transform: uppercase;
-      overflow: hidden;
-      border-radius: 40px;
-      border: 2px solid var(--btn-color);
-      background-color: rgba(0, 0, 0, 0.2);
+      min-width: 220px;
+      height: 58px;
+      border: none;
+      border-radius: 16px;
       cursor: pointer;
-      transition: all 0.3s ease, transform 0.1s ease;
-      min-width: 260px;
-      height: 55px;
       display: flex;
       align-items: center;
       justify-content: center;
-      user-select: none;
+      padding: 0 32px;
+      background: #f8fafc;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      overflow: hidden;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1),
+                  0 8px 10px -6px rgba(0, 0, 0, 0.1);
+
+      &::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: currentColor;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+      }
+
+      &:hover {
+        transform: translateY(-4px) scale(1.02);
+        box-shadow: 0 20px 30px -10px rgba(0, 0, 0, 0.2);
+        
+        &::after { opacity: 0.05; }
+        .inner-pulse { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+      }
+
+      &:active {
+        transform: translateY(0) scale(0.98);
+      }
+
+      .btn-content {
+        position: relative;
+        z-index: 2;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #fff;
+
+        ion-icon {
+          font-size: 24px;
+          filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+        }
+
+        .text {
+          font-size: 16px;
+          font-weight: 800;
+          text-transform: uppercase;
+          letter-spacing: 1px;
+          white-space: nowrap;
+        }
+      }
+
+      // Themes
+      &.in {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: #10b981;
+        box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
+      }
+
+      &.out {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: #ef4444;
+        box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.4);
+      }
+
+      &.remote {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+        color: #f59e0b;
+        box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.4);
+      }
+
+      &.wfh {
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        color: #0ea5e9;
+        box-shadow: 0 10px 20px -5px rgba(14, 165, 233, 0.4);
+      }
+
+      .inner-pulse {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 150%;
+        padding-bottom: 150%;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.2) 0%, transparent 70%);
+        transform: translate(-50%, -50%) scale(0.1);
+        transition: all 0.6s ease;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 1;
+        animation: breathing 4s ease-in-out infinite;
+      }
     }
 
-    .uiverse-button.mini {
-      min-width: 180px;
-      height: 48px;
-      padding: 10px 20px;
-      font-size: 15px;
-      border-radius: 25px;
-    }
-
-    .text {
-      position: relative;
-      z-index: 10;
-      transition: all 0.3s ease;
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-      pointer-events: none;
-    }
-
-    .liquid {
-      position: absolute;
-      top: -80px;
-      left: 0;
-      width: 100%;
-      height: 200px;
-      background: var(--btn-color);
-      box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.5);
-      transition: 0.5s ease;
-      z-index: 1;
-    }
-
-    .mini .liquid {
-      top: -110px;
-      height: 180px;
-    }
-
-    .liquid::before,
-    .liquid::after {
-      content: "";
-      position: absolute;
-      width: 200%;
-      height: 200%;
-      top: 0;
-      left: 50%;
-      transform: translate(-50%, -75%);
-    }
-
-    .liquid::before {
-      border-radius: 45%;
-      background: rgba(3, 8, 34, 0.9);
-      animation: rotate 5s linear infinite;
-    }
-
-    .liquid::after {
-      border-radius: 40%;
-      background: rgba(3, 8, 34, 0.4);
-      animation: rotate 10s linear infinite;
-    }
-
-    .uiverse-button:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-      box-shadow: 0 0 20px var(--glow-color);
-      animation: glow 1.5s ease-in-out infinite;
-    }
-
-    .uiverse-button:hover .text {
-      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
-    }
-
-    .uiverse-button:hover .liquid {
-      top: -120px;
-    }
-
-    .uiverse-button.mini:hover .liquid {
-      top: -140px;
-    }
-
-    .uiverse-button:active {
-      background-color: rgba(255, 255, 255, 0.2);
-      transform: scale(0.98);
-    }
-
-    .bubble {
-      position: absolute;
-      bottom: -20px;
-      border-radius: 50%;
-      opacity: 0;
-      z-index: 5;
-      animation: rise var(--rise-duration) ease-in infinite var(--rise-delay);
-      background: rgba(255, 255, 255, 0.3);
-    }
-
-    .bubble::before {
-      content: "";
-      position: absolute;
-      width: 100%;
-      height: 100%;
-      background: radial-gradient(
-        circle at 75% 25%,
-        rgba(255, 255, 255, 0.6) 5%,
-        rgba(255, 255, 255, 0.2) 40%,
-        rgba(255, 255, 255, 0) 60%
-      );
-      border-radius: 50%;
-    }
-
-    .bubble:nth-child(1) { left: 10%; width: 20px; height: 20px; --rise-duration: 4s; --rise-delay: 0s; }
-    .bubble:nth-child(2) { left: 25%; width: 15px; height: 15px; --rise-duration: 3.5s; --rise-delay: 0.5s; }
-    .bubble:nth-child(3) { left: 40%; width: 10px; height: 10px; --rise-duration: 3s; --rise-delay: 1s; }
-    .bubble:nth-child(4) { left: 55%; width: 22px; height: 22px; --rise-duration: 4.5s; --rise-delay: 1.5s; }
-    .bubble:nth-child(5) { left: 70%; width: 18px; height: 18px; --rise-duration: 3.8s; --rise-delay: 2s; }
-    .bubble:nth-child(6) { left: 85%; width: 12px; height: 12px; --rise-duration: 3.2s; --rise-delay: 2.5s; }
-
-    @keyframes rotate {
-      0% { transform: translate(-50%, -75%) rotate(0deg); }
-      100% { transform: translate(-50%, -75%) rotate(360deg); }
-    }
-
-    @keyframes rise {
-      0% { bottom: -20px; opacity: 0; }
-      5% { opacity: 0.8; }
-      95% { opacity: 0.8; }
-      100% { bottom: 120%; opacity: 0; }
-    }
-
-    @keyframes glow {
-      0%, 100% { box-shadow: 0 0 5px var(--glow-color); }
-      50% { box-shadow: 0 0 20px var(--glow-color); }
+    @keyframes breathing {
+      0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.1; }
+      50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.3; }
     }
 
     .row-center {

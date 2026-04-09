@@ -4,7 +4,7 @@
   background: vars.$color-bg-page;
   padding: 32px 24px;
   gap: 24px;
-  min-height: 100vh;
+  padding-bottom: 0;
 
   .attendance-block {
     margin-bottom: 32px;
@@ -143,10 +143,21 @@ ion-progress-bar {
       color: vars.$color-text-primary;
     }
 
-    .text-success { color: vars.$color-success; }
-    .text-danger  { color: vars.$color-danger; }
-    .text-info    { color: vars.$color-primary; }
-    .text-warning { color: vars.$color-warning; }
+    .text-success {
+      color: vars.$color-success;
+    }
+
+    .text-danger {
+      color: vars.$color-danger;
+    }
+
+    .text-info {
+      color: vars.$color-primary;
+    }
+
+    .text-warning {
+      color: vars.$color-warning;
+    }
   }
 
   .today-summary {
@@ -233,8 +244,13 @@ ion-progress-bar {
       justify-content: center;
       padding: 0 !important;
 
-      &:first-child { justify-content: flex-start; }
-      &:last-child { justify-content: flex-end; }
+      &:first-child {
+        justify-content: flex-start;
+      }
+
+      &:last-child {
+        justify-content: flex-end;
+      }
     }
 
     .action-grid-buttons {
@@ -270,13 +286,17 @@ ion-progress-bar {
           --box-shadow: #{vars.$shadow-md};
         }
 
-        &[disabled] { opacity: 0.5; }
+        &[disabled] {
+          opacity: 0.5;
+        }
       }
     }
   }
 }
 
-app-clock-button { display: contents; }
+app-clock-button {
+  display: contents;
+}
 
 .timings-card {
   position: relative;
@@ -310,8 +330,18 @@ app-clock-button { display: contents; }
     margin: 24px 0 24px;
     padding: 0;
 
-    ion-row { gap: 8px; justify-content: center; }
-    ion-col { display: flex; align-items: center; justify-content: center; padding: 0 !important; flex: 0 0 auto; }
+    ion-row {
+      gap: 8px;
+      justify-content: center;
+    }
+
+    ion-col {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 !important;
+      flex: 0 0 auto;
+    }
   }
 
   .day-container {
@@ -351,7 +381,10 @@ app-clock-button { display: contents; }
     transform: scale(1.1);
     z-index: 2;
 
-    .day-of-week { color: #fff; font-weight: vars.$fw-bold; }
+    .day-of-week {
+      color: #fff;
+      font-weight: vars.$fw-bold;
+    }
   }
 
   .highlight-weekoff {
@@ -359,8 +392,14 @@ app-clock-button { display: contents; }
     border: 1px solid vars.$color-border-xlight;
     opacity: 0.5;
 
-    .day-of-week { color: vars.$color-text-placeholder; }
-    &:hover { opacity: 0.8; transform: none; }
+    .day-of-week {
+      color: vars.$color-text-placeholder;
+    }
+
+    &:hover {
+      opacity: 0.8;
+      transform: none;
+    }
   }
 
   .today-label {
@@ -447,7 +486,9 @@ app-clock-button { display: contents; }
     text-transform: uppercase;
     letter-spacing: 0.5px;
 
-    &:hover:not(.active) { color: vars.$color-text-primary; }
+    &:hover:not(.active) {
+      color: vars.$color-text-primary;
+    }
 
     &.active {
       background: vars.$color-white;
@@ -474,14 +515,40 @@ app-clock-button { display: contents; }
 }
 
 /* Utility */
-.row-left { display: flex; align-items: center; }
-.row-space-between { display: flex; justify-content: space-between; align-items: center; }
-.mb-8  { margin-bottom: 8px; }
-.mb-10 { margin-bottom: 10px; }
-.mb-15 { margin-bottom: 15px; }
-.mr-8  { margin-right: 8px; }
-.pl-5  { padding-left: 5px; }
-.text-center { text-align: center; }
+.row-left {
+  display: flex;
+  align-items: center;
+}
+
+.row-space-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.mb-8 {
+  margin-bottom: 8px;
+}
+
+.mb-10 {
+  margin-bottom: 10px;
+}
+
+.mb-15 {
+  margin-bottom: 15px;
+}
+
+.mr-8 {
+  margin-right: 8px;
+}
+
+.pl-5 {
+  padding-left: 5px;
+}
+
+.text-center {
+  text-align: center;
+}
 
 ion-modal {
   --height: 70%;
