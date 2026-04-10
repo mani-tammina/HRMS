@@ -4,9 +4,9 @@
       <ion-back-button (click)="goBack()" defaultHref="/finance/admin"></ion-back-button>
     </ion-buttons>
     <ion-title>Tax Administration</ion-title>
-    <ion-buttons slot="end">
+    <ion-buttons slot="end" class="buttons-last-slot">
       <div class="fy-selector">
-        <select [(ngModel)]="financialYear" class="fy-select" id="fy-select">
+        <select [(ngModel)]="financialYear" (change)="onYearChange()" class="fy-select" id="fy-select">
           <option *ngFor="let y of availableYears" [value]="y">FY {{ y }}</option>
         </select>
       </div>
@@ -222,35 +222,141 @@
   </div>
 
   <!-- ══════════════════════════════════
-       SECTION LIMITS
+       SECTION LIMITS (80C / 80D)
   ═══════════════════════════════════════ -->
-  <div *ngIf="activeTab==='sections'" class="tab-panel">
-    <div class="glass-card">
-      <div class="card-header">
-        <div class="card-icon list-icon"><ion-icon name="list-outline"></ion-icon></div>
+  <div *ngIf="activeTab==='sections'" class="tab-panel sections-tab">
+
+    <!-- ── Summary Banner ── -->
+    <div class="sections-hero-card glass-card">
+      <div class="sections-hero-left">
+        <div class="hero-icon-wrap">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+        </div>
         <div>
-          <h2>Section Deduction Limits — FY {{ financialYear }}</h2>
-          <p>Set maximum allowed amounts for each deduction section</p>
+          <h2>Section Deduction Limits</h2>
+          <p>Configure maximum allowed investment amounts per section for <strong>FY {{ financialYear }}</strong></p>
         </div>
       </div>
+      <div class="sections-hero-stats">
+        <div class="hero-stat">
+          <div class="hero-stat-value">{{ sectionLimits.length }}</div>
+          <div class="hero-stat-label">Total Sections</div>
+        </div>
+        <div class="hero-stat hero-stat-success">
+          <div class="hero-stat-value">{{ activeSectionsCount }}</div>
+          <div class="hero-stat-label">Active</div>
+        </div>
+        <div class="hero-stat hero-stat-muted">
+          <div class="hero-stat-value">{{ sectionLimits.length - activeSectionsCount }}</div>
+          <div class="hero-stat-label">Inactive</div>
+        </div>
+      </div>
+    </div>
 
-      <div class="sections-grid">
-        <div class="section-item glass-sub-card" *ngFor="let s of sectionLimits; let i=index">
-          <div class="section-code">{{ s.section_code }}</div>
-          <div class="form-group">
-            <label>Max Limit (₹)</label>
-            <input type="number" [(ngModel)]="sectionLimits[i].max_limit" class="glass-input"
-                   [attr.id]="'section-limit-'+s.section_code" min="0" />
+    <!-- ── Section Cards Grid ── -->
+    <div class="sections-premium-grid">
+      <div class="section-premium-card"
+           *ngFor="let s of sectionLimits; let i=index"
+           [class.edit-active]="sectionEditModes[i]"
+           [class.is-inactive]="!s.is_active">
+
+        <!-- Top bar: badge + actions -->
+        <div class="spc-top">
+          <div class="section-badge" [ngClass]="getSectionColorClass(s.section_code)">
+            {{ s.section_code || 'NEW' }}
+          </div>
+          <div class="spc-actions">
+            <!-- Active toggle chip -->
+            <button class="active-toggle-btn"
+                    [class.is-on]="s.is_active"
+                    (click)="toggleSectionActive(i)"
+                    type="button"
+                    [id]="'toggle-active-'+i">
+              <ion-icon [name]="s.is_active ? 'toggle' : 'toggle-outline'"></ion-icon>
+              <span>{{ s.is_active ? 'Active' : 'Inactive' }}</span>
+            </button>
+            <!-- Edit / Done button -->
+            <button class="spc-edit-btn"
+                    [class.editing]="sectionEditModes[i]"
+                    (click)="toggleSectionEdit(i)"
+                    type="button"
+                    [id]="'edit-section-'+i">
+              <ion-icon [name]="sectionEditModes[i] ? 'close-outline' : 'pencil-outline'"></ion-icon>
+            </button>
+            <!-- Remove button (only in edit mode) -->
+            <button class="spc-remove-btn" *ngIf="sectionEditModes[i]"
+                    (click)="removeSection(i)" type="button" [id]="'remove-section-'+i">
+              <ion-icon name="trash-outline"></ion-icon>
+            </button>
           </div>
         </div>
+
+        <!-- Description -->
+        <div class="spc-description">{{ getSectionDescription(s.section_code) }}</div>
+
+        <!-- View mode: limit display -->
+        <div class="spc-limit-view" *ngIf="!sectionEditModes[i]">
+          <div class="limit-label">Maximum Limit</div>
+          <div class="limit-amount">{{ formatCurrency(s.max_limit) }}</div>
+          <div class="limit-fy">FY {{ s.financial_year || financialYear }}</div>
+        </div>
+
+        <!-- Edit mode: form -->
+        <div class="spc-limit-edit" *ngIf="sectionEditModes[i]">
+          <div class="form-group">
+            <label>Section Code</label>
+            <input type="text" [(ngModel)]="sectionLimits[i].section_code"
+                   class="glass-input" placeholder="e.g. 80C"
+                   [id]="'code-edit-'+i" />
+          </div>
+          <div class="form-group">
+            <label>Max Limit (₹)</label>
+            <input type="number" [(ngModel)]="sectionLimits[i].max_limit"
+                   class="glass-input" min="0"
+                   [attr.id]="'limit-edit-'+s.section_code" />
+          </div>
+          <div class="form-group">
+            <label>Financial Year</label>
+            <select [(ngModel)]="sectionLimits[i].financial_year"
+                    class="glass-input" [id]="'fy-edit-'+i">
+              <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+            </select>
+          </div>
+          <!-- Save single -->
+          <button class="save-single-btn"
+                  (click)="saveSingleSection(i)"
+                  [disabled]="isSavingSection[i]"
+                  [id]="'save-single-'+s.section_code">
+            <ion-spinner *ngIf="isSavingSection[i]" name="crescent" class="small-spinner"></ion-spinner>
+            <ion-icon *ngIf="!isSavingSection[i]" name="cloud-upload-outline"></ion-icon>
+            {{ isSavingSection[i] ? 'Saving…' : 'Save This Section' }}
+          </button>
+        </div>
       </div>
 
-      <button class="save-btn" (click)="saveSectionLimits()" [disabled]="isSavingSections" id="save-sections-btn">
-        <ion-spinner *ngIf="isSavingSections" name="crescent"></ion-spinner>
-        <ion-icon *ngIf="!isSavingSections" name="save-outline"></ion-icon>
-        {{ isSavingSections ? 'Saving...' : 'Save Section Limits' }}
+      <!-- Add Section placeholder card -->
+      <button class="add-section-card" (click)="addNewSection()" id="add-section-btn" type="button">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Add New Section</span>
       </button>
     </div>
+
+    <!-- ── Global Save All ── -->
+    <div class="sections-global-actions glass-card">
+      <div class="global-save-info">
+        <ion-icon name="information-circle-outline"></ion-icon>
+        <span>Saving all will push <strong>all {{ sectionLimits.length }} sections</strong> to the backend in one request.</span>
+      </div>
+      <button class="save-all-sections-btn"
+              (click)="saveSectionLimits()"
+              [disabled]="isSavingSections"
+              id="save-sections-btn">
+        <ion-spinner *ngIf="isSavingSections" name="crescent" class="small-spinner"></ion-spinner>
+        <ion-icon *ngIf="!isSavingSections" name="save-outline"></ion-icon>
+        {{ isSavingSections ? 'Saving All…' : 'Save All Section Limits' }}
+      </button>
+    </div>
+
   </div>
 
   <!-- ══════════════════════════════════

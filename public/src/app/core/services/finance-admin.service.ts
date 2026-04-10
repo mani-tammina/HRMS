@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable, BehaviorSubject } from 'rxjs';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
+import { Observable, BehaviorSubject, map } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
 export interface EmployeeInfo {
@@ -12,6 +12,7 @@ export interface EmployeeInfo {
   salary: number;
   joinDate: string;
   status: string;
+  profile_image?: string;
 }
 
 export interface DashboardStats {
@@ -51,16 +52,63 @@ export class FinanceAdminService {
    * @param search Search term for name/email
    */
   getWorkingEmployees(page: number = 1, pageSize: number = 20, search: string = ''): Observable<any> {
-    let url = `${this.baseUrl}/employees`;
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', pageSize.toString());
-    if (search) {
-      params.append('search', search);
-    }
-    params.append('status', 'Working'); // Only get working employees
+    const url = `${this.baseUrl}/employees`;
+    
+    let params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', pageSize.toString())
+      .set('status', 'Working');
 
-    return this.http.get<any>(`${url}?${params.toString()}`, { headers: this.getHeaders() });
+    if (search?.trim()) {
+      params = params.set('q', search.trim());
+    }
+
+    return this.http.get<any>(url, { params, headers: this.getHeaders() }).pipe(
+      map(res => {
+        const rawList = res.data || res || [];
+        const normalized = rawList.map((emp: any) => ({
+          id: emp.id || emp.EmployeeId,
+          name: emp.name || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || 'Unknown',
+          email: emp.email || emp.Email || '',
+          department: emp.department || emp.DepartmentName || emp.Department || 'General',
+          designation: emp.designation || emp.DesignationName || emp.Designation || 'Staff',
+          salary: Number(emp.salary || emp.BaseSalary || 0),
+          joinDate: emp.joinDate || emp.DateJoined || '',
+          status: emp.status || emp.EmploymentStatus || 'Working',
+          profile_image: emp.profile_image || emp.ProfileImage || ''
+        }));
+        return { ...res, data: normalized };
+      })
+    );
+  }
+
+  /**
+   * Search employees with specific query API
+   */
+  searchEmployees(query: string, page: number = 1, limit: number = 10006): Observable<any> {
+    const url = `${this.baseUrl}/employees/search/query`;
+    const params = new HttpParams()
+      .set('q', query)
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<any>(url, { params, headers: this.getHeaders() }).pipe(
+      map(res => {
+        const rawList = res.data || res || [];
+        const normalized = rawList.map((emp: any) => ({
+          id: emp.id || emp.EmployeeId,
+          name: emp.name || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || 'Unknown',
+          email: emp.email || emp.Email || '',
+          department: emp.department || emp.DepartmentName || emp.Department || 'General',
+          designation: emp.designation || emp.DesignationName || emp.Designation || 'Staff',
+          salary: Number(emp.salary || emp.BaseSalary || 0),
+          joinDate: emp.joinDate || emp.DateJoined || '',
+          status: emp.status || emp.EmploymentStatus || 'Working',
+          profile_image: emp.profile_image || emp.ProfileImage || ''
+        }));
+        return { ...res, data: normalized };
+      })
+    );
   }
 
   /**
@@ -113,5 +161,50 @@ export class FinanceAdminService {
    */
   updateDashboardStats(stats: DashboardStats): void {
     this.dashboardStatsSubject.next(stats);
+  }
+
+  // ─────────────────────────────────────────────
+  // Section: Payroll Contract Management
+  // ─────────────────────────────────────────────
+
+  /**
+   * List contracts for an employee
+   */
+  getEmployeeContracts(employeeId: number): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts`;
+    const params = new HttpParams().set('employee_id', employeeId.toString());
+    return this.http.get<any>(url, { params, headers: this.getHeaders() });
+  }
+
+  /**
+   * Get specific contract by ID
+   */
+  getContractById(contractId: number): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
+    return this.http.get<any>(url, { headers: this.getHeaders() });
+  }
+
+  /**
+   * Create new contract
+   */
+  createContract(payload: any): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts`;
+    return this.http.post<any>(url, payload, { headers: this.getHeaders() });
+  }
+
+  /**
+   * Update existing contract (PUT)
+   */
+  updateContract(contractId: number, payload: any): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
+    return this.http.put<any>(url, payload, { headers: this.getHeaders() });
+  }
+
+  /**
+   * Terminate/Delete contract with optional payload (DELETE)
+   */
+  terminateContract(contractId: number, payload: any): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
+    return this.http.delete<any>(url, { body: payload, headers: this.getHeaders() });
   }
 }

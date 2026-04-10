@@ -142,6 +142,26 @@ export interface SectionLimit {
   section_code: string;
   max_limit: number;
   financial_year: string;
+  is_active?: boolean;
+}
+
+export interface PayrollValidationResult {
+  success: boolean;
+  can_proceed: boolean;
+  errors: string[];
+  warnings: string[];
+  missing_bank_accounts: number;
+  missing_tax_regimes: number;
+  pending_attendance: number;
+}
+
+export interface PayrollPreviewResponse {
+  success: boolean;
+  total_employees: number;
+  gross_sum: number;
+  tax_sum: number;
+  net_sum: number;
+  preview_data: any[];
 }
 
 export interface LOPRecord {
@@ -395,6 +415,32 @@ export class PayrollApiService {
     return this.http.post(`${this.baseUrl}/payroll/v2/runs/${runId}/lock`, {}, { headers: this.getHeaders() });
   }
 
+  /** GET /api/payroll/v2/runs/validate?month=YYYY-MM — Validate payroll for a month */
+  validatePayroll(month: string): Observable<PayrollValidationResult> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get<PayrollValidationResult>(`${this.baseUrl}/payroll/v2/runs/validate`, { headers: this.getHeaders(), params });
+  }
+
+  /** POST /api/payroll/v2/runs/preview — Perform a dry run / preview */
+  previewPayroll(payload: V2RunPayload): Observable<PayrollPreviewResponse> {
+    return this.http.post<PayrollPreviewResponse>(`${this.baseUrl}/payroll/v2/runs/preview`, payload, { headers: this.getHeaders() });
+  }
+
+  /** POST /api/payroll/v2/runs/:runId/review — Submit payroll for review */
+  reviewPayroll(runId: number, notes?: string): Observable<any> {
+    return this.http.post(`${this.baseUrl}/payroll/v2/runs/${runId}/review`, { notes }, { headers: this.getHeaders() });
+  }
+
+  /** POST /api/payroll/v2/runs/:runId/paid — Mark a payroll run as paid */
+  markAsPaid(runId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/payroll/v2/runs/${runId}/paid`, {}, { headers: this.getHeaders() });
+  }
+
+  /** POST /api/payroll/v2/runs/:runId/notify — Notify employees of payslip availability */
+  notifyEmployees(runId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/payroll/v2/runs/${runId}/notify`, {}, { headers: this.getHeaders() });
+  }
+
   /** PUT /api/payroll/v2/cycles/:cycleId/lock — Lock a payroll cycle */
   lockPayrollCycle(cycleId: number): Observable<any> {
     return this.http.put(`${this.baseUrl}/payroll/v2/cycles/${cycleId}/lock`, {}, { headers: this.getHeaders() });
@@ -605,9 +651,10 @@ export class PayrollApiService {
   }
 
   /** GET /api/admin/verification-queue?status=PENDING — Get admin verification queue */
-  getVerificationQueue(status?: string): Observable<VerificationQueueResponse> {
+  getVerificationQueue(status?: string, financialYear?: string): Observable<VerificationQueueResponse> {
     let params = new HttpParams();
     if (status) params = params.set('status', status);
+    if (financialYear) params = params.set('financial_year', financialYear);
     return this.http.get<VerificationQueueResponse>(`${this.baseUrl}/admin/verification-queue`, { headers: this.getHeaders(), params });
   }
 

@@ -1199,16 +1199,16 @@
   .cosmic-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    gap: 16px;
     position: relative;
     z-index: 10;
   }
 
   .cosmic-card {
     position: relative;
-    border-radius: 28px;
-    padding: 24px;
-    min-height: 180px;
+    border-radius: 20px;
+    padding: 16px;
+    min-height: 110px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
@@ -1244,20 +1244,20 @@
     }
 
     .icon-image-box {
-      width: 72px;
-      height: 72px;
+      width: 44px;
+      height: 44px;
       background: rgba(255, 255, 255, 0.1);
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       backdrop-filter: blur(5px);
-      margin-bottom: 12px;
+      margin-bottom: 8px;
       box-shadow: inset 0 0 10px rgba(255, 255, 255, 0.1);
 
       img {
-        width: 50px;
-        height: 50px;
+        width: 24px;
+        height: 24px;
         object-fit: contain;
         filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.3));
       }
@@ -1267,19 +1267,19 @@
       .cosmic-label-pill {
         display: inline-block;
         background: rgba(255, 255, 255, 0.08);
-        padding: 6px 16px;
-        border-radius: 12px;
-        font-size: 13px;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-size: 10px;
         font-weight: 700;
         color: rgba(255, 255, 255, 0.7);
         text-transform: uppercase;
         letter-spacing: 0.8px;
-        margin-bottom: 10px;
+        margin-bottom: 6px;
         border: 1px solid rgba(255, 255, 255, 0.1);
       }
 
       .cosmic-value {
-        font-size: 32px;
+        font-size: 22px;
         font-weight: 800;
         color: #fff;
         margin: 0;
@@ -1293,16 +1293,16 @@
     grid-column: span 2;
     display: flex;
     justify-content: center;
-    margin-top: 16px;
+    margin-top: 12px;
 
     .cosmic-mode-tag {
       background: rgba(255, 255, 255, 0.05);
       border: 1px solid rgba(255, 255, 255, 0.1);
-      padding: 14px 40px;
+      padding: 10px 24px;
       border-radius: 30px;
       color: #ff8c00;
       font-weight: 700;
-      font-size: 18px;
+      font-size: 14px;
       backdrop-filter: blur(15px);
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
       transition: vars.$transition-smooth;

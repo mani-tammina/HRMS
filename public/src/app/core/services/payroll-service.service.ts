@@ -196,4 +196,20 @@ export class PayrollService {
   deleteStructureComposition(structureId: number, componentId: number): Observable<any> {
     return this.http.delete(`${this.payrollUrl}components/${componentId}`, { headers: this.getHeaders() });
   }
+
+  // 📄 Contract Management (Employee Template Mapping)
+  getContracts(employeeId?: number): Observable<any> {
+    const url = employeeId ? `${this.payrollUrl}contracts?employee_id=${employeeId}` : `${this.payrollUrl}contracts`;
+    return this.http.get(url, { headers: this.getHeaders() });
+  }
+
+  createContract(payload: {
+    employee_id: number;
+    template_id: number;
+    annual_ctc: number;
+    effective_from: string;
+    effective_to?: string;
+  }): Observable<any> {
+    return this.http.post(`${this.payrollUrl}contracts`, payload, { headers: this.getHeaders() });
+  }
 }

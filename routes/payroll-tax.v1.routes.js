@@ -743,6 +743,14 @@ router.get("/employee/tax/computation", async (req, res) => {
       [employee.id, fyWindow.start, fyWindow.end],
     );
 
+    const [contractRows] = await c.query(
+      `SELECT annual_ctc FROM employee_salary_contracts 
+       WHERE employee_id = ? 
+       ORDER BY effective_from DESC, contract_id DESC LIMIT 1`,
+      [employee.id]
+    );
+    const contractCTC = contractRows.length > 0 ? Number(contractRows[0].annual_ctc) : 0;
+
     const [earningRows] = await c.query(
       `SELECT COALESCE(SUM(s.gross_earnings),0) as annual_gross,
               COALESCE(SUM(s.total_deductions),0) as annual_deductions,
@@ -764,20 +772,33 @@ router.get("/employee/tax/computation", async (req, res) => {
 
     const regime = profile?.tax_regime || "OLD";
     const annualGross = Number(earningRows[0]?.annual_gross || 0);
-    const taxCalc = await calculateTaxBySlabs(c, annualGross, totalDeclared, regime, financialYear);
+    
+    // For tax projection, if actual income is less than CTC, use CTC (or max of both)
+    const grossForTax = Math.max(annualGross, contractCTC);
+    
+    const taxCalc = await calculateTaxBySlabs(c, grossForTax, totalDeclared, regime, financialYear);
 
     res.json({
       success: true,
       employee_id: employee.id,
       financial_year: financialYear,
-      tax_regime: regime,
+      regime_type: regime, // Changed from tax_regime to match frontend interface
+      gross_annual_income: grossForTax, // Added to top level to match frontend interface
       annual_summary: {
         annual_gross: annualGross,
+        contract_ctc: contractCTC,
         annual_deductions: Number(earningRows[0]?.annual_deductions || 0),
         annual_net: Number(earningRows[0]?.annual_net || 0),
         declared_investments_total: Number(totalDeclared.toFixed(2)),
       },
       computed_tax: taxCalc,
+      total_deductions: totalDeclared, // Added to top level
+      taxable_income: taxCalc.taxable_income,
+      income_tax: taxCalc.base_tax,
+      cess: taxCalc.cess,
+      surcharge: taxCalc.surcharge,
+      total_tax_liability: taxCalc.total_tax,
+      monthly_tds: taxCalc.monthly_tds,
       statutory_deductions: taxLines,
       declaration: declared,
     });

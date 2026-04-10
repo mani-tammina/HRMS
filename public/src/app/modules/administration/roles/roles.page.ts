@@ -69,6 +69,7 @@ export class RolesPage implements OnInit {
 
     switch (role) {
       case 'admin': action = this.adminService.makeAdmin(userId); break;
+      case 'finance': action = this.adminService.makeFinance(userId); break;
       case 'manager': action = this.adminService.makeManager(userId); break;
       case 'hr': action = this.adminService.makeHR(userId); break;
       case 'employee': action = this.adminService.makeEmployee(userId); break;

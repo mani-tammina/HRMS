@@ -14,7 +14,7 @@ router.post("/login", async (req, res) => {
     const [u] = await c.query("SELECT * FROM users WHERE username=?", [
       req.body.username,
     ]);
-    
+
     if (!u.length)
       return res.status(401).json({ message: "Invalid credentials" });
 
@@ -54,8 +54,7 @@ router.post("/logout", auth, async (req, res) => {
       );
 
     console.log(
-      `User ${req.user.id} (${
-        req.user.role
+      `User ${req.user.id} (${req.user.role
       }) logged out at ${new Date().toISOString()}`
     );
 
@@ -344,15 +343,15 @@ async function checkManagerRole(email) {
     currentUserAccount:
       user.length > 0
         ? {
-            exists: true,
-            username: user[0].username,
-            role: user[0].role,
-            fullName: user[0].full_name,
-            roleMatch: user[0].role === suggestedRole,
-          }
+          exists: true,
+          username: user[0].username,
+          role: user[0].role,
+          fullName: user[0].full_name,
+          roleMatch: user[0].role === suggestedRole,
+        }
         : {
-            exists: false,
-          },
+          exists: false,
+        },
   };
 }
 
@@ -641,8 +640,8 @@ router.post("/user/create-auto", async (req, res) => {
         assignedRole === "hr"
           ? "Department is Human Resource"
           : assignedRole === "manager"
-          ? "Has more than 4 direct reports"
-          : "Default role (less than 5 direct reports and not HR department)",
+            ? "Has more than 4 direct reports"
+            : "Default role (less than 5 direct reports and not HR department)",
     });
   } catch (err) {
     c.end();
@@ -966,10 +965,10 @@ router.put("/users/:id/role", auth, hr, async (req, res) => {
   }
 
   const { role } = req.body;
-  if (!role || !["admin", "employee", "hr", "manager"].includes(role)) {
+  if (!role || !["admin", "employee", "hr", "manager", "finance"].includes(role)) {
     return res
       .status(400)
-      .json({ error: "Valid role required (admin, employee, hr, manager)" });
+      .json({ error: "Valid role required (admin, employee, hr, manager, finance)" });
   }
 
   const c = await db();
@@ -1122,6 +1121,45 @@ router.post("/users/:id/make-admin", auth, async (req, res) => {
   }
 });
 
+// Make user Financial Admin
+router.post("/users/:id/make-finance", auth, async (req, res) => {
+  if (req.user.role !== "admin") {
+    return res
+      .status(403)
+      .json({ error: "Access denied. Admin role required." });
+  }
+
+  const c = await db();
+  try {
+    const [user] = await c.query(
+      "SELECT id, username, role FROM users WHERE id = ?",
+      [req.params.id]
+    );
+    if (!user.length) {
+      c.end();
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await c.query("UPDATE users SET role = 'finance' WHERE id = ?", [
+      req.params.id,
+    ]);
+    c.end();
+    res.json({
+      message: "User promoted to Financial Admin successfully",
+      user: {
+        id: user[0].id,
+        username: user[0].username,
+        previousRole: user[0].role,
+        newRole: "finance",
+      },
+    });
+  } catch (err) {
+    c.end();
+    console.error("make finance error", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Demote user to Employee
 router.post("/users/:id/make-employee", auth, async (req, res) => {
   if (req.user.role !== "admin") {
@@ -1187,7 +1225,7 @@ router.post("/users/bulk-role-update", auth, async (req, res) => {
       if (
         !userId ||
         !role ||
-        !["admin", "hr", "manager", "employee"].includes(role)
+        !["admin", "hr", "manager", "employee", "finance"].includes(role)
       ) {
         results.push({
           userId,

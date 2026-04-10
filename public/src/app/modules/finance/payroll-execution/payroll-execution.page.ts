@@ -45,6 +45,16 @@ export class PayrollExecutionPage implements OnInit {
   reconcileMonth = '';
   isLoadingRecon = false;
 
+  // ── Stepped Workflow ──
+  currentStep: 'setup' | 'validate' | 'preview' | 'execute' | 'payout' | 'finalize' = 'setup';
+  validationResult: any = null;
+  previewData: any = null;
+  activeRunId: number | null = null;
+  isValidating = false;
+  isPreviewing = false;
+  isInitiatingPayout = false;
+  isNotifying = false;
+
   currentMonthStr: string;
 
   constructor(
@@ -176,18 +186,8 @@ export class PayrollExecutionPage implements OnInit {
     const [year, month] = payrollMonth.split('-').map(Number);
 
     if (useV2) {
-      this.payrollApi.runV2Payroll({ year, month }).subscribe({
-        next: (res) => {
-          this.lastRunResult = { ...res, type: 'v2' };
-          loading.dismiss();
-          this.isRunning = false;
-          this.toaster.showSuccess(`V2 Payroll run complete. ${res.processed_employees} employees processed.`);
-          this.loadPayrollRuns();
-        },
-        error: (err) => {
-          this.tryAdvancedRun(payrollMonth, notes, loading);
-        }
-      });
+      this.currentStep = 'validate';
+      this.validaPayrollStep(payrollMonth);
     } else {
       this.payrollApi.generatePayroll({ month, year }).subscribe({
         next: (res) => {
@@ -204,6 +204,111 @@ export class PayrollExecutionPage implements OnInit {
         }
       });
     }
+  }
+
+  // ─────────────────────────────────────────────
+  // V2 Stepped Workflow Implementation
+  // ─────────────────────────────────────────────
+
+  async validaPayrollStep(month: string) {
+    this.isValidating = true;
+    this.payrollApi.validatePayroll(month).subscribe({
+      next: (res) => {
+        this.validationResult = res;
+        this.isValidating = false;
+        if (res.can_proceed) {
+          this.currentStep = 'preview';
+          this.previewPayrollStep(month);
+        } else {
+          this.toaster.showError('Validation failed. Please fix errors before proceeding.');
+        }
+      },
+      error: () => {
+        this.isValidating = false;
+        this.currentStep = 'setup';
+        this.toaster.showError('Validation API failed');
+      }
+    });
+  }
+
+  async previewPayrollStep(month: string) {
+    this.isPreviewing = true;
+    const [year, m] = month.split('-').map(Number);
+    this.payrollApi.previewPayroll({ year, month: m }).subscribe({
+      next: (res) => {
+        this.previewData = res;
+        this.isPreviewing = false;
+      },
+      error: () => {
+        this.isPreviewing = false;
+        this.toaster.showError('Preview failed');
+      }
+    });
+  }
+
+  async executeV2Run() {
+    const { payroll_month } = this.runForm.value;
+    const [year, month] = payroll_month.split('-').map(Number);
+    
+    this.isRunning = true;
+    this.payrollApi.runV2Payroll({ year, month }).subscribe({
+      next: (res) => {
+        this.activeRunId = res.run_id;
+        this.lastRunResult = res;
+        this.isRunning = false;
+        this.currentStep = 'payout';
+        this.toaster.showSuccess('Payroll executed successfully. Ready for Payout.');
+      },
+      error: () => {
+        this.isRunning = false;
+        this.toaster.showError('Execution failed');
+      }
+    });
+  }
+
+  async initiatePayout() {
+    if (!this.activeRunId) return;
+    this.isInitiatingPayout = true;
+    this.payrollApi.initiatePayouts({
+      run_id: this.activeRunId,
+      payout_date: new Date().toISOString().split('T')[0],
+      payment_mode: 'BANK_TRANSFER'
+    }).subscribe({
+      next: () => {
+        this.isInitiatingPayout = false;
+        this.currentStep = 'finalize';
+        this.toaster.showSuccess('Payout initiated successfully');
+      },
+      error: () => {
+        this.isInitiatingPayout = false;
+        this.toaster.showError('Payout initiation failed');
+      }
+    });
+  }
+
+  async finalizeRun() {
+    if (!this.activeRunId) return;
+    this.isNotifying = true;
+    this.payrollApi.notifyEmployees(this.activeRunId).subscribe({
+      next: () => {
+        this.isNotifying = false;
+        this.resetWorkflow();
+        this.toaster.showSuccess('Employees notified and payslips released.');
+        this.loadPayrollRuns();
+      },
+      error: () => {
+        this.isNotifying = false;
+        this.toaster.showError('Finalization failed');
+      }
+    });
+  }
+
+  resetWorkflow() {
+    this.currentStep = 'setup';
+    this.validationResult = null;
+    this.previewData = null;
+    this.activeRunId = null;
+    this.lastRunResult = null;
   }
 
   private tryAdvancedRun(payrollMonth: string, notes: string, loading: any) {

@@ -1,0 +1,309 @@
+<ion-header class="assignment-header">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-back-button *ngIf="!selectedEmployee" defaultHref="/finance/admin"></ion-back-button>
+      <ion-button *ngIf="selectedEmployee" (click)="deselectEmployee()">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>{{ selectedEmployee ? 'Manage Contracts' : 'Payroll Assignment (HR)' }}</ion-title>
+  </ion-toolbar>
+
+  <div class="search-container" *ngIf="!selectedEmployee">
+    <div class="glass-search">
+      <ion-icon name="search-outline"></ion-icon>
+      <input type="text" placeholder="Search employees by name or ID..." (input)="onSearch($event)" />
+    </div>
+  </div>
+</ion-header>
+
+<ion-content class="assignment-content">
+  <div class="assignment-container">
+
+    <!-- 🟢 VIEW A: EMPLOYEE LIST -->
+    <div *ngIf="!selectedEmployee">
+      <div class="view-header">
+        <h2>Employee Salary Mapping</h2>
+        <p>Assign payroll structures and set CTC for employees</p>
+      </div>
+
+      <!-- Loading State -->
+      <div *ngIf="isLoading" class="loader-wrap">
+        <ion-spinner name="crescent"></ion-spinner>
+        <p>Fetching workforce records...</p>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading && filteredEmployees.length === 0" class="empty-wrap">
+        <ion-icon name="people-outline"></ion-icon>
+        <h3>No Employees Found</h3>
+        <p>Adjust your search filters or check system records.</p>
+      </div>
+
+      <!-- Employee Grid -->
+      <div *ngIf="!isLoading && filteredEmployees.length > 0" class="employee-grid">
+        <div *ngFor="let emp of filteredEmployees" class="emp-card glass-card" (click)="selectEmployee(emp)">
+          <div class="emp-info">
+            <div class="avatar-box">
+              {{ emp.name.charAt(0) }}
+            </div>
+            <div class="meta">
+              <span class="name">{{ emp.name }}</span>
+              <span class="dept">{{ emp.department }} • {{ emp.designation }}</span>
+            </div>
+          </div>
+
+          <!-- <div class="salary-box">
+            <span class="label">Current CTC</span>
+            <span class="value">{{ formatCurrency(emp.salary) }}</span>
+          </div> -->
+
+          <div class="card-footer">
+            <button class="action-btn">
+              <ion-icon name="eye-outline"></ion-icon>
+              View Contracts
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 🔵 VIEW B: CONTRACT MANAGEMENT (TIMELINE DASHBOARD) -->
+    <div *ngIf="selectedEmployee" class="manage-view animate-in">
+
+      <!-- Premium Detail Header -->
+      <div class="view-header-detail">
+        <div class="emp-profile-luxe">
+          <div class="profile-avatar-box">
+            <div class="avatar-glow"></div>
+            <span>{{ selectedEmployee.name.charAt(0) }}</span>
+          </div>
+          <div class="profile-meta-luxe">
+            <h2>{{ selectedEmployee.name }}</h2>
+            <div class="sub-meta">
+              <span class="m-item"><ion-icon name="mail-outline"></ion-icon> {{ selectedEmployee.email }}</span>
+              <span class="m-divider"></span>
+              <span class="m-item"><ion-icon name="finger-print-outline"></ion-icon> ID: {{ selectedEmployee.id
+                }}</span>
+            </div>
+          </div>
+        </div>
+        <button class="neon-btn mini" (click)="openAssignmentModal()">
+          <ion-icon name="add-circle-outline"></ion-icon>
+          Create New Assignment
+        </button>
+      </div>
+
+      <div *ngIf="isLoadingContracts" class="loader-wrap">
+        <ion-spinner name="bubbles" color="primary"></ion-spinner>
+        <p>Assembling fiscal timeline...</p>
+      </div>
+
+      <!-- Empty Timeline -->
+      <div *ngIf="!isLoadingContracts && employeeContracts.length === 0" class="empty-timeline">
+        <div class="empty-glow"></div>
+        <ion-icon name="layers-outline"></ion-icon>
+        <h3>No active assignments</h3>
+        <p>This employee is currently outside the payroll cycle. Initiate an assignment to begin tracking.</p>
+        <button class="glass-btn-large" (click)="openAssignmentModal()">
+          Assign Initial Structure
+        </button>
+      </div>
+
+      <!-- Chronological Contract List -->
+      <div *ngIf="!isLoadingContracts && employeeContracts.length > 0" class="contracts-stack">
+        <div class="stack-line"></div>
+
+        <div class="contract-strip-card" *ngFor="let contract of employeeContracts; let i = index"
+          [class.active-strip]="contract.status?.toLowerCase() === 'active'">
+
+          <div class="timeline-dot" [class.dot-active]="contract.status?.toLowerCase() === 'active'">
+            <div class="dot-inner"></div>
+          </div>
+
+          <div class="strip-content glass-card">
+            <div class="strip-header">
+              <div class="title-group">
+                <span class="category-tag">PAYROLL PATTERN</span>
+                <h3>{{ contract.template_name || 'Individual Structure' }}</h3>
+              </div>
+              <div class="badge-group">
+                <span class="strip-status" [class.st-active]="contract.status?.toLowerCase() === 'active'">
+                  <ion-icon name="radio-button-on-outline"></ion-icon>
+                  {{ contract.status }}
+                </span>
+              </div>
+            </div>
+
+            <div class="strip-body">
+              <div class="info-metric">
+                <ion-icon name="cash-outline"></ion-icon>
+                <div class="m-val">
+                  <label>Annual CTC</label>
+                  <span>{{ formatCurrency(contract.annual_ctc) }}</span>
+                </div>
+              </div>
+
+              <div class="info-metric">
+                <ion-icon name="calendar-clear-outline"></ion-icon>
+                <div class="m-val">
+                  <label>Effective Period</label>
+                  <span>
+                    {{ contract.effective_from | date:'MMM yyyy' }}
+                    <ion-icon name="arrow-forward-outline" class="date-sep"></ion-icon>
+                    {{ contract.effective_to ? (contract.effective_to | date:'MMM yyyy') : 'Ongoing' }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="strip-actions">
+                <button class="action-circle edit" title="Edit Parameters" (click)="openAssignmentModal(contract)">
+                  <ion-icon name="create-outline"></ion-icon>
+                  <span>Manage</span>
+                </button>
+                <button *ngIf="contract.status?.toLowerCase() === 'active'" class="action-circle term"
+                  title="Terminate Membership" (click)="deleteContract(contract.id || contract.contract_id)">
+                  <ion-icon name="trash-outline"></ion-icon>
+                  <span>Terminate</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 🔮 Assignment/Edit Modal -->
+  <ion-modal [isOpen]="isModalOpen" (didDismiss)="closeModal()" class="assignment-modal glass-modal">
+    <ng-template>
+      <div class="modal-wrapper animate-in">
+        <div class="modal-header-gradient">
+
+          <div class="header-main d-flex">
+            <div class="modal-icon-badge">
+              <ion-icon [name]="editingContractId ? 'create-outline' : 'sparkles-outline'"></ion-icon>
+            </div>
+            <div style="margin-left: 15px;">
+              <h2>{{ editingContractId ? 'Edit Contract' : 'New Assignment' }}</h2>
+              <p>Define salary structure and fiscal commitment</p>
+            </div>
+
+          </div>
+          <div class="header-action close-algn">
+            <ion-button fill="clear" (click)="closeModal()">
+              <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+
+        <ion-content class="modal-body-content">
+          <div class="form-container">
+
+            <!-- Employee Banner -->
+            <div *ngIf="selectedEmployee" class="emp-summary-card">
+              <div class="s-avatar">{{ selectedEmployee.name.charAt(0) }}</div>
+              <div class="s-meta">
+                <span class="s-name">{{ selectedEmployee.name }}</span>
+                <span class="s-sub">{{ selectedEmployee.email }}</span>
+              </div>
+              <div class="s-badge">EMPLOYEE</div>
+            </div>
+
+            <form [formGroup]="assignmentForm" class="beauty-form">
+
+              <div class="form-section">
+                <div class="section-title">
+                  <ion-icon name="layers-outline"></ion-icon>
+                  Payroll Configuration
+                </div>
+
+                <div class="form-group-lux">
+                  <label>Salary Template</label>
+                  <div class="select-wrapper">
+                    <select formControlName="template_id" class="lux-input">
+                      <option value="">Choose a Template...</option>
+                      <option *ngFor="let temp of templates" [value]="temp.template_id || temp.id">
+                        {{ temp.template_name || temp.name }}
+                      </option>
+                    </select>
+                    <ion-icon name="chevron-down-outline" class="select-chevron"></ion-icon>
+                  </div>
+                  <p class="input-hint">Map components based on the selected pattern.</p>
+                </div>
+              </div>
+
+              <div class="form-section">
+                <div class="section-title">
+                  <ion-icon name="cash-outline"></ion-icon>
+                  Compensation Details
+                </div>
+
+                <div class="form-group-lux">
+                  <label>Annual CTC (Gross)</label>
+                  <div class="input-wrapper-lux">
+                    <span class="curr-prefix">₹</span>
+                    <input type="number" formControlName="annual_ctc" class="lux-input" placeholder="e.g. 15,00,000" />
+                  </div>
+                  <div class="monthly-preview" *ngIf="assignmentForm.get('annual_ctc')?.value">
+                    Est. Monthly Gross: <strong>{{ formatCurrency(assignmentForm.get('annual_ctc')?.value / 12)
+                      }}</strong>
+                  </div>
+                </div>
+
+                <div class="grid-row">
+                  <div class="form-group-lux">
+                    <label>Valid From</label>
+                    <input type="date" formControlName="effective_from" class="lux-input" />
+                  </div>
+                  <div class="form-group-lux">
+                    <label>Valid Until</label>
+                    <input type="date" formControlName="effective_to" class="lux-input" placeholder="Ongoing" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-section no-border" *ngIf="editingContractId">
+                <div class="section-title">
+                  <ion-icon name="shield-checkmark-outline"></ion-icon>
+                  Lifecycle Management
+                </div>
+                <div class="form-group-lux">
+                  <label>Contract Status</label>
+                  <div class="status-grid">
+                    <button type="button" class="st-option"
+                      [class.active-st]="assignmentForm.get('status')?.value === 'Active'"
+                      (click)="assignmentForm.patchValue({status: 'Active'})">
+                      Active
+                    </button>
+                    <button type="button" class="st-option inv"
+                      [class.active-st-inv]="assignmentForm.get('status')?.value === 'Inactive'"
+                      (click)="assignmentForm.patchValue({status: 'Inactive'})">
+                      Inactive
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </form>
+          </div>
+        </ion-content>
+
+        <div class="modal-footer-lux">
+          <div class="footer-note">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            {{ editingContractId ? 'Changes will reflect in the next payroll execution.' : 'A new assignment replaces
+            any previous active pattern.' }}
+          </div>
+          <button class="prime-action-btn" [disabled]="assignmentForm.invalid || isSaving" (click)="saveAssignment()">
+            <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+            <span *ngIf="!isSaving">
+              {{ editingContractId ? 'Update Assignment' : 'Assign Structure' }}
+            </span>
+          </button>
+        </div>
+      </div>
+    </ng-template>
+  </ion-modal>
+
+</ion-content>

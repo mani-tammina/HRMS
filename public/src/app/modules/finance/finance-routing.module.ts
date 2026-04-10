@@ -33,6 +33,10 @@ const routes: Routes = [
   {
     path: 'tax-admin',
     loadChildren: () => import('./tax-admin/tax-admin.module').then(m => m.TaxAdminPageModule)
+  },
+  {
+    path: 'assignment',
+    loadChildren: () => import('./payroll-assignment/payroll-assignment.module').then(m => m.PayrollAssignmentPageModule)
   }
 ];
 

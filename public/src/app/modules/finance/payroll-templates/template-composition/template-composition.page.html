@@ -24,6 +24,19 @@
           <ion-icon name="add-circle-outline" slot="start"></ion-icon>
           Add Component
         </ion-button>
+        <div class="ctc-preview-wrap">
+          <label class="ctc-label">
+            <ion-icon name="calculator-outline"></ion-icon>
+            Preview CTC (₹)
+          </label>
+          <input
+            type="number"
+            class="ctc-input"
+            [value]="sampleCTC"
+            (change)="onSampleCTCChange($event)"
+            placeholder="e.g. 800000"
+          />
+        </div>
       </div>
     </div>
 
@@ -33,21 +46,21 @@
         <div class="summary-icon"><ion-icon name="wallet-outline"></ion-icon></div>
         <div class="summary-content">
           <span class="summary-label">Total Earnings</span>
-          <span class="summary-value">{{ totalEarnings | number:'1.2-2' }}%</span>
+          <span class="summary-value">₹{{ totalEarnings | number:'1.0-0' }}</span>
         </div>
       </div>
       <div class="summary-card deductions">
         <div class="summary-icon"><ion-icon name="trending-down-outline"></ion-icon></div>
         <div class="summary-content">
           <span class="summary-label">Total Deductions</span>
-          <span class="summary-value">{{ totalDeductions | number:'1.2-2' }}%</span>
+          <span class="summary-value">₹{{ totalDeductions | number:'1.0-0' }}</span>
         </div>
       </div>
       <div class="summary-card net">
         <div class="summary-icon"><ion-icon name="calculator-outline"></ion-icon></div>
         <div class="summary-content">
-          <span class="summary-label">Net Percentage</span>
-          <span class="summary-value">{{ (totalEarnings - totalDeductions) | number:'1.2-2' }}%</span>
+          <span class="summary-label">Net Pay</span>
+          <span class="summary-value">₹{{ (totalEarnings - totalDeductions) | number:'1.0-0' }}</span>
         </div>
       </div>
     </div>
@@ -98,8 +111,12 @@
               </div>
             </span>
             <span class="col-value">
-              <span class="amt-text">{{ comp.value }}</span>
-              <span class="unit" *ngIf="comp.calculation_type === 'PERCENTAGE'">%</span>
+              <div class="value-cell">
+                <span class="amt-text">₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</span>
+                <span class="sub-text" *ngIf="getCalculationLabel(comp)">
+                  {{ getCalculationLabel(comp) }}
+                </span>
+              </div>
             </span>
             <span class="col-status text-center">
               <ion-icon [name]="comp.is_taxable ? 'shield-checkmark' : 'shield-outline'"
@@ -154,7 +171,7 @@
             <label>Master Component</label>
             <select formControlName="component_id" class="glass-select">
               <option [ngValue]="null">Choose Component...</option>
-              <option *ngFor="let comp of availableComponents" [value]="comp.id">
+              <option *ngFor="let comp of availableComponents" [value]="comp.component_id">
                 {{ comp.name }} ({{ comp.code }})
               </option>
             </select>

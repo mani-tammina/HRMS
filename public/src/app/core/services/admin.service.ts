@@ -201,6 +201,9 @@ export class AdminService {
   makeAdmin(userId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/users/${userId}/make-admin`, {});
   }
+  makeFinance(userId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/users/${userId}/make-finance`, {});
+  }
   createUser(payload: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/user/create`, payload);
   }

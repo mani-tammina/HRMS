@@ -29,55 +29,125 @@
   ══════════════════════════════════════════════ -->
   <div *ngIf="activeTab==='run'" class="tab-panel">
 
-    <!-- Run Payroll Card -->
+    <!-- Stepped Run Payroll Card -->
     <div class="glass-card run-card">
       <div class="card-header">
         <div class="card-icon run-icon">
           <ion-icon name="flash-outline"></ion-icon>
         </div>
         <div>
-          <h2>Run Payroll</h2>
-          <p>Calculate and process salaries for a payroll month</p>
+          <h2>Payroll Suite <span class="v2-tag">V2</span></h2>
+          <p>Stepped execution for 100% accuracy</p>
         </div>
+        <button *ngIf="currentStep !== 'setup'" class="text-btn" (click)="resetWorkflow()">Reset</button>
       </div>
 
-      <form [formGroup]="runForm" class="run-form">
+      <!-- Step Indicator -->
+      <div class="step-indicator">
+        <div class="step" [class.active]="currentStep === 'validate'" [class.completed]="currentStep !== 'setup' && currentStep !== 'validate'">1</div>
+        <div class="step-line"></div>
+        <div class="step" [class.active]="currentStep === 'preview'" [class.completed]="['execute','payout','finalize'].includes(currentStep)">2</div>
+        <div class="step-line"></div>
+        <div class="step" [class.active]="currentStep === 'execute'" [class.completed]="['payout','finalize'].includes(currentStep)">3</div>
+        <div class="step-line"></div>
+        <div class="step" [class.active]="currentStep === 'payout'" [class.completed]="currentStep === 'finalize'">4</div>
+      </div>
+
+      <!-- STEP 0: SETUP -->
+      <form *ngIf="currentStep === 'setup'" [formGroup]="runForm" class="run-form animate-in">
         <div class="form-row">
           <div class="form-group">
-            <label>Payroll Month</label>
+            <label>Select Payroll Month</label>
             <input type="month" formControlName="payroll_month" class="glass-input" id="payroll-month-input" />
           </div>
           <div class="form-group">
-            <label>Engine</label>
+            <label>Processing Mode</label>
             <div class="toggle-row">
               <span [class.muted]="runForm.value.use_v2">Legacy</span>
               <ion-toggle formControlName="use_v2" color="primary"></ion-toggle>
-              <span [class.muted]="!runForm.value.use_v2">V2 (Recommended)</span>
+              <span [class.muted]="!runForm.value.use_v2">Standard V2</span>
             </div>
           </div>
         </div>
-        <div class="form-group">
-          <label>Notes (optional)</label>
-          <textarea formControlName="notes" class="glass-input" rows="2" placeholder="e.g. March 2025 — includes Q4 bonus" id="payroll-notes-input"></textarea>
-        </div>
-
-        <button class="run-btn" [disabled]="isRunning || runForm.invalid" (click)="onRunPayroll()" id="run-payroll-btn">
-          <ion-spinner *ngIf="isRunning" name="crescent"></ion-spinner>
-          <ion-icon *ngIf="!isRunning" name="flash-outline"></ion-icon>
-          {{ isRunning ? 'Processing...' : 'Run Payroll' }}
+        <button class="run-btn primary" [disabled]="isRunning || runForm.invalid" (click)="onRunPayroll()" id="run-payroll-btn">
+          Start Processing
+          <ion-icon name="arrow-forward-outline"></ion-icon>
         </button>
       </form>
 
-      <!-- Result Banner -->
-      <div *ngIf="lastRunResult" class="result-banner success-banner">
-        <ion-icon name="checkmark-circle-outline"></ion-icon>
-        <div class="result-details">
-          <span class="result-title">Payroll Processed Successfully</span>
-          <span *ngIf="lastRunResult.run_id">Run ID: <strong>{{ lastRunResult.run_id }}</strong></span>
-          <span *ngIf="lastRunResult.processed">Employees: <strong>{{ lastRunResult.processed }}</strong></span>
-          <span *ngIf="lastRunResult.processed_employees">Employees: <strong>{{ lastRunResult.processed_employees }}</strong></span>
-          <span *ngIf="lastRunResult.total_gross">Gross: <strong>{{ formatCurrency(lastRunResult.total_gross) }}</strong></span>
-          <span *ngIf="lastRunResult.total_net">Net: <strong>{{ formatCurrency(lastRunResult.total_net) }}</strong></span>
+      <!-- STEP 1: VALIDATION -->
+      <div *ngIf="currentStep === 'validate'" class="step-content animate-in">
+        <div class="loading-state" *ngIf="isValidating">
+          <ion-spinner name="crescent"></ion-spinner>
+          <p>Validating employee data, bank records, and tax regimes...</p>
+        </div>
+        <div *ngIf="!isValidating && validationResult" class="validation-report">
+          <div class="report-summary" [class.danger]="!validationResult.can_proceed">
+            <ion-icon [name]="validationResult.can_proceed ? 'checkmark-circle' : 'close-circle'"></ion-icon>
+            <span>{{ validationResult.can_proceed ? 'Validation Successful' : 'Validation Failed' }}</span>
+          </div>
+          <ul class="error-list">
+            <li *ngFor="let err of validationResult.errors" class="err"><ion-icon name="close-outline"></ion-icon> {{ err }}</li>
+            <li *ngFor="let warn of validationResult.warnings" class="warn"><ion-icon name="alert-outline"></ion-icon> {{ warn }}</li>
+          </ul>
+          <div class="missing-stats" *ngIf="validationResult.can_proceed">
+            <div class="stat-pill">Bank A/Cs: {{ validationResult.missing_bank_accounts }}</div>
+            <div class="stat-pill">Tax Regimes: {{ validationResult.missing_tax_regimes }}</div>
+          </div>
+          <button *ngIf="!validationResult.can_proceed" class="run-btn secondary" (click)="resetWorkflow()">Fix Errors</button>
+        </div>
+      </div>
+
+      <!-- STEP 2: PREVIEW -->
+      <div *ngIf="currentStep === 'preview'" class="step-content animate-in">
+        <div class="loading-state" *ngIf="isPreviewing">
+          <ion-spinner name="lines"></ion-spinner>
+          <p>Generating payroll preview (Dry Run)...</p>
+        </div>
+        <div *ngIf="!isPreviewing && previewData" class="preview-report">
+          <div class="preview-grid">
+            <div class="p-item"><span>Employees</span><strong>{{ previewData.total_employees }}</strong></div>
+            <div class="p-item"><span>Gross Sum</span><strong>{{ formatCurrency(previewData.gross_sum) }}</strong></div>
+            <div class="p-item"><span>Tax Sum</span><strong>{{ formatCurrency(previewData.tax_sum) }}</strong></div>
+            <div class="p-item highlight"><span>Net Payout</span><strong>{{ formatCurrency(previewData.net_sum) }}</strong></div>
+          </div>
+          <div class="action-footer">
+            <button class="run-btn ghost" (click)="resetWorkflow()">Cancel</button>
+            <button class="run-btn primary" (click)="executeV2Run()">
+              <ion-icon name="flash-outline"></ion-icon> Confirm & Execute
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3: PAYOUT -->
+      <div *ngIf="currentStep === 'payout'" class="step-content animate-in">
+        <div class="success-check">
+          <ion-icon name="checkmark-done-circle" color="success"></ion-icon>
+          <h3>Payroll Run Completed!</h3>
+          <p>Run ID: <strong>#{{ activeRunId }}</strong> has been calculated. Ready for bank transfer.</p>
+        </div>
+        <div class="payout-box glass-sub-card">
+          <div class="p-row"><span>Total Net Payout:</span> <strong>{{ formatCurrency(lastRunResult.total_net) }}</strong></div>
+          <div class="p-row"><span>Employees:</span> <strong>{{ lastRunResult.processed_employees }}</strong></div>
+        </div>
+        <button class="run-btn payout" [disabled]="isInitiatingPayout" (click)="initiatePayout()">
+          <ion-spinner *ngIf="isInitiatingPayout" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isInitiatingPayout" name="card-outline"></ion-icon>
+          {{ isInitiatingPayout ? 'Initiating Transfers...' : 'Initiate Bank Payout' }}
+        </button>
+      </div>
+
+      <!-- STEP 4: FINALIZE -->
+      <div *ngIf="currentStep === 'finalize'" class="step-content animate-in">
+        <div class="finalize-state">
+          <ion-icon name="notifications-outline"></ion-icon>
+          <h3>Finalize & Notify</h3>
+          <p>Payout instructions sent. Release payslips to employees?</p>
+          <button class="run-btn success" [disabled]="isNotifying" (click)="finalizeRun()">
+            <ion-spinner *ngIf="isNotifying" name="crescent"></ion-spinner>
+            Release Payslips & Notify
+          </button>
         </div>
       </div>
     </div>

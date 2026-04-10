@@ -501,6 +501,20 @@ exports.createContract = async (req, res) => {
         [employee_id, template_id, annual_ctc, effective_from, effective_to || null, created_by || null]
       );
 
+      // Sync with employees table lpa column (fetch the latest from DB to be safe)
+      await c.query(
+        `UPDATE employees e
+         SET e.lpa = (
+            SELECT annual_ctc 
+            FROM employee_salary_contracts 
+            WHERE employee_id = e.id 
+            ORDER BY effective_from DESC, contract_id DESC 
+            LIMIT 1
+         )
+         WHERE e.id = ?`,
+        [employee_id]
+      );
+
       await c.commit();
       c.end();
       res.json({ success: true, id: result.insertId });
@@ -545,6 +559,28 @@ exports.updateContract = async (req, res) => {
        WHERE contract_id = ?`,
       [template_id, annual_ctc, effective_from, effective_to || null, status || 'Active', req.params.contract_id]
     );
+
+    if (result.affectedRows > 0) {
+      // Get the employee_id for this contract to update the employees table
+      const [contractRows] = await c.query("SELECT employee_id FROM employee_salary_contracts WHERE contract_id = ?", [req.params.contract_id]);
+      if (contractRows.length > 0) {
+        const employee_id = contractRows[0].employee_id;
+        // Sync with the LATEST contract's CTC, regardless of which one was just updated
+        await c.query(
+          `UPDATE employees e
+           SET e.lpa = (
+              SELECT annual_ctc 
+              FROM employee_salary_contracts 
+              WHERE employee_id = e.id 
+              ORDER BY effective_from DESC, contract_id DESC 
+              LIMIT 1
+           )
+           WHERE e.id = ?`,
+          [employee_id]
+        );
+      }
+    }
+
     c.end();
     res.json({ success: result.affectedRows > 0 });
   } catch (err) {
@@ -583,6 +619,7 @@ exports.listComposition = async (req, res) => {
               COALESCE(mc.component_type, lc.component_type) AS component_type,
               COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
               COALESCE(mc.value, lc.value) AS default_value,
+              COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
               COALESCE(mc.sequence, lc.sequence) AS sequence
        FROM structure_composition sc
        LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id

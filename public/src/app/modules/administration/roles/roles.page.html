@@ -39,6 +39,7 @@
               <ion-select-option value="employee">Employee</ion-select-option>
               <ion-select-option value="manager">Manager</ion-select-option>
               <ion-select-option value="hr">HR</ion-select-option>
+              <ion-select-option value="finance">Financial Admin</ion-select-option>
               <ion-select-option value="admin">Admin</ion-select-option>
             </ion-select>
           </ion-item>
@@ -54,6 +55,7 @@
     <ion-segment [(ngModel)]="selectedRole" (ionChange)="applyFilter()">
       <ion-segment-button value="all">All</ion-segment-button>
       <ion-segment-button value="admin">Admins</ion-segment-button>
+      <ion-segment-button value="finance">Finance</ion-segment-button>
       <ion-segment-button value="hr">HR</ion-segment-button>
       <ion-segment-button value="manager">Managers</ion-segment-button>
       <ion-segment-button value="employee">Employees</ion-segment-button>
@@ -86,8 +88,8 @@
           </ion-col>
           <ion-col size="3">{{user.username}}</ion-col>
           <ion-col size="2">
-            <ion-badge [color]="user.role === 'admin' ? 'danger' : user.role === 'hr' ? 'tertiary' : user.role === 'manager' ? 'success' : 'primary'">
-              {{user.role | uppercase}}
+            <ion-badge [color]="user.role === 'admin' ? 'danger' : user.role === 'finance' ? 'warning' : user.role === 'hr' ? 'tertiary' : user.role === 'manager' ? 'success' : 'primary'">
+              {{ (user.role === 'finance' ? 'Financial Admin' : user.role) | uppercase }}
             </ion-badge>
           </ion-col>
           <ion-col size="3">
@@ -95,6 +97,7 @@
               <ion-select-option value="employee">Make Employee</ion-select-option>
               <ion-select-option value="manager">Make Manager</ion-select-option>
               <ion-select-option value="hr">Make HR</ion-select-option>
+              <ion-select-option value="finance">Make Financial Admin</ion-select-option>
               <ion-select-option value="admin">Make Admin</ion-select-option>
             </ion-select>
           </ion-col>

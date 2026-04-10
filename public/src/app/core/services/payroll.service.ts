@@ -43,4 +43,11 @@ export class PayrollService {
   getTemplateComposition(templateId: number): Observable<any> {
     return this.http.get(`${this.payrollUrl}templates/${templateId}/composition`, { headers: this.getHeaders() });
   }
+  
+  listContracts(params: any): Observable<any> {
+    let queryParams = new URLSearchParams();
+    if (params.employee_id) queryParams.append('employee_id', params.employee_id);
+    if (params.status) queryParams.append('status', params.status);
+    return this.http.get(`${this.payrollUrl}contracts?${queryParams.toString()}`, { headers: this.getHeaders() });
+  }
 }

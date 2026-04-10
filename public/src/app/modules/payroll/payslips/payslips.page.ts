@@ -57,7 +57,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     private payrollService: PayrollService,
     private payrollApi: PayrollApiService,
     private loadingController: LoadingController
-  ) { 
+  ) {
     this.financialYear = this.payrollApi.getCurrentFinancialYear();
   }
 
@@ -89,7 +89,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
       next: (res: any) => {
         this.taxSummary = res;
       },
-      error: () => {}
+      error: () => { }
     });
   }
 
@@ -101,6 +101,10 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.employeeService.getMyProfile().pipe(takeUntil(this.destroy$)).subscribe({
       next: (emp) => {
         this.currentEmployee = emp;
+        if (emp?.lpa) {
+          this.monthlySalary = Number(emp.lpa) / 12;
+        }
+
         if (!emp?.id) {
           loader.dismiss();
           this.loading = false;
@@ -125,8 +129,44 @@ export class PayslipsPage implements OnInit, OnDestroy {
                 error: () => { loader.dismiss(); this.loading = false; }
               });
             } else {
-              loader.dismiss();
-              this.loading = false;
+              // Standard Fallback: Use Template from Employee Contract to Show Mapping
+              this.payrollService.listContracts({ employee_id: emp.id }).pipe(takeUntil(this.destroy$)).subscribe({
+                next: (contracts: any[]) => {
+                  const latestContract = Array.isArray(contracts) && contracts.length > 0 ? contracts[0] : null;
+                  if (latestContract) {
+                    this.payrollService.getTemplateComposition(latestContract.template_id).pipe(takeUntil(this.destroy$)).subscribe({
+                      next: (comps: any[]) => {
+                        this.payrollService.getPayrollComponents().pipe(takeUntil(this.destroy$)).subscribe({
+                          next: (masterCompsRes: any) => {
+                            const masterComps = Array.isArray(masterCompsRes) ? masterCompsRes : (masterCompsRes.data || []);
+                            const components = (comps || []).map(c => {
+                              const masterComp = masterComps.find((mc: any) => mc.component_id === (c.master_component_id || c.component_id));
+                              return {
+                                code: c.component_code || masterComp?.code || masterComp?.component_code,
+                                name: c.component_name || masterComp?.name || masterComp?.component_name,
+                                value: c.formula_or_value,
+                                calculation_type: c.calculation_type || masterComp?.calculation_type,
+                                percentage_of_code: c.percentage_of_code || masterComp?.percentage_of_code || masterComp?.base_code || null,
+                                component_type: c.component_type || masterComp?.type || masterComp?.component_type,
+                                sequence: c.sequence || masterComp?.sequence
+                              };
+                            });
+                            this.calculateSalary({ ctc_amount: latestContract.annual_ctc }, components);
+                            loader.dismiss();
+                            this.loading = false;
+                          },
+                          error: () => { loader.dismiss(); this.loading = false; }
+                        });
+                      },
+                      error: () => { loader.dismiss(); this.loading = false; }
+                    });
+                  } else {
+                    loader.dismiss();
+                    this.loading = false;
+                  }
+                },
+                error: () => { loader.dismiss(); this.loading = false; }
+              });
             }
           },
           error: () => { loader.dismiss(); this.loading = false; }
@@ -143,21 +183,38 @@ export class PayslipsPage implements OnInit, OnDestroy {
     const calculatedAmts: any = { 'CTC': ctc };
     const sortedComps = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
-    // Pass 1: Handle FIXED values and PERCENTAGE OF CTC
-    sortedComps.forEach(c => {
-      if (c.calculation_type === 'FIXED') {
-        calculatedAmts[c.code] = Number(c.value) || 0;
-      } else if (c.calculation_type === 'PERCENTAGE' && (c.percentage_of_code === 'CTC' || !c.percentage_of_code)) {
-        calculatedAmts[c.code] = (ctc * (Number(c.value) || 0)) / 100;
-      }
-    });
+    const getValue = (c: any, visited: string[] = []): number => {
+      const code = (c.code || '').toUpperCase();
+      if (code && visited.includes(code)) return 0;
+      const newVisited = code ? [...visited, code] : visited;
 
-    // Pass 2: Handle PERCENTAGE OF other components (like HRA based on BASIC)
-    sortedComps.forEach(c => {
-      if (c.calculation_type === 'PERCENTAGE' && c.percentage_of_code && c.percentage_of_code !== 'CTC') {
-        const baseAmt = calculatedAmts[c.percentage_of_code] || 0;
-        calculatedAmts[c.code] = (baseAmt * (Number(c.value) || 0)) / 100;
+      if (c.calculation_type === 'FIXED') {
+        return Number(c.value) || 0;
       }
+
+      const raw = String(c.value || '0').trim();
+      if (c.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
+        const pct = parseFloat(raw.replace('%', ''));
+        if (isNaN(pct)) return 0;
+
+        const pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
+        if (pctOf && pctOf !== 'CTC') {
+          const baseComp = components.find(bc => 
+            (bc.code || '').toUpperCase() === pctOf || 
+            (bc.name || '').toUpperCase() === pctOf
+          );
+          if (baseComp) {
+            return (pct / 100) * getValue(baseComp, newVisited);
+          }
+        }
+        return (pct / 100) * ctc;
+      }
+
+      return Number(c.value) || 0;
+    };
+
+    sortedComps.forEach(c => {
+      calculatedAmts[c.code] = getValue(c);
     });
 
     // Pass 3: Calculate ESI Employee first
@@ -235,6 +292,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
       if (c.component_type?.toUpperCase() === 'EARNING') {
         this.earnings.push(compObj);
         this.totalEarnings += monthlyAmt;
+        console.log(this.earnings);
       } else if (code.includes('PF') || code.includes('ESI')) {
         this.contributions.push(compObj);
         console.log(this.contributions);
@@ -308,10 +366,10 @@ export class PayslipsPage implements OnInit, OnDestroy {
   }
 
   formatCurrency(val: number): string {
-    return (val || 0).toLocaleString('en-IN', { 
-      style: 'currency', 
-      currency: 'INR', 
-      maximumFractionDigits: 0 
+    return (val || 0).toLocaleString('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      maximumFractionDigits: 0
     });
   }
 

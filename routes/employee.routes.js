@@ -554,6 +554,7 @@ router.get("/profile/me", auth, async (req, res) => {
   const [rows] = await c.query(
     `SELECT 
             e.*,
+            COALESCE(esc.annual_ctc, e.lpa) as lpa,
             l.name as location_name,
             d.name as department_name,
             sd.name as sub_department_name,
@@ -576,7 +577,17 @@ router.get("/profile/me", auth, async (req, res) => {
          LEFT JOIN bands b ON e.BandId = b.id
          LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
          LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
-         WHERE e.id = ?`,
+         LEFT JOIN (
+            SELECT t1.employee_id, t1.annual_ctc
+            FROM employee_salary_contracts t1
+            INNER JOIN (
+                SELECT employee_id, MAX(effective_from) as max_from
+                FROM employee_salary_contracts
+                GROUP BY employee_id
+            ) t2 ON t1.employee_id = t2.employee_id AND t1.effective_from = t2.max_from
+         ) esc ON esc.employee_id = e.id
+         WHERE e.id = ?
+         LIMIT 1`,
     [emp.id],
   );
   c.end();

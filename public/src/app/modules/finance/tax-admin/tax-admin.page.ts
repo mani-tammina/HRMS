@@ -44,14 +44,17 @@ export class TaxAdminPage implements OnInit {
 
   // ── Section Limits ──
   sectionLimits: SectionLimit[] = [
-    { section_code: '80C', max_limit: 150000, financial_year: '' },
-    { section_code: '80D', max_limit: 25000, financial_year: '' },
-    { section_code: 'HRA', max_limit: 200000, financial_year: '' },
-    { section_code: '80G', max_limit: 50000, financial_year: '' },
-    { section_code: '80TTA', max_limit: 10000, financial_year: '' },
-    { section_code: 'NPS', max_limit: 50000, financial_year: '' }
+    { section_code: '80C',   max_limit: 150000, financial_year: '', is_active: true },
+    { section_code: '80D',   max_limit: 25000,  financial_year: '', is_active: true },
+    { section_code: 'HRA',   max_limit: 200000, financial_year: '', is_active: true },
+    { section_code: '80G',   max_limit: 50000,  financial_year: '', is_active: true },
+    { section_code: '80TTA', max_limit: 10000,  financial_year: '', is_active: true },
+    { section_code: 'NPS',   max_limit: 50000,  financial_year: '', is_active: true }
   ];
-  isSavingSections = false;
+  isLoadingSections = false;
+  isSavingSections  = false;
+  sectionEditModes: boolean[] = [];
+  isSavingSection:  boolean[] = [];
 
   // ── Verification Queue ──
   verificationQueue: VerificationQueueItem[] = [];
@@ -95,8 +98,15 @@ export class TaxAdminPage implements OnInit {
 
   ngOnInit() {
     this.initForms();
-    this.loadStatutoryRules();
-    this.loadVerificationQueue();
+    this.loadActiveTabData();
+  }
+
+  onYearChange() {
+    this.loadActiveTabData();
+  }
+
+  loadActiveTabData() {
+    this.setTab(this.activeTab);
   }
 
   // ─────────────────────────────────────────────
@@ -219,9 +229,10 @@ export class TaxAdminPage implements OnInit {
   setTab(tab: any) {
     this.activeTab = tab;
     if (tab === 'statutory') this.loadStatutoryRules();
-    if (tab === 'slabs') { this.loadTaxSlabs(); this.loadPTSlabs(); }
-    if (tab === 'queue') this.loadVerificationQueue();
-    if (tab === 'payout') { /* user loads manually */ }
+    if (tab === 'slabs')     { this.loadTaxSlabs(); this.loadPTSlabs(); }
+    if (tab === 'sections')  this.loadSectionLimits();
+    if (tab === 'queue')     this.loadVerificationQueue();
+    if (tab === 'payout')    { /* user loads manually */ }
   }
 
   // ─────────────────────────────────────────────
@@ -336,15 +347,98 @@ export class TaxAdminPage implements OnInit {
   // Section Limits
   // ─────────────────────────────────────────────
 
+  loadSectionLimits() {
+    // Pre-populate with standard Indian tax sections — user edits & saves via PATCH
+    this.sectionLimits.forEach(s => { s.financial_year = this.financialYear; });
+    this.sectionEditModes = this.sectionLimits.map(() => false);
+    this.isSavingSection  = this.sectionLimits.map(() => false);
+  }
+
+  get activeSectionsCount(): number {
+    return this.sectionLimits.filter(s => s.is_active !== false).length;
+  }
+
+  getSectionDescription(code: string): string {
+    const map: { [k: string]: string } = {
+      '80C':   'Life Insurance, PPF, ELSS, EPF & Home Loan Principal',
+      '80D':   'Health Insurance Premium (Self, Spouse & Children)',
+      'HRA':   'House Rent Allowance Exemption',
+      '80G':   'Donations to Approved Charitable Organisations',
+      '80TTA': 'Interest on Savings Account (Banks/Co-ops)',
+      'NPS':   'National Pension System – Additional Deduction',
+      '80CCD': 'NPS Employer Contribution (Section 80CCD(2))',
+      '80E':   'Education Loan Interest Deduction',
+      '24B':   'Home Loan Interest (Self-Occupied Property)',
+      '80EEA': 'Additional Home Loan Interest (Affordable Housing)'
+    };
+    return map[code] || 'Income Tax Deduction Section';
+  }
+
+  getSectionColorClass(code: string): string {
+    const map: { [k: string]: string } = {
+      '80C':   'badge-blue',
+      '80D':   'badge-green',
+      'HRA':   'badge-purple',
+      '80G':   'badge-orange',
+      '80TTA': 'badge-teal',
+      'NPS':   'badge-indigo',
+      '80CCD': 'badge-pink',
+      '80E':   'badge-amber',
+      '24B':   'badge-red',
+      '80EEA': 'badge-rose'
+    };
+    return map[code] || 'badge-gray';
+  }
+
+  toggleSectionEdit(i: number) {
+    this.sectionEditModes[i] = !this.sectionEditModes[i];
+  }
+
+  toggleSectionActive(i: number) {
+    this.sectionLimits[i] = { ...this.sectionLimits[i], is_active: !this.sectionLimits[i].is_active };
+  }
+
+  saveSingleSection(i: number) {
+    this.isSavingSection[i] = true;
+    const sections: SectionLimit[] = [{ ...this.sectionLimits[i], financial_year: this.financialYear }];
+    this.payrollApi.updateSectionLimits(sections).subscribe({
+      next: () => {
+        this.toaster.showSuccess(`${sections[0].section_code} limit saved successfully`);
+        this.isSavingSection[i]  = false;
+        this.sectionEditModes[i] = false;
+      },
+      error: () => {
+        this.toaster.showError('Failed to save section limit');
+        this.isSavingSection[i] = false;
+      }
+    });
+  }
+
+  addNewSection() {
+    this.sectionLimits.push({ section_code: '', max_limit: 0, financial_year: this.financialYear, is_active: true });
+    this.sectionEditModes.push(true);
+    this.isSavingSection.push(false);
+  }
+
+  removeSection(i: number) {
+    this.sectionLimits.splice(i, 1);
+    this.sectionEditModes.splice(i, 1);
+    this.isSavingSection.splice(i, 1);
+  }
+
   saveSectionLimits() {
     this.isSavingSections = true;
-    const sections = this.sectionLimits.map(s => ({
-      ...s,
-      financial_year: this.financialYear
-    }));
-    this.payrollApi.updateTaxSections(this.financialYear, sections).subscribe({
-      next: () => { this.toaster.showSuccess('Section limits updated'); this.isSavingSections = false; },
-      error: () => { this.toaster.showError('Failed to update section limits'); this.isSavingSections = false; }
+    const sections = this.sectionLimits.map(s => ({ ...s, financial_year: this.financialYear }));
+    this.payrollApi.updateSectionLimits(sections).subscribe({
+      next: () => {
+        this.toaster.showSuccess('All section limits updated successfully');
+        this.isSavingSections  = false;
+        this.sectionEditModes  = this.sectionLimits.map(() => false);
+      },
+      error: () => {
+        this.toaster.showError('Failed to update section limits');
+        this.isSavingSections = false;
+      }
     });
   }
 
@@ -354,7 +448,7 @@ export class TaxAdminPage implements OnInit {
 
   loadVerificationQueue() {
     this.isLoadingQueue = true;
-    this.payrollApi.getVerificationQueue(this.queueFilter).subscribe({
+    this.payrollApi.getVerificationQueue(this.queueFilter, this.financialYear).subscribe({
       next: (res: any) => {
         this.verificationQueue = res.queue || [];
         this.isLoadingQueue = false;

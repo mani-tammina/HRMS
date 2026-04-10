@@ -23,7 +23,7 @@ const SECTION_META: { code: string; label: string; maxHint: number }[] = [
   standalone: false
 })
 export class MyTaxPage implements OnInit {
-  activeTab: 'summary' | 'computation' | 'declarations' | 'proof' | 'history' = 'summary';
+  activeTab: 'summary' | 'computation' | 'declarations' | 'history' = 'summary';
 
   /** Reference to Math for use in template */
   Math = Math;
@@ -57,6 +57,7 @@ export class MyTaxPage implements OnInit {
   selectedFile: File | null = null;
   isUploadingProof = false;
   uploadResult: any = null;
+  insightFormState: { [code: string]: { file: File | null, amount: number } } = {};
 
   // ── Payroll History ──
   payrollHistory: any[] = [];
@@ -78,8 +79,14 @@ export class MyTaxPage implements OnInit {
   ) {
     this.financialYear = this.payrollApi.getCurrentFinancialYear();
     this.selectedPayslipMonth = this.payrollApi.getCurrentYearMonth();
-    const fy = new Date().getFullYear();
-    this.availableYears = [`${fy-2}-${fy-1}`, `${fy-1}-${fy}`, `${fy}-${fy+1}`];
+    
+    // Generate a wider range of financial years (e.g., 3 years back, current, and next)
+    const currentYear = new Date().getFullYear();
+    this.availableYears = [];
+    for (let i = -3; i <= 1; i++) {
+      const year = currentYear + i;
+      this.availableYears.push(`${year}-${year + 1}`);
+    }
   }
 
   ngOnInit() {
@@ -92,7 +99,10 @@ export class MyTaxPage implements OnInit {
   // ─────────────────────────────────────────────
 
   initForms() {
-    SECTION_META.forEach(s => (this.declarations[s.code] = 0));
+    SECTION_META.forEach(s => {
+      this.declarations[s.code] = 0;
+      this.insightFormState[s.code] = { file: null, amount: 0 };
+    });
 
     this.proofForm = this.fb.group({
       section_code: ['80C', Validators.required],
@@ -113,6 +123,23 @@ export class MyTaxPage implements OnInit {
       },
       error: () => {}
     });
+  }
+
+  /** Triggered when financial year selector changes */
+  onFYChange() {
+    this.taxSummary = null;
+    this.taxComputation = null;
+    // Reset declarations and insight form state for the new year
+    SECTION_META.forEach(s => {
+      this.declarations[s.code] = 0;
+      this.insightFormState[s.code] = { file: null, amount: 0 };
+    });
+    
+    this.loadTaxSummary();
+    this.loadDeclarations();
+    if (this.activeTab === 'computation') {
+      this.loadTaxComputation();
+    }
   }
 
   // ─────────────────────────────────────────────
@@ -183,6 +210,9 @@ export class MyTaxPage implements OnInit {
     this.isLoadingDeclarations = true;
     this.payrollApi.getDeclaredInvestments(this.financialYear).subscribe({
       next: (res: any) => {
+        // First reset all to zero to handle missing sections in response
+        SECTION_META.forEach(s => this.declarations[s.code] = 0);
+        
         if (res.declarations) {
           Object.keys(res.declarations).forEach(k => {
             if (this.declarations.hasOwnProperty(k)) {
@@ -219,7 +249,55 @@ export class MyTaxPage implements OnInit {
   }
 
   // ─────────────────────────────────────────────
-  // Proof Upload
+  // Consolidated Insights Logic
+  // ─────────────────────────────────────────────
+
+  onInsightFileSelected(event: any, code: string) {
+    const file = event.target.files?.[0];
+    if (file) this.insightFormState[code].file = file;
+  }
+
+  getProofsForSection(code: string): any[] {
+    if (!this.taxSummary || !this.taxSummary.proofs) return [];
+    return this.taxSummary.proofs.filter(p => p.section_code === code);
+  }
+
+  async uploadInsightProof(code: string) {
+    const state = this.insightFormState[code];
+    if (!state.file || state.amount <= 0) {
+      this.toaster.showError('Please select a file and enter a valid amount');
+      return;
+    }
+
+    this.isUploadingProof = true;
+    const loading = await this.loadingCtrl.create({ message: `Uploading ${code} proof...` });
+    await loading.present();
+
+    const fd = new FormData();
+    fd.append('document', state.file);
+    fd.append('section_code', code);
+    fd.append('declared_amount', String(state.amount));
+    fd.append('financial_year', this.financialYear);
+
+    this.payrollApi.uploadInvestmentProof(fd).subscribe({
+      next: (res: any) => {
+        state.file = null;
+        state.amount = 0;
+        loading.dismiss();
+        this.isUploadingProof = false;
+        this.toaster.showSuccess(`Proof for ${code} submitted!`);
+        this.loadTaxSummary(); // Refresh to show new proof
+      },
+      error: () => {
+        loading.dismiss();
+        this.isUploadingProof = false;
+        this.toaster.showError('Failed to upload proof document');
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  // Old Global Proof Upload
   // ─────────────────────────────────────────────
 
   onFileSelected(event: any) {
@@ -332,6 +410,10 @@ export class MyTaxPage implements OnInit {
 
   getMonthName(m: number): string {
     return new Date(2025, m - 1, 1).toLocaleString('default', { month: 'long' });
+  }
+
+  getShortMonth(m: number): string {
+    return new Date(2025, m - 1, 1).toLocaleString('default', { month: 'short' }).toUpperCase();
   }
 
   getProofStatusColor(status: string): string {

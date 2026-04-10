@@ -205,14 +205,14 @@
 
   <!-- Taxation tab — Now a rich dashboard integration -->
   <div *ngIf="currentTab === 'taxation'" class="taxation-dashboard">
-    
+
     <div *ngIf="isLoadingTax" class="tax-loader">
       <ion-spinner name="crescent"></ion-spinner>
       <p>Computing your tax liability...</p>
     </div>
 
     <div *ngIf="!isLoadingTax && taxComputation" class="tax-scroll-container">
-      
+
       <!-- Summary Cards -->
       <div class="tax-cards-grid">
         <div class="tax-summary-card income-sum">
@@ -253,7 +253,7 @@
           <h2>Tax Computation Breakdown</h2>
           <ion-badge color="secondary">{{ taxComputation.regime_type }} Regime</ion-badge>
         </div>
-        
+
         <div class="breakdown-table">
           <div class="breakdown-row">
             <span>Taxable Income After Deductions</span>
@@ -299,8 +299,9 @@
               <strong>{{ formatCurrency(taxSummary?.declared_investments?.['80C'] || 0) }} / ₹1.5L</strong>
             </div>
             <div class="inv-progress">
-              <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100" 
-                   [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100)"></div>
+              <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100"
+                [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100)">
+              </div>
             </div>
           </div>
 
@@ -310,8 +311,9 @@
               <strong>{{ formatCurrency(taxSummary?.declared_investments?.['80D'] || 0) }} / ₹25k</strong>
             </div>
             <div class="inv-progress">
-              <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100" 
-                   [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100)"></div>
+              <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100"
+                [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100)">
+              </div>
             </div>
           </div>
 
@@ -346,10 +348,10 @@
     </div>
 
     <div *ngIf="!isLoadingTax && !taxComputation" class="empty-tax-state">
-       <ion-icon name="refresh-circle-outline"></ion-icon>
-       <h2>Unable to load computation</h2>
-       <p>Please check your salary structure or visit the full portal.</p>
-       <ion-button (click)="loadTaxData()">Retry Computation</ion-button>
+      <ion-icon name="refresh-circle-outline"></ion-icon>
+      <h2>Unable to load computation</h2>
+      <p>Please check your salary structure or visit the full portal.</p>
+      <ion-button (click)="loadTaxData()">Retry Computation</ion-button>
     </div>
 
   </div>

@@ -19,6 +19,7 @@ export class TemplateCompositionPage implements OnInit {
   loading: boolean = false;
   totalEarnings: number = 0;
   totalDeductions: number = 0;
+  sampleCTC: number = 800000;
 
   isModalOpen = false;
   isEditMode = false;
@@ -126,7 +127,7 @@ export class TemplateCompositionPage implements OnInit {
     this.filteredEmployees = [];
 
     this.compositionForm.patchValue({
-      component_id: comp.component_id,
+      component_id: comp.master_component_id || comp.component_id,
       formula_or_value: comp.formula_or_value,
       created_by: comp.created_by
     });
@@ -152,8 +153,8 @@ export class TemplateCompositionPage implements OnInit {
     if (this.compositionForm.invalid || !this.templateId) return;
 
     const payload = {
-      ...this.compositionForm.value,
-      component_id: Number(this.compositionForm.value.component_id),
+      formula_or_value: this.compositionForm.value.formula_or_value.toString(),
+      master_component_id: Number(this.compositionForm.value.component_id),
       created_by: Number(this.compositionForm.value.created_by)
     };
 
@@ -212,7 +213,7 @@ export class TemplateCompositionPage implements OnInit {
         }
 
         const componentRequests = rawComposition.map((item: any) =>
-          this.payrollService.getComponentById(item.component_id)
+          this.payrollService.getComponentById(item.master_component_id || item.component_id)
         );
 
         forkJoin<any[]>(componentRequests).subscribe({
@@ -255,16 +256,62 @@ export class TemplateCompositionPage implements OnInit {
   calculateTotals() {
     this.totalEarnings = this.compositionData
       .filter(c => (c.component_type)?.toUpperCase() === 'EARNING')
-      .reduce((sum, c) => {
-        const val = parseFloat(c.value);
-        return sum + (isNaN(val) ? 0 : val);
-      }, 0);
+      .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0);
 
     this.totalDeductions = this.compositionData
-      .filter(c => (c.component_type)?.toLowerCase() === 'deduction')
-      .reduce((sum, c) => {
-        const val = parseFloat(c.value);
-        return sum + (isNaN(val) ? 0 : val);
-      }, 0);
+      .filter(c => (c.component_type)?.toUpperCase() === 'DEDUCTION')
+      .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0);
+  }
+
+  /** Resolve formula_or_value to an actual rupee amount based on sampleCTC or base comp */
+  getCalculatedAmount(comp: any, visited: string[] = []): number {
+    const code = comp.component_code;
+    if (code && visited.includes(code)) return 0; // Prevent circular dependencies
+    const newVisited = code ? [...visited, code] : visited;
+
+    const raw = String(comp.formula_or_value || comp.value || '0').trim();
+    const calcType = (comp.calculation_type || '').toUpperCase();
+
+    if (calcType === 'PERCENTAGE' || raw.includes('%')) {
+      // Strip trailing % if present
+      const pct = parseFloat(raw.replace('%', ''));
+      if (isNaN(pct)) return 0;
+
+      // Ensure percentage_of_code is considered
+      const pctOf = (comp.percentage_of_code || '').toUpperCase();
+      if (pctOf && pctOf !== 'CTC') {
+        const baseComp = this.compositionData.find(c => 
+          (c.component_code || '').toUpperCase() === pctOf || 
+          (c.component_name || '').toUpperCase() === pctOf
+        );
+        if (baseComp) {
+          return (pct / 100) * this.getCalculatedAmount(baseComp, newVisited);
+        }
+      }
+
+      return (pct / 100) * this.sampleCTC;
+    }
+
+    // FIXED or unknown — return raw numeric value
+    const fixed = parseFloat(raw.replace('%', ''));
+    return isNaN(fixed) ? 0 : fixed;
+  }
+
+  getCalculationLabel(comp: any): string {
+    const raw = String(comp.formula_or_value || comp.value || '0').trim();
+    if (comp.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
+      const pct = parseFloat(raw.replace('%', ''));
+      const pctOf = (comp.percentage_of_code || '').toUpperCase();
+      return `${isNaN(pct) ? 0 : pct}% of ${pctOf && pctOf !== 'CTC' ? pctOf : 'CTC'}`;
+    }
+    return '';
+  }
+
+  onSampleCTCChange(event: any) {
+    const val = parseFloat(event.target.value);
+    if (!isNaN(val) && val > 0) {
+      this.sampleCTC = val;
+      this.calculateTotals();
+    }
   }
 }
