@@ -28,12 +28,13 @@
 
     .header-left {
       h1 {
-        font-size: vars.$fs-heading-xl;
+        font-size: vars.$fs-heading-xl !important;
         font-weight: vars.$fw-bold;
         color: vars.$color-text-primary;
         margin: 0 0 4px 0;
         letter-spacing: vars.$ls-tight;
       }
+
       p {
         color: vars.$color-text-muted;
         font-size: vars.$fs-body;
@@ -55,7 +56,7 @@
         height: 44px;
         margin: 0;
         text-transform: none;
-        
+
         &.init-btn {
           --color: #{vars.$color-primary};
           --border-color: #{vars.$color-border};
@@ -66,7 +67,7 @@
         &.request-btn {
           --background: #{vars.$color-primary};
           --color: #{vars.$color-white};
-          
+
           &:hover {
             --background: #{vars.$color-primary-dark};
           }
@@ -81,7 +82,7 @@
       display: grid;
       grid-template-columns: 1fr 400px;
       gap: 24px;
-      
+
       @media (max-width: 1200px) {
         grid-template-columns: 1fr;
       }
@@ -99,16 +100,26 @@
       margin-bottom: 24px;
 
       .icon-box {
-        width: 36px; height: 36px;
+        width: 36px;
+        height: 36px;
         border-radius: vars.$radius-md;
         background: vars.$color-primary-light;
         display: flex;
         align-items: center;
         justify-content: center;
-        ion-icon { color: vars.$color-primary; font-size: 18px; }
+
+        ion-icon {
+          color: vars.$color-primary;
+          font-size: 18px;
+        }
       }
 
-      h2 { color: vars.$color-text-primary; font-size: vars.$fs-heading-sm; font-weight: vars.$fw-bold; margin: 0; }
+      h2 {
+        color: vars.$color-text-primary;
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        margin: 0;
+      }
     }
 
     .balances-grid {
@@ -140,17 +151,34 @@
       align-items: flex-start;
       margin-bottom: 24px;
 
-      h3 { font-size: vars.$fs-body; font-weight: vars.$fw-bold; color: vars.$color-text-primary; margin: 0 0 2px 0; }
-      .quota { font-size: vars.$fs-xs; font-weight: vars.$fw-bold; color: vars.$color-text-muted; text-transform: uppercase; letter-spacing: vars.$ls-wide; }
+      h3 {
+        font-size: vars.$fs-body;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        margin: 0 0 2px 0;
+      }
+
+      .quota {
+        font-size: vars.$fs-xs;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-muted;
+        text-transform: uppercase;
+        letter-spacing: vars.$ls-wide;
+      }
 
       .icon-circle {
-        width: 44px; height: 44px;
+        width: 44px;
+        height: 44px;
         background: vars.$color-bg-subtle;
         border-radius: vars.$radius-lg;
         display: flex;
         align-items: center;
         justify-content: center;
-        ion-icon { font-size: 22px; color: vars.$color-primary; }
+
+        ion-icon {
+          font-size: 22px;
+          color: vars.$color-primary;
+        }
       }
     }
 
@@ -162,17 +190,24 @@
     }
 
     .chart-container {
-      width: 90px; height: 90px;
+      width: 90px;
+      height: 90px;
       position: relative;
 
-      svg { transform: rotate(-90deg); }
+      svg {
+        transform: rotate(-90deg);
+      }
+
       circle {
         fill: none;
         stroke-width: 6;
         stroke-linecap: round;
-        
-        &.bg { stroke: vars.$color-border-light; }
-        &.active { 
+
+        &.bg {
+          stroke: vars.$color-border-light;
+        }
+
+        &.active {
           stroke: vars.$color-primary;
         }
       }
@@ -184,22 +219,48 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        
-        .val { font-size: vars.$fs-heading-md; font-weight: vars.$fw-bold; color: vars.$color-text-primary; line-height: 1; }
-        .lbl { font-size: vars.$fs-xs; font-weight: vars.$fw-bold; color: vars.$color-text-muted; text-transform: uppercase; margin-top: 2px; }
+
+        .val {
+          font-size: vars.$fs-heading-md;
+          font-weight: vars.$fw-bold;
+          color: vars.$color-text-primary;
+          line-height: 1;
+        }
+
+        .lbl {
+          font-size: vars.$fs-xs;
+          font-weight: vars.$fw-bold;
+          color: vars.$color-text-muted;
+          text-transform: uppercase;
+          margin-top: 2px;
+        }
       }
     }
 
     .detailed-stats {
       flex: 1;
+
       .stat-row {
         display: flex;
         flex-direction: column;
         margin-bottom: 8px;
-        &:last-child { margin-bottom: 0; }
-        
-        .label { font-size: vars.$fs-xs; color: vars.$color-text-muted; font-weight: vars.$fw-bold; }
-        .value { font-size: vars.$fs-small; color: vars.$color-text-primary; font-weight: vars.$fw-bold; margin-top: 1px; }
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .label {
+          font-size: vars.$fs-xs;
+          color: vars.$color-text-muted;
+          font-weight: vars.$fw-bold;
+        }
+
+        .value {
+          font-size: vars.$fs-small;
+          color: vars.$color-text-primary;
+          font-weight: vars.$fw-bold;
+          margin-top: 1px;
+        }
       }
     }
 
@@ -208,6 +269,7 @@
       background: vars.$color-border-light;
       border-radius: vars.$radius-pill;
       overflow: hidden;
+
       .fill {
         height: 100%;
         background: vars.$color-primary;
@@ -217,7 +279,8 @@
   }
 
   /* ======= TABLES ======= */
-  .pending-card, .history-card {
+  .pending-card,
+  .history-card {
     background: vars.$color-bg-card;
     border-radius: vars.$radius-xl;
     padding: 24px;
@@ -225,7 +288,8 @@
     box-shadow: vars.$shadow-sm;
   }
 
-  .pending-header, .history-header {
+  .pending-header,
+  .history-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -235,11 +299,22 @@
       display: flex;
       align-items: center;
       gap: 12px;
-      .icon { font-size: 20px; color: vars.$color-primary; }
-      h2 { color: vars.$color-text-primary; font-size: vars.$fs-heading-sm; font-weight: vars.$fw-bold; margin: 0; }
+
+      .icon {
+        font-size: 20px;
+        color: vars.$color-primary;
+      }
+
+      h2 {
+        color: vars.$color-text-primary;
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        margin: 0;
+      }
     }
 
-    .pill, .count {
+    .pill,
+    .count {
       background: vars.$color-primary-light;
       color: vars.$color-primary;
       padding: 4px 12px;
@@ -271,26 +346,55 @@
         transition: vars.$transition-base;
         cursor: pointer;
 
-        &:hover { background: vars.$color-bg-subtle; }
+        &:hover {
+          background: vars.$color-bg-subtle;
+        }
 
         td {
           padding: 14px 16px;
           color: vars.$color-text-secondary;
           border-top: 1px solid vars.$color-border-light;
           border-bottom: 1px solid vars.$color-border-light;
-          
-          &:first-child { border-left: 1px solid vars.$color-border-light; border-radius: vars.$radius-md 0 0 vars.$radius-md; }
-          &:last-child { border-right: 1px solid vars.$color-border-light; border-radius: 0 vars.$radius-md vars.$radius-md 0; }
+
+          &:first-child {
+            border-left: 1px solid vars.$color-border-light;
+            border-radius: vars.$radius-md 0 0 vars.$radius-md;
+          }
+
+          &:last-child {
+            border-right: 1px solid vars.$color-border-light;
+            border-radius: 0 vars.$radius-md vars.$radius-md 0;
+          }
 
           .period {
-            div { font-weight: vars.$fw-bold; color: vars.$color-text-primary; font-size: vars.$fs-small; }
-            small { color: vars.$color-text-muted; font-weight: vars.$fw-medium; margin-top: 2px; display: block; font-size: vars.$fs-xs; }
+            div {
+              font-weight: vars.$fw-bold;
+              color: vars.$color-text-primary;
+              font-size: vars.$fs-small;
+            }
+
+            small {
+              color: vars.$color-text-muted;
+              font-weight: vars.$fw-medium;
+              margin-top: 2px;
+              display: block;
+              font-size: vars.$fs-xs;
+            }
           }
         }
       }
 
-      .type { font-weight: vars.$fw-bold; color: vars.$color-primary; font-size: vars.$fs-small; }
-      .days { font-weight: vars.$fw-bold; color: vars.$color-text-primary; font-size: vars.$fs-small; }
+      .type {
+        font-weight: vars.$fw-bold;
+        color: vars.$color-primary;
+        font-size: vars.$fs-small;
+      }
+
+      .days {
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        font-size: vars.$fs-small;
+      }
     }
   }
 
@@ -302,25 +406,61 @@
     text-transform: uppercase;
     letter-spacing: vars.$ls-wide;
     display: inline-block;
-    
-    &.APPROVED { background: vars.$color-success-light; color: vars.$color-success; border: 1px solid vars.$color-success-border; }
-    &.PENDING { background: vars.$color-warning-light; color: vars.$color-warning; border: 1px solid vars.$color-warning-border; }
-    &.REJECTED { background: vars.$color-danger-light; color: vars.$color-danger; border: 1px solid vars.$color-danger-border; }
-    &.CANCELLED { background: vars.$color-bg-subtle; color: vars.$color-text-muted; border: 1px solid vars.$color-border; }
+
+    &.APPROVED {
+      background: vars.$color-success-light;
+      color: vars.$color-success;
+      border: 1px solid vars.$color-success-border;
+    }
+
+    &.PENDING {
+      background: vars.$color-warning-light;
+      color: vars.$color-warning;
+      border: 1px solid vars.$color-warning-border;
+    }
+
+    &.REJECTED {
+      background: vars.$color-danger-light;
+      color: vars.$color-danger;
+      border: 1px solid vars.$color-danger-border;
+    }
+
+    &.CANCELLED {
+      background: vars.$color-bg-subtle;
+      color: vars.$color-text-muted;
+      border: 1px solid vars.$color-border;
+    }
   }
 
   /* ======= EMPTY STATES ======= */
-  .empty-state, .no-data {
+  .empty-state,
+  .no-data {
     text-align: center;
     padding: 48px 0;
-    ion-icon { font-size: 40px; color: vars.$color-text-placeholder; margin-bottom: 16px; }
-    h3 { font-size: vars.$fs-body; font-weight: vars.$fw-bold; color: vars.$color-text-secondary; margin: 0 0 8px 0; }
-    p { color: vars.$color-text-muted; font-size: vars.$fs-small; }
+
+    ion-icon {
+      font-size: 40px;
+      color: vars.$color-text-placeholder;
+      margin-bottom: 16px;
+    }
+
+    h3 {
+      font-size: vars.$fs-body;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-secondary;
+      margin: 0 0 8px 0;
+    }
+
+    p {
+      color: vars.$color-text-muted;
+      font-size: vars.$fs-small;
+    }
   }
 }
 
 /* Modal Customization */
-.custom-popup, .cute-side-popup {
+.custom-popup,
+.cute-side-popup {
   --border-radius: #{vars.$radius-xl};
   --box-shadow: #{vars.$shadow-xl};
 
@@ -333,13 +473,22 @@
       --padding-start: 20px;
       --padding-end: 20px;
       border-bottom: 1px solid vars.$color-border-light;
-      
-      ion-title { font-weight: vars.$fw-bold; font-size: vars.$fs-heading-sm; }
-      ion-icon { color: vars.$color-text-muted; font-size: 22px; }
+
+      ion-title {
+        font-weight: vars.$fw-bold;
+        font-size: vars.$fs-heading-sm;
+      }
+
+      ion-icon {
+        color: vars.$color-text-muted;
+        font-size: 22px;
+      }
     }
   }
 
-  ion-content { --background: #{vars.$color-bg-page}; }
+  ion-content {
+    --background: #{vars.$color-bg-page};
+  }
 }
 
 .detail-card {
@@ -347,14 +496,14 @@
   border-radius: vars.$radius-lg;
   padding: 24px;
   border: 1px solid vars.$color-border;
-  
+
   .detail-header {
     text-align: center;
     padding-bottom: 24px;
     border-bottom: 1px solid vars.$color-border-light;
     margin-bottom: 24px;
-    
-    h3 { 
+
+    h3 {
       display: inline-block;
       padding: 4px 16px;
       border-radius: vars.$radius-pill;
@@ -363,16 +512,32 @@
       text-transform: uppercase;
       margin-bottom: 12px;
     }
-    
-    p { font-size: vars.$fs-heading-lg; font-weight: vars.$fw-bold; color: vars.$color-text-primary; margin: 0; }
+
+    p {
+      font-size: vars.$fs-heading-lg;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-primary;
+      margin: 0;
+    }
   }
 
   ion-item {
     --padding-start: 0;
     --background: transparent;
     margin-bottom: 16px;
-    
-    h2 { font-size: vars.$fs-xs; font-weight: vars.$fw-bold; color: vars.$color-text-muted; text-transform: uppercase; margin-bottom: 6px; }
-    p { font-size: vars.$fs-body; font-weight: vars.$fw-bold; color: vars.$color-text-primary; }
+
+    h2 {
+      font-size: vars.$fs-xs;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-muted;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+    }
+
+    p {
+      font-size: vars.$fs-body;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-primary;
+    }
   }
 }

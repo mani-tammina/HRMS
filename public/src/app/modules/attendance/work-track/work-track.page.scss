@@ -7,7 +7,9 @@
   padding: 0;
 
   /* Glass Background Elements removed for single theme */
-  .glass-background { display: none; }
+  .glass-background {
+    display: none;
+  }
 
   .page-content-wrapper {
     position: relative;
@@ -27,8 +29,8 @@
     padding: 0 8px;
 
     .main-title {
-      font-size: vars.$fs-heading-xl;
-      font-weight: vars.$fw-bold;
+      font-size: vars.$fs-heading-xl !important;
+      font-weight: vars.$fw-medium;
       color: vars.$color-text-primary;
       margin: 0 0 4px 0;
       letter-spacing: vars.$ls-tight;
@@ -341,10 +343,29 @@
       font-weight: vars.$fw-bold;
       display: inline-block;
 
-      &.success { background: vars.$color-success-light; color: vars.$color-success; border: 1px solid vars.$color-success-border; }
-      &.warning { background: vars.$color-warning-light; color: vars.$color-warning; border: 1px solid vars.$color-warning-border; }
-      &.danger  { background: vars.$color-danger-light; color: vars.$color-danger; border: 1px solid vars.$color-danger-border; }
-      &.primary { background: vars.$color-primary-light; color: vars.$color-primary; border: 1px solid rgba(vars.$color-primary, 0.15); }
+      &.success {
+        background: vars.$color-success-light;
+        color: vars.$color-success;
+        border: 1px solid vars.$color-success-border;
+      }
+
+      &.warning {
+        background: vars.$color-warning-light;
+        color: vars.$color-warning;
+        border: 1px solid vars.$color-warning-border;
+      }
+
+      &.danger {
+        background: vars.$color-danger-light;
+        color: vars.$color-danger;
+        border: 1px solid vars.$color-danger-border;
+      }
+
+      &.primary {
+        background: vars.$color-primary-light;
+        color: vars.$color-primary;
+        border: 1px solid rgba(vars.$color-primary, 0.15);
+      }
     }
   }
 
@@ -517,8 +538,14 @@
       justify-content: center;
       cursor: pointer;
 
-      &:disabled { opacity: 0.3; cursor: not-allowed; }
-      &:hover:not(:disabled) { transform: scale(1.05); }
+      &:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      &:hover:not(:disabled) {
+        transform: scale(1.05);
+      }
     }
   }
 
@@ -659,19 +686,30 @@
       cursor: pointer;
       transition: vars.$transition-base;
 
-      &:disabled { opacity: 0.3; cursor: not-allowed; }
-      &:hover:not(:disabled) { border-color: vars.$color-primary; color: vars.$color-primary; }
+      &:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      &:hover:not(:disabled) {
+        border-color: vars.$color-primary;
+        color: vars.$color-primary;
+      }
     }
 
     .page-info {
       color: vars.$color-text-muted;
       font-size: vars.$fs-small;
 
-      b { color: vars.$color-text-primary; }
+      b {
+        color: vars.$color-text-primary;
+      }
     }
   }
 
-  .center-spinner { --color: #{vars.$color-primary}; }
+  .center-spinner {
+    --color: #{vars.$color-primary};
+  }
 }
 
 /* Modal Customization */

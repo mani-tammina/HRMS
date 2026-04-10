@@ -11,7 +11,7 @@
     <!-- ======= TOP BAR ======= -->
     <div class="premium-top-bar">
       <div class="title-group">
-        <h1 class="main-title">Work Track</h1>
+        <h3 class="main-title">Work Track</h3>
         <p class="sub-title">Track your daily work hours and manage timesheets</p>
       </div>
       <div class="top-actions">
@@ -65,35 +65,37 @@
               </div>
             </div>
           </div>
-          
+
           <!-- Client Timesheet Upload UI -->
           <div class="premium-upload-section">
             <div class="section-title">Upload Client Timesheet</div>
             <div class="upload-controls">
-                <div class="file-drop-zone">
-                  <ion-icon name="cloud-upload-outline"></ion-icon>
-                  <span *ngIf="!clientUploadFile">Select File</span>
-                  <span *ngIf="clientUploadFile" class="selected-filename">{{clientUploadFile.name}}</span>
-                  <input type="file" (change)="onClientUploadFileChange($event)" accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" />
-                </div>
-                
-                <div class="select-group">
-                  <ion-item lines="none" class="glass-select">
-                    <ion-select [(ngModel)]="clientUploadMonth" interface="popover" placeholder="Month">
-                      <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
-                    </ion-select>
-                  </ion-item>
-                  <ion-item lines="none" class="glass-select">
-                    <ion-select [(ngModel)]="clientUploadYear" interface="popover" placeholder="Year">
-                      <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
-                    </ion-select>
-                  </ion-item>
-                </div>
+              <div class="file-drop-zone">
+                <ion-icon name="cloud-upload-outline"></ion-icon>
+                <span *ngIf="!clientUploadFile">Select File</span>
+                <span *ngIf="clientUploadFile" class="selected-filename">{{clientUploadFile.name}}</span>
+                <input type="file" (change)="onClientUploadFileChange($event)"
+                  accept=".pdf,.xlsx,.xls,.jpg,.jpeg,.png" />
+              </div>
 
-                <button class="premium-action-btn primary" (click)="uploadClientTimesheet(a.project_id)" [disabled]="!clientUploadFile || clientUploadLoading">
-                  <ion-icon [name]="clientUploadLoading ? 'refresh-outline' : 'cloud-upload'"></ion-icon>
-                  <span>{{ clientUploadLoading ? 'Uploading...' : 'Upload' }}</span>
-                </button>
+              <div class="select-group">
+                <ion-item lines="none" class="glass-select">
+                  <ion-select [(ngModel)]="clientUploadMonth" interface="popover" placeholder="Month">
+                    <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                <ion-item lines="none" class="glass-select">
+                  <ion-select [(ngModel)]="clientUploadYear" interface="popover" placeholder="Year">
+                    <ion-select-option *ngFor="let y of years" [value]="y">{{y}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </div>
+
+              <button class="premium-action-btn primary" (click)="uploadClientTimesheet(a.project_id)"
+                [disabled]="!clientUploadFile || clientUploadLoading">
+                <ion-icon [name]="clientUploadLoading ? 'refresh-outline' : 'cloud-upload'"></ion-icon>
+                <span>{{ clientUploadLoading ? 'Uploading...' : 'Upload' }}</span>
+              </button>
             </div>
           </div>
         </ion-card-content>
@@ -144,10 +146,13 @@
                   <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
                   <td class="desc-cell">{{ t.work_description || t.notes || 'No description' }}</td>
                   <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
-                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span></td>
+                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' |
+                      titlecase }}</span></td>
                   <td class="actions-cell">
                     <div class="action-buttons">
-                      <button class="icon-btn edit" *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')" (click)="editTimesheet(t)">
+                      <button class="icon-btn edit"
+                        *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                        (click)="editTimesheet(t)">
                         <ion-icon name="create-outline"></ion-icon>
                       </button>
                       <button class="icon-btn view" (click)="openPreview(t)">
@@ -207,7 +212,8 @@
                   <ion-icon name="chevron-down-outline" class="chevron"></ion-icon>
                 </div>
                 <div class="date-status" *ngIf="selectedDateStatus">
-                  <span [class]="selectedDateStatus.toLowerCase().includes('leave') ? 'status-leave' : 'status-off'">{{ selectedDateStatus }}</span>
+                  <span [class]="selectedDateStatus.toLowerCase().includes('leave') ? 'status-leave' : 'status-off'">{{
+                    selectedDateStatus }}</span>
                 </div>
               </div>
 
@@ -217,7 +223,8 @@
                 <div class="glass-select-wrap">
                   <ion-item lines="none" class="glass-select">
                     <ion-select formControlName="project_id" interface="popover" placeholder="Select Project">
-                      <ion-select-option *ngFor="let a of assignments" [value]="a.project_id">{{ a.project_name }}</ion-select-option>
+                      <ion-select-option *ngFor="let a of assignments" [value]="a.project_id">{{ a.project_name
+                        }}</ion-select-option>
                     </ion-select>
                   </ion-item>
                 </div>
@@ -249,8 +256,10 @@
                 <tbody formArrayName="hours_breakdown">
                   <tr *ngFor="let row of breakdowns.controls; let i = index" [formGroupName]="i">
                     <td><input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input"></td>
-                    <td><textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea" rows="1"></textarea></td>
-                    <td><input type="number" formControlName="hours" (ionChange)="onHoursChange(i)" class="glass-input center"></td>
+                    <td><textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea"
+                        rows="1"></textarea></td>
+                    <td><input type="number" formControlName="hours" (ionChange)="onHoursChange(i)"
+                        class="glass-input center"></td>
                     <td class="actions-cell">
                       <button class="remove-btn" (click)="removeRow(i)" [disabled]="breakdowns.length <= 1">
                         <ion-icon name="trash-outline"></ion-icon>
@@ -326,11 +335,14 @@
                 <tr *ngFor="let t of paginatedTimesheets">
                   <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
                   <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
-                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span></td>
+                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' |
+                      titlecase }}</span></td>
                   <td class="desc-cell">No Remarks</td>
                   <td class="actions-cell">
                     <div class="action-buttons">
-                      <button class="icon-btn edit" *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')" (click)="editTimesheet(t)">
+                      <button class="icon-btn edit"
+                        *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                        (click)="editTimesheet(t)">
                         <ion-icon name="create-outline"></ion-icon>
                       </button>
                       <button class="icon-btn view" (click)="openPreview(t)">
@@ -345,11 +357,13 @@
               </tbody>
             </table>
           </div>
-          
+
           <div class="premium-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
-            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()"><ion-icon name="chevron-back-outline"></ion-icon></button>
+            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()"><ion-icon
+                name="chevron-back-outline"></ion-icon></button>
             <span class="page-info">Page <b>{{ currentPage }}</b> of {{ totalPages }}</span>
-            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()"><ion-icon name="chevron-forward-outline"></ion-icon></button>
+            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()"><ion-icon
+                name="chevron-forward-outline"></ion-icon></button>
           </div>
         </ion-card-content>
       </ion-card>
