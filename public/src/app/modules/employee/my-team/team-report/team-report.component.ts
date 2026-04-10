@@ -145,7 +145,7 @@ export class TeamReportComponent implements OnInit {
       const date = new Date(row.attendance_date).toLocaleDateString();
       const status = row.status || '---';
       const firstIn = row.first_check_in ? new Date(row.first_check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
-      const lastOut = row.last_punch_time ? new Date(row.last_punch_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
+      const lastOut = row.last_check_out ? new Date(row.last_check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '---';
       const hours = row.gross_hours || '0.00';
       const mode = row.work_mode || 'OFFICE';
       

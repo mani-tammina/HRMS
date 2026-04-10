@@ -123,13 +123,10 @@
           </span>
         </div>
         <div class="col col-in">
-          {{ (row.first_check_in | date:'hh:mm a') || '--:--' }}
+          {{ (row.first_check_in | date:'hh:mm a') || '--:--' }} {{ row.gross_hours || '0.00' }} hrs
         </div>
         <div class="col col-out">
-          {{ (row.last_punch_time | date:'hh:mm a') || '--:--' }}
-        </div>
-        <div class="col col-hours">
-          {{ row.gross_hours || '0.00' }} hrs
+          {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
         </div>
         <div class="col col-mode">
           {{ row.work_mode || 'OFFICE' }}
