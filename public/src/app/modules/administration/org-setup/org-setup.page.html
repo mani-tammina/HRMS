@@ -233,9 +233,9 @@
       <div class="form-section animate__animated animate__fadeInRight">
         <div class="glass-card form-card">
           <div class="card-header border-bottom">
-            <div class="header-icon" [class.editing]="isEditing()">
+            <!-- <div class="header-icon" [class.editing]="isEditing()">
               <ion-icon [name]="isEditing() ? 'pencil' : 'add'"></ion-icon>
-            </div>
+            </div> -->
             <div>
               <h3>{{ isEditing() ? 'Update' : 'Add New' }} {{ activeTab | titlecase }}</h3>
               <p>{{ isEditing() ? 'Modify the existing entry details below' : 'Fill in the information to create a new
@@ -390,12 +390,14 @@
                   <label>Starts At*</label>
                   <div class="input-wrapper">
                     <input type="datetime-local" [(ngModel)]="announcementForm.starts_at" />
+                    <!-- <ion-icon name="calendar-outline" class="calendar-icon"></ion-icon> -->
                   </div>
                 </div>
                 <div class="premium-form-group half">
                   <label>Ends At*</label>
                   <div class="input-wrapper">
                     <input type="datetime-local" [(ngModel)]="announcementForm.ends_at" />
+                     <!-- <ion-icon name="calendar-outline" class="calendar-icon"></ion-icon> -->
                   </div>
                 </div>
               </div>

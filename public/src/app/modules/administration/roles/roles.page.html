@@ -87,7 +87,7 @@
             </div>
           </ion-col>
           <ion-col size="3">{{user.username}}</ion-col>
-          <ion-col size="2">
+          <ion-col size="2" class="role-col">
             <ion-badge [color]="user.role === 'admin' ? 'danger' : user.role === 'finance' ? 'warning' : user.role === 'hr' ? 'tertiary' : user.role === 'manager' ? 'success' : 'primary'">
               {{ (user.role === 'finance' ? 'Financial Admin' : user.role) | uppercase }}
             </ion-badge>

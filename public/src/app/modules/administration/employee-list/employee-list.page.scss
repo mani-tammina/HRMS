@@ -348,10 +348,23 @@
 /* Upload Styles */
 .upload-main-block {
   --width: 500px;
-  --height: auto;
-  --min-height: 480px;
+  --height: 70%;
   --max-height: 90%;
-  --border-radius: #{vars.$radius-xl};
+  --border-radius: 16px;
+}
+
+.upload-main-block::part(content) {
+  display: flex;
+  flex-direction: column;
+}
+
+.upload-main-block ion-content {
+  flex: 1;
+  --overflow: auto;
+}
+
+.upload-block {
+  min-height: 200px;
 }
 
 .upload-block {

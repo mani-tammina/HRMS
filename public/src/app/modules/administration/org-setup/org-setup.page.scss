@@ -320,7 +320,7 @@
     color: #ffffff;
     padding: 2px 8px;
     border-radius: 4px;
-    font-family: vars.$ff-mono;
+    font-family: vars.$ff-main;
     font-size: 11px;
     font-weight: vars.$fw-bold;
 }
@@ -436,6 +436,26 @@
             .field-icon { color: vars.$color-primary; }
         }
     }
+    .input-wrapper {
+    position: relative; // ✅ REQUIRED
+    padding: 0 8px;
+
+    input[type="datetime-local"] {
+        padding-right: 0px; // space for icon
+        width: 100%;
+    }
+
+    .calendar-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 18px;
+        color: vars.$color-text-muted;
+        pointer-events: none; // prevents blocking click
+    }
+}
+
 }
 
 .form-row {
@@ -552,6 +572,11 @@
     font-size: vars.$fs-small;
 
     &:hover { background: vars.$color-bg-subtle; color: vars.$color-danger; border-color: vars.$color-danger; }
+}
+
+.btn-submit,
+.btn-clear {
+    flex: 1; 
 }
 
 /* Pagination Styles */

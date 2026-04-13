@@ -71,7 +71,7 @@
         
         ion-label {
             color: vars.$color-text-muted; font-weight: vars.$fw-bold; font-size: 11px;
-            margin-bottom: 8px !important; text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 20px !important; text-transform: uppercase; letter-spacing: 0.5px;
         }
 
         ion-input, ion-select {
@@ -100,5 +100,12 @@
     .table-header { display: none; }
     .table-list-row { flex-direction: column; padding: 24px 16px; align-items: flex-start; 
         ion-col { width: 100%; padding: 6px 0; }
+    }
+  }
+
+  .full-width{
+    ion-textarea{
+      border: 1px solid vars.$color-border;
+      border-radius: vars.$radius-md;
     }
   }

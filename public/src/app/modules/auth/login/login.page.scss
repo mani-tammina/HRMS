@@ -86,7 +86,7 @@
     width: 200px;
     height: auto;
     margin-bottom: 32px;
-    filter: brightness(0) invert(1);
+    // filter: brightness(0) invert(1);
     opacity: 0.9;
   }
 
@@ -282,8 +282,13 @@
       font-size: vars.$fs-body;
       font-weight: vars.$fw-medium;
     }
+    // internal-autofill-selected  {
+      
+    // }
   }
-
+input:-internal-autofill-selected {
+background-color: vars.$shadow-neon !important;
+}
   /* ── Buttons ── */
   .login-button {
     --background: #{vars.$color-primary};

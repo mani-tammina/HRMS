@@ -21,7 +21,7 @@
         <ion-card-title>{{isEditMode ? 'Edit' : 'Create'}} Project</ion-card-title>
       </ion-card-header>
       <ion-card-content>
-        <form [formGroup]="projectForm" (ngSubmit)="submit()">
+        <form class="form-txt" [formGroup]="projectForm" (ngSubmit)="submit()">
           <div class="form-grid">
             <ion-item lines="outline">
               <ion-label position="floating">Project Code*</ion-label>

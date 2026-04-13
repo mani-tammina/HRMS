@@ -62,6 +62,8 @@ import {
   timeOutline,
   trashOutline,
   megaphoneOutline,
+  walletOutline,
+  pencilOutline,
 } from 'ionicons/icons';
 
 // Register all used icons to enable tree shaking
@@ -125,4 +127,6 @@ addIcons({
   'sparkles-outline': sparklesOutline,
   'time-outline': timeOutline,
   'trash-outline': trashOutline,
+  'wallet-outline' : walletOutline,
+  'pencil-outline' : pencilOutline,
 });

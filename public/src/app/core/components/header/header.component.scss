@@ -243,7 +243,7 @@
   --border-radius: #{vars.$radius-md};
   margin: 0;
   height: 38px;
-  width: 38px;
+  width: 50px;
   transition: vars.$transition-base;
 
   &:hover {
@@ -581,4 +581,11 @@
     transform: scale(1.2);
     opacity: 0.7;
   }
+}
+
+input:-internal-autofill-selected {
+    appearance: menulist-button;
+    background-image: none !important;
+    background: transparent !important;
+    color: fieldtext !important;
 }
