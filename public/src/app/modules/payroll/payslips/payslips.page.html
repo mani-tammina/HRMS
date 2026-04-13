@@ -383,7 +383,7 @@
         <div class="badge-wrapper" *ngIf="i === 0">
           <span class="active-badge"><ion-icon name="checkmark-circle"></ion-icon> Current</span>
         </div>
-        
+
         <div class="contract-grid">
           <div class="c-col">
             <label>ANNUAL CTC</label>
@@ -391,7 +391,11 @@
           </div>
           <div class="c-col">
             <label>EFFECTIVE DATE</label>
-            <p>{{ contract.effective_date | date:'MMM dd, yyyy' }}</p>
+            <p>{{ contract.effective_from | date:'MMM dd, yyyy' }}</p>
+          </div>
+          <div class="c-col">
+            <label>STATUS</label>
+            <p>{{ contract.status }}</p>
           </div>
           <div class="c-col">
             <label>TEMPLATE</label>
@@ -415,7 +419,8 @@
         <div class="modal-header">
           <div>
             <h2>Salary Breakup</h2>
-            <p *ngIf="selectedContractDetails">Effective: {{ selectedContractDetails.effective_date | date:'MMM dd, yyyy' }}</p>
+            <p *ngIf="selectedContractDetails">Effective: {{ selectedContractDetails.effective_date | date:'MMM dd,
+              yyyy' }}</p>
           </div>
           <button class="close-btn" (click)="closeBreakupModal()">
             <ion-icon name="close-outline"></ion-icon>
@@ -423,7 +428,8 @@
         </div>
 
         <div class="modal-body">
-          <div *ngIf="isLoadingBreakup" class="loader-container min-h" style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+          <div *ngIf="isLoadingBreakup" class="loader-container min-h"
+            style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
             <ion-spinner name="crescent" color="primary"></ion-spinner>
             <p style="margin-top: 16px; color: #64748b;">Computing structural breakup...</p>
           </div>
