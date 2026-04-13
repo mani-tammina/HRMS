@@ -32,7 +32,7 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
     {
       title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager', 'finance'], isExpanded: false, children: [
-        { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['admin', 'hr', 'employee', 'manager', 'finance'] },
+        { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['hr', 'employee', 'manager', 'finance'] },
         { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'hr', 'finance'] }
       ]
     },

@@ -59,7 +59,7 @@
         <!-- <span class="user-name" *ngIf="!isAdmin">{{ currentEmployee?.FirstName }}</span> -->
       </div>
 
-      <ion-buttons *ngIf="isAuthenticated">
+      <ion-buttons *ngIf="isAuthenticated && !isAdmin">
         <ion-button color="light" class="nav-icon-btn">
           <img src="../../assets/notifications.png" width="100%" height="100%" />
           <!-- <ion-icon name="notifications-outline" class="nav-icon"></ion-icon> -->
@@ -76,7 +76,7 @@
         <ng-template>
           <ion-content>
             <ion-list lines="none">
-              <ion-item button (click)="viewProfile()">
+              <ion-item *ngIf="!isAdmin" button (click)="viewProfile()">
                 <ion-icon name="person-outline" slot="start"></ion-icon>
                 <ion-label>View Profile</ion-label>
               </ion-item>

@@ -19,6 +19,9 @@
       <ion-segment-button value="taxation">
         <ion-label>Taxation</ion-label>
       </ion-segment-button>
+      <ion-segment-button value="mySalary">
+        <ion-label>My Salary</ion-label>
+      </ion-segment-button>
     </ion-segment>
   </ion-toolbar>
 </ion-header>
@@ -355,6 +358,143 @@
     </div>
 
   </div>
+
+  <!-- My Salary Tab -->
+  <div *ngIf="currentTab === 'mySalary'" class="my-salary-container animate-in">
+    <div class="salary-header-section">
+      <div class="title-wrap">
+        <ion-icon name="cash-outline"></ion-icon>
+        <div>
+          <h2>Salary Contracts & Revisions</h2>
+          <p>Review your historical and current compensation details</p>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="employeeContracts.length === 0" class="no-data-card glass-card">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <h3>No Contracts Found</h3>
+      <p>We couldn't find any salary contracts for you.</p>
+    </div>
+
+    <div class="contract-list">
+      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index">
+        <div class="card-status-bar" [class.active-bar]="i === 0"></div>
+        <div class="badge-wrapper" *ngIf="i === 0">
+          <span class="active-badge"><ion-icon name="checkmark-circle"></ion-icon> Current</span>
+        </div>
+
+        <div class="contract-grid">
+          <div class="c-col">
+            <label>ANNUAL CTC</label>
+            <h3>{{ formatCurrency(contract.annual_ctc) }}</h3>
+          </div>
+          <div class="c-col">
+            <label>EFFECTIVE DATE</label>
+            <p>{{ contract.effective_from | date:'MMM dd, yyyy' }}</p>
+          </div>
+          <div class="c-col">
+            <label>STATUS</label>
+            <p>{{ contract.status }}</p>
+          </div>
+          <div class="c-col">
+            <label>TEMPLATE</label>
+            <p>{{ contract.template_name || 'Standard Template' }}</p>
+          </div>
+        </div>
+
+        <div class="action-footer">
+          <button class="neon-btn mini-btn outline-btn" (click)="openBreakupModal(contract)">
+            <ion-icon name="analytics-outline"></ion-icon> View Salary Breakup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BREAKUP MODAL -->
+  <ion-modal [isOpen]="isBreakupModalOpen" (didDismiss)="closeBreakupModal()" class="salary-breakup-modal">
+    <ng-template>
+      <div class="modal-wrapper">
+        <div class="modal-header">
+          <div>
+            <h2>Salary Breakup</h2>
+            <p *ngIf="selectedContractDetails">Effective: {{ selectedContractDetails.effective_date | date:'MMM dd,
+              yyyy' }}</p>
+          </div>
+          <button class="close-btn" (click)="closeBreakupModal()">
+            <ion-icon name="close-outline"></ion-icon>
+          </button>
+        </div>
+
+        <div class="modal-body">
+          <div *ngIf="isLoadingBreakup" class="loader-container min-h"
+            style="display: flex; flex-direction: column; align-items: center; justify-content: center;">
+            <ion-spinner name="crescent" color="primary"></ion-spinner>
+            <p style="margin-top: 16px; color: #64748b;">Computing structural breakup...</p>
+          </div>
+
+          <div *ngIf="!isLoadingBreakup && selectedContractBreakup" class="breakup-details animate-in">
+            <!-- CTA summary -->
+            <div class="breakup-summary glass-card">
+              <div class="sum-box">
+                <label>Annual CTC</label>
+                <h3>{{ formatCurrency(selectedContractDetails.annual_ctc) }}</h3>
+              </div>
+              <div class="sum-box highlight">
+                <label>Estimated Monthly Net</label>
+                <h3>{{ formatCurrency(selectedContractBreakup.netSalary) }}</h3>
+              </div>
+            </div>
+
+            <!-- Table -->
+            <div class="breakup-table-wrap glass-card">
+              <!-- Earnings -->
+              <div class="brk-section">
+                <div class="sec-head earn-head">
+                  <ion-icon name="trending-up-outline"></ion-icon> Monthly Earnings
+                </div>
+                <div class="brk-row header"><span>COMPONENT</span><span>AMOUNT</span></div>
+                <div class="brk-row" *ngFor="let item of selectedContractBreakup.earnings">
+                  <span>{{ item.name }}</span>
+                  <strong>{{ formatCurrency(item.actual) }}</strong>
+                </div>
+                <div class="brk-row total earn-total">
+                  <span>Total Gross Earnings (A)</span>
+                  <strong>{{ formatCurrency(selectedContractBreakup.totalEarnings) }}</strong>
+                </div>
+              </div>
+
+              <!-- Deductions -->
+              <div class="brk-section">
+                <div class="sec-head ded-head">
+                  <ion-icon name="trending-down-outline"></ion-icon> Deductions & Taxes
+                </div>
+                <div class="brk-row header"><span>COMPONENT</span><span>AMOUNT</span></div>
+                <div class="brk-row" *ngFor="let item of selectedContractBreakup.contributions">
+                  <span>{{ item.name }}</span>
+                  <strong>{{ formatCurrency(item.actual) }}</strong>
+                </div>
+                <div class="brk-row" *ngFor="let item of selectedContractBreakup.taxes">
+                  <span>{{ item.name }}</span>
+                  <strong>{{ formatCurrency(item.actual) }}</strong>
+                </div>
+                <div class="brk-row total ded-total">
+                  <span>Total Deductions (B)</span>
+                  <strong>{{ formatCurrency(selectedContractBreakup.totalDeductions) }}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div class="info-note">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <p>Breakup is a projection based on the assigned template. Taxes may vary.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-template>
+  </ion-modal>
 
   <div *ngIf="loading" class="loader-container"
     style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 50vh;">
