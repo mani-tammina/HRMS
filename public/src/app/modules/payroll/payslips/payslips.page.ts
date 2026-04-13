@@ -47,6 +47,13 @@ export class PayslipsPage implements OnInit, OnDestroy {
     "Seventeen", "Eighteen", "Nineteen"
   ];
 
+  // Contracts & Modal
+  employeeContracts: any[] = [];
+  isBreakupModalOpen = false;
+  selectedContractDetails: any = null;
+  selectedContractBreakup: any = null;
+  isLoadingBreakup = false;
+
   tens: string[] = [
     "", "", "Twenty", "Thirty", "Forty", "Fifty",
     "Sixty", "Seventy", "Eighty", "Ninety"
@@ -111,7 +118,11 @@ export class PayslipsPage implements OnInit, OnDestroy {
           return;
         }
 
-        this.payrollService.getPayrollstructures().pipe(takeUntil(this.destroy$)).subscribe({
+        this.payrollService.listContracts({ employee_id: emp.id }).pipe(takeUntil(this.destroy$)).subscribe({
+          next: (contracts: any[]) => {
+            this.employeeContracts = Array.isArray(contracts) ? contracts : [];
+            
+            this.payrollService.getPayrollstructures().pipe(takeUntil(this.destroy$)).subscribe({
           next: (res: any) => {
             const allStructures = Array.isArray(res) ? res : (res.data || []);
             const activeStructure = allStructures.find((s: any) => s.employee_id === emp.id && s.is_active);
@@ -171,6 +182,9 @@ export class PayslipsPage implements OnInit, OnDestroy {
           },
           error: () => { loader.dismiss(); this.loading = false; }
         });
+      },
+      error: () => { loader.dismiss(); this.loading = false; }
+    });
       },
       error: () => { loader.dismiss(); this.loading = false; }
     });
@@ -306,6 +320,145 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.totalDeductions = this.totalContributions + this.totalTaxes;
     this.netSalary = this.totalEarnings - this.totalDeductions;
     this.netSalaryInWords = this.toWords(this.netSalary);
+  }
+  
+  async openBreakupModal(contract: any) {
+    this.selectedContractDetails = contract;
+    this.isBreakupModalOpen = true;
+    this.isLoadingBreakup = true;
+    this.selectedContractBreakup = null;
+
+    this.payrollService.getPayrollComponents().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (masterCompsRes: any) => {
+        const masterComps = Array.isArray(masterCompsRes) ? masterCompsRes : (masterCompsRes.data || []);
+        this.payrollService.getTemplateComposition(contract.template_id).pipe(takeUntil(this.destroy$)).subscribe({
+          next: (comps: any[]) => {
+            const components = (comps || []).map((c: any) => {
+              const masterComp = masterComps.find((mc: any) => mc.component_id === (c.master_component_id || c.component_id));
+              return {
+                code: c.component_code || masterComp?.code || masterComp?.component_code,
+                name: c.component_name || masterComp?.name || masterComp?.component_name,
+                value: c.formula_or_value,
+                calculation_type: c.calculation_type || masterComp?.calculation_type,
+                percentage_of_code: c.percentage_of_code || masterComp?.percentage_of_code || masterComp?.base_code || null,
+                component_type: c.component_type || masterComp?.type || masterComp?.component_type,
+                sequence: c.sequence || masterComp?.sequence
+              };
+            });
+            this.selectedContractBreakup = this.calculateBreakupForModal(contract.annual_ctc, components);
+            this.isLoadingBreakup = false;
+          },
+          error: () => { this.isLoadingBreakup = false; }
+        });
+      },
+      error: () => { this.isLoadingBreakup = false; }
+    });
+  }
+
+  closeBreakupModal() {
+    this.isBreakupModalOpen = false;
+    this.selectedContractDetails = null;
+    this.selectedContractBreakup = null;
+  }
+
+  private calculateBreakupForModal(ctcAmount: number, components: any[]) {
+    const ctc = Number(ctcAmount) || 0;
+    const calculatedAmts: any = { 'CTC': ctc };
+    const sortedComps = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+    const getValue = (c: any, visited: string[] = []): number => {
+      const code = (c.code || '').toUpperCase();
+      if (code && visited.includes(code)) return 0;
+      const newVisited = code ? [...visited, code] : visited;
+
+      if (c.calculation_type === 'FIXED') {
+        return Number(c.value) || 0;
+      }
+
+      const raw = String(c.value || '0').trim();
+      if (c.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
+        const pct = parseFloat(raw.replace('%', ''));
+        if (isNaN(pct)) return 0;
+
+        const pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
+        if (pctOf && pctOf !== 'CTC') {
+          const baseComp = components.find(bc => 
+            (bc.code || '').toUpperCase() === pctOf || 
+            (bc.name || '').toUpperCase() === pctOf
+          );
+          if (baseComp) {
+            return (pct / 100) * getValue(baseComp, newVisited);
+          }
+        }
+        return (pct / 100) * ctc;
+      }
+
+      return Number(c.value) || 0;
+    };
+
+    sortedComps.forEach(c => { calculatedAmts[c.code] = getValue(c); });
+
+    sortedComps.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      if (code.includes('ESI') && !code.includes('EMPLOYER')) {
+        let pfm = 0;
+        Object.keys(calculatedAmts).forEach(k => {
+          if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
+        });
+        calculatedAmts[c.code] = (ctc - pfm) * (3.25 / 103.25);
+      }
+    });
+
+    sortedComps.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      if (code.includes('ESI') && (code.includes('EMPLOYER') || name.includes('EMPLOYER'))) {
+        let pfm = 0, employeeEsi = 0;
+        Object.keys(calculatedAmts).forEach(k => {
+          if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
+          if (k.toUpperCase().includes('ESI') && !k.toUpperCase().includes('EMPLOYER')) employeeEsi = calculatedAmts[k];
+        });
+        calculatedAmts[c.code] = (ctc - pfm - employeeEsi) * (0.75 / 100);
+      }
+    });
+
+    const isSA = (code: string, name: string) => {
+      const c = (code || '').toUpperCase(), n = (name || '').toUpperCase();
+      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || n.includes('SPECIAL ALLOWANCE');
+    };
+    const specialAllowanceComp = sortedComps.find(c => isSA(c.code, c.name));
+
+    if (specialAllowanceComp) {
+      let sumOfEarnings = 0, sumOfEmployerPortions = 0;
+      sortedComps.forEach(c => {
+        if (c !== specialAllowanceComp) {
+          const codeUpper = (c.code || '').toUpperCase(), nameUpper = (c.name || '').toUpperCase();
+          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER');
+          if (c.component_type?.toUpperCase() === 'EARNING') sumOfEarnings += calculatedAmts[c.code] || 0;
+          else if (isER || codeUpper.includes('PF_EMPLOYER') || nameUpper.includes('PF_EMPLOYER')) sumOfEmployerPortions += calculatedAmts[c.code] || 0;
+        }
+      });
+      calculatedAmts[specialAllowanceComp.code] = Math.max(0, ctc - sumOfEarnings - sumOfEmployerPortions);
+    }
+
+    const brk = { earnings: [] as any[], contributions: [] as any[], taxes: [] as any[], totalEarnings: 0, totalContributions: 0, totalTaxes: 0, totalDeductions: 0, netSalary: 0 };
+
+    sortedComps.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const isER = code.includes('EMPLOYER') || code.includes('ER');
+      if (isER) return;
+
+      const monthlyAmt = Math.round((calculatedAmts[c.code] || 0) / 12);
+      const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt };
+
+      if (c.component_type?.toUpperCase() === 'EARNING') { brk.earnings.push(compObj); brk.totalEarnings += monthlyAmt; }
+      else if (code.includes('PF') || code.includes('ESI')) { brk.contributions.push(compObj); brk.totalContributions += monthlyAmt; }
+      else { brk.taxes.push(compObj); brk.totalTaxes += monthlyAmt; }
+    });
+
+    brk.totalDeductions = brk.totalContributions + brk.totalTaxes;
+    brk.netSalary = brk.totalEarnings - brk.totalDeductions;
+    return brk;
   }
   convertLessThanThousand(num: number): string {
     let str: string = "";

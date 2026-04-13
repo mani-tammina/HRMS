@@ -271,9 +271,9 @@
                       <span *ngIf="!insightFormState[s.code].file">
                         <ion-icon name="attach-outline"></ion-icon> Attach File
                       </span>
-                      <span *ngIf="insightFormState[s.code]?.file" class="file-ready">
+                      <span *ngIf="insightFormState[s.code].file" class="file-ready">
                         <ion-icon name="document-text-outline"></ion-icon> {{
-                        insightFormState[s.code]?.file?.name?.slice(0,
+                        insightFormState[s.code].file?.name?.slice(0,
                         15) }}...
                       </span>
                     </div>
@@ -281,7 +281,7 @@
                 </div>
 
                 <button class="neon-btn mini-btn" (click)="uploadInsightProof(s.code)"
-                  [disabled]="!insightFormState[s.code]?.file || (insightFormState[s.code]?.amount || 0) <= 0 || isUploadingProof">
+                  [disabled]="!insightFormState[s.code].file || (insightFormState[s.code].amount || 0) <= 0 || isUploadingProof">
                   <ion-spinner *ngIf="isUploadingProof" name="crescent" size="small"></ion-spinner>
                   <span *ngIf="!isUploadingProof">Upload Proof</span>
                 </button>
