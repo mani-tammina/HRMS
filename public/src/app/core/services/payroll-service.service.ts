@@ -52,12 +52,11 @@ export class PayrollService {
     );
   }
 
-  updatePayrollComponent(id: number, payload: any): Observable<any> {
-    return this.http.put(
-      `${this.payrollUrl}components/${id}`,
-      payload,
-      { headers: this.getHeaders() }
-    );
+  updatePayrollComponent(id: number | string, payload: any): Observable<any> {
+    // Robust URL construction
+    const baseUrl = this.payrollUrl.replace(/\/$/, '');
+    const url = `${baseUrl}/components/${id}`;
+    return this.http.put(url, payload, { headers: this.getHeaders() });
   }
 
   deletePayrollComponent(id: number): Observable<any> {

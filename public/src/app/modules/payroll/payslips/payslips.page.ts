@@ -206,17 +206,33 @@ export class PayslipsPage implements OnInit, OnDestroy {
         return Number(c.value) || 0;
       }
 
-      const raw = String(c.value || '0').trim();
-      if (c.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
-        const pct = parseFloat(raw.replace('%', ''));
+      const rawInput = String(c.value || '0').trim();
+      const isPct = c.calculation_type === 'PERCENTAGE' || rawInput.includes('%');
+      
+      if (isPct) {
+        const pct = parseFloat(rawInput.replace(/[^0-9.]/g, ''));
         if (isNaN(pct)) return 0;
 
-        const pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
-        if (pctOf && pctOf !== 'CTC') {
-          const baseComp = components.find(bc => 
-            (bc.code || '').toUpperCase() === pctOf || 
-            (bc.name || '').toUpperCase() === pctOf
-          );
+        let pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
+        
+        // Fallback for formula-based lookup
+        if ((!pctOf || pctOf === '-') && rawInput.toUpperCase().includes('OF ')) {
+          const parts = rawInput.toUpperCase().split('OF ');
+          pctOf = parts[parts.length - 1].trim();
+        }
+
+        // Support GROSS alias and self-referencing fallback
+        if (pctOf === 'GROSS' || pctOf === code) pctOf = 'CTC';
+
+        if (pctOf && pctOf !== 'CTC' && pctOf !== '-') {
+          const baseComp = components.find(bc => {
+            const bcCode = (bc.code || '').toUpperCase();
+            const bcName = (bc.name || '').toUpperCase();
+            return bcCode === pctOf || 
+                   bcName === pctOf || 
+                   bcCode === pctOf.replace(/\s/g, '_') ||
+                   pctOf === bcCode.replace(/\s/g, '_');
+          });
           if (baseComp) {
             return (pct / 100) * getValue(baseComp, newVisited);
           }
@@ -276,11 +292,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
         if (c !== specialAllowanceComp) {
           const codeUpper = (c.code || '').toUpperCase();
           const nameUpper = (c.name || '').toUpperCase();
-          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER');
+          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER') || codeUpper.includes('_ER') || nameUpper.includes('_ER');
 
           if (c.component_type?.toUpperCase() === 'EARNING') {
             sumOfEarnings += calculatedAmts[c.code] || 0;
-          } else if (isER || codeUpper.includes('PF_EMPLOYER') || nameUpper.includes('PF_EMPLOYER')) {
+          } else if (isER || codeUpper.includes('PF_') || nameUpper.includes('PF_') || codeUpper.includes('ESI_') || nameUpper.includes('ESI_')) {
+            // Employer components are subtracted from CTC to get balancing allowance
             sumOfEmployerPortions += calculatedAmts[c.code] || 0;
           }
         }
@@ -375,17 +392,33 @@ export class PayslipsPage implements OnInit, OnDestroy {
         return Number(c.value) || 0;
       }
 
-      const raw = String(c.value || '0').trim();
-      if (c.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
-        const pct = parseFloat(raw.replace('%', ''));
+      const rawInput = String(c.value || '0').trim();
+      const isPct = c.calculation_type === 'PERCENTAGE' || rawInput.includes('%');
+      
+      if (isPct) {
+        const pct = parseFloat(rawInput.replace(/[^0-9.]/g, ''));
         if (isNaN(pct)) return 0;
 
-        const pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
-        if (pctOf && pctOf !== 'CTC') {
-          const baseComp = components.find(bc => 
-            (bc.code || '').toUpperCase() === pctOf || 
-            (bc.name || '').toUpperCase() === pctOf
-          );
+        let pctOf = (c.percentage_of_code || c.base_code || c.base_component || '').toUpperCase();
+        
+        // Fallback for formula-based lookup
+        if ((!pctOf || pctOf === '-') && rawInput.toUpperCase().includes('OF ')) {
+          const parts = rawInput.toUpperCase().split('OF ');
+          pctOf = parts[parts.length - 1].trim();
+        }
+
+        // Support GROSS alias and self-referencing fallback
+        if (pctOf === 'GROSS' || pctOf === code) pctOf = 'CTC';
+
+        if (pctOf && pctOf !== 'CTC' && pctOf !== '-') {
+          const baseComp = components.find(bc => {
+            const bcCode = (bc.code || '').toUpperCase();
+            const bcName = (bc.name || '').toUpperCase();
+            return bcCode === pctOf || 
+                   bcName === pctOf || 
+                   bcCode === pctOf.replace(/\s/g, '_') ||
+                   pctOf === bcCode.replace(/\s/g, '_');
+          });
           if (baseComp) {
             return (pct / 100) * getValue(baseComp, newVisited);
           }
@@ -433,9 +466,9 @@ export class PayslipsPage implements OnInit, OnDestroy {
       sortedComps.forEach(c => {
         if (c !== specialAllowanceComp) {
           const codeUpper = (c.code || '').toUpperCase(), nameUpper = (c.name || '').toUpperCase();
-          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER');
+          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER') || codeUpper.includes('_ER') || nameUpper.includes('_ER');
           if (c.component_type?.toUpperCase() === 'EARNING') sumOfEarnings += calculatedAmts[c.code] || 0;
-          else if (isER || codeUpper.includes('PF_EMPLOYER') || nameUpper.includes('PF_EMPLOYER')) sumOfEmployerPortions += calculatedAmts[c.code] || 0;
+          else if (isER || codeUpper.includes('PF_') || nameUpper.includes('PF_') || codeUpper.includes('ESI_') || nameUpper.includes('ESI_')) sumOfEmployerPortions += calculatedAmts[c.code] || 0;
         }
       });
       calculatedAmts[specialAllowanceComp.code] = Math.max(0, ctc - sumOfEarnings - sumOfEmployerPortions);

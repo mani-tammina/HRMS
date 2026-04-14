@@ -88,7 +88,7 @@ export class PayrollComponentsPage implements OnInit {
 
   editComponent(comp: any) {
     this.isEditMode = true;
-    this.selectedComponentId = comp.id;
+    this.selectedComponentId = comp.id || comp.component_id || null;
     this.componentForm.patchValue({
       structure_id: comp.structure_id,
       code: comp.code,
@@ -130,12 +130,21 @@ export class PayrollComponentsPage implements OnInit {
       structure_id: Number(formValue.structure_id)
     };
 
-    if (payload.calculation_type === 'FIXED') {
-      delete payload.percentage_of_code;
-    }
+    // Keep percentage_of_code even for FIXED if it's in the form, as per user's API example
+    // if (payload.calculation_type === 'FIXED') {
+    //   delete payload.percentage_of_code;
+    // }
 
-    if (this.isEditMode && this.selectedComponentId) {
-      this.payrollService.updatePayrollComponent(this.selectedComponentId, payload).subscribe({
+    if (this.isEditMode && this.selectedComponentId != null) {
+      // For update, match the provided API payload structure (omit structure_id if provided IDs are in URL)
+      // The user's curl request did not include structure_id in the body
+      const { structure_id, ...updatePayload } = payload;
+
+      // Safety check: ensure no NaN values are sent for numeric fields
+      if (isNaN(updatePayload.value)) updatePayload.value = 0;
+      if (isNaN(updatePayload.sequence)) updatePayload.sequence = 0;
+
+      this.payrollService.updatePayrollComponent(this.selectedComponentId, updatePayload).subscribe({
         next: () => {
           this.toaster.showSuccess('Component updated successfully');
           this.closeModal();

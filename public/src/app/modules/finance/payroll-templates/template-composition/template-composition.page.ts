@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { PayrollService } from '../../../../core/services/payroll-service.service';
 import { ToasterService } from '../../../../core/services/toaster.service';
 import { EmployeeService } from '../../../../core/services/employee.service';
@@ -68,10 +69,15 @@ export class TemplateCompositionPage implements OnInit {
   fetchEmployees() {
     this.employeeService.getAllEmployees().subscribe({
       next: (res: any) => {
-        this.employees = res;
-        this.filteredEmployees = res;
+        const data = Array.isArray(res) ? res : (res.data || []);
+        this.employees = data;
+        this.filteredEmployees = data;
       },
-      error: () => this.toaster.showError('Could not load employees')
+      error: () => {
+        this.employees = [];
+        this.filteredEmployees = [];
+        this.toaster.showError('Could not load employees');
+      }
     });
   }
 
@@ -122,8 +128,9 @@ export class TemplateCompositionPage implements OnInit {
     this.isModalOpen = true;
 
     // Set search term for employee
-    const creator = this.employees.find(e => e.id === Number(comp.created_by));
-    this.employeeSearchTerm = creator ? creator.FullName : `User #${comp.created_by}`;
+    const employeesList = Array.isArray(this.employees) ? this.employees : [];
+    const creator = employeesList.find(e => Number(e.id) === Number(comp.created_by));
+    this.employeeSearchTerm = creator ? (creator.FullName || creator.name) : `User #${comp.created_by}`;
     this.filteredEmployees = [];
 
     this.compositionForm.patchValue({
@@ -212,9 +219,12 @@ export class TemplateCompositionPage implements OnInit {
           return;
         }
 
-        const componentRequests = rawComposition.map((item: any) =>
-          this.payrollService.getComponentById(item.master_component_id || item.component_id)
-        );
+        const componentRequests = rawComposition.map((item: any) => {
+          const id = item.master_component_id || item.component_id;
+          return this.payrollService.getComponentById(id).pipe(
+            catchError(() => of(null))
+          );
+        });
 
         forkJoin<any[]>(componentRequests).subscribe({
           next: (componentResults: any[]) => {
@@ -254,6 +264,43 @@ export class TemplateCompositionPage implements OnInit {
   }
 
   calculateTotals() {
+    // 1. First Pass: Calculate all fixed and percentage components
+    const calculatedAmts: { [code: string]: number } = { 'CTC': this.sampleCTC };
+    this.compositionData.forEach(c => {
+      calculatedAmts[c.component_code] = this.getCalculatedAmount(c);
+    });
+
+    // 2. Second Pass: Resolve Special Allowance as balancing figure if it exists
+    const isSA = (code: string, name: string) => {
+      const c = (code || '').toUpperCase();
+      const n = (name || '').toUpperCase();
+      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || n.includes('SPECIAL ALLOWANCE');
+    };
+    
+    const specialAllowanceComp = this.compositionData.find(c => isSA(c.component_code, c.component_name));
+    if (specialAllowanceComp) {
+      let sumOfEarnings = 0;
+      let sumOfEmployerPortions = 0;
+
+      this.compositionData.forEach(c => {
+        if (c !== specialAllowanceComp) {
+          const codeUpper = (c.component_code || '').toUpperCase();
+          const nameUpper = (c.component_name || '').toUpperCase();
+          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER') || codeUpper.includes('_ER') || nameUpper.includes('_ER');
+
+          if (c.component_type?.toUpperCase() === 'EARNING') {
+            sumOfEarnings += calculatedAmts[c.component_code] || 0;
+          } else if (isER || codeUpper.includes('PF_') || nameUpper.includes('PF_') || codeUpper.includes('ESI_') || nameUpper.includes('ESI_')) {
+            sumOfEmployerPortions += calculatedAmts[c.component_code] || 0;
+          }
+        }
+      });
+      
+      const balance = Math.max(0, this.sampleCTC - sumOfEarnings - sumOfEmployerPortions);
+      // Update the component in the list so the UI reflects the balanced amount
+      specialAllowanceComp.formula_or_value = balance.toString();
+    }
+
     this.totalEarnings = this.compositionData
       .filter(c => (c.component_type)?.toUpperCase() === 'EARNING')
       .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0);
@@ -269,21 +316,40 @@ export class TemplateCompositionPage implements OnInit {
     if (code && visited.includes(code)) return 0; // Prevent circular dependencies
     const newVisited = code ? [...visited, code] : visited;
 
-    const raw = String(comp.formula_or_value || comp.value || '0').trim();
+    const rawInput = String(comp.formula_or_value || comp.value || '0').trim();
     const calcType = (comp.calculation_type || '').toUpperCase();
+    const isPct = calcType === 'PERCENTAGE' || rawInput.includes('%');
 
-    if (calcType === 'PERCENTAGE' || raw.includes('%')) {
-      // Strip trailing % if present
-      const pct = parseFloat(raw.replace('%', ''));
+    if (isPct) {
+      // Strip non-numeric chars for percentage lookup
+      const pct = parseFloat(rawInput.replace(/[^0-9.]/g, ''));
       if (isNaN(pct)) return 0;
 
       // Ensure percentage_of_code is considered
-      const pctOf = (comp.percentage_of_code || '').toUpperCase();
-      if (pctOf && pctOf !== 'CTC') {
-        const baseComp = this.compositionData.find(c => 
-          (c.component_code || '').toUpperCase() === pctOf || 
-          (c.component_name || '').toUpperCase() === pctOf
-        );
+      let pctOf = (comp.percentage_of_code || '').toUpperCase();
+      
+      // Fallback if pctOf is not set but formula uses a code (e.g. "40% of BASIC")
+      if ((!pctOf || pctOf === '-') && rawInput.toUpperCase().includes('OF ')) {
+        const parts = rawInput.toUpperCase().split('OF ');
+        pctOf = parts[parts.length - 1].trim();
+      }
+
+      // If pctOf is GROSS, treat as CTC
+      if (pctOf === 'GROSS') pctOf = 'CTC';
+
+      // If it's a percentage of itself (common error for Basic), fallback to CTC
+      if (pctOf === code?.toUpperCase()) pctOf = 'CTC';
+
+      if (pctOf && pctOf !== 'CTC' && pctOf !== '-') {
+        const baseComp = this.compositionData.find(c => {
+          const cCode = (c.component_code || '').toUpperCase();
+          const cName = (c.component_name || '').toUpperCase();
+          const target = pctOf.toUpperCase();
+          return cCode === target || 
+                 cName === target ||
+                 cCode === target.replace(/\s/g, '_') ||
+                 target === cCode.replace(/\s/g, '_');
+        });
         if (baseComp) {
           return (pct / 100) * this.getCalculatedAmount(baseComp, newVisited);
         }
@@ -293,18 +359,27 @@ export class TemplateCompositionPage implements OnInit {
     }
 
     // FIXED or unknown — return raw numeric value
-    const fixed = parseFloat(raw.replace('%', ''));
+    const fixed = parseFloat(rawInput.replace(/[^0-9.]/g, ''));
     return isNaN(fixed) ? 0 : fixed;
   }
 
   getCalculationLabel(comp: any): string {
     const raw = String(comp.formula_or_value || comp.value || '0').trim();
-    if (comp.calculation_type === 'PERCENTAGE' || raw.includes('%')) {
-      const pct = parseFloat(raw.replace('%', ''));
-      const pctOf = (comp.percentage_of_code || '').toUpperCase();
-      return `${isNaN(pct) ? 0 : pct}% of ${pctOf && pctOf !== 'CTC' ? pctOf : 'CTC'}`;
+    const isPct = comp.calculation_type === 'PERCENTAGE' || raw.includes('%');
+    if (isPct) {
+      const pct = parseFloat(raw.replace(/[^0-9.]/g, ''));
+      let pctOf = (comp.percentage_of_code || '').toUpperCase();
+      if ((!pctOf || pctOf === '-') && raw.toUpperCase().includes('OF ')) {
+        const parts = raw.toUpperCase().split('OF ');
+        pctOf = parts[parts.length - 1].trim();
+      }
+
+      const code = (comp.component_code || '').toUpperCase();
+      if (pctOf === 'GROSS' || pctOf === code) pctOf = 'CTC';
+
+      return `${isNaN(pct) ? 0 : pct}% of ${pctOf && pctOf !== 'CTC' && pctOf !== '-' ? pctOf : 'Gross'}`;
     }
-    return '';
+    return 'Fixed Amount';
   }
 
   onSampleCTCChange(event: any) {

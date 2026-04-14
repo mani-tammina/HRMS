@@ -568,6 +568,11 @@ export class PayrollApiService {
     return this.http.post(`${this.baseUrl}/v1/admin/payroll/components`, payload, { headers: this.getHeaders() });
   }
 
+  /** PUT /api/payroll-master/components/:id — Update a payroll component */
+  updatePayrollComponent(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/payroll-master/components/${id}`, payload, { headers: this.getHeaders() });
+  }
+
   /** GET /api/v1/admin/payroll/lop-summary?payroll_month=YYYY-MM — Get LOP summary */
   getLOPSummary(payrollMonth: string): Observable<LOPSummaryResponse> {
     const params = new HttpParams().set('payroll_month', payrollMonth);
