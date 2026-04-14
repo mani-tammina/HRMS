@@ -314,20 +314,23 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
     sortedComps.forEach(c => {
       const code = (c.code || '').toUpperCase();
-      const isER = code.includes('EMPLOYER') || code.includes('ER');
-      if (isER) return;
-
+      const name = (c.name || '').toUpperCase();
+      const isER = code.includes('EMPLOYER') || code.includes('ER') || name.includes('EMPLOYER') || code.includes('_ER');
+      
       const monthlyAmt = Math.round((calculatedAmts[c.code] || 0) / 12);
-      const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt };
+      const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
-      if (c.component_type?.toUpperCase() === 'EARNING') {
+      if (c.component_type?.toUpperCase() === 'EARNING' && !isER) {
         this.earnings.push(compObj);
         this.totalEarnings += monthlyAmt;
-        console.log(this.earnings);
-      } else if (code.includes('PF') || code.includes('ESI')) {
+      } else if (code.includes('PF') || code.includes('ESI') || isER) {
         this.contributions.push(compObj);
-        console.log(this.contributions);
-        this.totalContributions += monthlyAmt;
+        // On the main payslip, we usually only show employee deductions to get Net Pay
+        // but if it's the breakup modal, we might want to see both.
+        // For the main table, let's keep it to deductions from Gross.
+        if (!isER) {
+          this.totalContributions += monthlyAmt;
+        }
       } else {
         this.taxes.push(compObj);
         this.totalTaxes += monthlyAmt;
@@ -478,19 +481,30 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
     sortedComps.forEach(c => {
       const code = (c.code || '').toUpperCase();
-      const isER = code.includes('EMPLOYER') || code.includes('ER');
-      if (isER) return;
+      const name = (c.name || '').toUpperCase();
+      const isER = code.includes('EMPLOYER') || code.includes('ER') || name.includes('EMPLOYER') || code.includes('_ER');
 
       const monthlyAmt = Math.round((calculatedAmts[c.code] || 0) / 12);
-      const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt };
+      const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
-      if (c.component_type?.toUpperCase() === 'EARNING') { brk.earnings.push(compObj); brk.totalEarnings += monthlyAmt; }
-      else if (code.includes('PF') || code.includes('ESI')) { brk.contributions.push(compObj); brk.totalContributions += monthlyAmt; }
-      else { brk.taxes.push(compObj); brk.totalTaxes += monthlyAmt; }
+      if (c.component_type?.toUpperCase() === 'EARNING' && !isER) { 
+        brk.earnings.push(compObj); 
+        brk.totalEarnings += monthlyAmt; 
+      }
+      else if (code.includes('PF') || code.includes('ESI') || isER) { 
+        brk.contributions.push(compObj); 
+        brk.totalContributions += monthlyAmt; 
+      }
+      else { 
+        brk.taxes.push(compObj); 
+        brk.totalTaxes += monthlyAmt; 
+      }
     });
 
+    // For the breakup modal, we calculate Net as CTC - (All Deductions including Employer portions)
+    // to show how the CTC is distributed.
     brk.totalDeductions = brk.totalContributions + brk.totalTaxes;
-    brk.netSalary = brk.totalEarnings - brk.totalDeductions;
+    brk.netSalary = (ctc / 12) - brk.totalDeductions;
     return brk;
   }
   convertLessThanThousand(num: number): string {
