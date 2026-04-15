@@ -675,3 +675,9 @@ ion-content {
   95%  { opacity: 0.7; }
   100% { bottom: 120%; opacity: 0; }
 }
+
+  .searchbar-input-container{
+    input{
+      line-height: 28px !important;
+    }
+  }
