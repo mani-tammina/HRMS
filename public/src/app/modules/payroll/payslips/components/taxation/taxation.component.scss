@@ -1,0 +1,319 @@
+@use '../../../../../../theme/_variables' as vars;
+
+/* Taxation Dashboard Styling */
+.taxation-dashboard {
+  padding: 32px 24px;
+  background: vars.$color-bg-page;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  .tax-loader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 100px;
+    p {
+      margin-top: 16px;
+      color: vars.$color-text-muted;
+      font-weight: vars.$fw-medium;
+      font-size: vars.$fs-body;
+    }
+    ion-spinner { --color: #{vars.$color-primary}; }
+  }
+
+  .tax-scroll-container {
+    max-width: 1100px;
+    width: 100%;
+  }
+
+  /* Summary Cards Grid */
+  .tax-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 24px;
+    margin-bottom: 32px;
+
+    .tax-summary-card {
+      position: relative;
+      padding: 32px;
+      border-radius: vars.$radius-xl;
+      overflow: hidden;
+      color: vars.$color-white;
+      box-shadow: vars.$shadow-md;
+      transition: vars.$transition-smooth;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+
+      &:hover {
+        transform: translateY(-4px);
+        box-shadow: vars.$shadow-lg;
+      }
+
+      .card-content {
+        position: relative;
+        z-index: 2;
+
+        label {
+          font-size: 10px;
+          font-weight: vars.$fw-bold;
+          letter-spacing: 1px;
+          opacity: 0.8;
+          display: block;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+        }
+
+        h3 {
+          font-size: vars.$fs-heading-lg;
+          font-weight: vars.$fw-bold;
+          margin: 0;
+          letter-spacing: vars.$ls-tight;
+        }
+
+        .badge-info, .monthly-hint {
+          font-size: 11px;
+          margin-top: 12px;
+          opacity: 0.9;
+          font-weight: vars.$fw-bold;
+          background: rgba(255, 255, 255, 0.15);
+          padding: 4px 12px;
+          border-radius: vars.$radius-pill;
+          display: inline-block;
+        }
+      }
+
+      .bg-icon {
+        position: absolute;
+        right: -10px;
+        bottom: -10px;
+        font-size: 80px;
+        opacity: 0.1;
+        z-index: 0;
+      }
+
+      &.income-sum    { background: vars.$color-primary; }
+      &.deduction-sum { background: vars.$color-success; }
+      &.tax-sum       { background: vars.$color-danger; }
+    }
+  }
+
+  /* Professional Card */
+  .glass-card {
+    background: vars.$color-bg-card;
+    padding: 32px;
+    border-radius: vars.$radius-xl;
+    border: 1px solid vars.$color-border;
+    box-shadow: vars.$shadow-md;
+    margin-bottom: 32px;
+
+    .section-head {
+      display: flex;
+      align-items: center;
+      margin-bottom: 32px;
+      gap: 16px;
+
+      ion-icon {
+        font-size: 24px;
+        color: vars.$color-primary;
+      }
+
+      h2 {
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        margin: 0;
+        flex: 1;
+        letter-spacing: vars.$ls-tight;
+      }
+
+      .portal-link {
+        background: vars.$color-primary-light;
+        color: vars.$color-primary;
+        border: 1px solid rgba(vars.$color-primary, 0.1);
+        padding: 8px 16px;
+        border-radius: vars.$radius-pill;
+        font-size: 11px;
+        font-weight: vars.$fw-bold;
+        cursor: pointer;
+        transition: vars.$transition-base;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        &:hover {
+          background: vars.$color-primary;
+          color: vars.$color-white;
+        }
+      }
+    }
+  }
+
+  /* Breakdown Table */
+  .breakdown-table {
+    margin-bottom: 24px;
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 14px 0;
+      border-bottom: 1px solid vars.$color-border-light;
+
+      span {
+        color: vars.$color-text-secondary;
+        font-weight: vars.$fw-medium;
+        font-size: vars.$fs-small;
+      }
+
+      strong {
+        color: vars.$color-text-primary;
+        font-weight: vars.$fw-bold;
+        font-size: vars.$fs-small;
+      }
+
+      &.total {
+        border-top: 2px solid vars.$color-border;
+        border-bottom: none;
+        margin-top: 8px;
+        padding-top: 16px;
+        
+        strong {
+          color: vars.$color-primary;
+          font-size: vars.$fs-body;
+        }
+      }
+    }
+  }
+
+  /* Progressive Bar */
+  .tax-progress-bar {
+    margin-top: 24px;
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-muted;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .progress-track {
+      height: 8px;
+      background: vars.$color-bg-subtle;
+      border-radius: vars.$radius-pill;
+      border: 1px solid vars.$color-border-light;
+      overflow: hidden;
+
+      .progress-fill {
+        height: 100%;
+        background: vars.$color-primary;
+        border-radius: vars.$radius-pill;
+      }
+    }
+  }
+
+  /* Investment Grid */
+  .investment-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+
+    .investment-item {
+      .inv-meta {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+
+        span {
+          font-size: 11px;
+          color: vars.$color-text-muted;
+          font-weight: vars.$fw-bold;
+          text-transform: uppercase;
+        }
+
+        strong {
+          font-size: 11px;
+          color: vars.$color-text-primary;
+          font-weight: vars.$fw-bold;
+        }
+      }
+
+      .inv-progress {
+        height: 6px;
+        background: vars.$color-bg-subtle;
+        border-radius: vars.$radius-pill;
+        border: 1px solid vars.$color-border-xlight;
+        overflow: hidden;
+
+        .inv-fill {
+          height: 100%;
+          border-radius: vars.$radius-pill;
+          background: vars.$color-primary;
+        }
+      }
+    }
+  }
+
+  .proof-status {
+    margin-top: 24px;
+    
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      border-radius: vars.$radius-lg;
+      font-size: vars.$fs-small;
+      font-weight: vars.$fw-bold;
+
+      &.pending {
+        background: vars.$color-warning-light;
+        color: vars.$color-warning;
+        border: 1px solid vars.$color-warning-border;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+    }
+  }
+
+  .portal-cta-mini {
+    padding: 24px;
+    text-align: center;
+    
+    p {
+      color: vars.$color-text-muted;
+      font-size: vars.$fs-small;
+      margin-bottom: 16px;
+      font-weight: vars.$fw-medium;
+    }
+  }
+
+  .empty-tax-state {
+    text-align: center;
+    padding: 100px 32px;
+    
+    ion-icon {
+      font-size: 64px;
+      color: vars.$color-text-placeholder;
+      margin-bottom: 24px;
+      opacity: 0.4;
+      display: block;
+      margin: 0 auto;
+    }
+
+    h2 {
+      font-size: vars.$fs-heading-sm;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-secondary;
+      margin-bottom: 8px;
+    }
+
+    p {
+      color: vars.$color-text-muted;
+      font-size: vars.$fs-body;
+      margin-bottom: 32px;
+    }
+  }
+}

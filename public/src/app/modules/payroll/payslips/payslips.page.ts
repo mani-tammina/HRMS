@@ -23,9 +23,6 @@ export class PayslipsPage implements OnInit, OnDestroy {
   lopDays: number = 0;
 
   // Taxation data
-  taxComputation: any;
-  taxSummary: any;
-  isLoadingTax = false;
   financialYear: string;
 
   // Salary data
@@ -70,35 +67,14 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.loadData();
-    this.loadTaxData();
   }
 
   setTab(event: any) {
     const tab = event.detail.value;
     if (!tab) return;
     this.currentTab = tab;
-    if (tab === 'taxation' && !this.taxComputation) {
-      this.loadTaxData();
-    }
   }
 
-  loadTaxData() {
-    this.isLoadingTax = true;
-    this.payrollApi.getTaxComputation(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res) => {
-        this.taxComputation = res;
-        this.isLoadingTax = false;
-      },
-      error: () => { this.isLoadingTax = false; }
-    });
-
-    this.payrollApi.getMyTaxSummary(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res: any) => {
-        this.taxSummary = res;
-      },
-      error: () => { }
-    });
-  }
 
   async loadData() {
     this.loading = true;
@@ -573,11 +549,6 @@ export class PayslipsPage implements OnInit, OnDestroy {
     });
   }
 
-  getProgressBarColor(pct: number): string {
-    if (pct > 80) return '#ef4444';
-    if (pct > 50) return '#f59e0b';
-    return '#10b981';
-  }
 
 
   // numberToWords(num: number): string {

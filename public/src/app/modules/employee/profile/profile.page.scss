@@ -3,7 +3,8 @@
 .profile-page-content {
   --background: #{vars.$color-bg-page};
   position: relative;
-  min-height: 100vh;
+  min-height: calc(100vh - 705px);
+  overflow: auto;
 
   .header-banner {
     height: 140px;
@@ -13,12 +14,12 @@
     left: 0;
     width: 100%;
     z-index: 0;
-    
+
     &::after {
       content: '';
       position: absolute;
       inset: 0;
-      background-image: radial-gradient(circle, rgba(255,255,255,0.03) 1px, transparent 1px);
+      background-image: radial-gradient(circle, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
       background-size: 24px 24px;
     }
   }
@@ -54,7 +55,7 @@
     .content-block {
       padding: 24px 32px 32px;
       text-align: center;
-      
+
       .employee-name {
         font-size: vars.$fs-heading-md;
         font-weight: vars.$fw-bold;
@@ -91,7 +92,7 @@
         margin-top: 24px;
         padding-top: 24px;
         border-top: 1px solid vars.$color-border-light;
-        
+
         .info-row {
           display: flex;
           align-items: center;
@@ -112,7 +113,7 @@
         display: flex;
         justify-content: center;
         gap: 12px;
-        
+
         .upload-btn {
           --border-radius: #{vars.$radius-md};
           font-weight: vars.$fw-bold;
@@ -173,7 +174,7 @@
     gap: 20px;
     padding: 24px;
     background: vars.$color-white;
-    
+
     .popover-title {
       font-size: vars.$fs-body;
       font-weight: vars.$fw-bold;
@@ -191,16 +192,17 @@
       position: relative;
       background: vars.$color-bg-subtle;
 
-      .preview-img { 
-        width: 100%; 
-        height: 100%; 
-        object-fit: cover; 
-        border-radius: vars.$radius-md; 
+      .preview-img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: vars.$radius-md;
       }
-      .preview-text { 
-        font-size: 10px; 
-        color: vars.$color-primary; 
-        margin: 6px 0 0 0; 
+
+      .preview-text {
+        font-size: 10px;
+        color: vars.$color-primary;
+        margin: 6px 0 0 0;
         font-weight: vars.$fw-bold;
       }
     }
@@ -223,7 +225,9 @@
         background: rgba(vars.$color-primary, 0.1);
       }
 
-      input[type="file"] { display: none; }
+      input[type="file"] {
+        display: none;
+      }
     }
 
     .upload-submit {
@@ -235,7 +239,7 @@
       width: 100%;
       height: 44px;
       text-transform: none;
-      
+
       &:hover {
         --background: #{vars.$color-primary-dark};
       }
@@ -256,9 +260,9 @@
         margin-top: 0;
         margin-right: 40px;
 
-        .profile-pic { 
-          width: 160px; 
-          height: 160px; 
+        .profile-pic {
+          width: 160px;
+          height: 160px;
         }
       }
 

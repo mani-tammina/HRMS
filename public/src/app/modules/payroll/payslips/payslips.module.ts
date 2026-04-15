@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { PayslipsPage } from './payslips.page';
 import { RouterModule, Routes } from '@angular/router';
+import { TaxationComponent } from './components/taxation/taxation.component';
 
 const routes: Routes = [
   {
@@ -19,6 +20,6 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes)
   ],
-  declarations: [PayslipsPage]
+  declarations: [PayslipsPage, TaxationComponent]
 })
 export class PayslipsPageModule {}

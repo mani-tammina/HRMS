@@ -1,0 +1,151 @@
+<div class="taxation-dashboard">
+
+  <div *ngIf="isLoadingTax" class="tax-loader">
+    <ion-spinner name="crescent"></ion-spinner>
+    <p>Computing your tax liability...</p>
+  </div>
+
+  <div *ngIf="!isLoadingTax && taxComputation" class="tax-scroll-container">
+
+    <!-- Summary Cards -->
+    <div class="tax-cards-grid">
+      <div class="tax-summary-card income-sum">
+        <div class="card-overlay"></div>
+        <div class="card-content">
+          <label>GROSS ANNUAL INCOME</label>
+          <h3>{{ formatCurrency(taxComputation.gross_annual_income) }}</h3>
+          <div class="badge-info">FY {{ financialYear }}</div>
+        </div>
+        <ion-icon name="trending-up-outline" class="bg-icon"></ion-icon>
+      </div>
+
+      <div class="tax-summary-card deduction-sum">
+        <div class="card-overlay"></div>
+        <div class="card-content">
+          <label>TOTAL DEDUCTIONS</label>
+          <h3>{{ formatCurrency(taxComputation.total_deductions) }}</h3>
+          <p>Section 80C, 80D, HRA etc.</p>
+        </div>
+        <ion-icon name="shield-checkmark-outline" class="bg-icon"></ion-icon>
+      </div>
+
+      <div class="tax-summary-card tax-sum">
+        <div class="card-overlay"></div>
+        <div class="card-content">
+          <label>PROJECTED TAX (FY)</label>
+          <h3>{{ formatCurrency(taxComputation.total_tax_liability) }}</h3>
+          <div class="monthly-hint">Est. {{ formatCurrency(taxComputation.monthly_tds) }}/mo</div>
+        </div>
+        <ion-icon name="calculator-outline" class="bg-icon"></ion-icon>
+      </div>
+    </div>
+
+    <!-- Computation Breakdown -->
+    <div class="tax-section-card glass-card">
+      <div class="section-head">
+        <ion-icon name="analytics-outline"></ion-icon>
+        <h2>Tax Computation Breakdown</h2>
+        <ion-badge color="secondary">{{ taxComputation.regime_type }} Regime</ion-badge>
+      </div>
+
+      <div class="breakdown-table">
+        <div class="breakdown-row">
+          <span>Taxable Income After Deductions</span>
+          <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
+        </div>
+        <div class="breakdown-row">
+          <span>Income Tax</span>
+          <strong>{{ formatCurrency(taxComputation.income_tax) }}</strong>
+        </div>
+        <div class="breakdown-row" *ngIf="taxComputation.cess">
+          <span>Health & Education Cess (4%)</span>
+          <strong>{{ formatCurrency(taxComputation.cess) }}</strong>
+        </div>
+        <div class="breakdown-row total">
+          <span>Effective Tax Liability</span>
+          <strong>{{ formatCurrency(taxComputation.total_tax_liability) }}</strong>
+        </div>
+      </div>
+
+      <div class="tax-progress-bar">
+        <div class="progress-label">
+          <span>TDS Paid (YTD)</span>
+          <span>75%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" [style.width.%]="75"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Investment Tracker -->
+    <div class="tax-section-card glass-card investment-tracker">
+      <div class="section-head">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <h2>Investment Declarations</h2>
+        <button class="portal-link" routerLink="/MyTax">Edit Declarations</button>
+      </div>
+
+      <div class="investment-grid">
+        <div class="investment-item">
+          <div class="inv-meta">
+            <span>Section 80C (Life Ins, PPF, etc.)</span>
+            <strong>{{ formatCurrency(taxSummary?.declared_investments?.['80C'] || 0) }} / ₹1.5L</strong>
+          </div>
+          <div class="inv-progress">
+            <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100"
+              [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80C'] || 0) / 150000) * 100)">
+            </div>
+          </div>
+        </div>
+
+        <div class="investment-item">
+          <div class="inv-meta">
+            <span>Section 80D (Health Insurance)</span>
+            <strong>{{ formatCurrency(taxSummary?.declared_investments?.['80D'] || 0) }} / ₹25k</strong>
+          </div>
+          <div class="inv-progress">
+            <div class="inv-fill" [style.width.%]="((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100"
+              [style.background-color]="getProgressBarColor(((taxSummary?.declared_investments?.['80D'] || 0) / 25000) * 100)">
+            </div>
+          </div>
+        </div>
+
+        <div class="investment-item">
+          <div class="inv-meta">
+            <span>HRA Exemption Claimed</span>
+            <strong>{{ formatCurrency(taxSummary?.declared_investments?.['HRA'] || 0) }}</strong>
+          </div>
+          <div class="inv-progress">
+            <div class="inv-fill" [style.width.%]="80" style="background-color: #3b82f6;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="proof-status">
+        <div class="status-pill" [class.pending]="true">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          <span>3 Declarations pending proof upload</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA to Full Portal -->
+    <div class="portal-cta-mini">
+      <p>Looking for detailed history, proof upload, or Form-16?</p>
+      <ion-button routerLink="/MyTax" fill="outline" color="primary">
+        Go to Full Tax Portal
+        <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+      </ion-button>
+    </div>
+
+  </div>
+
+  <div *ngIf="!isLoadingTax && !taxComputation" class="empty-tax-state">
+    <ion-icon name="refresh-circle-outline"></ion-icon>
+    <h2>Unable to load computation</h2>
+    <p>Please check your salary structure or visit the full portal.</p>
+    <ion-button (click)="loadTaxData()">Retry Computation</ion-button>
+  </div>
+
+</div>
