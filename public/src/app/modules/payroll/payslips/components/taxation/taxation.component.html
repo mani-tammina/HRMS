@@ -50,20 +50,24 @@
 
       <div class="breakdown-table">
         <div class="breakdown-row">
-          <span>Taxable Income After Deductions</span>
-          <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
+          <span>Gross Income (Annual CTC)</span>
+          <strong>{{ formatCurrency(taxComputation.gross_annual_income) }}</strong>
+        </div>
+        <div class="breakdown-row" *ngIf="employerPf">
+          <span>Less: Employer PF (Annual)</span>
+          <strong class="negative">- {{ formatCurrency(employerPf) }}</strong>
         </div>
         <div class="breakdown-row" *ngIf="professionalTax">
-          <span>Professional Tax (Annual)</span>
-          <strong>{{ formatCurrency(professionalTax) }}</strong>
+          <span>Less: Professional Tax (Annual)</span>
+          <strong class="negative">- {{ formatCurrency(professionalTax) }}</strong>
+        </div>
+        <div class="breakdown-row">
+          <span>Taxable Income After Deductions</span>
+          <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
         </div>
         <div class="breakdown-row">
           <span>Income Tax</span>
           <strong>{{ formatCurrency(taxComputation.income_tax) }}</strong>
-        </div>
-        <div class="breakdown-row" *ngIf="taxComputation.cess">
-          <span>Health & Education Cess (4%)</span>
-          <strong>{{ formatCurrency(taxComputation.cess) }}</strong>
         </div>
         <div class="breakdown-row total">
           <span>Effective Tax Liability</span>
@@ -78,6 +82,42 @@
         </div>
         <div class="progress-track">
           <div class="progress-fill" [style.width.%]="75"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tax Calculation Breakdown -->
+    <div class="tax-section-card glass-card tax-calculation-card" *ngIf="taxBreakdown.length > 0">
+      <div class="section-head">
+        <ion-icon name="calculator-outline"></ion-icon>
+        <h2>Tax Calculation</h2>
+      </div>
+
+      <div class="calculation-table">
+        <div class="calc-header detailed-header">
+          <span class="col-amount">MIN AMOUNT (₹)</span>
+          <span class="col-amount">MAX AMOUNT (₹)</span>
+          <span class="col-pct">TAX %</span>
+          <span class="col-pct">CESS %</span>
+          <span class="col-val">TAX AMOUNT</span>
+        </div>
+        
+        <div class="calc-row detailed-row" *ngFor="let item of taxBreakdown">
+          <span class="col-amount">{{ item.min | number:'1.2-2' }}</span>
+          <span class="col-amount">{{ item.max > 10000000 ? 'No Limit' : (item.max | number:'1.2-2') }}</span>
+          <span class="col-pct">{{ item.rate | number:'1.3-3' }}</span>
+          <span class="col-pct">{{ item.cess | number:'1.3-3' }}</span>
+          <strong class="col-val">{{ formatCurrency(item.taxAmount) }}</strong>
+        </div>
+
+        <div class="calc-row rebate" *ngIf="rebate87A > 0">
+          <span class="col-main span-4">Tax Rebate-Section 87A When taxable Income less than {{ taxComputation.regime_type === 'NEW' ? '1,200,000' : '500,000' }} or additional relief applicable</span>
+          <strong class="col-val negative">-{{ formatCurrency(rebate87A) }}</strong>
+        </div>
+
+        <div class="calc-row total-gross">
+          <span class="col-main span-4">Gross Income Tax</span>
+          <strong class="col-val">{{ formatCurrency(grossIncomeTax) }}</strong>
         </div>
       </div>
     </div>

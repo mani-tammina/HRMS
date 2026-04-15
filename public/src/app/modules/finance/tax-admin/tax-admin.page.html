@@ -104,79 +104,121 @@
   <!-- ══════════════════════════════════
        TAX SLABS
   ═══════════════════════════════════════ -->
-  <div *ngIf="activeTab==='slabs'" class="tab-panel">
-    <div class="glass-card">
-      <div class="card-header">
-        <div class="card-icon layers-icon"><ion-icon name="layers-outline"></ion-icon></div>
+  <div *ngIf="activeTab==='slabs'" class="tab-panel slabs-admin-tab">
+    
+    <!-- Introduction Header -->
+    <div class="slabs-hero glass-card">
+      <div class="hero-content">
+        <div class="hero-icon"><ion-icon name="layers-outline"></ion-icon></div>
         <div>
-          <h2>Income Tax Slabs — FY {{ financialYear }}</h2>
-          <p>Tax rates for Old and New regime</p>
+          <h2>Tax Slabs Configuration</h2>
+          <p>Define salary ranges and tax percentages for <strong>FY {{ financialYear }}</strong></p>
         </div>
-        <button class="refresh-btn" (click)="loadTaxSlabs()" id="refresh-slabs-btn">
-          <ion-icon name="refresh-outline"></ion-icon>
-        </button>
       </div>
-
-      <div *ngIf="isLoadingSlabs" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
-
-      <div *ngIf="!isLoadingSlabs" class="slabs-container">
-        <form [formGroup]="taxSlabsForm">
-          <div class="regime-section">
-            <h3 class="regime-title new-regime">NEW Regime</h3>
-            <div class="slab-rows">
-              <div class="slab-row-header">
-                <div>Min (₹)</div><div>Max (₹)</div><div>Tax %</div><div>Cess %</div><div></div>
-              </div>
-              <ng-container formArrayName="slabs">
-                <div *ngFor="let ctrl of taxSlabControls.controls; let i=index" [formGroupName]="i" class="slab-edit-row">
-                  <ng-container *ngIf="ctrl.value.regime_type === 'NEW'">
-                    <input type="number" formControlName="min_income" class="glass-input small" />
-                    <input type="number" formControlName="max_income" class="glass-input small" placeholder="∞" />
-                    <input type="number" formControlName="rate" class="glass-input tiny" />
-                    <input type="number" formControlName="cess_rate" class="glass-input tiny" />
-                    <button class="remove-tiny" (click)="removeTaxSlab(i)"><ion-icon name="close-outline"></ion-icon></button>
-                  </ng-container>
-                </div>
-              </ng-container>
-              <button type="button" class="add-slab-btn" (click)="addTaxSlab('NEW')">
-                <ion-icon name="add-outline"></ion-icon> Add New Regime Slab
-              </button>
-            </div>
-          </div>
-
-          <div class="regime-section">
-            <h3 class="regime-title old-regime">OLD Regime</h3>
-            <div class="slab-rows">
-              <div class="slab-row-header">
-                <div>Min (₹)</div><div>Max (₹)</div><div>Tax %</div><div>Cess %</div><div></div>
-              </div>
-              <ng-container formArrayName="slabs">
-                <div *ngFor="let ctrl of taxSlabControls.controls; let i=index" [formGroupName]="i" class="slab-edit-row">
-                  <ng-container *ngIf="ctrl.value.regime_type === 'OLD'">
-                    <input type="number" formControlName="min_income" class="glass-input small" />
-                    <input type="number" formControlName="max_income" class="glass-input small" placeholder="∞" />
-                    <input type="number" formControlName="rate" class="glass-input tiny" />
-                    <input type="number" formControlName="cess_rate" class="glass-input tiny" />
-                    <button class="remove-tiny" (click)="removeTaxSlab(i)"><ion-icon name="close-outline"></ion-icon></button>
-                  </ng-container>
-                </div>
-              </ng-container>
-              <button type="button" class="add-slab-btn" (click)="addTaxSlab('OLD')">
-                <ion-icon name="add-outline"></ion-icon> Add Old Regime Slab
-              </button>
-            </div>
-          </div>
-
-          <div class="action-row">
-            <button class="save-btn" (click)="saveTaxSlabs()" [disabled]="isSavingSlabs" id="save-slabs-btn">
-              <ion-spinner *ngIf="isSavingSlabs" name="crescent"></ion-spinner>
-              <ion-icon *ngIf="!isSavingSlabs" name="save-outline"></ion-icon>
-              {{ isSavingSlabs ? 'Saving...' : 'Save All Slabs' }}
-            </button>
-          </div>
-        </form>
-      </div>
+      <button class="refresh-btn-premium" (click)="loadTaxSlabs()">
+        <ion-icon name="refresh-outline"></ion-icon>
+        <span>Reload All</span>
+      </button>
     </div>
+
+    <div *ngIf="isLoadingSlabs" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
+
+    <form *ngIf="!isLoadingSlabs" [formGroup]="taxSlabsForm" class="slabs-master-form">
+      
+      <!-- New Regime Section -->
+      <div class="regime-premium-card new-regime-card">
+        <div class="rpc-header">
+          <div class="rpc-title">
+            <ion-icon name="flash-outline"></ion-icon>
+            <h3>New Tax Regime</h3>
+          </div>
+          <button type="button" class="add-btn-small" (click)="addTaxSlab('NEW')">
+            <ion-icon name="add-circle-outline"></ion-icon>
+            Add Slab
+          </button>
+        </div>
+
+        <div class="slab-grid-container" formArrayName="slabs">
+          <div class="slab-grid-header">
+            <span class="col-min">Min Amount (₹)</span>
+            <span class="col-max">Max Amount (₹)</span>
+            <span class="col-tax">Tax %</span>
+            <span class="col-cess">Cess %</span>
+            <span class="col-action"></span>
+          </div>
+
+          <ng-container *ngFor="let ctrl of taxSlabControls.controls; let i=index">
+            <div [formGroupName]="i" class="slab-grid-row" *ngIf="ctrl.value.regime_type === 'NEW'">
+              <div class="col-min"><input type="number" formControlName="min_income" class="slab-input" placeholder="0" /></div>
+              <div class="col-max"><input type="number" formControlName="max_income" class="slab-input" placeholder="No Limit" /></div>
+              <div class="col-tax"><input type="number" formControlName="rate" class="slab-input center" step="0.1" /></div>
+              <div class="col-cess"><input type="number" formControlName="cess_rate" class="slab-input center" /></div>
+              <div class="col-action">
+                <button type="button" class="slab-delete-btn" (click)="removeTaxSlab(i)">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="rpc-footer">
+          <div class="footer-hint">Slabs for New Regime are usually set once per FY</div>
+          <button class="rpc-save-btn new-save" (click)="saveRegimeSlabs('NEW')" [disabled]="isSavingNewSlabs">
+            <ion-spinner *ngIf="isSavingNewSlabs" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!isSavingNewSlabs" name="save-outline"></ion-icon>
+            {{ isSavingNewSlabs ? 'Saving...' : 'Save New Regime Slabs' }}
+          </button>
+        </div>
+      </div>
+
+      <!-- Old Regime Section -->
+      <div class="regime-premium-card old-regime-card">
+        <div class="rpc-header">
+          <div class="rpc-title">
+            <ion-icon name="time-outline"></ion-icon>
+            <h3>Old Tax Regime</h3>
+          </div>
+          <button type="button" class="add-btn-small" (click)="addTaxSlab('OLD')">
+            <ion-icon name="add-circle-outline"></ion-icon>
+            Add Slab
+          </button>
+        </div>
+
+        <div class="slab-grid-container" formArrayName="slabs">
+          <div class="slab-grid-header">
+            <span class="col-min">Min Amount (₹)</span>
+            <span class="col-max">Max Amount (₹)</span>
+            <span class="col-tax">Tax %</span>
+            <span class="col-cess">Cess %</span>
+            <span class="col-action"></span>
+          </div>
+
+          <ng-container *ngFor="let ctrl of taxSlabControls.controls; let i=index">
+            <div [formGroupName]="i" class="slab-grid-row" *ngIf="ctrl.value.regime_type === 'OLD'">
+              <div class="col-min"><input type="number" formControlName="min_income" class="slab-input" placeholder="0" /></div>
+              <div class="col-max"><input type="number" formControlName="max_income" class="slab-input" placeholder="No Limit" /></div>
+              <div class="col-tax"><input type="number" formControlName="rate" class="slab-input center" step="0.1" /></div>
+              <div class="col-cess"><input type="number" formControlName="cess_rate" class="slab-input center" /></div>
+              <div class="col-action">
+                <button type="button" class="slab-delete-btn" (click)="removeTaxSlab(i)">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+
+        <div class="rpc-footer">
+          <div class="footer-hint">Configure Old Regime slabs based on latest tax laws</div>
+          <button class="rpc-save-btn old-save" (click)="saveRegimeSlabs('OLD')" [disabled]="isSavingOldSlabs">
+            <ion-spinner *ngIf="isSavingOldSlabs" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!isSavingOldSlabs" name="save-outline"></ion-icon>
+            {{ isSavingOldSlabs ? 'Saving...' : 'Save Old Regime Slabs' }}
+          </button>
+        </div>
+      </div>
+    </form>
 
     <!-- PT Slabs -->
     <div class="glass-card">

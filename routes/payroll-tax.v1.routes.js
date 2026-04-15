@@ -261,7 +261,7 @@ router.put("/admin/payroll/statutory-rules", finance, async (req, res) => {
   }
 });
 
-router.get("/admin/tax/slabs", finance, async (req, res) => {
+router.get("/admin/tax/slabs", async (req, res) => {
   let c = null;
   try {
     const financialYear = req.query.financial_year;

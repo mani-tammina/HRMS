@@ -34,7 +34,8 @@ export class TaxAdminPage implements OnInit {
   // ── Tax Slabs ──
   taxSlabs: TaxSlab[] = [];
   isLoadingSlabs = false;
-  isSavingSlabs = false;
+  isSavingNewSlabs = false;
+  isSavingOldSlabs = false;
   taxSlabsForm!: FormGroup;
 
   ptSlabs: any[] = [];
@@ -276,7 +277,21 @@ export class TaxAdminPage implements OnInit {
     this.isLoadingSlabs = true;
     this.payrollApi.getTaxSlabs(this.financialYear).subscribe({
       next: (res: any) => {
-        const slabs: TaxSlab[] = res.slabs || [];
+        let slabs: TaxSlab[] = res.slabs || [];
+        
+        // Deduplicate slabs based on regime_type, min_income, and max_income
+        const uniqueSlabsMap = new Map<string, TaxSlab>();
+        slabs.forEach(s => {
+          const key = `${s.regime_type}-${Number(s.min_income)}-${Number(s.max_income)}`;
+          // The later entry will overwrite the earlier one (useful if latest saves append)
+          uniqueSlabsMap.set(key, s);
+        });
+        
+        slabs = Array.from(uniqueSlabsMap.values());
+        
+        // Sort ascending by min_income
+        slabs.sort((a, b) => Number(a.min_income) - Number(b.min_income));
+
         this.taxSlabs = slabs;
         const arr = this.taxSlabControls;
         while (arr.length) arr.removeAt(0);
@@ -287,22 +302,39 @@ export class TaxAdminPage implements OnInit {
     });
   }
 
-  saveTaxSlabs() {
+  saveRegimeSlabs(regime: 'NEW' | 'OLD') {
     if (this.taxSlabsForm.invalid) return;
-    this.isSavingSlabs = true;
-    const slabs = this.taxSlabsForm.value.slabs.map((s: any) => ({
-      ...s,
-      financial_year: this.financialYear
-    }));
-    this.payrollApi.createTaxSlabs(slabs).subscribe({
+
+    if (regime === 'NEW') this.isSavingNewSlabs = true;
+    else this.isSavingOldSlabs = true;
+
+    // Filter slabs for the specific regime
+    const allSlabs = this.taxSlabsForm.value.slabs;
+    const regimeSlabs = allSlabs
+      .filter((s: any) => s.regime_type === regime)
+      .map((s: any) => ({
+        ...s,
+        financial_year: this.financialYear
+      }));
+
+    if (regimeSlabs.length === 0) {
+      this.toaster.showWarning(`No ${regime} regime slabs to save`);
+      this.isSavingNewSlabs = false;
+      this.isSavingOldSlabs = false;
+      return;
+    }
+
+    this.payrollApi.createTaxSlabs(regimeSlabs).subscribe({
       next: () => {
-        this.toaster.showSuccess('Tax slabs updated successfully');
-        this.isSavingSlabs = false;
+        this.toaster.showSuccess(`${regime} regime tax slabs updated successfully`);
+        if (regime === 'NEW') this.isSavingNewSlabs = false;
+        else this.isSavingOldSlabs = false;
         this.loadTaxSlabs();
       },
       error: () => {
-        this.toaster.showError('Failed to update tax slabs');
-        this.isSavingSlabs = false;
+        this.toaster.showError(`Failed to update ${regime} regime tax slabs`);
+        if (regime === 'NEW') this.isSavingNewSlabs = false;
+        else this.isSavingOldSlabs = false;
       }
     });
   }

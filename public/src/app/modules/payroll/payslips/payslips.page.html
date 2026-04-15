@@ -208,7 +208,7 @@
 
   <!-- Taxation tab — Now a child component -->
   <div *ngIf="currentTab === 'taxation'">
-    <app-taxation [financialYear]="financialYear" [professionalTax]="professionalTaxAmount"></app-taxation>
+    <app-taxation [financialYear]="financialYear" [professionalTax]="professionalTaxAmount" [employerPf]="employerPfAmount"></app-taxation>
   </div>
 
   <!-- My Salary Tab -->

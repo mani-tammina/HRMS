@@ -21,10 +21,14 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   payableDays: number = 31;
   lopDays: number = 0;
+  contractData: any;
+  salaryTemplates: any[] = [];
+  selectedTemplateId: any;
 
   // Taxation data
   financialYear: string;
   professionalTaxAmount: number = 0;
+  employerPfAmount: number = 0;
 
   // Salary data
   monthlySalary: number | null = null;
@@ -297,6 +301,10 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
       const monthlyAmt = Math.round((calculatedAmts[c.code] || 0) / 12);
       const compObj = { name: c.name, actual: monthlyAmt, paid: monthlyAmt, isER };
+
+      if (isER && (code.includes('PF') || name.includes('PF'))) {
+        this.employerPfAmount = monthlyAmt * 12;
+      }
 
       if (c.component_type?.toUpperCase() === 'EARNING' && !isER) {
         this.earnings.push(compObj);

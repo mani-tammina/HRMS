@@ -316,4 +316,101 @@
       margin-bottom: 32px;
     }
   }
+
+  /* Tax Calculation Table */
+  .tax-calculation-card {
+    .calculation-table {
+      border: 1px solid vars.$color-border-light;
+      border-radius: vars.$radius-md;
+      overflow: hidden;
+
+      .calc-header {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr 1fr 120px;
+        gap: 16px;
+        align-items: center;
+        background: vars.$color-bg-subtle;
+        padding: 12px 20px;
+        border-bottom: 2px solid vars.$color-border;
+        font-size: 10px;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-muted;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+
+        .col-amount, .col-pct, .col-val {
+          color: inherit;
+        }
+      }
+
+      .calc-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid vars.$color-border-light;
+        font-size: vars.$fs-small;
+        transition: vars.$transition-base;
+        align-items: center;
+
+        &.detailed-row {
+          display: grid;
+          grid-template-columns: 1fr 1fr 1fr 1fr 120px;
+          gap: 16px;
+        }
+
+        &:hover {
+          background: rgba(vars.$color-primary, 0.02);
+        }
+
+        .col-main {
+          flex: 1;
+          color: vars.$color-text-secondary;
+          font-weight: vars.$fw-medium;
+          padding-right: 24px;
+        }
+
+        .span-4 {
+          grid-column: span 4;
+        }
+
+        .col-amount {
+          color: vars.$color-text-secondary;
+          font-weight: vars.$fw-medium;
+        }
+
+        .col-pct {
+          color: var(--primary);
+          font-weight: vars.$fw-bold;
+        }
+
+        .col-val {
+          width: 120px;
+          text-align: right;
+          color: vars.$color-text-primary;
+          font-weight: vars.$fw-bold;
+          
+          &.negative {
+            color: vars.$color-danger;
+          }
+        }
+
+        &.rebate {
+          background: rgba(vars.$color-primary, 0.05);
+          .col-main { 
+            color: vars.$color-primary; 
+            font-size: 11px;
+            font-style: italic;
+          }
+          .col-val { color: vars.$color-primary; }
+        }
+
+        &.total-gross {
+          background: vars.$color-bg-subtle;
+          border-bottom: none;
+          .col-main { font-weight: vars.$fw-bold; color: vars.$color-text-primary; }
+          .col-val { font-size: vars.$fs-body; color: vars.$color-primary; }
+        }
+      }
+    }
+  }
 }
