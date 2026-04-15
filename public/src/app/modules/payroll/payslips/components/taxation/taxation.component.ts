@@ -13,6 +13,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
 
   @Input() financialYear: string = '';
+  @Input() professionalTax: number = 0;
 
   taxComputation: any;
   taxSummary: any;

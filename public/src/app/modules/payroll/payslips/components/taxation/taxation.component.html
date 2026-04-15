@@ -53,6 +53,10 @@
           <span>Taxable Income After Deductions</span>
           <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
         </div>
+        <div class="breakdown-row" *ngIf="professionalTax">
+          <span>Professional Tax (Annual)</span>
+          <strong>{{ formatCurrency(professionalTax) }}</strong>
+        </div>
         <div class="breakdown-row">
           <span>Income Tax</span>
           <strong>{{ formatCurrency(taxComputation.income_tax) }}</strong>

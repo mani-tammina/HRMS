@@ -24,6 +24,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   // Taxation data
   financialYear: string;
+  professionalTaxAmount: number = 0;
 
   // Salary data
   monthlySalary: number | null = null;
@@ -308,6 +309,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
       } else {
         this.taxes.push(compObj);
         this.totalTaxes += monthlyAmt;
+        
+        // Identify Professional Tax for the Taxation Tab
+        const isPT = code.includes('PT') || code.includes('PROFESSIONAL_TAX') || name.includes('PROFESSIONAL TAX');
+        if (isPT) {
+          this.professionalTaxAmount = monthlyAmt * 12;
+        }
       }
     });
 
