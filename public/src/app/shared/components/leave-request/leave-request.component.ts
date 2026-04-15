@@ -163,7 +163,8 @@ export class LeaveRequestComponent implements OnInit {
           id: item.leave_type_id,
           name: item.type_name,
           code: item.type_code,
-          available: Number(item.available_days) || 0
+          available: Number(item.available_days) || 0,
+          pending: Number(item.pending_days) || 0
         }));
       }
     });
@@ -182,8 +183,13 @@ export class LeaveRequestComponent implements OnInit {
     const form = this.leaveForm.value;
     const selectedLeave = this.leaveTypes.find(l => l.id === form.leave_type);
     if (!selectedLeave) { this.presentToast('Invalid leave type', 'danger'); return; }
-    if (this.total_days > selectedLeave.available) {
-      this.presentToast(`Only ${selectedLeave.available} days available`, 'warning');
+    const trulyAvailable = selectedLeave.available - selectedLeave.pending;
+    if (this.total_days > trulyAvailable) {
+      if (selectedLeave.available <= 0 || trulyAvailable <= 0) {
+        this.presentToast('Your assigned leaves are applied please check', 'warning');
+      } else {
+        this.presentToast(`Only ${trulyAvailable} days available (considering pending requests)`, 'warning');
+      }
       return;
     }
 

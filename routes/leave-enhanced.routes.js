@@ -589,7 +589,8 @@ router.get("/balance", auth, async (req, res) => {
                 lt.type_code,
                 lt.is_paid,
                 lt.can_carry_forward,
-                lt.max_carry_forward_days
+                lt.max_carry_forward_days,
+                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id
             WHERE elb.employee_id = ? AND elb.leave_year = ?
@@ -621,7 +622,8 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
                 lt.type_code,
                 lt.is_paid,
                 lt.can_carry_forward,
-                lt.max_carry_forward_days
+                lt.max_carry_forward_days,
+                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id
             WHERE elb.employee_id = ? AND elb.leave_year = ?
@@ -676,32 +678,48 @@ router.post("/apply", auth, async (req, res) => {
     const c = await db();
     await c.beginTransaction();
 
-    // Check leave balance
+    // Check leave balance including pending requests
     const leaveYear = new Date(start_date).getFullYear();
-    const [balances] = await c.query(
-      `SELECT available_days FROM employee_leave_balances 
+    const [balanceData] = await c.query(
+      `SELECT allocated_days, used_days, carry_forward_days, available_days 
+             FROM employee_leave_balances 
              WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
       [emp.id, leave_type_id, leaveYear],
     );
-    console.log("[LEAVE DEBUG] Leave balance query result:", balances);
 
-    if (balances.length === 0) {
+    if (balanceData.length === 0) {
+      await c.rollback();
       c.end();
       console.log("[LEAVE DEBUG] No leave balance found for this leave type");
-      return res
-        .status(400)
-        .json({ error: "No leave balance found for this leave type" });
+      return res.status(400).json({ error: "No leave balance found for this leave type" });
     }
 
-    if (balances[0].available_days < total_days) {
+    const { available_days } = balanceData[0];
+
+    // Get total pending days for this leave type in the same year
+    const [pendingData] = await c.query(
+      `SELECT SUM(total_days) as pending_days 
+             FROM leaves 
+             WHERE employee_id = ? AND leave_type_id = ? AND status = 'pending' AND YEAR(start_date) = ?`,
+      [emp.id, leave_type_id, leaveYear],
+    );
+    const pendingDays = pendingData[0].pending_days || 0;
+
+    // Truly available days = available_days (allocated + CF - used) - pendingDays
+    const remainingDays = available_days - pendingDays;
+
+    if (total_days > remainingDays) {
+      await c.rollback();
       c.end();
-      console.log("[LEAVE DEBUG] Insufficient leave balance:", {
-        available: balances[0].available_days,
+      console.log("[LEAVE DEBUG] Insufficient leave balance (including pending):", {
+        available: available_days,
+        pending: pendingDays,
+        remaining: remainingDays,
         requested: total_days,
       });
       return res.status(400).json({
-        error: "Insufficient leave balance",
-        available: balances[0].available_days,
+        error: "Your assigned leaves are applied please check",
+        available: remainingDays,
         requested: total_days,
       });
     }

@@ -329,7 +329,7 @@ export class HomePage implements OnInit, OnDestroy {
             title: item.type_name,
             allocated_days: allocated,
             used: used,
-            available: Number(item.available_days),
+            available: Number(item.available_days) - (Number(item.pending_days) || 0),
             usedPercent: allocated > 0 ? Math.round((used / allocated) * 100) : 0,
             icon: this.getLeaveIcon(item.type_code),
           };

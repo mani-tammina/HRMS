@@ -70,7 +70,7 @@ export class LeavesPage implements OnInit, OnDestroy {
         this.leaveCards = res.map(item => {
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
-          const available = Number(item.available_days) || 0;
+          const available = (Number(item.available_days) || 0) - (Number(item.pending_days) || 0);
 
           return {
             title: item.type_name,
