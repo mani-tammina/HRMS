@@ -374,13 +374,28 @@ export class TaxationComponent implements OnInit, OnDestroy {
     });
 
     const rebateLimit = this.taxComputation.regime_type === 'NEW' ? 1200000 : 500000;
+    
     if (taxableIncome <= rebateLimit) {
       this.rebate87A = totalTax;
+      this.grossIncomeTax = 0;
     } else {
-      this.rebate87A = 0;
+      // Apply Marginal Relief for New Regime (where income is slightly above 12L)
+      if (this.taxComputation.regime_type === 'NEW') {
+        const excessIncome = taxableIncome - rebateLimit;
+        if (totalTax > excessIncome) {
+          // Relief is the difference between normal tax and excess income
+          this.rebate87A = totalTax - excessIncome;
+          this.grossIncomeTax = excessIncome;
+        } else {
+          this.rebate87A = 0;
+          this.grossIncomeTax = totalTax;
+        }
+      } else {
+        // OLD Regime marginal relief is usually simpler (no rebate above limit)
+        this.rebate87A = 0;
+        this.grossIncomeTax = totalTax;
+      }
     }
-
-    this.grossIncomeTax = Math.max(0, totalTax - this.rebate87A);
 
     // Sync with the top summary card
     if (this.taxComputation) {
