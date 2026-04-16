@@ -40,6 +40,73 @@
       </div>
     </div>
 
+    <!-- Gross Earnings from Employment -->
+    <div class="tax-section-card glass-card gross-earnings-card">
+      <div class="section-head">
+        <span class="alphabet-badge" style="background: #1e40af;">A</span>
+        <h2>Gross Earnings from Employment</h2>
+      </div>
+
+      <div class="earnings-legend">
+        <div class="legend-item">
+          <span class="sq prev"></span>
+          <span>Income from Previous Employer</span>
+        </div>
+        <div class="legend-item">
+          <span class="sq current"></span>
+          <span>Income from Current Employer (imported)</span>
+        </div>
+        <div class="legend-item">
+          <span class="sq projected"></span>
+          <span>Projected Salary</span>
+        </div>
+      </div>
+
+      <div class="monthly-table-wrapper">
+        <table class="monthly-breakup-table">
+          <thead>
+            <tr>
+              <th class="sticky-col">SALARY BREAKUP</th>
+              <th>TOTAL</th>
+              <th *ngFor="let m of fiscalMonths">
+                {{ m.label }}
+                <span class="status-dot" [class]="m.status.toLowerCase()"></span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of breakupRows" [class.total-row-style]="row.name === 'Total Earnings'">
+              <td class="sticky-col">{{ row.name }}</td>
+              <td><strong>{{ row.total | number:'1.0-0' }}</strong></td>
+              <td *ngFor="let val of row.values">{{ val | number:'1.0-0' }}</td>
+            </tr>
+            <tr class="grand-total-row">
+              <td class="sticky-col">{{ totalRow.name }}</td>
+              <td><strong>{{ totalRow.total | number:'1.0-0' }}</strong></td>
+              <td *ngFor="let val of totalRow.values"><strong>{{ val | number:'1.0-0' }}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="employer-share-section">
+        <h3>Less : Employer Share</h3>
+        <div class="share-row">
+          <div class="share-label">
+            <span>Provident Fund Employer's Share</span>
+            <a class="view-details">View Details</a>
+          </div>
+          <div class="share-value">
+            {{ employerShareTotal | number:'1.0-0' }}
+          </div>
+        </div>
+        <div class="share-row total-share">
+          <div class="share-label">Total</div>
+          <div class="share-value">{{ employerShareTotal | number:'1.0-0' }}</div>
+        </div>
+      </div>
+    </div>
+
     <!-- Computation Breakdown -->
     <div class="tax-section-card glass-card">
       <div class="section-head">
