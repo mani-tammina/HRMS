@@ -7,8 +7,31 @@
 
   <div *ngIf="!isLoadingTax && taxComputation" class="tax-scroll-container">
 
-        </div>
-        <ion-icon name="calculator-outline" class="bg-icon"></ion-icon>
+    <!-- Header Summary Bar -->
+    <div class="tax-summary-bar glass-card" style="padding: 16px 24px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px;">
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET TAXABLE INCOME</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ getTaxableIncomeFromAllHeads() | number:'1.0-0' }}</div>
+      </div>
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">GROSS INCOME TAX</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ grossIncomeTax | number:'1.0-0' }}</div>
+      </div>
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TOTAL SURCHARGE & CESS</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ totalCess | number:'1.0-0' }}</div>
+      </div>
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET INCOME TAX PAYABLE</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ netTaxPayable | number:'1.0-0' }}</div>
+      </div>
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TAX PAID TILL NOW</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ taxPaidTillNow | number:'1.0-0' }}</div>
+      </div>
+      <div class="summary-item">
+        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">REMAINING TAX TO BE PAID</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ remainingTax | number:'1.0-0' }}</div>
       </div>
     </div>
 
