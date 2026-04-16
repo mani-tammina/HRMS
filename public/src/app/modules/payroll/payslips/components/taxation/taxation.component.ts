@@ -24,6 +24,9 @@ export class TaxationComponent implements OnInit, OnDestroy {
   taxBreakdown: any[] = [];
   rebate87A: number = 0;
   grossIncomeTax: number = 0;
+  
+  standardDeductionsList: any[] = [];
+  standardDeductionAmount: number = 0;
 
   constructor(private payrollApi: PayrollApiService) {}
 
@@ -46,15 +49,34 @@ export class TaxationComponent implements OnInit, OnDestroy {
           this.taxComputation.cess = 0;
         }
 
-        // Deduct employer PF from taxable income explicitly on the frontend
-        if (this.employerPf > 0 && this.taxComputation && this.taxComputation.taxable_income) {
-          this.taxComputation.taxable_income = Math.max(0, this.taxComputation.taxable_income - this.employerPf);
+        // Deduct items from taxable income explicitly on the frontend based on regime rules
+        if (this.taxComputation && this.taxComputation.taxable_income) {
+          // Employer PF is generally subtracted
+          if (this.employerPf > 0) {
+            this.taxComputation.taxable_income -= this.employerPf;
+          }
+          
+          // Professional Tax is ONLY subtracted in OLD regime
+          if (this.taxComputation.regime_type === 'OLD' && this.professionalTax > 0) {
+            this.taxComputation.taxable_income -= this.professionalTax;
+          }
+          
+          this.taxComputation.taxable_income = Math.max(0, this.taxComputation.taxable_income);
         }
 
         this.isLoadingTax = false;
         this.loadSlabsAndCalculate();
+        this.updateStandardDeduction();
       },
       error: () => { this.isLoadingTax = false; }
+    });
+
+    this.payrollApi.getStandardDeductions(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.standardDeductionsList = res.deductions || [];
+        this.updateStandardDeduction();
+      },
+      error: () => { }
     });
 
     this.payrollApi.getMyTaxSummary(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
@@ -118,7 +140,8 @@ export class TaxationComponent implements OnInit, OnDestroy {
   }
 
   calculateBreakdown() {
-    const taxableIncome = this.taxComputation.taxable_income || 0;
+    // The user explicitly requested to base the tax calculation on the Taxable Income from All Heads for the Net Taxable Income
+    const taxableIncome = this.getTaxableIncomeFromAllHeads();
     this.taxBreakdown = [];
     let totalTax = 0;
 
@@ -154,6 +177,35 @@ export class TaxationComponent implements OnInit, OnDestroy {
     }
 
     this.grossIncomeTax = Math.max(0, totalTax - this.rebate87A);
+  }
+
+  getGrossEarnings(): number {
+    if (!this.taxComputation) return 0;
+    return Math.max(0, (this.taxComputation.gross_annual_income || 0) - (this.employerPf || 0));
+  }
+
+  updateStandardDeduction() {
+    if (this.taxComputation && this.standardDeductionsList.length > 0) {
+      const regime = this.taxComputation.regime_type || 'NEW';
+      const match = this.standardDeductionsList.find((d: any) => d.regime_type === regime);
+      if (match) {
+        this.standardDeductionAmount = Number(match.amount);
+        this.taxComputation.standard_deduction = this.standardDeductionAmount;
+      }
+    }
+  }
+
+  getTaxableIncomeFromAllHeads(): number {
+    if (!this.taxComputation) return 0;
+    let val = this.getGrossEarnings();
+    const stdDeduction = this.taxComputation.standard_deduction || this.standardDeductionAmount || 0;
+    if (stdDeduction > 0) {
+      val -= stdDeduction;
+    }
+    if (this.taxComputation.regime_type === 'OLD' && this.professionalTax > 0) {
+      val -= this.professionalTax;
+    }
+    return Math.max(0, val);
   }
 
   formatCurrency(val: number): string {

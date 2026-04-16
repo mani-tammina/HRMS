@@ -10314,6 +10314,76 @@ Object.assign(swaggerSpec.paths, {
       },
     },
   },
+  "/api/v1/admin/tax/standard-deductions": {
+    get: {
+      summary: "📉 Get Standard Deductions",
+      description: "Fetch list of standard deduction amounts by financial year",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      parameters: [
+        {
+          name: "financial_year",
+          in: "query",
+          schema: { type: "string", example: "2025-2026" },
+        },
+      ],
+      responses: {
+        200: {
+          description: "List of standard deductions",
+          content: {
+            "application/json": {
+              example: {
+                success: true,
+                deductions: [
+                  {
+                    regime_type: "OLD",
+                    amount: 50000,
+                    financial_year: "2025-2026",
+                    is_active: 1,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    },
+    post: {
+      summary: "💾 Save Standard Deduction",
+      description: "Create or update standard deduction limits per regime",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                regime_type: { type: "string", enum: ["OLD", "NEW"] },
+                amount: { type: "number", example: 50000 },
+                financial_year: { type: "string", example: "2025-2026" },
+              },
+            },
+          },
+        },
+      },
+      responses: {
+        200: { description: "Saved successfully" },
+      },
+    },
+  },
+  "/api/v1/admin/tax/standard-deductions/{id}": {
+    delete: {
+      summary: "🗑️ Delete Standard Deduction",
+      tags: ["💰 Tax Workflow"],
+      security: [{ bearerAuth: [] }],
+      parameters: [{ name: "id", in: "path", required: true, schema: { type: "integer" } }],
+      responses: {
+        200: { description: "Deleted successfully" },
+      },
+    },
+  },
   "/api/tax/summary": {
     get: {
       summary: "🧮 Employee Tax Summary",

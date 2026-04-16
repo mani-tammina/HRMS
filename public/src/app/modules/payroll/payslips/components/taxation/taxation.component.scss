@@ -184,6 +184,177 @@
     }
   }
 
+  /* Structured Breakdown (New format matching standard tax forms) */
+  .structured-breakdown {
+    border: 1px solid vars.$color-border;
+    border-radius: vars.$radius-xl;
+    overflow: hidden;
+    background: #fff;
+    margin-bottom: 24px;
+
+    .breakdown-group-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: vars.$color-bg-subtle;
+      border-bottom: 1px solid vars.$color-border-light;
+
+      .alphabet-badge {
+        background: vars.$color-primary;
+        color: white;
+        font-weight: 800;
+        border-radius: 4px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+
+        &.sub {
+          background: #3b82f6; 
+          width: auto;
+          padding: 0 6px;
+        }
+      }
+
+      strong {
+        font-size: vars.$fs-body;
+        color: vars.$color-text-primary;
+        font-weight: vars.$fw-bold;
+      }
+    }
+
+    .breakdown-subgroup {
+      padding: 0;
+      border-bottom: 2px solid vars.$color-border;
+
+      .breakdown-subgroup-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 20px 12px 48px;
+        background: rgba(vars.$color-primary, 0.05);
+        border-bottom: 1px solid vars.$color-border-light;
+
+        .alphabet-badge {
+          background: #3b82f6;
+          color: white;
+          font-weight: 800;
+          border-radius: 4px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 11px;
+        }
+
+        strong {
+          font-size: vars.$fs-small;
+          font-weight: vars.$fw-bold;
+        }
+      }
+
+      .breakdown-row.sub-row {
+        padding: 12px 20px 12px 72px;
+        border-bottom: 1px solid vars.$color-border-light;
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+
+        &.total-row {
+          background: vars.$color-bg-subtle;
+          border-top: none;
+          padding-top: 12px;
+          strong { color: vars.$color-text-primary; }
+        }
+
+        &.total-section {
+          background: #f8fafc;
+          border-top: 1px solid vars.$color-border;
+          padding: 16px 20px 16px 72px;
+          span { font-weight: 600; color: vars.$color-text-primary; }
+          strong { font-size: vars.$fs-body; color: vars.$color-primary; }
+        }
+      }
+
+      .breakdown-section-title {
+        padding: 16px 20px 8px 72px;
+        span {
+          font-size: 12px;
+          font-weight: 600;
+          color: vars.$color-text-secondary;
+        }
+      }
+
+      .breakdown-row.exemption-row {
+        padding: 8px 20px 8px 96px;
+        border-bottom: 1px dashed vars.$color-border-light;
+        margin: 0;
+        display: flex;
+        justify-content: space-between;
+
+        .section-code {
+           font-size: 10px;
+           background: vars.$color-border;
+           padding: 2px 6px;
+           border-radius: 4px;
+           margin-right: 8px;
+           color: vars.$color-text-muted;
+        }
+
+        &.total-row {
+           border-bottom: none;
+           padding-top: 12px;
+           padding-bottom: 12px;
+           background: #fafafa;
+        }
+      }
+    }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      span {
+        color: vars.$color-text-secondary;
+        font-weight: vars.$fw-medium;
+        font-size: vars.$fs-small;
+      }
+
+      strong {
+        color: vars.$color-text-primary;
+        font-weight: vars.$fw-bold;
+        font-size: vars.$fs-small;
+      }
+
+      &.main-total {
+        padding: 16px 20px 16px 48px;
+        background: vars.$color-bg-subtle;
+        border-bottom: 1px solid vars.$color-border;
+        span { font-weight: vars.$fw-bold; color: vars.$color-text-primary; font-size: 13px; }
+        strong { font-size: vars.$fs-body; color: vars.$color-primary; }
+      }
+
+      &.final-total {
+        padding: 20px 20px 20px 48px;
+        background: rgba(vars.$color-primary, 0.05);
+        border-top: 2px solid vars.$color-primary;
+        border-bottom: 1px solid vars.$color-border-light;
+        span { font-weight: vars.$fw-bold; color: vars.$color-primary; font-size: 14px; }
+        strong { font-size: 18px; color: vars.$color-primary; font-weight: 900; }
+      }
+      
+      &.standard-row {
+         padding: 12px 20px 12px 48px;
+         border-bottom: 1px solid vars.$color-border-light;
+         span { font-weight: 500; font-size: 13px; }
+      }
+    }
+  }
+
   /* Progressive Bar */
   .tax-progress-bar {
     margin-top: 24px;

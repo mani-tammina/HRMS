@@ -32,6 +32,9 @@
     <button class="admin-tab" [class.active]="activeTab==='payout'" (click)="setTab('payout')">
       <ion-icon name="cash-outline"></ion-icon> Payouts
     </button>
+    <button class="admin-tab" [class.active]="activeTab==='deductions'" (click)="setTab('deductions')">
+      <ion-icon name="calculator-outline"></ion-icon> Standard Deduction
+    </button>
   </div>
 </ion-header>
 
@@ -656,6 +659,110 @@
       <pre *ngIf="!isLoadingPayouts && payouts.length" class="json-block">{{ payouts | json }}</pre>
       <p *ngIf="!isLoadingPayouts && !payouts.length" class="empty-msg">Enter a Run ID and click Fetch</p>
     </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       STANDARD DEDUCTION
+  ═══════════════════════════════════════ -->
+  <div *ngIf="activeTab==='deductions'" class="tab-panel">
+    
+    <!-- Hero Header -->
+    <div class="deductions-hero glass-card">
+      <div class="hero-content">
+        <div class="hero-icon"><ion-icon name="calculator-outline"></ion-icon></div>
+        <div>
+          <h2>Standard Deduction Management</h2>
+          <p>Configure the standard deduction amount applicable for employees under <strong>FY {{ financialYear }}</strong></p>
+        </div>
+      </div>
+      <button class="refresh-btn-premium" (click)="loadStandardDeductions()">
+        <ion-icon name="refresh-outline"></ion-icon>
+        <span>Refresh</span>
+      </button>
+    </div>
+
+    <!-- Configuration Form -->
+    <div class="deduction-form-premium glass-card">
+      <div class="form-header-small">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <h3>Add or Update Deduction</h3>
+      </div>
+      
+      <form [formGroup]="deductionForm">
+        <div class="form-grid-3">
+          <div class="form-group">
+            <label>Regime Type</label>
+            <select formControlName="regime_type" class="glass-input">
+              <option value="NEW">🚀 New Tax Regime</option>
+              <option value="OLD">📜 Old Tax Regime</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Deduction Amount (₹)</label>
+            <input type="number" formControlName="amount" class="glass-input" placeholder="e.g. 50000" />
+          </div>
+          <div class="form-group">
+            <label>Financial Year</label>
+            <select formControlName="financial_year" 
+                    class="glass-input" 
+                    (change)="syncFinancialYear($event)">
+              <option *ngFor="let y of availableYears" [value]="y">{{ y }}</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="action-row" style="justify-content: flex-end; margin-top: 10px;">
+          <button class="save-btn" (click)="createStandardDeduction()" [disabled]="isSavingDeductions">
+            <ion-spinner *ngIf="isSavingDeductions" name="crescent"></ion-spinner>
+            <ion-icon *ngIf="!isSavingDeductions" name="save-outline"></ion-icon>
+            {{ isSavingDeductions ? 'Saving...' : 'Save Configuration' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Responsive Grid Display -->
+    <div *ngIf="isLoadingDeductions" class="center-loader">
+      <ion-spinner name="crescent"></ion-spinner>
+    </div>
+
+    <div *ngIf="!isLoadingDeductions" class="deductions-display-grid">
+      
+      <!-- Placeholder if empty -->
+      <div *ngIf="!standardDeductions.length" class="empty-deductions-placeholder">
+        <div class="placeholder-icon"><ion-icon name="file-tray-outline"></ion-icon></div>
+        <h3>No standard deductions defined for FY {{ financialYear }}</h3>
+        <p>Use the form above to initialize the deduction amounts.</p>
+      </div>
+
+      <!-- Regime-specific deduction cards -->
+      <div *ngFor="let d of standardDeductions" 
+           class="deduction-regime-card"
+           [class.new-deduction]="d.regime_type === 'NEW'"
+           [class.old-deduction]="d.regime_type === 'OLD'">
+        
+        <div class="drc-banner">
+          <div class="regime-label">
+            <ion-icon [name]="d.regime_type === 'NEW' ? 'flash' : 'time'"></ion-icon>
+            {{ d.regime_type === 'NEW' ? 'New Tax Regime' : 'Old Tax Regime' }}
+          </div>
+          <div class="drc-fy">{{ d.financial_year }}</div>
+        </div>
+
+        <div class="drc-body">
+          <div class="deduction-label">Applicable Standard Deduction</div>
+          <div class="deduction-amount">{{ formatCurrency(d.amount) }}</div>
+        </div>
+
+        <div class="drc-actions">
+          <button class="slab-delete-btn" (click)="deleteStandardDeduction(d.id)" title="Remove Configuration">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
   </div>
 
 </ion-content>

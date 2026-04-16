@@ -20,7 +20,7 @@ import { ToasterService } from '../../../core/services/toaster.service';
   standalone: false
 })
 export class TaxAdminPage implements OnInit {
-  activeTab: 'statutory' | 'slabs' | 'sections' | 'queue' | 'window' | 'payout' = 'statutory';
+  activeTab: 'statutory' | 'slabs' | 'sections' | 'queue' | 'window' | 'payout' | 'deductions' = 'statutory';
 
   financialYear: string;
   availableYears: string[] = [];
@@ -79,6 +79,12 @@ export class TaxAdminPage implements OnInit {
   payoutStatusForm!: FormGroup;
   payoutStatuses = ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'];
 
+  // ── Standard Deduction ──
+  standardDeductions: any[] = [];
+  isLoadingDeductions = false;
+  isSavingDeductions = false;
+  deductionForm!: FormGroup;
+
   constructor(
     private fb: FormBuilder,
     private router: Router,
@@ -103,7 +109,19 @@ export class TaxAdminPage implements OnInit {
   }
 
   onYearChange() {
+    // Keep deduction form in sync with global FY
+    if (this.deductionForm) {
+      this.deductionForm.patchValue({ financial_year: this.financialYear }, { emitEvent: false });
+    }
     this.loadActiveTabData();
+  }
+
+  syncFinancialYear(event: any) {
+    const val = event?.target?.value;
+    if (val) {
+      this.financialYear = val;
+      this.loadActiveTabData();
+    }
   }
 
   loadActiveTabData() {
@@ -160,6 +178,12 @@ export class TaxAdminPage implements OnInit {
       payout_id: [null, [Validators.required, Validators.min(1)]],
       status: ['COMPLETED', Validators.required],
       remarks: ['', Validators.required]
+    });
+
+    this.deductionForm = this.fb.group({
+      regime_type: ['NEW', Validators.required],
+      amount: [50000, [Validators.required, Validators.min(0)]],
+      financial_year: [this.financialYear, Validators.required]
     });
   }
 
@@ -234,6 +258,7 @@ export class TaxAdminPage implements OnInit {
     if (tab === 'sections')  this.loadSectionLimits();
     if (tab === 'queue')     this.loadVerificationQueue();
     if (tab === 'payout')    { /* user loads manually */ }
+    if (tab === 'deductions') this.loadStandardDeductions();
   }
 
   // ─────────────────────────────────────────────
@@ -358,8 +383,6 @@ export class TaxAdminPage implements OnInit {
     if (this.ptSlabsForm.invalid) return;
     this.isSavingPT = true;
     // Note: PT slabs update might use statutory rules endpoint or a separate one if backend supports
-    // For now we map them to statutory rules update if that's the intended path, 
-    // but the guide mentions getPTSlabs specifically. Assuming a generic update pattern.
     this.toaster.showInfo('PT slab direct update pending backend confirmation. Mapping to statutory system.');
     this.isSavingPT = false;
   }
@@ -380,7 +403,7 @@ export class TaxAdminPage implements OnInit {
   // ─────────────────────────────────────────────
 
   loadSectionLimits() {
-    // Pre-populate with standard Indian tax sections — user edits & saves via PATCH
+    // Pre-populate with standard Indian tax sections
     this.sectionLimits.forEach(s => { s.financial_year = this.financialYear; });
     this.sectionEditModes = this.sectionLimits.map(() => false);
     this.isSavingSection  = this.sectionLimits.map(() => false);
@@ -591,6 +614,65 @@ export class TaxAdminPage implements OnInit {
       },
       error: () => this.toaster.showError('Failed to update payout status')
     });
+  }
+
+  // ─────────────────────────────────────────────
+  // Standard Deduction
+  // ─────────────────────────────────────────────
+
+  loadStandardDeductions() {
+    this.isLoadingDeductions = true;
+    this.payrollApi.getStandardDeductions(this.financialYear).subscribe({
+      next: (res: any) => {
+        this.standardDeductions = Array.isArray(res) ? res : (res.deductions || []);
+        this.isLoadingDeductions = false;
+      },
+      error: () => {
+        this.isLoadingDeductions = false;
+        this.toaster.showError('Failed to load standard deductions');
+      }
+    });
+  }
+
+  createStandardDeduction() {
+    if (this.deductionForm.invalid) return;
+    this.isSavingDeductions = true;
+    this.payrollApi.createStandardDeduction(this.deductionForm.value).subscribe({
+      next: () => {
+        this.toaster.showSuccess('Standard deduction created successfully');
+        this.isSavingDeductions = false;
+        this.loadStandardDeductions();
+        this.deductionForm.patchValue({ amount: 50000 });
+      },
+      error: () => {
+        this.isSavingDeductions = false;
+        this.toaster.showError('Failed to create standard deduction');
+      }
+    });
+  }
+
+  async deleteStandardDeduction(id: number) {
+    const alert = await this.alertCtrl.create({
+      header: 'Confirm Delete',
+      message: 'Are you sure you want to delete this standard deduction?',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            this.payrollApi.deleteStandardDeduction(id).subscribe({
+              next: () => {
+                this.toaster.showSuccess('Standard deduction deleted');
+                this.loadStandardDeductions();
+              },
+              error: () => this.toaster.showError('Failed to delete standard deduction')
+            });
+          }
+        }
+      ]
+    });
+    await alert.present();
   }
 
   // ─────────────────────────────────────────────

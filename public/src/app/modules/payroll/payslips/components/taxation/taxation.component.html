@@ -48,30 +48,68 @@
         <ion-badge color="secondary">{{ taxComputation.regime_type }} Regime</ion-badge>
       </div>
 
-      <div class="breakdown-table">
-        <div class="breakdown-row">
-          <span>Gross Income (Annual CTC)</span>
-          <strong>{{ formatCurrency(taxComputation.gross_annual_income) }}</strong>
+      <div class="structured-breakdown">
+        <!-- Part B Header -->
+        <div class="breakdown-group-header">
+           <span class="alphabet-badge">B</span>
+           <strong>Taxable Income from All Heads</strong>
         </div>
-        <div class="breakdown-row" *ngIf="employerPf">
-          <span>Less: Employer PF (Annual)</span>
-          <strong class="negative">- {{ formatCurrency(employerPf) }}</strong>
+
+        <!-- Income from Salaries Subgroup -->
+        <div class="breakdown-subgroup">
+           <div class="breakdown-subgroup-header">
+              <span class="alphabet-badge sub">IS</span>
+              <strong>Income from Salaries</strong>
+           </div>
+
+           <div class="breakdown-row sub-row">
+             <span>Total Salary Received (Gross CTC)</span>
+             <strong>{{ formatCurrency(taxComputation.gross_annual_income) }}</strong>
+           </div>
+           
+           <div class="breakdown-row sub-row" *ngIf="employerPf">
+             <span>Less: Employer PF (Annual)</span>
+             <strong class="negative">- {{ formatCurrency(employerPf) }}</strong>
+           </div>
+
+           <div class="breakdown-row sub-row total-row">
+             <span>Total</span>
+             <strong>{{ formatCurrency(getGrossEarnings()) }}</strong>
+           </div>
+
+           <div class="breakdown-section-title" *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
+             <span>Less: Section 16 Tax Exemptions</span>
+           </div>
+
+           <div class="breakdown-row exemption-row" *ngIf="taxComputation.standard_deduction">
+             <span><span class="section-code">16(ia)</span> Standard Deduction</span>
+             <strong>{{ formatCurrency(taxComputation.standard_deduction) }}</strong>
+           </div>
+
+           <div class="breakdown-row exemption-row" *ngIf="professionalTax && taxComputation.regime_type === 'OLD'">
+             <span><span class="section-code">16(iii)</span> Professional Tax</span>
+             <strong>{{ formatCurrency(professionalTax) }}</strong>
+           </div>
+
+           <div class="breakdown-row exemption-row total-row" *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
+             <span>Total</span>
+             <strong>{{ formatCurrency((taxComputation.standard_deduction || 0) + (taxComputation.regime_type === 'OLD' ? (professionalTax || 0) : 0)) }}</strong>
+           </div>
+
+           <div class="breakdown-row sub-row total-section">
+             <span>Taxable Amount under Head "Salaries"</span>
+             <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
+           </div>
         </div>
-        <div class="breakdown-row" *ngIf="professionalTax">
-          <span>Less: Professional Tax (Annual)</span>
-          <strong class="negative">- {{ formatCurrency(professionalTax) }}</strong>
+
+        <div class="breakdown-row main-total">
+          <span>Total Gross From all Heads</span>
+          <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
         </div>
-        <div class="breakdown-row">
-          <span>Taxable Income After Deductions</span>
-          <strong>{{ formatCurrency(taxComputation.taxable_income) }}</strong>
-        </div>
-        <div class="breakdown-row">
-          <span>Income Tax</span>
-          <strong>{{ formatCurrency(taxComputation.income_tax) }}</strong>
-        </div>
-        <div class="breakdown-row total">
-          <span>Effective Tax Liability</span>
-          <strong>{{ formatCurrency(taxComputation.total_tax_liability) }}</strong>
+
+        <div class="breakdown-row standard-row" *ngIf="taxComputation.investment_deductions > 0">
+          <span>Less: Chapter VI-A Deductions</span>
+          <strong class="negative">- {{ formatCurrency(taxComputation.investment_deductions) }}</strong>
         </div>
       </div>
 
@@ -86,38 +124,51 @@
       </div>
     </div>
 
-    <!-- Tax Calculation Breakdown -->
-    <div class="tax-section-card glass-card tax-calculation-card" *ngIf="taxBreakdown.length > 0">
+    <!-- Total Taxable Amount Card as requested -->
+    <div class="tax-section-card glass-card">
       <div class="section-head">
-        <ion-icon name="calculator-outline"></ion-icon>
-        <h2>Tax Calculation</h2>
+        <ion-icon name="cash-outline"></ion-icon>
+        <h2>Taxable Amount Summary</h2>
+      </div>
+      <div class="structured-breakdown" style="margin-bottom: 0;">
+        <div class="breakdown-row standard-row">
+          <span>Total Taxable Amount</span>
+          <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
+        </div>
+        <div class="breakdown-row final-total">
+          <span>Net Taxable Income</span>
+          <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Tax Calculation Breakdown Matching Image Structure -->
+    <div class="structured-breakdown tax-calculation-card" *ngIf="taxBreakdown.length > 0">
+      <div class="breakdown-group-header" style="background:#fff;">
+         <span class="alphabet-badge" style="background:#3b82f6;">P</span>
+         <strong>Tax Calculation</strong>
       </div>
 
-      <div class="calculation-table">
-        <div class="calc-header detailed-header">
-          <span class="col-amount">MIN AMOUNT (₹)</span>
-          <span class="col-amount">MAX AMOUNT (₹)</span>
-          <span class="col-pct">TAX %</span>
-          <span class="col-pct">CESS %</span>
-          <span class="col-val">TAX AMOUNT</span>
+      <div class="calculation-table simple-table" style="background:#fff; border:none; border-top:1px solid #e2e8f0; border-radius:0;">
+        <div class="calc-header simple-header" style="display:flex; justify-content:space-between; padding:12px 24px; border-bottom:1px solid #f1f5f9; background:#f8fafc; font-size:10px; text-transform:uppercase; font-weight:800; color:#64748b; letter-spacing: 0.5px;">
+          <span>TAXABLE INCOME SLABS</span>
+          <span>TAX AMOUNT</span>
         </div>
         
-        <div class="calc-row detailed-row" *ngFor="let item of taxBreakdown">
-          <span class="col-amount">{{ item.min | number:'1.2-2' }}</span>
-          <span class="col-amount">{{ item.max > 10000000 ? 'No Limit' : (item.max | number:'1.2-2') }}</span>
-          <span class="col-pct">{{ item.rate | number:'1.3-3' }}</span>
-          <span class="col-pct">{{ item.cess | number:'1.3-3' }}</span>
-          <strong class="col-val">{{ formatCurrency(item.taxAmount) }}</strong>
+        <div class="calc-row" *ngFor="let item of taxBreakdown" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+          <span>{{ item.label }}</span>
+          <strong style="font-weight:400; color:#0f172a;">{{ item.taxAmount > 0 ? formatCurrency(item.taxAmount) : '0' }}</strong>
         </div>
 
-        <div class="calc-row rebate" *ngIf="rebate87A > 0">
-          <span class="col-main span-4">Tax Rebate-Section 87A When taxable Income less than {{ taxComputation.regime_type === 'NEW' ? '1,200,000' : '500,000' }} or additional relief applicable</span>
-          <strong class="col-val negative">-{{ formatCurrency(rebate87A) }}</strong>
+        <div class="calc-row rebate" *ngIf="taxComputation" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
+          <span>Tax Rebate-Section 87A When taxable income less than {{ taxComputation.regime_type === 'NEW' ? '1200000' : '500000' }} or additional relief applicable</span>
+          <strong style="font-weight:400; color:#0f172a;">{{ rebate87A > 0 ? ('-' + formatCurrency(rebate87A)) : '0' }}</strong>
         </div>
 
-        <div class="calc-row total-gross">
-          <span class="col-main span-4">Gross Income Tax</span>
-          <strong class="col-val">{{ formatCurrency(grossIncomeTax) }}</strong>
+        <div class="calc-row total-gross" style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
+          <span>Gross Income Tax</span>
+          <strong style="font-weight:400; color:#0f172a;">{{ grossIncomeTax > 0 ? formatCurrency(grossIncomeTax) : '0' }}</strong>
         </div>
       </div>
     </div>

@@ -138,6 +138,14 @@ export interface TaxSlabResponse {
   financial_year: string;
 }
 
+export interface StandardDeduction {
+  id?: number;
+  regime_type: 'OLD' | 'NEW';
+  amount: number;
+  financial_year: string;
+  is_active?: boolean;
+}
+
 export interface SectionLimit {
   section_code: string;
   max_limit: number;
@@ -653,6 +661,24 @@ export class PayrollApiService {
   /** GET /api/admin/pt-slabs — Get professional tax slabs */
   getPTSlabs(): Observable<TaxSlabResponse> {
     return this.http.get<TaxSlabResponse>(`${this.baseUrl}/admin/pt-slabs`, { headers: this.getHeaders() });
+  }
+  
+  /** GET /api/v1/admin/tax/standard-deductions — Get standard deduction amounts */
+  getStandardDeductions(financialYear?: string): Observable<any> {
+    let params = new HttpParams();
+    if (financialYear) params = params.set('financial_year', financialYear);
+    return this.http.get(`${this.baseUrl}/v1/admin/tax/standard-deductions`, { headers: this.getHeaders(), params });
+  }
+
+  /** POST /api/v1/admin/tax/standard-deductions — Create or update standard deduction */
+  createStandardDeduction(deductions: StandardDeduction | StandardDeduction[]): Observable<any> {
+    const payload = Array.isArray(deductions) ? { deductions } : deductions;
+    return this.http.post(`${this.baseUrl}/v1/admin/tax/standard-deductions`, payload, { headers: this.getHeaders() });
+  }
+
+  /** DELETE /api/v1/admin/tax/standard-deductions/:id — Delete (disable) standard deduction */
+  deleteStandardDeduction(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/v1/admin/tax/standard-deductions/${id}`, { headers: this.getHeaders() });
   }
 
   /** GET /api/admin/verification-queue?status=PENDING — Get admin verification queue */

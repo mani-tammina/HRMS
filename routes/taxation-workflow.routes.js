@@ -149,14 +149,28 @@ async function ensureTaxationTables(conn) {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
 
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS employee_tax_profiles (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      employee_id INT NOT NULL,
+      financial_year VARCHAR(9) NOT NULL,
+      tax_regime ENUM('OLD','NEW') DEFAULT 'NEW',
+      pan VARCHAR(20) NULL,
+      is_tds_exempt TINYINT(1) DEFAULT 0,
+      declared_investments JSON NULL,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY ux_employee_tax_fy (employee_id, financial_year)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+
   try {
     await conn.query("ALTER TABLE payroll_tax_proofs ADD COLUMN ai_confidence DECIMAL(5,2) DEFAULT NULL");
-  } catch (_) {}
+  } catch (_) { }
   try {
     await conn.query(
       "ALTER TABLE payroll_tax_proofs MODIFY COLUMN verification_status ENUM('PENDING','AI_VERIFIED','FLAGGED','MANUAL_VERIFIED','REJECTED') DEFAULT 'PENDING'",
     );
-  } catch (_) {}
+  } catch (_) { }
 }
 
 async function writeAudit(conn, action, performedBy, runId, details) {
@@ -593,6 +607,208 @@ router.get("/payroll/payslip/download", auth, async (req, res) => {
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=payslip-${rows[0].id}.pdf`);
     res.send(pdf);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.get("/admin/tax/standard-deductions", auth, async (req, res) => {
+  let c = null;
+  try {
+    const financialYear = req.query.financial_year;
+    c = await db();
+    const args = [];
+    let where = "WHERE is_active = 1";
+    if (financialYear) {
+      where += " AND financial_year = ?";
+      args.push(financialYear);
+    }
+    const [rows] = await c.query(
+      `SELECT * FROM payroll_standard_deductions ${where}
+       ORDER BY financial_year DESC, regime_type ASC`,
+      args,
+    );
+    res.json({ success: true, deductions: rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.post("/admin/tax/standard-deductions", auth, finance, async (req, res) => {
+  let c = null;
+  try {
+    const rows = Array.isArray(req.body.deductions) ? req.body.deductions : [req.body];
+    if (!rows.length) return res.status(400).json({ error: "deductions payload required" });
+
+    c = await db();
+    await c.beginTransaction();
+
+    for (const d of rows) {
+      if (!d.regime_type || d.amount == null || !d.financial_year) {
+        await c.rollback();
+        return res.status(400).json({
+          error: "regime_type, amount and financial_year are required",
+        });
+      }
+
+      await c.query(
+        `INSERT INTO payroll_standard_deductions (regime_type, amount, financial_year, is_active, created_by)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE amount = VALUES(amount), is_active = VALUES(is_active), created_by = VALUES(created_by), updated_at = CURRENT_TIMESTAMP`,
+        [
+          String(d.regime_type).toUpperCase(),
+          d.amount,
+          d.financial_year,
+          d.is_active === false ? 0 : 1,
+          req.user.id,
+        ],
+      );
+    }
+    await c.commit();
+    res.json({ success: true, updated: rows.length });
+  } catch (error) {
+    if (c) await c.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.delete("/admin/tax/standard-deductions/:id", auth, finance, async (req, res) => {
+  let c = null;
+  try {
+    const { id } = req.params;
+    c = await db();
+    await c.query("UPDATE payroll_standard_deductions SET is_active = 0 WHERE id = ?", [id]);
+    res.json({ success: true, message: "Standard deduction disabled" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// ─────────────────────────────────────────────
+// Employee Self-Service (Tax)
+// ─────────────────────────────────────────────
+
+router.post("/tax/regime-selection", auth, async (req, res) => {
+  let c = null;
+  try {
+    const employee = await findEmployeeByUserId(req.user.id);
+    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+
+    const { tax_regime, financial_year } = req.body;
+    if (!financial_year) return res.status(400).json({ error: "financial_year is required" });
+
+    c = await db();
+    await c.query(
+      `INSERT INTO employee_tax_profiles (employee_id, financial_year, tax_regime, updated_at)
+       VALUES (?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE tax_regime = VALUES(tax_regime), updated_at = NOW()`,
+      [employee.id, financial_year, (tax_regime || 'NEW').toUpperCase()]
+    );
+
+    res.json({ success: true, tax_regime: (tax_regime || 'NEW').toUpperCase(), financial_year });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.get("/tax/declarations", auth, async (req, res) => {
+  let c = null;
+  try {
+    const employee = await findEmployeeByUserId(req.user.id);
+    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+
+    const financialYear = req.query.financial_year || (new Date().getMonth() + 1 >= 4 ? `${new Date().getFullYear()}-${new Date().getFullYear() + 1}` : `${new Date().getFullYear() - 1}-${new Date().getFullYear()}`);
+    c = await db();
+    const [rows] = await c.query(
+      `SELECT tax_regime, declared_investments, updated_at 
+       FROM employee_tax_profiles 
+       WHERE employee_id = ? AND financial_year = ? LIMIT 1`,
+      [employee.id, financialYear]
+    );
+
+    if (!rows.length) {
+      return res.json({ success: true, declarations: {}, tax_regime: 'NEW' });
+    }
+
+    res.json({ 
+      success: true, 
+      declarations: safeJson(rows[0].declared_investments),
+      tax_regime: rows[0].tax_regime,
+      updated_at: rows[0].updated_at
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.post("/tax/declarations", auth, async (req, res) => {
+  let c = null;
+  try {
+    const employee = await findEmployeeByUserId(req.user.id);
+    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+
+    const { financial_year, tax_regime, declarations } = req.body;
+    if (!financial_year) return res.status(400).json({ error: "financial_year is required" });
+
+    c = await db();
+    await c.query(
+      `INSERT INTO employee_tax_profiles (employee_id, financial_year, tax_regime, declared_investments, updated_at)
+       VALUES (?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE 
+          tax_regime = VALUES(tax_regime), 
+          declared_investments = VALUES(declared_investments), 
+          updated_at = NOW()`,
+      [employee.id, financial_year, (tax_regime || 'NEW').toUpperCase(), JSON.stringify(declarations || {})]
+    );
+
+    res.json({ success: true, message: "Declarations saved" });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.post("/tax/upload-proof", auth, proofUpload.single("document"), async (req, res) => {
+  let c = null;
+  try {
+    const employee = await findEmployeeByUserId(req.user.id);
+    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+    if (!req.file) return res.status(400).json({ error: "document file is required" });
+
+    const { financial_year, section_code, declared_amount } = req.body;
+    if (!financial_year) return res.status(400).json({ error: "financial_year is required" });
+
+    c = await db();
+    const [result] = await c.query(
+      `INSERT INTO payroll_tax_proofs
+       (employee_id, financial_year, section_code, original_filename, stored_filename, mime_type, file_path, declared_amount)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        employee.id,
+        financial_year,
+        section_code || null,
+        req.file.originalname,
+        req.file.filename,
+        req.file.mimetype || null,
+        req.file.path,
+        Number(declared_amount || 0)
+      ]
+    );
+
+    res.json({ success: true, proof_id: result.insertId, status: 'PENDING' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {

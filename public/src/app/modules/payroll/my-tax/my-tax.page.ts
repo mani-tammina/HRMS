@@ -8,12 +8,12 @@ import { ToasterService } from '../../../core/services/toaster.service';
 
 /** Section codes and their display names */
 const SECTION_META: { code: string; label: string; maxHint: number }[] = [
-  { code: '80C',   label: '80C — Life Insurance / PPF / ELSS',     maxHint: 150000 },
-  { code: '80D',   label: '80D — Health Insurance',                 maxHint: 25000  },
-  { code: 'HRA',   label: 'HRA — House Rent Allowance',             maxHint: 200000 },
-  { code: '80G',   label: '80G — Charitable Donations',             maxHint: 50000  },
-  { code: '80TTA', label: '80TTA — Savings Account Interest',       maxHint: 10000  },
-  { code: 'NPS',   label: 'NPS — National Pension Scheme',          maxHint: 50000  },
+  { code: '80C', label: '80C — Life Insurance / PPF / ELSS', maxHint: 150000 },
+  { code: '80D', label: '80D — Health Insurance', maxHint: 25000 },
+  { code: 'HRA', label: 'HRA — House Rent Allowance', maxHint: 200000 },
+  { code: '80G', label: '80G — Charitable Donations', maxHint: 50000 },
+  { code: '80TTA', label: '80TTA — Savings Account Interest', maxHint: 10000 },
+  { code: 'NPS', label: 'NPS — National Pension Scheme', maxHint: 50000 },
 ];
 
 @Component({
@@ -39,6 +39,8 @@ export class MyTaxPage implements OnInit {
   // ── Tax Computation ──
   taxComputation: TaxComputation | null = null;
   isLoadingComputation = false;
+  standardDeductionAmount: number = 0;
+  isLoadingDeductions = false;
 
   // ── Regime Selection ──
   selectedRegime: 'OLD' | 'NEW' = 'NEW';
@@ -79,7 +81,7 @@ export class MyTaxPage implements OnInit {
   ) {
     this.financialYear = this.payrollApi.getCurrentFinancialYear();
     this.selectedPayslipMonth = this.payrollApi.getCurrentYearMonth();
-    
+
     // Generate a wider range of financial years (e.g., 3 years back, current, and next)
     const currentYear = new Date().getFullYear();
     this.availableYears = [];
@@ -121,7 +123,7 @@ export class MyTaxPage implements OnInit {
           this.loadPayslips();
         }
       },
-      error: () => {}
+      error: () => { }
     });
   }
 
@@ -134,11 +136,12 @@ export class MyTaxPage implements OnInit {
       this.declarations[s.code] = 0;
       this.insightFormState[s.code] = { file: null, amount: 0 };
     });
-    
+
     this.loadTaxSummary();
     this.loadDeclarations();
     if (this.activeTab === 'computation') {
       this.loadTaxComputation();
+      this.loadStandardDeductions();
     }
   }
 
@@ -149,7 +152,10 @@ export class MyTaxPage implements OnInit {
   setTab(tab: any) {
     this.activeTab = tab;
     if (tab === 'summary' && !this.taxSummary) this.loadTaxSummary();
-    if (tab === 'computation') this.loadTaxComputation();
+    if (tab === 'computation') {
+      this.loadTaxComputation();
+      this.loadStandardDeductions();
+    }
     if (tab === 'declarations' && Object.values(this.declarations).every(v => v === 0)) this.loadDeclarations();
     if (tab === 'history') this.loadPayrollHistory();
   }
@@ -166,6 +172,8 @@ export class MyTaxPage implements OnInit {
         this.taxSummary = res;
         this.selectedRegime = (res.tax_regime as 'OLD' | 'NEW') || 'NEW';
         this.isLoadingSummary = false;
+        // Also fetch standard deductions for this regime/year
+        this.loadStandardDeductions();
       },
       error: () => { this.isLoadingSummary = false; }
     });
@@ -181,14 +189,48 @@ export class MyTaxPage implements OnInit {
       next: (res) => {
         this.taxComputation = res;
         this.isLoadingComputation = false;
+        // Refresh deductions to ensure matching calculation
+        this.loadStandardDeductions();
       },
       error: () => { this.isLoadingComputation = false; }
+    });
+  }
+
+  getAdjustedTaxableIncome(): number {
+    if (!this.taxComputation) return 0;
+    // Calculation: Gross - (Section 80 Deductions) - (Standard Deduction)
+    const base = this.taxComputation.gross_annual_income || 0;
+    const deductions = this.taxComputation.total_deductions || 0;
+    const std = this.standardDeductionAmount || 0;
+    return Math.max(0, base - deductions - std);
+  }
+
+  loadStandardDeductions() {
+    this.isLoadingDeductions = true;
+    this.payrollApi.getStandardDeductions(this.financialYear).subscribe({
+      next: (res: any) => {
+        const deductions = Array.isArray(res) ? res : (res.deductions || []);
+        // Find deduction matching user's selected regime
+        const matching = deductions.find((d: any) => d.regime_type === this.selectedRegime);
+        this.standardDeductionAmount = matching ? matching.amount : 0;
+        this.isLoadingDeductions = false;
+      },
+      error: () => {
+        this.isLoadingDeductions = false;
+        this.standardDeductionAmount = 50000; // Fallback to common value
+      }
     });
   }
 
   // ─────────────────────────────────────────────
   // Regime Selection
   // ─────────────────────────────────────────────
+
+  changeRegime(regime: 'OLD' | 'NEW') {
+    this.selectedRegime = regime;
+    // Update standard deduction immediately for the local computation
+    this.loadStandardDeductions();
+  }
 
   saveRegimeSelection() {
     this.isSavingRegime = true;
@@ -212,7 +254,7 @@ export class MyTaxPage implements OnInit {
       next: (res: any) => {
         // First reset all to zero to handle missing sections in response
         SECTION_META.forEach(s => this.declarations[s.code] = 0);
-        
+
         if (res.declarations) {
           Object.keys(res.declarations).forEach(k => {
             if (this.declarations.hasOwnProperty(k)) {

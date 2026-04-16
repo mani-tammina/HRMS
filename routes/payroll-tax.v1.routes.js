@@ -120,6 +120,20 @@ async function ensureV1Tables(conn) {
       KEY idx_tax_proofs_employee_fy (employee_id, financial_year, verification_status)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
   `);
+
+  await conn.query(`
+    CREATE TABLE IF NOT EXISTS payroll_standard_deductions (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      regime_type ENUM('OLD','NEW') NOT NULL,
+      amount DECIMAL(15,2) NOT NULL,
+      financial_year VARCHAR(9) NOT NULL,
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_by INT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY ux_std_deduction_regime_fy (regime_type, financial_year)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
 }
 
 async function writeAudit(conn, action, performedBy, payrollRunId, details) {
@@ -131,14 +145,25 @@ async function writeAudit(conn, action, performedBy, payrollRunId, details) {
 }
 
 async function calculateTaxBySlabs(conn, annualIncome, deductions, regimeType, financialYear) {
-  const taxableIncome = Math.max(0, Number(annualIncome || 0) - Number(deductions || 0));
+  const regimeStr = String(regimeType || "OLD").toUpperCase();
+
+  // Fetch applicable standard deduction
+  const [stdDedRows] = await conn.query(
+    `SELECT amount FROM payroll_standard_deductions 
+     WHERE regime_type = ? AND financial_year = ? AND is_active = 1 LIMIT 1`,
+    [regimeStr, financialYear]
+  );
+  const standardDeduction = stdDedRows.length > 0 ? Number(stdDedRows[0].amount) : 0;
+
+  const totalDeductions = Number(deductions || 0) + standardDeduction;
+  const taxableIncome = Math.max(0, Number(annualIncome || 0) - totalDeductions);
 
   const [slabs] = await conn.query(
     `SELECT min_income, max_income, rate, cess_rate, surcharge_rate
      FROM payroll_tax_slabs
      WHERE regime_type = ? AND financial_year = ? AND is_active = 1
      ORDER BY min_income ASC`,
-    [String(regimeType || "OLD").toUpperCase(), financialYear],
+    [regimeStr, financialYear],
   );
 
   if (!slabs.length) {
@@ -186,6 +211,9 @@ async function calculateTaxBySlabs(conn, annualIncome, deductions, regimeType, f
     total_tax: Number(totalTax.toFixed(2)),
     monthly_tds: Number((totalTax / 12).toFixed(2)),
     slabs_used: slabsUsed,
+    standard_deduction: standardDeduction,
+    investment_deductions: Number(Number(deductions || 0).toFixed(2)),
+    total_deductions: Number(totalDeductions.toFixed(2)),
   };
 }
 
@@ -296,6 +324,20 @@ router.post("/admin/tax/slabs", finance, async (req, res) => {
     await c.beginTransaction();
     await ensureV1Tables(c);
 
+    // If slabs are provided, they all usually belong to the same regime/FY in the current UI flow
+    // but to be safe, we can deactivate based on what's in the payload or clear the targeted regime/FY.
+    // Optimal: Clear the specific regime and financial year before re-inserting the fresh set.
+    if (rows.length > 0) {
+      const regime = String(rows[0].regime_type).toUpperCase();
+      const fy = rows[0].financial_year;
+      // We only clear if the payload is consistent or we can do it per-row. 
+      // Current frontend sends all rows for ONE regime at a time.
+      await c.query(
+        "UPDATE payroll_tax_slabs SET is_active = 0 WHERE regime_type = ? AND financial_year = ?",
+        [regime, fy]
+      );
+    }
+
     for (const slab of rows) {
       if (!slab.regime_type || slab.min_income == null || slab.rate == null || !slab.financial_year) {
         await c.rollback();
@@ -370,6 +412,87 @@ router.patch("/admin/tax/section-limits", finance, async (req, res) => {
     res.json({ success: true, updated: rows.length });
   } catch (error) {
     if (c) await c.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.get("/admin/tax/standard-deductions", auth, async (req, res) => {
+  let c = null;
+  try {
+    const financialYear = req.query.financial_year;
+    c = await db();
+    await ensureV1Tables(c);
+    const args = [];
+    let where = "WHERE is_active = 1";
+    if (financialYear) {
+      where += " AND financial_year = ?";
+      args.push(financialYear);
+    }
+    const [rows] = await c.query(
+      `SELECT * FROM payroll_standard_deductions ${where}
+       ORDER BY financial_year DESC, regime_type ASC`,
+      args,
+    );
+    res.json({ success: true, deductions: rows });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.post("/admin/tax/standard-deductions", auth, finance, async (req, res) => {
+  let c = null;
+  try {
+    const rows = Array.isArray(req.body.deductions) ? req.body.deductions : [req.body];
+    if (!rows.length) return res.status(400).json({ error: "deductions payload required" });
+
+    c = await db();
+    await c.beginTransaction();
+    await ensureV1Tables(c);
+
+    for (const d of rows) {
+      if (!d.regime_type || d.amount == null || !d.financial_year) {
+        await c.rollback();
+        return res.status(400).json({
+          error: "regime_type, amount and financial_year are required",
+        });
+      }
+
+      await c.query(
+        `INSERT INTO payroll_standard_deductions (regime_type, amount, financial_year, is_active, created_by)
+         VALUES (?, ?, ?, ?, ?)
+         ON DUPLICATE KEY UPDATE amount = VALUES(amount), is_active = VALUES(is_active), created_by = VALUES(created_by), updated_at = CURRENT_TIMESTAMP`,
+        [
+          String(d.regime_type).toUpperCase(),
+          d.amount,
+          d.financial_year,
+          d.is_active === false ? 0 : 1,
+          req.user.id,
+        ],
+      );
+    }
+
+    await writeAudit(c, "STANDARD_DEDUCTION_UPDATE", req.user.id, null, JSON.stringify({ count: rows.length }));
+    await c.commit();
+    res.json({ success: true, updated: rows.length });
+  } catch (error) {
+    if (c) await c.rollback();
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+router.delete("/admin/tax/standard-deductions/:id", finance, async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    await c.query(`UPDATE payroll_standard_deductions SET is_active = 0 WHERE id = ?`, [req.params.id]);
+    res.json({ success: true, message: "Standard deduction disabled" });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   } finally {
     if (c) await c.end();
@@ -772,10 +895,10 @@ router.get("/employee/tax/computation", async (req, res) => {
 
     const regime = profile?.tax_regime || "OLD";
     const annualGross = Number(earningRows[0]?.annual_gross || 0);
-    
+
     // For tax projection, if actual income is less than CTC, use CTC (or max of both)
     const grossForTax = Math.max(annualGross, contractCTC);
-    
+
     const taxCalc = await calculateTaxBySlabs(c, grossForTax, totalDeclared, regime, financialYear);
 
     res.json({
@@ -790,9 +913,10 @@ router.get("/employee/tax/computation", async (req, res) => {
         annual_deductions: Number(earningRows[0]?.annual_deductions || 0),
         annual_net: Number(earningRows[0]?.annual_net || 0),
         declared_investments_total: Number(totalDeclared.toFixed(2)),
+        standard_deduction: taxCalc.standard_deduction,
       },
       computed_tax: taxCalc,
-      total_deductions: totalDeclared, // Added to top level
+      total_deductions: taxCalc.total_deductions, // Use the total including standard deduction
       taxable_income: taxCalc.taxable_income,
       income_tax: taxCalc.base_tax,
       cess: taxCalc.cess,
