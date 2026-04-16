@@ -381,6 +381,12 @@ export class TaxationComponent implements OnInit, OnDestroy {
     }
 
     this.grossIncomeTax = Math.max(0, totalTax - this.rebate87A);
+
+    // Sync with the top summary card
+    if (this.taxComputation) {
+      this.taxComputation.total_tax_liability = this.grossIncomeTax;
+      this.taxComputation.monthly_tds = Math.round(this.grossIncomeTax / 12);
+    }
   }
 
   getGrossEarnings(): number {
