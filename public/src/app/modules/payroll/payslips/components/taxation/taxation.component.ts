@@ -26,6 +26,12 @@ export class TaxationComponent implements OnInit, OnDestroy {
   taxBreakdown: any[] = [];
   rebate87A: number = 0;
   grossIncomeTax: number = 0;
+  totalCess: number = 0;
+  totalSurcharge: number = 0;
+  netTaxPayable: number = 0;
+  taxPaidTillNow: number = 0;
+  remainingTax: number = 0;
+  monthlyTaxValue: number = 0;
   
   standardDeductionsList: any[] = [];
   standardDeductionAmount: number = 0;
@@ -286,6 +292,8 @@ export class TaxationComponent implements OnInit, OnDestroy {
     this.payrollApi.getMyTaxSummary(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.taxSummary = res;
+        this.taxPaidTillNow = res.tds_paid_ytd || 0;
+        this.calculateBreakdown(); // Recalculate to update remaining tax
       },
       error: () => { }
     });
@@ -374,33 +382,34 @@ export class TaxationComponent implements OnInit, OnDestroy {
     });
 
     const rebateLimit = this.taxComputation.regime_type === 'NEW' ? 1200000 : 500000;
-    
     if (taxableIncome <= rebateLimit) {
       this.rebate87A = totalTax;
-      this.grossIncomeTax = 0;
     } else {
-      // Apply Marginal Relief for New Regime (where income is slightly above 12L)
-      if (this.taxComputation.regime_type === 'NEW') {
-        const excessIncome = taxableIncome - rebateLimit;
-        if (totalTax > excessIncome) {
-          // Relief is the difference between normal tax and excess income
-          this.rebate87A = totalTax - excessIncome;
-          this.grossIncomeTax = excessIncome;
-        } else {
-          this.rebate87A = 0;
-          this.grossIncomeTax = totalTax;
-        }
-      } else {
-        // OLD Regime marginal relief is usually simpler (no rebate above limit)
-        this.rebate87A = 0;
-        this.grossIncomeTax = totalTax;
-      }
+      this.rebate87A = 0;
     }
+
+    this.grossIncomeTax = Math.max(0, totalTax - this.rebate87A);
+
+    // Calculate Surcharge & Cess
+    this.totalSurcharge = this.taxComputation?.surcharge || 0;
+    this.totalCess = Math.round((this.grossIncomeTax + this.totalSurcharge) * 0.04);
+    this.netTaxPayable = Math.round(this.grossIncomeTax + this.totalSurcharge + this.totalCess);
+    
+    // Calculate Remaining Tax
+    this.remainingTax = Math.max(0, this.netTaxPayable - this.taxPaidTillNow);
+    this.monthlyTaxValue = Math.round(this.remainingTax / 12);
 
     // Sync with the top summary card
     if (this.taxComputation) {
-      this.taxComputation.total_tax_liability = this.grossIncomeTax;
-      this.taxComputation.monthly_tds = Math.round(this.grossIncomeTax / 12);
+      this.taxComputation.gross_income_tax_final = this.grossIncomeTax;
+      this.taxComputation.total_surcharge_cess = this.totalSurcharge + this.totalCess;
+      this.taxComputation.net_tax_payable = this.netTaxPayable;
+      this.taxComputation.tax_paid_till_now = this.taxPaidTillNow;
+      this.taxComputation.remaining_tax = this.remainingTax;
+      
+      // PROJECTED TAX (FY) should be the final net payable
+      this.taxComputation.total_tax_liability = this.netTaxPayable;
+      this.taxComputation.monthly_tds = Math.round(this.remainingTax / 12);
     }
   }
 
