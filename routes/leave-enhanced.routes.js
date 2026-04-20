@@ -678,6 +678,11 @@ router.post("/apply", auth, async (req, res) => {
     const c = await db();
     await c.beginTransaction();
 
+    // Check leave type code
+    const [typeData] = await c.query(`SELECT type_code FROM leave_types WHERE id = ?`, [leave_type_id]);
+    const typeCode = typeData.length > 0 ? (typeData[0].type_code || '').toUpperCase() : '';
+    const isLOP = typeCode === 'LOP';
+
     // Check leave balance including pending requests
     const leaveYear = new Date(start_date).getFullYear();
     const [balanceData] = await c.query(
@@ -687,41 +692,43 @@ router.post("/apply", auth, async (req, res) => {
       [emp.id, leave_type_id, leaveYear],
     );
 
-    if (balanceData.length === 0) {
+    if (balanceData.length === 0 && !isLOP) {
       await c.rollback();
       c.end();
       console.log("[LEAVE DEBUG] No leave balance found for this leave type");
       return res.status(400).json({ error: "No leave balance found for this leave type" });
     }
 
-    const { available_days } = balanceData[0];
+    if (balanceData.length > 0) {
+      const { available_days } = balanceData[0];
 
-    // Get total pending days for this leave type in the same year
-    const [pendingData] = await c.query(
-      `SELECT SUM(total_days) as pending_days 
-             FROM leaves 
-             WHERE employee_id = ? AND leave_type_id = ? AND status = 'pending' AND YEAR(start_date) = ?`,
-      [emp.id, leave_type_id, leaveYear],
-    );
-    const pendingDays = pendingData[0].pending_days || 0;
+      // Get total pending days for this leave type in the same year
+      const [pendingData] = await c.query(
+        `SELECT SUM(total_days) as pending_days 
+               FROM leaves 
+               WHERE employee_id = ? AND leave_type_id = ? AND status = 'pending' AND YEAR(start_date) = ?`,
+        [emp.id, leave_type_id, leaveYear],
+      );
+      const pendingDays = pendingData[0].pending_days || 0;
 
-    // Truly available days = available_days (allocated + CF - used) - pendingDays
-    const remainingDays = available_days - pendingDays;
+      // Truly available days = available_days (allocated + CF - used) - pendingDays
+      const remainingDays = available_days - pendingDays;
 
-    if (total_days > remainingDays) {
-      await c.rollback();
-      c.end();
-      console.log("[LEAVE DEBUG] Insufficient leave balance (including pending):", {
-        available: available_days,
-        pending: pendingDays,
-        remaining: remainingDays,
-        requested: total_days,
-      });
-      return res.status(400).json({
-        error: "Your assigned leaves are applied please check",
-        available: remainingDays,
-        requested: total_days,
-      });
+      if (!isLOP && total_days > remainingDays) {
+        await c.rollback();
+        c.end();
+        console.log("[LEAVE DEBUG] Insufficient leave balance (including pending):", {
+          available: available_days,
+          pending: pendingDays,
+          remaining: remainingDays,
+          requested: total_days,
+        });
+        return res.status(400).json({
+          error: "Your assigned leaves are applied please check",
+          available: remainingDays,
+          requested: total_days,
+        });
+      }
     }
 
     // Check for duplicate/overlapping leave requests (any status) for every date in the range

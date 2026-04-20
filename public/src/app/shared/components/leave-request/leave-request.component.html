@@ -14,8 +14,9 @@
       <div class="custom-select-wrapper">
         <ion-select formControlName="leave_type" placeholder="Select Leave Type" interface="popover"
           class="premium-input">
-          <ion-select-option *ngFor="let leave of leaveTypes" [value]="leave.id" [disabled]="leave.available <= 0">
-            {{ leave.name }} ({{ leave.available }} available)
+          <ion-select-option *ngFor="let leave of leaveTypes" [value]="leave.id" 
+            [disabled]="leave.available <= 0 && leave.code.toUpperCase() !== 'LOP'">
+            {{ leave.name }} ({{ leave.code.toUpperCase() === 'LOP' ? 'Unlimited' : leave.available }} {{ leave.code.toUpperCase() === 'LOP' ? '' : 'available' }})
           </ion-select-option>
         </ion-select>
         <ion-icon name="chevron-down-outline" class="input-icon select-chevron"></ion-icon>

@@ -42,8 +42,8 @@
                     <p class="stat-value text-info">{{ monthlySummary.leave_days }}</p>
                   </ion-col>
                   <ion-col size="3" class="text-center">
-                    <p class="stat-label">Half Days</p>
-                    <p class="stat-value text-warning">{{ monthlySummary.half_days }}</p>
+                    <p class="stat-label">LOP</p>
+                    <p class="stat-value text-warning">{{ monthlySummary.lop_days }}</p>
                   </ion-col>
                 </ion-row>
               </div>
@@ -79,7 +79,8 @@
               <div class="shift-badge" *ngIf="shift_policy">
                 <span class="pulse-dot"></span>
                 <span class="shift-name">{{ shift_policy.shift_name }}</span>
-                <span class="shift-hours">{{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time | timeFormat }}</span>
+                <span class="shift-hours">{{ shift_policy.start_time | timeFormat }} - {{ shift_policy.end_time |
+                  timeFormat }}</span>
               </div>
 
               <div class="days-grid-wrapper">
@@ -148,20 +149,21 @@
                   <div class="clock-control">
                     <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
                   </div>
-                  
+
                   <div class="secondary-actions">
-                    <button class="cosmic-action-btn remote" (click)="openRemoteClockinModal()" [disabled]="clockButton?.isClockedIn">
+                    <button class="cosmic-action-btn remote" (click)="openRemoteClockinModal()"
+                      [disabled]="clockButton?.isClockedIn">
                       <div class="btn-glow"></div>
                       <ion-icon name="wifi-outline"></ion-icon>
                       <span>Remote</span>
                     </button>
-                    
+
                     <button class="cosmic-action-btn wfh" (click)="wfhClockIn()" [disabled]="clockButton?.isClockedIn">
                       <div class="btn-glow"></div>
                       <ion-icon name="home-outline"></ion-icon>
                       <span>WFH</span>
                     </button>
-                    
+
                     <button class="cosmic-action-btn req" (click)="openWFHModal()">
                       <div class="btn-glow"></div>
                       <ion-icon name="add-circle-outline"></ion-icon>

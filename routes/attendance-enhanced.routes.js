@@ -443,12 +443,33 @@ router.get("/my-report", auth, async (req, res) => {
 
     const [attendance] = await c.query(query, params);
 
+    // Get LOP leaves count for the period
+    let lopQuery = `
+      SELECT SUM(l.total_days) as lop_days
+      FROM leaves l
+      INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+      WHERE l.employee_id = ? AND l.status = 'approved' AND lt.type_code = 'LOP'
+    `;
+    const lopParams = [emp.id];
+
+    if (startDate && endDate) {
+      lopQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
+      lopParams.push(startDate, endDate, startDate, endDate);
+    } else if (month && year) {
+      lopQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
+      lopParams.push(month, year, month, year);
+    }
+
+    const [lopData] = await c.query(lopQuery, lopParams);
+    const lopDays = Number(lopData[0].lop_days) || 0;
+
     // Calculate summary
     const summary = {
       total_days: attendance.length,
       present_days: attendance.filter((a) => a.status === "present").length,
       absent_days: attendance.filter((a) => a.status === "absent").length,
       half_days: attendance.filter((a) => a.status === "half-day").length,
+      lop_days: lopDays,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),

@@ -65,14 +65,14 @@
                     </svg>
                     <div class="center">
                       <span class="val">{{ leave.available }}</span>
-                      <span class="lbl">Days</span>
+                      <span class="lbl" *ngIf="!leave.isLOP">Days</span>
                     </div>
                   </div>
 
                   <div class="detailed-stats">
                     <div class="stat-row">
                       <span class="label">Balance:</span>
-                      <span class="value">{{ leave.available }} Days</span>
+                      <span class="value">{{ leave.available }}{{ leave.isLOP ? '' : ' Days' }}</span>
                     </div>
                     <div class="stat-row">
                       <span class="label">Utilized:</span>

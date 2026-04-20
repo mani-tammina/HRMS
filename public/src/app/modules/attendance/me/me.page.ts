@@ -70,7 +70,7 @@ export class MePage implements OnInit, AfterViewInit {
   currentMonthName: string = '';
 
   monthlySummary: any = {
-    total_days: 0, present_days: 0, absent_days: 0, half_days: 0,
+    total_days: 0, present_days: 0, absent_days: 0, half_days: 0, lop_days: 0,
     avg_work_hours: 0, total_effective_hours: 0, total_gross_hours: 0
   };
 
@@ -134,11 +134,11 @@ export class MePage implements OnInit, AfterViewInit {
         this.status = res?.attendance?.status || 'Absent';
         const punches = res?.punches || [];
         const pipe = new TimeFormatPipe();
-        
+
         if (res?.attendance) {
           let gross = parseFloat(res.attendance.gross_hours || 0);
           let effective = parseFloat(res.attendance.total_work_hours || 0);
-          
+
           if (res.last_punch_type === 'in' && punches.length > 0) {
             const lastPunch = punches[punches.length - 1];
             const startTime = new Date(lastPunch.punch_time).getTime();
@@ -151,10 +151,10 @@ export class MePage implements OnInit, AfterViewInit {
 
           this.grossHours = pipe.transform(gross);
           this.effectiveHours = pipe.transform(effective);
-          
+
           this.grossMinutes = Math.round(gross * 60);
           this.effectiveMinutes = Math.round(effective * 60);
-          
+
           // Calculate late login if shift is available
           if (this.shift_policy && punches.length > 0) {
             const firstPunch = new Date(punches[0].punch_time);
@@ -162,7 +162,7 @@ export class MePage implements OnInit, AfterViewInit {
             const [h, m] = shiftStartStr.split(':').map(Number);
             const shiftStartDate = new Date(firstPunch);
             shiftStartDate.setHours(h, m, 0, 0);
-            
+
             if (firstPunch > shiftStartDate) {
               this.lateMinutes = Math.max(0, Math.round((firstPunch.getTime() - shiftStartDate.getTime()) / 60000));
             } else {
@@ -179,9 +179,9 @@ export class MePage implements OnInit, AfterViewInit {
           this.createTimelineData([]);
         }
       },
-      error: () => { 
-        this.status = 'Absent'; 
-        this.grossHours = '00:00'; 
+      error: () => {
+        this.status = 'Absent';
+        this.grossHours = '00:00';
         this.effectiveHours = '00:00';
         this.lateMinutes = 0;
         this.totalBreakMinutes = 0;
@@ -199,13 +199,13 @@ export class MePage implements OnInit, AfterViewInit {
     const labels: string[] = [];
     const inData: number[] = [];
     const outData: number[] = [];
-    
+
     let totalBreaks = 0;
-    
+
     for (let i = 0; i < punches.length; i++) {
       const p = punches[i];
       const time = new Date(p.punch_time).getTime();
-      
+
       if (p.punch_type === 'in') {
         const nextPunch = punches[i + 1];
         const endTime = nextPunch ? new Date(nextPunch.punch_time).getTime() : Date.now();
@@ -222,7 +222,7 @@ export class MePage implements OnInit, AfterViewInit {
         }
       }
     }
-    
+
     this.totalBreakMinutes = Math.round(totalBreaks);
     this.updateChart(Math.round(inData.reduce((a, b) => a + b, 0)), this.totalBreakMinutes);
   }
@@ -233,7 +233,7 @@ export class MePage implements OnInit, AfterViewInit {
 
   updateChart(effective: number, totalBreak: number) {
     if (!this.attendanceChartCanvas) return;
-    
+
     const ctx = this.attendanceChartCanvas.nativeElement.getContext('2d');
     if (!ctx) return;
 
@@ -241,7 +241,7 @@ export class MePage implements OnInit, AfterViewInit {
 
     const late = this.lateMinutes || 0;
     const hasData = (effective + totalBreak + late) > 0;
-    
+
     // Custom helper for formatting durations in tooltips
     const formatDuration = (min: number) => {
       if (min < 60) return `${min}m`;
@@ -255,7 +255,7 @@ export class MePage implements OnInit, AfterViewInit {
       datasets: [
         {
           data: hasData ? [late, effective, totalBreak] : [0, 0, 1],
-          backgroundColor: hasData 
+          backgroundColor: hasData
             ? ['#f59e0b', '#06b6d4', '#ec4899'] // Amber, Cyan, Pink
             : ['#f1f5f9'],
           hoverBackgroundColor: hasData
@@ -276,12 +276,12 @@ export class MePage implements OnInit, AfterViewInit {
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        
+
         // Value
         ctx.font = 'bold 24px "Outfit", "Inter", sans-serif';
         ctx.fillStyle = '#1e293b'; // Dark slate
         ctx.fillText(this.grossHours || '00:00', width / 2, (height / 2) + top - 5);
-        
+
         // Label
         ctx.font = '700 10px "Outfit", "Inter", sans-serif';
         ctx.fillStyle = '#64748b'; // Slate muted
@@ -298,17 +298,17 @@ export class MePage implements OnInit, AfterViewInit {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { 
-            position: 'right', 
-            labels: { 
-              boxWidth: 8, 
-              usePointStyle: true, 
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 8,
+              usePointStyle: true,
               padding: 12,
               color: '#475569',
               font: { size: 10, weight: '700' }
-            } 
+            }
           },
-          tooltip: { 
+          tooltip: {
             enabled: hasData,
             backgroundColor: '#ffffff',
             titleColor: '#1e293b',
@@ -338,13 +338,13 @@ export class MePage implements OnInit, AfterViewInit {
     const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
 
     this.currentMonthName = d.toLocaleString('default', { month: 'long' });
-    
+
     this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).subscribe({
       next: (res: any) => {
         if (res?.summary) {
           this.monthlySummary = res.summary;
           this.lastAttendance = res?.attendance || [];
-          
+
           // Get leaves for the month
           this.leaveService.getMyLeaves(year).subscribe({
             next: (leaves: any) => {
@@ -352,9 +352,9 @@ export class MePage implements OnInit, AfterViewInit {
               this.lastLeaves = leaveData.filter((l: any) => (l.status || '').toUpperCase() === 'APPROVED');
               this.recalculateSummary();
             },
-            error: () => { 
-              this.lastLeaves = []; 
-              this.recalculateSummary(); 
+            error: () => {
+              this.lastLeaves = [];
+              this.recalculateSummary();
             }
           });
         }
@@ -380,7 +380,7 @@ export class MePage implements OnInit, AfterViewInit {
       const to = new Date(l.end_date || l.to_date || l.toDate || l.start_date || l.from_date || l.fromDate);
       let curr = new Date(from.getFullYear(), from.getMonth(), from.getDate());
       const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-      
+
       // Only add to set if it falls in current month
       while (curr <= end) {
         if (curr.getMonth() === currentMonth && curr.getFullYear() === currentYear) {
@@ -392,11 +392,11 @@ export class MePage implements OnInit, AfterViewInit {
 
     const attMap = new Set<string>();
     const presentCount = { full: 0, half: 0 };
-    
+
     this.lastAttendance.forEach((a: any) => {
       const dStr = new Date(a.attendance_date).toDateString();
       attMap.add(dStr);
-      
+
       const status = (a.status || '').toLowerCase();
       if (!leaveSet.has(dStr)) {
         if (status === 'half-day' || status === 'halfday' || status === 'half_day') {
@@ -418,15 +418,15 @@ export class MePage implements OnInit, AfterViewInit {
         leaveCount++;
         continue;
       }
-      
+
       if (weekOffs.includes(weekday)) {
         continue;
       }
-      
+
       if (attMap.has(dateStr)) {
         continue;
       }
-      
+
       absentCount++;
     }
 
@@ -437,7 +437,8 @@ export class MePage implements OnInit, AfterViewInit {
         present_days: presentCount.full,
         half_days: presentCount.half,
         absent_days: absentCount,
-        leave_days: leaveCount
+        leave_days: leaveCount,
+        lop_days: this.monthlySummary.lop_days,
       };
     }, 0);
   }
@@ -493,7 +494,7 @@ export class MePage implements OnInit, AfterViewInit {
       cssClass: 'side-custom-popup team-popup',
       backdropDismiss: false,
     });
-    
+
     modal.onDidDismiss().then((res) => {
       if (res.data?.success) {
         this.loadTodayAttendance();

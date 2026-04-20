@@ -225,7 +225,42 @@ export class PayslipsPage implements OnInit, OnDestroy {
     };
 
     sortedComps.forEach(c => {
-      calculatedAmts[c.code] = getValue(c);
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      let val = getValue(c);
+
+      // Enforce Rule: Basic = 40% of Gross (CTC)
+      // Use inclusive matching for names like 'Basic Salary'
+      if (name.includes('BASIC') || code.includes('BASIC')) {
+        // If value is 0 or a very low placeholder (like 1, 2, 3), apply the 40% rule
+        if (!val || val <= 100) val = ctc * 0.40;
+      }
+
+      calculatedAmts[c.code] = val;
+    });
+
+    // Pass 2.5: Enforce Rule: HRA = 40% of Basic
+    // Must be done after Basic is calculated
+    sortedComps.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      const isHRA = code === 'HRA' || code.includes('HOUSE_RENT') || name.includes('HOUSE RENT') || name === 'HRA';
+      
+      if (isHRA) {
+        let basicVal = 0;
+        // Find Basic amount - support inclusive matching
+        Object.keys(calculatedAmts).forEach(k => {
+          const comp = components.find(bc => bc.code === k);
+          const cName = (comp?.name || '').toUpperCase();
+          if (k.toUpperCase().includes('BASIC') || cName.includes('BASIC')) {
+            basicVal = calculatedAmts[k];
+          }
+        });
+
+        if (basicVal > 0 && (!calculatedAmts[c.code] || calculatedAmts[c.code] <= 100)) {
+          calculatedAmts[c.code] = basicVal * 0.40;
+        }
+      }
     });
 
     // Pass 3: Calculate ESI Employee first
@@ -425,12 +460,31 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
     sortedComps.forEach(c => {
       const code = (c.code || '').toUpperCase();
-      if (code.includes('ESI') && !code.includes('EMPLOYER')) {
-        let pfm = 0;
-        Object.keys(calculatedAmts).forEach(k => {
-          if (k.toUpperCase().includes('PF') && k.toUpperCase().includes('EMPLOYER')) pfm = calculatedAmts[k];
+      const name = (c.name || '').toUpperCase();
+      let val = getValue(c);
+
+      // Enforce Rule: Basic = 40% of Gross (CTC)
+      if (name.includes('BASIC') || code.includes('BASIC')) {
+        if (!val || val <= 100) val = ctc * 0.40;
+      }
+      calculatedAmts[c.code] = val;
+    });
+
+    // Pass 2.5: HRA Rule
+    sortedComps.forEach(c => {
+      const code = (c.code || '').toUpperCase();
+      const name = (c.name || '').toUpperCase();
+      const isHRA = code === 'HRA' || code.includes('HOUSE_RENT') || name.includes('HOUSE RENT') || name === 'HRA' || name.includes('ALLOWANCE');
+      if (isHRA && (name.includes('RENT') || code.includes('HRA'))) {
+        let basicVal = 0;
+        Object.keys(calculatedAmts).forEach(k => { 
+          const comp = components.find(bc => bc.code === k);
+          const cName = (comp?.name || '').toUpperCase();
+          if (k.toUpperCase().includes('BASIC') || cName.includes('BASIC')) basicVal = calculatedAmts[k]; 
         });
-        calculatedAmts[c.code] = (ctc - pfm) * (3.25 / 103.25);
+        if (basicVal > 0 && (!calculatedAmts[c.code] || calculatedAmts[c.code] <= 100)) {
+          calculatedAmts[c.code] = basicVal * 0.40;
+        }
       }
     });
 

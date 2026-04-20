@@ -45,7 +45,7 @@ export class LeavesPage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
     private router: Router,
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.updateRole();
@@ -68,17 +68,20 @@ export class LeavesPage implements OnInit, OnDestroy {
     this.employeeLeaves.getLeaveBalance(this.currentYear).subscribe({
       next: (res: any[]) => {
         this.leaveCards = res.map(item => {
+          const code = (item.type_code || '').toUpperCase();
+          const isLOP = code === 'LOP';
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
           const available = (Number(item.available_days) || 0) - (Number(item.pending_days) || 0);
 
           return {
             title: item.type_name,
-            code: item.type_code,
-            allocated_days: allocated,
+            code: code,
+            allocated_days: isLOP ? '0' : allocated,
             used,
-            available,
-            usedPercent: allocated > 0 ? Math.round((used / allocated) * 100) : 0,
+            available: isLOP ? '0' : available,
+            isLOP: isLOP,
+            usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
           };
         });
       },

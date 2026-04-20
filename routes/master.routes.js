@@ -91,7 +91,7 @@ createMasterRoutes("holiday-lists", "holiday_lists", "name");
 createMasterRoutes("expense-policies", "expense_policies", "name");
 
 // Enhanced Shift Policies Route
-router.get("/shift-policies", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
   try {
     const c = await db();
     const [rows] = await c.query(`
@@ -152,7 +152,7 @@ router.post("/shift-policies", auth, roleAuth(["admin", "hr"]), async (req, res)
   }
 });
 
-router.put("/shift-policies/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+router.put("/shift-policies/:id", auth, roleAuth(["admin", "hr",]), async (req, res) => {
   try {
     const {
       name,
@@ -220,7 +220,7 @@ router.put("/shift-policies/:id", auth, roleAuth(["admin", "hr"]), async (req, r
 });
 
 // ============ ENHANCED WEEKLY OFF POLICIES ROUTES ============
-router.get("/weekly-off-policies", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+router.get("/weekly-off-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
   let c;
   try {
     c = await db();
