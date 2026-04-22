@@ -32,7 +32,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   // HR Search
   isHR = false;
   globalSearchQuery = '';
-  globalSearchResults: any[] = [];
+  originalTeam: any[] = [];
   env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}/`;
 
   selectedDate: string = new Date().toISOString();
@@ -184,7 +184,10 @@ export class MyTeamPage implements OnInit, OnDestroy {
     });
 
     this.attendanceStatuses = newStatuses;
-    this.filteredTeam = [...this.teamMembers];
+    if (this.originalTeam.length === 0) {
+      this.originalTeam = [...this.teamMembers];
+    }
+    this.applyFilters();
 
     if (res.summary && !isToday) {
       this.counts = {
@@ -367,15 +370,26 @@ export class MyTeamPage implements OnInit, OnDestroy {
   // ================= HR ACTIONS =================
 
   onGlobalSearch() {
-    if (this.globalSearchQuery.trim().length > 2) {
-      this.employeeService.searchEmployees(this.globalSearchQuery.trim(), 1, 10).subscribe({
+    const query = this.globalSearchQuery.trim();
+    if (query.length > 2) {
+      this.isLoading = true;
+      this.employeeService.searchEmployees(query, 1, 50).subscribe({
         next: (res: any) => {
-          this.globalSearchResults = res.data || [];
-        }
+          this.teamMembers = res.data || [];
+          this.applyFilters();
+          this.isLoading = false;
+        },
+        error: () => this.isLoading = false
       });
-    } else {
-      this.globalSearchResults = [];
+    } else if (query.length === 0) {
+      this.resetGlobalSearch();
     }
+  }
+
+  resetGlobalSearch() {
+    this.globalSearchQuery = '';
+    this.teamMembers = [...this.originalTeam];
+    this.applyFilters();
   }
 
   viewEmployeeAttendance(member: any) {
@@ -383,10 +397,5 @@ export class MyTeamPage implements OnInit, OnDestroy {
     if (id) {
        this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);
     }
-  }
-
-  openGlobalEmployeeDetails(emp: any) {
-    this.globalSearchResults = [];
-    this.navCtrl.navigateForward([`/Attendance/employee/${emp.id || emp.EmployeeId}`]);
   }
 }

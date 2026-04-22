@@ -49,27 +49,7 @@
         <!-- Global Search for HR -->
         <div class="global-search-wrapper" *ngIf="isHR">
           <ion-searchbar placeholder="Search employee globally..." [(ngModel)]="globalSearchQuery"
-            (ionInput)="onGlobalSearch()" class="premium-global-search"></ion-searchbar>
-
-          <!-- Dropdown Results -->
-          <ion-popover [isOpen]="globalSearchResults.length > 0" (didDismiss)="globalSearchResults = []"
-            class="global-search-dropdown" side="bottom" alignment="center">
-            <ng-template>
-              <ion-content>
-                <ion-list lines="none">
-                  <ion-item *ngFor="let emp of globalSearchResults" button (click)="openGlobalEmployeeDetails(emp)">
-                    <ion-avatar slot="start">
-                      <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/Profile_Picture.png'">
-                    </ion-avatar>
-                    <ion-label>
-                      <h2>{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</h2>
-                      <p>{{ emp.designation_name || 'Employee' }} | #{{ emp.EmployeeNumber || emp.id }}</p>
-                    </ion-label>
-                  </ion-item>
-                </ion-list>
-              </ion-content>
-            </ng-template>
-          </ion-popover>
+            (ionInput)="onGlobalSearch()" (ionClear)="resetGlobalSearch()" class="premium-global-search"></ion-searchbar>
         </div>
 
         <div class="date-selector">
