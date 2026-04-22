@@ -93,8 +93,15 @@ export class AttendanceApiService {
     return this.http.get<any>(`${this.BASE_URL}/report/employee/${employeeId}`, { headers: this.getHeaders(), params: httpParams });
   }
 
-  getAttendanceDetailsByDate(date: string): Observable<any> {
+  getAttendanceDetailsByDate(date: string, employeeId?: number): Observable<any> {
+    if (employeeId) {
+      return this.http.get(`${this.BASE_URL}/details/${date}/${employeeId}`, { headers: this.getHeaders() });
+    }
     return this.http.get(`${this.BASE_URL}/details/${date}`, { headers: this.getHeaders() });
+  }
+
+  backdateRegularization(payload: any): Observable<any> {
+    return this.http.post(`${this.BASE_URL}/regularization/backdate`, payload, { headers: this.getHeaders() });
   }
 
   getMonthlyAttendanceSummary(): Observable<any> {

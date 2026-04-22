@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { NavController, ModalController } from '@ionic/angular';
+import { Router } from '@angular/router';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 import { environment } from 'src/environments/environment';
@@ -28,6 +29,12 @@ export class MyTeamPage implements OnInit, OnDestroy {
   userRole: string | null = null;
   teamAttendanceSummary: any = null;
 
+  // HR Search
+  isHR = false;
+  globalSearchQuery = '';
+  globalSearchResults: any[] = [];
+  env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}/`;
+
   selectedDate: string = new Date().toISOString();
   maxDate: string = new Date().toISOString();
   currentFilter: string = 'all';
@@ -43,7 +50,8 @@ export class MyTeamPage implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private attendanceService: AttendanceApiService,
     private navCtrl: NavController,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private router: Router
   ) { }
 
   ngOnInit() {
@@ -54,7 +62,8 @@ export class MyTeamPage implements OnInit, OnDestroy {
   /* ===================== ROLE ===================== */
   private updateRole() {
     this.userRole = (localStorage.getItem('role') || '').toLowerCase();
-    this.isManager = (this.userRole === 'manager' || this.userRole === 'hr');
+    this.isManager = (this.userRole === 'manager' || this.userRole === 'hr' || this.userRole === 'admin');
+    this.isHR = (this.userRole === 'hr' || this.userRole === 'admin');
   }
 
   setFilter(status: string) {
@@ -353,5 +362,31 @@ export class MyTeamPage implements OnInit, OnDestroy {
     if (status.includes('leave') || status === 'on_leave') return 'leave-status';
     if (status === 'absent') return 'absent';
     return 'not-punched-status';
+  }
+
+  // ================= HR ACTIONS =================
+
+  onGlobalSearch() {
+    if (this.globalSearchQuery.trim().length > 2) {
+      this.employeeService.searchEmployees(this.globalSearchQuery.trim(), 1, 10).subscribe({
+        next: (res: any) => {
+          this.globalSearchResults = res.data || [];
+        }
+      });
+    } else {
+      this.globalSearchResults = [];
+    }
+  }
+
+  viewEmployeeAttendance(member: any) {
+    const id = member.id || member.employee_id || member.EmployeeId;
+    if (id) {
+       this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);
+    }
+  }
+
+  openGlobalEmployeeDetails(emp: any) {
+    this.globalSearchResults = [];
+    this.navCtrl.navigateForward([`/Attendance/employee/${emp.id || emp.EmployeeId}`]);
   }
 }

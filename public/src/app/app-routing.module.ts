@@ -66,6 +66,12 @@ const routes: Routes = [
     canActivate: [AuthGuard],
   },
   {
+    path: 'Attendance/employee/:id',
+    loadComponent: () => import('./modules/attendance/me/me.page').then(m => m.MePage),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['manager', 'hr', 'admin'] }
+  },
+  {
     path: 'MyPay',
     loadChildren: () => import('./modules/payroll/payslips/payslips.module').then(m => m.PayslipsPageModule),
     canActivate: [AuthGuard, RoleGuard],

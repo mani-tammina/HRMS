@@ -1,6 +1,7 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { IonicModule, ModalController, ToastController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute } from '@angular/router';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 Chart.register(...registerables);
 
@@ -77,6 +78,9 @@ export class MePage implements OnInit, AfterViewInit {
   lastAttendance: any[] = [];
   lastLeaves: any[] = [];
 
+  isHRView = false;
+  viewEmployeeId: number | null = null;
+
   constructor(
     private attendanceService: AttendanceService,
     private attendanceApi: AttendanceApiService,
@@ -85,11 +89,23 @@ export class MePage implements OnInit, AfterViewInit {
     private toastCtrl: ToastController,
     private leaveService: LeaverequestService,
     private modalCtrl: ModalController,
+    private route: ActivatedRoute,
+    private navCtrl: NavController,
   ) {
     this.generateDays();
   }
 
   ngOnInit() {
+    this.route.params.subscribe(params => {
+      if (params['id']) {
+        this.viewEmployeeId = Number(params['id']);
+        this.isHRView = true;
+      }
+      this.loadAllData();
+    });
+  }
+
+  loadAllData() {
     this.loadShiftPolicies();
     this.loadWeekendPolicies();
     this.loadEmployeeProfile();
@@ -111,6 +127,10 @@ export class MePage implements OnInit, AfterViewInit {
     });
   }
 
+  goBack() {
+    this.navCtrl.back();
+  }
+
   loadWeekendPolicies() {
     this.adminService.getWeeklyOffPolicies().subscribe(res => {
       this.allWeekendPolicies = res || [];
@@ -119,7 +139,11 @@ export class MePage implements OnInit, AfterViewInit {
   }
 
   loadEmployeeProfile() {
-    this.employeeService.getMyProfile().subscribe(profile => {
+    const request = this.viewEmployeeId 
+      ? this.employeeService.getEmployeeById(this.viewEmployeeId)
+      : this.employeeService.getMyProfile();
+
+    request.subscribe(profile => {
       if (!profile) return;
       this.shift_id = profile.shift_policy_id || profile.ShiftPolicyId;
       this.weekend_id = profile.weekly_off_policy_id || profile.WeeklyOffPolicyId;
@@ -339,7 +363,11 @@ export class MePage implements OnInit, AfterViewInit {
 
     this.currentMonthName = d.toLocaleString('default', { month: 'long' });
 
-    this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).subscribe({
+    const request = this.viewEmployeeId
+      ? this.attendanceApi.getEmployeeReport(this.viewEmployeeId, { startDate, endDate, month, year })
+      : this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year });
+
+    request.subscribe({
       next: (res: any) => {
         if (res?.summary) {
           this.monthlySummary = res.summary;

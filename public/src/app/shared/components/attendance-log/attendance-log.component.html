@@ -77,25 +77,33 @@
     </ion-col>
 
     <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
-      <div style="display: flex; align-items: center; gap: 8px;">
-        <ng-container [ngSwitch]="getArrivalStatus(log)">
-          <ion-icon *ngSwitchCase="'Late Arrival'" name="alarm-outline"
-            style="color:#D97706;font-size:18px;"></ion-icon>
-          <ion-icon *ngSwitchCase="'On Time'" name="checkmark-circle-outline"
-            style="color:#10B981;font-size:18px;"></ion-icon>
-          <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
-            style="color:#EF4444;font-size:18px;"></ion-icon>
-          <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
-        </ng-container>
-        <div style="display:flex;flex-direction:column;">
-          <span [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : 'inherit'"
-            style="font-size:13px;font-weight:500;line-height:1;">
-            {{ getArrivalStatus(log) }}
-          </span>
-          <span *ngIf="getLateDuration(log)" style="color:#64748B;font-size:10px;margin-top:2px;">
-            {{ getLateDuration(log) }}
-          </span>
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <ng-container [ngSwitch]="getArrivalStatus(log)">
+            <ion-icon *ngSwitchCase="'Late Arrival'" name="alarm-outline"
+              style="color:#D97706;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'On Time'" name="checkmark-circle-outline"
+              style="color:#10B981;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
+              style="color:#EF4444;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
+          </ng-container>
+          <div style="display:flex;flex-direction:column;">
+            <span [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : 'inherit'"
+              style="font-size:13px;font-weight:500;line-height:1;">
+              {{ getArrivalStatus(log) }}
+            </span>
+            <span *ngIf="getLateDuration(log)" style="color:#64748B;font-size:10px;margin-top:2px;">
+              {{ getLateDuration(log) }}
+            </span>
+          </div>
         </div>
+        
+        <!-- Regularization Button for HR -->
+        <ion-button *ngIf="isHRView && (log.status === 'penalty' || log.status === 'absent')" 
+          fill="clear" color="primary" class="regularize-btn" (click)="openRegularizeModal(log); $event.stopPropagation()">
+          <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+        </ion-button>
       </div>
     </ion-col>
     <ion-col size="1" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">

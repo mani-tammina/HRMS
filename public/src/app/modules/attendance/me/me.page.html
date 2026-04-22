@@ -1,9 +1,12 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-menu-button></ion-menu-button>
+      <ion-menu-button *ngIf="!isHRView"></ion-menu-button>
+      <ion-button *ngIf="isHRView" (click)="goBack()">
+        <ion-icon slot="icon-only" name="arrow-back-outline"></ion-icon>
+      </ion-button>
     </ion-buttons>
-    <ion-title>My Attendance</ion-title>
+    <ion-title>{{ isHRView ? 'Employee Attendance' : 'My Attendance' }}</ion-title>
   </ion-toolbar>
 </ion-header>
 
@@ -145,7 +148,7 @@
                   </div>
                 </div>
 
-                <div class="actions-section">
+                <div class="actions-section" *ngIf="!isHRView">
                   <div class="clock-control">
                     <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
                   </div>
@@ -196,7 +199,7 @@
 
     <!-- Attendance Log Tab -->
     <div *ngIf="activeTab === 'log'">
-      <app-attendance-log [refreshTrigger]="attendanceRefresh"></app-attendance-log>
+      <app-attendance-log [refreshTrigger]="attendanceRefresh" [employeeId]="viewEmployeeId" [isHRView]="isHRView"></app-attendance-log>
     </div>
 
     <!-- Calendar Tab -->

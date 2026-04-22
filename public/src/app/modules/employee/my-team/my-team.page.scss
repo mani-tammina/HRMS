@@ -264,3 +264,36 @@
 .section-actions {
   padding: 0 0 32px 0;
 }
+
+.employee-card-wrapper {
+  cursor: pointer;
+}
+
+.global-search-wrapper {
+  flex: 1;
+  max-width: 450px;
+  margin: 0 40px;
+}
+
+.premium-global-search {
+  --background: #ffffff;
+  --border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  height: 48px;
+}
+
+.global-search-dropdown {
+  --width: 450px;
+  --border-radius: 16px;
+}
+
+.date-selector .team-search {
+  width: 240px;
+}
+
+.compact-team-search {
+  --background: #ffffff;
+  --border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  height: 40px;
+}

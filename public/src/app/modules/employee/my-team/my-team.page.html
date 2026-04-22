@@ -45,7 +45,38 @@
           <h3>Attendance Reports</h3>
           <p class="current-date-label">Showing results for: <strong>{{ selectedDate | date:'fullDate' }}</strong></p>
         </div>
+
+        <!-- Global Search for HR -->
+        <div class="global-search-wrapper" *ngIf="isHR">
+          <ion-searchbar placeholder="Search employee globally..." [(ngModel)]="globalSearchQuery"
+            (ionInput)="onGlobalSearch()" class="premium-global-search"></ion-searchbar>
+
+          <!-- Dropdown Results -->
+          <ion-popover [isOpen]="globalSearchResults.length > 0" (didDismiss)="globalSearchResults = []"
+            class="global-search-dropdown" side="bottom" alignment="center">
+            <ng-template>
+              <ion-content>
+                <ion-list lines="none">
+                  <ion-item *ngFor="let emp of globalSearchResults" button (click)="openGlobalEmployeeDetails(emp)">
+                    <ion-avatar slot="start">
+                      <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/Profile_Picture.png'">
+                    </ion-avatar>
+                    <ion-label>
+                      <h2>{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</h2>
+                      <p>{{ emp.designation_name || 'Employee' }} | #{{ emp.EmployeeNumber || emp.id }}</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+              </ion-content>
+            </ng-template>
+          </ion-popover>
+        </div>
+
         <div class="date-selector">
+          <div class="team-search">
+            <ion-searchbar (ionInput)="filterTeam($event)" [(ngModel)]="searchTerm" placeholder="Filter team..."
+              class="compact-team-search"></ion-searchbar>
+          </div>
           <ion-button fill="clear" color="primary" class="reset-btn" (click)="resetToToday()"
             *ngIf="!isTodaySelected()">
             <ion-icon name="today-outline" slot="start"></ion-icon>
@@ -135,7 +166,7 @@
 
 
       <div class="premium-team-grid" *ngIf="!isLoading; else loadingState">
-        <div class="employee-card-wrapper" *ngFor="let member of filteredTeam">
+        <div class="employee-card-wrapper" *ngFor="let member of filteredTeam" (click)="viewEmployeeAttendance(member)">
           <div class="premium-emp-card">
             <div class="card-accent" [style.background]="getAvatarColor(member.id)"></div>
 

@@ -9,7 +9,9 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { LeaverequestService, MyLeave } from '../../../core/services/leaverequest.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { AlertController, ToastController } from '@ionic/angular';
 import { TimeFormatPipe } from '../../pipes/time-format.pipe';
+import { FormsModule } from '@angular/forms';
 
 interface WeeklyOffPolicy {
   id: number;
@@ -25,12 +27,14 @@ interface WeeklyOffPolicy {
 @Component({
   selector: 'app-attendance-log',
   standalone: true,
-  imports: [IonicModule, CommonModule],
+  imports: [IonicModule, CommonModule, FormsModule],
   templateUrl: './attendance-log.component.html',
   styleUrls: ['./attendance-log.component.scss'],
 })
 export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   @Input() refreshTrigger: any;
+  @Input() employeeId: number | null = null;
+  @Input() isHRView: boolean = false;
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
@@ -64,6 +68,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     private leaveService: LeaverequestService,
     private employeeService: EmployeeService,
     private adminService: AdminService,
+    private alertCtrl: AlertController,
+    private toastCtrl: ToastController,
   ) {
     this.initializeMonthButtons();
   }
@@ -122,11 +128,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.reloadInProgress = true;
     this.resetState();
 
-    const profile$ = this.employeeService.getMyProfile().pipe(catchError(() => of(null)));
+    const profile$ = this.employeeId 
+       ? this.employeeService.getEmployeeById(this.employeeId).pipe(catchError(() => of(null)))
+       : this.employeeService.getMyProfile().pipe(catchError(() => of(null)));
+       
     const shiftPolicies$ = this.adminService.getShiftPolicies().pipe(catchError(() => of([])));
     const weekOffPolicies$ = this.adminService.getWeeklyOffPolicies().pipe(catchError(() => of([])));
-    const leaves$ = this.leaveService.getMyLeaves(this.currentYear).pipe(catchError(() => of([])));
-    const todayPunches$ = this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
+    
+    const leaves$ = this.employeeId
+       ? of([]) // Optionally fetch for others if needed
+       : this.leaveService.getMyLeaves(this.currentYear).pipe(catchError(() => of([])));
+       
+    const todayPunches$ = this.employeeId
+       ? of({ punches: [] })
+       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
     forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$ })
       .pipe(takeUntil(this.destroy$)).subscribe({
@@ -171,12 +186,21 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   loadMonthlyReport(): void {
-    this.attendanceApi.getMonthlyReport({
-      startDate: this.startDate,
-      endDate: this.endDate,
-      month: this.currentMonth,
-      year: this.currentYear,
-    }).subscribe({
+    const request = this.employeeId 
+      ? this.attendanceApi.getEmployeeReport(this.employeeId, {
+          startDate: this.startDate,
+          endDate: this.endDate,
+          month: this.currentMonth,
+          year: this.currentYear,
+        })
+      : this.attendanceApi.getMonthlyReport({
+          startDate: this.startDate,
+          endDate: this.endDate,
+          month: this.currentMonth,
+          year: this.currentYear,
+        });
+
+    request.subscribe({
       next: res => {
         const apiAttendance = res?.attendance || [];
         const attendanceMap = new Map<string, any>();
@@ -294,7 +318,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   private loadLogDetails(log: any): void {
     if (!log?.attendance_date) return;
     const formattedDate = this.formatDateOnly(log.attendance_date);
-    this.attendanceApi.getAttendanceDetailsByDate(formattedDate).subscribe({
+    this.attendanceApi.getAttendanceDetailsByDate(formattedDate, this.employeeId || undefined).subscribe({
       next: (res) => {
         this.selectedLog = {
           ...log,
@@ -444,5 +468,68 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       }
     } catch { }
     return '';
+  }
+
+  // ================= REGULARIZATION =================
+
+  async openRegularizeModal(log: any) {
+    const alert = await this.alertCtrl.create({
+      header: 'Regularize Attendance',
+      subHeader: `Date: ${log.attendance_date}`,
+      cssClass: 'regularization-alert',
+      inputs: [
+        { name: 'first_in', type: 'time', value: '09:15', placeholder: 'Punch In' },
+        { name: 'last_out', type: 'time', value: '18:20', placeholder: 'Punch Out' },
+        { name: 'reason', type: 'textarea', placeholder: 'Reason for regularization' }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Regularize',
+          handler: (data) => {
+            this.regularizePenalty(log, data);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  regularizePenalty(log: any, data: any) {
+    const payload = {
+      employee_id: this.employeeId || this.employeeProfile?.id,
+      attendance_date: log.attendance_date,
+      status: 'present',
+      first_check_in: data.first_in,
+      last_check_out: data.last_out,
+      work_mode: 'Office',
+      location: 'Mumbai Office',
+      reason: data.reason || 'Regularized'
+    };
+
+    this.attendanceApi.backdateRegularization(payload).subscribe({
+      next: async (res: any) => {
+        const toast = await this.toastCtrl.create({
+          message: 'Attendance regularized successfully',
+          duration: 2000,
+          color: 'success',
+          position: 'top'
+        });
+        toast.present();
+        this.loadMonthlyReport();
+        if (this.selectedLog && this.selectedLog.attendance_date === log.attendance_date) {
+           this.closeSlider();
+        }
+      },
+      error: async (err) => {
+        const toast = await this.toastCtrl.create({
+          message: err?.error?.error || 'Failed to regularize attendance',
+          duration: 3000,
+          color: 'danger',
+          position: 'top'
+        });
+        toast.present();
+      }
+    });
   }
 }
