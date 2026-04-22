@@ -207,18 +207,27 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (existing) return { ...existing, noLogs: false };
 
           let defaultStatus = 'absent';
-          const today = new Date();
+          const now = new Date();
           const logD = new Date(date);
-          const isToday = today.getFullYear() === logD.getFullYear() && today.getMonth() === logD.getMonth() && today.getDate() === logD.getDate();
-          if (isToday) {
-            if (this.shiftPolicy?.start_time) {
-              try {
-                const [shiftH, shiftM, shiftS] = this.shiftPolicy.start_time.split(':').map(Number);
-                const threshold = new Date(today);
-                threshold.setHours(shiftH + 2, shiftM, shiftS || 0, 0);
-                if (today < threshold) defaultStatus = 'not-in-yet';
-              } catch { defaultStatus = 'not-in-yet'; }
-            } else { defaultStatus = 'not-in-yet'; }
+
+          // Get shift start time for this day (fallback to 09:00:00)
+          const shiftStartStr = this.shiftPolicy?.start_time || '09:00:00';
+          const [sh, sm, ss] = shiftStartStr.split(':').map(Number);
+          const shiftStart = new Date(logD);
+          shiftStart.setHours(sh, sm, ss || 0, 0);
+
+          // Penalty only kicks in after 24 hours from shift start
+          const penaltyThreshold = new Date(shiftStart);
+          penaltyThreshold.setHours(penaltyThreshold.getHours() + 24);
+
+          if (now > penaltyThreshold) {
+            defaultStatus = 'penalty';
+          } else {
+            // If it's today, handle 'not-in-yet'
+            const isToday = now.getFullYear() === logD.getFullYear() && now.getMonth() === logD.getMonth() && now.getDate() === logD.getDate();
+            if (isToday) {
+              defaultStatus = 'not-in-yet';
+            }
           }
           return { attendance_date: date, total_work_hours: null, gross_hours: null, status: defaultStatus, records: [], noLogs: true };
         });
@@ -385,7 +394,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (!log?.status) return 'Unknown';
     const statusMap: { [key: string]: string } = {
       present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
-      late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET'
+      late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
+      penalty: 'Penalty'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {
@@ -417,7 +427,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   getLateDuration(log: any): string {
-    if (!log || log.status !== 'present' || !log.first_check_in || !this.shiftPolicy?.start_time) return '';
+    if (!log || (log.status !== 'present' && log.status !== 'late') || !log.first_check_in || !this.shiftPolicy?.start_time) return '';
     try {
       const checkIn = new Date(log.first_check_in);
       const [shiftH, shiftM, shiftS] = this.shiftPolicy.start_time.split(':').map(Number);

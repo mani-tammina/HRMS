@@ -130,6 +130,11 @@
       background: vars.$color-primary-light;
       border-left: 4px solid vars.$color-primary;
     }
+
+    &.penalty-row {
+      background: #FEF2F2;
+      border-left: 4px solid vars.$color-danger;
+    }
   }
 }
 
@@ -147,6 +152,18 @@
 
 .badge-woff {
   background: vars.$color-text-muted;
+  color: #fff;
+  font-size: 10px;
+  font-weight: vars.$fw-bold;
+  padding: 4px 10px;
+  border-radius: vars.$radius-sm;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-penalty {
+  background: vars.$color-danger;
   color: #fff;
   font-size: 10px;
   font-weight: vars.$fw-bold;

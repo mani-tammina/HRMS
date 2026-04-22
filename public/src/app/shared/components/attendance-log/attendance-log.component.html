@@ -37,7 +37,7 @@
 
   <!-- Rows -->
   <ion-row *ngFor="let log of currentMonthreport" class="table-row"
-    [ngClass]="{'weekoff-row': log.status === 'weekend', 'leave-row': log.status === 'on-leave'}">
+    [ngClass]="{'weekoff-row': log.status === 'weekend', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty'}">
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
       <ng-container *ngIf="log.status === 'on-leave'">
@@ -45,6 +45,9 @@
       </ng-container>
       <ng-container *ngIf="log.status === 'weekend'">
         <span class="badge-woff">W-OFF</span>
+      </ng-container>
+      <ng-container *ngIf="log.status === 'penalty'">
+        <span class="badge-penalty">PENALTY</span>
       </ng-container>
     </ion-col>
 
@@ -80,6 +83,8 @@
             style="color:#D97706;font-size:18px;"></ion-icon>
           <ion-icon *ngSwitchCase="'On Time'" name="checkmark-circle-outline"
             style="color:#10B981;font-size:18px;"></ion-icon>
+          <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
+            style="color:#EF4444;font-size:18px;"></ion-icon>
           <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
         </ng-container>
         <div style="display:flex;flex-direction:column;">
