@@ -463,13 +463,128 @@ router.get("/my-report", auth, async (req, res) => {
     const [lopData] = await c.query(lopQuery, lopParams);
     const lopDays = Number(lopData[0].lop_days) || 0;
 
-    // Calculate summary
+    // Get detailed shift and weekend policies
+    const [empDetails] = await c.query(`
+      SELECT e.id, sp.start_time, wop.* 
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      WHERE e.id = ?
+    `, [emp.id]);
+    const employee = empDetails[0];
+
+    // Get all approved leaves for the period for summary calculation
+    let allLeavesQuery = `SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved'`;
+    const allLeavesParams = [emp.id];
+    const [allLeaves] = await c.query(allLeavesQuery, allLeavesParams);
+
+    // Map existing attendance for fast lookup
+    const attMap = new Map();
+    attendance.forEach(a => {
+      const dStr = new Date(a.attendance_date).toDateString();
+      attMap.set(dStr, a);
+    });
+
+    const now = new Date();
+    const todayStr = now.toDateString();
+    
+    // Determine range
+    let start, end;
+    if (startDate && endDate) {
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      const rMonth = parseInt(month) || (now.getMonth() + 1);
+      const rYear = parseInt(year) || now.getFullYear();
+      start = new Date(rYear, rMonth - 1, 1);
+      end = new Date(rYear, rMonth, 0);
+    }
+
+    // Iterate through range
+    let present_days = 0;
+    let absent_days = 0;
+    let leave_days = 0;
+    let penalty_count = 0;
+    let half_day_count = 0;
+
+    const weekOffDays = [];
+    if (employee) {
+      if (employee.sunday_off) weekOffDays.push('sunday');
+      if (employee.monday_off) weekOffDays.push('monday');
+      if (employee.tuesday_off) weekOffDays.push('tuesday');
+      if (employee.wednesday_off) weekOffDays.push('wednesday');
+      if (employee.thursday_off) weekOffDays.push('thursday');
+      if (employee.friday_off) weekOffDays.push('friday');
+      if (employee.saturday_off) weekOffDays.push('saturday');
+    }
+
+    let curr = new Date(start);
+    while (curr <= end) {
+      if (curr > now && curr.toDateString() !== todayStr) {
+        curr.setDate(curr.getDate() + 1);
+        continue;
+      }
+
+      const dStr = curr.toDateString();
+      const isToday = dStr === todayStr;
+      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      
+      // Check if on leave
+      const isOnLeave = allLeaves.some(l => {
+        const lStart = new Date(l.start_date);
+        const lEnd = new Date(l.end_date);
+        const check = new Date(curr);
+        check.setHours(0,0,0,0);
+        lStart.setHours(0,0,0,0);
+        lEnd.setHours(0,0,0,0);
+        return check >= lStart && check <= lEnd;
+      });
+
+      if (isOnLeave) {
+        leave_days++;
+      } else if (weekOffDays.includes(weekday)) {
+        // Week off - do nothing for counters
+      } else if (attMap.has(dStr)) {
+        const record = attMap.get(dStr);
+        if (record.status === 'present') present_days++;
+        else if (record.status === 'half-day') {
+          present_days += 0.5;
+          half_day_count++;
+        } else if (record.status === 'penalty') {
+          penalty_count++;
+          absent_days++;
+        } else if (record.status === 'absent') {
+          absent_days++;
+        }
+      } else if (!isToday) {
+        // No log and not today - apply penalty rule
+        const shiftStartStr = employee?.start_time || '09:00:00';
+        const [sh, sm] = shiftStartStr.split(':').map(Number);
+        const shiftStart = new Date(curr);
+        shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+        const penaltyThreshold = new Date(shiftStart);
+        penaltyThreshold.setHours(penaltyThreshold.getHours() + 24);
+
+        if (now > penaltyThreshold) {
+          penalty_count++;
+          absent_days++;
+        } else {
+          absent_days++;
+        }
+      }
+      // If isToday and no log, we don't count it as absent (Status "NOT In Yet")
+
+      curr.setDate(curr.getDate() + 1);
+    }
+
     const summary = {
       total_days: attendance.length,
-      present_days: attendance.filter((a) => a.status === "present").length,
-      absent_days: attendance.filter((a) => a.status === "absent").length,
-      half_days: attendance.filter((a) => a.status === "half-day").length,
-      lop_days: lopDays,
+      present_days: present_days,
+      absent_days: absent_days,
+      half_days: half_day_count,
+      leave_days: leave_days,
+      lop_days: lopDays + (penalty_count * 0.5),
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),
