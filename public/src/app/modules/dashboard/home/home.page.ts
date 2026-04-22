@@ -319,10 +319,11 @@ export class HomePage implements OnInit, OnDestroy {
 
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res: any[]) => {
+      next: (res: any) => {
+        const balances = res.balances || [];
         this.leaveCodeIdMap = {};
-        res.forEach(item => { this.leaveCodeIdMap[item.type_code] = item.leave_type_id || item.id; });
-        this.leaveCards = res.map(item => {
+        balances.forEach((item: any) => { this.leaveCodeIdMap[item.type_code] = item.leave_type_id || item.id; });
+        this.leaveCards = balances.map((item: any) => {
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
           return {

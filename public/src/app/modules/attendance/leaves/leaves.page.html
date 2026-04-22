@@ -14,7 +14,7 @@
 
 
         <!-- Initialize Leaves Button -->
-        <ion-button (click)="initializeLeaves()" fill="outline" class="init-btn" [disabled]="initializingLeaves">
+        <ion-button (click)="initializeLeaves()" fill="outline" class="init-btn" [disabled]="initializingLeaves" *ngIf="needsInitialization">
           <ion-spinner name="crescent" slot="start" *ngIf="initializingLeaves"></ion-spinner>
           <ion-icon name="sparkles-outline" slot="start" *ngIf="!initializingLeaves"></ion-icon>
           Initialize Balance

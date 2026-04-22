@@ -679,8 +679,22 @@ router.get("/balance", auth, async (req, res) => {
       return b;
     });
 
+    // Determine if initialization is needed
+    let needsInitialization = false;
+    if (emp.leave_plan_id) {
+       const [allocRows] = await c.query(
+         `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
+         [emp.leave_plan_id]
+       );
+       const expectedCount = allocRows[0].count || 0;
+       needsInitialization = updatedBalances.length < expectedCount;
+    }
+
     c.end();
-    res.json(updatedBalances);
+    res.json({
+      balances: updatedBalances,
+      needs_initialization: needsInitialization
+    });
   } catch (error) {
     console.error("Error fetching leave balance:", error);
     res.status(500).json({ error: error.message });

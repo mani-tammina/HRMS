@@ -158,8 +158,9 @@ export class LeaveRequestComponent implements OnInit {
 
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).subscribe({
-      next: (res: any[]) => {
-        this.leaveTypes = res.map(item => ({
+      next: (res: any) => {
+        const balances = res.balances || [];
+        this.leaveTypes = balances.map((item: any) => ({
           id: item.leave_type_id,
           name: item.type_name,
           code: item.type_code,

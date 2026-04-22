@@ -36,6 +36,7 @@ export class LeavesPage implements OnInit, OnDestroy {
   isManager = false;
   userRole: string | null = null;
   initializingLeaves = false;
+  needsInitialization = false;
 
   constructor(
     private employeeLeaves: EmployeeLeavesService,
@@ -66,8 +67,11 @@ export class LeavesPage implements OnInit, OnDestroy {
   /* ===================== LEAVE BALANCE ===================== */
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).subscribe({
-      next: (res: any[]) => {
-        this.leaveCards = res.map(item => {
+      next: (res: any) => {
+        const balances = res.balances || [];
+        this.needsInitialization = res.needs_initialization || false;
+
+        this.leaveCards = balances.map((item: any) => {
           const code = (item.type_code || '').toUpperCase();
           const isLOP = code === 'LOP';
           const allocated = Number(item.allocated_days) || 0;
