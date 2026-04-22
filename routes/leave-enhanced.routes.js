@@ -599,8 +599,88 @@ router.get("/balance", auth, async (req, res) => {
       [emp.id, leaveYear],
     );
 
+    // Calculate LOP from attendance penalties for the whole year
+    // 1. Existing penalties in DB
+    const [dbPenalties] = await c.query(`
+      SELECT COUNT(*) as count FROM attendance 
+      WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
+    `, [emp.id, leaveYear]);
+    
+    let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
+
+    // 2. Active 24h violations (missing logs)
+    const [empSettings] = await c.query(`
+      SELECT e.id, sp.start_time, wop.* 
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      WHERE e.id = ?
+    `, [emp.id]);
+    const employee = empSettings[0];
+
+    if (employee) {
+      const now = new Date();
+      if (leaveYear <= now.getFullYear()) {
+        const startOfYear = new Date(leaveYear, 0, 1);
+        const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
+        endDay.setHours(0,0,0,0);
+
+        const [existingDates] = await c.query(`
+          SELECT attendance_date FROM attendance 
+          WHERE employee_id = ? AND YEAR(attendance_date) = ?
+        `, [emp.id, leaveYear]);
+        const attDates = new Set(existingDates.map(a => new Date(a.attendance_date).toDateString()));
+
+        const [yearLeaves] = await c.query(`
+          SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = ?
+        `, [emp.id, leaveYear]);
+
+        const weekOffDays = [];
+        if (employee.sunday_off) weekOffDays.push('sunday');
+        if (employee.monday_off) weekOffDays.push('monday');
+        if (employee.tuesday_off) weekOffDays.push('tuesday');
+        if (employee.wednesday_off) weekOffDays.push('wednesday');
+        if (employee.thursday_off) weekOffDays.push('thursday');
+        if (employee.friday_off) weekOffDays.push('friday');
+        if (employee.saturday_off) weekOffDays.push('saturday');
+
+        let curr = new Date(startOfYear);
+        while (curr < endDay) {
+          const dStr = curr.toDateString();
+          const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          if (!attDates.has(dStr)) {
+             const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+             if (!isLeave && !weekOffDays.includes(weekday)) {
+                const shiftStartStr = employee.start_time || '09:00:00';
+                const [sh, sm] = shiftStartStr.split(':').map(Number);
+                const shiftStart = new Date(curr);
+                shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+                const threshold = new Date(shiftStart);
+                threshold.setHours(threshold.getHours() + 24);
+                if (now > threshold) penaltyLop += 0.5;
+             }
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+      }
+    }
+
+    // Apply penalty LOP to balance record
+    const updatedBalances = balances.map(b => {
+      if ((b.type_code || '').toUpperCase() === 'LOP') {
+        const used = Number(b.used_days) || 0;
+        const available = Number(b.available_days) || 0;
+        return {
+          ...b,
+          used_days: used + penaltyLop,
+          available_days: available - penaltyLop
+        };
+      }
+      return b;
+    });
+
     c.end();
-    res.json(balances);
+    res.json(updatedBalances);
   } catch (error) {
     console.error("Error fetching leave balance:", error);
     res.status(500).json({ error: error.message });
@@ -808,6 +888,100 @@ router.get("/my-leaves", auth, async (req, res) => {
         `,
       [emp.id],
     );
+
+    const { year, leave_year } = req.query;
+    const leaveYear = year || leave_year || new Date().getFullYear();
+
+    // Calculate LOP from attendance penalties
+    // 1. Existing penalties in DB
+    const [dbPenalties] = await c.query(`
+      SELECT COUNT(*) as count FROM attendance 
+      WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
+    `, [emp.id, leaveYear]);
+    
+    let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
+
+    // 2. Active 24h violations for days with no records
+    const [empSettings] = await c.query(`
+      SELECT e.id, sp.start_time, wop.* 
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      WHERE e.id = ?
+    `, [emp.id]);
+    const employee = empSettings[0];
+
+    if (employee) {
+      const now = new Date();
+      if (leaveYear <= now.getFullYear()) {
+        const startOfYear = new Date(leaveYear, 0, 1);
+        const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
+        endDay.setHours(0,0,0,0);
+
+        // Get existing attendance dates to avoid double counting
+        const [existingDates] = await c.query(`
+          SELECT attendance_date FROM attendance 
+          WHERE employee_id = ? AND YEAR(attendance_date) = ?
+        `, [emp.id, leaveYear]);
+        const attDates = new Set(existingDates.map(a => new Date(a.attendance_date).toDateString()));
+
+        // Get leaves for the year to avoid counting week-offs as absents if on leave
+        const [yearLeaves] = await c.query(`
+          SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = ?
+        `, [emp.id, leaveYear]);
+
+        const weekOffDays = [];
+        if (employee.sunday_off) weekOffDays.push('sunday');
+        if (employee.monday_off) weekOffDays.push('monday');
+        if (employee.tuesday_off) weekOffDays.push('tuesday');
+        if (employee.wednesday_off) weekOffDays.push('wednesday');
+        if (employee.thursday_off) weekOffDays.push('thursday');
+        if (employee.friday_off) weekOffDays.push('friday');
+        if (employee.saturday_off) weekOffDays.push('saturday');
+
+        let curr = new Date(startOfYear);
+        while (curr < endDay) {
+          const dStr = curr.toDateString();
+          const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          
+          if (!attDates.has(dStr)) {
+             // Check if leave
+             const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+             if (!isLeave && !weekOffDays.includes(weekday)) {
+                // Potential penalty
+                const shiftStartStr = employee.start_time || '09:00:00';
+                const [sh, sm] = shiftStartStr.split(':').map(Number);
+                const shiftStart = new Date(curr);
+                shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+                
+                const threshold = new Date(shiftStart);
+                threshold.setHours(threshold.getHours() + 24);
+                
+                if (now > threshold) {
+                  penaltyLop += 0.5;
+                }
+             }
+          }
+          curr.setDate(curr.getDate() + 1);
+        }
+      }
+    }
+
+    if (penaltyLop > 0) {
+      leaves.push({
+        id: -1,
+        employee_id: emp.id,
+        leave_type_id: 0, 
+        start_date: null,
+        end_date: null,
+        total_days: penaltyLop,
+        reason: 'Attendance Penalties (Auto-calculated from missing logs)',
+        status: 'approved',
+        applied_at: new Date(),
+        type_name: 'Loss of Pay (Attendance)',
+        type_code: 'LOP'
+      });
+    }
 
     c.end();
     res.json(leaves);
