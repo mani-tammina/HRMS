@@ -61,7 +61,7 @@ export class MePage implements OnInit, AfterViewInit {
   breakMinutes = 60;
   effectiveHours = '00:00';
   grossHours = '00:00';
-  status = 'Absent';
+  status = 'NOT In Yet';
   activeTab = 'log';
   progressValue = 0.85;
 
@@ -131,7 +131,7 @@ export class MePage implements OnInit, AfterViewInit {
   loadTodayAttendance() {
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res: any) => {
-        this.status = res?.attendance?.status || 'Absent';
+        this.status = res?.attendance?.status || 'NOT In Yet';
         const punches = res?.punches || [];
         const pipe = new TimeFormatPipe();
 
@@ -180,7 +180,7 @@ export class MePage implements OnInit, AfterViewInit {
         }
       },
       error: () => {
-        this.status = 'Absent';
+        this.status = 'NOT In Yet';
         this.grossHours = '00:00';
         this.effectiveHours = '00:00';
         this.lateMinutes = 0;
@@ -409,7 +409,9 @@ export class MePage implements OnInit, AfterViewInit {
 
     let absentCount = 0;
     let leaveCount = 0;
-    for (let i = 1; i <= todayNum; i++) {
+    let penaltyCount = 0;
+
+    for (let i = 1; i < todayNum; i++) {
       const d = new Date(currentYear, currentMonth, i);
       const dateStr = d.toDateString();
       const weekday = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
@@ -427,7 +429,21 @@ export class MePage implements OnInit, AfterViewInit {
         continue;
       }
 
+      // No attendance log for this day
       absentCount++;
+
+      // Check if it's a penalty (24 hours after shift start)
+      const shiftStartStr = this.shift_policy?.start_time || '09:00:00';
+      const [sh, sm] = shiftStartStr.split(':').map(Number);
+      const shiftStart = new Date(d);
+      shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+      const penaltyThreshold = new Date(shiftStart);
+      penaltyThreshold.setHours(penaltyThreshold.getHours() + 24);
+
+      if (now > penaltyThreshold) {
+        penaltyCount++;
+      }
     }
 
     // Use a small timeout to ensure UI update
@@ -438,7 +454,7 @@ export class MePage implements OnInit, AfterViewInit {
         half_days: presentCount.half,
         absent_days: absentCount,
         leave_days: leaveCount,
-        lop_days: this.monthlySummary.lop_days,
+        lop_days: penaltyCount * 0.5,
       };
     }, 0);
   }
