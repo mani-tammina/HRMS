@@ -584,7 +584,7 @@ router.get("/my-report", auth, async (req, res) => {
       absent_days: absent_days,
       half_days: half_day_count,
       leave_days: leave_days,
-      lop_days: lopDays + (penalty_count * 0.5),
+      lop_days: absent_days * 0.5,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),

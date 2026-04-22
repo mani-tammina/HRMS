@@ -344,120 +344,13 @@ export class MePage implements OnInit, AfterViewInit {
         if (res?.summary) {
           this.monthlySummary = res.summary;
           this.lastAttendance = res?.attendance || [];
-
-          // Get leaves for the month
-          this.leaveService.getMyLeaves(year).subscribe({
-            next: (leaves: any) => {
-              const leaveData = Array.isArray(leaves) ? leaves : (leaves.data || leaves.leaves || []);
-              this.lastLeaves = leaveData.filter((l: any) => (l.status || '').toUpperCase() === 'APPROVED');
-              this.recalculateSummary();
-            },
-            error: () => {
-              this.lastLeaves = [];
-              this.recalculateSummary();
-            }
-          });
         }
       },
       error: (err) => console.error('Error loading monthly summary:', err)
     });
   }
 
-  recalculateSummary() {
-    if (!this.lastAttendance || !this.monthlySummary) return;
 
-    // Default week-off to Sat/Sun if not loaded yet
-    const weekOffs = this.serverWeekOff?.length > 0 ? this.serverWeekOff : ['saturday', 'sunday'];
-
-    const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-    const todayNum = now.getDate();
-
-    const leaveSet = new Set<string>();
-    this.lastLeaves.forEach((l: any) => {
-      const from = new Date(l.start_date || l.from_date || l.fromDate);
-      const to = new Date(l.end_date || l.to_date || l.toDate || l.start_date || l.from_date || l.fromDate);
-      let curr = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-      const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-
-      // Only add to set if it falls in current month
-      while (curr <= end) {
-        if (curr.getMonth() === currentMonth && curr.getFullYear() === currentYear) {
-          leaveSet.add(new Date(curr).toDateString());
-        }
-        curr.setDate(curr.getDate() + 1);
-      }
-    });
-
-    const attMap = new Set<string>();
-    const presentCount = { full: 0, half: 0 };
-
-    this.lastAttendance.forEach((a: any) => {
-      const dStr = new Date(a.attendance_date).toDateString();
-      attMap.add(dStr);
-
-      const status = (a.status || '').toLowerCase();
-      if (!leaveSet.has(dStr)) {
-        if (status === 'half-day' || status === 'halfday' || status === 'half_day') {
-          presentCount.half++;
-        } else if (status === 'present' || status === 'office' || status === 'wfh') {
-          presentCount.full++;
-        }
-      }
-    });
-
-    let absentCount = 0;
-    let leaveCount = 0;
-    let penaltyCount = 0;
-
-    for (let i = 1; i < todayNum; i++) {
-      const d = new Date(currentYear, currentMonth, i);
-      const dateStr = d.toDateString();
-      const weekday = d.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-
-      if (leaveSet.has(dateStr)) {
-        leaveCount++;
-        continue;
-      }
-
-      if (weekOffs.includes(weekday)) {
-        continue;
-      }
-
-      if (attMap.has(dateStr)) {
-        continue;
-      }
-
-      // No attendance log for this day
-      absentCount++;
-
-      // Check if it's a penalty (24 hours after shift start)
-      const shiftStartStr = this.shift_policy?.start_time || '09:00:00';
-      const [sh, sm] = shiftStartStr.split(':').map(Number);
-      const shiftStart = new Date(d);
-      shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-
-      const penaltyThreshold = new Date(shiftStart);
-      penaltyThreshold.setHours(penaltyThreshold.getHours() + 24);
-
-      if (now > penaltyThreshold) {
-        penaltyCount++;
-      }
-    }
-
-    // Use a small timeout to ensure UI update
-    setTimeout(() => {
-      this.monthlySummary = {
-        ...this.monthlySummary,
-        present_days: presentCount.full,
-        half_days: presentCount.half,
-        absent_days: absentCount,
-        leave_days: leaveCount,
-        lop_days: penaltyCount * 0.5,
-      };
-    }, 0);
-  }
 
   // ================= MATCHERS =================
 
@@ -477,7 +370,7 @@ export class MePage implements OnInit, AfterViewInit {
       { key: 'saturday_off', label: 'saturday' },
     ];
     this.serverWeekOff = weekMap.filter(day => policy[day.key] === 1).map(day => day.label);
-    this.recalculateSummary();
+
   }
 
   trackByDate(index: number, day: Date): string { return day.toDateString(); }
