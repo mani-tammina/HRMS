@@ -63,10 +63,15 @@ export interface V2RunPayload {
 
 export interface V2RunResponse {
   success: boolean;
-  run_id: number;
-  processed_employees: number;
-  total_gross: number;
-  total_net: number;
+  data: {
+    runId: number;
+    cycleId: number;
+    totalEmployees: number;
+    totalGross: number;
+    totalDeductions: number;
+    totalNet: number;
+  } | null;
+  error: string | null;
 }
 
 export interface V2RunSummary {
@@ -155,21 +160,41 @@ export interface SectionLimit {
 
 export interface PayrollValidationResult {
   success: boolean;
-  can_proceed: boolean;
-  errors: string[];
-  warnings: string[];
-  missing_bank_accounts: number;
-  missing_tax_regimes: number;
-  pending_attendance: number;
+  data: {
+    month: string;
+    totalEmployees: number;
+    withSalaryStructure: number;
+    withAttendance: number;
+    missingSalaryStructureCount: number;
+    missingAttendanceCount: number;
+    missingSalaryStructure: any[];
+    missingAttendance: any[];
+    valid: boolean;
+  } | null;
+  error: string | null;
 }
 
 export interface PayrollPreviewResponse {
   success: boolean;
-  total_employees: number;
-  gross_sum: number;
-  tax_sum: number;
-  net_sum: number;
-  preview_data: any[];
+  data: {
+    mode: string;
+    validation: {
+      month: string;
+      totalEmployees: number;
+      withSalaryStructure: number;
+      withAttendance: number;
+      missingSalaryStructureCount: number;
+      missingAttendanceCount: number;
+      missingSalaryStructure: any[];
+      missingAttendance: any[];
+      valid: boolean;
+    };
+    estimate: {
+      employeeCount: number;
+      estimatedGross: number;
+    };
+  } | null;
+  error: string | null;
 }
 
 export interface LOPRecord {

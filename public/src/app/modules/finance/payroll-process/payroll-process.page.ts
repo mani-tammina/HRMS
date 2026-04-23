@@ -1,9 +1,27 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { AlertController, LoadingController } from '@ionic/angular';
-import { PayrollApiService, PayrollValidationResult, PayrollPreviewResponse } from '../../../core/services/payroll-api.service';
+import { AlertController } from '@ionic/angular';
+import {
+  PayrollApiService,
+  PayrollValidationResult,
+  PayrollPreviewResponse,
+  V2RunResponse,
+  V2RunSummary
+} from '../../../core/services/payroll-api.service';
 import { ToasterService } from '../../../core/services/toaster.service';
+
+// Step definitions — 6-step flow: Run → Summary → Preview → Validate → Lock → Paid
+type StepKey = 'run' | 'summary' | 'preview' | 'validate' | 'lock' | 'paid';
+
+const STEPS: Array<{ key: StepKey; label: string }> = [
+  { key: 'run',     label: 'Run'     },
+  { key: 'summary', label: 'Summary' },
+  { key: 'preview', label: 'Preview' },
+  { key: 'validate', label: 'Validate'},
+  { key: 'lock',    label: 'Lock'    },
+  { key: 'paid',    label: 'Paid'    },
+];
 
 @Component({
   selector: 'app-payroll-process',
@@ -12,198 +30,296 @@ import { ToasterService } from '../../../core/services/toaster.service';
   standalone: false
 })
 export class PayrollProcessPage implements OnInit {
-  // Stepper State
-  currentStep: 'selection' | 'validate' | 'preview' | 'run' | 'status' = 'selection';
-  
-  // Selection Form
-  processForm: FormGroup;
+
+  // Expose steps array to template
+  steps = STEPS;
+
+  // ─── Stepper ──────────────────────────────────────────────
+  currentStep: StepKey = 'run';
+
+  get stepIndex(): number {
+    return STEPS.findIndex(s => s.key === this.currentStep);
+  }
+
+  // ─── Forms ────────────────────────────────────────────────
+  processForm: FormGroup;   // for Run step
+  previewForm: FormGroup;   // for Preview step (can use different month)
   selectedMonth: string;
-  
-  // API Data
-  validationResult: PayrollValidationResult | null = null;
+  previewMonth: string;
+
+  // ─── API Results ──────────────────────────────────────────
+  runResult: V2RunResponse | null = null;
+  /** Full list from GET /api/payroll/v2/run?month= */
+  runList: V2RunSummary[] = [];
+  /** The run chosen by user from the list */
+  selectedRun: V2RunSummary | null = null;
+  /** Alias so lock/paid steps keep working unchanged */
+  get runStatus(): V2RunSummary | null { return this.selectedRun; }
   previewData: PayrollPreviewResponse | null = null;
-  runStatus: any = null;
-  
-  // Loading States
-  isValidating = false;
-  isPreviewing = false;
-  isRunning = false;
-  isCheckingStatus = false;
+  validationResult: PayrollValidationResult | null = null;
+  lockResult: any = null;
+  paidResult: any = null;
+
+
+  // ─── Loading flags ────────────────────────────────────────
+  isRunning        = false;
+  isLoadingSummary = false;
+  isPreviewing     = false;
+  isValidating     = false;
+  isLocking        = false;
+  isMarkingPaid    = false;
 
   constructor(
     private fb: FormBuilder,
     private payrollApi: PayrollApiService,
     private toaster: ToasterService,
     private alertCtrl: AlertController,
-    private loadingCtrl: LoadingController,
     public router: Router
   ) {
     this.selectedMonth = this.payrollApi.getCurrentYearMonth();
-    this.processForm = this.fb.group({
-      month: [this.selectedMonth, Validators.required]
-    });
+    this.previewMonth  = this.payrollApi.getCurrentYearMonth();
+    this.processForm = this.fb.group({ month: [this.selectedMonth, Validators.required] });
+    this.previewForm = this.fb.group({ month: [this.previewMonth, Validators.required] });
   }
 
   ngOnInit() {}
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Step Navigation
-  // ────────────────────────────────────────────────────────────────────────
-
+  // ─── Navigation ───────────────────────────────────────────
   goBack() {
-    if (this.currentStep === 'selection') {
+    const idx = this.stepIndex;
+    if (idx === 0) {
       this.router.navigate(['/finance/admin']);
-    } else if (this.currentStep === 'validate') {
-      this.currentStep = 'selection';
-    } else if (this.currentStep === 'preview') {
-      this.currentStep = 'validate';
-    } else if (this.currentStep === 'status') {
-      this.currentStep = 'selection';
-      this.resetStates();
+    } else {
+      this.currentStep = STEPS[idx - 1].key;
     }
   }
 
-  resetStates() {
-    this.validationResult = null;
-    this.previewData = null;
-    this.runStatus = null;
+  goToStep(key: StepKey) {
+    this.currentStep = key;
+    // Always refresh summary when navigating to it
+    if (key === 'summary') {
+      this.loadSummary();
+    }
   }
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Step 1: Validation
-  // ────────────────────────────────────────────────────────────────────────
+  resetWorkflow() {
+    this.runResult = null;
+    this.runList = [];
+    this.selectedRun = null;
+    this.previewData = null;
+    this.validationResult = null;
+    this.lockResult = null;
+    this.paidResult = null;
+    this.currentStep = 'run';
+  }
 
-  async startValidation() {
-    if (this.processForm.invalid) return;
-    this.selectedMonth = this.processForm.value.month;
-    
-    this.currentStep = 'validate';
-    this.isValidating = true;
+  resetRun() {
+    this.runResult = null;
+  }
+
+  navigateToExecution() {
+    this.router.navigate(['/finance/execution']);
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // STEP 1 — RUN:  POST /api/payroll/v2/run
+  // ═══════════════════════════════════════════════════════════
+
+  async confirmRun() {
+    const raw: string = this.processForm.value.month;
+    this.selectedMonth = raw.substring(0, 7);
+
+    const alert = await this.alertCtrl.create({
+      header: 'Confirm Payroll Run',
+      message: `Generate payroll for <strong>${this.selectedMonth}</strong>? This creates payslip records for all eligible employees.`,
+      cssClass: 'glass-alert',
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        { text: 'Run Now', handler: () => this.executeRun() }
+      ]
+    });
+    await alert.present();
+  }
+
+  executeRun() {
+    this.isRunning  = true;
+    this.runResult  = null;
+
+    const [year, month] = this.selectedMonth.split('-').map(Number);
+
+    this.payrollApi.runV2Payroll({ year, month }).subscribe({
+      next: (res) => {
+        this.runResult = res;
+        this.isRunning = false;
+        this.toaster.showSuccess(`Payroll run #${res.data?.runId} created.`);
+      },
+      error: (err) => {
+        this.isRunning = false;
+        this.toaster.showError('Payroll run failed. ' + (err?.error?.message || ''));
+        console.error(err);
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // STEP 2 — SUMMARY: GET /api/payroll/v2/run?month=YYYY-MM
+  //   Returns list of all runs → user selects one
+  // ═══════════════════════════════════════════════════════════
+
+  loadSummary() {
+    this.isLoadingSummary = true;
+    this.payrollApi.getV2RunSummary(this.selectedMonth).subscribe({
+      next: (res) => {
+        this.runList = res || [];
+        this.isLoadingSummary = false;
+        if (this.runList.length === 0) {
+          this.toaster.showError('No runs found for ' + this.selectedMonth);
+        }
+      },
+      error: (err) => {
+        this.isLoadingSummary = false;
+        this.toaster.showError('Failed to load runs.');
+        console.error(err);
+      }
+    });
+  }
+
+  /** Called when user clicks a run card in the list */
+  selectRun(run: V2RunSummary) {
+    this.selectedRun = run;
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // STEP 3 — PREVIEW:  POST /api/payroll/v2/runs/preview
+  // ═══════════════════════════════════════════════════════════
+
+  startPreview() {
+    const raw: string = this.previewForm.value.month;
+    this.previewMonth = raw.substring(0, 7);
+    const [year, month] = this.previewMonth.split('-').map(Number);
+
+    this.isPreviewing = true;
+    this.previewData  = null;
+
+    this.payrollApi.previewPayroll({ year, month }).subscribe({
+      next: (res) => {
+        this.previewData  = res;
+        this.isPreviewing = false;
+      },
+      error: (err) => {
+        this.isPreviewing = false;
+        this.toaster.showError('Preview failed.');
+        console.error(err);
+      }
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // STEP 4 — VALIDATE:  GET /api/payroll/v2/runs/validate
+  // ═══════════════════════════════════════════════════════════
+
+  startValidation() {
+    this.isValidating     = true;
     this.validationResult = null;
 
     this.payrollApi.validatePayroll(this.selectedMonth).subscribe({
       next: (res) => {
         this.validationResult = res;
         this.isValidating = false;
-        if (res.can_proceed) {
-          this.toaster.showSuccess('Validation successful. Proceeding to preview.');
-          setTimeout(() => this.startPreview(), 800);
+        if (res.data?.valid) {
+          this.toaster.showSuccess('Validation passed — ready to lock.');
         } else {
-          this.toaster.showError('Validation failed. Please resolve critical errors.');
+          this.toaster.showError('Validation failed. Resolve errors first.');
         }
       },
       error: (err) => {
         this.isValidating = false;
-        this.toaster.showError('Validation API encountered an error.');
+        this.toaster.showError('Validation API error.');
         console.error(err);
       }
     });
   }
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Step 2: Preview
-  // ────────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // STEP 5 — LOCK:  POST /api/payroll/v2/runs/:runId/lock
+  // ═══════════════════════════════════════════════════════════
 
-  async startPreview() {
-    this.currentStep = 'preview';
-    this.isPreviewing = true;
-    this.previewData = null;
-    
-    const [year, month] = this.selectedMonth.split('-').map(Number);
+  executeLock() {
+    if (!this.runStatus?.run_id) {
+      this.toaster.showError('Run ID missing — cannot lock.');
+      return;
+    }
+    this.isLocking = true;
+    this.lockResult = null;
 
-    this.payrollApi.previewPayroll({ year, month }).subscribe({
+    this.payrollApi.lockPayrollRun(this.runStatus.run_id).subscribe({
       next: (res) => {
-        this.previewData = res;
-        this.isPreviewing = false;
+        this.lockResult = res;
+        this.isLocking = false;
+        if (this.runStatus) this.runStatus.status = 'LOCKED';
+        this.toaster.showSuccess(`Run #${this.runStatus!.run_id} locked.`);
       },
       error: (err) => {
-        this.isPreviewing = false;
-        this.toaster.showError('Could not generate payroll preview.');
+        this.isLocking = false;
+        this.toaster.showError('Lock failed. ' + (err?.error?.message || ''));
         console.error(err);
       }
     });
   }
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Step 3: Run Payroll
-  // ────────────────────────────────────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════
+  // STEP 6 — PAID:  POST /api/payroll/v2/runs/:runId/paid
+  // ═══════════════════════════════════════════════════════════
 
-  async confirmRun() {
+  async executeMarkAsPaid() {
+    if (!this.runStatus?.run_id) {
+      this.toaster.showError('Run ID missing — cannot mark as paid.');
+      return;
+    }
     const alert = await this.alertCtrl.create({
-      header: 'Confirm Generation',
-      message: `You are about to generate payroll for ${this.selectedMonth}. This will create payslip records for all eligible employees.`,
+      header: 'Confirm Payment',
+      message: `Mark Run <strong>#${this.runStatus.run_id}</strong> as PAID? This confirms salaries have been disbursed.`,
       cssClass: 'glass-alert',
       buttons: [
         { text: 'Cancel', role: 'cancel' },
-        { 
-          text: 'Proceed', 
-          handler: () => this.executeRun()
-        }
+        { text: 'Confirm', handler: () => this.doMarkAsPaid() }
       ]
     });
     await alert.present();
   }
 
-  async executeRun() {
-    this.currentStep = 'run';
-    this.isRunning = true;
-    
-    const [year, month] = this.selectedMonth.split('-').map(Number);
+  private doMarkAsPaid() {
+    this.isMarkingPaid = true;
+    this.paidResult    = null;
 
-    this.payrollApi.runV2Payroll({ year, month }).subscribe({
+    this.payrollApi.markAsPaid(this.runStatus!.run_id).subscribe({
       next: (res) => {
-        this.isRunning = false;
-        this.toaster.showSuccess('Payroll run initiated successfully.');
-        this.currentStep = 'status';
-        this.checkRunStatus();
+        this.paidResult    = res;
+        this.isMarkingPaid = false;
+        if (this.runStatus) this.runStatus.status = 'PAID';
+        this.toaster.showSuccess(`Run #${this.runStatus!.run_id} marked as PAID!`);
       },
       error: (err) => {
-        this.isRunning = false;
-        this.toaster.showError('Payroll generation failed.');
+        this.isMarkingPaid = false;
+        this.toaster.showError('Mark as paid failed. ' + (err?.error?.message || ''));
         console.error(err);
       }
     });
   }
 
-  // ────────────────────────────────────────────────────────────────────────
-  // Step 4: Status Check
-  // ────────────────────────────────────────────────────────────────────────
-
-  async checkRunStatus() {
-    this.isCheckingStatus = true;
-    this.payrollApi.getV2RunSummary(this.selectedMonth).subscribe({
-      next: (res) => {
-        // We take the most recent run for this month
-        if (res && res.length > 0) {
-          this.runStatus = res[0];
-        }
-        this.isCheckingStatus = false;
-      },
-      error: (err) => {
-        this.isCheckingStatus = false;
-        console.error(err);
-      }
-    });
-  }
-
-  // ────────────────────────────────────────────────────────────────────────
-  // Helpers
-  // ────────────────────────────────────────────────────────────────────────
-
-  formatCurrency(val: any) {
+  // ─── Helpers ──────────────────────────────────────────────
+  formatCurrency(val: any): string {
     const num = Number(val) || 0;
     return '₹' + num.toLocaleString('en-IN', { maximumFractionDigits: 0 });
   }
 
   getStatusColor(status: string): string {
     const s = (status || '').toLowerCase();
+    if (s === 'paid')    return '#10b981';
+    if (s === 'locked')  return '#8b5cf6';
     if (s.includes('complete') || s.includes('success')) return '#10b981';
-    if (s.includes('process') || s.includes('run')) return '#f59e0b';
-    if (s.includes('fail') || s.includes('error')) return '#ef4444';
+    if (s.includes('run') || s.includes('process'))      return '#f59e0b';
+    if (s.includes('fail') || s.includes('error'))       return '#ef4444';
     return '#6366f1';
-  }
-
-  navigateToExecution() {
-    this.router.navigate(['/finance/execution']);
   }
 }

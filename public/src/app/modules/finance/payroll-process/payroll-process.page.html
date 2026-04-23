@@ -1,6 +1,6 @@
 <ion-content [fullscreen]="true" class="glass-content">
   <div class="page-container">
-    
+
     <!-- Header -->
     <header class="process-header bounce-in">
       <div class="header-content">
@@ -9,230 +9,363 @@
         </ion-button>
         <div class="title-group">
           <h1>Payroll Generation Engine</h1>
-          <p>Automated multi-step payroll processing for <strong>{{ selectedMonth }}</strong></p>
+          <p>Full lifecycle payroll processing for <strong>{{ selectedMonth }}</strong></p>
         </div>
       </div>
 
-      <!-- Stepper Progress -->
+      <!-- STEPPER — 6 steps -->
       <div class="stepper-indicator">
-        <div class="step" [class.active]="currentStep === 'validate'" [class.completed]="currentStep === 'preview' || currentStep === 'run' || currentStep === 'status'">
-          <div class="step-circle">1</div>
-          <span class="step-label">Validate</span>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" [class.active]="currentStep === 'preview'" [class.completed]="currentStep === 'run' || currentStep === 'status'">
-          <div class="step-circle">2</div>
-          <span class="step-label">Preview</span>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" [class.active]="currentStep === 'run'" [class.completed]="currentStep === 'status'">
-          <div class="step-circle">3</div>
-          <span class="step-label">Generate</span>
-        </div>
-        <div class="step-line"></div>
-        <div class="step" [class.active]="currentStep === 'status'" [class.completed]="currentStep === 'status' && !isRunning">
-          <div class="step-circle">4</div>
-          <span class="step-label">Verify</span>
-        </div>
+        <ng-container *ngFor="let s of steps; let i = index">
+          <div class="step"
+            [class.active]="currentStep === s.key"
+            [class.completed]="stepIndex > i">
+            <div class="step-circle">
+              <ion-icon name="checkmark" *ngIf="stepIndex > i"></ion-icon>
+              <span *ngIf="stepIndex <= i">{{ i + 1 }}</span>
+            </div>
+            <span class="step-label">{{ s.label }}</span>
+          </div>
+          <div *ngIf="i < steps.length - 1" class="step-line" [class.filled]="stepIndex > i"></div>
+        </ng-container>
       </div>
     </header>
 
     <div class="main-workspace fade-in-up">
-      
-      <!-- STEP 0: Selection -->
-      <div class="step-card glass-card" *ngIf="currentStep === 'selection'">
+
+      <!-- ═══ STEP 1: RUN — POST /api/payroll/v2/run ═══ -->
+      <div class="step-card glass-card" *ngIf="currentStep === 'run'">
         <div class="card-intro">
-          <div class="icon-box"><ion-icon name="calendar-outline"></ion-icon></div>
-          <h2>Select Processing Period</h2>
-          <p>Choose the month for which you want to initiate payroll generation.</p>
+          <div class="icon-box"><ion-icon name="rocket-outline"></ion-icon></div>
+          <h2>Run Payroll</h2>
+          <p>Process payroll for all employees. Calculates salaries, deductions, taxes and generates payslips.</p>
         </div>
-        
-        <form [formGroup]="processForm" (ngSubmit)="startValidation()" class="selection-form">
+
+        <!-- Month Picker -->
+        <form [formGroup]="processForm" class="selection-form" *ngIf="!isRunning && !runResult">
           <div class="input-wrapper">
             <ion-item lines="none" class="glass-input">
               <ion-label position="stacked">Payroll Month</ion-label>
-              <ion-datetime-button datetime="datetime"></ion-datetime-button>
+              <ion-datetime-button datetime="dtRun"></ion-datetime-button>
               <ion-popover [keepContentsMounted]="true">
                 <ng-template>
-                  <ion-datetime id="datetime" presentation="month-year" formControlName="month"></ion-datetime>
+                  <ion-datetime id="dtRun" presentation="month-year" formControlName="month"></ion-datetime>
                 </ng-template>
               </ion-popover>
             </ion-item>
           </div>
-
-          <ion-button type="submit" expand="block" class="primary-btn">
-            Initiate Engine <ion-icon name="rocket-outline" slot="end"></ion-icon>
+          <ion-button expand="block" class="primary-btn" (click)="confirmRun()">
+            Run Payroll <ion-icon name="flash" slot="end"></ion-icon>
           </ion-button>
         </form>
-      </div>
 
-      <!-- STEP 1: Validation -->
-      <div class="step-card glass-card" *ngIf="currentStep === 'validate'">
-        <div class="loading-state" *ngIf="isValidating">
+        <!-- Processing -->
+        <div class="loading-state" *ngIf="isRunning">
           <ion-spinner name="crescent"></ion-spinner>
-          <h3>Analyzing Organization Readiness...</h3>
-          <p>Checking bank accounts, tax regimes, and attendance records.</p>
+          <h3>Processing Payroll...</h3>
+          <p>Calculating salaries, deductions &amp; taxes for {{ selectedMonth }}. Do not close this window.</p>
+          <div class="gear-box">
+            <ion-icon name="settings-outline" class="gear-1"></ion-icon>
+            <ion-icon name="settings-outline" class="gear-2"></ion-icon>
+          </div>
         </div>
 
-        <div class="result-state" *ngIf="!isValidating && validationResult">
-          <div class="status-banner" [class.success]="validationResult.can_proceed" [class.error]="!validationResult.can_proceed">
-            <ion-icon [name]="validationResult.can_proceed ? 'checkmark-circle' : 'alert-circle'"></ion-icon>
+        <!-- Run Success -->
+        <div class="result-state" *ngIf="!isRunning && runResult">
+          <div class="status-banner success">
+            <ion-icon name="checkmark-circle"></ion-icon>
             <div>
-              <h3>{{ validationResult.can_proceed ? 'Ready to Proceed' : 'Attention Required' }}</h3>
-              <p>{{ validationResult.can_proceed ? 'All critical checks passed.' : 'Critical data missing for payroll processing.' }}</p>
+              <h3>Payroll Run Complete</h3>
+              <p>Run ID <strong>#{{ runResult.data?.runId }}</strong> created successfully.</p>
             </div>
           </div>
-
           <div class="stats-grid">
             <div class="stat-item">
-              <span class="val">{{ validationResult.missing_bank_accounts }}</span>
-              <span class="lbl">Missing Bank Details</span>
+              <span class="val">{{ runResult.data?.totalEmployees || 0 }}</span>
+              <span class="lbl">Employees</span>
             </div>
             <div class="stat-item">
-              <span class="val">{{ validationResult.missing_tax_regimes }}</span>
-              <span class="lbl">Tax Regimes Missing</span>
+              <span class="val">{{ formatCurrency(runResult.data?.totalGross || 0) }}</span>
+              <span class="lbl">Gross Payout</span>
             </div>
-            <div class="stat-item">
-              <span class="val">{{ validationResult.pending_attendance }}</span>
-              <span class="lbl">Pending Attendance</span>
-            </div>
-          </div>
-
-          <div class="issue-list" *ngIf="validationResult.errors.length > 0">
-            <h4>Errors Found ({{ validationResult.errors.length }})</h4>
-            <div class="issue error" *ngFor="let err of validationResult.errors">
-              <ion-icon name="close-circle-outline"></ion-icon> {{ err }}
+            <div class="stat-item accent-stat">
+              <span class="val">{{ formatCurrency(runResult.data?.totalNet || 0) }}</span>
+              <span class="lbl">Net Payout</span>
             </div>
           </div>
-
-          <div class="issue-list" *ngIf="validationResult.warnings.length > 0">
-            <h4>Warnings ({{ validationResult.warnings.length }})</h4>
-            <div class="issue warning" *ngFor="let wrn of validationResult.warnings">
-              <ion-icon name="warning-outline"></ion-icon> {{ wrn }}
-            </div>
-          </div>
-
           <div class="action-footer">
-            <ion-button fill="outline" (click)="currentStep = 'selection'" class="secondary-btn">Cancel</ion-button>
-            <ion-button (click)="startPreview()" *ngIf="validationResult.can_proceed" class="primary-btn">
-              Generate Preview <ion-icon name="eye-outline" slot="end"></ion-icon>
+            <ion-button fill="outline" class="secondary-btn" (click)="resetRun()">Re-Run</ion-button>
+            <ion-button class="primary-btn" (click)="goToStep('summary')">
+              View Summary <ion-icon name="bar-chart-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
 
-      <!-- STEP 2: Preview -->
+      <!-- ═══ STEP 2: SUMMARY — GET /api/payroll/v2/run?month=YYYY-MM ═══ -->
+      <div class="step-card glass-card" *ngIf="currentStep === 'summary'">
+
+        <!-- Loading -->
+        <div class="loading-state" *ngIf="isLoadingSummary">
+          <ion-spinner name="crescent"></ion-spinner>
+          <h3>Loading Payroll Runs...</h3>
+          <p>Fetching all runs for {{ selectedMonth }}.</p>
+        </div>
+
+        <!-- Loaded: list -->
+        <div *ngIf="!isLoadingSummary">
+          <div class="section-title">
+            <ion-icon name="bar-chart-outline"></ion-icon>
+            <h3>Payroll Runs — {{ selectedMonth }}</h3>
+            <span class="badge">{{ runList.length }} run(s)</span>
+          </div>
+
+          <!-- Empty state -->
+          <div class="empty-state" *ngIf="runList.length === 0">
+            <ion-icon name="document-outline"></ion-icon>
+            <p>No payroll runs found for {{ selectedMonth }}.</p>
+          </div>
+
+          <!-- Run cards list -->
+          <div class="run-list" *ngIf="runList.length > 0">
+            <div
+              class="run-card"
+              *ngFor="let run of runList"
+              [class.selected]="selectedRun?.run_id === run.run_id"
+              (click)="selectRun(run)">
+
+              <div class="run-card-left">
+                <div class="run-id-circle">#{{ run.run_id }}</div>
+                <div class="run-meta">
+                  <strong>Run #{{ run.run_id }}</strong>
+                  <small>{{ run.started_at | date:'dd MMM yyyy, HH:mm' }}</small>
+                </div>
+              </div>
+
+              <div class="run-card-center">
+                <div class="rc-stat">
+                  <span class="rc-val">{{ run.employee_count }}</span>
+                  <span class="rc-lbl">Employees</span>
+                </div>
+                <div class="rc-stat">
+                  <span class="rc-val">{{ formatCurrency(run.total_gross) }}</span>
+                  <span class="rc-lbl">Gross</span>
+                </div>
+                <div class="rc-stat accent">
+                  <span class="rc-val">{{ formatCurrency(run.total_net) }}</span>
+                  <span class="rc-lbl">Net</span>
+                </div>
+              </div>
+
+              <div class="run-card-right">
+                <span class="status-pill" [style.background]="getStatusColor(run.status)">{{ run.status }}</span>
+                <ion-icon name="checkmark-circle" class="selected-check" *ngIf="selectedRun?.run_id === run.run_id"></ion-icon>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-footer" style="margin-top:2rem">
+            <ion-button fill="outline" class="secondary-btn" (click)="goToStep('run')">Back</ion-button>
+            <ion-button class="secondary-btn" (click)="loadSummary()">
+              <ion-icon name="refresh-outline" slot="start"></ion-icon> Refresh
+            </ion-button>
+            <ion-button class="primary-btn" [disabled]="!selectedRun" (click)="goToStep('preview')">
+              Preview Selected <ion-icon name="eye-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ STEP 3: PREVIEW — POST /api/payroll/v2/runs/preview ═══ -->
       <div class="step-card glass-card preview-card" *ngIf="currentStep === 'preview'">
         <div class="loading-state" *ngIf="isPreviewing">
           <ion-spinner name="crescent"></ion-spinner>
-          <h3>Generating Financial Forecast...</h3>
-          <p>Calculating salaries, taxes, and net payouts for {{ selectedMonth }}.</p>
+          <h3>Generating Forecast...</h3>
+          <p>Dry-run estimate for {{ selectedMonth }}. No records created.</p>
+        </div>
+
+        <!-- Month picker for preview (may differ from run month) -->
+        <div *ngIf="!isPreviewing && !previewData" class="card-intro">
+          <div class="icon-box"><ion-icon name="eye-outline"></ion-icon></div>
+          <h2>Payroll Preview</h2>
+          <p>Preview estimated payroll totals without creating any final records.</p>
+          <form [formGroup]="previewForm" class="selection-form" style="margin-top:1.5rem">
+            <div class="input-wrapper">
+              <ion-item lines="none" class="glass-input">
+                <ion-label position="stacked">Preview Month</ion-label>
+                <ion-datetime-button datetime="dtPreview"></ion-datetime-button>
+                <ion-popover [keepContentsMounted]="true">
+                  <ng-template>
+                    <ion-datetime id="dtPreview" presentation="month-year" formControlName="month"></ion-datetime>
+                  </ng-template>
+                </ion-popover>
+              </ion-item>
+            </div>
+          </form>
+          <div class="action-footer" style="margin-top:1rem">
+            <ion-button fill="outline" class="secondary-btn" (click)="goToStep('summary')">Back</ion-button>
+            <ion-button class="primary-btn" (click)="startPreview()">
+              Generate Preview <ion-icon name="flash-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
         </div>
 
         <div class="preview-content" *ngIf="!isPreviewing && previewData">
+          <div class="section-title">
+            <ion-icon name="eye-outline"></ion-icon>
+            <h3>Preview — Dry Run</h3>
+            <span class="badge">Not committed</span>
+          </div>
           <div class="preview-summary">
-            <div class="summary-item">
-              <div class="label">Total Employees</div>
-              <div class="value">{{ previewData.total_employees }}</div>
-            </div>
-            <div class="summary-item">
-              <div class="label">Gross Payout</div>
-              <div class="value main">{{ formatCurrency(previewData.gross_sum) }}</div>
-            </div>
-            <div class="summary-item">
-              <div class="label">Total TDS</div>
-              <div class="value">{{ formatCurrency(previewData.tax_sum) }}</div>
-            </div>
-            <div class="summary-item accent">
-              <div class="label">Net Payout</div>
-              <div class="value">{{ formatCurrency(previewData.net_sum) }}</div>
-            </div>
+            <div class="summary-item"><div class="label">Employees</div><div class="value">{{ previewData.data?.estimate?.employeeCount || 0 }}</div></div>
+            <div class="summary-item accent"><div class="label">Est. Gross</div><div class="value">{{ formatCurrency(previewData.data?.estimate?.estimatedGross || 0) }}</div></div>
           </div>
-
-          <div class="data-table-container">
-            <table>
-              <thead>
-                <tr>
-                  <th>Employee</th>
-                  <th>Designation</th>
-                  <th>Gross</th>
-                  <th>TDS</th>
-                  <th>Net Payout</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let Emp of previewData.preview_data">
-                  <td>
-                    <div class="emp-name">
-                      <strong>{{ Emp.FullName }}</strong>
-                      <small>{{ Emp.EmployeeNumber }}</small>
-                    </div>
-                  </td>
-                  <td>{{ Emp.Designation }}</td>
-                  <td>{{ formatCurrency(Emp.total_gross) }}</td>
-                  <td>{{ formatCurrency(Emp.total_tax) }}</td>
-                  <td><strong>{{ formatCurrency(Emp.total_net) }}</strong></td>
-                </tr>
-              </tbody>
-            </table>
+          
+          <div class="empty-state" style="padding: 2rem 0">
+            <ion-icon name="calculator-outline"></ion-icon>
+            <p>High-level projection completed successfully.</p>
           </div>
-
           <div class="action-footer">
-            <ion-button fill="outline" (click)="currentStep = 'validate'" class="secondary-btn">Back</ion-button>
-            <ion-button (click)="confirmRun()" class="primary-btn run-btn">
-              Generate Payroll <ion-icon name="flash" slot="end"></ion-icon>
+            <ion-button fill="outline" class="secondary-btn" (click)="previewData = null">Re-Preview</ion-button>
+            <ion-button class="primary-btn" (click)="goToStep('validate')">
+              Validate <ion-icon name="shield-checkmark-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
 
-      <!-- STEP 3 & 4: Run & Status -->
-      <div class="step-card glass-card status-card" *ngIf="currentStep === 'run' || currentStep === 'status'">
-        
-        <div class="processing-state" *ngIf="isRunning">
-          <div class="engine-animation">
-            <div class="gear-box">
-              <ion-icon name="settings-outline" class="gear-1"></ion-icon>
-              <ion-icon name="settings-outline" class="gear-2"></ion-icon>
-            </div>
-          </div>
-          <h3>Processing Payroll...</h3>
-          <p>Please do not close this window while we securely generate payslips.</p>
+      <!-- ═══ STEP 4: VALIDATE — GET /api/payroll/v2/runs/validate ═══ -->
+      <div class="step-card glass-card" *ngIf="currentStep === 'validate'">
+        <div class="loading-state" *ngIf="isValidating">
+          <ion-spinner name="crescent"></ion-spinner>
+          <h3>Validating Payroll Coverage...</h3>
+          <p>Checking attendance and salary setup for {{ selectedMonth }}.</p>
         </div>
 
-        <div class="final-status" *ngIf="!isRunning && runStatus">
+        <div *ngIf="!isValidating && !validationResult" class="card-intro">
+          <div class="icon-box"><ion-icon name="shield-checkmark-outline"></ion-icon></div>
+          <h2>Validate Payroll</h2>
+          <p>Check attendance records and salary setup coverage before finalizing the payroll run.</p>
+          <div class="action-footer" style="margin-top:2rem; justify-content:center">
+            <ion-button fill="outline" class="secondary-btn" (click)="goToStep('preview')">Back</ion-button>
+            <ion-button class="primary-btn" (click)="startValidation()">
+              Run Validation <ion-icon name="shield-checkmark-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+
+        <div class="result-state" *ngIf="!isValidating && validationResult">
+          <div class="status-banner" [class.success]="validationResult.data?.valid" [class.error]="!validationResult.data?.valid">
+            <ion-icon [name]="validationResult.data?.valid ? 'checkmark-circle' : 'alert-circle'"></ion-icon>
+            <div>
+              <h3>{{ validationResult.data?.valid ? 'Ready to Lock' : 'Attention Required' }}</h3>
+              <p>{{ validationResult.data?.valid ? 'All critical checks passed.' : 'Resolve errors before locking.' }}</p>
+            </div>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-item"><span class="val">{{ validationResult.data?.missingSalaryStructureCount || 0 }}</span><span class="lbl">Missing Salary Setup</span></div>
+            <div class="stat-item"><span class="val">{{ validationResult.data?.missingAttendanceCount || 0 }}</span><span class="lbl">Missing Attendance</span></div>
+            <div class="stat-item"><span class="val">{{ validationResult.data?.totalEmployees || 0 }}</span><span class="lbl">Total Employees</span></div>
+          </div>
+          <div class="issue-list" *ngIf="validationResult.data?.missingSalaryStructure?.length">
+            <h4>Missing Salary Setup ({{ validationResult.data?.missingSalaryStructureCount }})</h4>
+            <div class="issue error" *ngFor="let e of validationResult.data?.missingSalaryStructure"><ion-icon name="close-circle-outline"></ion-icon> Emp ID: {{ e.employeeId }} - {{ e.employeeName }}</div>
+          </div>
+          <div class="issue-list" *ngIf="validationResult.data?.missingAttendance?.length">
+            <h4>Missing Attendance ({{ validationResult.data?.missingAttendanceCount }})</h4>
+            <div class="issue warning" *ngFor="let a of validationResult.data?.missingAttendance"><ion-icon name="warning-outline"></ion-icon> Emp ID: {{ a.employeeId }} - {{ a.employeeName }}</div>
+          </div>
+          <div class="action-footer">
+            <ion-button fill="outline" class="secondary-btn" (click)="validationResult = null">Re-Validate</ion-button>
+            <ion-button class="primary-btn" *ngIf="validationResult.data?.valid" (click)="goToStep('lock')">
+              Lock Payroll <ion-icon name="lock-closed-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ STEP 5: LOCK — POST /api/payroll/v2/runs/:id/lock ═══ -->
+      <div class="step-card glass-card lock-card" *ngIf="currentStep === 'lock'">
+        <div class="loading-state" *ngIf="isLocking">
+          <ion-spinner name="crescent"></ion-spinner>
+          <h3>Locking Run #{{ runStatus?.run_id }}...</h3>
+        </div>
+
+        <div *ngIf="!isLocking && !lockResult">
+          <div class="card-intro">
+            <div class="icon-box lock-icon-box"><ion-icon name="lock-closed-outline"></ion-icon></div>
+            <h2>Lock Payroll Run</h2>
+            <p>Freezes all payslip records and moves the run to <strong>LOCKED</strong> status. No further edits possible.</p>
+          </div>
+          <div class="lock-summary glass-inset" *ngIf="runStatus">
+            <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
+            <div class="ls-row"><span>Month</span><strong>{{ selectedMonth }}</strong></div>
+            <div class="ls-row"><span>Net Payout</span><strong>{{ formatCurrency(runStatus.total_net) }}</strong></div>
+            <div class="ls-row"><span>Employees</span><strong>{{ runStatus.employee_count }}</strong></div>
+          </div>
+          <div class="action-footer">
+            <ion-button fill="outline" class="secondary-btn" (click)="goToStep('validate')">Back</ion-button>
+            <ion-button class="primary-btn lock-btn" (click)="executeLock()">
+              <ion-icon name="lock-closed" slot="start"></ion-icon> Confirm Lock
+            </ion-button>
+          </div>
+        </div>
+
+        <div *ngIf="!isLocking && lockResult">
           <div class="success-header">
-            <div class="success-icon"><ion-icon name="checkmark-done-circle"></ion-icon></div>
-            <h2>Process Completed</h2>
-            <div class="run-id-badge">Run ID: #{{ runStatus.run_id }}</div>
+            <div class="success-icon" style="color:#8b5cf6"><ion-icon name="lock-closed"></ion-icon></div>
+            <h2>Run Locked</h2>
+            <div class="run-id-badge">Run #{{ runStatus?.run_id }} → LOCKED</div>
           </div>
-
-          <div class="status-details">
-            <div class="detail-row">
-              <span class="label">Total Employees Processed</span>
-              <span class="value">{{ runStatus.employee_count }}</span>
-            </div>
-            <div class="detail-row">
-              <span class="label">Organization Gross</span>
-              <span class="value">{{ formatCurrency(runStatus.total_gross) }}</span>
-            </div>
-            <div class="detail-row total">
-              <span class="label">Organization Net Liquid</span>
-              <span class="value">{{ formatCurrency(runStatus.total_net) }}</span>
-            </div>
-            <div class="detail-row status">
-              <span class="label">Status</span>
-              <span class="status-pill" [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span>
-            </div>
+          <div class="action-footer" style="justify-content:center">
+            <ion-button class="primary-btn paid-btn" (click)="goToStep('paid')">
+              Mark as Paid <ion-icon name="card-outline" slot="end"></ion-icon>
+            </ion-button>
           </div>
+        </div>
+      </div>
 
-          <div class="action-footer vertical">
-            <ion-button expand="block" (click)="navigateToExecution()" class="primary-btn">
-              Manage Payouts & Payslips <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+      <!-- ═══ STEP 6: PAID — POST /api/payroll/v2/runs/:id/paid ═══ -->
+      <div class="step-card glass-card paid-card" *ngIf="currentStep === 'paid'">
+        <div class="loading-state" *ngIf="isMarkingPaid">
+          <ion-spinner name="crescent"></ion-spinner>
+          <h3>Processing Payment Confirmation...</h3>
+        </div>
+
+        <div *ngIf="!isMarkingPaid && !paidResult">
+          <div class="card-intro">
+            <div class="icon-box paid-icon-box"><ion-icon name="card-outline"></ion-icon></div>
+            <h2>Confirm Payment</h2>
+            <p>Moves run to <strong>PAID</strong> status — confirms salaries have been disbursed.</p>
+          </div>
+          <div class="lock-summary glass-inset" *ngIf="runStatus">
+            <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
+            <div class="ls-row"><span>Status</span><span class="status-pill-sm" [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span></div>
+            <div class="ls-row"><span>Net Payout</span><strong class="highlight">{{ formatCurrency(runStatus.total_net) }}</strong></div>
+          </div>
+          <div class="action-footer">
+            <ion-button fill="outline" class="secondary-btn" (click)="goToStep('lock')">Back</ion-button>
+            <ion-button class="primary-btn paid-btn" (click)="executeMarkAsPaid()">
+              <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon> Confirm Payment
             </ion-button>
-            <ion-button expand="block" fill="clear" (click)="goBack()">
-              Return to Master Setup
+          </div>
+        </div>
+
+        <div *ngIf="!isMarkingPaid && paidResult">
+          <div class="confetti-header">
+            <div class="trophy-icon"><ion-icon name="trophy-outline"></ion-icon></div>
+            <h2>Payroll Complete! 🎉</h2>
+            <p>Run <strong>#{{ runStatus?.run_id }}</strong> is now <strong>PAID</strong>.<br>All employee payslips are available.</p>
+          </div>
+          <div class="completion-stats glass-inset">
+            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ runStatus?.employee_count }} Employees</span></div>
+            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(runStatus?.total_net) }}</span></div>
+            <div class="cs-item"><ion-icon name="calendar-outline"></ion-icon><span>{{ selectedMonth }}</span></div>
+          </div>
+          <div class="action-footer vertical" style="margin-top:2rem">
+            <ion-button expand="block" class="primary-btn" (click)="navigateToExecution()">
+              Manage Payouts &amp; Payslips <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
+            <ion-button expand="block" fill="clear" (click)="resetWorkflow()">Process Another Month</ion-button>
           </div>
         </div>
       </div>

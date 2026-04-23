@@ -216,7 +216,7 @@ export class PayrollExecutionPage implements OnInit {
       next: (res) => {
         this.validationResult = res;
         this.isValidating = false;
-        if (res.can_proceed) {
+        if (res.data?.valid) {
           this.currentStep = 'preview';
           this.previewPayrollStep(month);
         } else {
@@ -253,7 +253,7 @@ export class PayrollExecutionPage implements OnInit {
     this.isRunning = true;
     this.payrollApi.runV2Payroll({ year, month }).subscribe({
       next: (res) => {
-        this.activeRunId = res.run_id;
+        this.activeRunId = res.data?.runId ?? null;
         this.lastRunResult = res;
         this.isRunning = false;
         this.currentStep = 'payout';
