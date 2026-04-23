@@ -322,39 +322,58 @@ async function getEmployeeRunStatus(req, res) {
         // Calculate live monthly values for the template components based on the contract CTC
         const monthlyGross = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
         const computed = {};
+        let otherTotal = 0;
+        let specialCompIdx = -1;
 
-        templateComponents = compRows.map(r => {
-            let actualValue = 0;
+        // First pass: Calculate all components except Special Allowance
+        let results = compRows.map((r, idx) => {
+            // Check for Special Allowance (balancing component)
+            if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
+                specialCompIdx = idx;
+                return null; // Placeholder for balancing
+            }
             
-            // Extract the numeric value from formula_or_value (if it's a simple number or percentage)
-            // or fallback to the master component's default value.
+            let actualValue = 0;
             let inputVal = Number(r.value || 0);
             const override = String(r.formula_or_value || "");
+            
             if (/^\d+(\.\d+)?%?$/.test(override)) {
                 inputVal = Number(override.replace('%', ''));
             }
 
             if (r.calculation_type === 'PERCENTAGE') {
                 if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
-                    // Calculate as % of another component (e.g., HRA as % of BASIC)
                     actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    // Calculate as % of monthly Gross CTC
                     actualValue = (monthlyGross * inputVal) / 100.0;
                 }
             } else {
-                // FIXED value: assume it's annual and divide by 12
+                // FIXED: Divide by 12 as they are typically annual values in the template
                 actualValue = inputVal / 12.0;
             }
 
-            // Store for future percentage-of-code lookups in the same sequence
             computed[r.component_code] = actualValue;
-
+            otherTotal += actualValue;
+            
             return {
                 ...r,
                 value: actualValue.toFixed(2)
             };
         });
+
+        // Second pass: Calculate Special Allowance if it exists in the template
+        if (specialCompIdx !== -1) {
+            const specialComp = compRows[specialCompIdx];
+            // Special Allowance = Total Monthly CTC - Sum of all other components
+            const specialValue = Math.max(0, monthlyGross - otherTotal);
+            
+            results[specialCompIdx] = {
+                ...specialComp,
+                value: specialValue.toFixed(2)
+            };
+        }
+
+        templateComponents = results.filter(r => r !== null);
     }
 
     c.end();
