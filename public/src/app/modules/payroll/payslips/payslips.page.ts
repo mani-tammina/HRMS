@@ -6,6 +6,8 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { PayrollService } from '../../../core/services/payroll.service';
 import { PayrollApiService } from '../../../core/services/payroll-api.service';
 
+declare var html2pdf: any;
+
 @Component({
   selector: 'app-payslips',
   templateUrl: './payslips.page.html',
@@ -24,6 +26,13 @@ export class PayslipsPage implements OnInit, OnDestroy {
   activeContract: any;
   salaryTemplates: any[] = [];
   selectedTemplateId: any;
+
+  // Month selection
+  availableMonths: any[] = [];
+  selectedMonthStr: string = '';
+  selectedYear: number = new Date().getFullYear();
+  availableYears: number[] = [];
+  isPayslipGenerated: boolean = false;
 
   // Taxation data
   financialYear: string;
@@ -82,7 +91,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   async loadData() {
     this.loading = true;
-    const loader = await this.loadingController.create({ message: 'Fetching salary details...' });
+    const loader = await this.loadingController.create({ message: 'Fetching details...' });
     await loader.present();
 
     this.employeeService.getMyProfile().pipe(takeUntil(this.destroy$)).subscribe({
@@ -94,44 +103,23 @@ export class PayslipsPage implements OnInit, OnDestroy {
           return;
         }
 
+        // 1. Generate Month List dynamically
+        this.availableYears = [2026, 2025, 2024]; // Standard years, could be dynamic too
+        this.generateMonthList();
+
+        // Select the most recent month (current month)
+        const now = new Date();
+        const currentMonth = now.getMonth() + 1;
+        const currentYear = now.getFullYear();
+        this.selectedMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        this.fetchPayslipData(emp.id, this.selectedMonthStr);
+
+        // 2. Fetch all contracts for the 'My Salary' tab
         this.payrollService.listContracts({ employee_id: emp.id }).pipe(takeUntil(this.destroy$)).subscribe({
           next: (contracts: any[]) => {
             this.employeeContracts = Array.isArray(contracts) ? contracts : [];
-            this.activeContract = this.employeeContracts.find(c => c.status === 'Active') || this.employeeContracts[0];
-
-            if (this.activeContract) {
-              this.payrollService.getTemplateComposition(this.activeContract.template_id).pipe(takeUntil(this.destroy$)).subscribe({
-                next: (comps: any[]) => {
-                  this.calculateSalary({ ctc_amount: this.activeContract.annual_ctc }, comps);
-                  loader.dismiss();
-                  this.loading = false;
-                },
-                error: () => { loader.dismiss(); this.loading = false; }
-              });
-            } else {
-              this.payrollService.getPayrollstructures().pipe(takeUntil(this.destroy$)).subscribe({
-                next: (res: any) => {
-                  const allStructures = Array.isArray(res) ? res : (res.data || []);
-                  const activeStructure = allStructures.find((s: any) => s.employee_id === emp.id && s.is_active);
-                  if (activeStructure) {
-                    this.payrollService.getPayrollStructureById(activeStructure.id).pipe(takeUntil(this.destroy$)).subscribe({
-                      next: (details: any) => {
-                        const structure = details.structure || details;
-                        const components = details.components || details.salary_components || [];
-                        this.calculateSalary(structure, components);
-                        loader.dismiss();
-                        this.loading = false;
-                      },
-                      error: () => { loader.dismiss(); this.loading = false; }
-                    });
-                  } else {
-                    loader.dismiss();
-                    this.loading = false;
-                  }
-                },
-                error: () => { loader.dismiss(); this.loading = false; }
-              });
-            }
+            loader.dismiss();
+            this.loading = false;
           },
           error: () => { loader.dismiss(); this.loading = false; }
         });
@@ -140,57 +128,90 @@ export class PayslipsPage implements OnInit, OnDestroy {
     });
   }
 
-  private calculateSalary(structure: any, components: any[]) {
-    const ctc = Number(structure.ctc_amount) || 0;
-    this.monthlySalary = ctc / 12;
+  generateMonthList() {
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    
+    const months = [];
+    const limit = (this.selectedYear === currentYear) ? currentMonth : 12;
 
-    const calculatedAmts: any = { 'CTC': ctc };
-    const sortedComps = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-
-    const getValue = (c: any, visited: string[] = []): number => {
-      const code = (c.component_code || c.code || '').toUpperCase();
-      if (code && visited.includes(code)) return 0;
-      const newVisited = code ? [...visited, code] : visited;
-
-      const rawVal = c.formula_or_value || c.value || '0';
-      const calcType = c.calculation_type || 'FIXED';
-
-      if (calcType === 'FIXED') return Number(rawVal) || 0;
-      if (calcType === 'PERCENTAGE') {
-        const pct = parseFloat(String(rawVal).replace(/[^0-9.]/g, ''));
-        if (isNaN(pct)) return 0;
-        let pctOfCode = (c.percentage_of_code || '').toUpperCase();
-        if (!pctOfCode || pctOfCode === 'CTC' || pctOfCode === 'GROSS' || pctOfCode === '-') return (pct / 100) * ctc;
-        const baseComp = components.find(bc => (bc.component_code || bc.code || '').toUpperCase() === pctOfCode);
-        if (baseComp) return (pct / 100) * getValue(baseComp, newVisited);
-        return (pct / 100) * ctc;
-      }
-      return Number(rawVal) || 0;
-    };
-
-    sortedComps.forEach(c => {
-      calculatedAmts[(c.component_code || c.code)] = getValue(c);
-    });
-
-    const isSA = (code: string, name: string) => {
-      const c = code.toUpperCase();
-      const n = (name || '').toUpperCase();
-      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || c === 'SPECIAL' || n.includes('SPECIAL ALLOWANCE');
-    };
-    const saComp = sortedComps.find(c => isSA(c.component_code || c.code || '', c.component_name || c.name || ''));
-
-    if (saComp) {
-      let sumOfOthers = 0;
-      sortedComps.forEach(c => {
-        if (c !== saComp) {
-          const code = (c.component_code || c.code || '').toUpperCase();
-          const type = (c.component_type || c.type || '').toUpperCase();
-          const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
-          if (type === 'EARNING' || isER) sumOfOthers += calculatedAmts[c.component_code || c.code] || 0;
-        }
+    for (let i = limit; i >= 1; i--) {
+      months.push({
+        month: i,
+        year: this.selectedYear
       });
-      calculatedAmts[saComp.component_code || saComp.code] = Math.max(0, ctc - sumOfOthers);
     }
+    this.availableMonths = months;
+  }
+
+  onYearChange() {
+    this.generateMonthList();
+    // Auto-select the first month of the new year list
+    if (this.availableMonths.length > 0) {
+        this.selectMonth(this.availableMonths[0]);
+    }
+  }
+
+  fetchPayslipData(employeeId: number, monthStr: string) {
+    this.loading = true;
+    this.payrollApi.getEmployeeRunStatus(employeeId, monthStr).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        if (res.success && res.data) {
+          const data = res.data;
+          
+          // Only show payslip if runStatus is COMPLETED
+          if (data.run && data.run.runStatus === 'COMPLETED') {
+            this.isPayslipGenerated = true;
+            this.activeContract = data.contract;
+            this.mapComponentsToUI(data.contract, data.templateComponents || []);
+          } else {
+            this.isPayslipGenerated = false;
+          }
+        } else {
+          this.isPayslipGenerated = false;
+        }
+        this.loading = false;
+      },
+      error: () => {
+        this.isPayslipGenerated = false;
+        this.loading = false;
+      }
+    });
+  }
+
+  selectMonth(month: any) {
+    const monthStr = `${month.year}-${String(month.month).padStart(2, '0')}`;
+    this.selectedMonthStr = monthStr;
+    if (this.currentEmployee?.id) {
+      this.fetchPayslipData(this.currentEmployee.id, monthStr);
+    }
+  }
+
+  getMonthName(monthNum: number): string {
+    const date = new Date();
+    date.setMonth(monthNum - 1);
+    return date.toLocaleString('default', { month: 'long' });
+  }
+
+  downloadPayslip() {
+    const element = document.querySelector('.payslip-card');
+    if (!element) return;
+
+    const opt = {
+      margin: [10, 10],
+      filename: `Payslip_${this.selectedMonthStr}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true, logging: false },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().from(element).set(opt).save();
+  }
+
+  private mapComponentsToUI(contract: any, components: any[]) {
+    const ctc = Number(contract?.annual_ctc) || 0;
+    this.monthlySalary = Math.round(ctc / 12);
 
     this.earnings = [];
     this.contributions = [];
@@ -199,38 +220,60 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.totalContributions = 0;
     this.totalTaxes = 0;
 
-    sortedComps.forEach(c => {
-      const code = (c.component_code || c.code || '').toUpperCase();
-      const name = c.component_name || c.name;
-      const type = (c.component_type || c.type || '').toUpperCase();
+    // 1. First find PF Employer amount if it exists
+    let pfEmployerAmount = 0;
+    components.forEach(c => {
+      const code = (c.component_code || '').toUpperCase();
+      if (code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER')) {
+        if (code.includes('PF')) pfEmployerAmount = Number(c.value || 0);
+      }
+    });
+
+    // 2. Map components to UI, adding PF Employer to Special Allowance
+    components.forEach(c => {
+      const code = (c.component_code || '').toUpperCase();
+      const name = c.component_name;
+      const type = (c.component_type || '').toUpperCase();
+      let amount = Math.round(Number(c.value || 0));
       const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
 
-      const annualAmt = calculatedAmts[c.component_code || c.code] || 0;
-      const monthlyAmt = Math.round(annualAmt / 12);
-      const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
+      // Add PF Employer to Special Allowance if this is the Special Allowance component
+      const isSpecial = code === 'SPECIAL' || name.toUpperCase().includes('SPECIAL ALLOWANCE');
+      if (isSpecial) {
+        amount += Math.round(pfEmployerAmount);
+      }
 
-      // Hide all Employer components from display lists as they are internally added to Special Allowance
-      if (isER) return;
+      const compObj = { name, actual: amount, paid: amount, isER };
+
+      if (isER) {
+        if (code.includes('PF')) this.employerPfAmount = amount * 12;
+        return;
+      }
 
       if (type === 'EARNING') {
         this.earnings.push(compObj);
-        this.totalEarnings += monthlyAmt;
+        this.totalEarnings += amount;
       } else if (type === 'DEDUCTION') {
         if (code.includes('TAX') || code.includes('TDS') || name.toUpperCase().includes('TAX')) {
           this.taxes.push(compObj);
-          this.totalTaxes += monthlyAmt;
-          if (code.includes('PROF_TAX') || code.includes('PT')) this.professionalTaxAmount = annualAmt;
+          this.totalTaxes += amount;
+          if (code.includes('PROF_TAX') || code.includes('PT')) this.professionalTaxAmount = amount * 12;
         } else {
           this.contributions.push(compObj);
-          this.totalContributions += monthlyAmt;
+          this.totalContributions += amount;
         }
       }
     });
 
+    this.totalEarnings = Math.round(this.totalEarnings);
+    this.totalContributions = Math.round(this.totalContributions);
+    this.totalTaxes = Math.round(this.totalTaxes);
     this.totalDeductions = this.totalContributions + this.totalTaxes;
-    this.netSalary = this.totalEarnings - this.totalContributions - this.totalTaxes;
+    this.netSalary = Math.round(this.totalEarnings - this.totalDeductions);
     this.netSalaryInWords = this.toWords(this.netSalary);
   }
+
+  // calculateSalary logic is now replaced by mapComponentsToUI which uses backend pre-calculated values
 
   async openBreakupModal(contract: any) {
     this.selectedContractDetails = contract;
@@ -273,6 +316,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   private calculateBreakupForModal(ctcAmount: number, components: any[]) {
     const ctc = Number(ctcAmount) || 0;
+    const targetMonthly = Math.round(ctc / 12);
     const calculatedAmts: any = { 'CTC': ctc };
     const sortedComps = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
@@ -312,13 +356,21 @@ export class PayslipsPage implements OnInit, OnDestroy {
           const code = (c.component_code || c.code || '').toUpperCase();
           const type = (c.component_type || c.type || '').toUpperCase();
           const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
-          if (type === 'EARNING' || isER) sumOfOthers += calculatedAmts[c.component_code || c.code] || 0;
+          // Important: We round each monthly component before balancing to match backend
+          if (type === 'EARNING' || isER) sumOfOthers += Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
         }
       });
-      calculatedAmts[saComp.component_code || saComp.code] = Math.max(0, ctc - sumOfOthers);
+      calculatedAmts[saComp.component_code || saComp.code] = Math.max(0, targetMonthly - sumOfOthers) * 12; // Store as "annual" so division by 12 works below
     }
 
     const brk = { earnings: [] as any[], contributions: [] as any[], taxes: [] as any[], totalEarnings: 0, totalContributions: 0, totalTaxes: 0, totalDeductions: 0, netSalary: 0 };
+
+    // Find PF Employer for merging into SA in UI
+    let pfEmployerMonthly = 0;
+    sortedComps.forEach(c => {
+        const code = (c.component_code || c.code || '').toUpperCase();
+        if (code.includes('EMPLOYER') && code.includes('PF')) pfEmployerMonthly = Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
+    });
 
     sortedComps.forEach(c => {
       const code = (c.component_code || c.code || '').toUpperCase();
@@ -327,10 +379,15 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
 
       const annualAmt = calculatedAmts[c.component_code || c.code] || 0;
-      const monthlyAmt = Math.round(annualAmt / 12);
+      let monthlyAmt = Math.round(annualAmt / 12);
+      
+      // Merge PF Employer into Special Allowance if this is SA
+      if (isSA(code, name)) {
+          monthlyAmt += pfEmployerMonthly;
+      }
+
       const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
-      // Skip employer contributions for modal display
       if (isER) return;
 
       if (type === 'EARNING') {
@@ -348,7 +405,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     });
 
     brk.totalDeductions = brk.totalContributions + brk.totalTaxes;
-    brk.netSalary = brk.totalEarnings - brk.totalContributions - brk.totalTaxes;
+    brk.netSalary = Math.round(brk.totalEarnings - brk.totalDeductions);
     return brk;
   }
 

@@ -454,6 +454,12 @@ export class PayrollApiService {
     return this.http.put(`${this.baseUrl}/payroll/v2/cycles/${cycleId}/lock`, {}, { headers: this.getHeaders() });
   }
 
+  /** GET /api/payroll/v2/employees/:employeeId/run-status?month=YYYY-MM — Get run status and template info */
+  getEmployeeRunStatus(employeeId: number, month: string): Observable<any> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get(`${this.baseUrl}/payroll/v2/employees/${employeeId}/run-status`, { headers: this.getHeaders(), params });
+  }
+
   /** GET /api/payroll/v2/employees/:employeeId/tax-profile — Get employee tax profile */
   getEmployeeTaxProfile(employeeId: number): Observable<any> {
     return this.http.get(`${this.baseUrl}/payroll/v2/employees/${employeeId}/tax-profile`, { headers: this.getHeaders() });

@@ -380,7 +380,7 @@ router.get('/v2/runs/validate', auth, finance, payrollAdmin.validateRun);
 router.get('/v2/dashboard', auth, finance, payrollAdmin.getPayrollDashboard);
 
 // GET /api/payroll/v2/employees/:employeeId/run-status?month=YYYY-MM
-router.get('/v2/employees/:employeeId/run-status', auth, finance, payrollAdmin.getEmployeeRunStatus);
+router.get('/v2/employees/:employeeId/run-status', auth, resolvePayrollEmployeeContext, payrollAdmin.getEmployeeRunStatus);
 
 // GET /api/payroll/v2/reports?month=YYYY-MM
 router.get('/v2/reports', auth, finance, payrollAdmin.getPayrollReports);

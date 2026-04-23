@@ -28,182 +28,220 @@
 
 <ion-content class="payroll-content">
   <div class="payslip-wrapper" *ngIf="currentEmployee && currentTab === 'payslips'">
-    <!-- MAIN CONTENT -->
-    <main class="content-area">
-      <div class="payslip-card">
-        <!-- HEADER -->
-        <header class="payslip-header">
-          <div>
-            <h2>PAYSLIP</h2>
-            <p>TECH TAMMINA SOFTWARE SOLUTIONS PVT LTD</p>
-            <p>2nd Floor, Sri Sai Plaza, Madhapur</p>
-            <p>Hyderabad, Telangana - 500081</p>
+    <ion-grid class="ion-no-padding">
+      <ion-row>
+        <!-- SIDEBAR: MONTH SELECTION -->
+        <ion-col size="12" size-md="3" class="sidebar-col">
+          <div class="sidebar-content">
+            <div class="year-selector">
+              <ion-item lines="none" class="custom-select-item">
+                <ion-select [(ngModel)]="selectedYear" interface="popover" class="full-width-select" (ionChange)="onYearChange()">
+                  <ion-select-option *ngFor="let y of availableYears" [value]="y">Year {{ y }}</ion-select-option>
+                </ion-select>
+              </ion-item>
+            </div>
+
+            <div class="month-list-header">PAYSLIPS</div>
+            <ion-list class="month-list">
+              <ion-item button lines="full" 
+                        *ngFor="let m of availableMonths" 
+                        [class.selected-month]="selectedMonthStr === (m.year + '-' + (m.month | number:'2.0-0'))"
+                        (click)="selectMonth(m)">
+                <ion-label>
+                  <h2>{{ getMonthName(m.month) }} {{ m.year }}</h2>
+                </ion-label>
+              </ion-item>
+              <ion-item *ngIf="availableMonths.length === 0">
+                <ion-label color="medium">No payslips found</ion-label>
+              </ion-item>
+            </ion-list>
           </div>
-          <div class="logo">
-            <!-- Ensure path exists, using a placeholder text if not available! -->
-            <img src="assets/tammina-blue-logo.svg" alt="Company Logo" onerror="this.style.display='none'" />
+        </ion-col>
+
+        <!-- MAIN AREA: PAYSLIP DETAIL -->
+        <ion-col size="12" size-md="9" class="main-content-col">
+          <!-- Loading state -->
+          <div class="empty-state-container" *ngIf="loading">
+            <ion-spinner name="crescent" color="light"></ion-spinner>
+            <p>Loading details...</p>
           </div>
-        </header>
 
-        <!-- EMPLOYEE NAME -->
-        <h2 class="employee-name">
-          {{ currentEmployee?.FullName }}
-        </h2>
+          <ng-container *ngIf="!loading">
+            <div class="main-header" *ngIf="isPayslipGenerated">
+              <div class="header-left">
+                <h2>{{ selectedMonthStr | date:'MMMM yyyy' }}</h2>
+              </div>
+              <div class="header-right">
+                <button class="download-btn" (click)="downloadPayslip()">
+                  {{ selectedMonthStr | date:'MMMM yyyy' }} Pay Slip <ion-icon name="download-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
 
-        <!-- EMPLOYEE DETAILS -->
-        <div class="details-grid">
-          <ion-row class="detail-item">
-            <ion-col size="3">
-              <label>EMPLOYEE ID</label>
-              <p>{{ currentEmployee?.EmployeeNumber || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>DEPARTMENT</label>
-              <p>{{ currentEmployee?.department_name || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>DESIGNATION</label>
-              <p>{{ currentEmployee?.designation_name || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>LOCATION</label>
-              <p>{{ currentEmployee?.location_name || 'Hyderabad' }}</p>
-            </ion-col>
-          </ion-row>
+            <!-- PAYSLIP GENERATED -->
+            <div class="payslip-container" *ngIf="isPayslipGenerated">
+              <div class="payslip-card paper-effect">
+                <!-- HEADER -->
+                <header class="payslip-header">
+                  <div class="company-info">
+                    <h2 class="title">PAYSLIP {{ selectedMonthStr | date:'MMMM yyyy' | uppercase }}</h2>
+                    <p class="company-name">TECH TAMMINA SOFTWARE SOLUTIONS PVT LTD</p>
+                    <p>#49-24-64, SRI VENKATA SAI TOWERS, 3RD FLOOR,</p>
+                    <p>SANKARAMATA ROAD, MADHURANAGAR,</p>
+                    <p>VISAKHAPATNAM, ANDHRA PRADESH, 530016</p>
+                  </div>
+                  <div class="logo-box">
+                    <img src="assets/tammina-blue-logo.svg" alt="Company Logo" />
+                  </div>
+                </header>
 
-          <ion-row class="detail-item">
-            <ion-col size="3">
-              <label>PAN NUMBER</label>
-              <p>{{ currentEmployee?.PANNumber || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>AADHAAR NUMBER</label>
-              <p>{{ currentEmployee?.AadhaarNumber || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>UAN NUMBER</label>
-              <p>{{ currentEmployee?.uan_number || '-' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>PF NUMBER</label>
-              <p>{{ currentEmployee?.pf_number || '-' }}</p>
-            </ion-col>
-          </ion-row>
+                <!-- EMPLOYEE NAME -->
+                <h2 class="employee-display-name">
+                  {{ currentEmployee?.FullName | uppercase }}
+                </h2>
 
-          <ion-row class="detail-item">
-            <ion-col size="3">
-              <label>MONTHLY SALARY</label>
-              <p>₹ {{ monthlySalary | number:'1.0-2' }}</p>
-            </ion-col>
-            <ion-col size="3">
-              <label>ANNUAL CTC (LPA)</label>
-              <p>₹ {{ activeContract?.annual_ctc | number:'1.0-2' }}</p>
-            </ion-col>
-          </ion-row>
-        </div>
+                <!-- EMPLOYEE DETAILS GRID -->
+                <div class="details-section">
+                  <ion-row class="detail-row">
+                    <ion-col size="3">
+                      <label>EMPLOYEE NUMBER</label>
+                      <p>{{ currentEmployee?.EmployeeNumber || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>DATE JOINED</label>
+                      <p>{{ currentEmployee?.DateOfJoining | date:'dd MMM yyyy' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>DEPARTMENT</label>
+                      <p>{{ currentEmployee?.department_name || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>DESIGNATION</label>
+                      <p>{{ currentEmployee?.designation_name || '-' }}</p>
+                    </ion-col>
+                  </ion-row>
 
-        <hr />
+                  <ion-row class="detail-row">
+                    <ion-col size="3">
+                      <label>PAYMENT MODE</label>
+                      <p>Bank Transfer</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>BANK</label>
+                      <p>{{ currentEmployee?.bank_name || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>BANK IFSC</label>
+                      <p>{{ currentEmployee?.ifsc_code || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>BANK ACCOUNT</label>
+                      <p>{{ currentEmployee?.AccountNumber || '-' }}</p>
+                    </ion-col>
+                  </ion-row>
 
-        <!-- SALARY DETAILS -->
-        <!-- ATTENDANCE/LEAVE SUMMARY -->
-        <h2 class="section-title">Attendance & Leave Summary</h2>
-        <div class="attendance-summary">
-          <ion-row>
-            <ion-col size="3"><strong>Total Working Days</strong></ion-col>
-            <ion-col size="3"><strong>Actual Payable Days</strong></ion-col>
-            <ion-col size="3"><strong>Loss of Pay (LOP) Days</strong></ion-col>
-            <ion-col size="3"><strong>Days Payable</strong></ion-col>
-          </ion-row>
-          <ion-row>
-            <ion-col size="3">31</ion-col>
-            <ion-col size="3">{{ payableDays }}</ion-col>
-            <ion-col size="3">{{ lopDays }}</ion-col>
-            <ion-col size="3">{{ payableDays }}</ion-col>
-          </ion-row>
-        </div>
+                  <ion-row class="detail-row">
+                    <ion-col size="3">
+                      <label>UAN</label>
+                      <p>{{ currentEmployee?.uan_number || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>PF NUMBER</label>
+                      <p>{{ currentEmployee?.pf_number || '-' }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>MONTHLY SALARY</label>
+                      <p>{{ monthlySalary }}</p>
+                    </ion-col>
+                    <ion-col size="3">
+                      <label>PAN NUMBER</label>
+                      <p>{{ currentEmployee?.PANNumber || '-' }}</p>
+                    </ion-col>
+                  </ion-row>
 
-        <h2 class="section-title" style="margin-top: 20px;">Salary Details</h2>
-        <div class="salary-table">
-          <ion-row>
-            <!-- EARNINGS (Left Column) -->
-            <ion-col size="7" class="border-right">
-              <ion-row class="table-header">
-                <ion-col size="6" style="text-align: left;">EARNINGS</ion-col>
-                <ion-col size="3">Paid Amount</ion-col>
-                <ion-col size="3">Actual Amount</ion-col>
-              </ion-row>
-              <ion-row class="table-list" *ngFor="let item of earnings">
-                <ion-col size="6" style="text-align: left;">{{ item.name }}</ion-col>
-                <ion-col size="3">{{ item.paid | number:'1.2-2' }}</ion-col>
-                <ion-col size="3">{{ item.actual | number:'1.2-2' }}</ion-col>
-              </ion-row>
-              <ion-row class="table-list label-total" style="border-top: 1px dashed #ccc; padding-top: 5px;">
-                <ion-col size="6" style="text-align: left; font-weight: 700;">Total Earnings (A)</ion-col>
-                <ion-col size="3" style="font-weight: 700;">{{ totalEarnings | number:'1.2-2' }}</ion-col>
-                <ion-col size="3" style="font-weight: 700;">{{ totalEarnings | number:'1.2-2' }}</ion-col>
-              </ion-row>
-            </ion-col>
+                  <ion-row class="detail-row">
+                    <ion-col size="3">
+                      <label>AADHAAR NUMBER</label>
+                      <p>{{ currentEmployee?.AadhaarNumber || '-' }}</p>
+                    </ion-col>
+                  </ion-row>
+                </div>
 
-            <!-- CONTRIBUTIONS & TAXES (Right Column) -->
-            <ion-col size="5">
-              <!-- CONTRIBUTIONS -->
-              <ion-row class="table-header">
-                <ion-col size="8" style="text-align: left;">CONTRIBUTIONS</ion-col>
-                <ion-col size="4"></ion-col>
-              </ion-row>
-              <ion-row class="table-list" *ngFor="let item of contributions">
-                <ion-col size="8" style="text-align: left;">{{ item.name }}</ion-col>
-                <ion-col size="4">{{ item.paid | number:'1.2-2' }}</ion-col>
-              </ion-row>
-              <ion-row class="table-list label-total" style="border-top: 1px dashed #ccc; padding-top: 5px;">
-                <ion-col size="8" style="text-align: left; font-weight: 700;">Total Contributions (B)</ion-col>
-                <ion-col size="4" style="font-weight: 700;">{{ totalContributions | number:'1.2-2' }}</ion-col>
-              </ion-row>
-              <div style="margin-top: 20px;"></div>
-              <!-- TAXES & DEDUCTIONS -->
-              <ion-row class="table-header">
-                <ion-col size="8" style="text-align: left;">TAXES & DEDUCTIONS</ion-col>
-                <ion-col size="4"></ion-col>
-              </ion-row>
-              <ion-row class="table-list" *ngFor="let item of taxes">
-                <ion-col size="8" style="text-align: left;">{{ item.name }}</ion-col>
-                <ion-col size="4">{{ item.paid | number:'1.2-2' }}</ion-col>
-              </ion-row>
-              <ion-row class="table-list label-total" style="border-top: 1px dashed #ccc; padding-top: 5px;">
-                <ion-col size="8" style="text-align: left; font-weight: 700;">Total Taxes & Deductions (C)</ion-col>
-                <ion-col size="4" style="font-weight: 700;">{{ totalTaxes | number:'1.2-2' }}</ion-col>
-              </ion-row>
-            </ion-col>
-          </ion-row>
-        </div>
+                <hr class="section-divider" />
 
-        <!-- NET PAY -->
-        <div class="netpay-section" style="margin-top: 30px; background: #eef2ff; padding: 15px; border-radius: 8px;">
-          <ion-row>
-            <ion-col size="5"><strong>Net Salary Payable ( A - B - C )</strong></ion-col>
-            <ion-col size="7"><strong>{{ netSalary | number:'1.2-2' }}</strong></ion-col>
-          </ion-row>
-          <ion-row>
-            <ion-col size="5"><strong>Net Salary in words</strong></ion-col>
-            <ion-col size="7">{{ netSalaryInWords }}</ion-col>
-          </ion-row>
-        </div>
+                <!-- ATTENDANCE SUMMARY -->
+                <div class="attendance-block">
+                  <ion-row>
+                    <ion-col size="3"><label>Total Days</label><p>31</p></ion-col>
+                    <ion-col size="3"><label>Days Payable</label><p>{{ payableDays }}</p></ion-col>
+                    <ion-col size="3"><label>LOP Days</label><p>{{ lopDays }}</p></ion-col>
+                  </ion-row>
+                </div>
 
-        <!-- NOTE -->
-        <div class="note-section" style="margin-top: 15px; font-size: 0.9rem; color: #64748b;">
-          <p><strong>Note:</strong></p>
-          <ul style="padding-left: 20px; line-height: 1.6;">
-            <li>All amounts displayed are in INR</li>
-            <li>Paid Amount is after LOP adjustments</li>
-            <li>Actual Amount is as per salary structure</li>
-          </ul>
-        </div>
+                <!-- SALARY TABLES -->
+                <div class="salary-tables-wrap">
+                  <ion-row>
+                    <!-- Earnings -->
+                    <ion-col size="7" class="table-border-right">
+                      <div class="table-head">EARNINGS</div>
+                      <div class="table-item" *ngFor="let item of earnings">
+                        <span class="name">{{ item.name }}</span>
+                        <span class="value">{{ item.actual }}</span>
+                      </div>
+                      <div class="table-total">
+                        <span>Total Earnings (A)</span>
+                        <span>{{ totalEarnings }}</span>
+                      </div>
+                    </ion-col>
+                    <!-- Deductions -->
+                    <ion-col size="5">
+                      <div class="table-head">DEDUCTIONS</div>
+                      <div class="table-item" *ngFor="let item of contributions">
+                        <span class="name">{{ item.name }}</span>
+                        <span class="value">{{ item.actual }}</span>
+                      </div>
+                      <div class="table-item" *ngFor="let item of taxes">
+                        <span class="name">{{ item.name }}</span>
+                        <span class="value">{{ item.actual }}</span>
+                      </div>
+                      <div class="table-total">
+                        <span>Total Deductions (B)</span>
+                        <span>{{ totalDeductions }}</span>
+                      </div>
+                    </ion-col>
+                  </ion-row>
+                </div>
 
-        <footer class="disclaimer" style="margin-top: 30px; font-size: 0.85rem; color: #94a3b8; text-align: center;">
-          <p>* This is a system generated payslip.</p>
-        </footer>
-      </div>
-    </main>
+                <!-- NET PAY -->
+                <div class="net-pay-footer">
+                  <div class="net-row">
+                    <span class="label">Net Salary Payable</span>
+                    <span class="amount">₹ {{ netSalary }}</span>
+                  </div>
+                  <div class="word-row">
+                    <span class="label">Net Salary in words:</span>
+                    <span class="words">{{ netSalaryInWords }}</span>
+                  </div>
+                </div>
+
+                <footer class="payslip-footer">
+                  <p>* This is a system generated payslip.</p>
+                </footer>
+              </div>
+            </div>
+
+            <!-- PAYSLIP NOT GENERATED -->
+            <div class="not-generated-container" *ngIf="!isPayslipGenerated">
+              <div class="not-generated-card">
+                <ion-icon name="document-text-outline"></ion-icon>
+                <h2>Your payslip not generated</h2>
+                <p>The payroll for {{ selectedMonthStr | date:'MMMM yyyy' }} is currently under process or has not been finalized yet. Please check back later.</p>
+              </div>
+            </div>
+          </ng-container>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
   </div>
 
   <!-- Taxation tab — Now a child component -->

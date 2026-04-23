@@ -321,11 +321,12 @@ async function getEmployeeRunStatus(req, res) {
         
         // Calculate live monthly values for the template components based on the contract CTC
         const monthlyGross = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
+        const targetMonthly = Math.round(monthlyGross);
         const computed = {};
         let otherTotal = 0;
         let specialCompIdx = -1;
 
-        // First pass: Calculate all components except Special Allowance
+        // First pass: Calculate and round all components except Special Allowance
         let results = compRows.map((r, idx) => {
             // Check for Special Allowance (balancing component)
             if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
@@ -345,7 +346,7 @@ async function getEmployeeRunStatus(req, res) {
                 if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
                     actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    // Calculate as % of monthly Gross CTC
+                    // Calculate as % of monthly Gross CTC (unrounded for precision during intermediate steps)
                     actualValue = (monthlyGross * inputVal) / 100.0;
                 }
             } else {
@@ -353,24 +354,25 @@ async function getEmployeeRunStatus(req, res) {
                 actualValue = inputVal / 12.0;
             }
 
-            computed[r.component_code] = actualValue;
-            otherTotal += actualValue;
+            const roundedValue = Math.round(actualValue);
+            computed[r.component_code] = roundedValue;
+            otherTotal += roundedValue;
             
             return {
                 ...r,
-                value: actualValue.toFixed(2)
+                value: roundedValue.toString()
             };
         });
 
         // Second pass: Calculate Special Allowance if it exists in the template
         if (specialCompIdx !== -1) {
             const specialComp = compRows[specialCompIdx];
-            // Special Allowance = Total Monthly CTC - Sum of all other components
-            const specialValue = Math.max(0, monthlyGross - otherTotal);
+            // Special Allowance = Rounded Total CTC - Sum of all other rounded components
+            const specialValue = Math.max(0, targetMonthly - otherTotal);
             
             results[specialCompIdx] = {
                 ...specialComp,
-                value: specialValue.toFixed(2)
+                value: specialValue.toString()
             };
         }
 
