@@ -618,7 +618,7 @@ exports.listComposition = async (req, res) => {
               COALESCE(mc.name, lc.name) AS component_name,
               COALESCE(mc.component_type, lc.component_type) AS component_type,
               COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
-              COALESCE(mc.value, lc.value) AS default_value,
+              COALESCE(mc.value, lc.value) AS value,
               COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
               COALESCE(mc.sequence, lc.sequence) AS sequence
        FROM structure_composition sc
@@ -629,7 +629,18 @@ exports.listComposition = async (req, res) => {
       [req.params.template_id]
     );
     c.end();
-    res.json(rows);
+
+    const processed = rows.map(r => ({
+      ...r,
+      // If it's a fixed value, divide by 12 for monthly view as requested
+      value: r.calculation_type === 'FIXED' ? (Number(r.value || 0) / 12.0).toFixed(2) : r.value,
+      // Also handle formula_or_value if it's a simple numeric override
+      formula_or_value: (r.calculation_type === 'FIXED' && /^\d+(\.\d+)?$/.test(r.formula_or_value)) 
+        ? (Number(r.formula_or_value) / 12.0).toFixed(2) 
+        : r.formula_or_value
+    }));
+
+    res.json(processed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

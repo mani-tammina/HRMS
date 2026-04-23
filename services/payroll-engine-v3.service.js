@@ -98,9 +98,13 @@ async function getPayslipsUnified(employeeId, filters = {}) {
 }
 
 // Unified Salary Structure
-async function getSalaryStructureUnified(employeeId) {
+async function getSalaryStructureUnified(employeeId, options = {}) {
   try {
-    const result = await payrollService.getSalaryStructureForEmployee(employeeId);
+    const serviceOptions = {
+      monthly: options.monthly === 'true' || options.monthly === true,
+      date: options.date
+    };
+    const result = await payrollService.getSalaryStructureForEmployee(employeeId, serviceOptions);
     return standardizeResponse(true, result);
   } catch (error) {
     return standardizeResponse(false, null, error);

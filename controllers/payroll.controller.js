@@ -41,7 +41,7 @@ async function getSalaryStructure(req, res) {
   if (!employeeId) {
     return res.status(400).json({ success: false, data: null, error: 'employeeId required' });
   }
-  const response = await payrollEngine.getSalaryStructureUnified(employeeId);
+  const response = await payrollEngine.getSalaryStructureUnified(employeeId, req.query);
   if (response.success && !response.data) {
     return res.status(404).json({ success: false, data: null, error: 'Salary structure not found' });
   }

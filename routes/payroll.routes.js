@@ -133,7 +133,28 @@ router.get('/v2/earnings/:employeeId', auth, resolvePayrollEmployeeContext, asyn
              WHERE s.employee_id = ? AND cy.year = ? AND cy.month = ? AND b.component_type = 'EARNING'`,
             [employeeId, year, mon]
         );
-        res.json(rows);
+        
+        if (rows.length > 0) {
+            return res.json(rows);
+        }
+
+        // Fallback: Compute live monthly breakdown from current structure
+        const live = await payrollService.getSalaryStructureForEmployee(employeeId, { 
+            monthly: true, 
+            date: `${year}-${String(mon).padStart(2, '0')}-01` 
+        });
+
+        if (!live) return res.json([]);
+
+        const earnings = live.components
+            .filter(c => c.component_type === 'EARNING')
+            .map(c => ({
+                component_code: c.code,
+                component_name: c.name,
+                amount: c.value
+            }));
+
+        res.json(earnings);
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
@@ -160,7 +181,28 @@ router.get('/v2/deductions/:employeeId', auth, resolvePayrollEmployeeContext, as
              WHERE s.employee_id = ? AND cy.year = ? AND cy.month = ? AND b.component_type = 'DEDUCTION'`,
             [employeeId, year, mon]
         );
-        res.json(rows);
+
+        if (rows.length > 0) {
+            return res.json(rows);
+        }
+
+        // Fallback: Compute live monthly breakdown from current structure
+        const live = await payrollService.getSalaryStructureForEmployee(employeeId, { 
+            monthly: true, 
+            date: `${year}-${String(mon).padStart(2, '0')}-01` 
+        });
+
+        if (!live) return res.json([]);
+
+        const deductions = live.components
+            .filter(c => c.component_type === 'DEDUCTION')
+            .map(c => ({
+                component_code: c.code,
+                component_name: c.name,
+                amount: c.value
+            }));
+
+        res.json(deductions);
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {

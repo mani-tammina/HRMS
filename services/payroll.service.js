@@ -14,7 +14,7 @@ function parseFormulaOverride(formulaOrValue) {
 
   if (/^-?\d+(\.\d+)?$/.test(text)) {
     return {
-      calculation_type: 'FIXED',
+      // Do not force 'FIXED' here; let it fall back to the base component's calculation_type
       value: Number(text),
       percentage_of_code: null
     };
@@ -187,9 +187,9 @@ async function resolvePayrollStructure(conn, employeeId, sd, ed, runBy, options 
           code: row.code,
           name: row.name,
           component_type: row.component_type,
-          calculation_type: override ? override.calculation_type : row.calculation_type,
+          calculation_type: (override && override.calculation_type) ? override.calculation_type : row.calculation_type,
           value: override ? override.value : Number(row.value || 0),
-          percentage_of_code: override ? override.percentage_of_code : row.percentage_of_code,
+          percentage_of_code: (override && override.percentage_of_code) ? override.percentage_of_code : row.percentage_of_code,
           taxable: Number(row.taxable || 0) === 1,
           prorated: Number(row.prorated || 0) === 1,
           sequence: row.sequence,
@@ -329,16 +329,21 @@ async function runPayroll(year, month, runBy = null) {
       let gross = 0.0;
       for (const comp of components) {
         let amount = 0.0;
+        const monthlyCtc = Number(structure.ctc_amount || 0) / 12.0;
+
         if (comp.calculation_type === 'FIXED') {
-          amount = Number(comp.value);
+          // If it's a monthly run, we assume FIXED values in the structure are annual and need to be divided by 12
+          // unless they are very small (like PT which is usually monthly). 
+          // However, standard HRMS practice for template structures is annual values.
+          amount = Number(comp.value) / 12.0;
         } else {
-          // PERCENTAGE: if percentage_of_code available and already computed, use that, else percentage of CTC
+          // PERCENTAGE: if percentage_of_code available and already computed, use that, else percentage of monthly CTC
           const pct = Number(comp.value);
           if (comp.percentage_of_code) {
             const baseAmt = Number(computed[comp.percentage_of_code] || 0);
             amount = (baseAmt * pct) / 100.0;
           } else {
-            amount = (Number(structure.ctc_amount || 0) * pct) / 100.0;
+            amount = (monthlyCtc * pct) / 100.0;
           }
         }
 
@@ -585,16 +590,43 @@ async function getPayslipDetail(employeeId, year, month) {
   return rows[0].payslip_json;
 }
 
-async function getSalaryStructureForEmployee(employeeId) {
+async function getSalaryStructureForEmployee(employeeId, options = {}) {
   const c = await db();
-  const today = new Date().toISOString().slice(0, 10);
-  const resolved = await resolvePayrollStructure(c, employeeId, today, today, null, { createSnapshot: false });
+  const refDate = options.date || new Date().toISOString().slice(0, 10);
+  const resolved = await resolvePayrollStructure(c, employeeId, refDate, refDate, null, { createSnapshot: false });
   if (!resolved) {
     c.end();
     return null;
   }
   c.end();
-  return { structure: resolved.structure, components: resolved.components };
+
+  const { structure, components } = resolved;
+  const isMonthly = options.monthly === true;
+  const divisor = isMonthly ? 12.0 : 1.0;
+  const ctc = Number(structure.ctc_amount || 0) / divisor;
+  const computed = {};
+  
+  // Sort by sequence to handle percentages of other components correctly
+  const sorted = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+  
+  const processedComponents = sorted.map(comp => {
+    let amount = Number(comp.value || 0) / divisor;
+    if (comp.calculation_type === 'PERCENTAGE') {
+      const pct = Number(comp.value || 0);
+      if (comp.percentage_of_code) {
+        const baseAmt = Number(computed[comp.percentage_of_code] || 0);
+        amount = (baseAmt * pct) / 100.0;
+      } else {
+        amount = (ctc * pct) / 100.0;
+      }
+    }
+    // Round to 2 decimal places for clean response
+    amount = Math.round(amount * 100) / 100;
+    computed[comp.code] = amount;
+    return { ...comp, value: amount };
+  });
+
+  return { structure, components: processedComponents };
 }
 
 async function getPayrollAttendanceImpact(year, month, employeeId) {

@@ -264,15 +264,14 @@ async function getEmployeeRunStatus(req, res) {
     if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
 
     const c = await db();
+    
+    // 1. Get Payroll Run Status (if any)
     const [rows] = await c.query(
       `SELECT
          r.id AS runId,
          r.status AS runStatus,
          cy.year,
          cy.month,
-         s.gross_earnings AS gross,
-         s.total_deductions AS deductions,
-         s.net_pay AS net,
          (
            SELECT prl.state
            FROM payroll_run_lifecycle prl
@@ -288,6 +287,47 @@ async function getEmployeeRunStatus(req, res) {
        LIMIT 1`,
       [employeeId, parsed.year, parsed.month]
     );
+
+    // 2. Get Active Contract for the employee
+    const [contractRows] = await c.query(
+      `SELECT esc.*, t.template_name
+       FROM employee_salary_contracts esc
+       LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+       WHERE esc.employee_id = ? AND esc.status = 'Active'
+       LIMIT 1`,
+      [employeeId]
+    );
+    const contract = contractRows[0] || null;
+
+    // 3. Get Template Components (Composition) if contract exists
+    let templateComponents = [];
+    if (contract) {
+        const [compRows] = await c.query(
+            `SELECT sc.*, 
+                    COALESCE(mc.code, lc.code) AS component_code,
+                    COALESCE(mc.name, lc.name) AS component_name,
+                    COALESCE(mc.component_type, lc.component_type) AS component_type,
+                    COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+                    COALESCE(mc.value, lc.value) AS value,
+                    COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+                    COALESCE(mc.sequence, lc.sequence) AS sequence
+             FROM structure_composition sc
+             LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+             LEFT JOIN salary_components lc ON lc.id = sc.component_id
+             WHERE sc.template_id = ?
+             ORDER BY COALESCE(mc.sequence, lc.sequence, 999)`,
+            [contract.template_id]
+        );
+        
+        templateComponents = compRows.map(r => ({
+            ...r,
+            value: r.calculation_type === 'FIXED' ? (Number(r.value || 0) / 12.0).toFixed(2) : r.value,
+            formula_or_value: (r.calculation_type === 'FIXED' && /^\d+(\.\d+)?$/.test(r.formula_or_value)) 
+                ? (Number(r.formula_or_value) / 12.0).toFixed(2) 
+                : r.formula_or_value
+        }));
+    }
+
     c.end();
 
     if (!rows.length) {
@@ -295,7 +335,9 @@ async function getEmployeeRunStatus(req, res) {
         employeeId,
         month: monthInput,
         exists: false,
-        status: 'NOT_PROCESSED'
+        status: 'NOT_PROCESSED',
+        contract,
+        templateComponents
       });
     }
 
@@ -303,7 +345,9 @@ async function getEmployeeRunStatus(req, res) {
       employeeId,
       month: monthInput,
       exists: true,
-      run: rows[0]
+      run: rows[0],
+      contract,
+      templateComponents
     });
   } catch (err) {
     return fail(res, 500, err.message);
