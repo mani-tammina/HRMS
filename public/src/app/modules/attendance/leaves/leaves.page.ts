@@ -107,7 +107,7 @@ export class LeavesPage implements OnInit, OnDestroy {
   getAllLeaves() {
     this.leaveRequestService.getMyLeaves(this.currentYear).subscribe({
       next: (res: any[]) => {
-        this.leaveRequestsDetails = res.map(item => ({
+        this.leaveRequestsDetails = res.map((item: any) => ({
           id: item.id,
           leave_type: item.type_name,
           from_date: item.start_date,

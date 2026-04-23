@@ -37,6 +37,10 @@ const routes: Routes = [
   {
     path: 'assignment',
     loadChildren: () => import('./payroll-assignment/payroll-assignment.module').then(m => m.PayrollAssignmentPageModule)
+  },
+  {
+    path: 'process',
+    loadChildren: () => import('./payroll-process/payroll-process.module').then(m => m.PayrollProcessPageModule)
   }
 ];
 
