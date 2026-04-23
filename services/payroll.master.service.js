@@ -168,7 +168,7 @@ exports.createComponent = async (req, res) => {
     await ensureTemplateModelTables(c);
 
     const { code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes, created_by } = req.body;
-    
+
     // Validate required fields
     if (!code || !name || !component_type || !calculation_type || value === undefined) {
       c.end();
@@ -326,7 +326,7 @@ exports.createStructure = async (req, res) => {
   try {
     const c = await db();
     const { employee_id, structure_name, ctc_amount, effective_from, effective_to, is_active, notes, created_by, components } = req.body;
-    
+
     // Validate required fields
     if (!employee_id || !structure_name || !ctc_amount || !effective_from) {
       c.end();
@@ -334,7 +334,7 @@ exports.createStructure = async (req, res) => {
     }
 
     await c.beginTransaction();
-    
+
     try {
       // Get next version number for this employee
       const [versionRows] = await c.query(
@@ -349,7 +349,7 @@ exports.createStructure = async (req, res) => {
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [employee_id, structure_name, ctc_amount, effective_from, effective_to || null, is_active !== false ? 1 : 0, version, created_by || null, notes || null]
       );
-      
+
       const structureId = result.insertId;
 
       // Insert components if provided
@@ -359,16 +359,16 @@ exports.createStructure = async (req, res) => {
             `INSERT INTO salary_components (structure_id, code, name, component_type, calculation_type, value, percentage_of_code, taxable, prorated, sequence, notes) 
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-              structureId, 
-              comp.code, 
-              comp.name, 
-              comp.component_type || 'EARNING', 
-              comp.calculation_type || 'FIXED', 
-              comp.value, 
-              comp.percentage_of_code || null, 
-              comp.taxable !== false ? 1 : 0, 
-              comp.prorated ? 1 : 0, 
-              comp.sequence || 10, 
+              structureId,
+              comp.code,
+              comp.name,
+              comp.component_type || 'EARNING',
+              comp.calculation_type || 'FIXED',
+              comp.value,
+              comp.percentage_of_code || null,
+              comp.taxable !== false ? 1 : 0,
+              comp.prorated ? 1 : 0,
+              comp.sequence || 10,
               comp.notes || null
             ]
           );
@@ -392,18 +392,18 @@ exports.getStructure = async (req, res) => {
   try {
     const c = await db();
     const [structRows] = await c.query(
-      'SELECT s.*, e.EmployeeNumber, e.FullName FROM salary_structures s LEFT JOIN employees e ON e.id = s.employee_id WHERE s.id = ?', 
+      'SELECT s.*, e.EmployeeNumber, e.FullName FROM salary_structures s LEFT JOIN employees e ON e.id = s.employee_id WHERE s.id = ?',
       [req.params.id]
     );
     if (structRows.length === 0) {
       c.end();
       return res.status(404).json({ error: 'Structure not found' });
     }
-    
+
     const structure = structRows[0];
     const [components] = await c.query('SELECT * FROM salary_components WHERE structure_id = ? ORDER BY sequence ASC', [structure.id]);
     c.end();
-    
+
     res.json({ structure, components });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -702,7 +702,7 @@ exports.populateDefaults = async (req, res) => {
     const c = await db();
     await ensureTemplateModelTables(c);
     await c.beginTransaction();
-    
+
     try {
       const createdBy = (req.user && req.user.id) || 1;
       const results = {
@@ -726,7 +726,9 @@ exports.populateDefaults = async (req, res) => {
             { code: 'CONVEYANCE', name: 'Conveyance Allowance', type: 'EARNING', calc: 'FIXED', value: 1600.00, seq: 30 },
             { code: 'SPECIAL', name: 'Special Allowance', type: 'EARNING', calc: 'PERCENTAGE', value: 30.00, seq: 40 },
             { code: 'MEDICAL', name: 'Medical Allowance', type: 'EARNING', calc: 'FIXED', value: 1250.00, seq: 50 },
-            { code: 'PF_DEDUCT', name: 'PF Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 12.00, pct_of: 'BASIC', seq: 100 }
+            { code: 'PF_DEDUCT', name: 'PF Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 12.00, pct_of: 'BASIC', seq: 100 },
+            { code: 'ESI_ER', name: 'ESI Employer Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 3.25, seq: 110, notes: '(Gross - PF_ER) * 3.25 / 103.25' },
+            { code: 'ESI_EE', name: 'ESI Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 0.75, seq: 120, notes: '(Gross - PF_ER - ESI_ER) * 0.75/100' }
           ]
         },
         {
@@ -740,7 +742,9 @@ exports.populateDefaults = async (req, res) => {
             { code: 'SPECIAL', name: 'Special Allowance', type: 'EARNING', calc: 'PERCENTAGE', value: 25.00, seq: 40 },
             { code: 'MEDICAL', name: 'Medical Allowance', type: 'EARNING', calc: 'FIXED', value: 1500.00, seq: 50 },
             { code: 'PERFORMANCE', name: 'Performance Bonus', type: 'EARNING', calc: 'PERCENTAGE', value: 5.00, seq: 60 },
-            { code: 'PF_DEDUCT', name: 'PF Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 12.00, pct_of: 'BASIC', seq: 100 }
+            { code: 'PF_DEDUCT', name: 'PF Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 12.00, pct_of: 'BASIC', seq: 100 },
+            { code: 'ESI_ER', name: 'ESI Employer Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 3.25, seq: 110, notes: '(Gross - PF_ER) * 3.25 / 103.25' },
+            { code: 'ESI_EE', name: 'ESI Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 0.75, seq: 120, notes: '(Gross - PF_ER - ESI_ER) * 0.75/100' }
           ]
         },
         {
@@ -755,20 +759,22 @@ exports.populateDefaults = async (req, res) => {
             { code: 'MEDICAL', name: 'Medical Allowance', type: 'EARNING', calc: 'FIXED', value: 2000.00, seq: 50 },
             { code: 'PERFORMANCE', name: 'Performance Bonus', type: 'EARNING', calc: 'PERCENTAGE', value: 5.00, seq: 60 },
             { code: 'PF_DEDUCT', name: 'PF Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 12.00, pct_of: 'BASIC', seq: 100 },
-            { code: 'PROF_TAX', name: 'Professional Tax', type: 'DEDUCTION', calc: 'FIXED', value: 200.00, seq: 110 }
+            { code: 'PROF_TAX', name: 'Professional Tax', type: 'DEDUCTION', calc: 'FIXED', value: 200.00, seq: 110 },
+            { code: 'ESI_ER', name: 'ESI Employer Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 3.25, seq: 120, notes: '(Gross - PF_ER) * 3.25 / 103.25' },
+            { code: 'ESI_EE', name: 'ESI Employee Contribution', type: 'DEDUCTION', calc: 'PERCENTAGE', value: 0.75, seq: 130, notes: '(Gross - PF_ER - ESI_ER) * 0.75/100' }
           ]
         }
       ];
 
       // Check if templates already exist
       const [existing] = await c.query('SELECT COUNT(*) as count FROM salary_structure_templates');
-      
+
       if (existing[0].count > 0) {
         await c.rollback();
         c.end();
-        return res.status(400).json({ 
+        return res.status(400).json({
           error: 'Default templates already exist. Clear existing templates first.',
-          existing_count: existing[0].count 
+          existing_count: existing[0].count
         });
       }
 
@@ -785,14 +791,14 @@ exports.populateDefaults = async (req, res) => {
           [masterUserId]
         );
         const masterVersion = versionRows[0].next_version;
-        
+
         // Create a master structure for this template (using admin/system user)
         const [masterStructResult] = await c.query(
           `INSERT INTO salary_structures (employee_id, structure_name, ctc_amount, effective_from, is_active, version, notes, created_by) 
            VALUES (?, ?, ?, CURDATE(), 0, ?, 'MASTER TEMPLATE - Do not modify. Used as component repository for template.', ?)`,
           [masterUserId, `MASTER_${template.name}`, template.ctc, masterVersion, createdBy]
         );
-        
+
         const masterStructId = masterStructResult.insertId;
         results.master_structures.push({
           id: masterStructId,
@@ -868,7 +874,7 @@ exports.populateDefaults = async (req, res) => {
           'INSERT INTO salary_structure_templates (template_name, description, created_by) VALUES (?, ?, ?)',
           [template.name, template.description, createdBy]
         );
-        
+
         const templateId = templateResult.insertId;
         results.templates.push({
           id: templateId,
@@ -890,7 +896,7 @@ exports.populateDefaults = async (req, res) => {
 
       // STEP 4: Assign first 3-5 employees to template contracts (source of truth)
       const [employees] = await c.query('SELECT id, FullName FROM employees WHERE EmploymentStatus = "Active" LIMIT 5');
-      
+
       if (employees.length > 0) {
         for (let i = 0; i < Math.min(employees.length, 3); i++) {
           const emp = employees[i];
@@ -918,7 +924,7 @@ exports.populateDefaults = async (req, res) => {
       c.end();
 
       results.message = `Successfully created complete payroll master data`;
-      
+
       res.json({
         success: true,
         summary: {
@@ -937,7 +943,7 @@ exports.populateDefaults = async (req, res) => {
           '3. Assign more employees: POST /api/payroll-master/contracts'
         ]
       });
-      
+
     } catch (err) {
       await c.rollback();
       c.end();
@@ -953,7 +959,7 @@ exports.clearMasterData = async (req, res) => {
   try {
     const c = await db();
     await c.beginTransaction();
-    
+
     try {
       // Delete in correct order to avoid FK constraints
       // 1. Delete structure composition first
@@ -961,28 +967,28 @@ exports.clearMasterData = async (req, res) => {
 
       // 1.1 Delete employee salary contracts
       const [contractsResult] = await c.query('DELETE FROM employee_salary_contracts');
-      
+
       // 2. Delete salary components (this includes both master and employee components)
       // Delete all components linked to any salary structures (will cascade from structure deletion)
       const [componentsResult] = await c.query('DELETE FROM salary_components');
-      
+
       // 3. Delete salary structures (both master structures and employee structures created by auto-populate)
       // Delete all structures that were created by the populate defaults
       const [structuresResult] = await c.query(`DELETE FROM salary_structures WHERE 
         structure_name LIKE 'MASTER_%' OR 
         notes LIKE '%template%' OR 
         notes LIKE '%MASTER TEMPLATE%'`);
-      
+
       // 4. Delete templates
       const [templateResult] = await c.query('DELETE FROM salary_structure_templates');
 
       // 5. Delete master component catalog
       await ensureTemplateModelTables(c);
       const [masterComponentsResult] = await c.query('DELETE FROM salary_master_components');
-      
+
       await c.commit();
       c.end();
-      
+
       res.json({
         success: true,
         message: 'All payroll master data cleared successfully',

@@ -234,17 +234,28 @@ function calculateNetSalary(components, computed, structure, attendanceData, add
   const basic = computed['BASIC'] || 0;
   const da = computed['DA'] || 0;
   
-  // PF Calculation
-  const pf = calculatePF(basic, da);
-  breakdown.statutory.pf_employee = pf;
-  breakdown.statutory.pf_employer = pf;
-  totalDeductions += pf;
+  // 1. PF Calculation
+  const pfEmployee = calculatePF(basic, da);
+  const pfEmployer = pfEmployee; // Usually matches
+  breakdown.statutory.pf_employee = pfEmployee;
+  breakdown.statutory.pf_employer = pfEmployer;
+  totalDeductions += pfEmployee;
   
-  // ESI Calculation
-  const esi = calculateESI(totalEarnings);
-  breakdown.statutory.esi_employee = esi;
-  breakdown.statutory.esi_employer = Math.round(esi * 3.25); // Employer pays 3.25%
-  totalDeductions += esi;
+  // 2. ESI Calculation (New Formulas)
+  // ESI Employer = (Gross - PF Employee) * 3.25 / 103.25
+  // ESI Employee = (Gross - PF Employer - ESI Employer) * 0.75 / 100
+  const esiThreshold = 21000;
+  if (totalEarnings <= esiThreshold) {
+    const esiEmployer = Math.round((totalEarnings - pfEmployee) * (3.25 / 103.25));
+    const esiEmployee = Math.round((totalEarnings - pfEmployer - esiEmployer) * (0.75 / 100));
+    
+    breakdown.statutory.esi_employee = esiEmployee;
+    breakdown.statutory.esi_employer = esiEmployer;
+    totalDeductions += esiEmployee;
+  } else {
+    breakdown.statutory.esi_employee = 0;
+    breakdown.statutory.esi_employer = 0;
+  }
   
   // Professional Tax
   const pt = calculateProfessionalTax(totalEarnings);

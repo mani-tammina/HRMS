@@ -209,10 +209,13 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const monthlyAmt = Math.round(annualAmt / 12);
       const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
-      if (type === 'EARNING' && !isER) {
+      // Hide all Employer components from display lists as they are internally added to Special Allowance
+      if (isER) return;
+
+      if (type === 'EARNING') {
         this.earnings.push(compObj);
         this.totalEarnings += monthlyAmt;
-      } else if (type === 'DEDUCTION' || isER) {
+      } else if (type === 'DEDUCTION') {
         if (code.includes('TAX') || code.includes('TDS') || name.toUpperCase().includes('TAX')) {
           this.taxes.push(compObj);
           this.totalTaxes += monthlyAmt;
@@ -220,15 +223,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
         } else {
           this.contributions.push(compObj);
           this.totalContributions += monthlyAmt;
-          if (isER && code.includes('PF')) this.employerPfAmount = annualAmt;
         }
       }
     });
 
     this.totalDeductions = this.totalContributions + this.totalTaxes;
-    let employeeContributions = this.totalContributions;
-    this.contributions.forEach(c => { if (c.isER) employeeContributions -= c.paid; });
-    this.netSalary = this.totalEarnings - employeeContributions - this.totalTaxes;
+    this.netSalary = this.totalEarnings - this.totalContributions - this.totalTaxes;
     this.netSalaryInWords = this.toWords(this.netSalary);
   }
 
@@ -330,10 +330,13 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const monthlyAmt = Math.round(annualAmt / 12);
       const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
-      if (type === 'EARNING' && !isER) {
+      // Skip employer contributions for modal display
+      if (isER) return;
+
+      if (type === 'EARNING') {
         brk.earnings.push(compObj);
         brk.totalEarnings += monthlyAmt;
-      } else if (type === 'DEDUCTION' || isER) {
+      } else if (type === 'DEDUCTION') {
         if (code.includes('TAX') || code.includes('TDS') || name.toUpperCase().includes('TAX')) {
           brk.taxes.push(compObj);
           brk.totalTaxes += monthlyAmt;
@@ -345,9 +348,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     });
 
     brk.totalDeductions = brk.totalContributions + brk.totalTaxes;
-    let employeeContributions = brk.totalContributions;
-    brk.contributions.forEach(c => { if (c.isER) employeeContributions -= c.paid; });
-    brk.netSalary = brk.totalEarnings - employeeContributions - brk.totalTaxes;
+    brk.netSalary = brk.totalEarnings - brk.totalContributions - brk.totalTaxes;
     return brk;
   }
 

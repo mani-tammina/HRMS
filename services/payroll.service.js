@@ -353,33 +353,58 @@ async function runPayroll(year, month, runBy = null) {
         if (comp.component_type === 'EARNING') gross += amount;
       }
 
-      // Basic statutory deductions - simplified example
-      // PF: 12% of BASIC if BASIC exists
-      let pfAmount = 0.0;
+      // Statutory Deductions (Rules provided by USER)
+      // 1. PF Calculation
+      let pfAmountEmp = 0.0;
       if (computed['BASIC']) {
-        pfAmount = Number(computed['BASIC']) * 0.12;
+        // Employee PF: 12% of BASIC
+        pfAmountEmp = Math.round(Number(computed['BASIC']) * 0.12);
+      }
+      let pfAmountEr = pfAmountEmp; // Employer matches
+
+      // 2. ESI Calculation (Back-calculated from CTC-basis Gross)
+      // Formula for ESI_ER (3.25%): (Gross - PF_Employer) * 3.25 / 103.25
+      // Formula for ESI_EE (0.75%): (Gross - PF_Employer - ESI_ER) * 0.75 / 100
+      let esiAmountEmp = 0.0;
+      let esiAmountEr = 0.0;
+      const ESI_THRESHOLD = 21000;
+      
+      // Note: User requested ESI_EE=70 and ESI_ER=300 for Gross=10000.
+      // These formulas with Math.ceil achieve exactly that.
+      if (gross <= ESI_THRESHOLD) {
+        esiAmountEr = Math.ceil((gross - pfAmountEr) * 3.25 / 103.25);
+        esiAmountEmp = Math.ceil((gross - pfAmountEr - esiAmountEr) * 0.0075);
       }
 
-      // Sum earnings and deductions
+      // Update computed results to ensure they are picked up in breakups and correctly subtracted
+      // We explicitly override these codes to ensure the statutory rules take precedence over template defaults
+      computed['PF_DEDUCT'] = pfAmountEmp;
+      computed['ESI_EE'] = esiAmountEmp;
+      computed['ESI_ER'] = esiAmountEr;
+
+      // Sum deductions (ensuring we don't double count if they are already in components)
       let deductions = 0.0;
-      // Include component-level deductions
       for (const comp of components) {
         if (comp.component_type === 'DEDUCTION') {
-          deductions += Number(computed[comp.code] || 0);
+          // If the component code is one we specifically calculated above, use that value
+          if (computed[comp.code] !== undefined) {
+            deductions += Number(computed[comp.code]);
+          } else {
+            deductions += Number(computed[comp.code] || 0);
+          }
         }
       }
 
-      deductions += pfAmount;
+      // Professional Tax - slab logic
+      let ptAmount = 0;
+      if (gross > 15000) ptAmount = 200;
+      computed['PT'] = ptAmount;
+      if (!components.find(c => c.code === 'PT')) deductions += ptAmount;
 
-      // Tax (TDS) - simplified: 10% of taxable earnings (earnings with taxable=1)
-      let taxableEarnings = 0.0;
-      for (const comp of components) {
-        if (comp.component_type === 'EARNING' && comp.taxable) {
-          taxableEarnings += Number(computed[comp.code] || 0);
-        }
-      }
-      const tds = taxableEarnings * 0.10; // placeholder
-      deductions += tds;
+      // TDS (Simplified placeholder)
+      const tds = (gross > 30000) ? (gross * 0.10) : 0;
+      computed['TDS'] = tds;
+      if (!components.find(c => c.code === 'TDS')) deductions += tds;
 
       const net = gross - deductions;
 
@@ -391,7 +416,7 @@ async function runPayroll(year, month, runBy = null) {
       );
       const employeeSalaryId = salaryRes.insertId;
 
-      // Insert component breakups
+      // Insert component breakups (includes ESI_ER, ESI_EE, PF_DEDUCT if in template)
       for (const comp of components) {
         const amt = Number(computed[comp.code] || 0).toFixed(2);
         await conn.query(
@@ -401,41 +426,99 @@ async function runPayroll(year, month, runBy = null) {
         );
       }
 
-      // Insert PF and TDS as payroll_tax_deductions lines
-      if (pfAmount > 0) {
+      // Insert PF, ESI, TDS, and PT as payroll_tax_deductions lines for payslip summary
+      if (pfAmountEmp > 0) {
         await conn.query(
           `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
            VALUES (?, ?, ?, ?, ?)`,
-          [employeeSalaryId, 'PF_EMP', 'Employee PF', pfAmount.toFixed(2), null]
+          [employeeSalaryId, 'PF_EMP', 'Employee PF', pfAmountEmp.toFixed(2), null]
+        );
+      }
+      if (esiAmountEmp > 0) {
+        await conn.query(
+          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
+           VALUES (?, ?, ?, ?, ?)`,
+          [employeeSalaryId, 'ESI_EE', 'Employee ESI', esiAmountEmp.toFixed(2), null]
+        );
+      }
+      if (ptAmount > 0) {
+        await conn.query(
+          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
+           VALUES (?, ?, ?, ?, ?)`,
+          [employeeSalaryId, 'PT', 'Professional Tax', ptAmount.toFixed(2), null]
         );
       }
       if (tds > 0) {
         await conn.query(
           `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
            VALUES (?, ?, ?, ?, ?)`,
-          [employeeSalaryId, 'TDS', 'TDS', tds.toFixed(2), null]
+          [employeeSalaryId, 'TDS', 'Income Tax (TDS)', tds.toFixed(2), null]
         );
       }
 
       // Create payslip JSON snapshot
-      const [breakups] = await conn.query(
-        `SELECT component_code, component_name, component_type, amount FROM payroll_salary_breakups WHERE employee_salary_id = ?`,
+      // Create payslip JSON snapshot
+      const [breakupsRows] = await conn.query(
+        `SELECT component_code, component_name, component_type, amount, taxable, prorated FROM payroll_salary_breakups WHERE employee_salary_id = ?`,
         [employeeSalaryId]
       );
-      const [taxLines] = await conn.query(
+      const [taxLinesRows] = await conn.query(
         `SELECT deduction_code, deduction_name, amount FROM payroll_tax_deductions WHERE employee_salary_id = ?`,
         [employeeSalaryId]
       );
+
+      // User requested to hide Employer components and bundle them into Special Allowance
+      let erBundle = 0;
+      const finalEarnings = [];
+      const finalDeductions = [];
+      const finalStatutory = [];
+
+      for (const b of breakupsRows) {
+        const isEr = /employer|employeer/i.test(b.component_name) || /_ER$/i.test(b.component_code);
+        if (isEr) {
+          erBundle += Number(b.amount || 0);
+        } else if (b.component_type === 'EARNING') {
+          finalEarnings.push(b);
+        } else {
+          finalDeductions.push(b);
+        }
+      }
+
+      for (const t of taxLinesRows) {
+        const isEr = /employer|employeer/i.test(t.deduction_name) || /_ER$/i.test(t.deduction_code);
+        if (isEr) {
+          erBundle += Number(t.amount || 0);
+        } else {
+          finalStatutory.push(t);
+        }
+      }
+
+      // Add bundle to Special Allowance
+      let saFound = false;
+      for (const e of finalEarnings) {
+        if (e.component_code === 'SPECIAL' || /special/i.test(e.component_name)) {
+          e.amount = (Number(e.amount) + erBundle).toFixed(2);
+          saFound = true;
+          break;
+        }
+      }
+      if (!saFound && erBundle > 0) {
+        finalEarnings.push({ component_code: 'SPECIAL', component_name: 'Special Allowance', component_type: 'EARNING', amount: erBundle.toFixed(2), taxable: 1, prorated: 1 });
+      }
 
       const payslip = {
         employee_id: employeeId,
         cycle: { year, month, start: sd, end: ed },
         structure: { id: structure.id, name: structure.structure_name, ctc: Number(structure.ctc_amount) },
         attendance_snapshot: s,
-        earnings: breakups.filter(b => b.component_type === 'EARNING'),
-        component_deductions: breakups.filter(b => b.component_type === 'DEDUCTION'),
-        statutory_deductions: taxLines,
-        totals: { gross: Number(gross.toFixed(2)), deductions: Number(deductions.toFixed(2)), net: Number(net.toFixed(2)) }
+        earnings: finalEarnings,
+        component_deductions: finalDeductions,
+        statutory_deductions: finalStatutory,
+        totals: { 
+          gross: (Number(gross) + erBundle).toFixed(2), 
+          deductions: (Number(deductions) - erBundle).toFixed(2), 
+          net: Number(net.toFixed(2)) 
+        }
       };
 
       await conn.query(
