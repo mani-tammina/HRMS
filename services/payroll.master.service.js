@@ -632,12 +632,9 @@ exports.listComposition = async (req, res) => {
 
     const processed = rows.map(r => ({
       ...r,
-      // If it's a fixed value, divide by 12 for monthly view as requested
-      value: r.calculation_type === 'FIXED' ? (Number(r.value || 0) / 12.0).toFixed(2) : r.value,
-      // Also handle formula_or_value if it's a simple numeric override
-      formula_or_value: (r.calculation_type === 'FIXED' && /^\d+(\.\d+)?$/.test(r.formula_or_value)) 
-        ? (Number(r.formula_or_value) / 12.0).toFixed(2) 
-        : r.formula_or_value
+      // Reverted to annual values as requested
+      value: r.value,
+      formula_or_value: r.formula_or_value
     }));
 
     res.json(processed);

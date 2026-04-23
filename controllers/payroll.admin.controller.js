@@ -345,6 +345,7 @@ async function getEmployeeRunStatus(req, res) {
                 if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
                     actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
                 } else {
+                    // Calculate as % of monthly Gross CTC
                     actualValue = (monthlyGross * inputVal) / 100.0;
                 }
             } else {
