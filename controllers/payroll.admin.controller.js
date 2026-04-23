@@ -319,13 +319,42 @@ async function getEmployeeRunStatus(req, res) {
             [contract.template_id]
         );
         
-        templateComponents = compRows.map(r => ({
-            ...r,
-            value: r.calculation_type === 'FIXED' ? (Number(r.value || 0) / 12.0).toFixed(2) : r.value,
-            formula_or_value: (r.calculation_type === 'FIXED' && /^\d+(\.\d+)?$/.test(r.formula_or_value)) 
-                ? (Number(r.formula_or_value) / 12.0).toFixed(2) 
-                : r.formula_or_value
-        }));
+        // Calculate live monthly values for the template components based on the contract CTC
+        const monthlyGross = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
+        const computed = {};
+
+        templateComponents = compRows.map(r => {
+            let actualValue = 0;
+            
+            // Extract the numeric value from formula_or_value (if it's a simple number or percentage)
+            // or fallback to the master component's default value.
+            let inputVal = Number(r.value || 0);
+            const override = String(r.formula_or_value || "");
+            if (/^\d+(\.\d+)?%?$/.test(override)) {
+                inputVal = Number(override.replace('%', ''));
+            }
+
+            if (r.calculation_type === 'PERCENTAGE') {
+                if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
+                    // Calculate as % of another component (e.g., HRA as % of BASIC)
+                    actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
+                } else {
+                    // Calculate as % of monthly Gross CTC
+                    actualValue = (monthlyGross * inputVal) / 100.0;
+                }
+            } else {
+                // FIXED value: assume it's annual and divide by 12
+                actualValue = inputVal / 12.0;
+            }
+
+            // Store for future percentage-of-code lookups in the same sequence
+            computed[r.component_code] = actualValue;
+
+            return {
+                ...r,
+                value: actualValue.toFixed(2)
+            };
+        });
     }
 
     c.end();
