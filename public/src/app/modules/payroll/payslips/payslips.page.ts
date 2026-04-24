@@ -220,38 +220,43 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.totalContributions = 0;
     this.totalTaxes = 0;
 
-    // 1. First find PF Employer amount and PT amount if they exist
-    let pfEmployerAmount = 0;
+    // 1. First find total Employer amount and PT amount if they exist
+    let totalEmployerAmount = 0;
     let ptAmount = 0;
     components.forEach(c => {
       const code = (c.component_code || '').toUpperCase();
       const name = (c.component_name || '').toUpperCase();
-      if (code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER')) {
-        if (code.includes('PF')) pfEmployerAmount = Number(c.value || 0);
+      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
+      
+      if (isER) {
+        totalEmployerAmount += Number(c.value || 0);
+        if (code.includes('PF') || name.includes('PF')) {
+          this.employerPfAmount = Number(c.value || 0) * 12;
+        }
       }
       if (code.includes('PROF_TAX') || code === 'PT' || name.includes('PROFESSIONAL TAX')) {
         ptAmount = Number(c.value || 0);
       }
     });
 
-    // 2. Map components to UI, adding PF Employer and PT to Special Allowance
+    // 2. Map components to UI, adding total Employer and PT to Special Allowance
     components.forEach(c => {
       const code = (c.component_code || '').toUpperCase();
       const name = c.component_name;
       const type = (c.component_type || '').toUpperCase();
       let amount = Math.round(Number(c.value || 0));
-      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
+      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || (name || '').toUpperCase().includes('EMPLOYER');
 
-      // Add PF Employer and PT to Special Allowance if this is the Special Allowance component
-      const isSpecial = code === 'SPECIAL' || name.toUpperCase().includes('SPECIAL ALLOWANCE');
+      // Add total Employer and PT to Special Allowance if this is the Special Allowance component
+      const isSpecial = code === 'SPECIAL' || (name || '').toUpperCase().includes('SPECIAL ALLOWANCE');
       if (isSpecial) {
-        amount += Math.round(pfEmployerAmount) + Math.round(ptAmount);
+        amount += Math.round(totalEmployerAmount) + Math.round(ptAmount);
       }
 
       const compObj = { name, actual: amount, paid: amount, isER };
 
+      // Do NOT display Employer Contributions in the Earnings or Deductions UI list
       if (isER) {
-        if (code.includes('PF')) this.employerPfAmount = amount * 12;
         return;
       }
 
@@ -370,13 +375,15 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
     const brk = { earnings: [] as any[], contributions: [] as any[], taxes: [] as any[], totalEarnings: 0, totalContributions: 0, totalTaxes: 0, totalDeductions: 0, netSalary: 0 };
 
-    // Find PF Employer and PT for merging into SA in UI
-    let pfEmployerMonthly = 0;
+    // Find total Employer Contribution and PT for merging into SA in UI
+    let totalEmployerMonthly = 0;
     let ptMonthly = 0;
     sortedComps.forEach(c => {
         const code = (c.component_code || c.code || '').toUpperCase();
         const name = (c.component_name || c.name || '').toUpperCase();
-        if (code.includes('EMPLOYER') && code.includes('PF')) pfEmployerMonthly = Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
+        const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
+        
+        if (isER) totalEmployerMonthly += Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
         if (code.includes('PROF_TAX') || code === 'PT' || name.includes('PROFESSIONAL TAX')) ptMonthly = Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
     });
 
@@ -384,18 +391,19 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const code = (c.component_code || c.code || '').toUpperCase();
       const name = c.component_name || c.name;
       const type = (c.component_type || c.type || '').toUpperCase();
-      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER');
+      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || (name || '').toUpperCase().includes('EMPLOYER');
 
       const annualAmt = calculatedAmts[c.component_code || c.code] || 0;
       let monthlyAmt = Math.round(annualAmt / 12);
       
-      // Merge PF Employer and PT into Special Allowance if this is SA
+      // Merge total Employer contribution and PT into Special Allowance if this is SA
       if (isSA(code, name)) {
-          monthlyAmt += pfEmployerMonthly + ptMonthly;
+          monthlyAmt += totalEmployerMonthly + ptMonthly;
       }
 
       const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
 
+      // Do NOT push Employer Contributions to the Breakup Modal UI arrays
       if (isER) return;
 
       if (type === 'EARNING') {
