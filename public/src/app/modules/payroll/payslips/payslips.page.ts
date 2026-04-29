@@ -50,9 +50,13 @@ export class PayslipsPage implements OnInit, OnDestroy {
   taxes: any[] = [];
 
   totalEarnings: number = 0;
+  totalActualEarnings: number = 0;
   totalContributions: number = 0;
+  totalActualContributions: number = 0;
   totalTaxes: number = 0;
+  totalActualTaxes: number = 0;
   totalDeductions: number = 0;
+  totalActualDeductions: number = 0;
   netSalary: number = 0;
   netSalaryInWords: string = '';
 
@@ -254,25 +258,33 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.contributions = [];
     this.taxes = [];
     this.totalEarnings = 0;
+    this.totalActualEarnings = 0;
     this.totalContributions = 0;
+    this.totalActualContributions = 0;
     this.totalTaxes = 0;
+    this.totalActualTaxes = 0;
 
     // 1. First find total Employer amount and PT amount if they exist
-    let totalEmployerAmount = 0;
-    let ptAmount = 0;
+    let totalEmployerPaid = 0;
+    let totalEmployerActual = 0;
+    let ptPaid = 0;
+    let ptActual = 0;
+
     components.forEach(c => {
       const code = (c.component_code || '').toUpperCase();
       const name = (c.component_name || '').toUpperCase();
       const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
 
       if (isER) {
-        totalEmployerAmount += Number(c.value || 0);
+        totalEmployerPaid += Number(c.value || 0);
+        totalEmployerActual += Number(c.full_value || 0);
         if (code.includes('PF') || name.includes('PF')) {
-          this.employerPfAmount = Number(c.value || 0) * 12;
+          this.employerPfAmount = Number(c.full_value || 0) * 12;
         }
       }
       if (code.includes('PROF_TAX') || code === 'PT' || name.includes('PROFESSIONAL TAX')) {
-        ptAmount = Number(c.value || 0);
+        ptPaid = Number(c.value || 0);
+        ptActual = Number(c.full_value || 0);
       }
     });
 
@@ -281,41 +293,46 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const code = (c.component_code || '').toUpperCase();
       const name = c.component_name;
       const type = (c.component_type || '').toUpperCase();
-      let amount = Math.round(Number(c.value || 0));
+      let paidAmt = Math.round(Number(c.value || 0));
+      let actualAmt = Math.round(Number(c.full_value || 0));
       const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || (name || '').toUpperCase().includes('EMPLOYER');
 
       // Add total Employer and PT to Special Allowance if this is the Special Allowance component
       const isSpecial = code === 'SPECIAL' || (name || '').toUpperCase().includes('SPECIAL ALLOWANCE');
-      if (isSpecial) {
-        amount += Math.round(totalEmployerAmount) + Math.round(ptAmount);
-      }
+      // NOTE: Removed manual addition of employer/pt here as per user request to match backend API exactly.
+      
+      const compObj = { name, actual: actualAmt, paid: paidAmt, isER };
 
-      const compObj = { name, actual: amount, paid: amount, isER };
-
-      // Do NOT display Employer Contributions in the Earnings or Deductions UI list
-      if (isER) {
-        return;
-      }
+      if (isER) return;
 
       if (type === 'EARNING') {
         this.earnings.push(compObj);
-        this.totalEarnings += amount;
+        this.totalEarnings += paidAmt;
+        this.totalActualEarnings += actualAmt;
       } else if (type === 'DEDUCTION') {
-        if (code.includes('TAX') || code.includes('TDS') || name.toUpperCase().includes('TAX')) {
+        if (code.includes('TAX') || code.includes('TDS') || (name || '').toUpperCase().includes('TAX')) {
           this.taxes.push(compObj);
-          this.totalTaxes += amount;
-          if (code.includes('PROF_TAX') || code.includes('PT')) this.professionalTaxAmount = amount * 12;
+          this.totalTaxes += paidAmt;
+          this.totalActualTaxes += actualAmt;
+          if (code.includes('PROF_TAX') || code.includes('PT')) this.professionalTaxAmount = actualAmt * 12;
         } else {
           this.contributions.push(compObj);
-          this.totalContributions += amount;
+          this.totalContributions += paidAmt;
+          this.totalActualContributions += actualAmt;
         }
       }
     });
 
     this.totalEarnings = Math.round(this.totalEarnings);
+    this.totalActualEarnings = Math.round(this.totalActualEarnings);
     this.totalContributions = Math.round(this.totalContributions);
+    this.totalActualContributions = Math.round(this.totalActualContributions);
     this.totalTaxes = Math.round(this.totalTaxes);
+    this.totalActualTaxes = Math.round(this.totalActualTaxes);
+    
     this.totalDeductions = this.totalContributions + this.totalTaxes;
+    this.totalActualDeductions = this.totalActualContributions + this.totalActualTaxes;
+    
     this.netSalary = Math.round(this.totalEarnings - this.totalDeductions);
     this.netSalaryInWords = this.toWords(this.netSalary);
   }

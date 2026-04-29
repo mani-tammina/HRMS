@@ -312,11 +312,15 @@
     color: #334155;
     text-transform: uppercase;
     letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
   }
 
   .table-item {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
     padding: 12px 20px;
     border-bottom: 1px solid #f8fafc;
     transition: background 0.2s;
@@ -325,27 +329,34 @@
       background: #f8fafc;
     }
 
-    .name {
+    .name-col {
+      flex: 2;
       font-size: 13px;
       color: #475569;
       font-weight: 600;
     }
-    .value {
+    .val-col {
+      flex: 1;
       font-size: 13px;
       font-weight: 800;
       color: #0f172a;
+      text-align: right;
     }
   }
 
   .table-total {
     display: flex;
-    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
     padding: 16px 20px;
     background: #eff6ff;
     font-size: 13px;
     font-weight: 800;
     color: #1d4ed8;
     border-top: 1px solid #dbeafe;
+
+    .name-col { flex: 2; }
+    .val-col { flex: 1; text-align: right; }
   }
 }
 

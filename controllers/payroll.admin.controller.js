@@ -362,63 +362,70 @@ async function getEmployeeRunStatus(req, res) {
         const fullMonthlyCTC = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
         const monthlyGrossCalculated = Math.round(fullMonthlyCTC * proRataFactor);
         const computed = {};
+        const full_computed = {};
         let otherTotal = 0;
+        let fullOtherTotal = 0;
         let specialCompIdx = -1;
 
         // First pass: Calculate and round all components except Special Allowance
         let results = compRows.map((r, idx) => {
-            // Check for Special Allowance (balancing component)
             if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
                 specialCompIdx = idx;
-                return null; // Placeholder for balancing
+                return null;
             }
             
-            let actualValue = 0;
             let inputVal = Number(r.value || 0);
             const override = String(r.formula_or_value || "");
-            
             if (/^\d+(\.\d+)?%?$/.test(override)) {
                 inputVal = Number(override.replace('%', ''));
             }
 
+            let actualValue = 0;
+            let fullValueRaw = 0;
+
             if (r.calculation_type === 'PERCENTAGE') {
                 if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
                     actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
+                    fullValueRaw = (full_computed[r.percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    // Calculate as % of pro-rated monthly Gross CTC
                     actualValue = (fullMonthlyCTC * proRataFactor * inputVal) / 100.0;
+                    fullValueRaw = (fullMonthlyCTC * inputVal) / 100.0;
                 }
             } else {
-                // FIXED: Divide by 12 and apply pro-rata factor
                 actualValue = (inputVal / 12.0) * proRataFactor;
+                fullValueRaw = inputVal / 12.0;
             }
 
             const roundedValue = Math.round(actualValue);
-            computed[r.component_code] = roundedValue;
+            const roundedFullValue = Math.round(fullValueRaw);
             
-            // Only Earnings and Employer contributions should be part of the CTC balancing sum.
+            computed[r.component_code] = roundedValue;
+            full_computed[r.component_code] = roundedFullValue;
+            
             const isEarning = r.component_type === 'EARNING';
             const isEmployer = r.component_code?.includes('EMPLOYER') || r.component_code?.includes('EMPLOYEER') || r.component_name?.includes('Employer') || r.component_name?.includes('Employeer');
             
             if (isEarning || isEmployer) {
                 otherTotal += roundedValue;
+                fullOtherTotal += roundedFullValue;
             }
             
             return {
                 ...r,
-                value: roundedValue.toString()
+                value: roundedValue.toString(),
+                full_value: roundedFullValue.toString()
             };
         });
 
-        // Second pass: Calculate Special Allowance if it exists in the template
         if (specialCompIdx !== -1) {
             const specialComp = compRows[specialCompIdx];
-            // Special Allowance = Rounded Total CTC - Sum of all other rounded components
             const specialValue = Math.max(0, monthlyGrossCalculated - otherTotal);
+            const fullSpecialValue = Math.max(0, Math.round(fullMonthlyCTC) - fullOtherTotal);
             
             results[specialCompIdx] = {
                 ...specialComp,
-                value: specialValue.toString()
+                value: specialValue.toString(),
+                full_value: fullSpecialValue.toString()
             };
         }
 
