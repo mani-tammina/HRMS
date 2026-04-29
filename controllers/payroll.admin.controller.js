@@ -288,6 +288,45 @@ async function getEmployeeRunStatus(req, res) {
       [employeeId, parsed.year, parsed.month]
     );
 
+    // Calculate attendance metrics for pro-rata scaling
+    const totalCalendarDays = new Date(parsed.year, parsed.month, 0).getDate();
+    const startDate = `${parsed.year}-${String(parsed.month).padStart(2, '0')}-01`;
+    const endDate = `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${totalCalendarDays}`;
+    
+    let weekOffNames = [];
+    const [employeeData] = await c.query("SELECT weekly_off_policy_id FROM employees WHERE id = ?", [employeeId]);
+    if (employeeData.length && employeeData[0].weekly_off_policy_id) {
+        const [wp] = await c.query("SELECT * FROM weekly_off_policies WHERE id = ?", [employeeData[0].weekly_off_policy_id]);
+        if (wp.length) {
+            const policy = wp[0];
+            if (policy.sunday_off) weekOffNames.push('sunday');
+            if (policy.monday_off) weekOffNames.push('monday');
+            if (policy.tuesday_off) weekOffNames.push('tuesday');
+            if (policy.wednesday_off) weekOffNames.push('wednesday');
+            if (policy.thursday_off) weekOffNames.push('thursday');
+            if (policy.friday_off) weekOffNames.push('friday');
+            if (policy.saturday_off) weekOffNames.push('saturday');
+        }
+    }
+
+    const [attRecords] = await c.query(
+        "SELECT id FROM attendance WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?",
+        [employeeId, startDate, endDate]
+    );
+    const attRecordCount = attRecords.length;
+
+    let weekendCount = 0;
+    let tempCurr = new Date(startDate);
+    let tempEnd = new Date(endDate);
+    while (tempCurr <= tempEnd) {
+        const dayName = tempCurr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        if (weekOffNames.includes(dayName)) weekendCount++;
+        tempCurr.setDate(tempCurr.getDate() + 1);
+    }
+
+    const totalAttendanceDays = attRecordCount + weekendCount;
+    const proRataFactor = totalCalendarDays > 0 ? (totalAttendanceDays / totalCalendarDays) : 1;
+
     // 2. Get Active Contract for the employee
     const [contractRows] = await c.query(
       `SELECT esc.*, t.template_name
@@ -319,9 +358,9 @@ async function getEmployeeRunStatus(req, res) {
             [contract.template_id]
         );
         
-        // Calculate live monthly values for the template components based on the contract CTC
-        const monthlyGross = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
-        const targetMonthly = Math.round(monthlyGross);
+        // Calculate pro-rated monthly Gross (Target CTC for balancing)
+        const fullMonthlyCTC = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
+        const monthlyGrossCalculated = Math.round(fullMonthlyCTC * proRataFactor);
         const computed = {};
         let otherTotal = 0;
         let specialCompIdx = -1;
@@ -346,17 +385,24 @@ async function getEmployeeRunStatus(req, res) {
                 if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
                     actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    // Calculate as % of monthly Gross CTC (unrounded for precision during intermediate steps)
-                    actualValue = (monthlyGross * inputVal) / 100.0;
+                    // Calculate as % of pro-rated monthly Gross CTC
+                    actualValue = (fullMonthlyCTC * proRataFactor * inputVal) / 100.0;
                 }
             } else {
-                // FIXED: Divide by 12 as they are typically annual values in the template
-                actualValue = inputVal / 12.0;
+                // FIXED: Divide by 12 and apply pro-rata factor
+                actualValue = (inputVal / 12.0) * proRataFactor;
             }
 
             const roundedValue = Math.round(actualValue);
             computed[r.component_code] = roundedValue;
-            otherTotal += roundedValue;
+            
+            // Only Earnings and Employer contributions should be part of the CTC balancing sum.
+            const isEarning = r.component_type === 'EARNING';
+            const isEmployer = r.component_code?.includes('EMPLOYER') || r.component_code?.includes('EMPLOYEER') || r.component_name?.includes('Employer') || r.component_name?.includes('Employeer');
+            
+            if (isEarning || isEmployer) {
+                otherTotal += roundedValue;
+            }
             
             return {
                 ...r,
@@ -368,7 +414,7 @@ async function getEmployeeRunStatus(req, res) {
         if (specialCompIdx !== -1) {
             const specialComp = compRows[specialCompIdx];
             // Special Allowance = Rounded Total CTC - Sum of all other rounded components
-            const specialValue = Math.max(0, targetMonthly - otherTotal);
+            const specialValue = Math.max(0, monthlyGrossCalculated - otherTotal);
             
             results[specialCompIdx] = {
                 ...specialComp,
@@ -377,7 +423,13 @@ async function getEmployeeRunStatus(req, res) {
         }
 
         templateComponents = results.filter(r => r !== null);
+        monthlyGross = monthlyGrossCalculated;
     }
+
+    const monthlyCTCValue = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;
+    const totalEarnings = templateComponents
+        .filter(c => c.component_type === 'EARNING')
+        .reduce((sum, c) => sum + Number(c.value || 0), 0);
 
     c.end();
 
@@ -388,6 +440,11 @@ async function getEmployeeRunStatus(req, res) {
         exists: false,
         status: 'NOT_PROCESSED',
         contract,
+        monthlyCTC: monthlyCTCValue,
+        monthlyGross,
+        totalEarnings,
+        total_days: totalAttendanceDays,
+        lop_days: Math.max(0, totalCalendarDays - totalAttendanceDays),
         templateComponents
       });
     }
@@ -398,6 +455,11 @@ async function getEmployeeRunStatus(req, res) {
       exists: true,
       run: rows[0],
       contract,
+      monthlyCTC: monthlyCTCValue,
+      monthlyGross,
+      totalEarnings,
+      total_days: totalAttendanceDays,
+      lop_days: Math.max(0, totalCalendarDays - totalAttendanceDays),
       templateComponents
     });
   } catch (err) {

@@ -35,7 +35,8 @@
           <div class="sidebar-content">
             <div class="year-selector">
               <ion-item lines="none" class="custom-select-item">
-                <ion-select [(ngModel)]="selectedYear" interface="popover" class="full-width-select" (ionChange)="onYearChange()">
+                <ion-select [(ngModel)]="selectedYear" interface="popover" class="full-width-select"
+                  (ionChange)="onYearChange()">
                   <ion-select-option *ngFor="let y of availableYears" [value]="y">Year {{ y }}</ion-select-option>
                 </ion-select>
               </ion-item>
@@ -43,10 +44,9 @@
 
             <div class="month-list-header">PAYSLIPS</div>
             <ion-list class="month-list">
-              <ion-item button lines="full" 
-                        *ngFor="let m of availableMonths" 
-                        [class.selected-month]="selectedMonthStr === (m.year + '-' + (m.month | number:'2.0-0'))"
-                        (click)="selectMonth(m)">
+              <ion-item button lines="full" *ngFor="let m of availableMonths"
+                [class.selected-month]="selectedMonthStr === (m.year + '-' + (m.month | number:'2.0-0'))"
+                (click)="selectMonth(m)">
                 <ion-label>
                   <h2>{{ getMonthName(m.month) }} {{ m.year }}</h2>
                 </ion-label>
@@ -172,10 +172,18 @@
                 <!-- ATTENDANCE SUMMARY -->
                 <div class="attendance-block">
                   <ion-row>
-                    <ion-col size="3"><label>Actual Payable Days</label><p>{{ actualPayableDays }}</p></ion-col>
-                    <ion-col size="3"><label>Total Working Days</label><p>{{ totalWorkingDays }}</p></ion-col>
-                    <ion-col size="3"><label>Loss of Pay Days</label><p>{{ lopDays }}</p></ion-col>
-                    <ion-col size="3"><label>Days Payable</label><p>{{ daysPayable }}</p></ion-col>
+                    <ion-col size="3"><label>Actual Payable Days</label>
+                      <p>{{ actualPayableDays }}</p>
+                    </ion-col>
+                    <ion-col size="3"><label>Total Working Days</label>
+                      <p>{{ totalWorkingDays }}</p>
+                    </ion-col>
+                    <ion-col size="3"><label>Loss of Pay Days</label>
+                      <p>{{ lopDays }}</p>
+                    </ion-col>
+                    <ion-col size="3"><label>Days Payable</label>
+                      <p>{{ daysPayable }}</p>
+                    </ion-col>
                   </ion-row>
                 </div>
 
@@ -236,7 +244,8 @@
               <div class="not-generated-card">
                 <ion-icon name="document-text-outline"></ion-icon>
                 <h2>Your payslip not generated</h2>
-                <p>The payroll for {{ selectedMonthStr | date:'MMMM yyyy' }} is currently under process or has not been finalized yet. Please check back later.</p>
+                <p>The payroll for {{ selectedMonthStr | date:'MMMM yyyy' }} is currently under process or has not been
+                  finalized yet. Please check back later.</p>
               </div>
             </div>
           </ng-container>
@@ -247,7 +256,8 @@
 
   <!-- Taxation tab — Now a child component -->
   <div *ngIf="currentTab === 'taxation'">
-    <app-taxation [financialYear]="financialYear" [professionalTax]="professionalTaxAmount" [employerPf]="employerPfAmount"></app-taxation>
+    <app-taxation [financialYear]="financialYear" [professionalTax]="professionalTaxAmount"
+      [employerPf]="employerPfAmount"></app-taxation>
   </div>
 
   <!-- My Salary Tab -->

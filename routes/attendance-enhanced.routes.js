@@ -582,7 +582,7 @@ router.get("/my-report", auth, async (req, res) => {
     }
 
     const summary = {
-      total_days: attendance.length,
+      total_days: attendance.length + weekend_days,
       present_days: present_days,
       absent_days: absent_days,
       half_days: half_day_count,

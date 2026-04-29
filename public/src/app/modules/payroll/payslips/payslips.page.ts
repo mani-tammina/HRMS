@@ -55,7 +55,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
   totalDeductions: number = 0;
   netSalary: number = 0;
   netSalaryInWords: string = '';
-  
+
   ones: string[] = [
     "", "One", "Two", "Three", "Four", "Five", "Six",
     "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve",
@@ -137,7 +137,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth() + 1;
-    
+
     const months = [];
     const limit = (this.selectedYear === currentYear) ? currentMonth : 12;
 
@@ -154,7 +154,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     this.generateMonthList();
     // Auto-select the first month of the new year list
     if (this.availableMonths.length > 0) {
-        this.selectMonth(this.availableMonths[0]);
+      this.selectMonth(this.availableMonths[0]);
     }
   }
 
@@ -166,20 +166,21 @@ export class PayslipsPage implements OnInit, OnDestroy {
     const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
     const lastDay = new Date(year, month, 0).getDate();
     const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
-    
+
     this.actualPayableDays = lastDay;
 
     this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
+        console.log(res.summary)
         if (res?.summary) {
           // Total Working Days = present_days + leave_days + weekend_days (since these are payable)
           const present = res.summary.present_days || 0;
           const leaves = res.summary.leave_days || 0;
           const weekends = res.summary.weekend_days || 0;
-          
+
           this.totalWorkingDays = present + leaves + weekends;
           this.lopDays = res.summary.lop_days || 0;
-          
+
           // Formula: Total Working Days - Loss of Pay Days
           this.daysPayable = Math.max(0, this.totalWorkingDays - this.lopDays);
           this.payableDays = this.daysPayable; // Sync with existing property
@@ -196,12 +197,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
       next: (res: any) => {
         if (res.success && res.data) {
           const data = res.data;
-          
+
           // Only show payslip if runStatus is COMPLETED
           if (data.run && data.run.runStatus === 'COMPLETED') {
             this.isPayslipGenerated = true;
             this.activeContract = data.contract;
-            this.mapComponentsToUI(data.contract, data.templateComponents || []);
+            this.mapComponentsToUI(data.contract, data.templateComponents || [], data.monthlyGross || 0);
           } else {
             this.isPayslipGenerated = false;
           }
@@ -246,9 +247,8 @@ export class PayslipsPage implements OnInit, OnDestroy {
     html2pdf().from(element).set(opt).save();
   }
 
-  private mapComponentsToUI(contract: any, components: any[]) {
-    const ctc = Number(contract?.annual_ctc) || 0;
-    this.monthlySalary = Math.round(ctc / 12);
+  private mapComponentsToUI(contract: any, components: any[], monthlyGross: number) {
+    this.monthlySalary = monthlyGross;
 
     this.earnings = [];
     this.contributions = [];
@@ -264,7 +264,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
       const code = (c.component_code || '').toUpperCase();
       const name = (c.component_name || '').toUpperCase();
       const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
-      
+
       if (isER) {
         totalEmployerAmount += Number(c.value || 0);
         if (code.includes('PF') || name.includes('PF')) {
@@ -416,12 +416,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
     let totalEmployerMonthly = 0;
     let ptMonthly = 0;
     sortedComps.forEach(c => {
-        const code = (c.component_code || c.code || '').toUpperCase();
-        const name = (c.component_name || c.name || '').toUpperCase();
-        const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
-        
-        if (isER) totalEmployerMonthly += Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
-        if (code.includes('PROF_TAX') || code === 'PT' || name.includes('PROFESSIONAL TAX')) ptMonthly = Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
+      const code = (c.component_code || c.code || '').toUpperCase();
+      const name = (c.component_name || c.name || '').toUpperCase();
+      const isER = code.includes('EMPLOYER') || code.includes('EMPLOYEER') || code.includes('_ER') || name.includes('EMPLOYER');
+
+      if (isER) totalEmployerMonthly += Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
+      if (code.includes('PROF_TAX') || code === 'PT' || name.includes('PROFESSIONAL TAX')) ptMonthly = Math.round((calculatedAmts[c.component_code || c.code] || 0) / 12);
     });
 
     sortedComps.forEach(c => {
@@ -432,10 +432,10 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
       const annualAmt = calculatedAmts[c.component_code || c.code] || 0;
       let monthlyAmt = Math.round(annualAmt / 12);
-      
+
       // Merge total Employer contribution and PT into Special Allowance if this is SA
       if (isSA(code, name)) {
-          monthlyAmt += totalEmployerMonthly + ptMonthly;
+        monthlyAmt += totalEmployerMonthly + ptMonthly;
       }
 
       const compObj = { name, actual: monthlyAmt, paid: monthlyAmt, isER };
