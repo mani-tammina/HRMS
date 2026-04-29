@@ -128,20 +128,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.reloadInProgress = true;
     this.resetState();
 
-    const profile$ = this.employeeId 
-       ? this.employeeService.getEmployeeById(this.employeeId).pipe(catchError(() => of(null)))
-       : this.employeeService.getMyProfile().pipe(catchError(() => of(null)));
-       
+    const profile$ = this.employeeId
+      ? this.employeeService.getEmployeeById(this.employeeId).pipe(catchError(() => of(null)))
+      : this.employeeService.getMyProfile().pipe(catchError(() => of(null)));
+
     const shiftPolicies$ = this.adminService.getShiftPolicies().pipe(catchError(() => of([])));
     const weekOffPolicies$ = this.adminService.getWeeklyOffPolicies().pipe(catchError(() => of([])));
-    
+
     const leaves$ = this.employeeId
-       ? of([]) // Optionally fetch for others if needed
-       : this.leaveService.getMyLeaves(this.currentYear).pipe(catchError(() => of([])));
-       
+      ? of([]) // Optionally fetch for others if needed
+      : this.leaveService.getMyLeaves(this.currentYear).pipe(catchError(() => of([])));
+
     const todayPunches$ = this.employeeId
-       ? of({ punches: [] })
-       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
+      ? of({ punches: [] })
+      : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
     forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$ })
       .pipe(takeUntil(this.destroy$)).subscribe({
@@ -186,19 +186,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   loadMonthlyReport(): void {
-    const request = this.employeeId 
+    const request = this.employeeId
       ? this.attendanceApi.getEmployeeReport(this.employeeId, {
-          startDate: this.startDate,
-          endDate: this.endDate,
-          month: this.currentMonth,
-          year: this.currentYear,
-        })
+        startDate: this.startDate,
+        endDate: this.endDate,
+        month: this.currentMonth,
+        year: this.currentYear,
+      })
       : this.attendanceApi.getMonthlyReport({
-          startDate: this.startDate,
-          endDate: this.endDate,
-          month: this.currentMonth,
-          year: this.currentYear,
-        });
+        startDate: this.startDate,
+        endDate: this.endDate,
+        month: this.currentMonth,
+        year: this.currentYear,
+      });
 
     request.subscribe({
       next: res => {
@@ -240,9 +240,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftStart = new Date(logD);
           shiftStart.setHours(sh, sm, ss || 0, 0);
 
-          // Penalty only kicks in after 24 hours from shift start
+          // Penalty only kicks in after 48 hours from shift start
           const penaltyThreshold = new Date(shiftStart);
-          penaltyThreshold.setHours(penaltyThreshold.getHours() + 24);
+          penaltyThreshold.setHours(penaltyThreshold.getHours() + 48);
 
           if (now > penaltyThreshold) {
             defaultStatus = 'penalty';
@@ -419,7 +419,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const statusMap: { [key: string]: string } = {
       present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
-      penalty: 'Penalty'
+      penalty: 'No Attendance Logs'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {
@@ -518,7 +518,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         toast.present();
         this.loadMonthlyReport();
         if (this.selectedLog && this.selectedLog.attendance_date === log.attendance_date) {
-           this.closeSlider();
+          this.closeSlider();
         }
       },
       error: async (err) => {

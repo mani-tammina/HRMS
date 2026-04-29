@@ -605,14 +605,15 @@ router.get("/balance", auth, async (req, res) => {
       SELECT COUNT(*) as count FROM attendance 
       WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
     `, [emp.id, leaveYear]);
-    
+
     let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
 
     // 2. Active 24h violations (missing logs)
     const [empSettings] = await c.query(`
-      SELECT e.id, sp.start_time, wop.* 
+      SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN missing_log_times mlt ON sp.id = mlt.shift_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
     `, [emp.id]);
@@ -623,7 +624,7 @@ router.get("/balance", auth, async (req, res) => {
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
         const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
-        endDay.setHours(0,0,0,0);
+        endDay.setHours(0, 0, 0, 0);
 
         const [existingDates] = await c.query(`
           SELECT attendance_date FROM attendance 
@@ -649,16 +650,17 @@ router.get("/balance", auth, async (req, res) => {
           const dStr = curr.toDateString();
           const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
           if (!attDates.has(dStr)) {
-             const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
-             if (!isLeave && !weekOffDays.includes(weekday)) {
-                const shiftStartStr = employee.start_time || '09:00:00';
-                const [sh, sm] = shiftStartStr.split(':').map(Number);
-                const shiftStart = new Date(curr);
-                shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-                const threshold = new Date(shiftStart);
-                threshold.setHours(threshold.getHours() + 24);
-                if (now > threshold) penaltyLop += 0.5;
-             }
+            const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+            if (!isLeave && !weekOffDays.includes(weekday)) {
+              const shiftStartStr = employee.start_time || '09:00:00';
+              const [sh, sm] = shiftStartStr.split(':').map(Number);
+              const shiftStart = new Date(curr);
+              shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+              const threshold = new Date(shiftStart);
+              const thresholdHours = employee.missing_log_threshold || 48;
+              threshold.setHours(threshold.getHours() + thresholdHours);
+              if (now > threshold) penaltyLop += 0.5;
+            }
           }
           curr.setDate(curr.getDate() + 1);
         }
@@ -682,12 +684,12 @@ router.get("/balance", auth, async (req, res) => {
     // Determine if initialization is needed
     let needsInitialization = false;
     if (emp.leave_plan_id) {
-       const [allocRows] = await c.query(
-         `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
-         [emp.leave_plan_id]
-       );
-       const expectedCount = allocRows[0].count || 0;
-       needsInitialization = updatedBalances.length < expectedCount;
+      const [allocRows] = await c.query(
+        `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
+        [emp.leave_plan_id]
+      );
+      const expectedCount = allocRows[0].count || 0;
+      needsInitialization = updatedBalances.length < expectedCount;
     }
 
     c.end();
@@ -912,14 +914,15 @@ router.get("/my-leaves", auth, async (req, res) => {
       SELECT COUNT(*) as count FROM attendance 
       WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
     `, [emp.id, leaveYear]);
-    
+
     let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
 
     // 2. Active 24h violations for days with no records
     const [empSettings] = await c.query(`
-      SELECT e.id, sp.start_time, wop.* 
+      SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN missing_log_times mlt ON sp.id = mlt.shift_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
     `, [emp.id]);
@@ -930,7 +933,7 @@ router.get("/my-leaves", auth, async (req, res) => {
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
         const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
-        endDay.setHours(0,0,0,0);
+        endDay.setHours(0, 0, 0, 0);
 
         // Get existing attendance dates to avoid double counting
         const [existingDates] = await c.query(`
@@ -957,24 +960,25 @@ router.get("/my-leaves", auth, async (req, res) => {
         while (curr < endDay) {
           const dStr = curr.toDateString();
           const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-          
+
           if (!attDates.has(dStr)) {
-             // Check if leave
-             const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
-             if (!isLeave && !weekOffDays.includes(weekday)) {
-                // Potential penalty
-                const shiftStartStr = employee.start_time || '09:00:00';
-                const [sh, sm] = shiftStartStr.split(':').map(Number);
-                const shiftStart = new Date(curr);
-                shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-                
-                const threshold = new Date(shiftStart);
-                threshold.setHours(threshold.getHours() + 24);
-                
-                if (now > threshold) {
-                  penaltyLop += 0.5;
-                }
-             }
+            // Check if leave
+            const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+            if (!isLeave && !weekOffDays.includes(weekday)) {
+              // Potential penalty
+              const shiftStartStr = employee.start_time || '09:00:00';
+              const [sh, sm] = shiftStartStr.split(':').map(Number);
+              const shiftStart = new Date(curr);
+              shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+              const threshold = new Date(shiftStart);
+              const thresholdHours = employee.missing_log_threshold || 48;
+              threshold.setHours(threshold.getHours() + thresholdHours);
+
+              if (now > threshold) {
+                penaltyLop += 0.5;
+              }
+            }
           }
           curr.setDate(curr.getDate() + 1);
         }
@@ -985,7 +989,7 @@ router.get("/my-leaves", auth, async (req, res) => {
       leaves.push({
         id: -1,
         employee_id: emp.id,
-        leave_type_id: 0, 
+        leave_type_id: 0,
         start_date: null,
         end_date: null,
         total_days: penaltyLop,

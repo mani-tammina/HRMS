@@ -90,6 +90,84 @@ createMasterRoutes(
 createMasterRoutes("holiday-lists", "holiday_lists", "name");
 createMasterRoutes("expense-policies", "expense_policies", "name");
 
+// ============ MISSING LOG TIMES ============
+router.get("/master/missing-log-times", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [rows] = await c.query(`
+      SELECT m.*, s.name as shift_name 
+      FROM missing_log_times m
+      LEFT JOIN shift_policies s ON m.shift_id = s.id
+      ORDER BY m.id DESC
+    `);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/master/missing-log-times", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { shift_id, threshold_hours } = req.body;
+    if (!shift_id || threshold_hours === undefined) {
+      return res.status(400).json({ error: "shift_id and threshold_hours are required" });
+    }
+    const c = await db();
+    const [existing] = await c.query("SELECT id FROM missing_log_times WHERE shift_id = ?", [shift_id]);
+    if (existing.length > 0) {
+      c.end();
+      return res.status(409).json({ error: "Missing log time for this shift already exists" });
+    }
+    const [result] = await c.query("INSERT INTO missing_log_times (shift_id, threshold_hours) VALUES (?, ?)", [shift_id, threshold_hours]);
+    c.end();
+    res.json({ success: true, message: "Missing log time created successfully", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { shift_id, threshold_hours } = req.body;
+    const c = await db();
+    const updates = [];
+    const values = [];
+    if (shift_id !== undefined) {
+      updates.push("shift_id = ?");
+      values.push(shift_id);
+    }
+    if (threshold_hours !== undefined) {
+      updates.push("threshold_hours = ?");
+      values.push(threshold_hours);
+    }
+    if (updates.length === 0) {
+      c.end();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    values.push(req.params.id);
+    await c.query(`UPDATE missing_log_times SET ${updates.join(", ")} WHERE id = ?`, values);
+    c.end();
+    res.json({ success: true, message: "Missing log time updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [result] = await c.query("DELETE FROM missing_log_times WHERE id = ?", [req.params.id]);
+    c.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Missing log time not found" });
+    }
+    res.json({ success: true, message: "Missing log time deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Enhanced Shift Policies Route
 router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
   try {

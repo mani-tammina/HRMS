@@ -143,6 +143,7 @@ const swaggerSpec = {
         },
       },
     },
+
     // ============ UPLOADS ============
     "/api/upload/employees": {
       post: {
@@ -10686,4 +10687,76 @@ Object.assign(swaggerSpec.paths, {
       },
     },
   },
+  // ============ MISSING LOG TIMES ============
+  "/api/master/missing-log-times": {
+    get: {
+      summary: "Get Missing Log Times",
+      description: "List of all missing log times settings based on shift",
+      tags: ["Penalty Details"],
+      responses: {
+        200: { description: "Success" }
+      }
+    },
+    post: {
+      summary: "Create Missing Log Time",
+      description: "Admin can create missing log time threshold based on shift",
+      tags: ["Penalty Details"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                shift_id: { type: "integer" },
+                threshold_hours: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Created" }
+      }
+    }
+  },
+  "/api/master/missing-log-times/{id}": {
+    put: {
+      summary: "Update Missing Log Time",
+      description: "Admin can edit missing log time",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                shift_id: { type: "integer" },
+                threshold_hours: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Updated" }
+      }
+    },
+    delete: {
+      summary: "Delete Missing Log Time",
+      description: "Admin can delete missing log time",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      responses: {
+        200: { description: "Deleted" }
+      }
+    }
+  },
 });
+
