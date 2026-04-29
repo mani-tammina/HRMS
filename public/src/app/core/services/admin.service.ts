@@ -138,7 +138,7 @@ export class AdminService {
 
   /* ===================== LEAVE PLANS ===================== */
   getLeavePlans(): Observable<any[]> {
-    return this.http.get<any[]>(`${this.baseUrl}/leave-plans`);
+    return this.http.get<any[]>(`${this.baseUrl}/leaves/plans`);
   }
   createLeavePlan(payload: MasterPayload): Observable<any> {
     return this.http.post(`${this.baseUrl}/leave-plans`, payload);
@@ -215,4 +215,32 @@ export class AdminService {
   initializeLeaveBalance(empId: number, payload: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/leaves/initialize-balance/${empId}`, payload);
   }
+
+  /* ===================== PENALTIES ===================== */
+  getMissingLogTimes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/master/missing-log-times`);
+  }
+  createMissingLogTime(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/master/missing-log-times`, payload);
+  }
+  updateMissingLogTime(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/master/missing-log-times/${id}`, payload);
+  }
+  deleteMissingLogTime(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/master/missing-log-times/${id}`);
+  }
+
+  getLateArrivals(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/master/late-time-arrivals`);
+  }
+  createLateArrival(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/master/late-time-arrivals`, payload);
+  }
+  updateLateArrival(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/master/late-time-arrivals/${id}`, payload);
+  }
+  deleteLateArrival(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/master/late-time-arrivals/${id}`);
+  }
 }
+

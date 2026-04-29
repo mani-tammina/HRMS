@@ -40,8 +40,12 @@
         <ion-label>Weekly Off</ion-label>
       </ion-segment-button>
       <ion-segment-button value="announcements">
-        <ion-icon name="anouncement"></ion-icon>
+        <ion-icon name="megaphone-outline"></ion-icon>
         <ion-label>Announcements</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="penalties">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <ion-label>Penalties</ion-label>
       </ion-segment-button>
     </ion-segment>
   </ion-toolbar>
@@ -65,7 +69,7 @@
             <div class="header-left">
               <ion-icon [name]="getTabIcon()" class="tab-main-icon"></ion-icon>
               <div>
-                <h3>{{ activeTab | titlecase }} List</h3>
+                <h3>{{ activeTab === 'penalties' ? (penaltyType === 'missingLogs' ? 'Missing Logs' : 'Late Arrivals') : (activeTab | titlecase) }} List</h3>
                 <p>Showing {{ getEntityList().length }} registered entries</p>
               </div>
             </div>
@@ -84,14 +88,28 @@
                   (ngModelChange)="onSearch($event)" />
                 <input type="text" placeholder="Search..." [(ngModel)]="searchWeeklyOffTerm"
                   *ngIf="activeTab === 'weeklyOff'" (ngModelChange)="onSearch($event)" />
+                <input type="text" placeholder="Search..." [(ngModel)]="searchPenaltyTerm"
+                  *ngIf="activeTab === 'penalties'" (ngModelChange)="onSearch($event)" />
               </div>
             </div>
+          </div>
+
+          <!-- Penalty Sub-selector -->
+          <div class="penalty-type-selector ion-padding-horizontal ion-padding-bottom" *ngIf="activeTab === 'penalties'">
+            <ion-segment [value]="penaltyType" (ionChange)="setPenaltyType($any($event).detail.value)" mode="ios">
+              <ion-segment-button value="missingLogs">
+                <ion-label>Missing Logs</ion-label>
+              </ion-segment-button>
+              <ion-segment-button value="lateArrivals">
+                <ion-label>Late Arrivals</ion-label>
+              </ion-segment-button>
+            </ion-segment>
           </div>
 
           <div class="table-container">
             <table class="modern-table">
               <thead>
-                <tr *ngIf="activeTab !== 'shifts' && activeTab !== 'announcements' && activeTab !== 'weeklyOff'">
+                <tr *ngIf="activeTab !== 'shifts' && activeTab !== 'announcements' && activeTab !== 'weeklyOff' && activeTab !== 'penalties'">
                   <th>Name</th>
                   <th class="text-right">Actions</th>
                 </tr>
@@ -111,11 +129,16 @@
                   <th>Policy Code</th>
                   <th class="text-right">Actions</th>
                 </tr>
+                <tr *ngIf="activeTab === 'penalties'">
+                  <th>Shift</th>
+                  <th>Threshold ({{ penaltyType === 'missingLogs' ? 'Hours' : 'Minutes' }})</th>
+                  <th class="text-right">Actions</th>
+                </tr>
               </thead>
               <tbody>
                 <!-- Generic Entities -->
                 <ng-container
-                  *ngIf="activeTab !== 'shifts' && activeTab !== 'announcements' && activeTab !== 'weeklyOff'">
+                  *ngIf="activeTab !== 'shifts' && activeTab !== 'announcements' && activeTab !== 'weeklyOff' && activeTab !== 'penalties'">
                   <tr *ngFor="let item of getPaginatedList()" class="table-row-hover">
                     <td>
                       <div class="entity-name">
@@ -194,6 +217,33 @@
                             name="create-outline"></ion-icon></button>
                         <button class="btn-action delete" (click)="deleteAnnouncement(a.id)"
                           *ngIf="isAdminOrHR"><ion-icon name="trash-outline"></ion-icon></button>
+                      </div>
+                    </td>
+                  </tr>
+                </ng-container>
+
+                <!-- Penalties Specific -->
+                <ng-container *ngIf="activeTab === 'penalties'">
+                  <tr *ngFor="let p of paginatedPenalties" class="table-row-hover">
+                    <td>
+                      <div class="entity-name">
+                        <span class="avatar-sm"><ion-icon name="time-outline"></ion-icon></span>
+                        <strong>{{ p.shift_name || getShiftName(p.shift_id) }}</strong>
+                      </div>
+                    </td>
+                    <td>
+                      <span class="threshold-value">
+                        {{ penaltyType === 'missingLogs' ? p.threshold_hours + ' hrs' : p.threshold_minutes + ' mins' }}
+                      </span>
+                    </td>
+                    <td class="text-right">
+                      <div class="action-buttons">
+                        <button class="btn-action edit" (click)="editPenalty(p)" *ngIf="isAdminOrHR">
+                          <ion-icon name="create-outline"></ion-icon>
+                        </button>
+                        <button class="btn-action delete" (click)="deletePenalty(p.id)" *ngIf="isAdminOrHR">
+                          <ion-icon name="trash-outline"></ion-icon>
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -399,6 +449,36 @@
                     <input type="datetime-local" [(ngModel)]="announcementForm.ends_at" />
                      <!-- <ion-icon name="calendar-outline" class="calendar-icon"></ion-icon> -->
                   </div>
+                </div>
+              </div>
+            </ng-container>
+
+            <!-- Penalty Form -->
+            <ng-container *ngIf="activeTab === 'penalties'">
+              <div class="premium-form-group">
+                <label>Select Plan*</label>
+                <div class="input-wrapper">
+                  <ion-icon name="time-outline" class="field-icon"></ion-icon>
+                  <select [(ngModel)]="penaltyForm.shift_id" class="premium-select">
+                    <option [ngValue]="null" disabled>Select Plan</option>
+                    <option *ngFor="let plan of leavePlans" [ngValue]="plan.id">{{plan.name}}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="premium-form-group" *ngIf="penaltyType === 'missingLogs'">
+                <label>Threshold Hours*</label>
+                <div class="input-wrapper">
+                  <ion-icon name="hourglass-outline" class="field-icon"></ion-icon>
+                  <input type="number" [(ngModel)]="penaltyForm.threshold_hours" placeholder="e.g. 48" />
+                </div>
+              </div>
+
+              <div class="premium-form-group" *ngIf="penaltyType === 'lateArrivals'">
+                <label>Threshold Minutes*</label>
+                <div class="input-wrapper">
+                  <ion-icon name="timer-outline" class="field-icon"></ion-icon>
+                  <input type="number" [(ngModel)]="penaltyForm.threshold_minutes" placeholder="e.g. 15" />
                 </div>
               </div>
             </ng-container>

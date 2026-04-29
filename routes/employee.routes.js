@@ -51,7 +51,7 @@ const uploadProfileImage = multer({
 router.get("/", auth, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
     const c = await db();
@@ -519,7 +519,7 @@ router.get("/search/query", auth, async (req, res) => {
       return res.status(400).json({ error: "Search query too long (max 100 characters)" });
     }
 
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 20));
+    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit) || 20));
 
     const c = await db();
     const [r] = await c.query(

@@ -61,6 +61,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   leaveDaysMap: Map<string, string> = new Map();
   employeeProfile: any = null;
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
+  missingLogConfigs: any[] = [];
 
   constructor(
     private attendanceService: AttendanceService,
@@ -143,7 +144,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       ? of({ punches: [] })
       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
-    forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$ })
+    const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
+
+    forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$, missingLogs: missingLogTimes$ })
       .pipe(takeUntil(this.destroy$)).subscribe({
         next: (res: any) => {
           this.employeeProfile = res.profile;
@@ -157,6 +160,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
           this.todayPunches = res.today?.punches || [];
+          this.missingLogConfigs = res.missingLogs || [];
           const leaves = Array.isArray(res.leaves) ? res.leaves : (res.leaves.data || res.leaves.leaves || []);
           this.processLeavesIntoMap(leaves);
           this.loadMonthlyReport();
@@ -240,9 +244,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftStart = new Date(logD);
           shiftStart.setHours(sh, sm, ss || 0, 0);
 
-          // Penalty only kicks in after 48 hours from shift start
+          // Penalty kicks in based on missing log configuration for user's leave plan
+          const userLeavePlanId = this.employeeProfile?.leave_plan_id || this.employeeProfile?.LeavePlanId;
+          const config = this.missingLogConfigs.find(c => c.shift_id === userLeavePlanId);
+          const thresholdHours = config ? config.threshold_hours : 24; // Default to 24 (previously 48 in code, but user said 24)
+
           const penaltyThreshold = new Date(shiftStart);
-          penaltyThreshold.setHours(penaltyThreshold.getHours() + 48);
+          penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
 
           if (now > penaltyThreshold) {
             defaultStatus = 'penalty';

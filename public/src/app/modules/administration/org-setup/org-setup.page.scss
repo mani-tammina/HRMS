@@ -659,3 +659,55 @@
     .modern-table tbody td { display: block; text-align: left !important; border: none; padding: 8px 16px; }
     .action-buttons { justify-content: flex-start; padding-top: 8px; border-bottom: 1px solid vars.$color-border-light; padding-bottom: 16px; }
 }
+
+/* Penalty Specific Styles */
+.penalty-type-selector {
+    background: vars.$color-white;
+    border-bottom: 1px solid vars.$color-border-light;
+    
+    ion-segment {
+        background: vars.$color-bg-subtle;
+        border-radius: vars.$radius-md;
+        padding: 2px;
+        
+        ion-segment-button {
+            --indicator-color: #{vars.$color-white};
+            --color: #{vars.$color-text-muted};
+            --color-checked: #{vars.$color-primary};
+            font-size: 11px;
+            font-weight: vars.$fw-bold;
+            min-height: 32px;
+            text-transform: none;
+            
+            &.segment-button-checked {
+                box-shadow: vars.$shadow-sm;
+            }
+        }
+    }
+}
+
+.threshold-value {
+    font-weight: vars.$fw-bold;
+    color: vars.$color-primary;
+    background: vars.$color-primary-light;
+    padding: 4px 10px;
+    border-radius: vars.$radius-pill;
+    font-size: 11px;
+}
+
+.premium-select {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 12px 8px;
+    font-size: vars.$fs-small;
+    font-weight: vars.$fw-medium;
+    color: vars.$color-text-primary;
+    outline: none;
+    cursor: pointer;
+    
+    option {
+        background: vars.$color-white;
+        color: vars.$color-text-primary;
+    }
+}

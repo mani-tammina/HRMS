@@ -468,7 +468,7 @@ router.get("/my-report", auth, async (req, res) => {
       SELECT e.id, sp.id as shift_policy_id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON sp.id = mlt.shift_id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.shift_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
     `, [emp.id]);
@@ -555,7 +555,7 @@ router.get("/my-report", auth, async (req, res) => {
           penalty_count++;
           absent_days++;
         } else if (record.status === 'absent') {
-          absent_days++;
+          // Normal absent days not counted toward absent_days summary until threshold
         }
       } else if (!isToday) {
         // No log and not today - apply penalty rule
@@ -572,7 +572,7 @@ router.get("/my-report", auth, async (req, res) => {
           penalty_count++;
           absent_days++;
         } else {
-          absent_days++;
+          // Normal absent days not counted toward absent_days summary until threshold
         }
       }
       // If isToday and no log, we don't count it as absent (Status "NOT In Yet")

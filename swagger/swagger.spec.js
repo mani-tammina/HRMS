@@ -10758,5 +10758,76 @@ Object.assign(swaggerSpec.paths, {
       }
     }
   },
+  // ============ LATE TIME ARRIVALS ============
+  "/api/master/late-time-arrivals": {
+    get: {
+      summary: "Get Late Time Arrivals",
+      description: "List of all late time arrival thresholds based on shift",
+      tags: ["Penalty Details"],
+      responses: {
+        200: { description: "Success" }
+      }
+    },
+    post: {
+      summary: "Create Late Time Arrival",
+      description: "Admin can create late time arrival threshold based on shift",
+      tags: ["Penalty Details"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                shift_id: { type: "integer" },
+                threshold_minutes: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Created" }
+      }
+    }
+  },
+  "/api/master/late-time-arrivals/{id}": {
+    put: {
+      summary: "Update Late Time Arrival",
+      description: "Admin can edit late time arrival threshold",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                shift_id: { type: "integer" },
+                threshold_minutes: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Updated" }
+      }
+    },
+    delete: {
+      summary: "Delete Late Time Arrival",
+      description: "Admin can delete late time arrival threshold",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      responses: {
+        200: { description: "Deleted" }
+      }
+    }
+  }
 });
 

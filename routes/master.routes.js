@@ -168,6 +168,109 @@ router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), 
   }
 });
 
+// ============ LATE TIME ARRIVALS ============
+router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+  try {
+    const c = await db();
+    
+    // Auto-create table if not exists
+    await c.query(`
+      CREATE TABLE IF NOT EXISTS late_time_arrivals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shift_id INT NOT NULL,
+        threshold_minutes INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_shift (shift_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    const [rows] = await c.query(`
+      SELECT l.*, s.name as shift_name 
+      FROM late_time_arrivals l
+      LEFT JOIN shift_policies s ON l.shift_id = s.id
+      ORDER BY l.id DESC
+    `);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/master/late-time-arrivals", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { shift_id, threshold_minutes } = req.body;
+    if (!shift_id || threshold_minutes === undefined) {
+      return res.status(400).json({ error: "shift_id and threshold_minutes are required" });
+    }
+    const c = await db();
+    
+    await c.query(`
+      CREATE TABLE IF NOT EXISTS late_time_arrivals (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        shift_id INT NOT NULL,
+        threshold_minutes INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_shift (shift_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    const [existing] = await c.query("SELECT id FROM late_time_arrivals WHERE shift_id = ?", [shift_id]);
+    if (existing.length > 0) {
+      c.end();
+      return res.status(409).json({ error: "Late time arrival for this shift already exists" });
+    }
+    const [result] = await c.query("INSERT INTO late_time_arrivals (shift_id, threshold_minutes) VALUES (?, ?)", [shift_id, threshold_minutes]);
+    c.end();
+    res.json({ success: true, message: "Late time arrival created successfully", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/master/late-time-arrivals/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { shift_id, threshold_minutes } = req.body;
+    const c = await db();
+    const updates = [];
+    const values = [];
+    if (shift_id !== undefined) {
+      updates.push("shift_id = ?");
+      values.push(shift_id);
+    }
+    if (threshold_minutes !== undefined) {
+      updates.push("threshold_minutes = ?");
+      values.push(threshold_minutes);
+    }
+    if (updates.length === 0) {
+      c.end();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    values.push(req.params.id);
+    await c.query(`UPDATE late_time_arrivals SET ${updates.join(", ")} WHERE id = ?`, values);
+    c.end();
+    res.json({ success: true, message: "Late time arrival updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/master/late-time-arrivals/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [result] = await c.query("DELETE FROM late_time_arrivals WHERE id = ?", [req.params.id]);
+    c.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Late time arrival not found" });
+    }
+    res.json({ success: true, message: "Late time arrival deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Enhanced Shift Policies Route
 router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
   try {

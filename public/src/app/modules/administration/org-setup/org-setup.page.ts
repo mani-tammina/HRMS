@@ -25,6 +25,7 @@ export class OrgSetupPage implements OnInit {
   designations: any[] = [];
   businessUnits: any[] = [];
   weeklyOffPolicies: any[] = [];
+  leavePlans: any[] = [];
 
   // Backup Lists (for filtering)
   locationsBackup: any[] = [];
@@ -54,7 +55,8 @@ export class OrgSetupPage implements OnInit {
     businessUnits: 1,
     shifts: 1,
     weeklyOff: 1,
-    announcements: 1
+    announcements: 1,
+    penalties: 1
   };
 
   totalPages: any = {
@@ -64,14 +66,30 @@ export class OrgSetupPage implements OnInit {
     businessUnits: 0,
     shifts: 0,
     weeklyOff: 0,
-    announcements: 0
+    announcements: 0,
+    penalties: 0
   };
+
+  // Penalty Lists
+  missingLogs: any[] = [];
+  lateArrivals: any[] = [];
+  penalties: any[] = []; // Combined or currently selected list
+  penaltiesBackup: any[] = [];
+  paginatedPenalties: any[] = [];
+  penaltyType: 'missingLogs' | 'lateArrivals' = 'missingLogs';
 
   // Form Models
   locationName: string = '';
   departmentName: string = '';
   designationName: string = '';
   businessUnitName: string = '';
+
+  // Penalty Form
+  penaltyForm: any = {
+    shift_id: null,
+    threshold_hours: null,
+    threshold_minutes: null
+  };
 
   // Search Filter Terms
   searchLocationTerm: string = '';
@@ -81,6 +99,7 @@ export class OrgSetupPage implements OnInit {
   searchShiftTerm: string = '';
   searchWeeklyOffTerm: string = '';
   searchAnnouncementTerm: string = '';
+  searchPenaltyTerm: string = '';
 
   shiftForm: ShiftPolicyPayload = {
     name: '',
@@ -127,6 +146,7 @@ export class OrgSetupPage implements OnInit {
   editingShiftId: number | null = null;
   editingAnnouncementId: number | null = null;
   editingWeeklyOffId: number | null = null;
+  editingPenaltyId: number | null = null;
 
   constructor(
     private adminService: AdminService,
@@ -155,7 +175,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.searchBusinessUnitTerm = '',
       shifts: () => this.searchShiftTerm = '',
       weeklyOff: () => this.searchWeeklyOffTerm = '',
-      announcements: () => this.searchAnnouncementTerm = ''
+      announcements: () => this.searchAnnouncementTerm = '',
+      penalties: () => this.searchPenaltyTerm = ''
     };
     map[this.activeTab]?.();
   }
@@ -169,6 +190,7 @@ export class OrgSetupPage implements OnInit {
       case 'businessUnits': this.loadBusinessUnits(); break;
       case 'weeklyOff': this.loadWeeklyOffPolicies(); break;
       case 'announcements': this.loadAnnouncements(); break;
+      case 'penalties': this.loadPenalties(); break;
     }
   }
 
@@ -408,6 +430,88 @@ export class OrgSetupPage implements OnInit {
     this.announcementForm = { title: '', body: '', starts_at: '', ends_at: '' };
   }
 
+  /* Penalties */
+  loadPenalties() {
+    if (this.penaltyType === 'missingLogs') {
+      this.adminService.getMissingLogTimes().subscribe(res => {
+        this.penalties = res || [];
+        this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
+        this.calculatePagination('penalties');
+      });
+    } else {
+      this.adminService.getLateArrivals().subscribe(res => {
+        this.penalties = res || [];
+        this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
+        this.calculatePagination('penalties');
+      });
+    }
+    // Load leave plans for dropdown
+    if (this.leavePlans.length === 0) {
+      this.loadLeavePlans();
+    }
+  }
+
+  loadLeavePlans() {
+    this.adminService.getLeavePlans().subscribe(res => {
+      this.leavePlans = res || [];
+    });
+  }
+
+  setPenaltyType(type: 'missingLogs' | 'lateArrivals') {
+    this.penaltyType = type;
+    this.cancelPenalty();
+    this.loadPenalties();
+  }
+
+  savePenalty() {
+    const payload: any = { shift_id: this.penaltyForm.shift_id };
+    let action;
+
+    if (this.penaltyType === 'missingLogs') {
+      payload.threshold_hours = this.penaltyForm.threshold_hours;
+      action = this.editingPenaltyId
+        ? this.adminService.updateMissingLogTime(this.editingPenaltyId, payload)
+        : this.adminService.createMissingLogTime(payload);
+    } else {
+      payload.threshold_minutes = this.penaltyForm.threshold_minutes;
+      action = this.editingPenaltyId
+        ? this.adminService.updateLateArrival(this.editingPenaltyId, payload)
+        : this.adminService.createLateArrival(payload);
+    }
+
+    action.subscribe({
+      next: () => {
+        this.showToast(`Penalty configuration ${this.editingPenaltyId ? 'updated' : 'saved'}`, 'success');
+        this.loadPenalties();
+        this.cancelPenalty();
+      },
+      error: (err) => {
+        this.showToast(err.error?.message || 'Error saving penalty', 'danger');
+      }
+    });
+  }
+
+  editPenalty(p: any) {
+    this.penaltyForm = { ...p };
+    this.editingPenaltyId = p.id;
+  }
+
+  deletePenalty(id: number) {
+    const action = this.penaltyType === 'missingLogs'
+      ? this.adminService.deleteMissingLogTime(id)
+      : this.adminService.deleteLateArrival(id);
+
+    action.subscribe(() => {
+      this.showToast('Penalty configuration deleted', 'success');
+      this.loadPenalties();
+    });
+  }
+
+  cancelPenalty() {
+    this.editingPenaltyId = null;
+    this.penaltyForm = { shift_id: null, threshold_hours: null, threshold_minutes: null };
+  }
+
   // Common Pagination Methods
   calculatePagination(entity: string) {
     const dataMap: any = {
@@ -417,7 +521,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.businessUnits,
       shifts: this.shiftPolicies,
       weeklyOff: this.weeklyOffPolicies,
-      announcements: this.announcements
+      announcements: this.announcements,
+      penalties: this.penalties
     };
 
     const data = dataMap[entity];
@@ -433,7 +538,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.businessUnits,
       shifts: this.shiftPolicies,
       weeklyOff: this.weeklyOffPolicies,
-      announcements: this.announcements
+      announcements: this.announcements,
+      penalties: this.penalties
     };
 
     const paginatedMap: any = {
@@ -443,7 +549,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: (d: any) => this.paginatedBusinessUnits = d,
       shifts: (d: any) => this.paginatedShifts = d,
       weeklyOff: (d: any) => this.paginatedWeeklyOff = d,
-      announcements: (d: any) => this.paginatedAnnouncements = d
+      announcements: (d: any) => this.paginatedAnnouncements = d,
+      penalties: (d: any) => this.paginatedPenalties = d
     };
 
     const startIndex = (this.currentPage[entity] - 1) * this.pageSize;
@@ -478,7 +585,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.businessUnitsBackup,
       shifts: this.shiftPoliciesBackup,
       weeklyOff: this.weeklyOffPoliciesBackup,
-      announcements: this.announcementsBackup
+      announcements: this.announcementsBackup,
+      penalties: this.penaltiesBackup
     };
 
     // Restore from backup if search is cleared
@@ -489,7 +597,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.businessUnits = JSON.parse(JSON.stringify(this.businessUnitsBackup)),
       shifts: () => this.shiftPolicies = JSON.parse(JSON.stringify(this.shiftPoliciesBackup)),
       weeklyOff: () => this.weeklyOffPolicies = JSON.parse(JSON.stringify(this.weeklyOffPoliciesBackup)),
-      announcements: () => this.announcements = JSON.parse(JSON.stringify(this.announcementsBackup))
+      announcements: () => this.announcements = JSON.parse(JSON.stringify(this.announcementsBackup)),
+      penalties: () => this.penalties = JSON.parse(JSON.stringify(this.penaltiesBackup))
     };
 
     const originalData = backupMap[this.activeTab];
@@ -523,6 +632,15 @@ export class OrgSetupPage implements OnInit {
       }
 
       // Generic search for locations, departments, etc.
+      if (this.activeTab === 'penalties') {
+        const shift = this.shiftPolicies.find(s => s.id === item.shift_id);
+        const shiftNameFromList = item.shift_name || '';
+        return (shift && shift.name.toLowerCase().includes(searchLower)) ||
+          (shiftNameFromList.toLowerCase().includes(searchLower)) ||
+          (item.threshold_hours && item.threshold_hours.toString().includes(searchLower)) ||
+          (item.threshold_minutes && item.threshold_minutes.toString().includes(searchLower));
+      }
+
       return (item.name && item.name.toLowerCase().includes(searchLower));
     });
 
@@ -534,7 +652,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.businessUnits = filteredData,
       shifts: () => this.shiftPolicies = filteredData,
       weeklyOff: () => this.weeklyOffPolicies = filteredData,
-      announcements: () => this.announcements = filteredData
+      announcements: () => this.announcements = filteredData,
+      penalties: () => this.penalties = filteredData
     };
 
     updateMap[this.activeTab]();
@@ -552,7 +671,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.searchBusinessUnitTerm,
       shifts: this.searchShiftTerm,
       weeklyOff: this.searchWeeklyOffTerm,
-      announcements: this.searchAnnouncementTerm
+      announcements: this.searchAnnouncementTerm,
+      penalties: this.searchPenaltyTerm
     };
     return map[this.activeTab] || '';
   }
@@ -566,7 +686,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.searchBusinessUnitTerm = value,
       shifts: () => this.searchShiftTerm = value,
       weeklyOff: () => this.searchWeeklyOffTerm = value,
-      announcements: () => this.searchAnnouncementTerm = value
+      announcements: () => this.searchAnnouncementTerm = value,
+      penalties: () => this.searchPenaltyTerm = value
     };
     map[this.activeTab]();
   }
@@ -580,7 +701,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: 'layers-outline',
       shifts: 'time-outline',
       weeklyOff: 'calendar-outline',
-      announcements: 'megaphone-outline'
+      announcements: 'megaphone-outline',
+      penalties: 'alert-circle-outline'
     };
     return icons[this.activeTab] || 'cube-outline';
   }
@@ -593,7 +715,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.businessUnits,
       shifts: this.shiftPolicies,
       weeklyOff: this.weeklyOffPolicies,
-      announcements: this.announcements
+      announcements: this.announcements,
+      penalties: this.penalties
     };
     return map[this.activeTab] || [];
   }
@@ -606,7 +729,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: this.paginatedBusinessUnits,
       shifts: this.paginatedShifts,
       weeklyOff: this.paginatedWeeklyOff,
-      announcements: this.paginatedAnnouncements
+      announcements: this.paginatedAnnouncements,
+      penalties: this.paginatedPenalties
     };
     return map[this.activeTab] || [];
   }
@@ -623,7 +747,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.editBusinessUnit(item),
       shifts: () => this.editShift(item),
       weeklyOff: () => this.editWeeklyOff(item),
-      announcements: () => this.editAnnouncement(item)
+      announcements: () => this.editAnnouncement(item),
+      penalties: () => this.editPenalty(item)
     };
     map[this.activeTab]();
   }
@@ -636,7 +761,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.deleteBusinessUnit(id),
       shifts: () => this.deleteShift(id),
       weeklyOff: () => this.deleteWeeklyOff(id),
-      announcements: () => this.deleteAnnouncement(id)
+      announcements: () => this.deleteAnnouncement(id),
+      penalties: () => this.deletePenalty(id)
     };
     map[this.activeTab]();
   }
@@ -649,7 +775,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.cancelBusinessUnit(),
       shifts: () => this.cancelShift(),
       weeklyOff: () => this.cancelWeeklyOff(),
-      announcements: () => this.cancelAnnouncement()
+      announcements: () => this.cancelAnnouncement(),
+      penalties: () => this.cancelPenalty()
     };
     map[this.activeTab]();
   }
@@ -662,7 +789,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: () => this.saveBusinessUnit(),
       shifts: () => this.saveShift(),
       weeklyOff: () => this.saveWeeklyOff(),
-      announcements: () => this.saveAnnouncement()
+      announcements: () => this.saveAnnouncement(),
+      penalties: () => this.savePenalty()
     };
     map[this.activeTab]();
   }
@@ -675,7 +803,8 @@ export class OrgSetupPage implements OnInit {
       businessUnits: !!this.editingBusinessUnitId,
       shifts: !!this.editingShiftId,
       weeklyOff: !!this.editingWeeklyOffId,
-      announcements: !!this.editingAnnouncementId
+      announcements: !!this.editingAnnouncementId,
+      penalties: !!this.editingPenaltyId
     };
     return map[this.activeTab];
   }
@@ -689,8 +818,16 @@ export class OrgSetupPage implements OnInit {
       case 'shifts': return !!this.shiftForm.name && !!this.shiftForm.start_time && !!this.shiftForm.end_time;
       case 'weeklyOff': return !!this.weeklyOffPolicyForm.name && (this.editingWeeklyOffId ? true : !!this.weeklyOffPolicyForm.policy_code);
       case 'announcements': return !!this.announcementForm.title && !!this.announcementForm.body;
+      case 'penalties':
+        return !!this.penaltyForm.shift_id &&
+          (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours : !!this.penaltyForm.threshold_minutes);
       default: return false;
     }
+  }
+  getShiftName(id: number) {
+    return this.leavePlans.find(s => s.id === id)?.name || 
+           this.shiftPolicies.find(s => s.id === id)?.name || 
+           'Unknown Shift';
   }
 
   async showToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary') {
