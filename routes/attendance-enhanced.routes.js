@@ -507,6 +507,7 @@ router.get("/my-report", auth, async (req, res) => {
     let leave_days = 0;
     let penalty_count = 0;
     let half_day_count = 0;
+    let weekend_days = 0;
 
     const weekOffDays = [];
     if (employee) {
@@ -544,7 +545,7 @@ router.get("/my-report", auth, async (req, res) => {
       if (isOnLeave) {
         leave_days++;
       } else if (weekOffDays.includes(weekday)) {
-        // Week off - do nothing for counters
+        weekend_days++;
       } else if (attMap.has(dStr)) {
         const record = attMap.get(dStr);
         if (record.status === 'present') present_days++;
@@ -586,6 +587,7 @@ router.get("/my-report", auth, async (req, res) => {
       absent_days: absent_days,
       half_days: half_day_count,
       leave_days: leave_days,
+      weekend_days: weekend_days,
       lop_days: absent_days * 0.5,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)

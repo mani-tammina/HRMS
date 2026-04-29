@@ -5,6 +5,7 @@ import { LoadingController } from '@ionic/angular';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { PayrollService } from '../../../core/services/payroll.service';
 import { PayrollApiService } from '../../../core/services/payroll-api.service';
+import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 
 declare var html2pdf: any;
 
@@ -21,8 +22,11 @@ export class PayslipsPage implements OnInit, OnDestroy {
   currentEmployee: any;
   loading = true;
 
-  payableDays: number = 31;
+  actualPayableDays: number = 0;
+  totalWorkingDays: number = 0;
   lopDays: number = 0;
+  daysPayable: number = 0;
+  payableDays: number = 0; // Keeping for compatibility if used elsewhere
   activeContract: any;
   salaryTemplates: any[] = [];
   selectedTemplateId: any;
@@ -74,6 +78,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private payrollService: PayrollService,
     private payrollApi: PayrollApiService,
+    private attendanceApi: AttendanceApiService,
     private loadingController: LoadingController
   ) {
     this.financialYear = this.payrollApi.getCurrentFinancialYear();
@@ -155,6 +160,38 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   fetchPayslipData(employeeId: number, monthStr: string) {
     this.loading = true;
+
+    // Fetch Attendance Summary for Payslip
+    const [year, month] = monthStr.split('-').map(Number);
+    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
+    
+    this.actualPayableDays = lastDay;
+
+    this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        if (res?.summary) {
+          // Total Working Days = present_days + leave_days + weekend_days (since these are payable)
+          const present = res.summary.present_days || 0;
+          const leaves = res.summary.leave_days || 0;
+          const weekends = res.summary.weekend_days || 0;
+          
+          this.totalWorkingDays = present + leaves + weekends;
+          this.lopDays = res.summary.lop_days || 0;
+          
+          // Formula: Total Working Days - Loss of Pay Days
+          this.daysPayable = Math.max(0, this.totalWorkingDays - this.lopDays);
+          this.payableDays = this.daysPayable; // Sync with existing property
+        }
+      },
+      error: () => {
+        this.totalWorkingDays = 0;
+        this.lopDays = 0;
+        this.daysPayable = 0;
+      }
+    });
+
     this.payrollApi.getEmployeeRunStatus(employeeId, monthStr).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         if (res.success && res.data) {
