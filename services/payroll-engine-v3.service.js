@@ -63,8 +63,7 @@ async function runPayrollUnified(params) {
           cycleId: result.cycleId,
           totalEmployees: result.totalEmployees,
           totalGross: result.totalGross,
-          totalDeductions: result.totalDeductions,
-          totalNet: result.totalNet
+          totalGross: result.totalGross
         },
         performedBy: runBy
       });

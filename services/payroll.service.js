@@ -169,7 +169,7 @@ async function resolvePayrollStructure(conn, employeeId, sd, ed, runBy, options 
      WHERE esc.employee_id = ?
        AND esc.effective_from <= ?
        AND (esc.effective_to IS NULL OR esc.effective_to >= ?)
-       AND (esc.status = 'Active' OR esc.status IS NULL)
+       AND esc.status = 'Active'
      ORDER BY esc.effective_from DESC, esc.contract_id DESC
      LIMIT 1`,
     [employeeId, ed, sd]
@@ -225,19 +225,7 @@ async function resolvePayrollStructure(conn, employeeId, sd, ed, runBy, options 
     }
   }
 
-  const [structRows] = await conn.query(
-    `SELECT * FROM salary_structures WHERE employee_id = ? AND effective_from <= ? AND (effective_to IS NULL OR effective_to >= ?) ORDER BY version DESC LIMIT 1`,
-    [employeeId, sd, ed]
-  );
-  if (structRows.length === 0) {
-    return null;
-  }
-  const structure = structRows[0];
-  const [components] = await conn.query(
-    'SELECT * FROM salary_components WHERE structure_id = ? ORDER BY sequence ASC',
-    [structure.id]
-  );
-  return { structure, components };
+  return null;
 }
 
 async function runPayroll(year, month, runBy = null) {
@@ -535,23 +523,23 @@ async function runPayroll(year, month, runBy = null) {
       );
 
       totalEmployees += 1;
-      totalGross += Number(gross);
-      totalDeductions += Number(deductions);
-      totalNet += Number(net);
+      totalGross += Number(resolved.structure.ctc_amount || 0);
+      totalDeductions = 0;
+      totalNet = 0;
     }
 
     const totalEmployeesFromAttendance = snapshots.length;
 
     // Update run totals and mark completed
     await conn.query(
-      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = ?, total_net = ?, completed_at = NOW() WHERE id = ?`,
-      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), totalDeductions.toFixed(2), totalNet.toFixed(2), runId]
+      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = 0, total_net = 0, completed_at = NOW() WHERE id = ?`,
+      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), runId]
     );
 
     await conn.commit();
     await conn.end();
 
-    return { runId, cycleId, totalEmployees: totalEmployeesFromAttendance, totalGross, totalDeductions, totalNet };
+    return { runId, cycleId, totalEmployees: totalEmployeesFromAttendance, totalGross };
   } catch (err) {
     try {
       await conn.rollback();

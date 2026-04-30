@@ -109,8 +109,9 @@ async function buildRunValidation(year, month) {
 
     const [withStructure] = await c.query(
       `SELECT DISTINCT employee_id
-       FROM salary_structures
-       WHERE effective_from <= LAST_DAY(?)
+       FROM employee_salary_contracts
+       WHERE status = 'Active'
+         AND effective_from <= LAST_DAY(?)
          AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))`,
       [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
     );
