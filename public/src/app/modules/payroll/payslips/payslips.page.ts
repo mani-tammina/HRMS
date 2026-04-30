@@ -165,42 +165,17 @@ export class PayslipsPage implements OnInit, OnDestroy {
   fetchPayslipData(employeeId: number, monthStr: string) {
     this.loading = true;
 
-    // Fetch Attendance Summary for Payslip
-    const [year, month] = monthStr.split('-').map(Number);
-    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
-
-    this.actualPayableDays = lastDay;
-
-    this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res: any) => {
-        console.log(res.summary)
-        if (res?.summary) {
-          // Total Working Days = present_days + leave_days + weekend_days (since these are payable)
-          const present = res.summary.present_days || 0;
-          const leaves = res.summary.leave_days || 0;
-          const weekends = res.summary.weekend_days || 0;
-
-          this.totalWorkingDays = present + leaves + weekends;
-          this.lopDays = res.summary.lop_days || 0;
-
-          // Formula: Total Working Days - Loss of Pay Days
-          this.daysPayable = Math.max(0, this.totalWorkingDays - this.lopDays);
-          this.payableDays = this.daysPayable; // Sync with existing property
-        }
-      },
-      error: () => {
-        this.totalWorkingDays = 0;
-        this.lopDays = 0;
-        this.daysPayable = 0;
-      }
-    });
-
     this.payrollApi.getEmployeeRunStatus(employeeId, monthStr).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         if (res.success && res.data) {
           const data = res.data;
+
+          // Update attendance metrics directly from Payroll API response
+          this.actualPayableDays = data.total_days || 0;
+          this.totalWorkingDays = data.total_days || 0;
+          this.lopDays = data.lop_days || 0;
+          this.daysPayable = data.days_payable || 0;
+          this.payableDays = this.daysPayable;
 
           // Only show payslip if runStatus is COMPLETED
           if (data.run && data.run.runStatus === 'COMPLETED') {

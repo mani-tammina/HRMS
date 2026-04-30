@@ -309,23 +309,106 @@ async function getEmployeeRunStatus(req, res) {
         }
     }
 
-    const [attRecords] = await c.query(
-        "SELECT id FROM attendance WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?",
+    const [attendance] = await c.query(
+        `SELECT a.* FROM attendance a WHERE a.employee_id = ? AND a.attendance_date BETWEEN ? AND ?`,
         [employeeId, startDate, endDate]
     );
-    const attRecordCount = attRecords.length;
 
-    let weekendCount = 0;
-    let tempCurr = new Date(startDate);
-    let tempEnd = new Date(endDate);
-    while (tempCurr <= tempEnd) {
-        const dayName = tempCurr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        if (weekOffNames.includes(dayName)) weekendCount++;
-        tempCurr.setDate(tempCurr.getDate() + 1);
+    const [empDetails] = await c.query(`
+        SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
+        FROM employees e
+        LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+        LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.shift_id
+        LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+        WHERE e.id = ?
+    `, [employeeId]);
+    const employee = empDetails[0];
+
+    const [allLeaves] = await c.query(
+        "SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND ((start_date BETWEEN ? AND ?) OR (end_date BETWEEN ? AND ?))",
+        [employeeId, startDate, endDate, startDate, endDate]
+    );
+
+    const weekOffDays = [];
+    if (employee) {
+        if (employee.sunday_off) weekOffDays.push('sunday');
+        if (employee.monday_off) weekOffDays.push('monday');
+        if (employee.tuesday_off) weekOffDays.push('tuesday');
+        if (employee.wednesday_off) weekOffDays.push('wednesday');
+        if (employee.thursday_off) weekOffDays.push('thursday');
+        if (employee.friday_off) weekOffDays.push('friday');
+        if (employee.saturday_off) weekOffDays.push('saturday');
     }
 
-    const totalAttendanceDays = attRecordCount + weekendCount;
-    const proRataFactor = totalCalendarDays > 0 ? (totalAttendanceDays / totalCalendarDays) : 1;
+    const attMap = new Map();
+    attendance.forEach(a => {
+        const dStr = new Date(a.attendance_date).toDateString();
+        attMap.set(dStr, a);
+    });
+
+    const now = new Date();
+    const todayStr = now.toDateString();
+    let present_days = 0;
+    let absent_days = 0;
+    let leave_days = 0;
+    let weekend_days = 0;
+    let half_day_count = 0;
+
+    let curr = new Date(startDate);
+    let end = new Date(endDate);
+    while (curr <= end) {
+        if (curr > now && curr.toDateString() !== todayStr) {
+            curr.setDate(curr.getDate() + 1);
+            continue;
+        }
+
+        const dStr = curr.toDateString();
+        const isToday = dStr === todayStr;
+        const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        const isOnLeave = allLeaves.some(l => {
+            const lStart = new Date(l.start_date);
+            const lEnd = new Date(l.end_date);
+            const check = new Date(curr);
+            check.setHours(0,0,0,0);
+            lStart.setHours(0,0,0,0);
+            lEnd.setHours(0,0,0,0);
+            return check >= lStart && check <= lEnd;
+        });
+
+        if (isOnLeave) {
+            leave_days++;
+        } else if (weekOffDays.includes(weekday)) {
+            weekend_days++;
+        } else if (attMap.has(dStr)) {
+            const record = attMap.get(dStr);
+            if (record.status === 'present') present_days++;
+            else if (record.status === 'half-day') {
+                present_days += 0.5;
+                half_day_count++;
+            } else if (record.status === 'penalty') {
+                absent_days++;
+            }
+        } else if (!isToday) {
+            const shiftStartStr = employee?.start_time || '09:00:00';
+            const [sh, sm] = shiftStartStr.split(':').map(Number);
+            const shiftStart = new Date(curr);
+            shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+            const penaltyThreshold = new Date(shiftStart);
+            const thresholdHours = employee?.missing_log_threshold || 48;
+            penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
+
+            if (now > penaltyThreshold) {
+                absent_days++;
+            }
+        }
+        curr.setDate(curr.getDate() + 1);
+    }
+
+    const lop_days = absent_days * 0.5;
+    const days_payable = totalCalendarDays - lop_days;
+    const proRataFactor = totalCalendarDays > 0 ? (days_payable / totalCalendarDays) : 1;
 
     // 2. Get Active Contract for the employee
     const [contractRows] = await c.query(
@@ -450,8 +533,17 @@ async function getEmployeeRunStatus(req, res) {
         monthlyCTC: monthlyCTCValue,
         monthlyGross,
         totalEarnings,
-        total_days: totalAttendanceDays,
-        lop_days: Math.max(0, totalCalendarDays - totalAttendanceDays),
+        total_days: totalCalendarDays,
+        days_payable,
+        lop_days,
+        attendanceSummary: {
+            total_days: present_days + weekend_days + lop_days,
+            present_days,
+            absent_days,
+            leave_days,
+            weekend_days,
+            lop_days
+        },
         templateComponents
       });
     }
@@ -465,8 +557,17 @@ async function getEmployeeRunStatus(req, res) {
       monthlyCTC: monthlyCTCValue,
       monthlyGross,
       totalEarnings,
-      total_days: totalAttendanceDays,
-      lop_days: Math.max(0, totalCalendarDays - totalAttendanceDays),
+      total_days: totalCalendarDays,
+      days_payable,
+      lop_days,
+      attendanceSummary: {
+          total_days: present_days + weekend_days + lop_days,
+          present_days,
+          absent_days,
+          leave_days,
+          weekend_days,
+          lop_days
+      },
       templateComponents
     });
   } catch (err) {
