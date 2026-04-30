@@ -130,7 +130,7 @@
                   <th class="text-right">Actions</th>
                 </tr>
                 <tr *ngIf="activeTab === 'penalties'">
-                  <th>Shift</th>
+                  <th>Leave Plan</th>
                   <th>Threshold ({{ penaltyType === 'missingLogs' ? 'Hours' : 'Minutes' }})</th>
                   <th class="text-right">Actions</th>
                 </tr>
@@ -227,8 +227,8 @@
                   <tr *ngFor="let p of paginatedPenalties" class="table-row-hover">
                     <td>
                       <div class="entity-name">
-                        <span class="avatar-sm"><ion-icon name="time-outline"></ion-icon></span>
-                        <strong>{{ p.shift_name || getShiftName(p.shift_id) }}</strong>
+                        <span class="avatar-sm"><ion-icon name="calendar-outline"></ion-icon></span>
+                        <strong>{{ p.leave_plan_name || getPlanName(p.leave_plan_id) }}</strong>
                       </div>
                     </td>
                     <td>
@@ -456,11 +456,11 @@
             <!-- Penalty Form -->
             <ng-container *ngIf="activeTab === 'penalties'">
               <div class="premium-form-group">
-                <label>Select Plan*</label>
+                <label>Select Leave Plan*</label>
                 <div class="input-wrapper">
-                  <ion-icon name="time-outline" class="field-icon"></ion-icon>
-                  <select [(ngModel)]="penaltyForm.shift_id" class="premium-select">
-                    <option [ngValue]="null" disabled>Select Plan</option>
+                  <ion-icon name="calendar-outline" class="field-icon"></ion-icon>
+                  <select [(ngModel)]="penaltyForm.leave_plan_id" class="premium-select">
+                    <option [ngValue]="null" disabled>Select Leave Plan</option>
                     <option *ngFor="let plan of leavePlans" [ngValue]="plan.id">{{plan.name}}</option>
                   </select>
                 </div>

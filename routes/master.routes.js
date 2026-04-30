@@ -90,83 +90,8 @@ createMasterRoutes(
 createMasterRoutes("holiday-lists", "holiday_lists", "name");
 createMasterRoutes("expense-policies", "expense_policies", "name");
 
-// ============ MISSING LOG TIMES ============
-router.get("/master/missing-log-times", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
-  try {
-    const c = await db();
-    const [rows] = await c.query(`
-      SELECT m.*, s.name as shift_name 
-      FROM missing_log_times m
-      LEFT JOIN shift_policies s ON m.shift_id = s.id
-      ORDER BY m.id DESC
-    `);
-    c.end();
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// Missing Log Times routes handled below with leave_plan_id logic
 
-router.post("/master/missing-log-times", auth, roleAuth(["admin", "hr"]), async (req, res) => {
-  try {
-    const { shift_id, threshold_hours } = req.body;
-    if (!shift_id || threshold_hours === undefined) {
-      return res.status(400).json({ error: "shift_id and threshold_hours are required" });
-    }
-    const c = await db();
-    const [existing] = await c.query("SELECT id FROM missing_log_times WHERE shift_id = ?", [shift_id]);
-    if (existing.length > 0) {
-      c.end();
-      return res.status(409).json({ error: "Missing log time for this shift already exists" });
-    }
-    const [result] = await c.query("INSERT INTO missing_log_times (shift_id, threshold_hours) VALUES (?, ?)", [shift_id, threshold_hours]);
-    c.end();
-    res.json({ success: true, message: "Missing log time created successfully", id: result.insertId });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.put("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
-  try {
-    const { shift_id, threshold_hours } = req.body;
-    const c = await db();
-    const updates = [];
-    const values = [];
-    if (shift_id !== undefined) {
-      updates.push("shift_id = ?");
-      values.push(shift_id);
-    }
-    if (threshold_hours !== undefined) {
-      updates.push("threshold_hours = ?");
-      values.push(threshold_hours);
-    }
-    if (updates.length === 0) {
-      c.end();
-      return res.status(400).json({ error: "No fields to update" });
-    }
-    values.push(req.params.id);
-    await c.query(`UPDATE missing_log_times SET ${updates.join(", ")} WHERE id = ?`, values);
-    c.end();
-    res.json({ success: true, message: "Missing log time updated successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
-  try {
-    const c = await db();
-    const [result] = await c.query("DELETE FROM missing_log_times WHERE id = ?", [req.params.id]);
-    c.end();
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Missing log time not found" });
-    }
-    res.json({ success: true, message: "Missing log time deleted successfully" });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // ============ LATE TIME ARRIVALS ============
 router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
@@ -177,18 +102,19 @@ router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employe
     await c.query(`
       CREATE TABLE IF NOT EXISTS late_time_arrivals (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        shift_id INT NOT NULL,
+        leave_plan_id INT NOT NULL,
         threshold_minutes INT NOT NULL,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY idx_shift (shift_id)
+        UNIQUE KEY idx_leave_plan (leave_plan_id),
+        FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     `);
 
     const [rows] = await c.query(`
-      SELECT l.*, s.name as shift_name 
+      SELECT l.*, lp.name as leave_plan_name 
       FROM late_time_arrivals l
-      LEFT JOIN shift_policies s ON l.shift_id = s.id
+      LEFT JOIN leave_plans lp ON l.leave_plan_id = lp.id
       ORDER BY l.id DESC
     `);
     c.end();
@@ -200,29 +126,18 @@ router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employe
 
 router.post("/master/late-time-arrivals", auth, roleAuth(["admin", "hr"]), async (req, res) => {
   try {
-    const { shift_id, threshold_minutes } = req.body;
-    if (!shift_id || threshold_minutes === undefined) {
-      return res.status(400).json({ error: "shift_id and threshold_minutes are required" });
+    const { leave_plan_id, threshold_minutes } = req.body;
+    if (!leave_plan_id || threshold_minutes === undefined) {
+      return res.status(400).json({ error: "leave_plan_id and threshold_minutes are required" });
     }
     const c = await db();
-    
-    await c.query(`
-      CREATE TABLE IF NOT EXISTS late_time_arrivals (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        shift_id INT NOT NULL,
-        threshold_minutes INT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY idx_shift (shift_id)
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
 
-    const [existing] = await c.query("SELECT id FROM late_time_arrivals WHERE shift_id = ?", [shift_id]);
+    const [existing] = await c.query("SELECT id FROM late_time_arrivals WHERE leave_plan_id = ?", [leave_plan_id]);
     if (existing.length > 0) {
       c.end();
-      return res.status(409).json({ error: "Late time arrival for this shift already exists" });
+      return res.status(409).json({ error: "Late time arrival for this leave plan already exists" });
     }
-    const [result] = await c.query("INSERT INTO late_time_arrivals (shift_id, threshold_minutes) VALUES (?, ?)", [shift_id, threshold_minutes]);
+    const [result] = await c.query("INSERT INTO late_time_arrivals (leave_plan_id, threshold_minutes) VALUES (?, ?)", [leave_plan_id, threshold_minutes]);
     c.end();
     res.json({ success: true, message: "Late time arrival created successfully", id: result.insertId });
   } catch (err) {
@@ -232,13 +147,13 @@ router.post("/master/late-time-arrivals", auth, roleAuth(["admin", "hr"]), async
 
 router.put("/master/late-time-arrivals/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
   try {
-    const { shift_id, threshold_minutes } = req.body;
+    const { leave_plan_id, threshold_minutes } = req.body;
     const c = await db();
     const updates = [];
     const values = [];
-    if (shift_id !== undefined) {
-      updates.push("shift_id = ?");
-      values.push(shift_id);
+    if (leave_plan_id !== undefined) {
+      updates.push("leave_plan_id = ?");
+      values.push(leave_plan_id);
     }
     if (threshold_minutes !== undefined) {
       updates.push("threshold_minutes = ?");
@@ -266,6 +181,86 @@ router.delete("/master/late-time-arrivals/:id", auth, roleAuth(["admin", "hr"]),
       return res.status(404).json({ error: "Late time arrival not found" });
     }
     res.json({ success: true, message: "Late time arrival deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Missing Log Times Routes
+router.get("/master/missing-log-times", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [rows] = await c.query(`
+      SELECT mlt.*, lp.name as leave_plan_name 
+      FROM missing_log_times mlt
+      LEFT JOIN leave_plans lp ON mlt.leave_plan_id = lp.id
+      ORDER BY lp.name ASC
+    `);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/master/missing-log-times", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { leave_plan_id, threshold_hours } = req.body;
+    if (!leave_plan_id || threshold_hours === undefined) {
+      return res.status(400).json({ error: "leave_plan_id and threshold_hours are required" });
+    }
+    const c = await db();
+
+    const [existing] = await c.query("SELECT id FROM missing_log_times WHERE leave_plan_id = ?", [leave_plan_id]);
+    if (existing.length > 0) {
+      c.end();
+      return res.status(409).json({ error: "Missing log time for this leave plan already exists" });
+    }
+
+    const [result] = await c.query("INSERT INTO missing_log_times (leave_plan_id, threshold_hours) VALUES (?, ?)", [leave_plan_id, threshold_hours]);
+    c.end();
+    res.json({ success: true, message: "Missing log time created successfully", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { leave_plan_id, threshold_hours } = req.body;
+    const c = await db();
+    const updates = [];
+    const values = [];
+    if (leave_plan_id !== undefined) {
+      updates.push("leave_plan_id = ?");
+      values.push(leave_plan_id);
+    }
+    if (threshold_hours !== undefined) {
+      updates.push("threshold_hours = ?");
+      values.push(threshold_hours);
+    }
+    if (updates.length === 0) {
+      c.end();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    values.push(req.params.id);
+    await c.query(`UPDATE missing_log_times SET ${updates.join(", ")} WHERE id = ?`, values);
+    c.end();
+    res.json({ success: true, message: "Missing log time updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [result] = await c.query("DELETE FROM missing_log_times WHERE id = ?", [req.params.id]);
+    c.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Missing log time not found" });
+    }
+    res.json({ success: true, message: "Missing log time deleted successfully" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

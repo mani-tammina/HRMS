@@ -246,7 +246,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
           // Penalty kicks in based on missing log configuration for user's leave plan
           const userLeavePlanId = this.employeeProfile?.leave_plan_id || this.employeeProfile?.LeavePlanId;
-          const config = this.missingLogConfigs.find(c => c.shift_id === userLeavePlanId);
+          const config = this.missingLogConfigs.find(c => c.leave_plan_id === userLeavePlanId);
           const thresholdHours = config ? config.threshold_hours : 24; // Default to 24 (previously 48 in code, but user said 24)
 
           const penaltyThreshold = new Date(shiftStart);

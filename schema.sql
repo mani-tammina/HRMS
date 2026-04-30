@@ -114,6 +114,28 @@ CREATE TABLE IF NOT EXISTS shift_policies (
   INDEX idx_shift_policy_active (is_active)
 );
 
+-- Missing Log Times (Auto-penalty configuration)
+CREATE TABLE IF NOT EXISTS missing_log_times (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  leave_plan_id INT NOT NULL,
+  threshold_hours INT NOT NULL DEFAULT 48,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_missing_log_leave_plan (leave_plan_id),
+  FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE
+);
+
+-- Late Time Arrivals (Grace period configuration)
+CREATE TABLE IF NOT EXISTS late_time_arrivals (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  leave_plan_id INT NOT NULL,
+  threshold_minutes INT NOT NULL DEFAULT 15,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_late_arrival_leave_plan (leave_plan_id),
+  FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE
+);
+
 -- Weekly Off Policies Master
 CREATE TABLE IF NOT EXISTS weekly_off_policies (
   id INT PRIMARY KEY AUTO_INCREMENT,

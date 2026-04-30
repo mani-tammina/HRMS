@@ -86,7 +86,7 @@ export class OrgSetupPage implements OnInit {
 
   // Penalty Form
   penaltyForm: any = {
-    shift_id: null,
+    leave_plan_id: null,
     threshold_hours: null,
     threshold_minutes: null
   };
@@ -464,7 +464,7 @@ export class OrgSetupPage implements OnInit {
   }
 
   savePenalty() {
-    const payload: any = { shift_id: this.penaltyForm.shift_id };
+    const payload: any = { leave_plan_id: this.penaltyForm.leave_plan_id };
     let action;
 
     if (this.penaltyType === 'missingLogs') {
@@ -509,7 +509,7 @@ export class OrgSetupPage implements OnInit {
 
   cancelPenalty() {
     this.editingPenaltyId = null;
-    this.penaltyForm = { shift_id: null, threshold_hours: null, threshold_minutes: null };
+    this.penaltyForm = { leave_plan_id: null, threshold_hours: null, threshold_minutes: null };
   }
 
   // Common Pagination Methods
@@ -633,10 +633,10 @@ export class OrgSetupPage implements OnInit {
 
       // Generic search for locations, departments, etc.
       if (this.activeTab === 'penalties') {
-        const shift = this.shiftPolicies.find(s => s.id === item.shift_id);
-        const shiftNameFromList = item.shift_name || '';
-        return (shift && shift.name.toLowerCase().includes(searchLower)) ||
-          (shiftNameFromList.toLowerCase().includes(searchLower)) ||
+        const plan = this.leavePlans.find(p => p.id === item.leave_plan_id);
+        const planNameFromList = item.leave_plan_name || '';
+        return (plan && plan.name.toLowerCase().includes(searchLower)) ||
+          (planNameFromList.toLowerCase().includes(searchLower)) ||
           (item.threshold_hours && item.threshold_hours.toString().includes(searchLower)) ||
           (item.threshold_minutes && item.threshold_minutes.toString().includes(searchLower));
       }
@@ -693,6 +693,11 @@ export class OrgSetupPage implements OnInit {
   }
 
   // Template Helper Methods
+  getPlanName(id: number): string {
+    const plan = this.leavePlans.find(p => p.id === id);
+    return plan ? plan.name : 'Unknown Plan';
+  }
+
   getTabIcon(): string {
     const icons: any = {
       locations: 'location-outline',
@@ -819,15 +824,14 @@ export class OrgSetupPage implements OnInit {
       case 'weeklyOff': return !!this.weeklyOffPolicyForm.name && (this.editingWeeklyOffId ? true : !!this.weeklyOffPolicyForm.policy_code);
       case 'announcements': return !!this.announcementForm.title && !!this.announcementForm.body;
       case 'penalties':
-        return !!this.penaltyForm.shift_id &&
+        return !!this.penaltyForm.leave_plan_id &&
           (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours : !!this.penaltyForm.threshold_minutes);
       default: return false;
     }
   }
   getShiftName(id: number) {
     return this.leavePlans.find(s => s.id === id)?.name || 
-           this.shiftPolicies.find(s => s.id === id)?.name || 
-           'Unknown Shift';
+           'Unknown Plan';
   }
 
   async showToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary') {

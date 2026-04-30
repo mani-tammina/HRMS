@@ -613,7 +613,7 @@ router.get("/balance", auth, async (req, res) => {
       SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON sp.id = mlt.shift_id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
     `, [emp.id]);
@@ -922,7 +922,7 @@ router.get("/my-leaves", auth, async (req, res) => {
       SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON sp.id = mlt.shift_id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
     `, [emp.id]);

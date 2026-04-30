@@ -10708,7 +10708,7 @@ Object.assign(swaggerSpec.paths, {
             schema: {
               type: "object",
               properties: {
-                shift_id: { type: "integer" },
+                leave_plan_id: { type: "integer" },
                 threshold_hours: { type: "integer" }
               }
             }
@@ -10735,7 +10735,7 @@ Object.assign(swaggerSpec.paths, {
             schema: {
               type: "object",
               properties: {
-                shift_id: { type: "integer" },
+                leave_plan_id: { type: "integer" },
                 threshold_hours: { type: "integer" }
               }
             }
@@ -10779,7 +10779,7 @@ Object.assign(swaggerSpec.paths, {
             schema: {
               type: "object",
               properties: {
-                shift_id: { type: "integer" },
+                leave_plan_id: { type: "integer" },
                 threshold_minutes: { type: "integer" }
               }
             }
@@ -10806,7 +10806,7 @@ Object.assign(swaggerSpec.paths, {
             schema: {
               type: "object",
               properties: {
-                shift_id: { type: "integer" },
+                leave_plan_id: { type: "integer" },
                 threshold_minutes: { type: "integer" }
               }
             }
