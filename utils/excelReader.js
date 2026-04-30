@@ -43,7 +43,7 @@ function excel(file) {
         for (const k of Object.keys(row)) {
             const v = row[k];
             if (v instanceof Date) {
-                r[k] = v.toISOString().slice(0, 10);
+                r[k] = v.toLocaleDateString('en-CA');
             } else if (typeof v === 'string') {
                 const lower = String(k).toLowerCase();
                 if (lower.includes('date') || lower.includes('_at') || lower.includes('joining') || lower.includes('birth')) {
@@ -62,7 +62,7 @@ function excel(file) {
                 }
             } else if (typeof v === 'number' && String(k).toLowerCase().includes('date')) {
                 const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-                r[k] = isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+                r[k] = isNaN(d.getTime()) ? null : d.toLocaleDateString('en-CA');
             } else {
                 r[k] = v;
             }

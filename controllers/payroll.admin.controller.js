@@ -136,7 +136,7 @@ async function buildRunValidation(year, month) {
 
     return {
       month: `${year}-${String(month).padStart(2, '0')}`,
-      totalEmployees: allEmployees.size,
+      totalEmployees: attendanceEmployees.size,
       withSalaryStructure: structureEmployees.size,
       withAttendance: attendanceEmployees.size,
       missingSalaryStructureCount: missingStructure.length,

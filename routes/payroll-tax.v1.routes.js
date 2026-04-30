@@ -263,7 +263,7 @@ router.put("/admin/payroll/statutory-rules", finance, async (req, res) => {
           r.percentage ?? null,
           r.ceiling_limit ?? null,
           r.fixed_amount ?? null,
-          r.effective_from || new Date().toISOString().slice(0, 10),
+          r.effective_from || new Date().toLocaleDateString('en-CA'),
           r.effective_to || null,
           r.is_active === false ? 0 : 1,
           req.user.id,
@@ -618,7 +618,8 @@ router.get("/admin/payroll/lop-summary", finance, async (req, res) => {
     if (!monthInfo) return res.status(400).json({ error: "payroll_month query required in YYYY-MM" });
 
     const startDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-01`;
-    const endDate = new Date(monthInfo.year, monthInfo.month, 0).toISOString().slice(0, 10);
+    const lastDay = new Date(monthInfo.year, monthInfo.month, 0).getDate();
+    const endDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-${lastDay}`;
 
     c = await db();
     const [rows] = await c.query(
@@ -626,9 +627,9 @@ router.get("/admin/payroll/lop-summary", finance, async (req, res) => {
               e.EmployeeNumber,
               e.FullName,
               COUNT(*) AS total_marked_days,
-              SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) AS present_days,
-              SUM(CASE WHEN a.status IN ('on-leave') THEN 1 ELSE 0 END) AS leave_days,
-              SUM(CASE WHEN a.status IN ('absent','half-day') THEN 1 ELSE 0 END) AS lop_days
+              SUM(CASE WHEN a.status IN ('present', 'late') THEN 1 WHEN a.status = 'half-day' THEN 0.5 ELSE 0 END) AS present_days,
+              SUM(CASE WHEN a.status IN ('on-leave', 'leave') THEN 1 ELSE 0 END) AS leave_days,
+              SUM(CASE WHEN a.status IN ('absent') THEN 1 WHEN a.status = 'half-day' THEN 0.5 ELSE 0 END) AS lop_days
        FROM attendance a
        INNER JOIN employees e ON e.id = a.employee_id
        WHERE a.attendance_date BETWEEN ? AND ?
@@ -682,7 +683,8 @@ router.post("/admin/payroll/lock-period", finance, async (req, res) => {
     if (!monthInfo) return res.status(400).json({ error: "payroll_month is required in YYYY-MM" });
 
     const startDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-01`;
-    const endDate = new Date(monthInfo.year, monthInfo.month, 0).toISOString().slice(0, 10);
+    const lastDay = new Date(monthInfo.year, monthInfo.month, 0).getDate();
+    const endDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-${lastDay}`;
 
     c = await db();
     await c.beginTransaction();
@@ -794,7 +796,7 @@ router.get("/admin/payroll/reconciliation", finance, async (req, res) => {
        WHERE DateJoined >= ? AND DateJoined <= ?`,
       [
         `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-01`,
-        new Date(monthInfo.year, monthInfo.month, 0).toISOString().slice(0, 10),
+        `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-${new Date(monthInfo.year, monthInfo.month, 0).getDate()}`,
       ],
     );
 

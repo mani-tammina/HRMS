@@ -244,10 +244,9 @@ async function runPayroll(year, month, runBy = null) {
   const conn = await db.getConnection();
   await conn.beginTransaction();
   try {
-    const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0); // last day
-    const sd = startDate.toISOString().slice(0, 10);
-    const ed = endDate.toISOString().slice(0, 10);
+    const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const ed = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
 
     // Create or get payroll cycle
     const [existing] = await conn.query(
@@ -279,9 +278,13 @@ async function runPayroll(year, month, runBy = null) {
     const [att] = await conn.query(
       `SELECT employee_id,
               COUNT(*) as working_days,
-              SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days,
+              SUM(CASE 
+                WHEN status = 'present' THEN 1 
+                WHEN status = 'late' THEN 1
+                WHEN status = 'half-day' THEN 0.5
+                ELSE 0 END) as present_days,
               SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-              SUM(CASE WHEN status = 'leave' THEN 1 ELSE 0 END) as leave_days
+              SUM(CASE WHEN status = 'on-leave' OR status = 'leave' THEN 1 ELSE 0 END) as leave_days
          FROM attendance
          WHERE attendance_date BETWEEN ? AND ?
          GROUP BY employee_id`,
@@ -537,16 +540,18 @@ async function runPayroll(year, month, runBy = null) {
       totalNet += Number(net);
     }
 
+    const totalEmployeesFromAttendance = snapshots.length;
+
     // Update run totals and mark completed
     await conn.query(
       `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = ?, total_net = ?, completed_at = NOW() WHERE id = ?`,
-      ['COMPLETED', totalEmployees, totalGross.toFixed(2), totalDeductions.toFixed(2), totalNet.toFixed(2), runId]
+      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), totalDeductions.toFixed(2), totalNet.toFixed(2), runId]
     );
 
     await conn.commit();
     await conn.end();
 
-    return { runId, cycleId, totalEmployees, totalGross, totalDeductions, totalNet };
+    return { runId, cycleId, totalEmployees: totalEmployeesFromAttendance, totalGross, totalDeductions, totalNet };
   } catch (err) {
     try {
       await conn.rollback();
@@ -592,7 +597,7 @@ async function getPayslipDetail(employeeId, year, month) {
 
 async function getSalaryStructureForEmployee(employeeId, options = {}) {
   const c = await db();
-  const refDate = options.date || new Date().toISOString().slice(0, 10);
+  const refDate = options.date || new Date().toLocaleDateString('en-CA'); // en-CA gives YYYY-MM-DD
   const resolved = await resolvePayrollStructure(c, employeeId, refDate, refDate, null, { createSnapshot: false });
   if (!resolved) {
     c.end();
@@ -630,14 +635,15 @@ async function getSalaryStructureForEmployee(employeeId, options = {}) {
 }
 
 async function getPayrollAttendanceImpact(year, month, employeeId) {
-  const startDate = new Date(year, month - 1, 1).toISOString().slice(0, 10);
-  const endDate = new Date(year, month, 0).toISOString().slice(0, 10);
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
   const c = await db();
   const [rows] = await c.query(
     `SELECT employee_id, COUNT(*) as working_days,
-            SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) as present_days,
+            SUM(CASE WHEN status='present' OR status='late' THEN 1 WHEN status='half-day' THEN 0.5 ELSE 0 END) as present_days,
             SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(CASE WHEN status='leave' THEN 1 ELSE 0 END) as leave_days
+            SUM(CASE WHEN status='on-leave' OR status='leave' THEN 1 ELSE 0 END) as leave_days
      FROM attendance
      WHERE attendance_date BETWEEN ? AND ? AND employee_id = ?
      GROUP BY employee_id`,
