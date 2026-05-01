@@ -126,11 +126,20 @@ async function previewPayroll(params) {
   return standardizeResponse(false, null, 'Dry-run not yet implemented');
 }
 
+async function exportPayrollRunUnified(runId) {
+  try {
+    return await payrollService.exportPayrollRun(runId);
+  } catch (error) {
+    throw error;
+  }
+}
+
 module.exports = {
   runPayrollUnified,
   getPayslipsUnified,
   getSalaryStructureUnified,
   getAttendanceImpactUnified,
+  exportPayrollRunUnified,
   previewPayroll,
   normalizeMonthYear,
   standardizeResponse

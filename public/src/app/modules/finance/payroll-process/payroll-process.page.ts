@@ -161,6 +161,32 @@ export class PayrollProcessPage implements OnInit {
     });
   }
 
+  downloadExcel(overrideRunId?: number) {
+    const runId = overrideRunId || this.runResult?.data?.runId;
+    if (!runId) {
+      this.toaster.showError('No Run ID found to download.');
+      return;
+    }
+
+    this.payrollApi.exportRunExcel(runId).subscribe({
+      next: (blob) => {
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Payroll_Run_${runId}_Details.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        this.toaster.showSuccess('Report downloaded successfully.');
+      },
+      error: (err) => {
+        this.toaster.showError('Failed to download report.');
+        console.error(err);
+      }
+    });
+  }
+
   // ═══════════════════════════════════════════════════════════
   // STEP 2 — SUMMARY: GET /api/payroll/v2/run?month=YYYY-MM
   //   Returns list of all runs → user selects one

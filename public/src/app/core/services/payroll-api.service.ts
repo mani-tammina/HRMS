@@ -792,6 +792,14 @@ export class PayrollApiService {
     return this.http.post(`${this.baseUrl}/payroll/adjustments`, payload, { headers: this.getHeaders() });
   }
 
+  /** GET /api/payroll/v2/runs/:runId/export — Download payroll run details as Excel */
+  exportRunExcel(runId: number): Observable<Blob> {
+    return this.http.get(`${this.baseUrl}/payroll/v2/runs/${runId}/export`, {
+      headers: this.getHeaders(),
+      responseType: 'blob'
+    });
+  }
+
   // ─────────────────────────────────────────────
   // Helper: Current Financial Year
   // ─────────────────────────────────────────────

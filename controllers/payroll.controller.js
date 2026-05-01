@@ -58,10 +58,26 @@ async function getAttendanceImpact(req, res) {
   res.json(response);
 }
 
+async function exportPayrollRun(req, res) {
+  const { runId } = req.params;
+  if (!runId) {
+    return res.status(400).json({ success: false, error: 'runId is required' });
+  }
+  try {
+    const buffer = await payrollEngine.exportPayrollRunUnified(Number(runId));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename=Payroll_Run_${runId}.xlsx`);
+    res.send(buffer);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   runPayroll,
   listPayslips,
   payslipDetail,
   getSalaryStructure,
-  getAttendanceImpact
+  getAttendanceImpact,
+  exportPayrollRun
 };

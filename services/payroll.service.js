@@ -405,10 +405,11 @@ async function runPayroll(year, month, runBy = null) {
       const net = gross - deductions;
 
       // Insert payroll_employee_salaries
+      const monthlyGross = Number(structure.ctc_amount || 0) / 12;
       const [salaryRes] = await conn.query(
         `INSERT INTO payroll_employee_salaries (run_id, cycle_id, employee_id, structure_id, gross_earnings, total_deductions, net_pay, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [runId, cycleId, employeeId, structure.id, gross.toFixed(2), deductions.toFixed(2), net.toFixed(2)]
+         VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
+        [runId, cycleId, employeeId, structure.id, monthlyGross.toFixed(2), monthlyGross.toFixed(2)]
       );
       const employeeSalaryId = salaryRes.insertId;
 
@@ -523,17 +524,17 @@ async function runPayroll(year, month, runBy = null) {
       );
 
       totalEmployees += 1;
-      totalGross += Number(resolved.structure.ctc_amount || 0);
+      totalGross += Number(resolved.structure.ctc_amount || 0) / 12;
       totalDeductions = 0;
-      totalNet = 0;
+      totalNet += Number(resolved.structure.ctc_amount || 0) / 12;
     }
 
     const totalEmployeesFromAttendance = snapshots.length;
 
     // Update run totals and mark completed
     await conn.query(
-      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = 0, total_net = 0, completed_at = NOW() WHERE id = ?`,
-      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), runId]
+      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = 0, total_net = ?, completed_at = NOW() WHERE id = ?`,
+      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), totalNet.toFixed(2), runId]
     );
 
     await conn.commit();
@@ -641,10 +642,51 @@ async function getPayrollAttendanceImpact(year, month, employeeId) {
   return rows[0] || { employee_id: employeeId, working_days: 0, present_days: 0, absent_days: 0, leave_days: 0 };
 }
 
+async function exportPayrollRun(runId) {
+  const XLSX = require('xlsx');
+  const c = await db();
+  try {
+    const [rows] = await c.query(
+      `SELECT e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
+              p.payslip_json
+       FROM payroll_employee_salaries s
+       JOIN employees e ON e.id = s.employee_id
+       LEFT JOIN designations d ON d.id = e.DesignationId
+       LEFT JOIN departments dept ON dept.id = e.DepartmentId
+       JOIN payroll_payslips p ON p.employee_salary_id = s.id
+       WHERE s.run_id = ?`,
+      [runId]
+    );
+
+    const data = rows.map(r => {
+      const ps = typeof r.payslip_json === 'string' ? JSON.parse(r.payslip_json) : r.payslip_json;
+      const annualCtc = ps.structure?.ctc || 0;
+      return {
+        'Employee Number': r.EmployeeNumber,
+        'Full Name': r.FullName,
+        'Designation': r.Designation,
+        'Department': r.Department,
+        'Salary Template': ps.structure?.name || 'N/A',
+        'Annual CTC': annualCtc,
+        'Monthly Gross': (annualCtc / 12).toFixed(2)
+      };
+    });
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Payroll Export');
+    const buf = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+    return buf;
+  } finally {
+    c.end();
+  }
+}
+
 module.exports = {
   runPayroll,
   getPayslipsForEmployee,
   getPayslipDetail,
   getSalaryStructureForEmployee,
-  getPayrollAttendanceImpact
+  getPayrollAttendanceImpact,
+  exportPayrollRun
 };

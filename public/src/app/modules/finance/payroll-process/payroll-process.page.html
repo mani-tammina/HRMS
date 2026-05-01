@@ -85,15 +85,18 @@
             </div>
             <div class="stat-item">
               <span class="val">{{ formatCurrency(runResult.data?.totalGross || 0) }}</span>
-              <span class="lbl">Gross Payout</span>
+              <span class="lbl">Monthly Gross</span>
             </div>
             <div class="stat-item accent-stat">
               <span class="val">{{ formatCurrency(runResult.data?.totalNet || 0) }}</span>
-              <span class="lbl">Net Payout</span>
+              <span class="lbl">Monthly Net</span>
             </div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="resetRun()">Re-Run</ion-button>
+            <ion-button fill="outline" class="download-btn" (click)="downloadExcel()">
+              Download Report <ion-icon name="download-outline" slot="end"></ion-icon>
+            </ion-button>
             <ion-button class="primary-btn" (click)="goToStep('summary')">
               View Summary <ion-icon name="bar-chart-outline" slot="end"></ion-icon>
             </ion-button>
@@ -148,11 +151,11 @@
                 </div>
                 <div class="rc-stat">
                   <span class="rc-val">{{ formatCurrency(run.total_gross) }}</span>
-                  <span class="rc-lbl">Gross</span>
+                  <span class="rc-lbl">Monthly Gross</span>
                 </div>
                 <div class="rc-stat accent">
                   <span class="rc-val">{{ formatCurrency(run.total_net) }}</span>
-                  <span class="rc-lbl">Net</span>
+                  <span class="rc-lbl">Monthly Net</span>
                 </div>
               </div>
 
@@ -167,6 +170,9 @@
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('run')">Back</ion-button>
             <ion-button class="secondary-btn" (click)="loadSummary()">
               <ion-icon name="refresh-outline" slot="start"></ion-icon> Refresh
+            </ion-button>
+            <ion-button fill="outline" class="download-btn" [disabled]="!selectedRun" (click)="downloadExcel(selectedRun?.run_id)">
+              Download Selected <ion-icon name="download-outline" slot="end"></ion-icon>
             </ion-button>
             <ion-button class="primary-btn" [disabled]="!selectedRun" (click)="goToStep('preview')">
               Preview Selected <ion-icon name="eye-outline" slot="end"></ion-icon>

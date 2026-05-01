@@ -48,8 +48,8 @@ router.get("/defaults", auth, finance, async (req, res) => {
 /* ============ NEW MODERN API ENDPOINTS (Phase-1) ============ */
 
 // Modern v2 API endpoints to avoid clashing with legacy routes
-// POST /api/payroll/v2/run  { year: 2026, month: 2 }
 router.post('/v2/run', auth, finance, payrollCtrl.runPayroll);
+router.get('/v2/runs/:runId/export', auth, finance, payrollCtrl.exportPayrollRun);
 
 // GET /api/payroll/v2/payslips/:employeeId
 router.get('/v2/payslips/:employeeId', auth, resolvePayrollEmployeeContext, payrollCtrl.listPayslips);
