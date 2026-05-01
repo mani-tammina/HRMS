@@ -191,7 +191,9 @@ export interface PayrollPreviewResponse {
     };
     estimate: {
       employeeCount: number;
-      estimatedGross: number;
+      totalGross: number;
+      totalNet: number;
+      totalPayout: number;
     };
     detailedPreview?: Array<{
       employee_id: number;

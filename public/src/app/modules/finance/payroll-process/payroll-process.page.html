@@ -220,10 +220,28 @@
             <ion-icon name="eye-outline"></ion-icon>
             <h3>Preview — Dry Run</h3>
             <span class="badge">Not committed</span>
+            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()" style="margin-left: auto;">
+              <ion-icon name="download-outline" slot="start"></ion-icon>
+              Export
+            </ion-button>
           </div>
           <div class="preview-summary">
-            <div class="summary-item"><div class="label">Employees</div><div class="value">{{ previewData.data?.estimate?.employeeCount || 0 }}</div></div>
-            <div class="summary-item accent"><div class="label">Est. Gross</div><div class="value">{{ formatCurrency(previewData.data?.estimate?.estimatedGross || 0) }}</div></div>
+            <div class="summary-item">
+              <div class="label">Employees</div>
+              <div class="value">{{ previewData.data?.estimate?.employeeCount || 0 }}</div>
+            </div>
+            <div class="summary-item accent">
+              <div class="label">Est. Gross</div>
+              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalGross || 0) }}</div>
+            </div>
+            <div class="summary-item success">
+              <div class="label">Est. Net</div>
+              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalNet || 0) }}</div>
+            </div>
+            <div class="summary-item primary">
+              <div class="label">Total Payout</div>
+              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalPayout || 0) }}</div>
+            </div>
           </div>
           
           <div class="preview-details-container" *ngIf="previewData.data?.detailedPreview?.length">

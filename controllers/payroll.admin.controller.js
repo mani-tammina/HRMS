@@ -363,6 +363,10 @@ async function previewRun(req, res) {
       }, {});
     }
 
+    let aggGross = 0;
+    let aggNet = 0;
+    let aggPayout = 0;
+
     const detailedList = employees.map(emp => {
       const annualCTC = Number(emp.annual_ctc || 0);
       const monthlyGross = Math.round(annualCTC / 12);
@@ -373,15 +377,6 @@ async function previewRun(req, res) {
       const calendarDays = attSummary.calendar_days;
       const paidDays = attSummary.paid_days;
       
-      /**
-       * USER REQUEST: If employee has LOP, do not calculate pro-rata for the preview display.
-       * "just display accutal amount only not calculate anything"
-       */
-      const proRataFactor = (calendarDays > 0 && lopDays === 0) ? 1 : 1; 
-      // Actually, if we always want to show Actual Amount in preview, we just set factor to 1.
-      // But wait, the user said "if employee have lop... display actual amount".
-      // This implies if they DON'T have lop, maybe we still prorate? No, that's unlikely.
-      // Let's set it to 1 to always show the "Actual" contract structure in the preview.
       const displayFactor = 1; 
 
       const computed = {};
@@ -420,7 +415,6 @@ async function previewRun(req, res) {
           amt = inputVal / 12.0;
         }
 
-        // Apply display factor (always 1 for "Actual" display as per user request)
         amt = amt * displayFactor;
 
         const rounded = Math.round(amt);
@@ -435,13 +429,19 @@ async function previewRun(req, res) {
         return { ...r, calculated_amount: rounded };
       });
 
-      // Handle Special Allowance (balancing component)
       if (specialIdx !== -1) {
         const specialAmt = Math.max(0, (monthlyGross * displayFactor) - totalEarnings);
         calculatedComponents[specialIdx].calculated_amount = specialAmt;
         computed['SPECIAL'] = specialAmt;
         totalEarnings += specialAmt;
       }
+
+      const net = totalEarnings - totalDeductions;
+      const payout = Math.round((totalEarnings / calendarDays) * paidDays);
+
+      aggGross += totalEarnings;
+      aggNet += net;
+      aggPayout += payout;
 
       return {
         employee_id: emp.id,
@@ -454,8 +454,8 @@ async function previewRun(req, res) {
         monthly_gross: monthlyGross,
         total_earnings: totalEarnings,
         total_deductions: totalDeductions,
-        total_net: totalEarnings - totalDeductions,
-        total_net_payout: Math.round((totalEarnings / calendarDays) * paidDays),
+        total_net: net,
+        total_net_payout: payout,
         lop_days: lopDays,
         calendar_days: calendarDays,
         paid_days: paidDays,
@@ -468,14 +468,14 @@ async function previewRun(req, res) {
       };
     });
 
-    c.end();
-
     return ok(res, {
       mode: 'DRY_RUN',
       validation,
       estimate: {
-        employeeCount: Number(estimateRows[0]?.employeeCount || 0),
-        estimatedGross: Number(estimateRows[0]?.estimatedGross || 0)
+        employeeCount: employees.length,
+        totalGross: aggGross,
+        totalNet: aggNet,
+        totalPayout: aggPayout
       },
       detailedPreview: detailedList
     });

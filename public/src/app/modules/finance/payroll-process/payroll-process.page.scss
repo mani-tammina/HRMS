@@ -751,6 +751,49 @@
    PREVIEW DETAILS TABLE
    ──────────────────────────────────────────────────────────────────────── */
 
+.preview-summary {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+
+  .summary-item {
+    background: #fff;
+    padding: 1.75rem;
+    border-radius: 20px;
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+    border-left: 5px solid #cbd5e1;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+    &:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+    }
+
+    .label { 
+      font-size: 0.75rem; 
+      color: #64748b; 
+      font-weight: 800; 
+      text-transform: uppercase; 
+      letter-spacing: 1px;
+      margin-bottom: 0.75rem; 
+    }
+    .value { 
+      font-size: 1.75rem; 
+      font-weight: 900; 
+      color: #1e293b; 
+      letter-spacing: -0.5px;
+    }
+
+    &.accent { border-left-color: #f59e0b; .value { color: #f59e0b; } }
+    &.success { border-left-color: #10b981; .value { color: #10b981; } }
+    &.primary { border-left-color: #6366f1; .value { color: #6366f1; } }
+  }
+}
+
 .preview-details-container {
   margin-top: 2rem;
   background: #fff;

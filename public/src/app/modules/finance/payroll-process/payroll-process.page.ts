@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AlertController } from '@ionic/angular';
+import * as XLSX from 'xlsx';
 import {
   PayrollApiService,
   PayrollValidationResult,
@@ -240,30 +241,6 @@ export class PayrollProcessPage implements OnInit {
     });
   }
 
-  getPreviewComponentHeaders(): string[] {
-    if (!this.previewData?.data?.detailedPreview) return [];
-    const names = new Set<string>();
-    this.previewData.data.detailedPreview.forEach(emp => {
-      emp.components.forEach(c => names.add(c.name));
-    });
-    // Sort them if needed, or keep order. Let's keep a reasonable order.
-    const ordered = ['Basic', 'HRA', 'Special Allowance', 'PF', 'ESI', 'Professional Tax'];
-    const result = Array.from(names).sort((a, b) => {
-       const idxA = ordered.findIndex(o => a.toLowerCase().includes(o.toLowerCase()));
-       const idxB = ordered.findIndex(o => b.toLowerCase().includes(o.toLowerCase()));
-       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-       if (idxA !== -1) return -1;
-       if (idxB !== -1) return 1;
-       return a.localeCompare(b);
-    });
-    return result;
-  }
-
-  getComponentAmount(emp: any, componentName: string): number {
-    const comp = emp.components.find((c: any) => c.name === componentName);
-    return comp ? comp.amount : 0;
-  }
-
 
   // ═══════════════════════════════════════════════════════════
   // STEP 4 — VALIDATE:  GET /api/payroll/v2/runs/validate
@@ -372,5 +349,60 @@ export class PayrollProcessPage implements OnInit {
     if (s.includes('run') || s.includes('process'))      return '#f59e0b';
     if (s.includes('fail') || s.includes('error'))       return '#ef4444';
     return '#6366f1';
+  }
+
+  getPreviewComponentHeaders(): string[] {
+    const preview = this.previewData?.data?.detailedPreview;
+    if (!preview || preview.length === 0) return [];
+    return preview[0].components?.map((c: any) => c.name) || [];
+  }
+
+  getComponentAmount(emp: any, name: string): number {
+    const comp = emp.components?.find((c: any) => c.name === name);
+    return comp ? comp.amount : 0;
+  }
+
+  exportToExcel() {
+    if (!this.previewData?.data?.detailedPreview) {
+      this.toaster.showError('No preview data available to export');
+      return;
+    }
+
+    const data = this.previewData.data.detailedPreview.map((emp: any) => {
+      const row: any = {
+        'Employee ID': emp.employee_number,
+        'Employee Name': emp.full_name,
+        'Designation': emp.designation,
+        'Department': emp.department,
+        'Template': emp.template_name,
+        'Annual CTC': emp.annual_ctc,
+        'Monthly Gross': emp.monthly_gross,
+        'Calendar Days': emp.calendar_days,
+        'LOP Days': emp.lop_days,
+        'Paid Days': emp.paid_days,
+      };
+
+      // Add dynamic components
+      const headers = this.getPreviewComponentHeaders();
+      headers.forEach(head => {
+        row[head] = this.getComponentAmount(emp, head);
+      });
+
+      row['Total Earnings'] = emp.total_earnings;
+      row['Total Deductions'] = emp.total_deductions;
+      row['Net Pay'] = emp.total_net;
+      row['Total Net Payout'] = emp.total_net_payout;
+
+      return row;
+    });
+
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payroll Preview');
+
+    // Generate filename
+    const filename = `Payroll_Preview_${this.previewMonth || 'Report'}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    this.toaster.showSuccess('Exported successfully');
   }
 }
