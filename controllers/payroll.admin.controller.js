@@ -177,6 +177,117 @@ async function previewRun(req, res) {
        ) current_structures`,
       [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
     );
+
+    // --- DETAILED PREVIEW LOGIC ---
+    const [employees] = await c.query(`
+      SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
+             esc.template_id, t.template_name, esc.annual_ctc
+      FROM employees e
+      LEFT JOIN designations d ON d.id = e.DesignationId
+      LEFT JOIN departments dept ON dept.id = e.DepartmentId
+      JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
+      LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+      WHERE esc.effective_from <= LAST_DAY(?)
+        AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
+    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
+
+    const templateIds = [...new Set(employees.map(e => e.template_id).filter(Boolean))];
+    let compMap = {};
+    if (templateIds.length > 0) {
+      const [compositions] = await c.query(`
+        SELECT sc.*, 
+               COALESCE(mc.code, lc.code) AS component_code,
+               COALESCE(mc.name, lc.name) AS component_name,
+               COALESCE(mc.component_type, lc.component_type) AS component_type,
+               COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+               COALESCE(mc.value, lc.value) AS default_value,
+               COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+               COALESCE(mc.sequence, lc.sequence) AS sequence
+        FROM structure_composition sc
+        LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+        LEFT JOIN salary_components lc ON lc.id = sc.component_id
+        WHERE sc.template_id IN (?)
+      `, [templateIds]);
+      
+      compMap = compositions.reduce((acc, comp) => {
+        if (!acc[comp.template_id]) acc[comp.template_id] = [];
+        acc[comp.template_id].push(comp);
+        return acc;
+      }, {});
+    }
+
+    const detailedList = employees.map(emp => {
+      const annualCTC = Number(emp.annual_ctc || 0);
+      const monthlyGross = Math.round(annualCTC / 12);
+      const comps = compMap[emp.template_id] || [];
+      
+      const computed = {};
+      let totalEarnings = 0;
+      let specialIdx = -1;
+
+      // Sort by sequence for calculation
+      const sortedComps = [...comps].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+      const calculatedComponents = sortedComps.map((r, idx) => {
+        if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
+          specialIdx = idx;
+          return { ...r, calculated_amount: 0 };
+        }
+
+        let inputVal = Number(r.default_value || 0);
+        const override = String(r.formula_or_value || "");
+        if (/^\d+(\.\d+)?%?$/.test(override)) {
+            inputVal = Number(override.replace('%', ''));
+        }
+
+        let amt = 0;
+        if (r.calculation_type === 'PERCENTAGE') {
+          if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
+            amt = (computed[r.percentage_of_code] * inputVal) / 100.0;
+          } else {
+            amt = (monthlyGross * inputVal) / 100.0;
+          }
+        } else {
+          amt = inputVal / 12.0;
+        }
+
+        const rounded = Math.round(amt);
+        computed[r.component_code] = rounded;
+        
+        const isEarning = r.component_type === 'EARNING';
+        const isEmployer = /Employer|Employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
+        if (isEarning || isEmployer) {
+          totalEarnings += rounded;
+        }
+
+        return { ...r, calculated_amount: rounded };
+      });
+
+      // Handle Special Allowance (balancing component)
+      if (specialIdx !== -1) {
+        const specialAmt = Math.max(0, monthlyGross - totalEarnings);
+        calculatedComponents[specialIdx].calculated_amount = specialAmt;
+        computed['SPECIAL'] = specialAmt;
+      }
+
+      return {
+        employee_id: emp.id,
+        employee_number: emp.EmployeeNumber,
+        full_name: emp.FullName,
+        designation: emp.Designation,
+        department: emp.Department,
+        template_name: emp.template_name,
+        annual_ctc: annualCTC,
+        monthly_gross: monthlyGross,
+        components: calculatedComponents.map(c => ({
+          code: c.component_code,
+          name: c.component_name,
+          type: c.component_type,
+          amount: c.calculated_amount
+        }))
+      };
+    });
+
     c.end();
 
     return ok(res, {
@@ -185,7 +296,8 @@ async function previewRun(req, res) {
       estimate: {
         employeeCount: Number(estimateRows[0]?.employeeCount || 0),
         estimatedGross: Number(estimateRows[0]?.estimatedGross || 0)
-      }
+      },
+      detailedPreview: detailedList
     });
   } catch (err) {
     return fail(res, 500, err.message);

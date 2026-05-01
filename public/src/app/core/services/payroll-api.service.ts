@@ -193,6 +193,22 @@ export interface PayrollPreviewResponse {
       employeeCount: number;
       estimatedGross: number;
     };
+    detailedPreview?: Array<{
+      employee_id: number;
+      employee_number: string;
+      full_name: string;
+      designation: string;
+      department: string;
+      template_name: string;
+      annual_ctc: number;
+      monthly_gross: number;
+      components: Array<{
+        code: string;
+        name: string;
+        type: string;
+        amount: number;
+      }>;
+    }>;
   } | null;
   error: string | null;
 }

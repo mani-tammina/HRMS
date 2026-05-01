@@ -226,7 +226,39 @@
             <div class="summary-item accent"><div class="label">Est. Gross</div><div class="value">{{ formatCurrency(previewData.data?.estimate?.estimatedGross || 0) }}</div></div>
           </div>
           
-          <div class="empty-state" style="padding: 2rem 0">
+          <div class="preview-details-container" *ngIf="previewData.data?.detailedPreview?.length">
+            <div class="table-scroll-container">
+              <table class="premium-table">
+                <thead>
+                  <tr>
+                    <th>Employee</th>
+                    <th>Template</th>
+                    <th class="num">Annual CTC</th>
+                    <th class="num">Monthly Gross</th>
+                    <th *ngFor="let head of getPreviewComponentHeaders()" class="num">{{ head }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let emp of previewData.data?.detailedPreview">
+                    <td>
+                      <div class="emp-info">
+                        <span class="emp-name">{{ emp.full_name }}</span>
+                        <span class="emp-id">{{ emp.employee_number }}</span>
+                      </div>
+                    </td>
+                    <td><span class="template-badge">{{ emp.template_name || 'N/A' }}</span></td>
+                    <td class="num">{{ formatCurrency(emp.annual_ctc) }}</td>
+                    <td class="num bold">{{ formatCurrency(emp.monthly_gross) }}</td>
+                    <td *ngFor="let head of getPreviewComponentHeaders()" class="num">
+                      {{ formatCurrency(getComponentAmount(emp, head)) }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="empty-state" style="padding: 2rem 0" *ngIf="!previewData.data?.detailedPreview?.length">
             <ion-icon name="calculator-outline"></ion-icon>
             <p>High-level projection completed successfully.</p>
           </div>

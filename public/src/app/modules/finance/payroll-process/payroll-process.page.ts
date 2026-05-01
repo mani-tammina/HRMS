@@ -240,6 +240,31 @@ export class PayrollProcessPage implements OnInit {
     });
   }
 
+  getPreviewComponentHeaders(): string[] {
+    if (!this.previewData?.data?.detailedPreview) return [];
+    const names = new Set<string>();
+    this.previewData.data.detailedPreview.forEach(emp => {
+      emp.components.forEach(c => names.add(c.name));
+    });
+    // Sort them if needed, or keep order. Let's keep a reasonable order.
+    const ordered = ['Basic', 'HRA', 'Special Allowance', 'PF', 'ESI', 'Professional Tax'];
+    const result = Array.from(names).sort((a, b) => {
+       const idxA = ordered.findIndex(o => a.toLowerCase().includes(o.toLowerCase()));
+       const idxB = ordered.findIndex(o => b.toLowerCase().includes(o.toLowerCase()));
+       if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+       if (idxA !== -1) return -1;
+       if (idxB !== -1) return 1;
+       return a.localeCompare(b);
+    });
+    return result;
+  }
+
+  getComponentAmount(emp: any, componentName: string): number {
+    const comp = emp.components.find((c: any) => c.name === componentName);
+    return comp ? comp.amount : 0;
+  }
+
+
   // ═══════════════════════════════════════════════════════════
   // STEP 4 — VALIDATE:  GET /api/payroll/v2/runs/validate
   // ═══════════════════════════════════════════════════════════
