@@ -24,6 +24,39 @@ function isValidFinancialYear(value) {
   return typeof value === 'string' && /^\d{4}-\d{4}$/.test(value);
 }
 
+function parseFormulaOverride(formulaOrValue) {
+  if (formulaOrValue === undefined || formulaOrValue === null) return null;
+  const text = String(formulaOrValue).trim();
+  if (!text) return null;
+
+  if (/^-?\d+(\.\d+)?$/.test(text)) {
+    return {
+      value: Number(text),
+      percentage_of_code: null
+    };
+  }
+
+  const percentOfCode = text.match(/^(\d+(?:\.\d+)?)\s*%\s*(?:of\s*)?([A-Za-z0-9_]+)$/i);
+  if (percentOfCode) {
+    return {
+      calculation_type: 'PERCENTAGE',
+      value: Number(percentOfCode[1]),
+      percentage_of_code: String(percentOfCode[2]).toUpperCase()
+    };
+  }
+
+  const percentOnly = text.match(/^(\d+(?:\.\d+)?)\s*%$/);
+  if (percentOnly) {
+    return {
+      calculation_type: 'PERCENTAGE',
+      value: Number(percentOnly[1]),
+      percentage_of_code: null
+    };
+  }
+
+  return null;
+}
+
 function normalizeTaxProfilePayload(payload) {
   const normalized = Object.assign({}, payload || {});
 
@@ -234,16 +267,21 @@ async function previewRun(req, res) {
           return { ...r, calculated_amount: 0 };
         }
 
+        const override = parseFormulaOverride(r.formula_or_value);
+        let calculation_type = r.calculation_type;
         let inputVal = Number(r.default_value || 0);
-        const override = String(r.formula_or_value || "");
-        if (/^\d+(\.\d+)?%?$/.test(override)) {
-            inputVal = Number(override.replace('%', ''));
+        let percentage_of_code = r.percentage_of_code;
+
+        if (override) {
+          if (override.calculation_type) calculation_type = override.calculation_type;
+          inputVal = override.value;
+          if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
         }
 
         let amt = 0;
-        if (r.calculation_type === 'PERCENTAGE') {
-          if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
-            amt = (computed[r.percentage_of_code] * inputVal) / 100.0;
+        if (calculation_type === 'PERCENTAGE') {
+          if (percentage_of_code && computed[percentage_of_code] !== undefined) {
+            amt = (computed[percentage_of_code] * inputVal) / 100.0;
           } else {
             amt = (monthlyGross * inputVal) / 100.0;
           }
