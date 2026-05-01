@@ -113,6 +113,115 @@ function normalizeTaxProfilePayload(payload) {
   return normalized;
 }
 
+async function getAttendanceSummaryMap(c, year, month, employees) {
+  const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const ed = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+  const now = new Date();
+  const todayStr = now.toDateString();
+
+  const employeeIds = employees.map(e => e.id);
+  if (employeeIds.length === 0) return {};
+
+  const [attendance] = await c.query(`
+    SELECT employee_id, attendance_date, status FROM attendance 
+    WHERE employee_id IN (?) AND attendance_date BETWEEN ? AND ?
+  `, [employeeIds, sd, ed]);
+
+  const attMap = {};
+  attendance.forEach(a => {
+    if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+    attMap[a.employee_id][new Date(a.attendance_date).toDateString()] = a;
+  });
+
+  const [allLeaves] = await c.query(`
+    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code 
+    FROM leaves l
+    JOIN leave_types lt ON lt.id = l.leave_type_id
+    WHERE l.employee_id IN (?) AND l.status = 'approved'
+      AND (l.start_date <= ? AND l.end_date >= ?)
+  `, [employeeIds, ed, sd]);
+
+  const leavesMap = {};
+  allLeaves.forEach(l => {
+    if (!leavesMap[l.employee_id]) leavesMap[l.employee_id] = [];
+    leavesMap[l.employee_id].push(l);
+  });
+
+  const result = {};
+
+  for (const emp of employees) {
+    const empAtt = attMap[emp.id] || {};
+    const empLeaves = leavesMap[emp.id] || [];
+    
+    const weekOffDays = [];
+    // ... (rest of the weekend logic)
+    if (emp.sunday_off) weekOffDays.push('sunday');
+    if (emp.monday_off) weekOffDays.push('monday');
+    if (emp.tuesday_off) weekOffDays.push('tuesday');
+    if (emp.wednesday_off) weekOffDays.push('wednesday');
+    if (emp.thursday_off) weekOffDays.push('thursday');
+    if (emp.friday_off) weekOffDays.push('friday');
+    if (emp.saturday_off) weekOffDays.push('saturday');
+
+    let present_days = 0;
+    let absent_days = 0;
+    let leave_days = 0;
+    let lop_leave_days = 0;
+    let weekend_days = 0;
+    let total_days_in_period = 0;
+
+    let curr = new Date(sd);
+    const end = new Date(ed);
+
+    while (curr <= end) {
+      const dStr = curr.toDateString();
+      const isFuture = curr > now && dStr !== todayStr;
+      
+      if (!isFuture) {
+        total_days_in_period++;
+        const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+        
+        const activeLeave = empLeaves.find(l => {
+          const lStart = new Date(l.start_date);
+          const lEnd = new Date(l.end_date);
+          const check = new Date(curr);
+          check.setHours(0,0,0,0);
+          lStart.setHours(0,0,0,0);
+          lEnd.setHours(0,0,0,0);
+          return check >= lStart && check <= lEnd;
+        });
+
+        if (activeLeave) {
+          leave_days++;
+          if (activeLeave.type_code === 'LOP') {
+            lop_leave_days++;
+          }
+        } else if (weekOffDays.includes(weekday)) {
+          weekend_days++;
+        } else if (empAtt[dStr]) {
+          const record = empAtt[dStr];
+          if (record.status === 'present') present_days++;
+          else if (record.status === 'half-day') present_days += 0.5;
+          else if (record.status === 'penalty') absent_days++; // Only penalty counts toward LOP multiplier in my-report logic
+        } else if (dStr !== todayStr) {
+          // Assume unexcused absence is penalty after threshold in my-report
+          // For preview, we count it as absent if no log
+          absent_days++;
+        }
+      }
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    result[emp.id] = {
+      total_days: total_days_in_period,
+      lop_days: (absent_days * 0.5) + lop_leave_days
+    };
+  }
+
+  return result;
+}
+
 function normalizeTaxProfileRead(row) {
   if (!row) return null;
   const normalized = Object.assign({}, row);
@@ -214,15 +323,20 @@ async function previewRun(req, res) {
     // --- DETAILED PREVIEW LOGIC ---
     const [employees] = await c.query(`
       SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
-             esc.template_id, t.template_name, esc.annual_ctc
+             esc.template_id, t.template_name, esc.annual_ctc,
+             wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
+             wop.thursday_off, wop.friday_off, wop.saturday_off
       FROM employees e
       LEFT JOIN designations d ON d.id = e.DesignationId
       LEFT JOIN departments dept ON dept.id = e.DepartmentId
       JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
       LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE esc.effective_from <= LAST_DAY(?)
         AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
+    `, [`${year}-${String(month).padStart(2, '0')}-01`, [`${year}-${String(month).padStart(2, '0')}-01`]]);
+
+    const attSummaryMap = await getAttendanceSummaryMap(c, year, month, employees);
 
     const templateIds = [...new Set(employees.map(e => e.template_id).filter(Boolean))];
     let compMap = {};
@@ -254,6 +368,11 @@ async function previewRun(req, res) {
       const monthlyGross = Math.round(annualCTC / 12);
       const comps = compMap[emp.template_id] || [];
       
+      const attSummary = attSummaryMap[emp.id] || { total_days: 30, lop_days: 0 };
+      const lopDays = attSummary.lop_days;
+      const totalDays = attSummary.total_days;
+      const proRataFactor = totalDays > 0 ? (totalDays - lopDays) / totalDays : 1;
+
       const computed = {};
       let totalEarnings = 0;
       let totalDeductions = 0;
@@ -290,6 +409,12 @@ async function previewRun(req, res) {
           amt = inputVal / 12.0;
         }
 
+        // Apply pro-rata if the component is flagged as prorated
+        const isProrated = r.prorated === 1 || r.prorated === true;
+        if (isProrated) {
+          amt = amt * proRataFactor;
+        }
+
         const rounded = Math.round(amt);
         computed[r.component_code] = rounded;
         
@@ -304,7 +429,7 @@ async function previewRun(req, res) {
 
       // Handle Special Allowance (balancing component)
       if (specialIdx !== -1) {
-        const specialAmt = Math.max(0, monthlyGross - totalEarnings);
+        const specialAmt = Math.max(0, (monthlyGross * proRataFactor) - totalEarnings);
         calculatedComponents[specialIdx].calculated_amount = specialAmt;
         computed['SPECIAL'] = specialAmt;
         totalEarnings += specialAmt;
@@ -322,6 +447,8 @@ async function previewRun(req, res) {
         total_earnings: totalEarnings,
         total_deductions: totalDeductions,
         total_net: totalEarnings - totalDeductions,
+        lop_days: lopDays,
+        total_days: totalDays,
         components: calculatedComponents.map(c => ({
           code: c.component_code,
           name: c.component_name,

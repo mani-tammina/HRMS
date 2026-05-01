@@ -205,6 +205,8 @@ export interface PayrollPreviewResponse {
       total_earnings: number;
       total_deductions: number;
       total_net: number;
+      lop_days: number;
+      total_days: number;
       components: Array<{
         code: string;
         name: string;
