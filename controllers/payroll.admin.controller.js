@@ -256,6 +256,7 @@ async function previewRun(req, res) {
       
       const computed = {};
       let totalEarnings = 0;
+      let totalDeductions = 0;
       let specialIdx = -1;
 
       // Sort by sequence for calculation
@@ -292,10 +293,10 @@ async function previewRun(req, res) {
         const rounded = Math.round(amt);
         computed[r.component_code] = rounded;
         
-        const isEarning = r.component_type === 'EARNING';
-        const isEmployer = /Employer|Employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
-        if (isEarning || isEmployer) {
+        if (r.component_type === 'EARNING') {
           totalEarnings += rounded;
+        } else if (r.component_type === 'DEDUCTION') {
+          totalDeductions += rounded;
         }
 
         return { ...r, calculated_amount: rounded };
@@ -306,6 +307,7 @@ async function previewRun(req, res) {
         const specialAmt = Math.max(0, monthlyGross - totalEarnings);
         calculatedComponents[specialIdx].calculated_amount = specialAmt;
         computed['SPECIAL'] = specialAmt;
+        totalEarnings += specialAmt;
       }
 
       return {
@@ -317,6 +319,9 @@ async function previewRun(req, res) {
         template_name: emp.template_name,
         annual_ctc: annualCTC,
         monthly_gross: monthlyGross,
+        total_earnings: totalEarnings,
+        total_deductions: totalDeductions,
+        total_net: totalEarnings - totalDeductions,
         components: calculatedComponents.map(c => ({
           code: c.component_code,
           name: c.component_name,

@@ -236,6 +236,9 @@
                     <th class="num">Annual CTC</th>
                     <th class="num">Monthly Gross</th>
                     <th *ngFor="let head of getPreviewComponentHeaders()" class="num">{{ head }}</th>
+                    <th class="num highlight-earnings">Total Earnings</th>
+                    <th class="num highlight-deductions">Total Deductions</th>
+                    <th class="num highlight-net">Net Pay</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -252,6 +255,9 @@
                     <td *ngFor="let head of getPreviewComponentHeaders()" class="num">
                       {{ formatCurrency(getComponentAmount(emp, head)) }}
                     </td>
+                    <td class="num bold earnings-val">{{ formatCurrency(emp.total_earnings) }}</td>
+                    <td class="num bold deductions-val">{{ formatCurrency(emp.total_deductions) }}</td>
+                    <td class="num bold net-val">{{ formatCurrency(emp.total_net) }}</td>
                   </tr>
                 </tbody>
               </table>

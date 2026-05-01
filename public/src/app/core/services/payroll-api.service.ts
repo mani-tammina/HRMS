@@ -202,6 +202,9 @@ export interface PayrollPreviewResponse {
       template_name: string;
       annual_ctc: number;
       monthly_gross: number;
+      total_earnings: number;
+      total_deductions: number;
+      total_net: number;
       components: Array<{
         code: string;
         name: string;
