@@ -762,4 +762,93 @@ router.post("/payroll", auth, roleAuth(["admin", "hr"]), upload.single("file"), 
     }
 });
 
+
+/* ============ BULK PAYROLL CONTRACT UPLOAD ============ */
+
+router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single("file"), async (req, res) => {
+    const rows = excel(req.file.path);
+    const c = await db();
+    const templateId = req.body.template_id;
+
+    if (!templateId) {
+        c.end();
+        return res.status(400).json({ success: false, message: "template_id is required" });
+    }
+
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = [];
+
+    try {
+        await c.beginTransaction();
+
+        for (const r of rows) {
+            try {
+                const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number || r.EmployeeCode || r.EmployeeID || r['Employee ID'];
+                const annualCTC = parseFloat(r.remuneration_amount || r.remuneration || r.AnnualCTC || r['Annual CTC'] || r.Gross || 0);
+
+                if (!empNo) {
+                    skipped++;
+                    errors.push("Missing Employee Number in row");
+                    continue;
+                }
+
+                // Find employee and their join date
+                const [empRows] = await c.query("SELECT id, DateJoined FROM employees WHERE EmployeeNumber = ?", [empNo]);
+                if (empRows.length === 0) {
+                    skipped++;
+                    errors.push(`Employee ${empNo} not found`);
+                    continue;
+                }
+
+                const employeeId = empRows[0].id;
+                const effectiveFrom = empRows[0].DateJoined || new Date().toISOString().split('T')[0];
+
+                // 1. Supersede existing active contracts
+                await c.query(
+                    `UPDATE employee_salary_contracts
+                     SET status = 'Superseded', effective_to = DATE_SUB(?, INTERVAL 1 DAY), updated_at = NOW()
+                     WHERE employee_id = ? AND status = 'Active' AND effective_from <= ?`,
+                    [effectiveFrom, employeeId, effectiveFrom]
+                );
+
+                // 2. Insert new contract
+                await c.query(
+                    `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, status, created_by)
+                     VALUES (?, ?, ?, ?, 'Active', ?)`,
+                    [employeeId, templateId, annualCTC, effectiveFrom, req.user.id]
+                );
+
+                // 3. Sync with employees table lpa column
+                await c.query(
+                    `UPDATE employees SET lpa = ? WHERE id = ?`,
+                    [annualCTC, employeeId]
+                );
+
+                inserted++;
+            } catch (err) {
+                skipped++;
+                errors.push(`Error for employee ${r.EmployeeNumber || 'Unknown'}: ${err.message}`);
+            }
+        }
+
+        await c.commit();
+        res.json({
+            success: true,
+            message: 'Payroll contracts upload completed',
+            processed: rows.length,
+            inserted,
+            skipped,
+            errors: errors.slice(0, 20)
+        });
+
+    } catch (error) {
+        await c.rollback();
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        c.end();
+    }
+});
+
 module.exports = router;

@@ -200,11 +200,20 @@ export class FinanceAdminService {
     return this.http.put<any>(url, payload, { headers: this.getHeaders() });
   }
 
-  /**
-   * Terminate/Delete contract with optional payload (DELETE)
-   */
   terminateContract(contractId: number, payload: any): Observable<any> {
     const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
     return this.http.delete<any>(url, { body: payload, headers: this.getHeaders() });
+  }
+
+  /**
+   * Bulk upload contracts from Excel
+   */
+  uploadBulkContracts(file: File, templateId: number): Observable<any> {
+    const url = `${this.baseUrl}/upload/payroll-contracts`;
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('template_id', templateId.toString());
+
+    return this.http.post<any>(url, formData, { headers: this.getHeaders() });
   }
 }

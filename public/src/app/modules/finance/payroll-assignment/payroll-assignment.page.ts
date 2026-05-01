@@ -261,8 +261,74 @@ export class PayrollAssignmentPage implements OnInit {
     this.editingContractId = null;
   }
 
+
   deselectEmployee() {
     this.selectedEmployee = null;
     this.employeeContracts = [];
+  }
+
+  // --- Bulk Import ---
+  selectedTemplateForBulk: number | null = null;
+  isImporting = false;
+
+  async onFileSelected(event: any) {
+    if (!this.selectedTemplateForBulk) {
+      this.toaster.showWarning('Please select a Salary Template first');
+      event.target.value = '';
+      return;
+    }
+
+    const file = event.target.files[0];
+    if (file) {
+      this.importContracts(file);
+    }
+  }
+
+  async importContracts(file: File) {
+    this.isImporting = true;
+    const loading = await this.loadingCtrl.create({
+      message: 'Uploading and Mapping Contracts...',
+      cssClass: 'glass-loading'
+    });
+    await loading.present();
+
+    this.financeService.uploadBulkContracts(file, this.selectedTemplateForBulk!).subscribe({
+      next: (res) => {
+        this.isImporting = false;
+        loading.dismiss();
+        if (res.success) {
+          this.toaster.showSuccess(`Successfully mapped ${res.inserted} contracts. ${res.skipped} skipped.`);
+          this.loadEmployees();
+        } else {
+          this.toaster.showError(res.message || 'Import failed');
+        }
+      },
+      error: (err) => {
+        this.isImporting = false;
+        loading.dismiss();
+        this.toaster.showError(err.error?.message || 'Upload failed');
+      }
+    });
+  }
+
+  downloadTemplate() {
+    // Basic CSV template for mapping
+    const headers = ['EmployeeNumber', 'remuneration_amount'];
+    const rows = [
+      ['EMP001', '500000'],
+      ['EMP002', '750000']
+    ];
+    
+    let csvContent = "data:text/csv;charset=utf-8," 
+      + headers.join(",") + "\n"
+      + rows.map(e => e.join(",")).join("\n");
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "payroll_mapping_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 }
