@@ -235,12 +235,14 @@
                     <th>Template</th>
                     <th class="num">Annual CTC</th>
                     <th class="num">Monthly Gross</th>
-                    <th class="num highlight-attendance">Total Days</th>
+                    <th class="num highlight-attendance">Calendar Days</th>
                     <th class="num highlight-lop">LOP</th>
+                    <th class="num highlight-paid">Paid Days</th>
                     <th *ngFor="let head of getPreviewComponentHeaders()" class="num">{{ head }}</th>
                     <th class="num highlight-earnings">Total Earnings</th>
                     <th class="num highlight-deductions">Total Deductions</th>
                     <th class="num highlight-net">Net Pay</th>
+                    <th class="num highlight-payout">Total Net Pay</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -254,14 +256,16 @@
                     <td><span class="template-badge">{{ emp.template_name || 'N/A' }}</span></td>
                     <td class="num">{{ formatCurrency(emp.annual_ctc) }}</td>
                     <td class="num bold">{{ formatCurrency(emp.monthly_gross) }}</td>
-                    <td class="num">{{ emp.total_days }}</td>
+                    <td class="num">{{ emp.calendar_days }}</td>
                     <td class="num bold lop-val">{{ emp.lop_days }}</td>
+                    <td class="num bold paid-val">{{ emp.paid_days }}</td>
                     <td *ngFor="let head of getPreviewComponentHeaders()" class="num">
                       {{ formatCurrency(getComponentAmount(emp, head)) }}
                     </td>
                     <td class="num bold earnings-val">{{ formatCurrency(emp.total_earnings) }}</td>
                     <td class="num bold deductions-val">{{ formatCurrency(emp.total_deductions) }}</td>
                     <td class="num bold net-val">{{ formatCurrency(emp.total_net) }}</td>
+                    <td class="num bold payout-val">{{ formatCurrency(emp.total_net_payout) }}</td>
                   </tr>
                 </tbody>
               </table>

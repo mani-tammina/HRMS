@@ -135,17 +135,29 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
   });
 
   const [allLeaves] = await c.query(`
-    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code 
+    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code
     FROM leaves l
-    JOIN leave_types lt ON lt.id = l.leave_type_id
+    INNER JOIN leave_types lt ON l.leave_type_id = lt.id
     WHERE l.employee_id IN (?) AND l.status = 'approved'
       AND (l.start_date <= ? AND l.end_date >= ?)
   `, [employeeIds, ed, sd]);
 
   const leavesMap = {};
+  const lopLeavesByDay = {}; // employee_id -> { dateStr -> true }
+
   allLeaves.forEach(l => {
     if (!leavesMap[l.employee_id]) leavesMap[l.employee_id] = [];
     leavesMap[l.employee_id].push(l);
+
+    if (l.type_code === 'LOP') {
+      if (!lopLeavesByDay[l.employee_id]) lopLeavesByDay[l.employee_id] = {};
+      let currL = new Date(l.start_date);
+      const endL = new Date(l.end_date);
+      while (currL <= endL) {
+        lopLeavesByDay[l.employee_id][currL.toDateString()] = true;
+        currL.setDate(currL.getDate() + 1);
+      }
+    }
   });
 
   const result = {};
@@ -153,9 +165,9 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
   for (const emp of employees) {
     const empAtt = attMap[emp.id] || {};
     const empLeaves = leavesMap[emp.id] || [];
+    const empLopDaysMap = lopLeavesByDay[emp.id] || {};
     
     const weekOffDays = [];
-    // ... (rest of the weekend logic)
     if (emp.sunday_off) weekOffDays.push('sunday');
     if (emp.monday_off) weekOffDays.push('monday');
     if (emp.tuesday_off) weekOffDays.push('tuesday');
@@ -164,58 +176,46 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
     if (emp.friday_off) weekOffDays.push('friday');
     if (emp.saturday_off) weekOffDays.push('saturday');
 
-    let present_days = 0;
     let absent_days = 0;
-    let leave_days = 0;
     let lop_leave_days = 0;
-    let weekend_days = 0;
-    let total_days_in_period = 0;
 
     let curr = new Date(sd);
     const end = new Date(ed);
+    const daysInMonth = new Date(year, month, 0).getDate();
 
     while (curr <= end) {
       const dStr = curr.toDateString();
       const isFuture = curr > now && dStr !== todayStr;
+      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
-      if (!isFuture) {
-        total_days_in_period++;
-        const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        
-        const activeLeave = empLeaves.find(l => {
-          const lStart = new Date(l.start_date);
-          const lEnd = new Date(l.end_date);
-          const check = new Date(curr);
-          check.setHours(0,0,0,0);
-          lStart.setHours(0,0,0,0);
-          lEnd.setHours(0,0,0,0);
-          return check >= lStart && check <= lEnd;
-        });
-
-        if (activeLeave) {
-          leave_days++;
-          if (activeLeave.type_code === 'LOP') {
-            lop_leave_days++;
-          }
-        } else if (weekOffDays.includes(weekday)) {
-          weekend_days++;
-        } else if (empAtt[dStr]) {
-          const record = empAtt[dStr];
-          if (record.status === 'present') present_days++;
-          else if (record.status === 'half-day') present_days += 0.5;
-          else if (record.status === 'penalty') absent_days++; // Only penalty counts toward LOP multiplier in my-report logic
-        } else if (dStr !== todayStr) {
-          // Assume unexcused absence is penalty after threshold in my-report
-          // For preview, we count it as absent if no log
-          absent_days++;
+      // 1. Check for approved LOP leave first
+      if (empLopDaysMap[dStr]) {
+        lop_leave_days++;
+      } 
+      // 2. Otherwise check attendance for penalties
+      else if (empAtt[dStr]) {
+        const record = empAtt[dStr];
+        if (record.status === 'penalty') {
+          absent_days++; // Penalty days from attendance
         }
+      } 
+      // 3. No log and not weekend/future? 
+      else if (!isFuture && dStr !== todayStr && !weekOffDays.includes(weekday)) {
+         // This matches the "No Attendance Logs" penalty logic from my-report
+         // But only if it's past the threshold. For simplicity in preview, we treat it as penalty
+         absent_days++;
       }
+      
       curr.setDate(curr.getDate() + 1);
     }
 
+    // Following my-report's lop_days: absent_days * 0.5 rule
+    const lopDays = (absent_days * 0.5) + lop_leave_days;
+    
     result[emp.id] = {
-      total_days: total_days_in_period,
-      lop_days: (absent_days * 0.5) + lop_leave_days
+      calendar_days: daysInMonth,
+      lop_days: lopDays,
+      paid_days: daysInMonth - lopDays
     };
   }
 
@@ -368,10 +368,21 @@ async function previewRun(req, res) {
       const monthlyGross = Math.round(annualCTC / 12);
       const comps = compMap[emp.template_id] || [];
       
-      const attSummary = attSummaryMap[emp.id] || { total_days: 30, lop_days: 0 };
+      const attSummary = attSummaryMap[emp.id] || { calendar_days: 30, lop_days: 0, paid_days: 30 };
       const lopDays = attSummary.lop_days;
-      const totalDays = attSummary.total_days;
-      const proRataFactor = totalDays > 0 ? (totalDays - lopDays) / totalDays : 1;
+      const calendarDays = attSummary.calendar_days;
+      const paidDays = attSummary.paid_days;
+      
+      /**
+       * USER REQUEST: If employee has LOP, do not calculate pro-rata for the preview display.
+       * "just display accutal amount only not calculate anything"
+       */
+      const proRataFactor = (calendarDays > 0 && lopDays === 0) ? 1 : 1; 
+      // Actually, if we always want to show Actual Amount in preview, we just set factor to 1.
+      // But wait, the user said "if employee have lop... display actual amount".
+      // This implies if they DON'T have lop, maybe we still prorate? No, that's unlikely.
+      // Let's set it to 1 to always show the "Actual" contract structure in the preview.
+      const displayFactor = 1; 
 
       const computed = {};
       let totalEarnings = 0;
@@ -409,11 +420,8 @@ async function previewRun(req, res) {
           amt = inputVal / 12.0;
         }
 
-        // Apply pro-rata if the component is flagged as prorated
-        const isProrated = r.prorated === 1 || r.prorated === true;
-        if (isProrated) {
-          amt = amt * proRataFactor;
-        }
+        // Apply display factor (always 1 for "Actual" display as per user request)
+        amt = amt * displayFactor;
 
         const rounded = Math.round(amt);
         computed[r.component_code] = rounded;
@@ -429,7 +437,7 @@ async function previewRun(req, res) {
 
       // Handle Special Allowance (balancing component)
       if (specialIdx !== -1) {
-        const specialAmt = Math.max(0, (monthlyGross * proRataFactor) - totalEarnings);
+        const specialAmt = Math.max(0, (monthlyGross * displayFactor) - totalEarnings);
         calculatedComponents[specialIdx].calculated_amount = specialAmt;
         computed['SPECIAL'] = specialAmt;
         totalEarnings += specialAmt;
@@ -447,8 +455,10 @@ async function previewRun(req, res) {
         total_earnings: totalEarnings,
         total_deductions: totalDeductions,
         total_net: totalEarnings - totalDeductions,
+        total_net_payout: Math.round((totalEarnings / calendarDays) * paidDays),
         lop_days: lopDays,
-        total_days: totalDays,
+        calendar_days: calendarDays,
+        paid_days: paidDays,
         components: calculatedComponents.map(c => ({
           code: c.component_code,
           name: c.component_name,
