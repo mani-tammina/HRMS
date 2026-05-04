@@ -338,17 +338,10 @@
             </div>
           </div>
           <div class="stats-grid">
-            <div class="stat-item"><span class="val">{{ validationResult.data?.missingSalaryStructureCount || 0
-                }}</span><span class="lbl">Missing Salary Setup</span></div>
             <div class="stat-item"><span class="val">{{ validationResult.data?.missingAttendanceCount || 0
                 }}</span><span class="lbl">Missing Attendance</span></div>
             <div class="stat-item"><span class="val">{{ validationResult.data?.totalEmployees || 0 }}</span><span
                 class="lbl">Total Employees</span></div>
-          </div>
-          <div class="issue-list" *ngIf="validationResult.data?.missingSalaryStructure?.length">
-            <h4>Missing Salary Setup ({{ validationResult.data?.missingSalaryStructureCount }})</h4>
-            <div class="issue error" *ngFor="let e of validationResult.data?.missingSalaryStructure"><ion-icon
-                name="close-circle-outline"></ion-icon> Emp ID: {{ e.employeeId }} - {{ e.employeeName }}</div>
           </div>
           <div class="issue-list" *ngIf="validationResult.data?.missingAttendance?.length">
             <h4>Missing Attendance ({{ validationResult.data?.missingAttendanceCount }})</h4>

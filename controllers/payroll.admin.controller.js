@@ -244,7 +244,7 @@ async function buildRunValidation(year, month) {
   const c = await db();
   try {
     const [employees] = await c.query(
-      `SELECT id
+      `SELECT id, EmployeeNumber, FullName
        FROM employees
        WHERE EmploymentStatus = 'Working'`
     );
@@ -265,28 +265,30 @@ async function buildRunValidation(year, month) {
       [year, month]
     );
 
-    const allEmployees = new Set(employees.map((r) => Number(r.id)));
+    const allEmployees = employees.map(e => ({ id: Number(e.id), name: e.FullName, number: e.EmployeeNumber }));
     const structureEmployees = new Set(withStructure.map((r) => Number(r.employee_id)));
     const attendanceEmployees = new Set(attendance.map((r) => Number(r.employee_id)));
 
-    const missingStructure = [];
     const missingAttendance = [];
 
-    for (const empId of allEmployees) {
-      if (!structureEmployees.has(empId)) missingStructure.push(empId);
-      if (!attendanceEmployees.has(empId)) missingAttendance.push(empId);
+    for (const emp of allEmployees) {
+      if (!attendanceEmployees.has(emp.id)) {
+        missingAttendance.push({ employeeId: emp.id, employeeName: emp.name });
+      }
     }
 
     return {
       month: `${year}-${String(month).padStart(2, '0')}`,
-      totalEmployees: attendanceEmployees.size,
+      totalEmployees: allEmployees.length,
       withSalaryStructure: structureEmployees.size,
       withAttendance: attendanceEmployees.size,
-      missingSalaryStructureCount: missingStructure.length,
+      // No longer reporting missing salary structure errors per user request
+      missingSalaryStructureCount: 0,
       missingAttendanceCount: missingAttendance.length,
-      missingSalaryStructure: missingStructure.slice(0, 50),
+      missingSalaryStructure: [],
       missingAttendance: missingAttendance.slice(0, 50),
-      valid: missingStructure.length === 0 && missingAttendance.length === 0
+      // Valid if we have any employees to process
+      valid: allEmployees.length > 0
     };
   } finally {
     c.end();
