@@ -767,19 +767,24 @@ async function getEmployeeRunStatus(req, res) {
                 return null;
             }
             
+            const override = parseFormulaOverride(r.formula_or_value);
+            let calculation_type = r.calculation_type;
             let inputVal = Number(r.value || 0);
-            const override = String(r.formula_or_value || "");
-            if (/^\d+(\.\d+)?%?$/.test(override)) {
-                inputVal = Number(override.replace('%', ''));
+            let percentage_of_code = r.percentage_of_code;
+
+            if (override) {
+                if (override.calculation_type) calculation_type = override.calculation_type;
+                inputVal = override.value;
+                if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
             }
 
             let actualValue = 0;
             let fullValueRaw = 0;
 
-            if (r.calculation_type === 'PERCENTAGE') {
-                if (r.percentage_of_code && computed[r.percentage_of_code] !== undefined) {
-                    actualValue = (computed[r.percentage_of_code] * inputVal) / 100.0;
-                    fullValueRaw = (full_computed[r.percentage_of_code] * inputVal) / 100.0;
+            if (calculation_type === 'PERCENTAGE') {
+                if (percentage_of_code && computed[percentage_of_code] !== undefined) {
+                    actualValue = (computed[percentage_of_code] * inputVal) / 100.0;
+                    fullValueRaw = (full_computed[percentage_of_code] * inputVal) / 100.0;
                 } else {
                     actualValue = (fullMonthlyCTC * proRataFactor * inputVal) / 100.0;
                     fullValueRaw = (fullMonthlyCTC * inputVal) / 100.0;
