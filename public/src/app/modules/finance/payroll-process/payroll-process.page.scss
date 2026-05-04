@@ -892,3 +892,14 @@
   .paid-val { color: #16a34a !important; }
 }
 
+ion-infinite-scroll {
+  margin-top: 1rem;
+  
+  ion-infinite-scroll-content {
+    --color: #6366f1;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #64748b;
+  }
+}
+

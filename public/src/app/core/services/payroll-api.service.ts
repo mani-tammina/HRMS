@@ -218,6 +218,12 @@ export interface PayrollPreviewResponse {
         amount: number;
       }>;
     }>;
+    pagination?: {
+      total: number;
+      pages: number;
+      currentPage: number;
+      limit: number;
+    };
   } | null;
   error: string | null;
 }
@@ -480,7 +486,7 @@ export class PayrollApiService {
   }
 
   /** POST /api/payroll/v2/runs/preview — Perform a dry run / preview */
-  previewPayroll(payload: V2RunPayload): Observable<PayrollPreviewResponse> {
+  previewPayroll(payload: V2RunPayload & { page?: number; limit?: number }): Observable<PayrollPreviewResponse> {
     return this.http.post<PayrollPreviewResponse>(`${this.baseUrl}/payroll/v2/runs/preview`, payload, { headers: this.getHeaders() });
   }
 

@@ -116,11 +116,12 @@ export class PayslipsPage implements OnInit, OnDestroy {
         this.availableYears = [2026, 2025, 2024]; // Standard years, could be dynamic too
         this.generateMonthList();
 
-        // Select the most recent month (current month)
+        // Select the most recent month (previous month)
         const now = new Date();
-        const currentMonth = now.getMonth() + 1;
-        const currentYear = now.getFullYear();
-        this.selectedMonthStr = `${currentYear}-${String(currentMonth).padStart(2, '0')}`;
+        now.setMonth(now.getMonth() - 1); // Go to previous month
+        const prevMonth = now.getMonth() + 1;
+        const prevYear = now.getFullYear();
+        this.selectedMonthStr = `${prevYear}-${String(prevMonth).padStart(2, '0')}`;
         this.fetchPayslipData(emp.id, this.selectedMonthStr);
 
         // 2. Fetch all contracts for the 'My Salary' tab
@@ -143,7 +144,7 @@ export class PayslipsPage implements OnInit, OnDestroy {
     const currentMonth = now.getMonth() + 1;
 
     const months = [];
-    const limit = (this.selectedYear === currentYear) ? currentMonth : 12;
+    const limit = (this.selectedYear === currentYear) ? currentMonth - 1 : 12;
 
     for (let i = limit; i >= 1; i--) {
       months.push({

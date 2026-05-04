@@ -246,7 +246,7 @@ async function buildRunValidation(year, month) {
     const [employees] = await c.query(
       `SELECT id
        FROM employees
-       WHERE EmploymentStatus IS NULL OR LOWER(EmploymentStatus) IN ('active', 'probation', 'confirmed')`
+       WHERE EmploymentStatus = 'Working'`
     );
 
     const [withStructure] = await c.query(
@@ -309,6 +309,7 @@ async function previewRun(req, res) {
        FROM (
          SELECT ss.employee_id, ss.ctc_amount
          FROM salary_structures ss
+         JOIN employees e ON e.id = ss.employee_id
          JOIN (
            SELECT employee_id, MAX(version) AS max_version
            FROM salary_structures
@@ -316,12 +317,18 @@ async function previewRun(req, res) {
              AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
            GROUP BY employee_id
          ) latest ON latest.employee_id = ss.employee_id AND latest.max_version = ss.version
+         WHERE e.EmploymentStatus = 'Working'
        ) current_structures`,
       [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
     );
 
+    const page = Number(req.body.page) || 1;
+    const limit = Number(req.body.limit) || 20;
+    const offset = (page - 1) * limit;
+
     // --- DETAILED PREVIEW LOGIC ---
-    const [employees] = await c.query(`
+    // Fetch ALL employees for aggregate calculation
+    const [allEmployees] = await c.query(`
       SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
              esc.template_id, t.template_name, esc.annual_ctc,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
@@ -332,13 +339,14 @@ async function previewRun(req, res) {
       JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
       LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-      WHERE esc.effective_from <= LAST_DAY(?)
+      WHERE e.EmploymentStatus = 'Working'
+        AND esc.effective_from <= LAST_DAY(?)
         AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-    `, [`${year}-${String(month).padStart(2, '0')}-01`, [`${year}-${String(month).padStart(2, '0')}-01`]]);
+    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
 
-    const attSummaryMap = await getAttendanceSummaryMap(c, year, month, employees);
+    const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
 
-    const templateIds = [...new Set(employees.map(e => e.template_id).filter(Boolean))];
+    const templateIds = [...new Set(allEmployees.map(e => e.template_id).filter(Boolean))];
     let compMap = {};
     if (templateIds.length > 0) {
       const [compositions] = await c.query(`
@@ -367,7 +375,7 @@ async function previewRun(req, res) {
     let aggNet = 0;
     let aggPayout = 0;
 
-    const detailedList = employees.map(emp => {
+    const allCalculated = allEmployees.map(emp => {
       const annualCTC = Number(emp.annual_ctc || 0);
       const monthlyGross = Math.round(annualCTC / 12);
       const comps = compMap[emp.template_id] || [];
@@ -384,7 +392,6 @@ async function previewRun(req, res) {
       let totalDeductions = 0;
       let specialIdx = -1;
 
-      // Sort by sequence for calculation
       const sortedComps = [...comps].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
 
       const calculatedComponents = sortedComps.map((r, idx) => {
@@ -468,16 +475,24 @@ async function previewRun(req, res) {
       };
     });
 
+    const detailedList = allCalculated.slice(offset, offset + limit);
+
     return ok(res, {
       mode: 'DRY_RUN',
       validation,
       estimate: {
-        employeeCount: employees.length,
+        employeeCount: allEmployees.length,
         totalGross: aggGross,
         totalNet: aggNet,
         totalPayout: aggPayout
       },
-      detailedPreview: detailedList
+      detailedPreview: detailedList,
+      pagination: {
+        total: allEmployees.length,
+        pages: Math.ceil(allEmployees.length / limit),
+        currentPage: page,
+        limit: limit
+      }
     });
   } catch (err) {
     return fail(res, 500, err.message);

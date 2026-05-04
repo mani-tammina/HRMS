@@ -60,6 +60,12 @@ export class PayrollProcessPage implements OnInit {
   validationResult: PayrollValidationResult | null = null;
   lockResult: any = null;
   paidResult: any = null;
+  
+  // ─── Pagination & Infinite Scroll ─────────────────────────
+  previewPage = 1;
+  previewLimit = 20;
+  canLoadMorePreview = true;
+  fullDetailedPreview: any[] = [];
 
 
   // ─── Loading flags ────────────────────────────────────────
@@ -227,18 +233,58 @@ export class PayrollProcessPage implements OnInit {
 
     this.isPreviewing = true;
     this.previewData  = null;
+    this.fullDetailedPreview = [];
+    this.previewPage = 1;
+    this.canLoadMorePreview = true;
 
-    this.payrollApi.previewPayroll({ year, month }).subscribe({
+    this.loadPreviewData(year, month);
+  }
+
+  loadPreviewData(year: number, month: number, event?: any) {
+    this.payrollApi.previewPayroll({ 
+      year, 
+      month, 
+      page: this.previewPage, 
+      limit: this.previewLimit 
+    }).subscribe({
       next: (res) => {
-        this.previewData  = res;
+        this.previewData = res;
+        const newItems = res.data?.detailedPreview || [];
+        this.fullDetailedPreview = [...this.fullDetailedPreview, ...newItems];
+        
         this.isPreviewing = false;
+        
+        // Check if we can load more
+        const pagination = (res as any).data?.pagination;
+        if (pagination) {
+          this.canLoadMorePreview = pagination.currentPage < pagination.pages;
+        } else {
+          this.canLoadMorePreview = false;
+        }
+
+        if (event) {
+          event.target.complete();
+        }
       },
       error: (err) => {
         this.isPreviewing = false;
         this.toaster.showError('Preview failed.');
         console.error(err);
+        if (event) {
+          event.target.complete();
+        }
       }
     });
+  }
+
+  loadMorePreview(event: any) {
+    if (!this.canLoadMorePreview) {
+      event.target.complete();
+      return;
+    }
+    this.previewPage++;
+    const [year, month] = this.previewMonth.split('-').map(Number);
+    this.loadPreviewData(year, month, event);
   }
 
 
@@ -352,7 +398,7 @@ export class PayrollProcessPage implements OnInit {
   }
 
   getPreviewComponentHeaders(): string[] {
-    const preview = this.previewData?.data?.detailedPreview;
+    const preview = this.fullDetailedPreview;
     if (!preview || preview.length === 0) return [];
     return preview[0].components?.map((c: any) => c.name) || [];
   }
@@ -363,12 +409,12 @@ export class PayrollProcessPage implements OnInit {
   }
 
   exportToExcel() {
-    if (!this.previewData?.data?.detailedPreview) {
+    if (this.fullDetailedPreview.length === 0) {
       this.toaster.showError('No preview data available to export');
       return;
     }
 
-    const data = this.previewData.data.detailedPreview.map((emp: any) => {
+    const data = this.fullDetailedPreview.map((emp: any) => {
       const row: any = {
         'Employee ID': emp.employee_number,
         'Employee Name': emp.full_name,
@@ -404,5 +450,9 @@ export class PayrollProcessPage implements OnInit {
     const filename = `Payroll_Preview_${this.previewMonth || 'Report'}.xlsx`;
     XLSX.writeFile(wb, filename);
     this.toaster.showSuccess('Exported successfully');
+  }
+
+  trackByEmpId(index: number, item: any) {
+    return item.employee_id;
   }
 }

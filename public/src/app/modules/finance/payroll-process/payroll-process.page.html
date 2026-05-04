@@ -16,9 +16,7 @@
       <!-- STEPPER — 6 steps -->
       <div class="stepper-indicator">
         <ng-container *ngFor="let s of steps; let i = index">
-          <div class="step"
-            [class.active]="currentStep === s.key"
-            [class.completed]="stepIndex > i">
+          <div class="step" [class.active]="currentStep === s.key" [class.completed]="stepIndex > i">
             <div class="step-circle">
               <ion-icon name="checkmark" *ngIf="stepIndex > i"></ion-icon>
               <span *ngIf="stepIndex <= i">{{ i + 1 }}</span>
@@ -87,10 +85,10 @@
               <span class="val">{{ formatCurrency(runResult.data?.totalGross || 0) }}</span>
               <span class="lbl">Monthly Gross</span>
             </div>
-            <div class="stat-item accent-stat">
+            <!-- <div class="stat-item accent-stat">
               <span class="val">{{ formatCurrency(runResult.data?.totalNet || 0) }}</span>
               <span class="lbl">Monthly Net</span>
-            </div>
+            </div> -->
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="resetRun()">Re-Run</ion-button>
@@ -130,10 +128,7 @@
 
           <!-- Run cards list -->
           <div class="run-list" *ngIf="runList.length > 0">
-            <div
-              class="run-card"
-              *ngFor="let run of runList"
-              [class.selected]="selectedRun?.run_id === run.run_id"
+            <div class="run-card" *ngFor="let run of runList" [class.selected]="selectedRun?.run_id === run.run_id"
               (click)="selectRun(run)">
 
               <div class="run-card-left">
@@ -153,15 +148,16 @@
                   <span class="rc-val">{{ formatCurrency(run.total_gross) }}</span>
                   <span class="rc-lbl">Monthly Gross</span>
                 </div>
-                <div class="rc-stat accent">
+                <!-- <div class="rc-stat accent">
                   <span class="rc-val">{{ formatCurrency(run.total_net) }}</span>
                   <span class="rc-lbl">Monthly Net</span>
-                </div>
+                </div> -->
               </div>
 
               <div class="run-card-right">
                 <span class="status-pill" [style.background]="getStatusColor(run.status)">{{ run.status }}</span>
-                <ion-icon name="checkmark-circle" class="selected-check" *ngIf="selectedRun?.run_id === run.run_id"></ion-icon>
+                <ion-icon name="checkmark-circle" class="selected-check"
+                  *ngIf="selectedRun?.run_id === run.run_id"></ion-icon>
               </div>
             </div>
           </div>
@@ -171,7 +167,8 @@
             <ion-button class="secondary-btn" (click)="loadSummary()">
               <ion-icon name="refresh-outline" slot="start"></ion-icon> Refresh
             </ion-button>
-            <ion-button fill="outline" class="download-btn" [disabled]="!selectedRun" (click)="downloadExcel(selectedRun?.run_id)">
+            <ion-button fill="outline" class="download-btn" [disabled]="!selectedRun"
+              (click)="downloadExcel(selectedRun?.run_id)">
               Download Selected <ion-icon name="download-outline" slot="end"></ion-icon>
             </ion-button>
             <ion-button class="primary-btn" [disabled]="!selectedRun" (click)="goToStep('preview')">
@@ -220,7 +217,8 @@
             <ion-icon name="eye-outline"></ion-icon>
             <h3>Preview — Dry Run</h3>
             <span class="badge">Not committed</span>
-            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()" style="margin-left: auto;">
+            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()"
+              style="margin-left: auto;">
               <ion-icon name="download-outline" slot="start"></ion-icon>
               Export
             </ion-button>
@@ -243,8 +241,8 @@
               <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalPayout || 0) }}</div>
             </div>
           </div>
-          
-          <div class="preview-details-container" *ngIf="previewData.data?.detailedPreview?.length">
+
+          <div class="preview-details-container" *ngIf="fullDetailedPreview.length">
             <div class="table-scroll-container">
               <table class="premium-table">
                 <thead>
@@ -264,7 +262,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let emp of previewData.data?.detailedPreview">
+                  <tr *ngFor="let emp of fullDetailedPreview; trackBy: trackByEmpId">
                     <td>
                       <div class="emp-info">
                         <span class="emp-name">{{ emp.full_name }}</span>
@@ -287,6 +285,12 @@
                   </tr>
                 </tbody>
               </table>
+              
+              <!-- Infinite Scroll -->
+              <ion-infinite-scroll threshold="100px" (ionInfinite)="loadMorePreview($event)" [disabled]="!canLoadMorePreview">
+                <ion-infinite-scroll-content loadingSpinner="crescent" loadingText="Loading more employees...">
+                </ion-infinite-scroll-content>
+              </ion-infinite-scroll>
             </div>
           </div>
 
@@ -324,25 +328,32 @@
         </div>
 
         <div class="result-state" *ngIf="!isValidating && validationResult">
-          <div class="status-banner" [class.success]="validationResult.data?.valid" [class.error]="!validationResult.data?.valid">
+          <div class="status-banner" [class.success]="validationResult.data?.valid"
+            [class.error]="!validationResult.data?.valid">
             <ion-icon [name]="validationResult.data?.valid ? 'checkmark-circle' : 'alert-circle'"></ion-icon>
             <div>
               <h3>{{ validationResult.data?.valid ? 'Ready to Lock' : 'Attention Required' }}</h3>
-              <p>{{ validationResult.data?.valid ? 'All critical checks passed.' : 'Resolve errors before locking.' }}</p>
+              <p>{{ validationResult.data?.valid ? 'All critical checks passed.' : 'Resolve errors before locking.' }}
+              </p>
             </div>
           </div>
           <div class="stats-grid">
-            <div class="stat-item"><span class="val">{{ validationResult.data?.missingSalaryStructureCount || 0 }}</span><span class="lbl">Missing Salary Setup</span></div>
-            <div class="stat-item"><span class="val">{{ validationResult.data?.missingAttendanceCount || 0 }}</span><span class="lbl">Missing Attendance</span></div>
-            <div class="stat-item"><span class="val">{{ validationResult.data?.totalEmployees || 0 }}</span><span class="lbl">Total Employees</span></div>
+            <div class="stat-item"><span class="val">{{ validationResult.data?.missingSalaryStructureCount || 0
+                }}</span><span class="lbl">Missing Salary Setup</span></div>
+            <div class="stat-item"><span class="val">{{ validationResult.data?.missingAttendanceCount || 0
+                }}</span><span class="lbl">Missing Attendance</span></div>
+            <div class="stat-item"><span class="val">{{ validationResult.data?.totalEmployees || 0 }}</span><span
+                class="lbl">Total Employees</span></div>
           </div>
           <div class="issue-list" *ngIf="validationResult.data?.missingSalaryStructure?.length">
             <h4>Missing Salary Setup ({{ validationResult.data?.missingSalaryStructureCount }})</h4>
-            <div class="issue error" *ngFor="let e of validationResult.data?.missingSalaryStructure"><ion-icon name="close-circle-outline"></ion-icon> Emp ID: {{ e.employeeId }} - {{ e.employeeName }}</div>
+            <div class="issue error" *ngFor="let e of validationResult.data?.missingSalaryStructure"><ion-icon
+                name="close-circle-outline"></ion-icon> Emp ID: {{ e.employeeId }} - {{ e.employeeName }}</div>
           </div>
           <div class="issue-list" *ngIf="validationResult.data?.missingAttendance?.length">
             <h4>Missing Attendance ({{ validationResult.data?.missingAttendanceCount }})</h4>
-            <div class="issue warning" *ngFor="let a of validationResult.data?.missingAttendance"><ion-icon name="warning-outline"></ion-icon> Emp ID: {{ a.employeeId }} - {{ a.employeeName }}</div>
+            <div class="issue warning" *ngFor="let a of validationResult.data?.missingAttendance"><ion-icon
+                name="warning-outline"></ion-icon> Emp ID: {{ a.employeeId }} - {{ a.employeeName }}</div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="validationResult = null">Re-Validate</ion-button>
@@ -364,7 +375,8 @@
           <div class="card-intro">
             <div class="icon-box lock-icon-box"><ion-icon name="lock-closed-outline"></ion-icon></div>
             <h2>Lock Payroll Run</h2>
-            <p>Freezes all payslip records and moves the run to <strong>LOCKED</strong> status. No further edits possible.</p>
+            <p>Freezes all payslip records and moves the run to <strong>LOCKED</strong> status. No further edits
+              possible.</p>
           </div>
           <div class="lock-summary glass-inset" *ngIf="runStatus">
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
@@ -409,8 +421,10 @@
           </div>
           <div class="lock-summary glass-inset" *ngIf="runStatus">
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
-            <div class="ls-row"><span>Status</span><span class="status-pill-sm" [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span></div>
-            <div class="ls-row"><span>Net Payout</span><strong class="highlight">{{ formatCurrency(runStatus.total_net) }}</strong></div>
+            <div class="ls-row"><span>Status</span><span class="status-pill-sm"
+                [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span></div>
+            <div class="ls-row"><span>Net Payout</span><strong class="highlight">{{ formatCurrency(runStatus.total_net)
+                }}</strong></div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('lock')">Back</ion-button>
@@ -424,11 +438,14 @@
           <div class="confetti-header">
             <div class="trophy-icon"><ion-icon name="trophy-outline"></ion-icon></div>
             <h2>Payroll Complete! 🎉</h2>
-            <p>Run <strong>#{{ runStatus?.run_id }}</strong> is now <strong>PAID</strong>.<br>All employee payslips are available.</p>
+            <p>Run <strong>#{{ runStatus?.run_id }}</strong> is now <strong>PAID</strong>.<br>All employee payslips are
+              available.</p>
           </div>
           <div class="completion-stats glass-inset">
-            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ runStatus?.employee_count }} Employees</span></div>
-            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(runStatus?.total_net) }}</span></div>
+            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ runStatus?.employee_count }}
+                Employees</span></div>
+            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(runStatus?.total_net)
+                }}</span></div>
             <div class="cs-item"><ion-icon name="calendar-outline"></ion-icon><span>{{ selectedMonth }}</span></div>
           </div>
           <div class="action-footer vertical" style="margin-top:2rem">

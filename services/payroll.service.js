@@ -264,18 +264,20 @@ async function runPayroll(year, month, runBy = null) {
 
     // Snapshot attendance per employee (simple aggregation)
     const [att] = await conn.query(
-      `SELECT employee_id,
+      `SELECT a.employee_id,
               COUNT(*) as working_days,
               SUM(CASE 
-                WHEN status = 'present' THEN 1 
-                WHEN status = 'late' THEN 1
-                WHEN status = 'half-day' THEN 0.5
+                WHEN a.status = 'present' THEN 1 
+                WHEN a.status = 'late' THEN 1
+                WHEN a.status = 'half-day' THEN 0.5
                 ELSE 0 END) as present_days,
-              SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-              SUM(CASE WHEN status = 'on-leave' OR status = 'leave' THEN 1 ELSE 0 END) as leave_days
-         FROM attendance
-         WHERE attendance_date BETWEEN ? AND ?
-         GROUP BY employee_id`,
+              SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+              SUM(CASE WHEN a.status = 'on-leave' OR a.status = 'leave' THEN 1 ELSE 0 END) as leave_days
+         FROM attendance a
+         JOIN employees e ON a.employee_id = e.id
+         WHERE a.attendance_date BETWEEN ? AND ?
+           AND e.EmploymentStatus = 'Working'
+         GROUP BY a.employee_id`,
       [sd, ed]
     );
 
@@ -364,7 +366,7 @@ async function runPayroll(year, month, runBy = null) {
       let esiAmountEmp = 0.0;
       let esiAmountEr = 0.0;
       const ESI_THRESHOLD = 21000;
-      
+
       // Note: User requested ESI_EE=70 and ESI_ER=300 for Gross=10000.
       // These formulas with Math.ceil achieve exactly that.
       if (gross <= ESI_THRESHOLD) {
@@ -511,10 +513,10 @@ async function runPayroll(year, month, runBy = null) {
         earnings: finalEarnings,
         component_deductions: finalDeductions,
         statutory_deductions: finalStatutory,
-        totals: { 
-          gross: (Number(gross) + erBundle).toFixed(2), 
-          deductions: (Number(deductions) - erBundle).toFixed(2), 
-          net: Number(net.toFixed(2)) 
+        totals: {
+          gross: (Number(gross) + erBundle).toFixed(2),
+          deductions: (Number(deductions) - erBundle).toFixed(2),
+          net: Number(net.toFixed(2))
         }
       };
 
@@ -545,7 +547,7 @@ async function runPayroll(year, month, runBy = null) {
     try {
       await conn.rollback();
       await conn.end();
-    } catch (e) {}
+    } catch (e) { }
     throw err;
   }
 }
@@ -599,10 +601,10 @@ async function getSalaryStructureForEmployee(employeeId, options = {}) {
   const divisor = isMonthly ? 12.0 : 1.0;
   const ctc = Number(structure.ctc_amount || 0) / divisor;
   const computed = {};
-  
+
   // Sort by sequence to handle percentages of other components correctly
   const sorted = [...components].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-  
+
   const processedComponents = sorted.map(comp => {
     let amount = Number(comp.value || 0) / divisor;
     if (comp.calculation_type === 'PERCENTAGE') {
