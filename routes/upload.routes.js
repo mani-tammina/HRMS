@@ -768,12 +768,7 @@ router.post("/payroll", auth, roleAuth(["admin", "hr"]), upload.single("file"), 
 router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single("file"), async (req, res) => {
     const rows = excel(req.file.path);
     const c = await db();
-    const templateId = req.body.template_id;
-
-    if (!templateId) {
-        c.end();
-        return res.status(400).json({ success: false, message: "template_id is required" });
-    }
+    const bodyTemplateId = req.body.template_id;
 
     let inserted = 0;
     let updated = 0;
@@ -787,10 +782,34 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
             try {
                 const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number || r.EmployeeCode || r.EmployeeID || r['Employee ID'];
                 const annualCTC = parseFloat(r.remuneration_amount || r.remuneration || r.AnnualCTC || r['Annual CTC'] || r.Gross || 0);
+                const templateNameFromRow = r.template_name || r.TemplateName || r['Template Name'] || r.Template || r.salary_template || r.SalaryTemplate;
 
                 if (!empNo) {
                     skipped++;
                     errors.push("Missing Employee Number in row");
+                    continue;
+                }
+
+                let finalTemplateId = bodyTemplateId;
+
+                // Lookup template ID by name if provided in row
+                if (templateNameFromRow) {
+                    const [templateRows] = await c.query(
+                        "SELECT template_id FROM salary_structure_templates WHERE template_name = ? OR description = ? LIMIT 1",
+                        [templateNameFromRow, templateNameFromRow]
+                    );
+                    if (templateRows.length > 0) {
+                        finalTemplateId = templateRows[0].template_id;
+                    } else {
+                        skipped++;
+                        errors.push(`Template '${templateNameFromRow}' not found for employee ${empNo}`);
+                        continue;
+                    }
+                }
+
+                if (!finalTemplateId) {
+                    skipped++;
+                    errors.push(`No template specified for employee ${empNo}`);
                     continue;
                 }
 
@@ -817,7 +836,7 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
                 await c.query(
                     `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, status, created_by)
                      VALUES (?, ?, ?, ?, 'Active', ?)`,
-                    [employeeId, templateId, annualCTC, effectiveFrom, req.user.id]
+                    [employeeId, finalTemplateId, annualCTC, effectiveFrom, req.user.id]
                 );
 
                 // 3. Sync with employees table lpa column
@@ -844,10 +863,10 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
         });
 
     } catch (error) {
-        await c.rollback();
+        if (c) await c.rollback();
         res.status(500).json({ success: false, message: error.message });
     } finally {
-        c.end();
+        if (c) c.end();
     }
 });
 

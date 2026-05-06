@@ -272,15 +272,11 @@ export class PayrollAssignmentPage implements OnInit {
   isImporting = false;
 
   async onFileSelected(event: any) {
-    if (!this.selectedTemplateForBulk) {
-      this.toaster.showWarning('Please select a Salary Template first');
-      event.target.value = '';
-      return;
-    }
-
     const file = event.target.files[0];
     if (file) {
       this.importContracts(file);
+      // Reset input so same file can be uploaded again if needed
+      event.target.value = '';
     }
   }
 
@@ -292,7 +288,7 @@ export class PayrollAssignmentPage implements OnInit {
     });
     await loading.present();
 
-    this.financeService.uploadBulkContracts(file, this.selectedTemplateForBulk!).subscribe({
+    this.financeService.uploadBulkContracts(file).subscribe({
       next: (res) => {
         this.isImporting = false;
         loading.dismiss();
@@ -313,10 +309,10 @@ export class PayrollAssignmentPage implements OnInit {
 
   downloadTemplate() {
     // Basic CSV template for mapping
-    const headers = ['EmployeeNumber', 'remuneration_amount'];
+    const headers = ['EmployeeNumber', 'remuneration_amount', 'template_name'];
     const rows = [
-      ['EMP001', '500000'],
-      ['EMP002', '750000']
+      ['EMP001', '500000', 'Standard Employee Package'],
+      ['EMP002', '750000', 'Senior Employee Package']
     ];
     
     let csvContent = "data:text/csv;charset=utf-8," 

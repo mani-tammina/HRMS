@@ -127,7 +127,18 @@ export class PayslipsPage implements OnInit, OnDestroy {
         // 2. Fetch all contracts for the 'My Salary' tab
         this.payrollService.listContracts({ employee_id: emp.id }).pipe(takeUntil(this.destroy$)).subscribe({
           next: (contracts: any[]) => {
-            this.employeeContracts = Array.isArray(contracts) ? contracts : [];
+            this.employeeContracts = (Array.isArray(contracts) ? contracts : []).sort((a: any, b: any) => {
+              // 1. Sort by status: 'Active' first
+              const aActive = a.status?.toLowerCase() === 'active';
+              const bActive = b.status?.toLowerCase() === 'active';
+              if (aActive && !bActive) return -1;
+              if (!aActive && bActive) return 1;
+              
+              // 2. Sort by effective_from date: Most recent first
+              const aDate = new Date(a.effective_from || 0).getTime();
+              const bDate = new Date(b.effective_from || 0).getTime();
+              return bDate - aDate;
+            });
             loader.dismiss();
             this.loading = false;
           },

@@ -208,11 +208,13 @@ export class FinanceAdminService {
   /**
    * Bulk upload contracts from Excel
    */
-  uploadBulkContracts(file: File, templateId: number): Observable<any> {
+  uploadBulkContracts(file: File, templateId?: number): Observable<any> {
     const url = `${this.baseUrl}/upload/payroll-contracts`;
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('template_id', templateId.toString());
+    if (templateId) {
+      formData.append('template_id', templateId.toString());
+    }
 
     return this.http.post<any>(url, formData, { headers: this.getHeaders() });
   }

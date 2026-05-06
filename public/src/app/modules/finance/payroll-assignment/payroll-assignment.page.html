@@ -44,28 +44,15 @@
         </div>
 
         <div class="bulk-body">
-          <div class="bulk-form-group">
-            <label>1. Select Target Salary Template</label>
-            <div class="select-wrapper">
-              <select [(ngModel)]="selectedTemplateForBulk" class="lux-input">
-                <option [ngValue]="null">Choose Template...</option>
-                <option *ngFor="let temp of templates" [ngValue]="temp.template_id || temp.id">
-                  {{ temp.template_name || temp.name }}
-                </option>
-              </select>
-              <ion-icon name="chevron-down-outline" class="select-chevron"></ion-icon>
-            </div>
-          </div>
-
           <div class="bulk-action">
-            <label class="upload-area" [class.disabled]="!selectedTemplateForBulk">
-              <input type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" [disabled]="!selectedTemplateForBulk" hidden />
+            <label class="upload-area">
+              <input type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" hidden />
               <div class="upload-content">
                 <ion-icon name="document-attach-outline"></ion-icon>
                 <span>{{ isImporting ? 'Processing...' : 'Upload & Map Contracts' }}</span>
               </div>
             </label>
-            <p class="bulk-hint">Excel must contain: <strong>EmployeeNumber</strong> and <strong>remuneration_amount</strong> (Annual CTC)</p>
+            <p class="bulk-hint">Excel must contain: <strong>EmployeeNumber</strong>, <strong>remuneration_amount</strong> (Annual CTC) and <strong>template_name</strong></p>
           </div>
         </div>
       </div>

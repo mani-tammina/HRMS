@@ -292,9 +292,9 @@
     </div>
 
     <div class="contract-list">
-      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index">
-        <div class="card-status-bar" [class.active-bar]="i === 0"></div>
-        <div class="badge-wrapper" *ngIf="i === 0">
+      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index" [class.current-card]="contract.status?.toLowerCase() === 'active'">
+        <div class="card-status-bar" [class.active-bar]="contract.status?.toLowerCase() === 'active'"></div>
+        <div class="badge-wrapper" *ngIf="contract.status?.toLowerCase() === 'active'">
           <span class="active-badge"><ion-icon name="checkmark-circle"></ion-icon> Current</span>
         </div>
 
