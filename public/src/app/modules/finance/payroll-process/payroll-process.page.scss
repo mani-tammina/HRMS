@@ -903,3 +903,29 @@ ion-infinite-scroll {
   }
 }
 
+.view-all-container {
+  display: flex;
+  justify-content: center;
+  padding: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  background: #fff;
+  border-radius: 0 0 20px 20px;
+
+  ion-button {
+    --color: #6366f1;
+    font-weight: 700;
+    text-transform: none;
+    font-size: 1rem;
+    --padding-start: 2rem;
+    --padding-end: 2rem;
+    
+    ion-icon {
+      margin-left: 0.5rem;
+      transition: transform 0.3s ease;
+    }
+    
+    &:hover ion-icon {
+      transform: translateX(5px);
+    }
+  }
+}

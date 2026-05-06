@@ -262,7 +262,7 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let emp of fullDetailedPreview; trackBy: trackByEmpId">
+                  <tr *ngFor="let emp of fullDetailedPreview | slice:0:10; trackBy: trackByEmpId">
                     <td>
                       <div class="emp-info">
                         <span class="emp-name">{{ emp.full_name }}</span>
@@ -285,12 +285,14 @@
                   </tr>
                 </tbody>
               </table>
-              
-              <!-- Infinite Scroll -->
-              <ion-infinite-scroll threshold="100px" (ionInfinite)="loadMorePreview($event)" [disabled]="!canLoadMorePreview">
-                <ion-infinite-scroll-content loadingSpinner="crescent" loadingText="Loading more employees...">
-                </ion-infinite-scroll-content>
-              </ion-infinite-scroll>
+
+              <!-- View All Button -->
+              <div class="view-all-container" *ngIf="fullDetailedPreview.length > 10">
+                <ion-button fill="clear" color="primary" (click)="viewAllPreview()">
+                  View All {{ fullDetailedPreview.length }} Employees
+                  <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+                </ion-button>
+              </div>
             </div>
           </div>
 

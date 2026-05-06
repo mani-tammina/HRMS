@@ -287,6 +287,13 @@ export class PayrollProcessPage implements OnInit {
     this.loadPreviewData(year, month, event);
   }
 
+  viewAllPreview() {
+    this.router.navigate(['/finance/preview-all'], { 
+      queryParams: { month: this.previewMonth } 
+    });
+  }
+
+
 
   // ═══════════════════════════════════════════════════════════
   // STEP 4 — VALIDATE:  GET /api/payroll/v2/runs/validate

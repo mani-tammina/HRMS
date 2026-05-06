@@ -1,0 +1,84 @@
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="page-container">
+    
+    <header class="header-group">
+      <div class="left">
+        <ion-button fill="clear" (click)="goBack()" class="back-btn">
+          <ion-icon name="chevron-back-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+        <h1>Full Payroll Preview — {{ previewMonth }}</h1>
+      </div>
+      
+      <div class="right" *ngIf="previewData">
+        <ion-badge color="primary">{{ fullDetailedPreview.length }} Employees Loaded</ion-badge>
+      </div>
+    </header>
+
+    <div class="loading-state" *ngIf="isPreviewing && fullDetailedPreview.length === 0">
+      <ion-spinner name="crescent"></ion-spinner>
+      <h3>Generating Detailed Forecast...</h3>
+      <p>Please wait while we calculate the full payroll breakdown.</p>
+    </div>
+
+    <!-- Virtual Scroll Table -->
+    <div class="virtual-table-wrapper" *ngIf="fullDetailedPreview.length > 0">
+      <div class="horizontal-scroll-container">
+        <!-- Header -->
+        <div class="table-header">
+          <div class="header-cell col-emp">Employee</div>
+          <div class="header-cell col-template">Template</div>
+          <div class="header-cell col-ctc num">Annual CTC</div>
+          <div class="header-cell col-gross num">Monthly Gross</div>
+          <div class="header-cell col-days num highlight-attendance">Calendar</div>
+          <div class="header-cell col-days num highlight-lop">LOP</div>
+          <div class="header-cell col-days num highlight-paid">Paid</div>
+          
+          <div *ngFor="let head of getPreviewComponentHeaders()" class="header-cell col-comp num">
+            {{ head }}
+          </div>
+          
+          <div class="header-cell col-total num highlight-earnings">Earnings</div>
+          <div class="header-cell col-total num highlight-deductions">Deductions</div>
+          <div class="header-cell col-total num highlight-net">Net Pay</div>
+          <div class="header-cell col-total num highlight-payout">Total Net</div>
+        </div>
+
+        <!-- Viewport -->
+        <cdk-virtual-scroll-viewport itemSize="70" class="viewport" (scrolledIndexChange)="onScrollIndexChange($any($event))">
+          <div *cdkVirtualFor="let emp of fullDetailedPreview; trackBy: trackByEmpId" class="table-row">
+            <div class="cell col-emp">
+              <div class="emp-info">
+                <span class="emp-name">{{ emp.full_name }}</span>
+                <span class="emp-id">{{ emp.employee_number }}</span>
+              </div>
+            </div>
+            <div class="cell col-template">
+              <span class="template-badge">{{ emp.template_name || 'N/A' }}</span>
+            </div>
+            <div class="cell col-ctc num">{{ formatCurrency(emp.annual_ctc) }}</div>
+            <div class="cell col-gross num bold">{{ formatCurrency(emp.monthly_gross) }}</div>
+            <div class="cell col-days num highlight-attendance">{{ emp.calendar_days }}</div>
+            <div class="cell col-days num bold lop-val highlight-lop">{{ emp.lop_days }}</div>
+            <div class="cell col-days num bold paid-val highlight-paid">{{ emp.paid_days }}</div>
+            
+            <div *ngFor="let head of getPreviewComponentHeaders()" class="cell col-comp num">
+              {{ formatCurrency(getComponentAmount(emp, head)) }}
+            </div>
+
+            <div class="cell col-total num bold earnings-val highlight-earnings">{{ formatCurrency(emp.total_earnings) }}</div>
+            <div class="cell col-total num bold deductions-val highlight-deductions">{{ formatCurrency(emp.total_deductions) }}</div>
+            <div class="cell col-total num bold net-val highlight-net">{{ formatCurrency(emp.total_net) }}</div>
+            <div class="cell col-total num bold payout-val highlight-payout">{{ formatCurrency(emp.total_net_payout) }}</div>
+          </div>
+        </cdk-virtual-scroll-viewport>
+      </div>
+    </div>
+
+    <div class="empty-state" *ngIf="!isPreviewing && fullDetailedPreview.length === 0">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <p>No preview data found for this month.</p>
+      <ion-button fill="outline" (click)="goBack()">Go Back</ion-button>
+    </div>
+
+  </div>
+</ion-content>

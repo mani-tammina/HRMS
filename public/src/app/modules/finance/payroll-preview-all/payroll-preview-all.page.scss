@@ -1,0 +1,176 @@
+.glass-content {
+  --background: #f8fafc;
+  background: radial-gradient(circle at top right, #e0f2fe 0%, #f8fafc 40%);
+}
+
+.page-container {
+  padding: 2rem;
+  max-width: 100%; /* Wider for all columns */
+  margin: 0 auto;
+}
+
+.header-group {
+  margin-bottom: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1rem;
+
+  .left {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+
+    .back-btn {
+      --color: #64748b;
+      --padding-start: 0;
+      margin: 0;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 800;
+      color: #1e293b;
+      letter-spacing: -0.5px;
+    }
+  }
+}
+
+/* Virtual Table Styles */
+.virtual-table-wrapper {
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+  border: 1px solid #f1f5f9;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px); /* Fixed height for virtual scroll */
+  min-height: 500px;
+}
+
+.horizontal-scroll-container {
+  overflow-x: auto;
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-header {
+  display: flex;
+  background: #f8fafc;
+  border-bottom: 2px solid #e2e8f0;
+  z-index: 10;
+  min-width: 1800px; /* Large enough for all columns */
+
+  .header-cell {
+    padding: 1.25rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+
+    &.num { justify-content: flex-end; text-align: right; }
+  }
+}
+
+.viewport {
+  flex: 1;
+  width: 100%;
+  min-width: 1800px;
+  
+  /* Scrollbar styling */
+  &::-webkit-scrollbar { width: 6px; }
+  &::-webkit-scrollbar-track { background: #f1f5f9; }
+  &::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+}
+
+.table-row {
+  display: flex;
+  border-bottom: 1px solid #f1f5f9;
+  transition: all 0.2s ease;
+  height: 70px; /* Matches itemSize */
+  background: #fff;
+
+  &:hover {
+    background: #f8fafc;
+    .cell { border-bottom-color: #6366f1; }
+  }
+
+  .cell {
+    padding: 0.75rem 1rem;
+    color: #334155;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &.num { justify-content: flex-end; text-align: right; font-family: 'Inter', monospace; }
+    &.bold { font-weight: 700; }
+  }
+}
+
+/* Column Widths */
+.col-emp { width: 250px; flex-shrink: 0; }
+.col-template { width: 200px; flex-shrink: 0; }
+.col-ctc { width: 140px; flex-shrink: 0; }
+.col-gross { width: 140px; flex-shrink: 0; }
+.col-days { width: 100px; flex-shrink: 0; }
+.col-comp { width: 130px; flex-shrink: 0; }
+.col-total { width: 150px; flex-shrink: 0; }
+
+.emp-info {
+  display: flex;
+  flex-direction: column;
+  .emp-name { font-weight: 800; color: #1e293b; font-size: 0.95rem; line-height: 1.2; }
+  .emp-id { font-size: 0.75rem; color: #94a3b8; font-weight: 600; margin-top: 2px; }
+}
+
+.template-badge {
+  padding: 0.3rem 0.7rem;
+  background: #eef2ff;
+  color: #6366f1;
+  border-radius: 30px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border: 1px solid #c7d2fe;
+}
+
+/* Highlight styles */
+.highlight-attendance { background: rgba(248, 250, 252, 0.5); }
+.highlight-lop { background: rgba(254, 242, 242, 0.5); }
+.highlight-paid { background: rgba(240, 253, 244, 0.5); }
+.highlight-earnings { background: rgba(239, 246, 255, 0.5); }
+.highlight-deductions { background: rgba(255, 241, 242, 0.5); }
+.highlight-net { background: rgba(245, 243, 255, 0.5); }
+.highlight-payout { background: rgba(236, 253, 245, 0.5); }
+
+.lop-val { color: #ef4444; }
+.paid-val { color: #10b981; }
+.earnings-val { color: #3b82f6; }
+.deductions-val { color: #f43f5e; }
+.net-val { color: #8b5cf6; }
+.payout-val { color: #10b981; font-size: 1.05rem; font-weight: 800; }
+
+.loading-state {
+  text-align: center;
+  padding: 5rem 0;
+  ion-spinner { width: 64px; height: 64px; --color: #6366f1; }
+  h3 { margin-top: 1.5rem; font-weight: 700; color: #1e293b; }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 5rem 0;
+  color: #94a3b8;
+  ion-icon { font-size: 4rem; margin-bottom: 1rem; }
+  p { font-size: 1.1rem; }
+}
