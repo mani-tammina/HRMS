@@ -601,8 +601,15 @@ async function runPayroll(year, month, runBy = null) {
 
       for (const b of breakupsRows) {
         const isEr = /employer|employeer/i.test(b.component_name) || /_ER$/i.test(b.component_code);
+        const isESI_ER = /ESI_ER/i.test(b.component_code || '');
+        
         if (isEr) {
           erBundle += Number(b.amount || 0);
+          // If it's ESI_ER, we still want to show it as a line item per user request
+          if (isESI_ER) {
+            if (b.component_type === 'EARNING') finalEarnings.push(b);
+            else finalDeductions.push(b);
+          }
         } else if (b.component_type === 'EARNING') {
           finalEarnings.push(b);
         } else {
@@ -612,8 +619,11 @@ async function runPayroll(year, month, runBy = null) {
 
       for (const t of taxLinesRows) {
         const isEr = /employer|employeer/i.test(t.deduction_name) || /_ER$/i.test(t.deduction_code);
+        const isESI_ER = /ESI_ER/i.test(t.deduction_code || '');
+        
         if (isEr) {
           erBundle += Number(t.amount || 0);
+          if (isESI_ER) finalStatutory.push(t);
         } else {
           finalStatutory.push(t);
         }

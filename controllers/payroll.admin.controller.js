@@ -508,7 +508,9 @@ async function previewRun(req, res) {
 
       const finalComponents = calculatedComponents.filter(c => {
         const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
-        return !isEr;
+        // Explicitly allow ESI_ER to be visible per user request
+        const isESI_ER = /ESI_ER/i.test(c.component_code || '');
+        return !isEr || isESI_ER;
       });
 
       const finalGross = totalEarnings - erBundle;
@@ -953,7 +955,8 @@ async function getEmployeeRunStatus(req, res) {
         templateComponents = results.filter(r => {
             if (!r) return false;
             const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
-            return !isEr;
+            const isESI_ER = /ESI_ER/i.test(r.component_code || '');
+            return !isEr || isESI_ER;
         });
         monthlyGross = Math.round(fullMonthlyCTC);
     }
