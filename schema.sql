@@ -859,6 +859,8 @@ CREATE TABLE IF NOT EXISTS leaves (
   approver_id INT,
   approval_date TIMESTAMP NULL,
   rejection_reason TEXT,
+  is_half_day TINYINT(1) DEFAULT 0,
+  half_day_session ENUM('first_half', 'second_half') DEFAULT NULL,
   applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

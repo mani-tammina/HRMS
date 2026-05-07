@@ -262,18 +262,23 @@ async function runPayroll(year, month, runBy = null) {
     );
     const runId = runRes.insertId;
 
-    // 1. Fetch all employees to process
+    // 1. Fetch only employees who have clocked in during the period
     const [employees] = await conn.query(`
       SELECT e.id, e.FirstName, e.LastName,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
              wop.thursday_off, wop.friday_off, wop.saturday_off,
              sp.start_time, mlt.threshold_hours as missing_log_threshold
       FROM employees e
+      INNER JOIN (
+          SELECT DISTINCT employee_id 
+          FROM attendance 
+          WHERE attendance_date BETWEEN ? AND ?
+      ) a ON e.id = a.employee_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       WHERE e.EmploymentStatus = 'Working'
-    `);
+    `, [sd, ed]);
 
     // 2. Fetch all attendance for the period
     const [attendance] = await conn.query(`
@@ -378,12 +383,14 @@ async function runPayroll(year, month, runBy = null) {
       });
     }
 
+    // Clean up existing snapshots for this cycle to ensure a fresh run
+    await conn.query('DELETE FROM payroll_attendance_snapshots WHERE cycle_id = ?', [cycleId]);
+
     // Insert snapshots
     for (const s of snapshots) {
       await conn.query(
         `INSERT INTO payroll_attendance_snapshots (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, snapshot_ts)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
-         ON DUPLICATE KEY UPDATE working_days=VALUES(working_days), paid_days=VALUES(paid_days), lop_days=VALUES(lop_days), total_present=VALUES(total_present), total_absent=VALUES(total_absent), total_leave=VALUES(total_leave), snapshot_ts=NOW()`,
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [cycleId, s.employee_id, s.working_days, s.paid_days, s.lop_days, s.total_present, s.total_absent, s.total_leave]
       );
     }
@@ -394,7 +401,7 @@ async function runPayroll(year, month, runBy = null) {
       [cycleId]
     );
 
-    let totalEmployees = 0;
+    let totalEmployeesCount = 0;
     let totalGross = 0.0;
     let totalDeductions = 0.0;
     let totalNet = 0.0;
@@ -621,24 +628,22 @@ async function runPayroll(year, month, runBy = null) {
         [employeeSalaryId, JSON.stringify(payslip)]
       );
 
-      totalEmployees += 1;
+      totalEmployeesCount += 1;
       totalGross += Number(resolved.structure.ctc_amount || 0) / 12;
       totalDeductions = 0;
       totalNet += Number(resolved.structure.ctc_amount || 0) / 12;
     }
 
-    const totalEmployeesFromAttendance = snapshots.length;
-
     // Update run totals and mark completed
     await conn.query(
       `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = 0, total_net = ?, completed_at = NOW() WHERE id = ?`,
-      ['COMPLETED', totalEmployeesFromAttendance, totalGross.toFixed(2), totalNet.toFixed(2), runId]
+      ['COMPLETED', totalEmployeesCount, totalGross.toFixed(2), totalNet.toFixed(2), runId]
     );
 
     await conn.commit();
     await conn.end();
 
-    return { runId, cycleId, totalEmployees: totalEmployeesFromAttendance, totalGross };
+    return { runId, cycleId, totalEmployees: totalEmployeesCount, totalGross };
   } catch (err) {
     try {
       await conn.rollback();

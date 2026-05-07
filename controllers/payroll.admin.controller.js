@@ -246,10 +246,19 @@ function normalizeTaxProfileRead(row) {
 async function buildRunValidation(year, month) {
   const c = await db();
   try {
+    const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+    const ed = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+
     const [employees] = await c.query(
-      `SELECT id, EmployeeNumber, FullName
-       FROM employees
-       WHERE EmploymentStatus = 'Working'`
+      `SELECT e.id, e.EmployeeNumber, e.FullName
+       FROM employees e
+       INNER JOIN (
+         SELECT DISTINCT employee_id 
+         FROM attendance 
+         WHERE attendance_date BETWEEN ? AND ?
+       ) a ON e.id = a.employee_id
+       WHERE e.EmploymentStatus = 'Working'`,
+      [sd, ed]
     );
 
     const [withStructure] = await c.query(
@@ -339,6 +348,11 @@ async function previewRun(req, res) {
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
              wop.thursday_off, wop.friday_off, wop.saturday_off
       FROM employees e
+      INNER JOIN (
+        SELECT DISTINCT employee_id 
+        FROM attendance 
+        WHERE attendance_date BETWEEN ? AND ?
+      ) att ON e.id = att.employee_id
       LEFT JOIN designations d ON d.id = e.DesignationId
       LEFT JOIN departments dept ON dept.id = e.DepartmentId
       JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
@@ -347,7 +361,7 @@ async function previewRun(req, res) {
       WHERE e.EmploymentStatus = 'Working'
         AND esc.effective_from <= LAST_DAY(?)
         AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
+    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
 
     const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
 
