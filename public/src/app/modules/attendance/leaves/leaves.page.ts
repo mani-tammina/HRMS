@@ -116,6 +116,8 @@ export class LeavesPage implements OnInit, OnDestroy {
           status: item.status.toUpperCase(),
           applied_on: item.applied_at,
           reason: item.reason,
+          is_half_day: item.is_half_day,
+          half_day_session: item.half_day_session
         }));
       },
       error: err => console.error('Error fetching leave details:', err),

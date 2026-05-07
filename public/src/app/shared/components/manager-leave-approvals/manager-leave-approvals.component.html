@@ -87,7 +87,12 @@
           </div>
           <div>
             <label>Duration:</label>
-            <p class="total-days">{{ leave.total_days }} day(s)</p>
+            <p class="total-days">
+              {{ leave.total_days }} day(s)
+              <ion-badge color="secondary" *ngIf="leave.is_half_day" style="font-size: 10px; margin-left: 4px;">
+                {{ leave.half_day_session }}
+              </ion-badge>
+            </p>
           </div>
           <div>
             <label>Applied On:</label>

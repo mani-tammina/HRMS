@@ -27,7 +27,7 @@ export class LeaveRequestComponent implements OnInit {
   selectedDateTo = '';
   minDate = new Date().toISOString().split('T')[0];
 
-  existingLeaves: { from_date: string; to_date: string; status: string }[] = [];
+  existingLeaves: { from_date: string; to_date: string; status: string; is_half_day?: any; half_day_session?: string }[] = [];
   weekOffDays: number[] = [];
   highlightedDates: any[] = [];
 
@@ -56,7 +56,9 @@ export class LeaveRequestComponent implements OnInit {
           .map(l => ({
             from_date: l.start_date || l.from_date,
             to_date: l.end_date || l.to_date || l.start_date || l.from_date,
-            status: l.status
+            status: l.status,
+            is_half_day: l.is_half_day,
+            half_day_session: l.half_day_session
           }));
       },
       error: () => { this.existingLeaves = []; }
@@ -66,11 +68,24 @@ export class LeaveRequestComponent implements OnInit {
   buildForm() {
     this.leaveForm = this.fb.group({
       leave_type: ['', Validators.required],
+      is_half_day: [false],
+      half_day_session: ['First Half'],
       start_date: ['', Validators.required],
       end_date: ['', Validators.required],
       remarks: ['', Validators.required],
       notify: ['']
     });
+  }
+
+  onHalfDayToggle() {
+    const isHalf = this.leaveForm.get('is_half_day')?.value;
+    if (isHalf) {
+      // If half day, set end date to start date and disable end date logic
+      const start = this.leaveForm.get('start_date')?.value;
+      this.leaveForm.patchValue({ end_date: start });
+      this.selectedDateTo = this.selectedDateFrom;
+    }
+    this.recalculateTotalDays();
   }
 
   handleDateChanges() {
@@ -79,6 +94,11 @@ export class LeaveRequestComponent implements OnInit {
 
   recalculateTotalDays() {
     const val = this.leaveForm.value;
+    if (val.is_half_day) {
+      this.total_days = val.start_date ? 0.5 : 0;
+      return;
+    }
+
     if (val.start_date && val.end_date) {
       const from = this.parseLocalDate(val.start_date);
       const to = this.parseLocalDate(val.end_date);
@@ -209,6 +229,7 @@ export class LeaveRequestComponent implements OnInit {
     };
 
     let dateConflict = false;
+    let conflictMsg = 'A leave request already exists for at least one of these dates.';
     let dIter = new Date(newFrom);
     while (dIter <= newTo) {
       const dStr = normalize(dIter);
@@ -217,7 +238,26 @@ export class LeaveRequestComponent implements OnInit {
         const lTo = this.parseLocalDate(l.to_date);
         let existingIter = new Date(lFrom);
         while (existingIter <= lTo) {
-          if (normalize(existingIter) === dStr) { dateConflict = true; break; }
+          if (normalize(existingIter) === dStr) {
+            // Conflict logic:
+            if (!form.is_half_day) {
+              // New leave is full day -> conflicts with ANY existing leave on this date
+              dateConflict = true;
+              break;
+            } else {
+              // New leave is half day
+              if (!l.is_half_day) {
+                // Existing leave is full day -> conflicts
+                dateConflict = true;
+                break;
+              } else if (l.half_day_session === form.half_day_session) {
+                // Existing leave is half day on SAME session -> conflicts
+                dateConflict = true;
+                conflictMsg = `There is already a half-day leave request for the ${form.half_day_session} on ${dStr}.`;
+                break;
+              }
+            }
+          }
           existingIter.setDate(existingIter.getDate() + 1);
         }
         if (dateConflict) break;
@@ -227,16 +267,18 @@ export class LeaveRequestComponent implements OnInit {
     }
 
     if (dateConflict) {
-      this.presentToast('A leave request already exists for at least one of these dates.', 'danger');
+      this.presentToast(conflictMsg, 'danger');
       return;
     }
 
     const payload = {
       leave_type_id: form.leave_type,
       start_date: form.start_date,
-      end_date: form.end_date,
+      end_date: form.is_half_day ? form.start_date : form.end_date,
       total_days: this.total_days,
-      reason: form.remarks
+      reason: form.remarks,
+      is_half_day: form.is_half_day,
+      half_day_session: form.is_half_day ? form.half_day_session : null
     };
 
     this.leaveRequestService.applyLeave(payload).subscribe({

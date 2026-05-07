@@ -432,6 +432,28 @@
     }
   }
 
+  .half-day-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    background: vars.$color-primary-light;
+    color: vars.$color-primary;
+    border-radius: 4px;
+    font-size: 9px;
+    margin-top: 4px;
+    font-weight: vars.$fw-bold;
+    text-transform: uppercase;
+  }
+
+  .session-badge {
+    background: vars.$color-bg-subtle;
+    color: vars.$color-text-secondary;
+    padding: 2px 8px;
+    border-radius: vars.$radius-sm;
+    font-size: vars.$fs-xs;
+    margin-left: 8px;
+    font-weight: vars.$fw-semibold;
+  }
+
   /* ======= EMPTY STATES ======= */
   .empty-state,
   .no-data {

@@ -262,38 +262,134 @@ async function runPayroll(year, month, runBy = null) {
     );
     const runId = runRes.insertId;
 
-    // Snapshot attendance per employee (simple aggregation)
-    const [att] = await conn.query(
-      `SELECT a.employee_id,
-              COUNT(*) as working_days,
-              SUM(CASE 
-                WHEN a.status = 'present' THEN 1 
-                WHEN a.status = 'late' THEN 1
-                WHEN a.status = 'half-day' THEN 0.5
-                ELSE 0 END) as present_days,
-              SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent_days,
-              SUM(CASE WHEN a.status = 'on-leave' OR a.status = 'leave' THEN 1 ELSE 0 END) as leave_days
-         FROM attendance a
-         JOIN employees e ON a.employee_id = e.id
-         WHERE a.attendance_date BETWEEN ? AND ?
-           AND e.EmploymentStatus = 'Working'
-         GROUP BY a.employee_id`,
-      [sd, ed]
-    );
+    // 1. Fetch all employees to process
+    const [employees] = await conn.query(`
+      SELECT e.id, e.FirstName, e.LastName,
+             wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
+             wop.thursday_off, wop.friday_off, wop.saturday_off,
+             sp.start_time, mlt.threshold_hours as missing_log_threshold
+      FROM employees e
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+      WHERE e.EmploymentStatus = 'Working'
+    `);
 
-    // Insert snapshots (upsert behavior)
-    for (const row of att) {
-      const paid_days = Number(row.present_days) + Number(row.leave_days);
+    // 2. Fetch all attendance for the period
+    const [attendance] = await conn.query(`
+      SELECT employee_id, attendance_date, status FROM attendance 
+      WHERE attendance_date BETWEEN ? AND ?
+    `, [sd, ed]);
+
+    const attMap = {};
+    attendance.forEach(a => {
+      if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
+      attMap[a.employee_id][new Date(a.attendance_date).toDateString()] = a;
+    });
+
+    // 3. Fetch all approved leaves for the period
+    const [allLeaves] = await conn.query(`
+      SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, l.is_half_day
+      FROM leaves l
+      INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+      WHERE l.status = 'approved' AND (l.start_date <= ? AND l.end_date >= ?)
+    `, [ed, sd]);
+
+    const leavesByEmp = {};
+    allLeaves.forEach(l => {
+      if (!leavesByEmp[l.employee_id]) leavesByEmp[l.employee_id] = [];
+      leavesByEmp[l.employee_id].push(l);
+    });
+
+    const now = new Date();
+    const todayStr = now.toDateString();
+    const snapshots = [];
+
+    for (const emp of employees) {
+      let present_days = 0;
+      let absent_days = 0;
+      let leave_days = 0;
+      let weekend_days = 0;
+      let lop_from_leaves = 0;
+
+      const weekOffDays = [];
+      if (emp.sunday_off) weekOffDays.push('sunday');
+      if (emp.monday_off) weekOffDays.push('monday');
+      if (emp.tuesday_off) weekOffDays.push('tuesday');
+      if (emp.wednesday_off) weekOffDays.push('wednesday');
+      if (emp.thursday_off) weekOffDays.push('thursday');
+      if (emp.friday_off) weekOffDays.push('friday');
+      if (emp.saturday_off) weekOffDays.push('saturday');
+
+      const empAtt = attMap[emp.id] || {};
+      const empLeaves = leavesByEmp[emp.id] || [];
+
+      let curr = new Date(sd);
+      const end = new Date(ed);
+
+      while (curr <= end) {
+        const dStr = curr.toDateString();
+        const isFuture = curr > now && dStr !== todayStr;
+        const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+        // Leave Check
+        const todaysLeaves = empLeaves.filter(l => {
+          const lStart = new Date(l.start_date);
+          const lEnd = new Date(l.end_date);
+          const check = new Date(curr);
+          check.setHours(0,0,0,0);
+          lStart.setHours(0,0,0,0);
+          lEnd.setHours(0,0,0,0);
+          return check >= lStart && check <= lEnd;
+        });
+
+        if (todaysLeaves.length > 0) {
+          todaysLeaves.forEach(l => {
+            const weight = l.is_half_day ? 0.5 : 1.0;
+            leave_days += weight;
+            if (l.type_code === 'LOP') lop_from_leaves += weight;
+          });
+        } else if (weekOffDays.includes(weekday)) {
+          weekend_days++;
+        } else if (empAtt[dStr]) {
+          const record = empAtt[dStr];
+          if (record.status === 'present') present_days++;
+          else if (record.status === 'half-day') present_days += 0.5;
+          else if (record.status === 'penalty') absent_days++;
+        } else if (!isFuture && dStr !== todayStr) {
+          // No log penalty rule
+          absent_days++;
+        }
+        curr.setDate(curr.getDate() + 1);
+      }
+
+      const lop_days = (absent_days * 0.5) + lop_from_leaves;
+      const total_working = present_days + absent_days + leave_days; // Days where work was expected or leave taken
+      const paid_days = (new Date(year, month, 0).getDate()) - lop_days;
+
+      snapshots.push({
+        employee_id: emp.id,
+        working_days: new Date(year, month, 0).getDate(),
+        paid_days: paid_days,
+        lop_days: lop_days,
+        total_present: present_days,
+        total_absent: absent_days,
+        total_leave: leave_days
+      });
+    }
+
+    // Insert snapshots
+    for (const s of snapshots) {
       await conn.query(
         `INSERT INTO payroll_attendance_snapshots (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, snapshot_ts)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
          ON DUPLICATE KEY UPDATE working_days=VALUES(working_days), paid_days=VALUES(paid_days), lop_days=VALUES(lop_days), total_present=VALUES(total_present), total_absent=VALUES(total_absent), total_leave=VALUES(total_leave), snapshot_ts=NOW()`,
-        [cycleId, row.employee_id, row.working_days, paid_days, Math.max(0, row.working_days - paid_days), row.present_days, row.absent_days, row.leave_days]
+        [cycleId, s.employee_id, s.working_days, s.paid_days, s.lop_days, s.total_present, s.total_absent, s.total_leave]
       );
     }
 
     // Fetch snapshots to process employees
-    const [snapshots] = await conn.query(
+    const [snapshotRows] = await conn.query(
       'SELECT * FROM payroll_attendance_snapshots WHERE cycle_id = ?',
       [cycleId]
     );
@@ -303,7 +399,7 @@ async function runPayroll(year, month, runBy = null) {
     let totalDeductions = 0.0;
     let totalNet = 0.0;
 
-    for (const s of snapshots) {
+    for (const s of snapshotRows) {
       const employeeId = s.employee_id;
 
       // Resolve pay structure from template contracts first; fallback to legacy structures during migration.

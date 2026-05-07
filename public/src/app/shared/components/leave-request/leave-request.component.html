@@ -23,13 +23,35 @@
       </div>
     </div>
 
+    <!-- Half Day Toggle -->
+    <div class="half-day-row">
+      <ion-item lines="none" class="half-day-item">
+        <ion-label>Half Day</ion-label>
+        <ion-toggle formControlName="is_half_day" (ionChange)="onHalfDayToggle()"></ion-toggle>
+      </ion-item>
+    </div>
+
+    <!-- Session Selection (Only if Half Day is true) -->
+    <div class="session-row fade-in" *ngIf="leaveForm.get('is_half_day')?.value">
+      <label class="premium-label">Select Session</label>
+      <ion-segment formControlName="half_day_session" class="premium-segment">
+        <ion-segment-button value="First Half">
+          <ion-label>First Half</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="Second Half">
+          <ion-label>Second Half</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
     <!-- Dates -->
     <div class="date-row">
-      <div class="input-group half-width">
-        <label class="premium-label">From Date</label>
+      <div class="input-group" [ngClass]="leaveForm.get('is_half_day')?.value ? 'full-width' : 'half-width'">
+        <label class="premium-label">{{ leaveForm.get('is_half_day')?.value ? 'Date' : 'From Date' }}</label>
         <div class="premium-input-wrapper">
           <ion-icon name="calendar-clear-outline" class="input-icon-left"></ion-icon>
-          <ion-input id="from-input" class="premium-input with-left-icon with-cursor" placeholder="Start Date" readonly
+          <ion-input id="from-input" class="premium-input with-left-icon with-cursor" 
+            [placeholder]="leaveForm.get('is_half_day')?.value ? 'Select Date' : 'Start Date'" readonly
             [value]="selectedDateFrom ? (selectedDateFrom | date:'dd MMM yyyy') : ''"></ion-input>
         </div>
         <ion-popover #fromPopover trigger="from-input" class="premium-popover" triggerAction="click">
@@ -42,7 +64,7 @@
         </ion-popover>
       </div>
 
-      <div class="input-group half-width">
+      <div class="input-group half-width" *ngIf="!leaveForm.get('is_half_day')?.value">
         <label class="premium-label">To Date</label>
         <div class="premium-input-wrapper">
           <ion-icon name="calendar-outline" class="input-icon-left"></ion-icon>

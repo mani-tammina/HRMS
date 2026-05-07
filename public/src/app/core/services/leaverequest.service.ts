@@ -15,6 +15,8 @@ export interface MyLeave {
   type_code?: string;
   start_date?: string;
   end_date?: string;
+  is_half_day?: boolean | number;
+  half_day_session?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -33,6 +35,8 @@ export class LeaverequestService {
     end_date: string;
     total_days: number;
     reason: string;
+    is_half_day?: boolean;
+    half_day_session?: string | null;
   }): Observable<any> {
     return this.http.post<any>(`${this.API_URL}/apply`, payload).pipe(
       tap((res) => {

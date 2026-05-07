@@ -475,7 +475,12 @@ router.get("/my-report", auth, async (req, res) => {
     const employee = empDetails[0];
 
     // Get all approved leaves for the period for summary calculation
-    let allLeavesQuery = `SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved'`;
+    let allLeavesQuery = `
+      SELECT l.*, lt.type_code 
+      FROM leaves l 
+      INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
+      WHERE l.employee_id = ? AND l.status = 'approved'
+    `;
     const allLeavesParams = [emp.id];
     const [allLeaves] = await c.query(allLeavesQuery, allLeavesParams);
 
@@ -521,6 +526,8 @@ router.get("/my-report", auth, async (req, res) => {
     }
 
     let curr = new Date(start);
+    let lop_from_leaves = 0;
+
     while (curr <= end) {
       if (curr > now && curr.toDateString() !== todayStr) {
         curr.setDate(curr.getDate() + 1);
@@ -531,8 +538,8 @@ router.get("/my-report", auth, async (req, res) => {
       const isToday = dStr === todayStr;
       const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       
-      // Check if on leave
-      const isOnLeave = allLeaves.some(l => {
+      // Check if on leave (including partial days)
+      const todaysLeaves = allLeaves.filter(l => {
         const lStart = new Date(l.start_date);
         const lEnd = new Date(l.end_date);
         const check = new Date(curr);
@@ -542,8 +549,15 @@ router.get("/my-report", auth, async (req, res) => {
         return check >= lStart && check <= lEnd;
       });
 
-      if (isOnLeave) {
-        leave_days++;
+      if (todaysLeaves.length > 0) {
+        // Calculate leave days for today
+        todaysLeaves.forEach(l => {
+          const weight = l.is_half_day ? 0.5 : 1.0;
+          leave_days += weight;
+          if (l.type_code === 'LOP') {
+            lop_from_leaves += weight;
+          }
+        });
       } else if (weekOffDays.includes(weekday)) {
         weekend_days++;
       } else if (attMap.has(dStr)) {
@@ -555,8 +569,6 @@ router.get("/my-report", auth, async (req, res) => {
         } else if (record.status === 'penalty') {
           penalty_count++;
           absent_days++;
-        } else if (record.status === 'absent') {
-          // Normal absent days not counted toward absent_days summary until threshold
         }
       } else if (!isToday) {
         // No log and not today - apply penalty rule
@@ -572,11 +584,8 @@ router.get("/my-report", auth, async (req, res) => {
         if (now > penaltyThreshold) {
           penalty_count++;
           absent_days++;
-        } else {
-          // Normal absent days not counted toward absent_days summary until threshold
         }
       }
-      // If isToday and no log, we don't count it as absent (Status "NOT In Yet")
 
       curr.setDate(curr.getDate() + 1);
     }
@@ -588,7 +597,7 @@ router.get("/my-report", auth, async (req, res) => {
       half_days: half_day_count,
       leave_days: leave_days,
       weekend_days: weekend_days,
-      lop_days: absent_days * 0.5,
+      lop_days: (absent_days * 0.5) + lop_from_leaves,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),

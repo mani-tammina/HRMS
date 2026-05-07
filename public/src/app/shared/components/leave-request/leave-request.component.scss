@@ -60,6 +60,47 @@
     display: flex;
     gap: 16px;
     .half-width { flex: 1; }
+    .full-width { flex: 1; }
+  }
+
+  .half-day-row {
+    margin-bottom: -10px;
+    .half-day-item {
+      --padding-start: 0;
+      --background: transparent;
+      --inner-padding-end: 0;
+      ion-label { font-size: 15px; font-weight: 600; color: #374151; }
+      ion-toggle { --handle-background: #ffffff; --handle-background-checked: #ffffff; --background: #e5e7eb; --background-checked: #2563eb; }
+    }
+  }
+
+  .session-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+
+  .premium-segment {
+    background: #f1f5f9;
+    border-radius: 12px;
+    padding: 4px;
+    --background: transparent;
+    
+    ion-segment-button {
+      --indicator-color: #ffffff;
+      --color: #64748b;
+      --color-checked: #1e293b;
+      --border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      min-height: 36px;
+      text-transform: none;
+      
+      &::part(indicator-background) {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      }
+    }
   }
 
   .premium-input-wrapper,

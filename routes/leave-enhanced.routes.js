@@ -753,14 +753,22 @@ router.post("/apply", auth, async (req, res) => {
     console.log("[LEAVE DEBUG] Employee lookup result:", emp);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-    let { leave_type_id, start_date, end_date, total_days, reason } = req.body;
+    let { leave_type_id, start_date, end_date, total_days, reason, is_half_day, half_day_session } = req.body;
     console.log("[LEAVE DEBUG] Parsed request data:", {
       leave_type_id,
       start_date,
       end_date,
       total_days,
       reason,
+      is_half_day,
+      half_day_session
     });
+
+    // If half day, ensure start and end dates are same and total_days is 0.5
+    if (is_half_day) {
+      end_date = start_date;
+      total_days = 0.5;
+    }
 
     // Calculate total_days if not provided
     if (!total_days || total_days === null) {
@@ -831,40 +839,58 @@ router.post("/apply", auth, async (req, res) => {
     const start = new Date(start_date);
     const end = new Date(end_date);
     let conflict = false;
+    let conflictMsg = "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.";
+
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dStr = d.toISOString().split("T")[0];
+      
+      // Get all leaves for this date
       const [rows] = await c.query(
-        `SELECT id, start_date, end_date FROM leaves WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ? AND LOWER(status) != 'rejected'`,
+        `SELECT id, start_date, end_date, is_half_day, half_day_session, status 
+         FROM leaves 
+         WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ? AND LOWER(status) != 'rejected'`,
         [emp.id, dStr, dStr],
       );
-      console.log(
-        `[LEAVE DEBUG] Checking emp.id=${emp.id}, date=${dStr}, found=${rows.length}`,
-        rows,
-      );
+
       if (rows.length > 0) {
-        conflict = true;
-        console.log("[LEAVE DEBUG] Conflict found for date:", dStr, rows);
-        break;
+        // If we are applying for a full day, ANY existing leave on this date is a conflict
+        if (!is_half_day) {
+          conflict = true;
+          break;
+        } else {
+          // If we are applying for a half day, it only conflicts if:
+          // 1. There is an existing full day leave
+          // 2. There is an existing half day leave on the SAME session
+          for (const row of rows) {
+            if (!row.is_half_day) {
+              conflict = true;
+              conflictMsg = `There is already a full-day leave request for ${dStr}.`;
+              break;
+            }
+            if (row.is_half_day && row.half_day_session === half_day_session) {
+              conflict = true;
+              conflictMsg = `There is already a half-day leave request for the ${half_day_session} on ${dStr}.`;
+              break;
+            }
+          }
+          if (conflict) break;
+        }
       }
     }
+
     if (conflict) {
       await c.rollback();
       c.end();
-      console.log(
-        "[LEAVE DEBUG] Duplicate/overlap detected, aborting request.",
-      );
-      return res.status(400).json({
-        error:
-          "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.",
-      });
+      console.log("[LEAVE DEBUG] Duplicate/overlap detected:", conflictMsg);
+      return res.status(400).json({ error: conflictMsg });
     }
 
     // Create leave application
     const [result] = await c.query(
       `INSERT INTO leaves 
-             (employee_id, leave_type_id, start_date, end_date, total_days, reason, status, applied_at)
-             VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())`,
-      [emp.id, leave_type_id, start_date, end_date, total_days, reason],
+             (employee_id, leave_type_id, start_date, end_date, total_days, reason, status, applied_at, is_half_day, half_day_session)
+             VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW(), ?, ?)`,
+      [emp.id, leave_type_id, start_date, end_date, total_days, reason, is_half_day ? 1 : 0, is_half_day ? half_day_session : null],
     );
     console.log("[LEAVE DEBUG] Leave application inserted:", result);
 

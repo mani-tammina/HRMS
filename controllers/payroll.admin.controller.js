@@ -135,7 +135,7 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
   });
 
   const [allLeaves] = await c.query(`
-    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code
+    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, l.is_half_day
     FROM leaves l
     INNER JOIN leave_types lt ON l.leave_type_id = lt.id
     WHERE l.employee_id IN (?) AND l.status = 'approved'
@@ -143,7 +143,7 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
   `, [employeeIds, ed, sd]);
 
   const leavesMap = {};
-  const lopLeavesByDay = {}; // employee_id -> { dateStr -> true }
+  const lopLeavesByDay = {}; // employee_id -> { dateStr -> weight }
 
   allLeaves.forEach(l => {
     if (!leavesMap[l.employee_id]) leavesMap[l.employee_id] = [];
@@ -153,8 +153,11 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
       if (!lopLeavesByDay[l.employee_id]) lopLeavesByDay[l.employee_id] = {};
       let currL = new Date(l.start_date);
       const endL = new Date(l.end_date);
+      const weight = l.is_half_day ? 0.5 : 1.0;
+      
       while (currL <= endL) {
-        lopLeavesByDay[l.employee_id][currL.toDateString()] = true;
+        const dStr = currL.toDateString();
+        lopLeavesByDay[l.employee_id][dStr] = (lopLeavesByDay[l.employee_id][dStr] || 0) + weight;
         currL.setDate(currL.getDate() + 1);
       }
     }
@@ -190,7 +193,7 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
       
       // 1. Check for approved LOP leave first
       if (empLopDaysMap[dStr]) {
-        lop_leave_days++;
+        lop_leave_days += empLopDaysMap[dStr];
       } 
       // 2. Otherwise check attendance for penalties
       else if (empAtt[dStr]) {
@@ -634,10 +637,13 @@ async function getEmployeeRunStatus(req, res) {
     `, [employeeId]);
     const employee = empDetails[0];
 
-    const [allLeaves] = await c.query(
-        "SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND ((start_date BETWEEN ? AND ?) OR (end_date BETWEEN ? AND ?))",
-        [employeeId, startDate, endDate, startDate, endDate]
-    );
+    const [allLeaves] = await c.query(`
+        SELECT l.*, lt.type_code 
+        FROM leaves l 
+        INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+        WHERE l.employee_id = ? AND l.status = 'approved' 
+          AND ((l.start_date BETWEEN ? AND ?) OR (l.end_date BETWEEN ? AND ?))
+    `, [employeeId, startDate, endDate, startDate, endDate]);
 
     const weekOffDays = [];
     if (employee) {
@@ -663,6 +669,7 @@ async function getEmployeeRunStatus(req, res) {
     let leave_days = 0;
     let weekend_days = 0;
     let half_day_count = 0;
+    let lop_leave_days = 0;
 
     let curr = new Date(startDate);
     let end = new Date(endDate);
@@ -676,7 +683,7 @@ async function getEmployeeRunStatus(req, res) {
         const isToday = dStr === todayStr;
         const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
         
-        const isOnLeave = allLeaves.some(l => {
+        const todaysLeaves = allLeaves.filter(l => {
             const lStart = new Date(l.start_date);
             const lEnd = new Date(l.end_date);
             const check = new Date(curr);
@@ -686,8 +693,14 @@ async function getEmployeeRunStatus(req, res) {
             return check >= lStart && check <= lEnd;
         });
 
-        if (isOnLeave) {
-            leave_days++;
+        if (todaysLeaves.length > 0) {
+            todaysLeaves.forEach(l => {
+                const weight = l.is_half_day ? 0.5 : 1.0;
+                leave_days += weight;
+                if (l.type_code === 'LOP') {
+                    lop_leave_days += weight;
+                }
+            });
         } else if (weekOffDays.includes(weekday)) {
             weekend_days++;
         } else if (attMap.has(dStr)) {
@@ -716,7 +729,7 @@ async function getEmployeeRunStatus(req, res) {
         curr.setDate(curr.getDate() + 1);
     }
 
-    const lop_days = absent_days * 0.5;
+    const lop_days = (absent_days * 0.5) + lop_leave_days;
     const days_payable = totalCalendarDays - lop_days;
     const proRataFactor = totalCalendarDays > 0 ? (days_payable / totalCalendarDays) : 1;
 
