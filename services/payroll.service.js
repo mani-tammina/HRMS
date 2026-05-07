@@ -493,8 +493,8 @@ async function runPayroll(year, month, runBy = null) {
       let esiAmountEr = 0.0;
       const ESI_THRESHOLD = 21000;
 
-      // Use targetGross for ESI threshold check if skipping pro-rata
-      const esiGrossBase = skipDeductionProRata ? (monthlyCtc) : gross;
+      // Use full monthly CTC for ESI calculation if there is ANY LOP, ensuring the amount stays "same"
+      const esiGrossBase = (Number(s.lop_days) > 0) ? (monthlyCtc) : gross;
 
       if (esiGrossBase <= ESI_THRESHOLD) {
         esiAmountEr = Math.ceil((esiGrossBase - pfAmountEr) * 3.25 / 103.25);

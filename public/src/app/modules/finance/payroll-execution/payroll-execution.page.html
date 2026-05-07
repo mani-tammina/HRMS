@@ -37,7 +37,7 @@
         </div>
         <div>
           <h2>Payroll Suite <span class="v2-tag">V2</span></h2>
-          <p>Stepped execution for 100% accuracy</p>
+          <p>Stepped execution for 100% accuracy <span *ngIf="activeRunId" class="run-id-pill">Run ID: #{{ activeRunId }}</span></p>
         </div>
         <button *ngIf="currentStep !== 'setup'" class="text-btn" (click)="resetWorkflow()">Reset</button>
       </div>

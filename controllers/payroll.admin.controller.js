@@ -249,6 +249,15 @@ async function buildRunValidation(year, month) {
     const sd = `${year}-${String(month).padStart(2, '0')}-01`;
     const ed = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
 
+    const [existingRun] = await c.query(
+      `SELECT r.id FROM payroll_runs r 
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id 
+       WHERE cy.year = ? AND cy.month = ? AND r.status != 'FAILED'
+       ORDER BY r.id DESC LIMIT 1`,
+      [year, month]
+    );
+    const runId = existingRun.length > 0 ? existingRun[0].id : null;
+
     const [employees] = await c.query(
       `SELECT e.id, e.EmployeeNumber, e.FullName
        FROM employees e
@@ -298,6 +307,7 @@ async function buildRunValidation(year, month) {
 
     return {
       month: `${year}-${String(month).padStart(2, '0')}`,
+      runId: runId,
       totalEmployees: allEmployees.length,
       withSalaryStructure: structureEmployees.size,
       withAttendance: attendanceEmployees.size,
@@ -440,18 +450,17 @@ async function previewRun(req, res) {
         }
 
         const isEarning = r.component_type === 'EARNING';
-        const currentFactor = (isEarning || !skipDeductionProRata) ? proRataFactor : 1.0;
+        const isESI = r.component_code === 'ESI_EE' || r.component_code === 'ESI_ER' || /esi/i.test(r.component_name || '');
+        const skipProRata = skipDeductionProRata || (lopDays > 0 && isESI);
+        const currentFactor = (isEarning || !skipProRata) ? proRataFactor : 1.0;
 
         let amt = 0;
         if (calculation_type === 'PERCENTAGE') {
           if (percentage_of_code && computed[percentage_of_code] !== undefined) {
             // If it's a Deduction and we skip pro-rata, use the FULL base value
-            if (!isEarning && skipDeductionProRata) {
+            if (!isEarning && skipProRata) {
                  // We need full monthly values of the base component.
-                 // In previewRun, we don't have a full_computed map yet.
-                 // I'll calculate it on the fly or just use the monthlyGross if it's the base.
-                 // Actually, let's keep it simple: if skipDeductionProRata, use the full monthly factor.
-                 const baseVal = computed[percentage_of_code] / proRataFactor;
+                 const baseVal = proRataFactor > 0 ? (computed[percentage_of_code] / proRataFactor) : computed[percentage_of_code];
                  amt = (baseVal * inputVal) / 100.0;
             } else {
                  amt = (computed[percentage_of_code] * inputVal) / 100.0;
@@ -518,7 +527,7 @@ async function previewRun(req, res) {
         department: emp.Department,
         template_name: emp.template_name,
         annual_ctc: annualCTC,
-        monthly_gross: Math.round(monthlyGross * proRataFactor) - erBundle,
+        monthly_gross: monthlyGross,
         total_earnings: finalGross,
         total_deductions: finalDeductions,
         total_net: net,
@@ -870,14 +879,16 @@ async function getEmployeeRunStatus(req, res) {
             }
 
             const isEarning = r.component_type === 'EARNING';
-            const currentFactor = (isEarning || !skipDeductionProRata) ? proRataFactor : 1.0;
+            const isESI = r.component_code === 'ESI_EE' || r.component_code === 'ESI_ER' || /esi/i.test(r.component_name || '');
+            const skipProRata = skipDeductionProRata || (lop_days > 0 && isESI);
+            const currentFactor = (isEarning || !skipProRata) ? proRataFactor : 1.0;
 
             let actualValue = 0;
             let fullValueRaw = 0;
 
             if (calculation_type === 'PERCENTAGE') {
                 if (percentage_of_code && computed[percentage_of_code] !== undefined) {
-                    if (!isEarning && skipDeductionProRata) {
+                    if (!isEarning && skipProRata) {
                         actualValue = (full_computed[percentage_of_code] * inputVal) / 100.0;
                     } else {
                         actualValue = (computed[percentage_of_code] * inputVal) / 100.0;
@@ -944,7 +955,7 @@ async function getEmployeeRunStatus(req, res) {
             const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
             return !isEr;
         });
-        monthlyGross = monthlyGrossCalculated - erBundle;
+        monthlyGross = Math.round(fullMonthlyCTC);
     }
 
     const monthlyCTCValue = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;

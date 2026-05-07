@@ -213,10 +213,11 @@ export class PayrollExecutionPage implements OnInit {
   async validaPayrollStep(month: string) {
     this.isValidating = true;
     this.payrollApi.validatePayroll(month).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.validationResult = res;
         this.isValidating = false;
-        if (res.data?.valid) {
+        if (res.runId) this.activeRunId = res.runId;
+        if (res.valid) {
           this.currentStep = 'preview';
           this.previewPayrollStep(month);
         } else {
@@ -235,8 +236,9 @@ export class PayrollExecutionPage implements OnInit {
     this.isPreviewing = true;
     const [year, m] = month.split('-').map(Number);
     this.payrollApi.previewPayroll({ year, month: m }).subscribe({
-      next: (res) => {
+      next: (res: any) => {
         this.previewData = res;
+        if (res.validation?.runId) this.activeRunId = res.validation.runId;
         this.isPreviewing = false;
       },
       error: () => {
