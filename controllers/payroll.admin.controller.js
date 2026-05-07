@@ -403,8 +403,7 @@ async function previewRun(req, res) {
       const lopDays = attSummary.lop_days;
       const calendarDays = attSummary.calendar_days;
       const paidDays = attSummary.paid_days;
-      
-      const displayFactor = 1; 
+      const proRataFactor = calendarDays > 0 ? (paidDays / calendarDays) : 1;
 
       const computed = {};
       let totalEarnings = 0;
@@ -435,13 +434,13 @@ async function previewRun(req, res) {
           if (percentage_of_code && computed[percentage_of_code] !== undefined) {
             amt = (computed[percentage_of_code] * inputVal) / 100.0;
           } else {
-            amt = (monthlyGross * inputVal) / 100.0;
+            // Apply pro-rata factor to the base CTC part
+            amt = (monthlyGross * proRataFactor * inputVal) / 100.0;
           }
         } else {
-          amt = inputVal / 12.0;
+          // Pro-rate fixed components
+          amt = (inputVal / 12.0) * proRataFactor;
         }
-
-        amt = amt * displayFactor;
 
         const rounded = Math.round(amt);
         computed[r.component_code] = rounded;
@@ -456,18 +455,19 @@ async function previewRun(req, res) {
       });
 
       if (specialIdx !== -1) {
-        const specialAmt = Math.max(0, (monthlyGross * displayFactor) - totalEarnings);
+        // Special Allowance balances the pro-rated monthly gross
+        const targetGross = Math.round(monthlyGross * proRataFactor);
+        const specialAmt = Math.max(0, targetGross - totalEarnings);
         calculatedComponents[specialIdx].calculated_amount = specialAmt;
         computed['SPECIAL'] = specialAmt;
         totalEarnings += specialAmt;
       }
 
       const net = totalEarnings - totalDeductions;
-      const payout = Math.round((totalEarnings / calendarDays) * paidDays);
 
       aggGross += totalEarnings;
       aggNet += net;
-      aggPayout += payout;
+      aggPayout += net;
 
       return {
         employee_id: emp.id,
@@ -477,11 +477,11 @@ async function previewRun(req, res) {
         department: emp.Department,
         template_name: emp.template_name,
         annual_ctc: annualCTC,
-        monthly_gross: monthlyGross,
+        monthly_gross: Math.round(monthlyGross * proRataFactor),
         total_earnings: totalEarnings,
         total_deductions: totalDeductions,
         total_net: net,
-        total_net_payout: payout,
+        total_net_payout: net,
         lop_days: lopDays,
         calendar_days: calendarDays,
         paid_days: paidDays,
