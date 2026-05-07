@@ -421,11 +421,20 @@ async function runPayroll(year, month, runBy = null) {
       // Helper to find component amount by code (already computed)
       const computed = {};
 
+      // Rule: If Full Month Basic >= 15000, Deductions are NOT pro-rated for LOP
+      const basicComp = resolved.components.find(c => c.code === 'BASIC');
+      const monthlyCtc = Number(structure.ctc_amount || 0) / 12.0;
+      let fullMonthlyBasic = 0;
+      if (basicComp) {
+         if (basicComp.calculation_type === 'FIXED') fullMonthlyBasic = Number(basicComp.value) / 12.0;
+         else fullMonthlyBasic = (monthlyCtc * Number(basicComp.value)) / 100.0;
+      }
+      const skipDeductionProRata = (Number(s.lop_days) > 0) && fullMonthlyBasic >= 15000;
+
       // First pass: compute FIXED components and PERCENTAGE-of-CTC placeholders
       let gross = 0.0;
       for (const comp of components) {
         let amount = 0.0;
-        const monthlyCtc = Number(structure.ctc_amount || 0) / 12.0;
 
         if (comp.calculation_type === 'FIXED') {
           // If it's a monthly run, we assume FIXED values in the structure are annual and need to be divided by 12
@@ -435,19 +444,34 @@ async function runPayroll(year, month, runBy = null) {
         } else {
           // PERCENTAGE: if percentage_of_code available and already computed, use that, else percentage of monthly CTC
           const pct = Number(comp.value);
+          const isEarning = comp.component_type === 'EARNING';
           if (comp.percentage_of_code) {
-            const baseAmt = Number(computed[comp.percentage_of_code] || 0);
+            let baseAmt = Number(computed[comp.percentage_of_code] || 0);
+            // If it's a Deduction and we skip pro-rata, we need the FULL base value
+            if (!isEarning && skipDeductionProRata) {
+               // Back-calculate or use a full_computed map if available.
+               // For now, if basic exists in the structure, we can calculate its full value.
+               // But simpler is to use the pro-rata factor if we know the base was pro-rated.
+               const working = Number(s.working_days || 0);
+               const paid = Number(s.paid_days || 0);
+               if (paid > 0) baseAmt = (baseAmt * working) / paid;
+            }
             amount = (baseAmt * pct) / 100.0;
           } else {
-            amount = (monthlyCtc * pct) / 100.0;
+            // Apply current factor if no percentage_of_code
+            const currentFactor = (isEarning || !skipDeductionProRata) ? (Number(s.paid_days || 0) / Number(s.working_days || 1)) : 1.0;
+            amount = (monthlyCtc * currentFactor * pct) / 100.0;
           }
         }
 
         // Prorate if flagged
         if (comp.prorated) {
-          const working = Number(s.working_days || 0);
-          const paid = Number(s.paid_days || 0);
-          if (working > 0) amount = (amount * paid) / working;
+          const isEarning = comp.component_type === 'EARNING';
+          if (isEarning || !skipDeductionProRata) {
+            const working = Number(s.working_days || 0);
+            const paid = Number(s.paid_days || 0);
+            if (working > 0) amount = (amount * paid) / working;
+          }
         }
 
         computed[comp.code] = amount;
@@ -458,23 +482,23 @@ async function runPayroll(year, month, runBy = null) {
       // 1. PF Calculation
       let pfAmountEmp = 0.0;
       if (computed['BASIC']) {
-        // Employee PF: 12% of BASIC
-        pfAmountEmp = Math.round(Number(computed['BASIC']) * 0.12);
+        // Rule: If skipDeductionProRata, calculate on FULL basic
+        const pfBase = skipDeductionProRata ? fullMonthlyBasic : Number(computed['BASIC']);
+        pfAmountEmp = Math.round(pfBase * 0.12);
       }
       let pfAmountEr = pfAmountEmp; // Employer matches
 
       // 2. ESI Calculation (Back-calculated from CTC-basis Gross)
-      // Formula for ESI_ER (3.25%): (Gross - PF_Employer) * 3.25 / 103.25
-      // Formula for ESI_EE (0.75%): (Gross - PF_Employer - ESI_ER) * 0.75 / 100
       let esiAmountEmp = 0.0;
       let esiAmountEr = 0.0;
       const ESI_THRESHOLD = 21000;
 
-      // Note: User requested ESI_EE=70 and ESI_ER=300 for Gross=10000.
-      // These formulas with Math.ceil achieve exactly that.
-      if (gross <= ESI_THRESHOLD) {
-        esiAmountEr = Math.ceil((gross - pfAmountEr) * 3.25 / 103.25);
-        esiAmountEmp = Math.ceil((gross - pfAmountEr - esiAmountEr) * 0.0075);
+      // Use targetGross for ESI threshold check if skipping pro-rata
+      const esiGrossBase = skipDeductionProRata ? (monthlyCtc) : gross;
+
+      if (esiGrossBase <= ESI_THRESHOLD) {
+        esiAmountEr = Math.ceil((esiGrossBase - pfAmountEr) * 3.25 / 103.25);
+        esiAmountEmp = Math.ceil((esiGrossBase - pfAmountEr - esiAmountEr) * 0.0075);
       }
 
       // Update computed results to ensure they are picked up in breakups and correctly subtracted
@@ -498,12 +522,12 @@ async function runPayroll(year, month, runBy = null) {
 
       // Professional Tax - slab logic
       let ptAmount = 0;
-      if (gross > 15000) ptAmount = 200;
+      if (esiGrossBase > 15000) ptAmount = 200;
       computed['PT'] = ptAmount;
       if (!components.find(c => c.code === 'PT')) deductions += ptAmount;
 
       // TDS (Simplified placeholder)
-      const tds = (gross > 30000) ? (gross * 0.10) : 0;
+      const tds = (esiGrossBase > 30000) ? (esiGrossBase * 0.10) : 0;
       computed['TDS'] = tds;
       if (!components.find(c => c.code === 'TDS')) deductions += tds;
 
@@ -595,17 +619,18 @@ async function runPayroll(year, month, runBy = null) {
         }
       }
 
-      // Add bundle to Special Allowance
+      // Add bundle to Special Allowance (subtracting because it's a hidden deduction in this setup)
       let saFound = false;
       for (const e of finalEarnings) {
         if (e.component_code === 'SPECIAL' || /special/i.test(e.component_name)) {
-          e.amount = (Number(e.amount) + erBundle).toFixed(2);
+          e.amount = (Number(e.amount) - erBundle).toFixed(2);
           saFound = true;
           break;
         }
       }
       if (!saFound && erBundle > 0) {
-        finalEarnings.push({ component_code: 'SPECIAL', component_name: 'Special Allowance', component_type: 'EARNING', amount: erBundle.toFixed(2), taxable: 1, prorated: 1 });
+        // This case is unlikely if SPECIAL exists, but for safety:
+        finalEarnings.push({ component_code: 'SPECIAL', component_name: 'Special Allowance', component_type: 'EARNING', amount: (-erBundle).toFixed(2), taxable: 1, prorated: 1 });
       }
 
       const payslip = {
@@ -617,7 +642,7 @@ async function runPayroll(year, month, runBy = null) {
         component_deductions: finalDeductions,
         statutory_deductions: finalStatutory,
         totals: {
-          gross: (Number(gross) + erBundle).toFixed(2),
+          gross: (Number(gross) - erBundle).toFixed(2),
           deductions: (Number(deductions) - erBundle).toFixed(2),
           net: Number(net.toFixed(2))
         }

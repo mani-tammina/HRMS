@@ -257,8 +257,15 @@ async function buildRunValidation(year, month) {
          FROM attendance 
          WHERE attendance_date BETWEEN ? AND ?
        ) a ON e.id = a.employee_id
+       INNER JOIN (
+         SELECT DISTINCT employee_id
+         FROM employee_salary_contracts
+         WHERE status = 'Active'
+           AND effective_from <= LAST_DAY(?)
+           AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
+       ) esc ON e.id = esc.employee_id
        WHERE e.EmploymentStatus = 'Working'`,
-      [sd, ed]
+      [sd, ed, sd, sd]
     );
 
     const [withStructure] = await c.query(
@@ -316,32 +323,15 @@ async function previewRun(req, res) {
     const validation = await buildRunValidation(year, month);
 
     const c = await db();
-    const [estimateRows] = await c.query(
-      `SELECT
-         COUNT(*) AS employeeCount,
-         COALESCE(SUM(ctc_amount / 12), 0) AS estimatedGross
-       FROM (
-         SELECT ss.employee_id, ss.ctc_amount
-         FROM salary_structures ss
-         JOIN employees e ON e.id = ss.employee_id
-         JOIN (
-           SELECT employee_id, MAX(version) AS max_version
-           FROM salary_structures
-           WHERE effective_from <= LAST_DAY(?)
-             AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-           GROUP BY employee_id
-         ) latest ON latest.employee_id = ss.employee_id AND latest.max_version = ss.version
-         WHERE e.EmploymentStatus = 'Working'
-       ) current_structures`,
-      [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]
-    );
-
     const page = Number(req.body.page) || 1;
     const limit = Number(req.body.limit) || 20;
     const offset = (page - 1) * limit;
 
     // --- DETAILED PREVIEW LOGIC ---
     // Fetch ALL employees for aggregate calculation
+    const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+    const ed = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+
     const [allEmployees] = await c.query(`
       SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
              esc.template_id, t.template_name, esc.annual_ctc,
@@ -353,15 +343,15 @@ async function previewRun(req, res) {
         FROM attendance 
         WHERE attendance_date BETWEEN ? AND ?
       ) att ON e.id = att.employee_id
+      INNER JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
+        AND esc.effective_from <= LAST_DAY(?)
+        AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
       LEFT JOIN designations d ON d.id = e.DesignationId
       LEFT JOIN departments dept ON dept.id = e.DepartmentId
-      JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
       LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.EmploymentStatus = 'Working'
-        AND esc.effective_from <= LAST_DAY(?)
-        AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-    `, [`${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`, `${year}-${String(month).padStart(2, '0')}-01`]);
+    `, [sd, ed, sd, sd]);
 
     const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
 
@@ -405,6 +395,26 @@ async function previewRun(req, res) {
       const paidDays = attSummary.paid_days;
       const proRataFactor = calendarDays > 0 ? (paidDays / calendarDays) : 1;
 
+      // Rule: If Full Month Basic >= 15000, Deductions are NOT pro-rated for LOP
+      const basicComp = comps.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
+      let fullMonthlyBasic = 0;
+      if (basicComp) {
+          const override = parseFormulaOverride(basicComp.formula_or_value);
+          let inputVal = Number(basicComp.default_value || 0);
+          let calculation_type = basicComp.calculation_type;
+          if (override) {
+              if (override.calculation_type) calculation_type = override.calculation_type;
+              inputVal = override.value;
+          }
+          if (calculation_type === 'PERCENTAGE') {
+              fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
+          } else {
+              fullMonthlyBasic = inputVal / 12.0;
+          }
+      }
+
+      const skipDeductionProRata = lopDays > 0 && fullMonthlyBasic >= 15000;
+
       const computed = {};
       let totalEarnings = 0;
       let totalDeductions = 0;
@@ -429,25 +439,36 @@ async function previewRun(req, res) {
           if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
         }
 
+        const isEarning = r.component_type === 'EARNING';
+        const currentFactor = (isEarning || !skipDeductionProRata) ? proRataFactor : 1.0;
+
         let amt = 0;
         if (calculation_type === 'PERCENTAGE') {
           if (percentage_of_code && computed[percentage_of_code] !== undefined) {
-            amt = (computed[percentage_of_code] * inputVal) / 100.0;
+            // If it's a Deduction and we skip pro-rata, use the FULL base value
+            if (!isEarning && skipDeductionProRata) {
+                 // We need full monthly values of the base component.
+                 // In previewRun, we don't have a full_computed map yet.
+                 // I'll calculate it on the fly or just use the monthlyGross if it's the base.
+                 // Actually, let's keep it simple: if skipDeductionProRata, use the full monthly factor.
+                 const baseVal = computed[percentage_of_code] / proRataFactor;
+                 amt = (baseVal * inputVal) / 100.0;
+            } else {
+                 amt = (computed[percentage_of_code] * inputVal) / 100.0;
+            }
           } else {
-            // Apply pro-rata factor to the base CTC part
-            amt = (monthlyGross * proRataFactor * inputVal) / 100.0;
+            amt = (monthlyGross * currentFactor * inputVal) / 100.0;
           }
         } else {
-          // Pro-rate fixed components
-          amt = (inputVal / 12.0) * proRataFactor;
+          amt = (inputVal / 12.0) * currentFactor;
         }
 
         const rounded = Math.round(amt);
         computed[r.component_code] = rounded;
         
-        if (r.component_type === 'EARNING') {
+        if (isEarning) {
           totalEarnings += rounded;
-        } else if (r.component_type === 'DEDUCTION') {
+        } else {
           totalDeductions += rounded;
         }
 
@@ -463,9 +484,29 @@ async function previewRun(req, res) {
         totalEarnings += specialAmt;
       }
 
-      const net = totalEarnings - totalDeductions;
+      // Bundle Employer portions into Special Allowance (Subtracting them to hide them in the Gross Salary view)
+      let erBundle = 0;
+      calculatedComponents.forEach(c => {
+        const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
+        if (isEr) {
+          erBundle += c.calculated_amount;
+        }
+      });
 
-      aggGross += totalEarnings;
+      if (specialIdx !== -1) {
+        calculatedComponents[specialIdx].calculated_amount -= erBundle;
+      }
+
+      const finalComponents = calculatedComponents.filter(c => {
+        const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
+        return !isEr;
+      });
+
+      const finalGross = totalEarnings - erBundle;
+      const finalDeductions = totalDeductions - erBundle;
+      const net = finalGross - finalDeductions;
+
+      aggGross += finalGross;
       aggNet += net;
       aggPayout += net;
 
@@ -477,15 +518,15 @@ async function previewRun(req, res) {
         department: emp.Department,
         template_name: emp.template_name,
         annual_ctc: annualCTC,
-        monthly_gross: Math.round(monthlyGross * proRataFactor),
-        total_earnings: totalEarnings,
-        total_deductions: totalDeductions,
+        monthly_gross: Math.round(monthlyGross * proRataFactor) - erBundle,
+        total_earnings: finalGross,
+        total_deductions: finalDeductions,
         total_net: net,
         total_net_payout: net,
         lop_days: lopDays,
         calendar_days: calendarDays,
         paid_days: paidDays,
-        components: calculatedComponents.map(c => ({
+        components: finalComponents.map(c => ({
           code: c.component_code,
           name: c.component_name,
           type: c.component_type,
@@ -786,6 +827,29 @@ async function getEmployeeRunStatus(req, res) {
         let otherTotal = 0;
         let fullOtherTotal = 0;
         let specialCompIdx = -1;
+        
+        // Rule: If Full Month Basic >= 15000, Deductions are NOT pro-rated for LOP
+        const basicComp = compRows.find(c => {
+             const code = (c.component_code || "").toUpperCase();
+             const name = (c.component_name || "").toUpperCase();
+             return code === 'BASIC' || name === 'BASIC SALARY';
+        });
+        let fullMonthlyBasic = 0;
+        if (basicComp) {
+             const override = parseFormulaOverride(basicComp.formula_or_value);
+             let inputVal = Number(basicComp.value || 0);
+             let calcType = basicComp.calculation_type;
+             if (override) {
+                 if (override.calculation_type) calcType = override.calculation_type;
+                 inputVal = override.value;
+             }
+             if (calcType === 'PERCENTAGE') {
+                 fullMonthlyBasic = (fullMonthlyCTC * inputVal) / 100.0;
+             } else {
+                 fullMonthlyBasic = inputVal / 12.0;
+             }
+        }
+        const skipDeductionProRata = lop_days > 0 && fullMonthlyBasic >= 15000;
 
         // First pass: Calculate and round all components except Special Allowance
         let results = compRows.map((r, idx) => {
@@ -805,20 +869,27 @@ async function getEmployeeRunStatus(req, res) {
                 if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
             }
 
+            const isEarning = r.component_type === 'EARNING';
+            const currentFactor = (isEarning || !skipDeductionProRata) ? proRataFactor : 1.0;
+
             let actualValue = 0;
             let fullValueRaw = 0;
 
             if (calculation_type === 'PERCENTAGE') {
                 if (percentage_of_code && computed[percentage_of_code] !== undefined) {
-                    actualValue = (computed[percentage_of_code] * inputVal) / 100.0;
+                    if (!isEarning && skipDeductionProRata) {
+                        actualValue = (full_computed[percentage_of_code] * inputVal) / 100.0;
+                    } else {
+                        actualValue = (computed[percentage_of_code] * inputVal) / 100.0;
+                    }
                     fullValueRaw = (full_computed[percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    actualValue = (fullMonthlyCTC * proRataFactor * inputVal) / 100.0;
+                    actualValue = (fullMonthlyCTC * currentFactor * inputVal) / 100.0;
                     fullValueRaw = (fullMonthlyCTC * inputVal) / 100.0;
                 }
             } else {
-                actualValue = (inputVal / 12.0) * proRataFactor;
-                fullValueRaw = inputVal / 12.0;
+                actualValue = (inputVal / 12.0) * currentFactor;
+                fullValueRaw = (inputVal / 12.0);
             }
 
             const roundedValue = Math.round(actualValue);
@@ -827,10 +898,7 @@ async function getEmployeeRunStatus(req, res) {
             computed[r.component_code] = roundedValue;
             full_computed[r.component_code] = roundedFullValue;
             
-            const isEarning = r.component_type === 'EARNING';
-            const isEmployer = r.component_code?.includes('EMPLOYER') || r.component_code?.includes('EMPLOYEER') || r.component_name?.includes('Employer') || r.component_name?.includes('Employeer');
-            
-            if (isEarning || isEmployer) {
+            if (isEarning) {
                 otherTotal += roundedValue;
                 fullOtherTotal += roundedFullValue;
             }
@@ -854,8 +922,29 @@ async function getEmployeeRunStatus(req, res) {
             };
         }
 
-        templateComponents = results.filter(r => r !== null);
-        monthlyGross = monthlyGrossCalculated;
+        // Bundle Employer portions into Special Allowance (Subtracting them to hide them in the Gross Salary view)
+        let erBundle = 0;
+        let erFullBundle = 0;
+        results.forEach(r => {
+            if (!r) return;
+            const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
+            if (isEr) {
+                erBundle += Number(r.value || 0);
+                erFullBundle += Number(r.full_value || 0);
+            }
+        });
+
+        if (specialCompIdx !== -1) {
+            results[specialCompIdx].value = (Number(results[specialCompIdx].value) - erBundle).toString();
+            results[specialCompIdx].full_value = (Number(results[specialCompIdx].full_value) - erFullBundle).toString();
+        }
+
+        templateComponents = results.filter(r => {
+            if (!r) return false;
+            const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
+            return !isEr;
+        });
+        monthlyGross = monthlyGrossCalculated - erBundle;
     }
 
     const monthlyCTCValue = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;
