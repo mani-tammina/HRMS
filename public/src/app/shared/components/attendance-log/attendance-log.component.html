@@ -82,6 +82,8 @@
           <ng-container [ngSwitch]="getArrivalStatus(log)">
             <ion-icon *ngSwitchCase="'Late Arrival'" name="alarm-outline"
               style="color:#D97706;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'regularlise'" name="checkmark-circle-outline"
+              style="color:#2dd4bf;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'On Time'" name="checkmark-circle-outline"
               style="color:#10B981;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
@@ -89,7 +91,7 @@
             <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
           </ng-container>
           <div style="display:flex;flex-direction:column;">
-            <span [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : 'inherit'"
+            <span [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : 'inherit')"
               style="font-size:13px;font-weight:500;line-height:1;">
               {{ getArrivalStatus(log) }}
             </span>

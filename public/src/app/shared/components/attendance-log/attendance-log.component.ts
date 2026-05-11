@@ -424,6 +424,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getArrivalStatus(log: any): string {
     if (!log?.status) return 'Unknown';
+    
+    // Check if regularized via notes
+    if (log.notes && log.notes.includes('[REGULARIZED')) {
+      return 'regularlise';
+    }
+
     const statusMap: { [key: string]: string } = {
       present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
@@ -460,6 +466,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getLateDuration(log: any): string {
     if (!log || (log.status !== 'present' && log.status !== 'late') || !log.first_check_in || !this.shiftPolicy?.start_time) return '';
+    
+    // Check if regularized via notes
+    if (log.notes && log.notes.includes('[REGULARIZED')) {
+      return '';
+    }
+
     try {
       const checkIn = new Date(log.first_check_in);
       const [shiftH, shiftM, shiftS] = this.shiftPolicy.start_time.split(':').map(Number);
