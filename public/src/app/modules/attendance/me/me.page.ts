@@ -295,21 +295,24 @@ export class MePage implements OnInit, AfterViewInit {
 
     const centerTextPlugin = {
       id: 'centerText',
-      afterDraw: (chart: any) => {
-        const { ctx, chartArea: { top, width, height } } = chart;
+      afterDatasetsDraw: (chart: any) => {
+        const { ctx, chartArea: { top, left, width, height } } = chart;
         ctx.save();
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
+        const centerX = left + width / 2;
+        const centerY = top + height / 2;
+
         // Value
         ctx.font = 'bold 24px "Outfit", "Inter", sans-serif';
         ctx.fillStyle = '#1e293b'; // Dark slate
-        ctx.fillText(this.grossHours || '00:00', width / 2, (height / 2) + top - 5);
+        ctx.fillText(this.grossHours || '00:00', centerX, centerY - 5);
 
         // Label
         ctx.font = '700 10px "Outfit", "Inter", sans-serif';
         ctx.fillStyle = '#64748b'; // Slate muted
-        ctx.fillText('GROSS HRS', width / 2, (height / 2) + top + 18);
+        ctx.fillText('GROSS HRS', centerX, centerY + 18);
         ctx.restore();
       }
     };
