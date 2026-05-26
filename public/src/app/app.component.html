@@ -28,7 +28,7 @@
               <!-- Expandable Parent Item -->
               <div *ngIf="p.children" class="submenu-wrapper">
                 <ion-item [id]="'menu-trigger-' + p.icon" class="menu-nav-item parent-item"
-                  [class.selected]="currentUrl.includes(p.icon)">
+                  [class.selected]="isSubmenuActive(p)">
                   <div class="row-left">
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon inactive-icon" />
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon active-icon" />

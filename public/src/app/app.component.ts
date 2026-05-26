@@ -99,6 +99,15 @@ export class AppComponent implements OnInit, OnDestroy {
     return page.roles.includes(role);
   }
 
+  isSubmenuActive(page: any): boolean {
+    if (!page.children) return false;
+    return page.children.some((child: any) => {
+      if (!child.url) return false;
+      return this.currentUrl.toLowerCase().includes(child.url.toLowerCase());
+    });
+  }
+
+
   /**
    * Get custom SVG icon path for a menu item
    */
