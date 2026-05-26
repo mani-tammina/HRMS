@@ -242,12 +242,22 @@ router.post("/", auth, admin, async (req, res) => {
 // Get single employee
 router.get("/:id", auth, async (req, res) => {
   const c = await db();
-  const [r] = await c.query("SELECT * FROM employees WHERE id = ?", [
-    req.params.id,
-  ]);
+  const [r] = await c.query(
+    `SELECT e.*,
+            d.name  AS department_name,
+            des.name AS designation_name,
+            l.name  AS location_name
+     FROM employees e
+     LEFT JOIN departments  d   ON e.DepartmentId  = d.id
+     LEFT JOIN designations des ON e.DesignationId = des.id
+     LEFT JOIN locations    l   ON e.LocationId    = l.id
+     WHERE e.id = ?`,
+    [req.params.id]
+  );
   c.end();
   res.json(r[0] || null);
 });
+
 
 // Get detailed employee information with all relationships
 router.get("/:id/details", auth, async (req, res) => {
