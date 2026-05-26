@@ -8,29 +8,43 @@
   <div *ngIf="!isLoadingTax && taxComputation" class="tax-scroll-container">
 
     <!-- Header Summary Bar -->
-    <div class="tax-summary-bar glass-card" style="padding: 16px 24px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px;">
+    <div class="tax-summary-bar glass-card"
+      style="padding: 16px 24px; margin-bottom: 24px; display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px;">
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET TAXABLE INCOME</label>
-        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ getTaxableIncomeFromAllHeads() | number:'1.0-0' }}</div>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET
+          TAXABLE INCOME</label>
+        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ getTaxableIncomeFromAllHeads() |
+          number:'1.0-0' }}</div>
       </div>
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">GROSS INCOME TAX</label>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">GROSS
+          INCOME TAX</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ grossIncomeTax | number:'1.0-0' }}</div>
       </div>
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TOTAL SURCHARGE & CESS</label>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TOTAL
+          SURCHARGE & CESS</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ totalCess | number:'1.0-0' }}</div>
       </div>
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET INCOME TAX PAYABLE</label>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">NET
+          INCOME TAX PAYABLE</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ netTaxPayable | number:'1.0-0' }}</div>
       </div>
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TAX PAID TILL NOW</label>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TAX
+          PAID TILL NOW</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ taxPaidTillNow | number:'1.0-0' }}</div>
       </div>
       <div class="summary-item">
-        <label style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">REMAINING TAX TO BE PAID</label>
+        <label
+          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">REMAINING
+          TAX TO BE PAID</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ remainingTax | number:'1.0-0' }}</div>
       </div>
     </div>
@@ -113,55 +127,58 @@
       <div class="structured-breakdown">
         <!-- Part B Header -->
         <div class="breakdown-group-header">
-           <span class="alphabet-badge">B</span>
-           <strong>Taxable Income from All Heads</strong>
+          <span class="alphabet-badge">B</span>
+          <strong>Taxable Income from All Heads</strong>
         </div>
 
         <!-- Income from Salaries Subgroup -->
         <div class="breakdown-subgroup">
-           <div class="breakdown-subgroup-header">
-              <span class="alphabet-badge sub">IS</span>
-              <strong>Income from Salaries</strong>
-           </div>
+          <div class="breakdown-subgroup-header">
+            <span class="alphabet-badge sub">IS</span>
+            <strong>Income from Salaries</strong>
+          </div>
 
-           <div class="breakdown-row sub-row">
-             <span>Total Salary Received (Gross CTC)</span>
-             <strong>{{ formatCurrency(taxComputation.gross_annual_income) }}</strong>
-           </div>
-           
-           <div class="breakdown-row sub-row" *ngIf="employerPf">
-             <span>Less: Employer PF (Annual)</span>
-             <strong class="negative">- {{ formatCurrency(employerPf) }}</strong>
-           </div>
+          <div class="breakdown-row sub-row">
+            <span>Total Salary Received (Gross CTC)</span>
+            <strong>{{ formatCurrency(taxComputation.contract_ctc || taxComputation.gross_annual_income) }}</strong>
+          </div>
 
-           <div class="breakdown-row sub-row total-row">
-             <span>Total</span>
-             <strong>{{ formatCurrency(getGrossEarnings()) }}</strong>
-           </div>
+          <div class="breakdown-row sub-row" *ngIf="getEmployerPfValue() > 0">
+            <span>Less: Provident Fund Employer's Share</span>
+            <strong class="negative">- {{ formatCurrency(getEmployerPfValue()) }}</strong>
+          </div>
 
-           <div class="breakdown-section-title" *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
-             <span>Less: Section 16 Tax Exemptions</span>
-           </div>
+          <div class="breakdown-row sub-row total-row">
+            <span>Total</span>
+            <strong>{{ formatCurrency(getGrossEarnings()) }}</strong>
+          </div>
 
-           <div class="breakdown-row exemption-row" *ngIf="taxComputation.standard_deduction">
-             <span><span class="section-code">16(ia)</span> Standard Deduction</span>
-             <strong>{{ formatCurrency(taxComputation.standard_deduction) }}</strong>
-           </div>
+          <div class="breakdown-section-title"
+            *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
+            <span>Less: Section 16 Tax Exemptions</span>
+          </div>
 
-           <div class="breakdown-row exemption-row" *ngIf="professionalTax && taxComputation.regime_type === 'OLD'">
-             <span><span class="section-code">16(iii)</span> Professional Tax</span>
-             <strong>{{ formatCurrency(professionalTax) }}</strong>
-           </div>
+          <div class="breakdown-row exemption-row" *ngIf="taxComputation.standard_deduction">
+            <span><span class="section-code">16(ia)</span> Standard Deduction</span>
+            <strong>{{ formatCurrency(taxComputation.standard_deduction) }}</strong>
+          </div>
 
-           <div class="breakdown-row exemption-row total-row" *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
-             <span>Total</span>
-             <strong>{{ formatCurrency((taxComputation.standard_deduction || 0) + (taxComputation.regime_type === 'OLD' ? (professionalTax || 0) : 0)) }}</strong>
-           </div>
+          <div class="breakdown-row exemption-row" *ngIf="professionalTax && taxComputation.regime_type === 'OLD'">
+            <span><span class="section-code">16(iii)</span> Professional Tax</span>
+            <strong>{{ formatCurrency(professionalTax) }}</strong>
+          </div>
 
-           <div class="breakdown-row sub-row total-section">
-             <span>Taxable Amount under Head "Salaries"</span>
-             <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
-           </div>
+          <div class="breakdown-row exemption-row total-row"
+            *ngIf="taxComputation.standard_deduction || (professionalTax && taxComputation.regime_type === 'OLD')">
+            <span>Total</span>
+            <strong>{{ formatCurrency((taxComputation.standard_deduction || 0) + (taxComputation.regime_type === 'OLD' ?
+              (professionalTax || 0) : 0)) }}</strong>
+          </div>
+
+          <div class="breakdown-row sub-row total-section">
+            <span>Taxable Amount under Head "Salaries"</span>
+            <strong>{{ formatCurrency(getTaxableIncomeFromAllHeads()) }}</strong>
+          </div>
         </div>
 
         <div class="breakdown-row main-total">
@@ -208,29 +225,38 @@
     <!-- Tax Calculation Breakdown Matching Image Structure -->
     <div class="structured-breakdown tax-calculation-card" *ngIf="taxBreakdown.length > 0">
       <div class="breakdown-group-header" style="background:#fff;">
-         <span class="alphabet-badge" style="background:#3b82f6;">P</span>
-         <strong>Tax Calculation</strong>
+        <span class="alphabet-badge" style="background:#3b82f6;">P</span>
+        <strong>Tax Calculation</strong>
       </div>
 
-      <div class="calculation-table simple-table" style="background:#fff; border:none; border-top:1px solid #e2e8f0; border-radius:0;">
-        <div class="calc-header simple-header" style="display:flex; justify-content:space-between; padding:12px 24px; border-bottom:1px solid #f1f5f9; background:#f8fafc; font-size:10px; text-transform:uppercase; font-weight:800; color:#64748b; letter-spacing: 0.5px;">
+      <div class="calculation-table simple-table"
+        style="background:#fff; border:none; border-top:1px solid #e2e8f0; border-radius:0;">
+        <div class="calc-header simple-header"
+          style="display:flex; justify-content:space-between; padding:12px 24px; border-bottom:1px solid #f1f5f9; background:#f8fafc; font-size:10px; text-transform:uppercase; font-weight:800; color:#64748b; letter-spacing: 0.5px;">
           <span>TAXABLE INCOME SLABS</span>
           <span>TAX AMOUNT</span>
         </div>
-        
-        <div class="calc-row" *ngFor="let item of taxBreakdown" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+
+        <div class="calc-row" *ngFor="let item of taxBreakdown"
+          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>{{ item.label }}</span>
-          <strong style="font-weight:400; color:#0f172a;">{{ item.taxAmount > 0 ? formatCurrency(item.taxAmount) : '0' }}</strong>
+          <strong style="font-weight:400; color:#0f172a;">{{ item.taxAmount > 0 ? formatCurrency(item.taxAmount) : '0'
+            }}</strong>
         </div>
 
-        <div class="calc-row rebate" *ngIf="taxComputation" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
-          <span>Tax Rebate-Section 87A When taxable income less than {{ taxComputation.regime_type === 'NEW' ? '1200000' : '500000' }} or additional relief applicable</span>
-          <strong style="font-weight:400; color:#0f172a;">{{ rebate87A > 0 ? ('-' + formatCurrency(rebate87A)) : '0' }}</strong>
+        <div class="calc-row rebate" *ngIf="taxComputation"
+          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
+          <span>Tax Rebate-Section 87A When taxable income less than {{ taxComputation.regime_type === 'NEW' ? '1200000'
+            : '500000' }} or additional relief applicable</span>
+          <strong style="font-weight:400; color:#0f172a;">{{ rebate87A > 0 ? ('-' + formatCurrency(rebate87A)) : '0'
+            }}</strong>
         </div>
 
-        <div class="calc-row total-gross" style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
+        <div class="calc-row total-gross"
+          style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; background: #fff; align-items: center;">
           <span>Gross Income Tax</span>
-          <strong style="font-weight:400; color:#0f172a;">{{ grossIncomeTax > 0 ? formatCurrency(grossIncomeTax) : '0' }}</strong>
+          <strong style="font-weight:400; color:#0f172a;">{{ grossIncomeTax > 0 ? formatCurrency(grossIncomeTax) : '0'
+            }}</strong>
         </div>
       </div>
     </div>
@@ -238,17 +264,19 @@
     <!-- Surcharge & Cess Card -->
     <div class="structured-breakdown surcharge-cess-card" style="margin-top: 24px;">
       <div class="breakdown-group-header" style="background:#fff; border-bottom: 2px solid #3b82f6;">
-         <span class="alphabet-badge" style="background:#3b82f6;">Q</span>
-         <strong>Surcharge & Cess</strong>
+        <span class="alphabet-badge" style="background:#3b82f6;">Q</span>
+        <strong>Surcharge & Cess</strong>
       </div>
 
       <div class="calculation-table simple-table" style="background:#fff; border:none; border-radius:0;">
-        <div class="calc-row detailed-row" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+        <div class="calc-row detailed-row"
+          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>Health and Education Cess - 4% of Gross Income Tax and Surcharge</span>
           <strong style="font-weight:400; color:#0f172a;">{{ totalCess > 0 ? formatCurrency(totalCess) : '0' }}</strong>
         </div>
 
-        <div class="calc-row total-gross" style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:700; color:#1e293b; background: #f8fafc; align-items: center;">
+        <div class="calc-row total-gross"
+          style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:700; color:#1e293b; background: #f8fafc; align-items: center;">
           <span>Total Surcharge & Cess</span>
           <strong style="font-weight:700; color:#0f172a;">{{ totalCess > 0 ? formatCurrency(totalCess) : '0' }}</strong>
         </div>
@@ -258,19 +286,23 @@
     <!-- Net Income Tax Payable Card -->
     <div class="structured-breakdown net-tax-payable-card" style="margin-top: 24px;">
       <div class="breakdown-group-header" style="background:#fff; border-bottom: 2px solid #6d28d9;">
-         <span class="alphabet-badge" style="background:#6d28d9;">T</span>
-         <strong>Net Income Tax Payable</strong>
+        <span class="alphabet-badge" style="background:#6d28d9;">T</span>
+        <strong>Net Income Tax Payable</strong>
       </div>
 
       <div class="calculation-table simple-table" style="background:#fff; border:none; border-radius:0;">
-        <div class="calc-row" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+        <div class="calc-row"
+          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <div style="display:flex; align-items: center; gap: 8px;">
-            <span class="alphabet-badge" style="background:#3b82f6; width:18px; height:18px; font-size:10px;">P</span> <span>Tax Calculation</span> + 
-            <span class="alphabet-badge" style="background:#3b82f6; width:18px; height:18px; font-size:10px;">Q</span> <span>Surcharge & Cess</span>
+            <span class="alphabet-badge" style="background:#3b82f6; width:18px; height:18px; font-size:10px;">P</span>
+            <span>Tax Calculation</span> +
+            <span class="alphabet-badge" style="background:#3b82f6; width:18px; height:18px; font-size:10px;">Q</span>
+            <span>Surcharge & Cess</span>
           </div>
           <strong style="font-weight:400; color:#0f172a;">{{ formatCurrency(netTaxPayable) }}</strong>
         </div>
-        <div class="calc-row" style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+        <div class="calc-row"
+          style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>Net tax amount of {{ netTaxPayable | number:'1.0-0' }} after round Off is</span>
           <strong style="font-weight:400; color:#0f172a;">{{ formatCurrency(netTaxPayable) }}</strong>
         </div>
@@ -280,16 +312,18 @@
     <!-- Cumulative Tax Deductions Card -->
     <div class="structured-breakdown cumulative-details-card" style="margin-top: 24px;">
       <div class="breakdown-group-header" style="background:#fff; border-bottom: 2px solid #6d28d9;">
-         <span class="alphabet-badge" style="background:#6d28d9;">U</span>
-         <strong>Cumulative Tax Deductions Details</strong>
+        <span class="alphabet-badge" style="background:#6d28d9;">U</span>
+        <strong>Cumulative Tax Deductions Details</strong>
       </div>
 
       <div class="calculation-table simple-table" style="background:#fff; border:none; border-radius:0;">
-        <div class="calc-row" style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+        <div class="calc-row"
+          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>Tax Paid Till Now</span>
           <strong style="font-weight:400; color:#0f172a;">{{ formatCurrency(taxPaidTillNow) }}</strong>
         </div>
-        <div class="calc-row" style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; align-items: center;">
+        <div class="calc-row"
+          style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>Remaining Tax To Be Paid</span>
           <strong style="font-weight:400; color:#0f172a;">{{ formatCurrency(remainingTax) }}</strong>
         </div>
@@ -299,8 +333,8 @@
     <!-- Month on Month Tax Card -->
     <div class="structured-breakdown month-tax-card" style="margin-top: 24px;">
       <div class="breakdown-group-header" style="background:#fff; border-bottom: 2px solid #6d28d9;">
-         <span class="alphabet-badge" style="background:#6d28d9;">V</span>
-         <strong>Month on Month Tax Deductions Details</strong>
+        <span class="alphabet-badge" style="background:#6d28d9;">V</span>
+        <strong>Month on Month Tax Deductions Details</strong>
       </div>
 
       <div class="monthly-table-wrapper" style="margin: 0; padding: 0;">
@@ -326,12 +360,15 @@
 
       <div class="earnings-legend" style="padding: 16px 24px; border-top: 1px solid #f1f5f9; margin-bottom: 0;">
         <div class="legend-item"><span class="sq prev"></span> <span>Tax Deduction from previous employer</span></div>
-        <div class="legend-item"><span class="sq current"></span> <span>Imported Tax Deduction from current employer</span></div>
+        <div class="legend-item"><span class="sq current"></span> <span>Imported Tax Deduction from current
+            employer</span></div>
         <div class="legend-item"><span class="sq projected"></span> <span>Projected income tax</span></div>
       </div>
 
-      <div style="padding: 12px 24px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #64748b; font-style: italic;">
-        * Projected Income Tax does not include any revisions, bonuses or other additional projected payments other than salary
+      <div
+        style="padding: 12px 24px; border-top: 1px solid #f1f5f9; font-size: 11px; color: #64748b; font-style: italic;">
+        * Projected Income Tax does not include any revisions, bonuses or other additional projected payments other than
+        salary
       </div>
     </div>
 

@@ -268,6 +268,7 @@ export interface TaxComputation {
   financial_year: string;
   regime_type: string;
   gross_annual_income: number;
+  contract_ctc?: number;
   total_deductions: number;
   taxable_income: number;
   income_tax: number;
@@ -381,7 +382,7 @@ export interface ConfigWindowPayload {
 export class PayrollApiService {
   private baseUrl = `http://${environment.apiURL}/api`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   private getHeaders(): HttpHeaders {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
@@ -724,7 +725,7 @@ export class PayrollApiService {
   getPTSlabs(): Observable<TaxSlabResponse> {
     return this.http.get<TaxSlabResponse>(`${this.baseUrl}/admin/pt-slabs`, { headers: this.getHeaders() });
   }
-  
+
   /** GET /api/v1/admin/tax/standard-deductions — Get standard deduction amounts */
   getStandardDeductions(financialYear?: string): Observable<any> {
     let params = new HttpParams();

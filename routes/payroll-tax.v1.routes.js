@@ -144,19 +144,29 @@ async function writeAudit(conn, action, performedBy, payrollRunId, details) {
   );
 }
 
-async function calculateTaxBySlabs(conn, annualIncome, deductions, regimeType, financialYear) {
+async function calculateTaxBySlabs(
+  conn,
+  annualIncome,
+  deductions,
+  regimeType,
+  financialYear,
+) {
   const regimeStr = String(regimeType || "OLD").toUpperCase();
 
   // Fetch applicable standard deduction
   const [stdDedRows] = await conn.query(
     `SELECT amount FROM payroll_standard_deductions 
      WHERE regime_type = ? AND financial_year = ? AND is_active = 1 LIMIT 1`,
-    [regimeStr, financialYear]
+    [regimeStr, financialYear],
   );
-  const standardDeduction = stdDedRows.length > 0 ? Number(stdDedRows[0].amount) : 0;
+  const standardDeduction =
+    stdDedRows.length > 0 ? Number(stdDedRows[0].amount) : 0;
 
   const totalDeductions = Number(deductions || 0) + standardDeduction;
-  const taxableIncome = Math.max(0, Number(annualIncome || 0) - totalDeductions);
+  const taxableIncome = Math.max(
+    0,
+    Number(annualIncome || 0) - totalDeductions,
+  );
 
   const [slabs] = await conn.query(
     `SELECT min_income, max_income, rate, cess_rate, surcharge_rate
@@ -241,7 +251,8 @@ router.put("/admin/payroll/statutory-rules", finance, async (req, res) => {
   let c = null;
   try {
     const rules = Array.isArray(req.body.rules) ? req.body.rules : [req.body];
-    if (!rules.length) return res.status(400).json({ error: "rules payload required" });
+    if (!rules.length)
+      return res.status(400).json({ error: "rules payload required" });
 
     c = await db();
     await c.beginTransaction();
@@ -263,7 +274,7 @@ router.put("/admin/payroll/statutory-rules", finance, async (req, res) => {
           r.percentage ?? null,
           r.ceiling_limit ?? null,
           r.fixed_amount ?? null,
-          r.effective_from || new Date().toLocaleDateString('en-CA'),
+          r.effective_from || new Date().toLocaleDateString("en-CA"),
           r.effective_to || null,
           r.is_active === false ? 0 : 1,
           req.user.id,
@@ -280,7 +291,11 @@ router.put("/admin/payroll/statutory-rules", finance, async (req, res) => {
     );
 
     await c.commit();
-    res.json({ success: true, message: "Statutory rules updated", count: rules.length });
+    res.json({
+      success: true,
+      message: "Statutory rules updated",
+      count: rules.length,
+    });
   } catch (error) {
     if (c) await c.rollback();
     res.status(500).json({ error: error.message });
@@ -318,7 +333,8 @@ router.post("/admin/tax/slabs", finance, async (req, res) => {
   let c = null;
   try {
     const rows = Array.isArray(req.body.slabs) ? req.body.slabs : [req.body];
-    if (!rows.length) return res.status(400).json({ error: "slabs payload required" });
+    if (!rows.length)
+      return res.status(400).json({ error: "slabs payload required" });
 
     c = await db();
     await c.beginTransaction();
@@ -330,19 +346,25 @@ router.post("/admin/tax/slabs", finance, async (req, res) => {
     if (rows.length > 0) {
       const regime = String(rows[0].regime_type).toUpperCase();
       const fy = rows[0].financial_year;
-      // We only clear if the payload is consistent or we can do it per-row. 
+      // We only clear if the payload is consistent or we can do it per-row.
       // Current frontend sends all rows for ONE regime at a time.
       await c.query(
         "UPDATE payroll_tax_slabs SET is_active = 0 WHERE regime_type = ? AND financial_year = ?",
-        [regime, fy]
+        [regime, fy],
       );
     }
 
     for (const slab of rows) {
-      if (!slab.regime_type || slab.min_income == null || slab.rate == null || !slab.financial_year) {
+      if (
+        !slab.regime_type ||
+        slab.min_income == null ||
+        slab.rate == null ||
+        !slab.financial_year
+      ) {
         await c.rollback();
         return res.status(400).json({
-          error: "regime_type, min_income, rate and financial_year are required",
+          error:
+            "regime_type, min_income, rate and financial_year are required",
         });
       }
 
@@ -364,7 +386,13 @@ router.post("/admin/tax/slabs", finance, async (req, res) => {
       );
     }
 
-    await writeAudit(c, "TAX_SLABS_UPDATE", req.user.id, null, JSON.stringify({ count: rows.length }));
+    await writeAudit(
+      c,
+      "TAX_SLABS_UPDATE",
+      req.user.id,
+      null,
+      JSON.stringify({ count: rows.length }),
+    );
     await c.commit();
     res.json({ success: true, inserted: rows.length });
   } catch (error) {
@@ -378,15 +406,22 @@ router.post("/admin/tax/slabs", finance, async (req, res) => {
 router.patch("/admin/tax/section-limits", finance, async (req, res) => {
   let c = null;
   try {
-    const rows = Array.isArray(req.body.sections) ? req.body.sections : [req.body];
-    if (!rows.length) return res.status(400).json({ error: "sections payload required" });
+    const rows = Array.isArray(req.body.sections)
+      ? req.body.sections
+      : [req.body];
+    if (!rows.length)
+      return res.status(400).json({ error: "sections payload required" });
 
     c = await db();
     await c.beginTransaction();
     await ensureV1Tables(c);
 
     for (const section of rows) {
-      if (!section.section_code || section.max_limit == null || !section.financial_year) {
+      if (
+        !section.section_code ||
+        section.max_limit == null ||
+        !section.financial_year
+      ) {
         await c.rollback();
         return res.status(400).json({
           error: "section_code, max_limit, financial_year are required",
@@ -407,7 +442,13 @@ router.patch("/admin/tax/section-limits", finance, async (req, res) => {
       );
     }
 
-    await writeAudit(c, "TAX_SECTION_LIMITS_UPDATE", req.user.id, null, JSON.stringify({ count: rows.length }));
+    await writeAudit(
+      c,
+      "TAX_SECTION_LIMITS_UPDATE",
+      req.user.id,
+      null,
+      JSON.stringify({ count: rows.length }),
+    );
     await c.commit();
     res.json({ success: true, updated: rows.length });
   } catch (error) {
@@ -443,67 +484,96 @@ router.get("/admin/tax/standard-deductions", auth, async (req, res) => {
   }
 });
 
-router.post("/admin/tax/standard-deductions", auth, finance, async (req, res) => {
-  let c = null;
-  try {
-    const rows = Array.isArray(req.body.deductions) ? req.body.deductions : [req.body];
-    if (!rows.length) return res.status(400).json({ error: "deductions payload required" });
+router.post(
+  "/admin/tax/standard-deductions",
+  auth,
+  finance,
+  async (req, res) => {
+    let c = null;
+    try {
+      const rows = Array.isArray(req.body.deductions)
+        ? req.body.deductions
+        : [req.body];
+      if (!rows.length)
+        return res.status(400).json({ error: "deductions payload required" });
 
-    c = await db();
-    await c.beginTransaction();
-    await ensureV1Tables(c);
+      c = await db();
+      await c.beginTransaction();
+      await ensureV1Tables(c);
 
-    for (const d of rows) {
-      if (!d.regime_type || d.amount == null || !d.financial_year) {
-        await c.rollback();
-        return res.status(400).json({
-          error: "regime_type, amount and financial_year are required",
-        });
-      }
+      for (const d of rows) {
+        if (!d.regime_type || d.amount == null || !d.financial_year) {
+          await c.rollback();
+          return res.status(400).json({
+            error: "regime_type, amount and financial_year are required",
+          });
+        }
 
-      await c.query(
-        `INSERT INTO payroll_standard_deductions (regime_type, amount, financial_year, is_active, created_by)
+        await c.query(
+          `INSERT INTO payroll_standard_deductions (regime_type, amount, financial_year, is_active, created_by)
          VALUES (?, ?, ?, ?, ?)
          ON DUPLICATE KEY UPDATE amount = VALUES(amount), is_active = VALUES(is_active), created_by = VALUES(created_by), updated_at = CURRENT_TIMESTAMP`,
-        [
-          String(d.regime_type).toUpperCase(),
-          d.amount,
-          d.financial_year,
-          d.is_active === false ? 0 : 1,
-          req.user.id,
-        ],
+          [
+            String(d.regime_type).toUpperCase(),
+            d.amount,
+            d.financial_year,
+            d.is_active === false ? 0 : 1,
+            req.user.id,
+          ],
+        );
+      }
+
+      await writeAudit(
+        c,
+        "STANDARD_DEDUCTION_UPDATE",
+        req.user.id,
+        null,
+        JSON.stringify({ count: rows.length }),
       );
+      await c.commit();
+      res.json({ success: true, updated: rows.length });
+    } catch (error) {
+      if (c) await c.rollback();
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (c) await c.end();
     }
+  },
+);
 
-    await writeAudit(c, "STANDARD_DEDUCTION_UPDATE", req.user.id, null, JSON.stringify({ count: rows.length }));
-    await c.commit();
-    res.json({ success: true, updated: rows.length });
-  } catch (error) {
-    if (c) await c.rollback();
-    res.status(500).json({ error: error.message });
-  } finally {
-    if (c) await c.end();
-  }
-});
-
-router.delete("/admin/tax/standard-deductions/:id", finance, async (req, res) => {
-  let c = null;
-  try {
-    c = await db();
-    await c.query(`UPDATE payroll_standard_deductions SET is_active = 0 WHERE id = ?`, [req.params.id]);
-    res.json({ success: true, message: "Standard deduction disabled" });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  } finally {
-    if (c) await c.end();
-  }
-});
+router.delete(
+  "/admin/tax/standard-deductions/:id",
+  finance,
+  async (req, res) => {
+    let c = null;
+    try {
+      c = await db();
+      await c.query(
+        `UPDATE payroll_standard_deductions SET is_active = 0 WHERE id = ?`,
+        [req.params.id],
+      );
+      res.json({ success: true, message: "Standard deduction disabled" });
+    } catch (error) {
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (c) await c.end();
+    }
+  },
+);
 
 router.post("/admin/payroll/components", finance, async (req, res) => {
   let c = null;
   try {
-    const { component_name, component_code, component_type, is_taxable, is_fixed, is_active } = req.body;
-    if (!component_name) return res.status(400).json({ error: "component_name is required" });
+    const {
+      component_name,
+      component_code,
+      component_type,
+      is_taxable,
+      is_fixed,
+      is_active,
+    } = req.body;
+    if (!component_name)
+      return res.status(400).json({ error: "component_name is required" });
 
     c = await db();
     await c.beginTransaction();
@@ -536,7 +606,10 @@ router.post("/admin/payroll/components", finance, async (req, res) => {
       "PAYROLL_COMPONENT_UPSERT",
       req.user.id,
       null,
-      JSON.stringify({ component_name, component_code: component_code || null }),
+      JSON.stringify({
+        component_name,
+        component_code: component_code || null,
+      }),
     );
 
     await c.commit();
@@ -578,8 +651,14 @@ router.get("/admin/ai/verification-queue", finance, async (req, res) => {
 router.post("/admin/ai/verify-proof", finance, async (req, res) => {
   let c = null;
   try {
-    const { proof_id, extracted_amount, verification_status, verification_notes } = req.body;
-    if (!proof_id) return res.status(400).json({ error: "proof_id is required" });
+    const {
+      proof_id,
+      extracted_amount,
+      verification_status,
+      verification_notes,
+    } = req.body;
+    if (!proof_id)
+      return res.status(400).json({ error: "proof_id is required" });
 
     c = await db();
     await c.beginTransaction();
@@ -590,7 +669,13 @@ router.post("/admin/ai/verify-proof", finance, async (req, res) => {
       `UPDATE payroll_tax_proofs
        SET extracted_amount = ?, verification_status = ?, verification_notes = ?, verified_by = ?, verified_at = NOW()
        WHERE id = ?`,
-      [extracted_amount ?? null, status, verification_notes || null, req.user.id, proof_id],
+      [
+        extracted_amount ?? null,
+        status,
+        verification_notes || null,
+        req.user.id,
+        proof_id,
+      ],
     );
 
     await writeAudit(
@@ -598,7 +683,11 @@ router.post("/admin/ai/verify-proof", finance, async (req, res) => {
       "AI_PROOF_VERIFY",
       req.user.id,
       null,
-      JSON.stringify({ proof_id, extracted_amount: extracted_amount ?? null, status }),
+      JSON.stringify({
+        proof_id,
+        extracted_amount: extracted_amount ?? null,
+        status,
+      }),
     );
 
     await c.commit();
@@ -615,7 +704,10 @@ router.get("/admin/payroll/lop-summary", finance, async (req, res) => {
   let c = null;
   try {
     const monthInfo = normalizeMonth(req.query.payroll_month);
-    if (!monthInfo) return res.status(400).json({ error: "payroll_month query required in YYYY-MM" });
+    if (!monthInfo)
+      return res
+        .status(400)
+        .json({ error: "payroll_month query required in YYYY-MM" });
 
     const startDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-01`;
     const lastDay = new Date(monthInfo.year, monthInfo.month, 0).getDate();
@@ -654,9 +746,16 @@ router.get("/admin/payroll/lop-summary", finance, async (req, res) => {
 router.post("/admin/payroll/process-run", finance, async (req, res) => {
   try {
     const monthInfo = normalizeMonth(req.body.payroll_month);
-    if (!monthInfo) return res.status(400).json({ error: "payroll_month is required in YYYY-MM" });
+    if (!monthInfo)
+      return res
+        .status(400)
+        .json({ error: "payroll_month is required in YYYY-MM" });
 
-    const result = await payrollService.runPayroll(monthInfo.year, monthInfo.month, req.user.id);
+    const result = await payrollService.runPayroll(
+      monthInfo.year,
+      monthInfo.month,
+      req.user.id,
+    );
     const c = await db();
     try {
       await writeAudit(
@@ -664,7 +763,10 @@ router.post("/admin/payroll/process-run", finance, async (req, res) => {
         "RUN",
         req.user.id,
         result.runId,
-        JSON.stringify({ payroll_month: req.body.payroll_month, cycle_id: result.cycleId }),
+        JSON.stringify({
+          payroll_month: req.body.payroll_month,
+          cycle_id: result.cycleId,
+        }),
       );
     } finally {
       await c.end();
@@ -680,7 +782,10 @@ router.post("/admin/payroll/lock-period", finance, async (req, res) => {
   let c = null;
   try {
     const monthInfo = normalizeMonth(req.body.payroll_month);
-    if (!monthInfo) return res.status(400).json({ error: "payroll_month is required in YYYY-MM" });
+    if (!monthInfo)
+      return res
+        .status(400)
+        .json({ error: "payroll_month is required in YYYY-MM" });
 
     const startDate = `${monthInfo.year}-${String(monthInfo.month).padStart(2, "0")}-01`;
     const lastDay = new Date(monthInfo.year, monthInfo.month, 0).getDate();
@@ -704,7 +809,10 @@ router.post("/admin/payroll/lock-period", finance, async (req, res) => {
       cycleId = ins.insertId;
     } else {
       cycleId = existing[0].id;
-      await c.query(`UPDATE payroll_cycles SET status = 'LOCKED' WHERE id = ?`, [cycleId]);
+      await c.query(
+        `UPDATE payroll_cycles SET status = 'LOCKED' WHERE id = ?`,
+        [cycleId],
+      );
     }
 
     await writeAudit(
@@ -712,11 +820,19 @@ router.post("/admin/payroll/lock-period", finance, async (req, res) => {
       "LOCK",
       req.user.id,
       null,
-      JSON.stringify({ payroll_month: req.body.payroll_month, cycle_id: cycleId }),
+      JSON.stringify({
+        payroll_month: req.body.payroll_month,
+        cycle_id: cycleId,
+      }),
     );
 
     await c.commit();
-    res.json({ success: true, payroll_month: req.body.payroll_month, cycle_id: cycleId, status: "LOCKED" });
+    res.json({
+      success: true,
+      payroll_month: req.body.payroll_month,
+      cycle_id: cycleId,
+      status: "LOCKED",
+    });
   } catch (error) {
     if (c) await c.rollback();
     res.status(500).json({ error: error.message });
@@ -728,10 +844,12 @@ router.post("/admin/payroll/lock-period", finance, async (req, res) => {
 router.post("/admin/payroll/adjustments", finance, async (req, res) => {
   let c = null;
   try {
-    const { employee_id, payroll_month, adjustment_type, amount, reason } = req.body;
+    const { employee_id, payroll_month, adjustment_type, amount, reason } =
+      req.body;
     if (!employee_id || !payroll_month || !adjustment_type || amount == null) {
       return res.status(400).json({
-        error: "employee_id, payroll_month, adjustment_type and amount are required",
+        error:
+          "employee_id, payroll_month, adjustment_type and amount are required",
       });
     }
 
@@ -742,7 +860,14 @@ router.post("/admin/payroll/adjustments", finance, async (req, res) => {
       `INSERT INTO payroll_adjustments
        (employee_id, payroll_month, adjustment_type, amount, reason, created_by)
        VALUES (?, ?, ?, ?, ?, ?)`,
-      [employee_id, payroll_month, adjustment_type, Number(amount), reason || null, req.user.id],
+      [
+        employee_id,
+        payroll_month,
+        adjustment_type,
+        Number(amount),
+        reason || null,
+        req.user.id,
+      ],
     );
 
     await writeAudit(
@@ -750,7 +875,13 @@ router.post("/admin/payroll/adjustments", finance, async (req, res) => {
       "ADJUSTMENT",
       req.user.id,
       null,
-      JSON.stringify({ adjustment_id: result.insertId, employee_id, payroll_month, adjustment_type, amount }),
+      JSON.stringify({
+        adjustment_id: result.insertId,
+        employee_id,
+        payroll_month,
+        adjustment_type,
+        amount,
+      }),
     );
 
     await c.commit();
@@ -767,9 +898,13 @@ router.get("/admin/payroll/reconciliation", finance, async (req, res) => {
   let c = null;
   try {
     const monthInfo = normalizeMonth(req.query.payroll_month);
-    if (!monthInfo) return res.status(400).json({ error: "payroll_month query required in YYYY-MM" });
+    if (!monthInfo)
+      return res
+        .status(400)
+        .json({ error: "payroll_month query required in YYYY-MM" });
 
-    const prevYear = monthInfo.month === 1 ? monthInfo.year - 1 : monthInfo.year;
+    const prevYear =
+      monthInfo.month === 1 ? monthInfo.year - 1 : monthInfo.year;
     const prevMonth = monthInfo.month === 1 ? 12 : monthInfo.month - 1;
 
     c = await db();
@@ -810,8 +945,18 @@ router.get("/admin/payroll/reconciliation", finance, async (req, res) => {
       [monthInfo.year, monthInfo.month],
     );
 
-    const cur = currentSummary[0] || { employees: 0, gross: 0, deductions: 0, net: 0 };
-    const prev = previousSummary[0] || { employees: 0, gross: 0, deductions: 0, net: 0 };
+    const cur = currentSummary[0] || {
+      employees: 0,
+      gross: 0,
+      deductions: 0,
+      net: 0,
+    };
+    const prev = previousSummary[0] || {
+      employees: 0,
+      gross: 0,
+      deductions: 0,
+      net: 0,
+    };
 
     res.json({
       success: true,
@@ -840,13 +985,20 @@ router.get("/employee/tax/computation", async (req, res) => {
   let c = null;
   try {
     const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+    if (!employee)
+      return res.status(404).json({ error: "Employee profile not found" });
 
     const financialYear = req.query.financial_year;
-    if (!financialYear) return res.status(400).json({ error: "financial_year query is required (YYYY-YYYY)" });
+    if (!financialYear)
+      return res
+        .status(400)
+        .json({ error: "financial_year query is required (YYYY-YYYY)" });
 
     const fyWindow = getFinancialYearWindow(financialYear);
-    if (!fyWindow) return res.status(400).json({ error: "financial_year format must be YYYY-YYYY" });
+    if (!fyWindow)
+      return res
+        .status(400)
+        .json({ error: "financial_year format must be YYYY-YYYY" });
 
     c = await db();
     await ensureV1Tables(c);
@@ -868,13 +1020,29 @@ router.get("/employee/tax/computation", async (req, res) => {
       [employee.id, fyWindow.start, fyWindow.end],
     );
 
-    const [contractRows] = await c.query(
+    const [activeContractRows] = await c.query(
+      `SELECT annual_ctc FROM employee_salary_contracts
+       WHERE employee_id = ?
+         AND status = 'Active'
+         AND effective_from <= ?
+         AND (effective_to IS NULL OR effective_to >= ?)
+       ORDER BY effective_from DESC, contract_id DESC LIMIT 1`,
+      [employee.id, fyWindow.end, fyWindow.start],
+    );
+
+    const [fallbackContractRows] = await c.query(
       `SELECT annual_ctc FROM employee_salary_contracts 
        WHERE employee_id = ? 
        ORDER BY effective_from DESC, contract_id DESC LIMIT 1`,
-      [employee.id]
+      [employee.id],
     );
-    const contractCTC = contractRows.length > 0 ? Number(contractRows[0].annual_ctc) : 0;
+
+    const contractCTC =
+      activeContractRows.length > 0
+        ? Number(activeContractRows[0].annual_ctc)
+        : fallbackContractRows.length > 0
+          ? Number(fallbackContractRows[0].annual_ctc)
+          : 0;
 
     const [earningRows] = await c.query(
       `SELECT COALESCE(SUM(s.gross_earnings),0) as annual_gross,
@@ -887,7 +1055,10 @@ router.get("/employee/tax/computation", async (req, res) => {
     );
 
     let totalDeclared = 0;
-    const declared = profile && profile.declared_investments ? profile.declared_investments : {};
+    const declared =
+      profile && profile.declared_investments
+        ? profile.declared_investments
+        : {};
     if (declared && typeof declared === "object") {
       Object.values(declared).forEach((v) => {
         const n = Number(v);
@@ -898,17 +1069,24 @@ router.get("/employee/tax/computation", async (req, res) => {
     const regime = profile?.tax_regime || "OLD";
     const annualGross = Number(earningRows[0]?.annual_gross || 0);
 
-    // For tax projection, if actual income is less than CTC, use CTC (or max of both)
+    // Use contract CTC for display if available, but keep tax projection on the higher of actual income and contract CTC.
+    const displayGrossCtc = contractCTC > 0 ? contractCTC : annualGross;
     const grossForTax = Math.max(annualGross, contractCTC);
 
-    const taxCalc = await calculateTaxBySlabs(c, grossForTax, totalDeclared, regime, financialYear);
+    const taxCalc = await calculateTaxBySlabs(
+      c,
+      grossForTax,
+      totalDeclared,
+      regime,
+      financialYear,
+    );
 
     res.json({
       success: true,
       employee_id: employee.id,
       financial_year: financialYear,
       regime_type: regime, // Changed from tax_regime to match frontend interface
-      gross_annual_income: grossForTax, // Added to top level to match frontend interface
+      gross_annual_income: displayGrossCtc, // Use contract CTC for gross CTC display
       annual_summary: {
         annual_gross: annualGross,
         contract_ctc: contractCTC,
@@ -939,11 +1117,20 @@ router.post("/employee/tax/declaration", async (req, res) => {
   let c = null;
   try {
     const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+    if (!employee)
+      return res.status(404).json({ error: "Employee profile not found" });
 
-    const { financial_year, tax_regime, declared_investments, pan, is_tds_exempt } = req.body;
+    const {
+      financial_year,
+      tax_regime,
+      declared_investments,
+      pan,
+      is_tds_exempt,
+    } = req.body;
     if (!financial_year) {
-      return res.status(400).json({ error: "financial_year is required (YYYY-YYYY)" });
+      return res
+        .status(400)
+        .json({ error: "financial_year is required (YYYY-YYYY)" });
     }
 
     c = await db();
@@ -988,59 +1175,75 @@ router.post("/employee/tax/declaration", async (req, res) => {
   }
 });
 
-router.post("/employee/tax/upload-proof", proofUpload.single("document"), async (req, res) => {
-  let c = null;
-  try {
-    const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
-    if (!req.file) return res.status(400).json({ error: "document file is required" });
+router.post(
+  "/employee/tax/upload-proof",
+  proofUpload.single("document"),
+  async (req, res) => {
+    let c = null;
+    try {
+      const employee = await findEmployeeByUserId(req.user.id);
+      if (!employee)
+        return res.status(404).json({ error: "Employee profile not found" });
+      if (!req.file)
+        return res.status(400).json({ error: "document file is required" });
 
-    const { financial_year, section_code, declared_amount } = req.body;
-    if (!financial_year) return res.status(400).json({ error: "financial_year is required" });
+      const { financial_year, section_code, declared_amount } = req.body;
+      if (!financial_year)
+        return res.status(400).json({ error: "financial_year is required" });
 
-    c = await db();
-    await c.beginTransaction();
-    await ensureV1Tables(c);
+      c = await db();
+      await c.beginTransaction();
+      await ensureV1Tables(c);
 
-    const [result] = await c.query(
-      `INSERT INTO payroll_tax_proofs
+      const [result] = await c.query(
+        `INSERT INTO payroll_tax_proofs
        (employee_id, financial_year, section_code, original_filename, stored_filename, mime_type, file_path, declared_amount, verification_status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
-      [
-        employee.id,
-        financial_year,
-        (section_code || null),
-        req.file.originalname,
-        req.file.filename,
-        req.file.mimetype || null,
-        req.file.path,
-        declared_amount != null ? Number(declared_amount) : 0,
-      ],
-    );
+        [
+          employee.id,
+          financial_year,
+          section_code || null,
+          req.file.originalname,
+          req.file.filename,
+          req.file.mimetype || null,
+          req.file.path,
+          declared_amount != null ? Number(declared_amount) : 0,
+        ],
+      );
 
-    await writeAudit(
-      c,
-      "PROOF_UPLOAD",
-      req.user.id,
-      null,
-      JSON.stringify({ proof_id: result.insertId, employee_id: employee.id, financial_year }),
-    );
+      await writeAudit(
+        c,
+        "PROOF_UPLOAD",
+        req.user.id,
+        null,
+        JSON.stringify({
+          proof_id: result.insertId,
+          employee_id: employee.id,
+          financial_year,
+        }),
+      );
 
-    await c.commit();
-    res.json({ success: true, proof_id: result.insertId, verification_status: "PENDING" });
-  } catch (error) {
-    if (c) await c.rollback();
-    res.status(500).json({ error: error.message });
-  } finally {
-    if (c) await c.end();
-  }
-});
+      await c.commit();
+      res.json({
+        success: true,
+        proof_id: result.insertId,
+        verification_status: "PENDING",
+      });
+    } catch (error) {
+      if (c) await c.rollback();
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (c) await c.end();
+    }
+  },
+);
 
 router.get("/employee/payroll/history", async (req, res) => {
   let c = null;
   try {
     const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+    if (!employee)
+      return res.status(404).json({ error: "Employee profile not found" });
 
     c = await db();
     const [rows] = await c.query(
@@ -1072,7 +1275,8 @@ router.get("/employee/payslip/:id", async (req, res) => {
   let c = null;
   try {
     const employee = await findEmployeeByUserId(req.user.id);
-    if (!employee) return res.status(404).json({ error: "Employee profile not found" });
+    if (!employee)
+      return res.status(404).json({ error: "Employee profile not found" });
 
     c = await db();
     const [rows] = await c.query(
@@ -1084,7 +1288,8 @@ router.get("/employee/payslip/:id", async (req, res) => {
       [Number(req.params.id), employee.id],
     );
 
-    if (!rows.length) return res.status(404).json({ error: "Payslip not found" });
+    if (!rows.length)
+      return res.status(404).json({ error: "Payslip not found" });
     const payload = rows[0];
 
     res.json({

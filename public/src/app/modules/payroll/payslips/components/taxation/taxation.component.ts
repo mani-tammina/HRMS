@@ -21,7 +21,9 @@ export class TaxationComponent implements OnInit, OnDestroy {
   taxComputation: any;
   taxSummary: any;
   isLoadingTax = false;
-  
+  currentContractCtc: number = 0;
+  employerPfAnnual: number = 0;
+
   taxSlabs: any[] = [];
   taxBreakdown: any[] = [];
   rebate87A: number = 0;
@@ -32,7 +34,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
   taxPaidTillNow: number = 0;
   remainingTax: number = 0;
   monthlyTaxValue: number = 0;
-  
+
   standardDeductionsList: any[] = [];
   standardDeductionAmount: number = 0;
 
@@ -47,7 +49,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
     private payrollApi: PayrollApiService,
     private payrollService: PayrollService,
     private employeeService: EmployeeService
-  ) {}
+  ) { }
 
   ngOnInit() {
     if (!this.financialYear) {
@@ -106,9 +108,18 @@ export class TaxationComponent implements OnInit, OnDestroy {
 
         this.payrollService.listContracts({ employee_id: emp.id }).pipe(takeUntil(this.destroy$)).subscribe({
           next: (contracts: any[]) => {
+            const activeContract = Array.isArray(contracts)
+              ? contracts.find((c: any) => (c.status || '').toLowerCase() === 'active')
+              : null;
             const latestContract = Array.isArray(contracts) && contracts.length > 0 ? contracts[0] : null;
-            if (latestContract) {
-              this.payrollService.getTemplateComposition(latestContract.template_id).pipe(takeUntil(this.destroy$)).subscribe({
+            const selectedContract = activeContract || latestContract;
+            if (selectedContract) {
+              this.currentContractCtc = Number(selectedContract.annual_ctc || 0);
+              if (this.taxComputation) {
+                this.taxComputation.contract_ctc = this.currentContractCtc;
+                this.taxComputation.gross_annual_income = Number(this.taxComputation.contract_ctc || this.taxComputation.gross_annual_income || 0);
+              }
+              this.payrollService.getTemplateComposition(selectedContract.template_id).pipe(takeUntil(this.destroy$)).subscribe({
                 next: (comps: any[]) => {
                   this.payrollService.getPayrollComponents().pipe(takeUntil(this.destroy$)).subscribe({
                     next: (masterCompsRes: any) => {
@@ -125,7 +136,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
                           sequence: c.sequence || masterComp?.sequence
                         };
                       });
-                      this.calculateMonthlyGrid(latestContract.annual_ctc, components);
+                      this.calculateMonthlyGrid(selectedContract.annual_ctc, components);
                       this.isLoadingBreakup = false;
                     },
                     error: () => { this.isLoadingBreakup = false; }
@@ -207,7 +218,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
       const code = (c.code || '').toUpperCase();
       const name = (c.name || '').toUpperCase();
       const isER = code.includes('EMPLOYER') || name.includes('EMPLOYER') || code.includes('EMPLOYEER') || name.includes('EMPLOYEER') || code.includes('_ER');
-      
+
       const isEarning = c.component_type?.toUpperCase() === 'EARNING';
       const isEmployerPF = isER && (code.includes('PF') || name.includes('PF') || name.includes('Provident'));
 
@@ -222,9 +233,9 @@ export class TaxationComponent implements OnInit, OnDestroy {
           total: annualVal,
           isER: isER
         };
-        
+
         this.breakupRows.push(row);
-        
+
         if (isEmployerPF) {
           this.employerShareTotal += annualVal;
         }
@@ -245,6 +256,14 @@ export class TaxationComponent implements OnInit, OnDestroy {
       grandTotal += colSum;
     }
     this.totalRow.total = grandTotal;
+    this.employerPfAnnual = this.employerShareTotal;
+    if (!this.employerPf && this.employerPfAnnual > 0) {
+      this.employerPf = this.employerPfAnnual;
+    }
+  }
+
+  getEmployerPfValue(): number {
+    return Math.max(0, Number(this.employerPf || this.employerPfAnnual || 0));
   }
 
   loadTaxData() {
@@ -252,7 +271,13 @@ export class TaxationComponent implements OnInit, OnDestroy {
     this.payrollApi.getTaxComputation(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res) => {
         this.taxComputation = res;
-        
+        if (this.taxComputation) {
+          if (this.currentContractCtc > 0) {
+            this.taxComputation.contract_ctc = this.currentContractCtc;
+          }
+          this.taxComputation.gross_annual_income = Number(this.taxComputation.contract_ctc || this.taxComputation.gross_annual_income || 0);
+        }
+
         // Exclude Cess (4%) from calculation and total liability as requested
         if (this.taxComputation && this.taxComputation.cess) {
           this.taxComputation.total_tax_liability = (this.taxComputation.total_tax_liability || 0) - (this.taxComputation.cess || 0);
@@ -265,12 +290,12 @@ export class TaxationComponent implements OnInit, OnDestroy {
           if (this.employerPf > 0) {
             this.taxComputation.taxable_income -= this.employerPf;
           }
-          
+
           // Professional Tax is ONLY subtracted in OLD regime
           if (this.taxComputation.regime_type === 'OLD' && this.professionalTax > 0) {
             this.taxComputation.taxable_income -= this.professionalTax;
           }
-          
+
           this.taxComputation.taxable_income = Math.max(0, this.taxComputation.taxable_income);
         }
 
@@ -306,7 +331,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
       next: (res: any) => {
         const allSlabs = Array.isArray(res) ? res : (res.slabs || []);
         let filteredSlabs = allSlabs.filter((s: any) => s.regime_type === this.taxComputation.regime_type);
-        
+
         // Deduplicate slabs in case the API returned duplicates
         const uniqueSlabsMap = new Map<string, any>();
         filteredSlabs.forEach((s: any) => {
@@ -314,13 +339,13 @@ export class TaxationComponent implements OnInit, OnDestroy {
           uniqueSlabsMap.set(key, s);
         });
         filteredSlabs = Array.from(uniqueSlabsMap.values());
-        
+
         this.taxSlabs = filteredSlabs;
-        
+
         if (this.taxSlabs.length === 0) {
           this.taxSlabs = this.getFallbackSlabs(this.taxComputation.regime_type);
         }
-        
+
         this.calculateBreakdown();
       },
       error: () => {
@@ -335,18 +360,18 @@ export class TaxationComponent implements OnInit, OnDestroy {
       return [
         { min_income: 0, max_income: 400000, rate: 0, cess_rate: 4 },
         { min_income: 400000, max_income: 800000, rate: 5, cess_rate: 4 },
-        { min_income: 800000, max_income: 1200000, rate: 10, cess_rate: 4  },
-        { min_income: 1200000, max_income: 1600000, rate: 15, cess_rate: 4  },
-        { min_income: 1600000, max_income: 2000000, rate: 20, cess_rate: 4  },
-        { min_income: 2000000, max_income: 2400000, rate: 25, cess_rate: 4  },
-        { min_income: 2400000, max_income: 999999999, rate: 30, cess_rate: 4  }
+        { min_income: 800000, max_income: 1200000, rate: 10, cess_rate: 4 },
+        { min_income: 1200000, max_income: 1600000, rate: 15, cess_rate: 4 },
+        { min_income: 1600000, max_income: 2000000, rate: 20, cess_rate: 4 },
+        { min_income: 2000000, max_income: 2400000, rate: 25, cess_rate: 4 },
+        { min_income: 2400000, max_income: 999999999, rate: 30, cess_rate: 4 }
       ];
     } else {
       return [
-        { min_income: 0, max_income: 250000, rate: 0, cess_rate: 4  },
-        { min_income: 250000, max_income: 500000, rate: 5, cess_rate: 4  },
-        { min_income: 500000, max_income: 1000000, rate: 20, cess_rate: 4  },
-        { min_income: 1000000, max_income: 999999999, rate: 30, cess_rate: 4  }
+        { min_income: 0, max_income: 250000, rate: 0, cess_rate: 4 },
+        { min_income: 250000, max_income: 500000, rate: 5, cess_rate: 4 },
+        { min_income: 500000, max_income: 1000000, rate: 20, cess_rate: 4 },
+        { min_income: 1000000, max_income: 999999999, rate: 30, cess_rate: 4 }
       ];
     }
   }
@@ -362,12 +387,12 @@ export class TaxationComponent implements OnInit, OnDestroy {
       const max = Number(slab.max_income);
       const rate = Number(slab.rate);
       const cess = Number(slab.cess_rate || 0);
-      
+
       let taxableInSlab = 0;
       if (taxableIncome > min) {
         taxableInSlab = Math.min(taxableIncome, max) - min;
       }
-      
+
       const taxAmount = (taxableInSlab * rate) / 100;
       totalTax += taxAmount;
 
@@ -394,7 +419,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
     this.totalSurcharge = this.taxComputation?.surcharge || 0;
     this.totalCess = Math.round((this.grossIncomeTax + this.totalSurcharge) * 0.04);
     this.netTaxPayable = Math.round(this.grossIncomeTax + this.totalSurcharge + this.totalCess);
-    
+
     // Calculate Remaining Tax
     this.remainingTax = Math.max(0, this.netTaxPayable - this.taxPaidTillNow);
     this.monthlyTaxValue = Math.round(this.remainingTax / 12);
@@ -406,7 +431,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
       this.taxComputation.net_tax_payable = this.netTaxPayable;
       this.taxComputation.tax_paid_till_now = this.taxPaidTillNow;
       this.taxComputation.remaining_tax = this.remainingTax;
-      
+
       // PROJECTED TAX (FY) should be the final net payable
       this.taxComputation.total_tax_liability = this.netTaxPayable;
       this.taxComputation.monthly_tds = Math.round(this.remainingTax / 12);
@@ -415,7 +440,8 @@ export class TaxationComponent implements OnInit, OnDestroy {
 
   getGrossEarnings(): number {
     if (!this.taxComputation) return 0;
-    return Math.max(0, (this.taxComputation.gross_annual_income || 0) - (this.employerPf || 0));
+    const grossIncome = Number(this.currentContractCtc || this.taxComputation.contract_ctc || this.taxComputation.gross_annual_income || 0);
+    return Math.max(0, grossIncome - this.getEmployerPfValue());
   }
 
   updateStandardDeduction() {
