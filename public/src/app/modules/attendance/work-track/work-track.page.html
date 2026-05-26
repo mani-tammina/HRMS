@@ -103,16 +103,21 @@
 
       <!-- ================= MY PROJECT TIMESHEETS ================= -->
       <ion-card class="glass-card timesheets-premium">
+        <!-- Accent top bar -->
+        <div class="ts-accent-bar"></div>
+
         <ion-card-header>
-          <div class="card-header-flex">
-            <div class="title-group">
-              <ion-card-title>
+          <div class="ts-card-header">
+            <div class="ts-header-left">
+              <div class="ts-icon-box">
                 <ion-icon name="documents-outline"></ion-icon>
-                My Project Reports
-              </ion-card-title>
-              <p>Review your submitted project work logs</p>
+              </div>
+              <div>
+                <ion-card-title>My Project Reports</ion-card-title>
+                <p class="ts-subtitle">Review your submitted project work logs</p>
+              </div>
             </div>
-            <div class="filter-controls">
+            <div class="ts-filter-bar">
               <ion-item lines="none" class="glass-select mini">
                 <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover">
                   <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
@@ -128,60 +133,107 @@
         </ion-card-header>
 
         <ion-card-content>
-          <div class="premium-table-container">
-            <ion-spinner *ngIf="loadingList" class="center-spinner"></ion-spinner>
-
-            <table class="premium-table" *ngIf="!loadingList && paginatedTimesheets.length">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Work Description</th>
-                  <th>Hours</th>
-                  <th>Status</th>
-                  <th class="actions-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let t of paginatedTimesheets">
-                  <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
-                  <td class="desc-cell">{{ t.work_description || t.notes || 'No description' }}</td>
-                  <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
-                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' |
-                      titlecase }}</span></td>
-                  <td class="actions-cell">
-                    <div class="action-buttons">
-                      <button class="icon-btn edit"
-                        *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                        (click)="editTimesheet(t)">
-                        <ion-icon name="create-outline"></ion-icon>
-                      </button>
-                      <button class="icon-btn view" (click)="openPreview(t)">
-                        <ion-icon name="eye-outline"></ion-icon>
-                      </button>
-                      <button class="icon-btn download" (click)="downloadExcel(t)">
-                        <ion-icon name="download-outline"></ion-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Summary Stats -->
+          <div class="ts-summary-bar" *ngIf="!loadingList && myTimesheets.length">
+            <div class="ts-stat-chip total">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ myTimesheets.length }}</span>
+                <span class="chip-lbl">Entries</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip approved">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getApprovedCount() }}</span>
+                <span class="chip-lbl">Approved</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip pending">
+              <ion-icon name="time-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getPendingCount() }}</span>
+                <span class="chip-lbl">Pending</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip hours">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getTotalHoursSum() }}</span>
+                <span class="chip-lbl">Total Hrs</span>
+              </div>
+            </div>
           </div>
 
-          <!-- PAGINATION -->
-          <div class="premium-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
+          <!-- Loading -->
+          <div class="ts-loading" *ngIf="loadingList">
+            <ion-spinner class="center-spinner"></ion-spinner>
+            <p>Loading timesheets...</p>
+          </div>
+
+          <!-- Row Cards -->
+          <div class="ts-row-list" *ngIf="!loadingList && paginatedTimesheets.length">
+            <div class="ts-row-card" *ngFor="let t of paginatedTimesheets" [ngClass]="getStatusColor(t.status)">
+              <div class="ts-row-left">
+                <div class="ts-date-badge">
+                  <span class="day">{{ t.date | date:'dd' }}</span>
+                  <span class="mon">{{ t.date | date:'MMM' }}</span>
+                </div>
+              </div>
+              <div class="ts-row-body">
+                <div class="ts-row-top">
+                  <span class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</span>
+                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                </div>
+                <div class="ts-row-meta">
+                  <span class="meta-item">
+                    <ion-icon name="time-outline"></ion-icon>
+                    {{ t.total_hours }} hrs
+                  </span>
+                  <span class="meta-item">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    {{ t.date | date:'EEEE, MMM d yyyy' }}
+                  </span>
+                </div>
+              </div>
+              <div class="ts-row-actions">
+                <button class="icon-btn edit"
+                  *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                  (click)="editTimesheet(t)" title="Edit">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
+                  <ion-icon name="eye-outline"></ion-icon>
+                </button>
+                <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
+                  <ion-icon name="download-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div class="ts-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
             <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()">
               <ion-icon name="chevron-back-outline"></ion-icon>
             </button>
-            <span class="page-info">Page <b>{{ currentPage }}</b> of {{ totalPages }}</span>
+            <div class="page-indicator">
+              <span class="active-page">{{ currentPage }}</span>
+              <span class="sep">of</span>
+              <span>{{ totalPages }}</span>
+            </div>
             <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
               <ion-icon name="chevron-forward-outline"></ion-icon>
             </button>
           </div>
 
-          <div class="empty-state" *ngIf="!loadingList && !myTimesheets.length">
-            <ion-icon name="document-text-outline" class="empty-icon"></ion-icon>
-            <p>No project reports found for this period</p>
+          <!-- Empty -->
+          <div class="ts-empty" *ngIf="!loadingList && !myTimesheets.length">
+            <div class="ts-empty-icon">
+              <ion-icon name="document-text-outline"></ion-icon>
+            </div>
+            <h3>No Reports Found</h3>
+            <p>No project reports found for the selected period.</p>
           </div>
         </ion-card-content>
       </ion-card>
@@ -296,13 +348,21 @@
 
       <!-- Standard Timesheets (No Project) -->
       <ion-card class="glass-card timesheets-premium" *ngIf="!hasProject">
+        <!-- Accent top bar -->
+        <div class="ts-accent-bar"></div>
+
         <ion-card-header>
-          <div class="card-header-flex">
-            <div class="title-group">
-              <ion-card-title><ion-icon name="calendar-outline"></ion-icon> My Timesheets</ion-card-title>
-              <p>Manage your submitted work logs</p>
+          <div class="ts-card-header">
+            <div class="ts-header-left">
+              <div class="ts-icon-box">
+                <ion-icon name="receipt-outline"></ion-icon>
+              </div>
+              <div>
+                <ion-card-title>My Timesheets</ion-card-title>
+                <p class="ts-subtitle">Manage your submitted work logs</p>
+              </div>
             </div>
-            <div class="filter-controls">
+            <div class="ts-filter-bar">
               <ion-item lines="none" class="glass-select mini">
                 <ion-select [value]="selectedMonth" (ionChange)="onMonthChange($event)" interface="popover">
                   <ion-select-option *ngFor="let m of months" [value]="m.value">{{m.name}}</ion-select-option>
@@ -318,52 +378,106 @@
         </ion-card-header>
 
         <ion-card-content>
-          <div class="premium-table-container">
-            <ion-spinner *ngIf="loadingList" class="center-spinner"></ion-spinner>
-
-            <table class="premium-table" *ngIf="!loadingList && paginatedTimesheets.length">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Hours</th>
-                  <th>Status</th>
-                  <th>Remarks</th>
-                  <th class="actions-cell">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let t of paginatedTimesheets">
-                  <td><span class="date-text">{{ t.date | date:'dd MMM yyyy' }}</span></td>
-                  <td><ion-badge class="hours-badge">{{ t.total_hours }} hrs</ion-badge></td>
-                  <td><span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' |
-                      titlecase }}</span></td>
-                  <td class="desc-cell">No Remarks</td>
-                  <td class="actions-cell">
-                    <div class="action-buttons">
-                      <button class="icon-btn edit"
-                        *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                        (click)="editTimesheet(t)">
-                        <ion-icon name="create-outline"></ion-icon>
-                      </button>
-                      <button class="icon-btn view" (click)="openPreview(t)">
-                        <ion-icon name="eye-outline"></ion-icon>
-                      </button>
-                      <button class="icon-btn download" (click)="downloadExcel(t)">
-                        <ion-icon name="download-outline"></ion-icon>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Summary Stats -->
+          <div class="ts-summary-bar" *ngIf="!loadingList && myTimesheets.length">
+            <div class="ts-stat-chip total">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ myTimesheets.length }}</span>
+                <span class="chip-lbl">Entries</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip approved">
+              <ion-icon name="checkmark-circle-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getApprovedCount() }}</span>
+                <span class="chip-lbl">Approved</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip pending">
+              <ion-icon name="time-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getPendingCount() }}</span>
+                <span class="chip-lbl">Pending</span>
+              </div>
+            </div>
+            <div class="ts-stat-chip hours">
+              <ion-icon name="hourglass-outline"></ion-icon>
+              <div>
+                <span class="chip-val">{{ getTotalHoursSum() }}</span>
+                <span class="chip-lbl">Total Hrs</span>
+              </div>
+            </div>
           </div>
 
-          <div class="premium-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
-            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()"><ion-icon
-                name="chevron-back-outline"></ion-icon></button>
-            <span class="page-info">Page <b>{{ currentPage }}</b> of {{ totalPages }}</span>
-            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()"><ion-icon
-                name="chevron-forward-outline"></ion-icon></button>
+          <!-- Loading -->
+          <div class="ts-loading" *ngIf="loadingList">
+            <ion-spinner class="center-spinner"></ion-spinner>
+            <p>Loading timesheets...</p>
+          </div>
+
+          <!-- Row Cards -->
+          <div class="ts-row-list" *ngIf="!loadingList && paginatedTimesheets.length">
+            <div class="ts-row-card" *ngFor="let t of paginatedTimesheets" [ngClass]="getStatusColor(t.status)">
+              <div class="ts-row-left">
+                <div class="ts-date-badge">
+                  <span class="day">{{ t.date | date:'dd' }}</span>
+                  <span class="mon">{{ t.date | date:'MMM' }}</span>
+                </div>
+              </div>
+              <div class="ts-row-body">
+                <div class="ts-row-top">
+                  <span class="ts-hours-pill">
+                    <ion-icon name="time-outline"></ion-icon>
+                    {{ t.total_hours }} hrs
+                  </span>
+                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                </div>
+                <div class="ts-row-meta">
+                  <span class="meta-item">
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    {{ t.date | date:'EEEE, MMM d yyyy' }}
+                  </span>
+                </div>
+              </div>
+              <div class="ts-row-actions">
+                <button class="icon-btn edit"
+                  *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                  (click)="editTimesheet(t)" title="Edit">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
+                  <ion-icon name="eye-outline"></ion-icon>
+                </button>
+                <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
+                  <ion-icon name="download-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div class="ts-pagination" *ngIf="!loadingList && myTimesheets.length > itemsPerPage">
+            <button class="page-btn" [disabled]="currentPage === 1" (click)="previousPage()">
+              <ion-icon name="chevron-back-outline"></ion-icon>
+            </button>
+            <div class="page-indicator">
+              <span class="active-page">{{ currentPage }}</span>
+              <span class="sep">of</span>
+              <span>{{ totalPages }}</span>
+            </div>
+            <button class="page-btn" [disabled]="currentPage === totalPages" (click)="nextPage()">
+              <ion-icon name="chevron-forward-outline"></ion-icon>
+            </button>
+          </div>
+
+          <!-- Empty -->
+          <div class="ts-empty" *ngIf="!loadingList && !myTimesheets.length">
+            <div class="ts-empty-icon">
+              <ion-icon name="receipt-outline"></ion-icon>
+            </div>
+            <h3>No Timesheets Yet</h3>
+            <p>Submit your daily work log above to get started.</p>
           </div>
         </ion-card-content>
       </ion-card>

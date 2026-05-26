@@ -66,7 +66,10 @@ export class EmployeeService {
       tap((res: any) => {
         if (res.imagePath) {
           const imagePathWithCache = `${res.imagePath}?t=${Date.now()}`;
-          if (this.currentEmployee) this.currentEmployee.profile_image = imagePathWithCache;
+          if (this.currentEmployee) {
+            this.currentEmployee.profile_image = imagePathWithCache;
+            this.currentEmployeeSubject.next({ ...this.currentEmployee });
+          }
           this.profileImageUpdateSubject.next(imagePathWithCache);
         }
       })

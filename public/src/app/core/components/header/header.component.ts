@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { NavController } from '@ionic/angular';
 import { Subject, takeUntil } from 'rxjs';
@@ -41,7 +41,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private adminService: AdminService,
     private routeGuardService: RouteGuardService,
-    private authService: AuthService
+    private authService: AuthService,
+    private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit() {
@@ -66,6 +67,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
             if (res) {
               this.currentEmployee = res;
               this.updateProfileImageUrl();
+              this.cdr.detectChanges();
             }
           },
           error: (err) => {
@@ -79,6 +81,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
           if (emp) {
             this.currentEmployee = emp;
             this.updateProfileImageUrl();
+            this.cdr.detectChanges();
           }
         });
 

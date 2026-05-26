@@ -816,6 +816,22 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     }
   }
 
+  getApprovedCount(): number {
+    if (!this.myTimesheets) return 0;
+    return this.myTimesheets.filter(t => (t.status || '').toLowerCase() === 'approved').length;
+  }
+
+  getPendingCount(): number {
+    if (!this.myTimesheets) return 0;
+    return this.myTimesheets.filter(t => (t.status || '').toLowerCase() === 'submitted' || (t.status || '').toLowerCase() === 'pending').length;
+  }
+
+  getTotalHoursSum(): number {
+    if (!this.myTimesheets) return 0;
+    return this.myTimesheets.reduce((sum, t) => sum + (parseFloat(t.total_hours) || 0), 0);
+  }
+
+
   formatDate(date: Date): string {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');

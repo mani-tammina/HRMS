@@ -23,3 +23,4 @@ const routes: Routes = [
   declarations: [WorkTrackPage]
 })
 export class WorkTrackPageModule {}
+

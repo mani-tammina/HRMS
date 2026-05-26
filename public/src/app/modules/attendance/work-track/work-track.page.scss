@@ -726,3 +726,399 @@
     --ion-color-primary: #{vars.$color-primary};
   }
 }
+
+/* ===================================================
+   PREMIUM MY TIMESHEETS CARD — NEW DESIGN
+=================================================== */
+.premium-page-container {
+
+  /* ── Accent bar at card top ── */
+  .ts-accent-bar {
+    height: 4px;
+    background: vars.$color-primary;
+    border-radius: vars.$radius-xl vars.$radius-xl 0 0;
+  }
+
+  /* ── Card header layout ── */
+  .ts-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    .ts-header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+
+      .ts-icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: vars.$radius-lg;
+        background: vars.$color-primary-light;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        ion-icon {
+          font-size: 22px;
+          color: vars.$color-primary;
+        }
+      }
+
+      ion-card-title {
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        margin: 0;
+      }
+
+      .ts-subtitle {
+        font-size: vars.$fs-small;
+        color: vars.$color-text-muted;
+        margin: 4px 0 0 0;
+      }
+    }
+
+    .ts-filter-bar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+  }
+
+  /* ── Summary stats bar ── */
+  .ts-summary-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+    padding: 16px;
+    background: vars.$color-bg-subtle;
+    border-radius: vars.$radius-lg;
+    border: 1px solid vars.$color-border-light;
+
+    .ts-stat-chip {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 120px;
+      padding: 12px 16px;
+      border-radius: vars.$radius-md;
+      background: vars.$color-white;
+      border: 1px solid vars.$color-border;
+      transition: vars.$transition-base;
+
+      &:hover {
+        transform: translateY(-2px);
+        box-shadow: vars.$shadow-sm;
+      }
+
+      ion-icon {
+        font-size: 22px;
+        flex-shrink: 0;
+      }
+
+      .chip-val {
+        display: block;
+        font-size: vars.$fs-heading-sm;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        line-height: 1.2;
+      }
+
+      .chip-lbl {
+        display: block;
+        font-size: 10px;
+        font-weight: vars.$fw-bold;
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        color: vars.$color-text-muted;
+        margin-top: 2px;
+      }
+
+      &.total {
+        ion-icon { color: vars.$color-primary; }
+        .chip-val { color: vars.$color-primary; }
+      }
+
+      &.approved {
+        ion-icon { color: vars.$color-success; }
+        .chip-val { color: vars.$color-success; }
+      }
+
+      &.pending {
+        ion-icon { color: vars.$color-warning; }
+        .chip-val { color: vars.$color-warning; }
+      }
+
+      &.hours {
+        ion-icon { color: vars.$color-info; }
+        .chip-val { color: vars.$color-info; }
+      }
+    }
+  }
+
+  /* ── Loading state ── */
+  .ts-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 24px;
+    gap: 16px;
+
+    p {
+      color: vars.$color-text-muted;
+      font-size: vars.$fs-small;
+    }
+  }
+
+  /* ── Row card list ── */
+  .ts-row-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .ts-row-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px;
+    background: vars.$color-white;
+    border: 1px solid vars.$color-border-light;
+    border-radius: vars.$radius-lg;
+    border-left: 4px solid vars.$color-border-medium;
+    transition: vars.$transition-smooth;
+    position: relative;
+
+    &:hover {
+      transform: translateX(4px);
+      box-shadow: vars.$shadow-md;
+      border-color: vars.$color-border-medium;
+    }
+
+    /* Status-driven left border colors */
+    &.success {
+      border-left-color: vars.$color-success;
+      background: linear-gradient(to right, vars.$color-success-light 0%, vars.$color-white 60px);
+    }
+    &.warning, &.primary {
+      border-left-color: vars.$color-warning;
+      background: linear-gradient(to right, vars.$color-warning-light 0%, vars.$color-white 60px);
+    }
+    &.danger {
+      border-left-color: vars.$color-danger;
+      background: linear-gradient(to right, vars.$color-danger-light 0%, vars.$color-white 60px);
+    }
+
+    /* Date badge on the left */
+    .ts-row-left {
+      flex-shrink: 0;
+    }
+
+    .ts-date-badge {
+      width: 52px;
+      height: 56px;
+      border-radius: vars.$radius-lg;
+      background: vars.$color-primary-light;
+      border: 1px solid rgba(vars.$color-primary, 0.15);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+
+      .day {
+        font-size: vars.$fs-heading-md;
+        font-weight: vars.$fw-extrabold;
+        color: vars.$color-primary;
+        line-height: 1.1;
+      }
+
+      .mon {
+        font-size: 10px;
+        font-weight: vars.$fw-bold;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: vars.$color-primary;
+        opacity: 0.8;
+      }
+    }
+
+    /* Body — grows to fill space */
+    .ts-row-body {
+      flex: 1;
+      min-width: 0;
+
+      .ts-row-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 8px;
+
+        .ts-desc {
+          font-weight: vars.$fw-semibold;
+          color: vars.$color-text-primary;
+          font-size: vars.$fs-body;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex: 1;
+        }
+
+        .ts-hours-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: vars.$color-primary-light;
+          color: vars.$color-primary;
+          font-weight: vars.$fw-bold;
+          font-size: vars.$fs-small;
+          padding: 4px 12px;
+          border-radius: vars.$radius-pill;
+          flex-shrink: 0;
+
+          ion-icon {
+            font-size: 14px;
+          }
+        }
+      }
+
+      .ts-row-meta {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        flex-wrap: wrap;
+
+        .meta-item {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          color: vars.$color-text-muted;
+          font-size: vars.$fs-small;
+
+          ion-icon {
+            font-size: 14px;
+            color: vars.$color-text-placeholder;
+          }
+        }
+      }
+    }
+
+    /* Action buttons on the right */
+    .ts-row-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+  }
+
+  /* ── Redesigned pagination ── */
+  .ts-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 28px;
+
+    .page-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: vars.$radius-md;
+      background: vars.$color-white;
+      border: 1px solid vars.$color-border;
+      color: vars.$color-text-muted;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: vars.$transition-base;
+
+      &:hover:not(:disabled) {
+        border-color: vars.$color-primary;
+        color: vars.$color-primary;
+        background: vars.$color-primary-light;
+      }
+
+      &:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+    }
+
+    .page-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: vars.$fs-small;
+      color: vars.$color-text-muted;
+      font-weight: vars.$fw-medium;
+
+      .active-page {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: vars.$color-primary;
+        color: vars.$color-white;
+        border-radius: vars.$radius-md;
+        font-weight: vars.$fw-bold;
+        font-size: vars.$fs-body;
+      }
+
+      .sep {
+        color: vars.$color-text-placeholder;
+        font-size: vars.$fs-small;
+      }
+    }
+  }
+
+  /* ── Empty state ── */
+  .ts-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 56px 24px;
+    text-align: center;
+
+    .ts-empty-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: vars.$radius-circle;
+      background: vars.$color-primary-light;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+
+      ion-icon {
+        font-size: 36px;
+        color: vars.$color-primary;
+        opacity: 0.6;
+      }
+    }
+
+    h3 {
+      font-size: vars.$fs-heading-sm;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-primary;
+      margin: 0 0 8px 0;
+    }
+
+    p {
+      font-size: vars.$fs-small;
+      color: vars.$color-text-muted;
+      margin: 0;
+      max-width: 280px;
+    }
+  }
+}
