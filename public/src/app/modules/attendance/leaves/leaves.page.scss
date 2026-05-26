@@ -80,7 +80,7 @@
   .glass-dashboard {
     .dashboard-grid {
       display: grid;
-      grid-template-columns: 1fr 400px;
+      grid-template-columns: 3fr 1fr;
       gap: 24px;
 
       @media (max-width: 1200px) {

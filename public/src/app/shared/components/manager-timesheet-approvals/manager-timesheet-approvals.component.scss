@@ -1,3 +1,5 @@
+@use '../../../../theme/_variables' as vars;
+
 ion-content {
   --background: #ffffff;
 }
@@ -8,24 +10,71 @@ ion-chip {
 }
 
 .filter-block {
+  background: vars.$color-bg-card;
+  border: 1px solid vars.$color-border;
+  border-radius: vars.$radius-lg;
+  padding: 16px 20px;
+  margin: 16px 0;
+  box-shadow: vars.$shadow-xs;
+
+  ion-row {
+    align-items: center;
+  }
+
+  ion-col {
+    padding: 6px 12px;
+  }
+
   label {
-    font-size: 13px;
-    font-weight: 600;
-    color: #334155;
+    display: block;
+    font-size: vars.$fs-xs;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-subtle;
+    text-transform: uppercase;
+    letter-spacing: vars.$ls-wide;
+    margin-bottom: 6px;
   }
 
   ion-input {
-    border: 1px solid #ababab;
-    border-radius: 8px;
-    padding: 0 8px !important;
-    min-height: 36px;
-    height: 36px;
+    border: 1px solid vars.$color-border;
+    border-radius: vars.$radius-md;
+    background: vars.$color-bg-subtle;
+    --background: #{vars.$color-bg-subtle};
+    --padding-start: 14px;
+    --padding-end: 14px;
+    font-family: vars.$font-primary;
+    font-weight: vars.$fw-medium;
+    color: vars.$color-text-primary;
+    font-size: vars.$fs-body;
+    height: 42px;
+    transition: vars.$transition-base;
     --highlight-height: 0;
-    margin-top: 8px;
+
+    &:hover {
+      border-color: vars.$color-border-medium;
+      background: vars.$color-bg-hover;
+      --background: #{vars.$color-bg-hover};
+    }
+
+    &:focus-within {
+      border-color: vars.$color-primary;
+      background: vars.$color-white;
+      --background: #{vars.$color-white};
+      box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.12);
+    }
   }
 
   ion-button {
-    margin-top: 8px;
+    height: 42px;
+    margin: 0;
+    font-weight: vars.$fw-semibold;
+    --color: #{vars.$color-text-muted};
+    text-transform: none;
+    font-size: vars.$fs-small;
+
+    &:hover {
+      --color: #{vars.$color-text-primary};
+    }
   }
 }
 
@@ -95,14 +144,20 @@ ion-chip {
 }
 
 ion-searchbar {
-  --background: var(--ion-background-color, #fff);
-  border-radius: 8px;
+  --background: #{vars.$color-white};
+  border-radius: vars.$radius-md;
   --box-shadow: none;
-  border: 1px solid #ABABAB;
-  --min-height: 36px;
+  border: 1px solid vars.$color-border;
   height: 42px;
   margin-left: 8px;
   width: 95%;
+  --placeholder-color: #{vars.$color-text-placeholder};
+  --color: #{vars.$color-text-primary};
+  
+  &:focus-within {
+    border-color: vars.$color-primary;
+    box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.12);
+  }
 }
 
 .row-right {
