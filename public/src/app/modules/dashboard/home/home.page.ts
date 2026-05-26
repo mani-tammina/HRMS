@@ -9,6 +9,7 @@ import { EmployeeLeavesService } from '../../../core/services/employee-leaves.se
 import { AttendanceService } from '../../../core/services/attendance.service';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { LeaverequestService } from '../../../core/services/leaverequest.service';
 
 @Component({
   selector: 'app-home',
@@ -55,6 +56,14 @@ export class HomePage implements OnInit, OnDestroy {
   todayEffectivePercentage: number = 0;
   weeklyAttendanceRate: number = 0;
 
+  /* ================= LOP INTEGRATION ================= */
+  attendanceLopDays = 0;
+  namedLopDays = 0;
+
+  get combinedLopDays(): number {
+    return this.attendanceLopDays + this.namedLopDays;
+  }
+
   /* ================= BIRTHDAYS ================= */
   birthdays: any[] = [];
 
@@ -72,6 +81,7 @@ export class HomePage implements OnInit, OnDestroy {
     private attendanceService: AttendanceService,
     private attendanceApi: AttendanceApiService,
     private employeeLeaves: EmployeeLeavesService,
+    private leaveRequestService: LeaverequestService,
     private adminService: AdminService,
     private cdr: ChangeDetectorRef
   ) { }
@@ -81,6 +91,8 @@ export class HomePage implements OnInit, OnDestroy {
     this.setupGreetingAndDate();
     this.setupClock();
     this.loadLeaveBalance();
+    this.loadCurrentMonthLOP();
+    this.loadCurrentMonthLeaves();
     this.loadAnnouncements();
     this.refreshAttendanceState();
 
@@ -166,6 +178,9 @@ export class HomePage implements OnInit, OnDestroy {
   ionViewWillEnter() {
     this.loadEmployeeProfile();
     this.loadBirthdays();
+    this.loadLeaveBalance();
+    this.loadCurrentMonthLOP();
+    this.loadCurrentMonthLeaves();
   }
 
   loadBirthdays() {
@@ -326,18 +341,76 @@ export class HomePage implements OnInit, OnDestroy {
         this.leaveCards = balances.map((item: any) => {
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
+          const code = (item.type_code || '').toUpperCase();
+          const isLOP = code === 'LOP';
           return {
             title: item.type_name,
-            allocated_days: allocated,
-            used: used,
-            available: Number(item.available_days) - (Number(item.pending_days) || 0),
-            usedPercent: allocated > 0 ? Math.round((used / allocated) * 100) : 0,
+            code: code,
+            allocated_days: isLOP ? 0 : allocated,
+            used: isLOP ? this.combinedLopDays : used,
+            available: isLOP ? 0 : (Number(item.available_days) - (Number(item.pending_days) || 0)),
+            usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
             icon: this.getLeaveIcon(item.type_code),
+            isLOP: isLOP,
           };
         });
       },
       error: err => console.error(err)
     });
+  }
+
+  loadCurrentMonthLOP() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).subscribe({
+      next: (res: any) => {
+        this.attendanceLopDays = Number(res?.summary?.lop_days ?? res?.lop_days ?? 0);
+        this.recalculateLopCard();
+      },
+      error: (err) => console.error('Error fetching LOP data:', err),
+    });
+  }
+
+  loadCurrentMonthLeaves() {
+    const today = new Date();
+    const cm = today.getMonth();
+    const cy = today.getFullYear();
+
+    this.leaveRequestService.getMyLeaves(this.currentYear).subscribe({
+      next: (res: any[]) => {
+        this.namedLopDays = res
+          .filter(l => {
+            if (l.status.toUpperCase() !== 'APPROVED') return false;
+            const isLop = l.type_name?.toLowerCase().includes('loss of pay') || (l.type_code || '').toUpperCase() === 'LOP';
+            if (!isLop) return false;
+            const d = new Date(l.start_date || l.from_date);
+            return d.getMonth() === cm && d.getFullYear() === cy;
+          })
+          .reduce((sum, l) => sum + Number(l.total_days || l.days || 0), 0);
+        this.recalculateLopCard();
+      },
+      error: (err) => console.error('Error fetching leaves for LOP:', err),
+    });
+  }
+
+  recalculateLopCard() {
+    this.leaveCards = this.leaveCards.map(card => {
+      if (card.isLOP) {
+        return {
+          ...card,
+          used: this.combinedLopDays,
+          available: 0,
+          usedPercent: 0
+        };
+      }
+      return card;
+    });
+    this.cdr.detectChanges();
   }
 
   getLeaveIcon(code: string): string {

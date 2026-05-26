@@ -164,8 +164,8 @@
                   <div class="donut-chart"
                     [style.background]="'conic-gradient(#ef4444 0% ' + leave.usedPercent + '%, #10b981 ' + leave.usedPercent + '% 100%)'">
                     <div class="donut-hole">
-                      <span class="count">{{ leave.available }}</span>
-                      <span class="label">Left</span>
+                      <span class="count">{{ leave.isLOP ? leave.used : leave.available }}</span>
+                      <span class="label">{{ leave.isLOP ? 'Used' : 'Left' }}</span>
                     </div>
                   </div>
                   <p class="leave-name">{{ leave.title }}</p>
