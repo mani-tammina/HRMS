@@ -94,7 +94,7 @@ createMasterRoutes("expense-policies", "expense_policies", "name");
 
 
 // ============ LATE TIME ARRIVALS ============
-router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+router.get("/master/late-time-arrivals", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {
     const c = await db();
     
@@ -187,7 +187,7 @@ router.delete("/master/late-time-arrivals/:id", auth, roleAuth(["admin", "hr"]),
 });
 
 // Missing Log Times Routes
-router.get("/master/missing-log-times", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+router.get("/master/missing-log-times", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {
     const c = await db();
     const [rows] = await c.query(`
@@ -267,7 +267,7 @@ router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), 
 });
 
 // Enhanced Shift Policies Route
-router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {
     const c = await db();
     const [rows] = await c.query(`
@@ -396,7 +396,7 @@ router.put("/shift-policies/:id", auth, roleAuth(["admin", "hr",]), async (req, 
 });
 
 // ============ ENHANCED WEEKLY OFF POLICIES ROUTES ============
-router.get("/weekly-off-policies", auth, roleAuth(["admin", "hr", "employee"]), async (req, res) => {
+router.get("/weekly-off-policies", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   let c;
   try {
     c = await db();
