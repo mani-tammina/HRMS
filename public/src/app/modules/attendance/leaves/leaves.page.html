@@ -59,19 +59,19 @@
                     [style.stroke-dasharray]="leave.usedPercent + ', 100'" />
                 </svg>
                 <div class="center">
-                  <span class="val">{{ leave.available }}</span>
-                  <span class="lbl" *ngIf="!leave.isLOP">Days</span>
+                  <span class="val">{{ leave.isLOP ? combinedLopDays : leave.available }}</span>
+                  <span class="lbl">Days</span>
                 </div>
               </div>
 
               <div class="detailed-stats">
                 <div class="stat-row">
                   <span class="label">Balance:</span>
-                  <span class="value">{{ leave.available }}{{ leave.isLOP ? '' : ' Days' }}</span>
+                  <span class="value">{{ leave.isLOP ? '0' : leave.available + ' Days' }}</span>
                 </div>
                 <div class="stat-row">
                   <span class="label">Utilized:</span>
-                  <span class="value">{{ leave.used }} Days</span>
+                  <span class="value">{{ leave.isLOP ? combinedLopDays : leave.used }} Days</span>
                 </div>
               </div>
             </div>

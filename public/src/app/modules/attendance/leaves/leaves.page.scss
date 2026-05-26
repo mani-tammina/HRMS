@@ -430,6 +430,12 @@
       color: vars.$color-text-muted;
       border: 1px solid vars.$color-border;
     }
+
+    &.LOP {
+      background: #fff3e0;
+      color: #e65100;
+      border: 1px solid #ffcc80;
+    }
   }
 
   .half-day-tag {

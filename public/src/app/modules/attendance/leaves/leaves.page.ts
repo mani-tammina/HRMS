@@ -7,6 +7,7 @@ import { EmployeeLeavesService } from '../../../core/services/employee-leaves.se
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
 import { RouteGuardService } from '../../../core/services/route-guard.service';
 import { EmployeeService } from '../../../core/services/employee.service';
+import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 import { ManagerTimesheetApprovalsComponent } from '../../../shared/components/manager-timesheet-approvals/manager-timesheet-approvals.component';
 import { ManagerLeaveApprovalsComponent } from '../../../shared/components/manager-leave-approvals/manager-leave-approvals.component';
 import { ManagerWfhApprovalsComponent } from '../../../shared/components/manager-wfh-approvals/manager-wfh-approvals.component';
@@ -31,6 +32,10 @@ export class LeavesPage implements OnInit, OnDestroy {
   leaveCards: any[] = [];
   leaveRequestsDetails: any[] = [];
   teamAttendanceSummary: any = null;
+  attendanceLopDays: number = 0; // LOP days from attendance API (absences + LOP-code leaves)
+  pendingLeaves: any[] = [];
+  historyLeaves: any[] = [];
+  combinedLopDays: number = 0;
 
   /** MANAGER / ROLE */
   isManager = false;
@@ -43,6 +48,7 @@ export class LeavesPage implements OnInit, OnDestroy {
     private leaveRequestService: LeaverequestService,
     private routeGuardService: RouteGuardService,
     private employeeService: EmployeeService,
+    private attendanceApi: AttendanceApiService,
     private toastCtrl: ToastController,
     private modalCtrl: ModalController,
     private router: Router,
@@ -52,6 +58,7 @@ export class LeavesPage implements OnInit, OnDestroy {
     this.updateRole();
     this.loadLeaveBalance();
     this.getAllLeaves();
+    this.loadCurrentMonthLOP();
     this.setCurrentMonthFirstDate();
     if (this.isManager) {
       this.loadTeamAttendanceSummary();
@@ -110,6 +117,7 @@ export class LeavesPage implements OnInit, OnDestroy {
         this.leaveRequestsDetails = res.map((item: any) => ({
           id: item.id,
           leave_type: item.type_name,
+          type_code: (item.type_code || '').toUpperCase(),
           from_date: item.start_date,
           to_date: item.end_date,
           days: Number(item.total_days),
@@ -119,8 +127,28 @@ export class LeavesPage implements OnInit, OnDestroy {
           is_half_day: item.is_half_day,
           half_day_session: item.half_day_session
         }));
+        this.updateHistoryAndPendingLeaves();
       },
       error: err => console.error('Error fetching leave details:', err),
+    });
+  }
+
+  /* ===================== CURRENT MONTH LOP ===================== */
+  loadCurrentMonthLOP() {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth() + 1;
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year }).subscribe({
+      next: (res: any) => {
+        // summary.lop_days = absences × 0.5 + type_code='LOP' leave days
+        this.attendanceLopDays = Number(res?.summary?.lop_days ?? res?.lop_days ?? 0);
+        this.updateHistoryAndPendingLeaves();
+      },
+      error: (err) => console.error('Error fetching LOP data:', err),
     });
   }
 
@@ -221,8 +249,50 @@ export class LeavesPage implements OnInit, OnDestroy {
     this.currentMonthFirstDateText = firstDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
-  get pendingLeaves() { return this.leaveRequestsDetails.filter(l => l.status === 'PENDING'); }
-  get historyLeaves() { return this.leaveRequestsDetails.filter(l => l.status === 'APPROVED' || l.status === 'REJECTED'); }
+  updateHistoryAndPendingLeaves() {
+    const today = new Date();
+    const cm = today.getMonth();
+    const cy = today.getFullYear();
+
+    // 1. Filter pending leaves
+    this.pendingLeaves = this.leaveRequestsDetails.filter(l => l.status === 'PENDING');
+
+    // 2. Sum current-month approved 'Loss of Pay' named leaves
+    const namedLopDays = this.leaveRequestsDetails
+      .filter(l => {
+        if (l.status !== 'APPROVED') return false;
+        const isLop = l.leave_type?.toLowerCase().includes('loss of pay') || l.type_code === 'LOP';
+        if (!isLop) return false;
+        const d = new Date(l.from_date);
+        return d.getMonth() === cm && d.getFullYear() === cy;
+      })
+      .reduce((sum, l) => sum + l.days, 0);
+
+    this.combinedLopDays = this.attendanceLopDays + namedLopDays;
+
+    // 3. Build a single combined LOP row
+    const startDate = `${cy}-${String(cm + 1).padStart(2, '0')}-01`;
+    const lastDay = new Date(cy, cm + 1, 0).getDate();
+    const endDate = `${cy}-${String(cm + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const combinedLopEntry = this.combinedLopDays > 0 ? {
+      id: 'lop-current',
+      leave_type: 'Loss of Pay',
+      from_date: startDate,
+      to_date: endDate,
+      days: this.combinedLopDays,
+      status: null,
+      is_lop: true,
+    } : null;
+
+    // 4. Regular processed leaves — exclude LOP-related ones
+    const processed = this.leaveRequestsDetails.filter(l =>
+      (l.status === 'APPROVED' || l.status === 'REJECTED') &&
+      !(l.leave_type?.toLowerCase().includes('loss of pay') || l.type_code === 'LOP')
+    );
+
+    this.historyLeaves = combinedLopEntry ? [combinedLopEntry, ...processed] : processed;
+  }
 
   async presentToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
     const toast = await this.toastCtrl.create({ message, duration: 2000, color, position: 'top' });
