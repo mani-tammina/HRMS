@@ -23,7 +23,20 @@
         <ion-icon name="grid-outline"></ion-icon>
         <span>Overview</span>
       </button>
-      <!-- Computation, Declarations and History tabs hidden per request -->
+      <button style="display: none;" class="tax-tab" [class.active]="activeTab==='computation'"
+        (click)="setTab('computation')">
+        <ion-icon name="calculator-outline"></ion-icon>
+        <span>Computation</span>
+      </button>
+      <button style="display: none;" class="tax-tab" [class.active]="activeTab==='declarations'"
+        (click)="setTab('declarations')">
+        <ion-icon name="file-tray-full-outline"></ion-icon>
+        <span>Declarations</span>
+      </button>
+      <button style="display: none;" class="tax-tab" [class.active]="activeTab==='history'" (click)="setTab('history')">
+        <ion-icon name="time-outline"></ion-icon>
+        <span>History</span>
+      </button>
     </div>
   </ion-header>
 
@@ -144,8 +157,8 @@
       </div>
     </div>
 
-    <!-- 🟢 TAB 2: COMPUTATION (hidden) -->
-    <div *ngIf="false" class="tab-panel animate-in">
+    <!-- 🟢 TAB 2: COMPUTATION -->
+    <div *ngIf="activeTab==='computation'" class="tab-panel animate-in">
       <div *ngIf="isLoadingComputation" class="center-loader"><ion-spinner name="crescent"></ion-spinner></div>
 
       <div *ngIf="taxComputation" class="comp-layout">
@@ -195,8 +208,8 @@
       </div>
     </div>
 
-    <!-- 🔵 TAB 3: CONSOLIDATED INSIGHTS (Declarations & Proofs) - hidden -->
-    <div *ngIf="false" class="tab-panel animate-in">
+    <!-- 🔵 TAB 3: CONSOLIDATED INSIGHTS (Declarations & Proofs) -->
+    <div *ngIf="activeTab==='declarations'" class="tab-panel animate-in">
       <div class="glass-card insights-card">
         <div class="section-title">
           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
@@ -311,8 +324,8 @@
       </div>
     </div>
 
-    <!-- ⚪ TAB 5: HISTORY (hidden) -->
-    <div *ngIf="false" class="tab-panel animate-in">
+    <!-- ⚪ TAB 5: HISTORY -->
+    <div *ngIf="activeTab==='history'" class="tab-panel animate-in">
       <div class="glass-card">
         <div class="section-title">
           <h4>Payment History</h4>

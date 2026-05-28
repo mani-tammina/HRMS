@@ -23,8 +23,7 @@ const SECTION_META: { code: string; label: string; maxHint: number }[] = [
   standalone: false
 })
 export class MyTaxPage implements OnInit {
-  // Only 'summary' tab is available in the simplified UI
-  activeTab: 'summary' = 'summary';
+  activeTab: 'summary' | 'computation' | 'declarations' | 'history' = 'summary';
 
   /** Reference to Math for use in template */
   Math = Math;
@@ -151,9 +150,14 @@ export class MyTaxPage implements OnInit {
   // ─────────────────────────────────────────────
 
   setTab(tab: any) {
-    // Guard: only allow switching to 'summary' in the pared-down UI
-    if (tab !== 'summary') return;
-    if (this.activeTab === 'summary' && !this.taxSummary) this.loadTaxSummary();
+    this.activeTab = tab;
+    if (tab === 'summary' && !this.taxSummary) this.loadTaxSummary();
+    if (tab === 'computation') {
+      this.loadTaxComputation();
+      this.loadStandardDeductions();
+    }
+    if (tab === 'declarations' && Object.values(this.declarations).every(v => v === 0)) this.loadDeclarations();
+    if (tab === 'history') this.loadPayrollHistory();
   }
 
   // ─────────────────────────────────────────────
