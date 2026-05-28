@@ -17,55 +17,72 @@ function computeCLAvailable(
   joiningDateStr,
   leaveYear,
   refDate = new Date(),
+  planStartMonth = 1,
 ) {
+  // planStartMonth: 1-12 indicating which month the leave-year starts in the plan
   // Distribute allocatedDays across 12 months as evenly as possible (distribute remainder to earlier months)
   const base = Math.floor((allocatedDays || 0) / 12);
   const remainder = (allocatedDays || 0) - base * 12;
 
-  // Build monthly allocations array (index 0 = Jan)
+  // Build monthly allocations array (index 0 corresponds to planStartMonth)
   const monthly = new Array(12).fill(base);
   for (let i = 0; i < remainder; i++) monthly[i] = monthly[i] + 1;
+
+  // Map months relative to planStartMonth
+  const planStartIndex = Math.max(0, Math.min(11, (Number(planStartMonth) || 1) - 1));
+
+  // Determine effective start month (0-based, Gregorian) using joining date and plan start
+  let effectiveStart = planStartIndex;
+  if (joiningDateStr) {
+    try {
+      const jd = new Date(joiningDateStr);
+      if (!isNaN(jd) && jd.getFullYear() === Number(leaveYear)) {
+        const joinMonth = jd.getMonth();
+        // If joined after plan start in the same leave-year, start from joining month
+        // else keep plan start
+        // Note: leave-year months are considered in calendar months starting at planStartIndex
+        if (joinMonth > planStartIndex) effectiveStart = joinMonth;
+      }
+    } catch (e) {
+      /* ignore, keep plan start */
+    }
+  }
 
   // Determine number of months that should be considered allocated up to refDate for the given leaveYear
   let monthsAllocated = 0;
   const refYear = refDate.getFullYear();
 
-  // Determine employee start month (0-based) for proration
-  let startMonth = 0;
-  if (joiningDateStr) {
-    try {
-      const jd = new Date(joiningDateStr);
-      if (!isNaN(jd))
-        startMonth = jd.getFullYear() === leaveYear ? jd.getMonth() : 0;
-    } catch (e) {
-      startMonth = 0;
-    }
-  }
-
   if (leaveYear < refYear) {
-    monthsAllocated = 12 - startMonth; // full year (or from joining month)
+    monthsAllocated = 12 - (effectiveStart - planStartIndex);
   } else if (leaveYear > refYear) {
     monthsAllocated = 0; // future year -> nothing allocated yet
   } else {
     const refMonth = refDate.getMonth();
-    monthsAllocated = Math.max(0, refMonth - startMonth + 1);
+    // Count months from effectiveStart up to refMonth inclusive, wrapping if needed
+    if (refMonth >= effectiveStart) {
+      monthsAllocated = refMonth - effectiveStart + 1;
+    } else {
+      // refMonth earlier in calendar year than effectiveStart -> zero months
+      monthsAllocated = 0;
+    }
   }
 
-  // Sum allocations for the allowed months starting from startMonth
+  // Sum allocations for the allowed months starting from planStartIndex but offset to effectiveStart
   let sum = 0;
+  // Build allocation order starting from planStartIndex
+  const ordered = [];
+  for (let i = 0; i < 12; i++) ordered.push(monthly[i]);
+
+  // Sum months starting at effectiveStart (which is a calendar month index)
   for (let m = 0; m < monthsAllocated; m++) {
-    const idx = startMonth + m;
-    if (idx >= 0 && idx < 12) sum += monthly[idx];
+    const idx = effectiveStart + m;
+    if (idx >= 0 && idx < 12) sum += ordered[idx];
   }
 
   // Available = allocated till now + carry_forward - used
   const avail = sum + (carryForwardDays || 0) - (usedDays || 0);
   return Math.max(0, avail);
 }
-
-/* ============================================
-   LEAVE PLANS MANAGEMENT (HR/Admin Only)
-   ============================================ */
 
 // Create Leave Plan
 router.post("/plans", auth, hr, async (req, res) => {
@@ -494,6 +511,15 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
       let initialAvailable = allocatedDays;
       const typeCode = (allocation.type_code || "").toUpperCase();
       if (typeCode === "CL") {
+        // fetch plan start month
+        let planStartMonth = 1;
+        try {
+          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [employee.leave_plan_id]);
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+        } catch (e) {
+          planStartMonth = 1;
+        }
+
         initialAvailable = computeCLAvailable(
           allocatedDays,
           0,
@@ -501,6 +527,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
           employee.DateJoined,
           currentYear,
           new Date(),
+          planStartMonth,
         );
       }
 
@@ -613,6 +640,14 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
         const typeCode = (allocation.type_code || "").toUpperCase();
         let initialAvailable = allocatedDays;
         if (typeCode === "CL") {
+          let planStartMonth = 1;
+          try {
+            const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [employee.leave_plan_id]);
+            if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+          } catch (e) {
+            planStartMonth = 1;
+          }
+
           initialAvailable = computeCLAvailable(
             allocatedDays,
             0,
@@ -620,6 +655,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
             employee.DateJoined,
             currentYear,
             new Date(),
+            planStartMonth,
           );
         }
 
@@ -772,23 +808,31 @@ router.get("/balance", auth, async (req, res) => {
     }
 
     // Apply penalty LOP to balance record
-    const updatedBalances = balances.map((b) => {
+    const updatedBalances = [];
+    for (const b of balances) {
       const tcode = (b.type_code || "").toUpperCase();
       if (tcode === "LOP") {
         const used = Number(b.used_days) || 0;
         const available = Number(b.available_days) || 0;
-        return {
+        updatedBalances.push({
           ...b,
           used_days: used + penaltyLop,
           available_days: available - penaltyLop,
-        };
+        });
+        continue;
       }
 
-      // For CL, recompute available based on monthly allocation up to today
       if (tcode === "CL") {
         const allocated = Number(b.allocated_days) || 0;
         const carry = Number(b.carry_forward_days) || 0;
         const used = Number(b.used_days) || 0;
+        let planStartMonth = 1;
+        try {
+          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [emp.leave_plan_id]);
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+        } catch (e) {
+          planStartMonth = 1;
+        }
         const available = computeCLAvailable(
           allocated,
           carry,
@@ -796,15 +840,14 @@ router.get("/balance", auth, async (req, res) => {
           emp.DateJoined,
           Number(b.leave_year) || new Date().getFullYear(),
           new Date(),
+          planStartMonth,
         );
-        return {
-          ...b,
-          available_days: available,
-        };
+        updatedBalances.push({ ...b, available_days: available });
+        continue;
       }
 
-      return b;
-    });
+      updatedBalances.push(b);
+    }
 
     // Determine if initialization is needed
     let needsInitialization = false;
@@ -855,16 +898,27 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
 
     // Recompute CL availabilities for accuracy when viewing another employee
     const [empRows] = await c.query(
-      `SELECT DateJoined FROM employees WHERE id = ? LIMIT 1`,
+      `SELECT DateJoined, leave_plan_id FROM employees WHERE id = ? LIMIT 1`,
       [req.params.employeeId],
     );
     const empJoined = empRows && empRows[0] ? empRows[0].DateJoined : null;
+    const empLeavePlanId = empRows && empRows[0] ? empRows[0].leave_plan_id : null;
 
-    const adjusted = balances.map((b) => {
+    const adjusted = [];
+    for (const b of balances) {
       if ((b.type_code || "").toUpperCase() === "CL") {
         const allocated = Number(b.allocated_days) || 0;
         const carry = Number(b.carry_forward_days) || 0;
         const used = Number(b.used_days) || 0;
+        let planStartMonth = 1;
+        try {
+          if (empLeavePlanId) {
+            const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [empLeavePlanId]);
+            if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+          }
+        } catch (e) {
+          planStartMonth = 1;
+        }
         const available = computeCLAvailable(
           allocated,
           carry,
@@ -872,11 +926,11 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
           empJoined,
           Number(b.leave_year) || new Date().getFullYear(),
           new Date(),
+          planStartMonth,
         );
-        return { ...b, available_days: available };
-      }
-      return b;
-    });
+        adjusted.push({ ...b, available_days: available });
+      } else adjusted.push(b);
+    }
 
     c.end();
     res.json(adjusted);
@@ -982,6 +1036,14 @@ router.post("/apply", auth, async (req, res) => {
 
       // If CL, recompute available based on monthly allocations up to today
       if (typeCode === "CL") {
+        let planStartMonth = 1;
+        try {
+          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [emp.leave_plan_id]);
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+        } catch (e) {
+          planStartMonth = 1;
+        }
+
         const recalculated = computeCLAvailable(
           Number(allocated_days) || 0,
           Number(carry_forward_days) || 0,
@@ -989,6 +1051,7 @@ router.post("/apply", auth, async (req, res) => {
           emp.DateJoined,
           leaveYear,
           new Date(),
+          planStartMonth,
         );
         available_days = recalculated;
       }
