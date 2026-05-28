@@ -29,7 +29,10 @@ function computeCLAvailable(
   for (let i = 0; i < remainder; i++) monthly[i] = monthly[i] + 1;
 
   // Map months relative to planStartMonth
-  const planStartIndex = Math.max(0, Math.min(11, (Number(planStartMonth) || 1) - 1));
+  const planStartIndex = Math.max(
+    0,
+    Math.min(11, (Number(planStartMonth) || 1) - 1),
+  );
 
   // Determine effective start month (0-based, Gregorian) using joining date and plan start
   let effectiveStart = planStartIndex;
@@ -514,8 +517,12 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
         // fetch plan start month
         let planStartMonth = 1;
         try {
-          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [employee.leave_plan_id]);
-          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+          const [planRows] = await c.query(
+            "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+            [employee.leave_plan_id],
+          );
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+            planStartMonth = planRows[0].leave_year_start_month;
         } catch (e) {
           planStartMonth = 1;
         }
@@ -642,8 +649,12 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
         if (typeCode === "CL") {
           let planStartMonth = 1;
           try {
-            const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [employee.leave_plan_id]);
-            if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+            const [planRows] = await c.query(
+              "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+              [employee.leave_plan_id],
+            );
+            if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+              planStartMonth = planRows[0].leave_year_start_month;
           } catch (e) {
             planStartMonth = 1;
           }
@@ -828,8 +839,12 @@ router.get("/balance", auth, async (req, res) => {
         const used = Number(b.used_days) || 0;
         let planStartMonth = 1;
         try {
-          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [emp.leave_plan_id]);
-          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+          const [planRows] = await c.query(
+            "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+            [emp.leave_plan_id],
+          );
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+            planStartMonth = planRows[0].leave_year_start_month;
         } catch (e) {
           planStartMonth = 1;
         }
@@ -902,7 +917,8 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
       [req.params.employeeId],
     );
     const empJoined = empRows && empRows[0] ? empRows[0].DateJoined : null;
-    const empLeavePlanId = empRows && empRows[0] ? empRows[0].leave_plan_id : null;
+    const empLeavePlanId =
+      empRows && empRows[0] ? empRows[0].leave_plan_id : null;
 
     const adjusted = [];
     for (const b of balances) {
@@ -913,8 +929,12 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
         let planStartMonth = 1;
         try {
           if (empLeavePlanId) {
-            const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [empLeavePlanId]);
-            if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+            const [planRows] = await c.query(
+              "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+              [empLeavePlanId],
+            );
+            if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+              planStartMonth = planRows[0].leave_year_start_month;
           }
         } catch (e) {
           planStartMonth = 1;
@@ -1038,8 +1058,12 @@ router.post("/apply", auth, async (req, res) => {
       if (typeCode === "CL") {
         let planStartMonth = 1;
         try {
-          const [planRows] = await c.query('SELECT leave_year_start_month FROM leave_plans WHERE id = ?', [emp.leave_plan_id]);
-          if (planRows && planRows[0] && planRows[0].leave_year_start_month) planStartMonth = planRows[0].leave_year_start_month;
+          const [planRows] = await c.query(
+            "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+            [emp.leave_plan_id],
+          );
+          if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+            planStartMonth = planRows[0].leave_year_start_month;
         } catch (e) {
           planStartMonth = 1;
         }
