@@ -204,7 +204,7 @@ export class LeaveRequestComponent implements OnInit {
     const form = this.leaveForm.value;
     const selectedLeave = this.leaveTypes.find(l => l.id === form.leave_type);
     if (!selectedLeave) { this.presentToast('Invalid leave type', 'danger'); return; }
-    
+
     // For LOP (Loss of Pay), we bypass the balance check as per requirements
     const isLOP = (selectedLeave.code || '').toUpperCase() === 'LOP';
     const trulyAvailable = selectedLeave.available - selectedLeave.pending;

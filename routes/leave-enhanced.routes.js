@@ -10,7 +10,14 @@ const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
 // Helper: compute available CL (monthly allocation) up to a reference date
-function computeCLAvailable(allocatedDays, carryForwardDays, usedDays, joiningDateStr, leaveYear, refDate = new Date()) {
+function computeCLAvailable(
+  allocatedDays,
+  carryForwardDays,
+  usedDays,
+  joiningDateStr,
+  leaveYear,
+  refDate = new Date(),
+) {
   // Distribute allocatedDays across 12 months as evenly as possible (distribute remainder to earlier months)
   const base = Math.floor((allocatedDays || 0) / 12);
   const remainder = (allocatedDays || 0) - base * 12;
@@ -28,7 +35,8 @@ function computeCLAvailable(allocatedDays, carryForwardDays, usedDays, joiningDa
   if (joiningDateStr) {
     try {
       const jd = new Date(joiningDateStr);
-      if (!isNaN(jd)) startMonth = jd.getFullYear() === leaveYear ? jd.getMonth() : 0;
+      if (!isNaN(jd))
+        startMonth = jd.getFullYear() === leaveYear ? jd.getMonth() : 0;
     } catch (e) {
       startMonth = 0;
     }
@@ -484,8 +492,8 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
 
       // Compute initial available for CL (monthly allocation) or default full allocation
       let initialAvailable = allocatedDays;
-      const typeCode = (allocation.type_code || '').toUpperCase();
-      if (typeCode === 'CL') {
+      const typeCode = (allocation.type_code || "").toUpperCase();
+      if (typeCode === "CL") {
         initialAvailable = computeCLAvailable(
           allocatedDays,
           0,
@@ -602,9 +610,9 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
 
       if (existing.length === 0) {
         // Compute initial available for CL (monthly allocation) or default full allocation
-        const typeCode = (allocation.type_code || '').toUpperCase();
+        const typeCode = (allocation.type_code || "").toUpperCase();
         let initialAvailable = allocatedDays;
-        if (typeCode === 'CL') {
+        if (typeCode === "CL") {
           initialAvailable = computeCLAvailable(
             allocatedDays,
             0,
@@ -675,59 +683,81 @@ router.get("/balance", auth, async (req, res) => {
 
     // Calculate LOP from attendance penalties for the whole year
     // 1. Existing penalties in DB
-    const [dbPenalties] = await c.query(`
+    const [dbPenalties] = await c.query(
+      `
       SELECT COUNT(*) as count FROM attendance 
       WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
-    `, [emp.id, leaveYear]);
+    `,
+      [emp.id, leaveYear],
+    );
 
     let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
 
     // 2. Active 24h violations (missing logs)
-    const [empSettings] = await c.query(`
+    const [empSettings] = await c.query(
+      `
       SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
-    `, [emp.id]);
+    `,
+      [emp.id],
+    );
     const employee = empSettings[0];
 
     if (employee) {
       const now = new Date();
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
-        const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
+        const endDay =
+          leaveYear < now.getFullYear()
+            ? new Date(leaveYear, 11, 31)
+            : new Date(now);
         endDay.setHours(0, 0, 0, 0);
 
-        const [existingDates] = await c.query(`
+        const [existingDates] = await c.query(
+          `
           SELECT attendance_date FROM attendance 
           WHERE employee_id = ? AND YEAR(attendance_date) = ?
-        `, [emp.id, leaveYear]);
-        const attDates = new Set(existingDates.map(a => new Date(a.attendance_date).toDateString()));
+        `,
+          [emp.id, leaveYear],
+        );
+        const attDates = new Set(
+          existingDates.map((a) => new Date(a.attendance_date).toDateString()),
+        );
 
-        const [yearLeaves] = await c.query(`
+        const [yearLeaves] = await c.query(
+          `
           SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = ?
-        `, [emp.id, leaveYear]);
+        `,
+          [emp.id, leaveYear],
+        );
 
         const weekOffDays = [];
-        if (employee.sunday_off) weekOffDays.push('sunday');
-        if (employee.monday_off) weekOffDays.push('monday');
-        if (employee.tuesday_off) weekOffDays.push('tuesday');
-        if (employee.wednesday_off) weekOffDays.push('wednesday');
-        if (employee.thursday_off) weekOffDays.push('thursday');
-        if (employee.friday_off) weekOffDays.push('friday');
-        if (employee.saturday_off) weekOffDays.push('saturday');
+        if (employee.sunday_off) weekOffDays.push("sunday");
+        if (employee.monday_off) weekOffDays.push("monday");
+        if (employee.tuesday_off) weekOffDays.push("tuesday");
+        if (employee.wednesday_off) weekOffDays.push("wednesday");
+        if (employee.thursday_off) weekOffDays.push("thursday");
+        if (employee.friday_off) weekOffDays.push("friday");
+        if (employee.saturday_off) weekOffDays.push("saturday");
 
         let curr = new Date(startOfYear);
         while (curr < endDay) {
           const dStr = curr.toDateString();
-          const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          const weekday = curr
+            .toLocaleDateString("en-US", { weekday: "long" })
+            .toLowerCase();
           if (!attDates.has(dStr)) {
-            const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+            const isLeave = yearLeaves.some(
+              (l) =>
+                curr >= new Date(l.start_date) && curr <= new Date(l.end_date),
+            );
             if (!isLeave && !weekOffDays.includes(weekday)) {
-              const shiftStartStr = employee.start_time || '09:00:00';
-              const [sh, sm] = shiftStartStr.split(':').map(Number);
+              const shiftStartStr = employee.start_time || "09:00:00";
+              const [sh, sm] = shiftStartStr.split(":").map(Number);
               const shiftStart = new Date(curr);
               shiftStart.setHours(sh || 9, sm || 0, 0, 0);
               const threshold = new Date(shiftStart);
@@ -742,9 +772,9 @@ router.get("/balance", auth, async (req, res) => {
     }
 
     // Apply penalty LOP to balance record
-    const updatedBalances = balances.map(b => {
-      const tcode = (b.type_code || '').toUpperCase();
-      if (tcode === 'LOP') {
+    const updatedBalances = balances.map((b) => {
+      const tcode = (b.type_code || "").toUpperCase();
+      if (tcode === "LOP") {
         const used = Number(b.used_days) || 0;
         const available = Number(b.available_days) || 0;
         return {
@@ -755,7 +785,7 @@ router.get("/balance", auth, async (req, res) => {
       }
 
       // For CL, recompute available based on monthly allocation up to today
-      if (tcode === 'CL') {
+      if (tcode === "CL") {
         const allocated = Number(b.allocated_days) || 0;
         const carry = Number(b.carry_forward_days) || 0;
         const used = Number(b.used_days) || 0;
@@ -781,7 +811,7 @@ router.get("/balance", auth, async (req, res) => {
     if (emp.leave_plan_id) {
       const [allocRows] = await c.query(
         `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
-        [emp.leave_plan_id]
+        [emp.leave_plan_id],
       );
       const expectedCount = allocRows[0].count || 0;
       needsInitialization = updatedBalances.length < expectedCount;
@@ -790,7 +820,7 @@ router.get("/balance", auth, async (req, res) => {
     c.end();
     res.json({
       balances: updatedBalances,
-      needs_initialization: needsInitialization
+      needs_initialization: needsInitialization,
     });
   } catch (error) {
     console.error("Error fetching leave balance:", error);
@@ -824,11 +854,14 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
     );
 
     // Recompute CL availabilities for accuracy when viewing another employee
-    const [empRows] = await c.query(`SELECT DateJoined FROM employees WHERE id = ? LIMIT 1`, [req.params.employeeId]);
+    const [empRows] = await c.query(
+      `SELECT DateJoined FROM employees WHERE id = ? LIMIT 1`,
+      [req.params.employeeId],
+    );
     const empJoined = empRows && empRows[0] ? empRows[0].DateJoined : null;
 
-    const adjusted = balances.map(b => {
-      if ((b.type_code || '').toUpperCase() === 'CL') {
+    const adjusted = balances.map((b) => {
+      if ((b.type_code || "").toUpperCase() === "CL") {
         const allocated = Number(b.allocated_days) || 0;
         const carry = Number(b.carry_forward_days) || 0;
         const used = Number(b.used_days) || 0;
@@ -870,7 +903,15 @@ router.post("/apply", auth, async (req, res) => {
     console.log("[LEAVE DEBUG] Employee lookup result:", emp);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-    let { leave_type_id, start_date, end_date, total_days, reason, is_half_day, half_day_session } = req.body;
+    let {
+      leave_type_id,
+      start_date,
+      end_date,
+      total_days,
+      reason,
+      is_half_day,
+      half_day_session,
+    } = req.body;
     console.log("[LEAVE DEBUG] Parsed request data:", {
       leave_type_id,
       start_date,
@@ -878,7 +919,7 @@ router.post("/apply", auth, async (req, res) => {
       total_days,
       reason,
       is_half_day,
-      half_day_session
+      half_day_session,
     });
 
     // If half day, ensure start and end dates are same and total_days is 0.5
@@ -900,9 +941,13 @@ router.post("/apply", auth, async (req, res) => {
     await c.beginTransaction();
 
     // Check leave type code
-    const [typeData] = await c.query(`SELECT type_code FROM leave_types WHERE id = ?`, [leave_type_id]);
-    const typeCode = typeData.length > 0 ? (typeData[0].type_code || '').toUpperCase() : '';
-    const isLOP = typeCode === 'LOP';
+    const [typeData] = await c.query(
+      `SELECT type_code FROM leave_types WHERE id = ?`,
+      [leave_type_id],
+    );
+    const typeCode =
+      typeData.length > 0 ? (typeData[0].type_code || "").toUpperCase() : "";
+    const isLOP = typeCode === "LOP";
 
     // Check leave balance including pending requests
     const leaveYear = new Date(start_date).getFullYear();
@@ -917,11 +962,14 @@ router.post("/apply", auth, async (req, res) => {
       await c.rollback();
       c.end();
       console.log("[LEAVE DEBUG] No leave balance found for this leave type");
-      return res.status(400).json({ error: "No leave balance found for this leave type" });
+      return res
+        .status(400)
+        .json({ error: "No leave balance found for this leave type" });
     }
 
     if (balanceData.length > 0) {
-      let { available_days, allocated_days, carry_forward_days, used_days } = balanceData[0];
+      let { available_days, allocated_days, carry_forward_days, used_days } =
+        balanceData[0];
 
       // Get total pending days for this leave type in the same year
       const [pendingData] = await c.query(
@@ -933,7 +981,7 @@ router.post("/apply", auth, async (req, res) => {
       const pendingDays = pendingData[0].pending_days || 0;
 
       // If CL, recompute available based on monthly allocations up to today
-      if (typeCode === 'CL') {
+      if (typeCode === "CL") {
         const recalculated = computeCLAvailable(
           Number(allocated_days) || 0,
           Number(carry_forward_days) || 0,
@@ -951,12 +999,15 @@ router.post("/apply", auth, async (req, res) => {
       if (!isLOP && total_days > remainingDays) {
         await c.rollback();
         c.end();
-        console.log("[LEAVE DEBUG] Insufficient leave balance (including pending):", {
-          available: available_days,
-          pending: pendingDays,
-          remaining: remainingDays,
-          requested: total_days,
-        });
+        console.log(
+          "[LEAVE DEBUG] Insufficient leave balance (including pending):",
+          {
+            available: available_days,
+            pending: pendingDays,
+            remaining: remainingDays,
+            requested: total_days,
+          },
+        );
         return res.status(400).json({
           error: "Your assigned leaves are applied please check",
           available: remainingDays,
@@ -969,11 +1020,12 @@ router.post("/apply", auth, async (req, res) => {
     const start = new Date(start_date);
     const end = new Date(end_date);
     let conflict = false;
-    let conflictMsg = "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.";
+    let conflictMsg =
+      "A leave request already exists for at least one of these dates. Duplicate leave requests are not allowed.";
 
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
       const dStr = d.toISOString().split("T")[0];
-      
+
       // Get all leaves for this date
       const [rows] = await c.query(
         `SELECT id, start_date, end_date, is_half_day, half_day_session, status 
@@ -1020,7 +1072,16 @@ router.post("/apply", auth, async (req, res) => {
       `INSERT INTO leaves 
              (employee_id, leave_type_id, start_date, end_date, total_days, reason, status, applied_at, is_half_day, half_day_session)
              VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW(), ?, ?)`,
-      [emp.id, leave_type_id, start_date, end_date, total_days, reason, is_half_day ? 1 : 0, is_half_day ? half_day_session : null],
+      [
+        emp.id,
+        leave_type_id,
+        start_date,
+        end_date,
+        total_days,
+        reason,
+        is_half_day ? 1 : 0,
+        is_half_day ? half_day_session : null,
+      ],
     );
     console.log("[LEAVE DEBUG] Leave application inserted:", result);
 
@@ -1066,64 +1127,86 @@ router.get("/my-leaves", auth, async (req, res) => {
 
     // Calculate LOP from attendance penalties
     // 1. Existing penalties in DB
-    const [dbPenalties] = await c.query(`
+    const [dbPenalties] = await c.query(
+      `
       SELECT COUNT(*) as count FROM attendance 
       WHERE employee_id = ? AND status = 'penalty' AND YEAR(attendance_date) = ?
-    `, [emp.id, leaveYear]);
+    `,
+      [emp.id, leaveYear],
+    );
 
     let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
 
     // 2. Active 24h violations for days with no records
-    const [empSettings] = await c.query(`
+    const [empSettings] = await c.query(
+      `
       SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       WHERE e.id = ?
-    `, [emp.id]);
+    `,
+      [emp.id],
+    );
     const employee = empSettings[0];
 
     if (employee) {
       const now = new Date();
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
-        const endDay = (leaveYear < now.getFullYear()) ? new Date(leaveYear, 11, 31) : new Date(now);
+        const endDay =
+          leaveYear < now.getFullYear()
+            ? new Date(leaveYear, 11, 31)
+            : new Date(now);
         endDay.setHours(0, 0, 0, 0);
 
         // Get existing attendance dates to avoid double counting
-        const [existingDates] = await c.query(`
+        const [existingDates] = await c.query(
+          `
           SELECT attendance_date FROM attendance 
           WHERE employee_id = ? AND YEAR(attendance_date) = ?
-        `, [emp.id, leaveYear]);
-        const attDates = new Set(existingDates.map(a => new Date(a.attendance_date).toDateString()));
+        `,
+          [emp.id, leaveYear],
+        );
+        const attDates = new Set(
+          existingDates.map((a) => new Date(a.attendance_date).toDateString()),
+        );
 
         // Get leaves for the year to avoid counting week-offs as absents if on leave
-        const [yearLeaves] = await c.query(`
+        const [yearLeaves] = await c.query(
+          `
           SELECT * FROM leaves WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = ?
-        `, [emp.id, leaveYear]);
+        `,
+          [emp.id, leaveYear],
+        );
 
         const weekOffDays = [];
-        if (employee.sunday_off) weekOffDays.push('sunday');
-        if (employee.monday_off) weekOffDays.push('monday');
-        if (employee.tuesday_off) weekOffDays.push('tuesday');
-        if (employee.wednesday_off) weekOffDays.push('wednesday');
-        if (employee.thursday_off) weekOffDays.push('thursday');
-        if (employee.friday_off) weekOffDays.push('friday');
-        if (employee.saturday_off) weekOffDays.push('saturday');
+        if (employee.sunday_off) weekOffDays.push("sunday");
+        if (employee.monday_off) weekOffDays.push("monday");
+        if (employee.tuesday_off) weekOffDays.push("tuesday");
+        if (employee.wednesday_off) weekOffDays.push("wednesday");
+        if (employee.thursday_off) weekOffDays.push("thursday");
+        if (employee.friday_off) weekOffDays.push("friday");
+        if (employee.saturday_off) weekOffDays.push("saturday");
 
         let curr = new Date(startOfYear);
         while (curr < endDay) {
           const dStr = curr.toDateString();
-          const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+          const weekday = curr
+            .toLocaleDateString("en-US", { weekday: "long" })
+            .toLowerCase();
 
           if (!attDates.has(dStr)) {
             // Check if leave
-            const isLeave = yearLeaves.some(l => curr >= new Date(l.start_date) && curr <= new Date(l.end_date));
+            const isLeave = yearLeaves.some(
+              (l) =>
+                curr >= new Date(l.start_date) && curr <= new Date(l.end_date),
+            );
             if (!isLeave && !weekOffDays.includes(weekday)) {
               // Potential penalty
-              const shiftStartStr = employee.start_time || '09:00:00';
-              const [sh, sm] = shiftStartStr.split(':').map(Number);
+              const shiftStartStr = employee.start_time || "09:00:00";
+              const [sh, sm] = shiftStartStr.split(":").map(Number);
               const shiftStart = new Date(curr);
               shiftStart.setHours(sh || 9, sm || 0, 0, 0);
 
@@ -1149,11 +1232,11 @@ router.get("/my-leaves", auth, async (req, res) => {
         start_date: null,
         end_date: null,
         total_days: penaltyLop,
-        reason: 'Attendance Penalties (Auto-calculated from missing logs)',
-        status: 'approved',
+        reason: "Attendance Penalties (Auto-calculated from missing logs)",
+        status: "approved",
         applied_at: new Date(),
-        type_name: 'Loss of Pay (Attendance)',
-        type_code: 'LOP'
+        type_name: "Loss of Pay (Attendance)",
+        type_code: "LOP",
       });
     }
 
@@ -1214,8 +1297,8 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
     );
 
     // Update employee leave balance
-    const ltcode = (leave.type_code || '').toUpperCase();
-    if (ltcode === 'CL') {
+    const ltcode = (leave.type_code || "").toUpperCase();
+    if (ltcode === "CL") {
       // For CL, available_days is derived from monthly allocation; update used_days only
       await c.query(
         `UPDATE employee_leave_balances SET used_days = used_days + ? WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
