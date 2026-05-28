@@ -271,6 +271,30 @@ export class LeaveRequestComponent implements OnInit {
       return;
     }
 
+    // Prevent CL (Casual Leave) applications that request future month allocations
+    const isCL = (selectedLeave.code || '').toUpperCase() === 'CL';
+    if (isCL) {
+      const today = new Date();
+      const startMonth = this.parseLocalDate(form.start_date).getMonth();
+      const startYear = this.parseLocalDate(form.start_date).getFullYear();
+      if (startYear === today.getFullYear() && startMonth > today.getMonth()) {
+        this.presentToast('CL allocations are granted monthly. You cannot apply for future months in advance.', 'warning');
+        return;
+      }
+
+      // For multi-day ranges, ensure no requested date falls in a future month
+      const from = this.parseLocalDate(form.start_date);
+      const to = this.parseLocalDate(form.is_half_day ? form.start_date : form.end_date);
+      let d = new Date(from);
+      while (d <= to) {
+        if (d.getFullYear() === today.getFullYear() && d.getMonth() > today.getMonth()) {
+          this.presentToast('CL allocations are granted monthly. You cannot apply for future months in advance.', 'warning');
+          return;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+    }
+
     const payload = {
       leave_type_id: form.leave_type,
       start_date: form.start_date,

@@ -9,6 +9,52 @@ const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
+// Helper: compute available CL (monthly allocation) up to a reference date
+function computeCLAvailable(allocatedDays, carryForwardDays, usedDays, joiningDateStr, leaveYear, refDate = new Date()) {
+  // Distribute allocatedDays across 12 months as evenly as possible (distribute remainder to earlier months)
+  const base = Math.floor((allocatedDays || 0) / 12);
+  const remainder = (allocatedDays || 0) - base * 12;
+
+  // Build monthly allocations array (index 0 = Jan)
+  const monthly = new Array(12).fill(base);
+  for (let i = 0; i < remainder; i++) monthly[i] = monthly[i] + 1;
+
+  // Determine number of months that should be considered allocated up to refDate for the given leaveYear
+  let monthsAllocated = 0;
+  const refYear = refDate.getFullYear();
+
+  // Determine employee start month (0-based) for proration
+  let startMonth = 0;
+  if (joiningDateStr) {
+    try {
+      const jd = new Date(joiningDateStr);
+      if (!isNaN(jd)) startMonth = jd.getFullYear() === leaveYear ? jd.getMonth() : 0;
+    } catch (e) {
+      startMonth = 0;
+    }
+  }
+
+  if (leaveYear < refYear) {
+    monthsAllocated = 12 - startMonth; // full year (or from joining month)
+  } else if (leaveYear > refYear) {
+    monthsAllocated = 0; // future year -> nothing allocated yet
+  } else {
+    const refMonth = refDate.getMonth();
+    monthsAllocated = Math.max(0, refMonth - startMonth + 1);
+  }
+
+  // Sum allocations for the allowed months starting from startMonth
+  let sum = 0;
+  for (let m = 0; m < monthsAllocated; m++) {
+    const idx = startMonth + m;
+    if (idx >= 0 && idx < 12) sum += monthly[idx];
+  }
+
+  // Available = allocated till now + carry_forward - used
+  const avail = sum + (carryForwardDays || 0) - (usedDays || 0);
+  return Math.max(0, avail);
+}
+
 /* ============================================
    LEAVE PLANS MANAGEMENT (HR/Admin Only)
    ============================================ */
@@ -407,7 +453,7 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
     // Get leave plan allocations
     const [allocations] = await c.query(
       `
-            SELECT lpa.*, lt.can_carry_forward, lt.max_carry_forward_days
+            SELECT lpa.*, lt.can_carry_forward, lt.max_carry_forward_days, lt.type_code
             FROM leave_plan_allocations lpa
             INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
             WHERE lpa.leave_plan_id = ?
@@ -436,6 +482,20 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
         );
       }
 
+      // Compute initial available for CL (monthly allocation) or default full allocation
+      let initialAvailable = allocatedDays;
+      const typeCode = (allocation.type_code || '').toUpperCase();
+      if (typeCode === 'CL') {
+        initialAvailable = computeCLAvailable(
+          allocatedDays,
+          0,
+          0,
+          employee.DateJoined,
+          currentYear,
+          new Date(),
+        );
+      }
+
       // Use INSERT ... ON DUPLICATE KEY UPDATE to handle both new and existing balances
       await c.query(
         `INSERT INTO employee_leave_balances 
@@ -449,9 +509,9 @@ router.post("/initialize-balance/:employeeId", auth, hr, async (req, res) => {
           allocation.leave_type_id,
           currentYear,
           allocatedDays,
-          allocatedDays, // initial available if new
-          allocatedDays, // update available calculation base
-          allocatedDays, // update allocated days
+          initialAvailable,
+          initialAvailable,
+          allocatedDays,
         ],
       );
     }
@@ -501,10 +561,10 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
         .json({ error: "You have no leave plan assigned. Please contact HR." });
     }
 
-    // Get leave plan allocations
+    // Get leave plan allocations (include type_code for CL handling)
     const [allocations] = await c.query(
       `
-            SELECT lpa.*, lt.can_carry_forward, lt.max_carry_forward_days
+            SELECT lpa.*, lt.can_carry_forward, lt.max_carry_forward_days, lt.type_code
             FROM leave_plan_allocations lpa
             INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
             WHERE lpa.leave_plan_id = ?
@@ -541,6 +601,20 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
       );
 
       if (existing.length === 0) {
+        // Compute initial available for CL (monthly allocation) or default full allocation
+        const typeCode = (allocation.type_code || '').toUpperCase();
+        let initialAvailable = allocatedDays;
+        if (typeCode === 'CL') {
+          initialAvailable = computeCLAvailable(
+            allocatedDays,
+            0,
+            0,
+            employee.DateJoined,
+            currentYear,
+            new Date(),
+          );
+        }
+
         // Insert new balance
         await c.query(
           `INSERT INTO employee_leave_balances 
@@ -551,7 +625,7 @@ router.post("/initialize-my-balance", auth, async (req, res) => {
             allocation.leave_type_id,
             currentYear,
             allocatedDays,
-            allocatedDays,
+            initialAvailable,
           ],
         );
       }
@@ -669,15 +743,36 @@ router.get("/balance", auth, async (req, res) => {
 
     // Apply penalty LOP to balance record
     const updatedBalances = balances.map(b => {
-      if ((b.type_code || '').toUpperCase() === 'LOP') {
+      const tcode = (b.type_code || '').toUpperCase();
+      if (tcode === 'LOP') {
         const used = Number(b.used_days) || 0;
         const available = Number(b.available_days) || 0;
         return {
           ...b,
           used_days: used + penaltyLop,
-          available_days: available - penaltyLop
+          available_days: available - penaltyLop,
         };
       }
+
+      // For CL, recompute available based on monthly allocation up to today
+      if (tcode === 'CL') {
+        const allocated = Number(b.allocated_days) || 0;
+        const carry = Number(b.carry_forward_days) || 0;
+        const used = Number(b.used_days) || 0;
+        const available = computeCLAvailable(
+          allocated,
+          carry,
+          used,
+          emp.DateJoined,
+          Number(b.leave_year) || new Date().getFullYear(),
+          new Date(),
+        );
+        return {
+          ...b,
+          available_days: available,
+        };
+      }
+
       return b;
     });
 
@@ -728,8 +823,30 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
       [req.params.employeeId, leaveYear],
     );
 
+    // Recompute CL availabilities for accuracy when viewing another employee
+    const [empRows] = await c.query(`SELECT DateJoined FROM employees WHERE id = ? LIMIT 1`, [req.params.employeeId]);
+    const empJoined = empRows && empRows[0] ? empRows[0].DateJoined : null;
+
+    const adjusted = balances.map(b => {
+      if ((b.type_code || '').toUpperCase() === 'CL') {
+        const allocated = Number(b.allocated_days) || 0;
+        const carry = Number(b.carry_forward_days) || 0;
+        const used = Number(b.used_days) || 0;
+        const available = computeCLAvailable(
+          allocated,
+          carry,
+          used,
+          empJoined,
+          Number(b.leave_year) || new Date().getFullYear(),
+          new Date(),
+        );
+        return { ...b, available_days: available };
+      }
+      return b;
+    });
+
     c.end();
-    res.json(balances);
+    res.json(adjusted);
   } catch (error) {
     console.error("Error fetching employee leave balance:", error);
     res.status(500).json({ error: error.message });
@@ -804,7 +921,7 @@ router.post("/apply", auth, async (req, res) => {
     }
 
     if (balanceData.length > 0) {
-      const { available_days } = balanceData[0];
+      let { available_days, allocated_days, carry_forward_days, used_days } = balanceData[0];
 
       // Get total pending days for this leave type in the same year
       const [pendingData] = await c.query(
@@ -814,6 +931,19 @@ router.post("/apply", auth, async (req, res) => {
         [emp.id, leave_type_id, leaveYear],
       );
       const pendingDays = pendingData[0].pending_days || 0;
+
+      // If CL, recompute available based on monthly allocations up to today
+      if (typeCode === 'CL') {
+        const recalculated = computeCLAvailable(
+          Number(allocated_days) || 0,
+          Number(carry_forward_days) || 0,
+          Number(used_days) || 0,
+          emp.DateJoined,
+          leaveYear,
+          new Date(),
+        );
+        available_days = recalculated;
+      }
 
       // Truly available days = available_days (allocated + CF - used) - pendingDays
       const remainingDays = available_days - pendingDays;
@@ -1047,9 +1177,10 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
 
     // Get leave details with employee info
     const [leaves] = await c.query(
-      `SELECT l.*, e.reporting_manager_id 
+      `SELECT l.*, e.reporting_manager_id, lt.type_code
              FROM leaves l
              JOIN employees e ON l.employee_id = e.id
+             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
              WHERE l.id = ?`,
       [req.params.leaveId],
     );
@@ -1083,18 +1214,27 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
     );
 
     // Update employee leave balance
-    await c.query(
-      `UPDATE employee_leave_balances 
+    const ltcode = (leave.type_code || '').toUpperCase();
+    if (ltcode === 'CL') {
+      // For CL, available_days is derived from monthly allocation; update used_days only
+      await c.query(
+        `UPDATE employee_leave_balances SET used_days = used_days + ? WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+        [leave.total_days, leave.employee_id, leave.leave_type_id, leaveYear],
+      );
+    } else {
+      await c.query(
+        `UPDATE employee_leave_balances 
              SET used_days = used_days + ?, available_days = available_days - ?
              WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
-      [
-        leave.total_days,
-        leave.total_days,
-        leave.employee_id,
-        leave.leave_type_id,
-        leaveYear,
-      ],
-    );
+        [
+          leave.total_days,
+          leave.total_days,
+          leave.employee_id,
+          leave.leave_type_id,
+          leaveYear,
+        ],
+      );
+    }
 
     await c.commit();
     c.end();
