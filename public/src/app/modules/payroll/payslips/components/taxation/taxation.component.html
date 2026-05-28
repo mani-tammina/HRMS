@@ -35,12 +35,7 @@
           INCOME TAX PAYABLE</label>
         <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ netTaxPayable | number:'1.0-0' }}</div>
       </div>
-      <div class="summary-item">
-        <label
-          style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">TAX
-          PAID TILL NOW</label>
-        <div style="font-size:13px; font-weight:700; color:#1e293b;">INR {{ taxPaidTillNow | number:'1.0-0' }}</div>
-      </div>
+      <!-- TAX PAID TILL NOW removed by request -->
       <div class="summary-item">
         <label
           style="display:block; font-size:9px; color:#64748b; font-weight:700; text-transform:uppercase; margin-bottom:4px;">REMAINING
@@ -317,11 +312,7 @@
       </div>
 
       <div class="calculation-table simple-table" style="background:#fff; border:none; border-radius:0;">
-        <div class="calc-row"
-          style="display:flex; justify-content:space-between; padding:16px 24px; border-bottom:1px solid #f1f5f9; font-size:12px; font-weight:400; color:#334155; align-items: center;">
-          <span>Tax Paid Till Now</span>
-          <strong style="font-weight:400; color:#0f172a;">{{ formatCurrency(taxPaidTillNow) }}</strong>
-        </div>
+        <!-- Tax Paid Till Now removed from cumulative details -->
         <div class="calc-row"
           style="display:flex; justify-content:space-between; padding:16px 24px; font-size:12px; font-weight:400; color:#334155; align-items: center;">
           <span>Remaining Tax To Be Paid</span>

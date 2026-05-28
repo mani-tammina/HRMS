@@ -317,7 +317,7 @@ export class TaxationComponent implements OnInit, OnDestroy {
     this.payrollApi.getMyTaxSummary(this.financialYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         this.taxSummary = res;
-        this.taxPaidTillNow = res.tds_paid_ytd || 0;
+        // Tax paid till now temporarily disabled per request — do not consume res.tds_paid_ytd
         this.calculateBreakdown(); // Recalculate to update remaining tax
       },
       error: () => { }
