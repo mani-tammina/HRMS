@@ -2,7 +2,20 @@ const XLSX = require("xlsx");
 
 function excel(file) {
     const wb = XLSX.readFile(file, { cellDates: true });
-    let rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null, raw: false });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
+    
+    // Find actual header row (skip title rows)
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(20, rawRows.length); i++) {
+        const nonNullCount = rawRows[i].filter(cell => cell !== null && cell !== undefined && String(cell).trim() !== '').length;
+        if (nonNullCount > 3) { // Header row usually has many columns, title rows only have 1 or 2
+            headerRowIndex = i;
+            break;
+        }
+    }
+
+    let rows = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, raw: false });
 
     const parseTextDate = (str) => {
         if (!str || typeof str !== 'string') return null;
@@ -25,12 +38,12 @@ function excel(file) {
         return isNaN(num) ? null : num;
     };
 
-    // Normalize column names: trim spaces
+    // Normalize column names: remove all spaces
     rows = rows.map(row => {
         const normalized = {};
         for (const k of Object.keys(row)) {
-            const trimmedKey = k.trim();
-            normalized[trimmedKey] = row[k];
+            const normalizedKey = k.replace(/\s+/g, '');
+            normalized[normalizedKey] = row[k];
         }
         return normalized;
     });
