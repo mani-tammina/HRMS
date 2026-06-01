@@ -362,13 +362,26 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     // Create a unified timeline for the redesign
     const timeline: any[] = [];
     records.forEach((r: any) => {
+      let displayLocation = r.location;
+      if (displayLocation && displayLocation.toLowerCase().includes('mumbai')) {
+        displayLocation = this.employeeProfile?.location_name || displayLocation;
+      } else if (r.work_mode === 'Office' && !displayLocation) {
+        displayLocation = this.employeeProfile?.location_name;
+      }
+
+      let displayNotes = r.notes;
+      const lowerNotes = displayNotes?.toLowerCase().trim();
+      if (lowerNotes === 'morning shift' || lowerNotes === 'office clock-in') {
+        displayNotes = this.shiftPolicy?.name || displayNotes;
+      }
+
       if (r.check_in) {
         timeline.push({
           type: 'IN',
           time: r.check_in,
           mode: r.work_mode || 'Office',
-          location: r.location,
-          notes: r.notes,
+          location: displayLocation,
+          notes: displayNotes,
           icon: 'log-in-outline'
         });
       }
@@ -377,8 +390,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           type: 'OUT',
           time: r.check_out,
           mode: r.work_mode || 'Office',
-          location: r.location,
-          notes: r.notes,
+          location: displayLocation,
+          notes: displayNotes,
           icon: 'log-out-outline'
         });
       }
@@ -523,7 +536,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       first_check_in: data.first_in,
       last_check_out: data.last_out,
       work_mode: 'Office',
-      location: 'Mumbai Office',
+      location: this.employeeProfile?.location_name || 'Mumbai Office',
       reason: data.reason || 'Regularized'
     };
 

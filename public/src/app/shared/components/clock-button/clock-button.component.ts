@@ -256,7 +256,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     if (this.isClockedIn) return;
     this.loading = true;
     let location = 'Mumbai Office';
-    let notes = 'Morning shift';
+    let notes = 'Office Clock-In';
     if (mode === 'Remote') { location = 'Remote'; notes = 'Remote Clock-In'; this.workMode = 'Remote'; this.remoteActive = true; }
     else if (mode === 'WFH') { location = 'Home'; notes = 'WFH Clock-In'; this.workMode = 'WFH'; }
     else { this.workMode = 'Office'; }
