@@ -7,6 +7,8 @@ import { environment } from 'src/environments/environment';
 export class AttendanceApiService {
   private env = environment;
   private readonly BASE_URL = `http://${this.env.apiURL}/api/attendance`;
+  private readonly leaves_BASE_URL = `http://${this.env.apiURL}/api/leaves`;
+
 
   private clockStateSubject = new BehaviorSubject<boolean>(false);
   clockState$ = this.clockStateSubject.asObservable();
@@ -14,7 +16,7 @@ export class AttendanceApiService {
   private punchRefreshSubject = new Subject<void>();
   punchRefresh$ = this.punchRefreshSubject.asObservable();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   setClockState(isClockedIn: boolean): void {
     this.clockStateSubject.next(isClockedIn);
@@ -109,7 +111,7 @@ export class AttendanceApiService {
   }
 
   checkTodayWFH(): Observable<any> {
-    return this.http.get(`${this.BASE_URL}/check-wfh-today`, { headers: this.getHeaders() });
+    return this.http.get(`${this.leaves_BASE_URL}/wfh-check-today`, { headers: this.getHeaders() });
   }
 
   /* ================= BULK STATUS (My Team real-time) ================= */
