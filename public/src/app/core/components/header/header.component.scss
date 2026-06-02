@@ -12,11 +12,11 @@
   box-shadow: vars.$shadow-md;
 
   .header-toolbar {
-    --background: #{vars.$color-sidebar};
+    --background: #{vars.$color-navbar};
     --color: #{vars.$color-white};
     --padding-start: 24px;
     --padding-end: 24px;
-    --min-height: 64px;
+    --min-height: 104px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -26,7 +26,7 @@
 
 // ── Brand Logo ──
 .brand-logo {
-  height: 42px;
+  height: 60px;
   width: auto;
   vertical-align: middle;
   transition: vars.$transition-base;
@@ -56,21 +56,21 @@
 // ── Search ──
 .search-container {
   flex: 1;
-  max-width: 380px;
+  max-width: 558px;
   margin: 0 auto;
   position: relative;
 
   .custom-searchbar {
-    --background: rgba(255, 255, 255, 0.08);
+    --background: #{vars.$color-sidebar-text};
     --color: #{vars.$color-white};
-    --placeholder-color: rgba(255, 255, 255, 0.4);
+    --placeholder-color: #818181;
     --icon-color: rgba(255, 255, 255, 0.5);
-    --border-radius: #{vars.$radius-lg};
+    --border-radius: 88px;
     --box-shadow: none;
-    border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: vars.$radius-lg;
     padding-top: 0;
     padding-bottom: 0;
+    padding: 0;
     height: 40px;
     margin: 0;
     transition: vars.$transition-base;
@@ -279,8 +279,8 @@
 .profile-btn {
   --padding-start: 0;
   --padding-end: 0;
-  height: 38px;
-  width: 38px;
+  height: 55px;
+  width: 55px;
   border-radius: vars.$radius-circle;
   overflow: hidden;
   margin-left: 6px;
@@ -584,8 +584,8 @@
 }
 
 input:-internal-autofill-selected {
-    appearance: menulist-button;
-    background-image: none !important;
-    background: transparent !important;
-    color: fieldtext !important;
+  appearance: menulist-button;
+  background-image: none !important;
+  background: transparent !important;
+  color: fieldtext !important;
 }

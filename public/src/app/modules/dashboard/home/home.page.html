@@ -29,28 +29,28 @@
                     {{ todayDate }} &nbsp;•&nbsp;
                     <span class="site-name" *ngIf="currentEmployee">{{ currentEmployee.location_name }}</span>
                   </p>
+                  <div class="premium-action-row">
+                    <button class="glass-action-btn" *ngIf="!isCEO()" (click)="attendance()">
+                      <img src="../../../../assets/attendance.png" width="16" height="16" />
+                      <span>My Attendance</span>
+                    </button>
+
+                    <button class="glass-action-btn" *ngIf="!isCEO()" (click)="leaves()">
+                      <img src="../../../../assets/leave.png" width="16" height="16" />
+                      <span>Apply Leave</span>
+                    </button>
+
+                    <button class="glass-action-btn" (click)="myteam()">
+                      <img src="../../../../assets/team.png" width="16" height="16" />
+                      <span>My Team</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div class="premium-action-row">
-                <button class="glass-action-btn" *ngIf="!isCEO()" (click)="attendance()">
-                  <ion-icon name="person-circle-outline"></ion-icon>
-                  <span>My Attendance</span>
-                </button>
 
-                <button class="glass-action-btn" *ngIf="!isCEO()" (click)="leaves()">
-                  <ion-icon name="calendar-outline"></ion-icon>
-                  <span>Apply Leave</span>
-                </button>
-
-                <button class="glass-action-btn" (click)="myteam()">
-                  <ion-icon name="people"></ion-icon>
-                  <span>My Team</span>
-                </button>
-              </div>
             </div>
 
-            <div class="welcome-v-divider"></div>
 
             <div class="welcome-right-panel">
               <div class="time-container">
@@ -70,113 +70,114 @@
 
     <ion-row>
       <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
-        <ion-card class="overview-block cosmic-overview">
-          <!-- Starry Background Animation Items -->
-          <div class="stars-starsContainer">
-            <div id="stars"></div>
-            <div id="stars2"></div>
-            <div id="stars3"></div>
-          </div>
-
-          <div class="card-header-group">
-            <div class="title-section">
-              <h3 class="card-header">Today's Overview</h3>
-              <p class="card-dec">Shift performance & active session</p>
+        <ion-card class="overview-block modern-overview-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Today's Overview</h3>
+              <p class="overview-subtitle">Your attendance, progress, and status at a glance</p>
             </div>
-            <div class="status-badge-container">
-              <span class="premium-status-badge" [ngClass]="getStatusClass()">
-                <span class="pulse-dot"></span>
-                <span class="status-text">{{ getStatusLabel() || 'Not In Yet' }}</span>
-              </span>
+            <div class="header-badge">
+              <span class="badge-pill">Attendance Rate • {{ attendanceRate }}% this month</span>
             </div>
           </div>
 
-          <div class="cosmic-grid">
-            <!-- First Clock In -->
-            <div class="cosmic-card first-in">
-              <div class="icon-image-box">
-                <img src="assets/home-icons/vibrant-in.png" alt="In">
+          <div class="divider-line"></div>
+
+          <div class="card-body-grid">
+            <!-- Left Column -->
+            <div class="stats-left-col">
+              <div class="stat-item-row">
+                <span class="stat-label">Clock In</span>
+                <span class="stat-value bold-text">{{ formatClockTime(todayAttendance?.first_check_in) }}</span>
               </div>
-              <div class="cosmic-content">
-                <div class="cosmic-label-pill">CLOCK IN</div>
-                <p class="cosmic-value">{{ (todayAttendance?.first_check_in | date:'h:mm a') || '--:--' }}</p>
+
+              <div class="stat-item-row">
+                <span class="stat-label">Status</span>
+                <span class="status-badge-pill" [ngClass]="getStatusClass()">{{ getStatusLabel() }}</span>
+              </div>
+
+              <div class="stat-item-row">
+                <span class="stat-label">Gross Hours</span>
+                <span class="stat-value bold-text">{{ todayAttendance?.gross_hours || '0h 0m' }}</span>
+              </div>
+
+              <div class="stat-item-row effective-row">
+                <div class="effective-labels">
+                  <span class="stat-label">Effective Hours</span>
+                  <span class="stat-value">{{ todayAttendance?.effective_hours || '0h 0m' }} ({{ todayEffectivePercentage || 0 }}%)</span>
+                </div>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" [style.width.%]="todayEffectivePercentage || 0"></div>
+                </div>
+              </div>
+
+              <div class="mode-pill-row">
+                <span class="mode-pill" style="text-transform: capitalize;">Mode : {{ todayAttendance?.work_mode || '--' }}</span>
               </div>
             </div>
 
-            <!-- Last Clock Out -->
-            <div class="cosmic-card last-out">
-              <div class="icon-image-box">
-                <img src="assets/home-icons/vibrant-out.png" alt="Out">
+            <!-- Right Column -->
+            <div class="stats-right-col">
+              <!-- Card 1: This Week -->
+              <div class="info-mini-card">
+                <div class="mini-card-content">
+                  <span class="mini-card-label">This Week</span>
+                  <span class="mini-card-value">{{ weeklyGrossHours }}</span>
+                </div>
+                <div class="mini-card-icon green-icon">
+                  <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                </div>
               </div>
-              <div class="cosmic-content">
-                <div class="cosmic-label-pill">CLOCK OUT</div>
-                <p class="cosmic-value">{{ (todayAttendance?.last_check_out | date:'h:mm a') || '--:--' }}</p>
-              </div>
-            </div>
 
-            <!-- Gross Hours -->
-            <div class="cosmic-card gross-h">
-              <div class="icon-image-box">
-                <img src="assets/home-icons/vibrant-gross.png" alt="Gross">
-              </div>
-              <div class="cosmic-content">
-                <div class="cosmic-label-pill">GROSS HOURS</div>
-                <p class="cosmic-value">{{ todayAttendance?.gross_hours || '0h 0 m' }}</p>
-              </div>
-            </div>
-
-            <!-- Effective Hours -->
-            <div class="cosmic-card eff-h">
-              <div class="icon-image-box">
-                <img src="assets/home-icons/vibrant-eff.png" alt="Eff">
-              </div>
-              <div class="cosmic-content">
-                <div class="cosmic-label-pill">EFFECTIVE HOURS</div>
-                <p class="cosmic-value">{{ todayAttendance?.effective_hours || '0h 0 m' }}</p>
-              </div>
-            </div>
-
-            <div class="cosmic-footer" *ngIf="todayAttendance?.work_mode">
-              <div class="cosmic-mode-tag">
-                <span>Working Mode: {{ todayAttendance.work_mode }}</span>
+              <!-- Card 2: Avg. Start Time -->
+              <div class="info-mini-card">
+                <div class="mini-card-content">
+                  <span class="mini-card-label">Avg. Start Time</span>
+                  <span class="mini-card-value">{{ avgStartTime }}</span>
+                </div>
+                <div class="mini-card-icon blue-icon">
+                  <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10" stroke-dasharray="3 3"></circle>
+                    <polyline points="12 6 12 12 15 9"></polyline>
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
         </ion-card>
 
         <!-- Leave balance card -->
-        <ion-card class="overview-block light-modern-card leave-balance-card">
-          <div class="row-space-between border-bottom">
-            <div>
-              <h3 class="card-header">Leave balance</h3>
-              <p class="card-dec">Quick view of your available time off</p>
+        <ion-card class="overview-block modern-overview-card leave-balance-card-flat">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Leave balance</h3>
+              <p class="overview-subtitle">Quick view of your available time off</p>
             </div>
-            <div class="label">
-              <p>Cycle : Mar - Feb</p>
+            <div class="header-badge">
+              <span class="badge-pill">Cycle : {{ leaveCycleRange }}</span>
             </div>
           </div>
 
-          <div class="p-8 card-content">
-            <ion-row lines="none">
-              <ion-col size="6" size-md="3" class="leave-chart-col"
-                *ngFor="let leave of leaveCards; trackBy: trackById">
-                <div class="leave-donut-wrapper">
-                  <div class="donut-chart"
-                    [style.background]="'conic-gradient(#ef4444 0% ' + leave.usedPercent + '%, #10b981 ' + leave.usedPercent + '% 100%)'">
-                    <div class="donut-hole">
-                      <span class="count">{{ leave.isLOP ? leave.used : leave.available }}</span>
-                      <span class="label">{{ leave.isLOP ? 'Used' : 'Left' }}</span>
-                    </div>
+          <div class="divider-line"></div>
+
+          <div class="card-content leave-balance-body">
+            <div class="leave-columns-row">
+              <div class="leave-column" *ngFor="let leave of leaveCards; trackBy: trackById">
+                <ng-container *ngIf="leave.code !== 'LOP'">
+                  <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'" [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'">
+                    <ion-icon [name]="(leave.code === 'CL' || leave.code === 'PL') ? 'umbrella' : (leave.code === 'SL' ? 'bed' : 'calendar')"></ion-icon>
                   </div>
-                  <p class="leave-name">{{ leave.title }}</p>
-                  <div class="simple-stats">
-                    <span class="stat used">{{ leave.used }} Used</span>
-                    <span class="stat total">{{ leave.allocated_days }} Tot.</span>
-                  </div>
-                </div>
-              </ion-col>
-            </ion-row>
-            <p class="note">Plan ahead: peak leave usage is expected during upcoming festival weeks.</p>
+                  <p class="leave-type-title">{{ leave.title }}</p>
+                  <p class="leave-days-left">
+                    <span class="days-bold">{{ leave.available | number:'2.0-0' }}/{{ leave.allocated_days | number:'2.0-0' }}</span> days left
+                  </p>
+                </ng-container>
+              </div>
+            </div>
+            <p class="leave-footer-note">Plan ahead: peak leave usage is expected during upcoming festival weeks.</p>
           </div>
         </ion-card>
 
@@ -205,60 +206,75 @@
 
       <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
         <!-- Announcements card -->
-        <ion-card class="overview-block light-modern-card announcement-carousel-card carousel-parent">
-          <div class="row-space-between border-bottom">
-            <div>
-              <h3 class="card-header">Announcements</h3>
-              <p class="card-dec">Stay updated with company news</p>
+        <ion-card class="overview-block modern-overview-card announcements-card-flat">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Announcements</h3>
+              <p class="overview-subtitle">Your attendance, progress, and status at a glance</p>
             </div>
-            <div class="label" *ngIf="announcements.length > 0">
-              <p>{{ announcements.length }} latest</p>
+            <div class="header-badge" *ngIf="announcements.length > 0">
+              <span class="badge-pill light-blue">{{ announcements.length }} new</span>
             </div>
           </div>
 
-          <div class="card-content carousel-viewport">
+          <div class="divider-line"></div>
+
+          <div class="card-content announcements-list-body">
             <div *ngIf="announcements.length === 0" class="no-announcements">
               <p>No new announcements at this time.</p>
             </div>
 
-            <div class="carousel-track" *ngIf="announcements.length > 0"
-              [style.transform]="'translateX(-' + (currentAnnounceIndex * 100) + '%)'">
-              <div class="carousel-slide" *ngFor="let announce of announcements; let i = index">
-                <div class="Announcement-card">
-                  <div class="announce-icon">
-                    <ion-icon name="megaphone-outline" style="font-size:40px;color:#1870B9;"></ion-icon>
+            <div class="announcements-vertical-list" *ngIf="announcements.length > 0">
+              <div class="announcement-item-row" *ngFor="let announce of announcements.slice(0, 3)">
+                <div class="announcement-thumbnail">
+                  <img src="assets/announcement_thumbnail.png" alt="Announcement Thumbnail">
+                </div>
+                
+                <div class="announcement-main-content">
+                  <h4 class="announcement-title">{{ announce.title }}</h4>
+                  <p class="announcement-description">{{ announce.body }}</p>
+                  <div class="announcement-footer-row">
+                    <span class="time-ago">5 hours ago</span>
+                    <span class="separator-dot">•</span>
+                    <div class="author-info">
+                      <img src="assets/user.png" class="author-avatar" alt="Author">
+                      <span class="author-name">Aswitha Anusha</span>
+                    </div>
                   </div>
-                  <div class="announce-body">
-                    <p class="title">{{ announce.title }}</p>
-                    <p class="body-text">{{ announce.body }}</p>
+                </div>
+
+                <div class="announcement-reactions">
+                  <div class="reaction-item">
+                    <span class="emoji">👍</span>
+                    <span class="count">24</span>
+                  </div>
+                  <div class="reaction-item">
+                    <span class="emoji">💬</span>
+                    <span class="count">6</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="carousel-indicators" *ngIf="announcements.length > 1">
-              <span *ngFor="let dot of announcements; let dotIdx = index" class="dot"
-                [class.active]="dotIdx === currentAnnounceIndex" (click)="setAnnounce(dotIdx)">
-              </span>
+            <div class="view-all-link-container" *ngIf="announcements.length > 0">
+              <a class="view-all-link" (click)="viewAllAnnouncements()">View All</a>
             </div>
           </div>
         </ion-card>
 
         <!-- Birthdays & Work Anniversaries card -->
-        <ion-card class="overview-block cosmic-overview milestone-container">
-          <!-- Starry Background Animation Items -->
-          <div class="stars-starsContainer">
-            <div id="stars"></div>
-            <div id="stars2"></div>
-            <div id="stars3"></div>
-          </div>
-
-          <div class="card-header-group">
-            <div class="title-section">
-              <h3 class="card-header">Birthdays &amp; Work Anniversaries</h3>
-              <p class="card-dec">Celebrate your teammates' special moments</p>
+        <ion-card class="overview-block modern-overview-card milestone-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Birthdays &amp; work anniversaries</h3>
+              <p class="overview-subtitle">Celebrate your teammates this week</p>
+            </div>
+            <div class="header-badge">
+              <span class="badge-pill">Today + next 7 days</span>
             </div>
           </div>
+
+          <div class="divider-line"></div>
 
           <div class="card-content milestone-list">
             <div *ngIf="birthdays.length === 0" class="empty-milestones">
@@ -266,60 +282,43 @@
               <p>No milestones coming up this week. Keep the spirits high!</p>
             </div>
 
-            <div class="cosmic-milestone-item" *ngFor="let milestone of birthdays; trackBy: trackById"
+            <div class="milestone-item-flat" *ngFor="let milestone of birthdays; trackBy: trackById"
               [class.today]="milestone.isToday">
               <div class="item-main">
-                <div class="premium-avatar-box">
-                  <div class="avatar-ring" [class.birthday]="milestone.eventType === 'Birthday'"
-                    [class.anniversary]="milestone.eventType === 'Anniversary'"></div>
-                  <img [src]="milestone.fullImageUrl" [alt]="milestone.FirstName" class="cosmic-avatar">
-                  <div class="event-badge" [class.birthday-badge]="milestone.eventType === 'Birthday'"
-                    [class.anniversary-badge]="milestone.eventType === 'Anniversary'">
-                    <ion-icon [name]="milestone.eventType === 'Birthday' ? 'gift' : 'medal'"></ion-icon>
-                  </div>
+                <div class="blue-tab-prefix"></div>
+                <div class="avatar-container">
+                  <img [src]="milestone.fullImageUrl" [alt]="milestone.FirstName" onerror="this.src='../../assets/Profile_Picture.png'">
                 </div>
 
-                <div class="cosmic-info" (click)="$event.stopPropagation()">
-                  <div class="name-pill-row">
-                    <span class="emp-name">{{ milestone.FirstName }} {{ milestone.LastName }}</span>
-                    <span class="cosmic-today-pill" *ngIf="milestone.isToday">TODAY</span>
-                  </div>
+                <div class="milestone-info" (click)="$event.stopPropagation()">
+                  <span class="emp-name">{{ milestone.FirstName }} {{ milestone.LastName }}</span>
                   <div class="event-meta">
-                    <span class="cosmic-event-type" [class.text-birthday]="milestone.eventType === 'Birthday'"
-                      [class.text-anniversary]="milestone.eventType === 'Anniversary'">
-                      {{ milestone.eventType }}
-                    </span>
-                    <span class="cosmic-dot">•</span>
-                    <span class="event-date">{{ milestone.originalDate | date:'MMM dd' }}</span>
-                    <span class="years-pill" *ngIf="milestone.eventType === 'Anniversary'">
-                      {{ milestone.years }}{{ milestone.years > 1 ? 'y' : 'y' }}
-                    </span>
+                    <ng-container *ngIf="milestone.eventType === 'Birthday'">
+                      <span>🎂 Birthday • {{ milestone.isToday ? 'Today' : (milestone.eventDate | date:'MMM dd') }}</span>
+                    </ng-container>
+                    <ng-container *ngIf="milestone.eventType === 'Anniversary'">
+                      <span>🎉 {{ milestone.years }} {{ milestone.years > 1 ? 'years' : 'year' }} anniversary</span>
+                    </ng-container>
                   </div>
                 </div>
 
-                <div class="cosmic-actions" *ngIf="activeWishEmployeeId !== milestone.id">
-                  <button class="cosmic-action-btn view" (click)="viewWishes(milestone)" title="View Wishes">
-                    <ion-icon name="eye-outline"></ion-icon>
-                  </button>
-                  <button class="cosmic-action-btn wish" (click)="showWishInput(milestone.id)" title="Send Wish">
-                    <ion-icon name="paper-plane-outline"></ion-icon>
+                <div class="milestone-action" *ngIf="activeWishEmployeeId !== milestone.id">
+                  <button class="action-btn-pill" (click)="showWishInput(milestone.id)">
+                    {{ milestone.eventType === 'Birthday' ? 'Send Wishes' : 'Celebrate' }}
                   </button>
                 </div>
               </div>
 
               <!-- Inline Wish Input -->
-              <div class="cosmic-wish-input-reveal" *ngIf="activeWishEmployeeId === milestone.id">
+              <div class="milestone-wish-input-reveal" *ngIf="activeWishEmployeeId === milestone.id">
                 <ion-input [(ngModel)]="wishMessages[milestone.id]" placeholder="Write a warm note..."></ion-input>
                 <div class="reveal-btns">
                   <button class="cancel-btn" (click)="hideWishInput()">Cancel</button>
-                  <button class="send-btn" (click)="sendWish(milestone.id)">
-                    <ion-icon name="paper-plane-outline"></ion-icon>
-                    Send
-                  </button>
+                  <button class="send-btn" (click)="sendWish(milestone.id)">Send</button>
                 </div>
               </div>
 
-              <div class="celebration-footer" *ngIf="milestone.isToday">
+              <div class="celebration-footer" *ngIf="milestone.isToday && activeWishEmployeeId !== milestone.id">
                 <div class="notes-link" (click)="viewWishes(milestone)">
                   <ion-icon name="heart" class="heart-pulse"></ion-icon>
                   <span>View celebration notes</span>

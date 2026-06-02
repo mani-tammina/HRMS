@@ -59,15 +59,16 @@
                 [color]="attendanceDetails?.attendance?.status === 'present' ? 'success' : 'warning'"></ion-icon>
               {{ getArrivalStatus(attendanceDetails?.attendance) }}
             </p>
-            <p class="location"><ion-icon name="location"></ion-icon> {{ attendanceDetails?.attendance?.location || 'Office' }}</p>
+            <p class="location"><ion-icon name="location"></ion-icon> {{ attendanceDetails?.attendance?.location ||
+              'Office' }}</p>
           </div>
           <p class="card-title">Time-Logs</p>
           <ion-row class="ion-no-padding">
             <ion-col class="clock-logs" size="12">
               <div class="d-flex" *ngFor="let punch of attendanceDetails?.punches">
                 <p>
-                  <ion-icon [name]="punch.punch_type === 'in' ? 'log-in-outline' : 'log-out-outline'"
-                    [style.color]="punch.punch_type === 'in' ? '#10B981' : '#EF4444'"></ion-icon>
+                  <!-- <ion-icon [name]="punch.punch_type === 'in' ? 'log-in-outline' : 'log-out-outline'"
+                    [style.color]="punch.punch_type === 'in' ? '#10B981' : '#EF4444'"></ion-icon> -->
                   {{ punch.punch_time | date: 'HH:mm:ss' }} ({{ punch.punch_type | titlecase }})
                 </p>
               </div>

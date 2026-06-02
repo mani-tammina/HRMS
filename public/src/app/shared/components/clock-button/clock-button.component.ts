@@ -16,7 +16,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       <button class="modern-clock-btn in" (click)="clockIn('Office')">
         <div class="inner-pulse"></div>
         <div class="btn-content">
-          <ion-icon name="log-in-outline"></ion-icon>
           <span class="text">Clock In</span>
         </div>
       </button>
@@ -28,7 +27,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       <button *ngIf="workMode === 'Office'" class="modern-clock-btn out" (click)="clockOut()">
         <div class="inner-pulse red"></div>
         <div class="btn-content">
-          <ion-icon name="log-out-outline"></ion-icon>
           <span class="text">Clock Out</span>
         </div>
       </button>
@@ -55,8 +53,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   `,
   styles: [`
     .attendance-btn-container {
-      padding: 10px;
-      
       &.mini-layout {
         .modern-clock-btn {
           min-width: 140px;
@@ -73,10 +69,10 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     .modern-clock-btn {
       position: relative;
-      min-width: 220px;
-      height: 58px;
+      min-width: 188px;
+      height: 38px;
       border: none;
-      border-radius: 16px;
+      border-radius: 64px;
       cursor: pointer;
       display: flex;
       align-items: center;
@@ -124,30 +120,27 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
         .text {
           font-size: 16px;
-          font-weight: 800;
-          text-transform: uppercase;
+          font-weight: 700;
           letter-spacing: 1px;
-          white-space: nowrap;
+      text-transform: capitalize;
+
         }
       }
 
       // Themes
       &.in {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        background: #1E73BB;
         color: #10b981;
-        box-shadow: 0 10px 20px -5px rgba(16, 185, 129, 0.4);
       }
 
       &.out {
         background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
         color: #ef4444;
-        box-shadow: 0 10px 20px -5px rgba(239, 68, 68, 0.4);
       }
 
       &.remote {
         background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
         color: #f59e0b;
-        box-shadow: 0 10px 20px -5px rgba(245, 158, 11, 0.4);
       }
 
       &.wfh {

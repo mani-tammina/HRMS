@@ -98,7 +98,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     if (this.currentEmployee?.profile_image) {
       this.profileImageUrl = `${this.env}${this.currentEmployee.profile_image}`;
     } else {
-      this.profileImageUrl = '../../assets/Profile_Picture.png';
+      this.profileImageUrl = '../../assets/user.png';
     }
   }
 
@@ -140,7 +140,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   openEmployeeDetailsModal(emp: any) {
     this.searchResults = []; // Close the popover by clearing results
-    
+
     // Fetch full details from Employee API to ensure fields like department_name are populated
     const idToFetch = emp.id || emp.employee_id || emp.EmployeeId;
     if (idToFetch) {

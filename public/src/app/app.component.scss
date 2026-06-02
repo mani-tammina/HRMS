@@ -21,8 +21,8 @@ ion-menu ion-content.sidenav-content {
   display: flex;
   flex-direction: column;
   // height: calc(100% - 100px);
-  height: calc(100% - 30px);
-  margin-top: 20px;
+  height: calc(100% - 100px);
+  margin-top: 55px;
   overflow-y: scroll;
   scrollbar-width: none;
 }
@@ -112,7 +112,9 @@ ion-menu ion-content.sidenav-content {
   }
 
   &.selected {
-    .inactive-icon { display: none; }
+    .inactive-icon {
+      display: none;
+    }
 
     .active-icon {
       display: block;
@@ -212,15 +214,24 @@ ion-menu ion-content.sidenav-content {
       &.selected {
         --background: #{vars.$color-sidebar-active};
 
-        &::before { height: 22px; }
+        &::before {
+          height: 22px;
+        }
       }
     }
   }
 }
 
 @keyframes slideDown {
-  from { opacity: 0; transform: translateY(-8px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* ── Main Content ── */
@@ -259,10 +270,15 @@ ion-split-pane.is-authenticated {
         letter-spacing: normal;
       }
 
-      .custom-menu-icon { width: 20px; height: 20px; }
+      .custom-menu-icon {
+        width: 20px;
+        height: 20px;
+      }
     }
 
-    &.selected::before { left: -10px; }
+    &.selected::before {
+      left: -10px;
+    }
   }
 
   .submenu-wrapper .parent-item .submenu-toggle-icon {

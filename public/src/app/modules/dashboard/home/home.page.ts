@@ -49,12 +49,14 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= IMAGES ================= */
   env: string = '';
   leaveCards: any[] = [];
+  leaveCycleRange: string = 'Mar - Feb';
   userDesignation: string | null = null;
   leaveCodeIdMap: any = {};
   todayAttendance: any = null;
   weeklyGrossHours: string = '0h 0m';
   todayEffectivePercentage: number = 0;
   weeklyAttendanceRate: number = 0;
+  avgStartTime: string = '--:--';
 
   /* ================= LOP INTEGRATION ================= */
   attendanceLopDays = 0;
@@ -142,6 +144,51 @@ export class HomePage implements OnInit, OnDestroy {
       if (this.todayAttendance) {
         const eff = parseFloat(this.todayAttendance.effective_hours) || 0;
         this.todayEffectivePercentage = Math.round((eff / 8) * 100);
+      }
+
+      // Calculate average start time
+      const validCheckIns = report.filter(r => r.first_check_in);
+      if (validCheckIns.length > 0) {
+        let totalMinutes = 0;
+        let count = 0;
+        validCheckIns.forEach(r => {
+          const timeStr = r.first_check_in.toString().trim();
+          let hours = -1;
+          let minutes = -1;
+          
+          if (timeStr.includes('-') && (timeStr.includes('T') || timeStr.includes(' '))) {
+            const date = new Date(timeStr);
+            if (!isNaN(date.getTime())) {
+              hours = date.getHours();
+              minutes = date.getMinutes();
+            }
+          } else if (timeStr.includes(':')) {
+            const parts = timeStr.split(':');
+            hours = parseInt(parts[0], 10);
+            minutes = parseInt(parts[1], 10);
+          }
+          
+          if (hours >= 0 && minutes >= 0 && !isNaN(hours) && !isNaN(minutes)) {
+            totalMinutes += hours * 60 + minutes;
+            count++;
+          }
+        });
+        
+        if (count > 0) {
+          const avgMinutes = Math.round(totalMinutes / count);
+          let avgHours = Math.floor(avgMinutes / 60);
+          const avgMins = avgMinutes % 60;
+          const ampm = avgHours >= 12 ? 'PM' : 'AM';
+          avgHours = avgHours % 12;
+          avgHours = avgHours ? avgHours : 12;
+          const hrStr = avgHours < 10 ? '0' + avgHours : avgHours.toString();
+          const minStr = avgMins < 10 ? '0' + avgMins : avgMins.toString();
+          this.avgStartTime = `${hrStr}:${minStr} ${ampm}`;
+        } else {
+          this.avgStartTime = '--:--';
+        }
+      } else {
+        this.avgStartTime = '--:--';
       }
 
       this.cdr.detectChanges();
@@ -297,7 +344,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   get profileImageUrl(): string {
-    if (!this.currentEmployee?.profile_image) return '../../assets/Profile_Picture.png';
+    if (!this.currentEmployee?.profile_image) return '../../assets/user.png';
     return `${this.env}${this.currentEmployee.profile_image}`;
   }
 
@@ -331,10 +378,14 @@ export class HomePage implements OnInit, OnDestroy {
   attendance() { this.router.navigate(['/Me']); }
   leaves() { this.router.navigate(['/leaves']); }
   myteam() { this.router.navigate(['/MyTeam']); }
+  viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }
 
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
+        if (res && res.leave_year_start_month) {
+          this.leaveCycleRange = this.calculateLeaveCycle(res.leave_year_start_month);
+        }
         const balances = res.balances || [];
         this.leaveCodeIdMap = {};
         balances.forEach((item: any) => { this.leaveCodeIdMap[item.type_code] = item.leave_type_id || item.id; });
@@ -357,6 +408,13 @@ export class HomePage implements OnInit, OnDestroy {
       },
       error: err => console.error(err)
     });
+  }
+
+  calculateLeaveCycle(startMonth: number): string {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const startIdx = (startMonth - 1 + 12) % 12;
+    const endIdx = (startIdx - 1 + 12) % 12;
+    return `${months[startIdx]} - ${months[endIdx]}`;
   }
 
   loadCurrentMonthLOP() {
@@ -498,7 +556,37 @@ export class HomePage implements OnInit, OnDestroy {
     const label = this.getStatusLabel();
     if (label === 'In') return 'status-in';
     if (label === 'Out') return 'status-out';
-    return '';
+    return 'status-pending';
+  }
+
+  formatClockTime(timeVal: any): string {
+    if (!timeVal) return '--:--';
+    const timeStr = timeVal.toString().trim();
+    // If it's a full date string or ISO string, parse it using Date
+    if (timeStr.includes('-') && (timeStr.includes('T') || timeStr.includes(' '))) {
+      const date = new Date(timeStr);
+      if (!isNaN(date.getTime())) {
+        return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+      }
+    }
+    // If it's a time-only string e.g. "09:15:00" or "13:30" or "09:15"
+    if (timeStr.includes(':')) {
+      if (timeStr.toLowerCase().includes('am') || timeStr.toLowerCase().includes('pm')) {
+        return timeStr;
+      }
+      const parts = timeStr.split(':');
+      let hours = parseInt(parts[0], 10);
+      let minutes = parseInt(parts[1], 10);
+      if (!isNaN(hours) && !isNaN(minutes)) {
+        const ampm = hours >= 12 ? 'PM' : 'AM';
+        hours = hours % 12;
+        hours = hours ? hours : 12;
+        const minStr = minutes < 10 ? '0' + minutes : minutes.toString();
+        const hrStr = hours < 10 ? '0' + hours : hours.toString();
+        return `${hrStr}:${minStr} ${ampm}`;
+      }
+    }
+    return timeStr;
   }
 
   ngOnDestroy() {
