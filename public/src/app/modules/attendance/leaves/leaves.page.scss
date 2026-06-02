@@ -25,6 +25,7 @@
     align-items: center;
     margin-bottom: 32px;
     padding: 0 8px;
+    margin-top: 25px;
 
     .header-left {
       h1 {
@@ -92,13 +93,15 @@
   /* ======= BALANCES SECTION ======= */
   .balances-section {
     margin-bottom: 40px;
+    background: #ffff;
+    padding: 20px 30px;
+    border-radius: 20px;
+    padding-top: 0px;
 
     .section-header {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 24px;
-
       .icon-box {
         width: 36px;
         height: 36px;
@@ -107,6 +110,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
+        display: none;
 
         ion-icon {
           color: vars.$color-primary;
@@ -115,166 +119,99 @@
       }
 
       h2 {
-        color: vars.$color-text-primary;
-        font-size: vars.$fs-heading-sm;
+        color:#212529;
+        font-size: 18px;
         font-weight: vars.$fw-bold;
-        margin: 0;
       }
     }
 
     .balances-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
       gap: 20px;
     }
   }
 
   .leave-card {
     background: vars.$color-bg-card;
-    border-radius: vars.$radius-xl;
-    padding: 24px;
-    border: 1px solid vars.$color-border;
-    box-shadow: vars.$shadow-sm;
+    border-radius: 14px;
+    padding: 28px 24px;
+    border: 1px solid #ABABAB;
     transition: vars.$transition-smooth;
     position: relative;
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-height: 280px;
+    justify-content: space-between;
 
     &:hover {
-      transform: translateY(-2px);
+      transform: translateY(-4px);
       box-shadow: vars.$shadow-md;
       border-color: vars.$color-primary;
     }
 
-    .card-top {
+    .card-title {
+      font-size: vars.$fs-body;
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-primary;
+      margin: 0 0 16px 0;
+      letter-spacing: 0.3px;
+    }
+
+    .icon-container {
+      margin: 8px 0 20px 0;
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 24px;
+      justify-content: center;
 
-      h3 {
-        font-size: vars.$fs-body;
-        font-weight: vars.$fw-bold;
-        color: vars.$color-text-primary;
-        margin: 0 0 2px 0;
-      }
-
-      .quota {
-        font-size: vars.$fs-xs;
-        font-weight: vars.$fw-bold;
-        color: vars.$color-text-muted;
-        text-transform: uppercase;
-        letter-spacing: vars.$ls-wide;
-      }
-
-      .icon-circle {
-        width: 44px;
-        height: 44px;
-        background: vars.$color-bg-subtle;
-        border-radius: vars.$radius-lg;
+      .icon-background {
+         width: 95px;
+        height: 95px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e9d5ff 0%, #f3e8ff 100%);
         display: flex;
         align-items: center;
         justify-content: center;
+        box-shadow: 0 4px 12px rgba(168, 85, 247, 0.15);
 
         ion-icon {
-          font-size: 22px;
-          color: vars.$color-primary;
+          font-size: 36px;
+          color: #a855f7;
         }
       }
     }
 
-    .stats-layout {
+    .days-display {
       display: flex;
-      align-items: center;
-      gap: 24px;
-      margin-bottom: 24px;
-    }
+      align-items: baseline;
+      justify-content: center;
+      gap: 4px;
+      margin-bottom: 12px;
 
-    .chart-container {
-      width: 90px;
-      height: 90px;
-      position: relative;
-
-      svg {
-        transform: rotate(-90deg);
+      .available {
+        font-size: 24px;
+        color: #1870B9;
+        font-weight: 700;
       }
 
-      circle {
-        fill: none;
-        stroke-width: 6;
-        stroke-linecap: round;
-
-        &.bg {
-          stroke: vars.$color-border-light;
-        }
-
-        &.active {
-          stroke: vars.$color-primary;
-        }
+      .separator {
+        font-size: 24px;
+        color: #1870B9;
       }
 
-      .center {
-        position: absolute;
-        inset: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-
-        .val {
-          font-size: vars.$fs-heading-md;
-          font-weight: vars.$fw-bold;
-          color: vars.$color-text-primary;
-          line-height: 1;
-        }
-
-        .lbl {
-          font-size: vars.$fs-xs;
-          font-weight: vars.$fw-bold;
-          color: vars.$color-text-muted;
-          text-transform: uppercase;
-          margin-top: 2px;
-        }
+      .total {
+        font-size: 24px;
+        color: #1870B9;
+        font-weight: 700;
       }
     }
 
-    .detailed-stats {
-      flex: 1;
-
-      .stat-row {
-        display: flex;
-        flex-direction: column;
-        margin-bottom: 8px;
-
-        &:last-child {
-          margin-bottom: 0;
-        }
-
-        .label {
-          font-size: vars.$fs-xs;
-          color: vars.$color-text-muted;
-          font-weight: vars.$fw-bold;
-        }
-
-        .value {
-          font-size: vars.$fs-small;
-          color: vars.$color-text-primary;
-          font-weight: vars.$fw-bold;
-          margin-top: 1px;
-        }
-      }
-    }
-
-    .progress-track {
-      height: 6px;
-      background: vars.$color-border-light;
-      border-radius: vars.$radius-pill;
-      overflow: hidden;
-
-      .fill {
-        height: 100%;
-        background: vars.$color-primary;
-        border-radius: vars.$radius-pill;
-      }
+    .label {
+      font-size: 16px;
+      color: #626262;
+      text-transform: lowercase;
     }
   }
 
@@ -331,13 +268,13 @@
       border-spacing: 0 8px;
 
       thead th {
-        padding: 8px 16px;
+        padding: 12px 16px;
         text-align: left;
         color: vars.$color-text-muted;
-        font-size: vars.$fs-xs;
+        font-size: 12px;
         font-weight: vars.$fw-bold;
         text-transform: uppercase;
-        letter-spacing: vars.$ls-wide;
+        letter-spacing: 0.5px;
       }
 
       tbody tr {
@@ -348,11 +285,13 @@
 
         &:hover {
           background: vars.$color-bg-subtle;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
         }
 
         td {
           padding: 14px 16px;
           color: vars.$color-text-secondary;
+          font-size: 13px;
           border-top: 1px solid vars.$color-border-light;
           border-bottom: 1px solid vars.$color-border-light;
 
@@ -370,33 +309,87 @@
             div {
               font-weight: vars.$fw-bold;
               color: vars.$color-text-primary;
-              font-size: vars.$fs-small;
-            }
-
-            small {
-              color: vars.$color-text-muted;
-              font-weight: vars.$fw-medium;
-              margin-top: 2px;
-              display: block;
-              font-size: vars.$fs-xs;
+              font-size: 13px;
             }
           }
         }
       }
 
-      .type {
-        font-weight: vars.$fw-bold;
-        color: vars.$color-primary;
-        font-size: vars.$fs-small;
+      .type-cell {
+        text-align: center;
       }
 
       .days {
         font-weight: vars.$fw-bold;
         color: vars.$color-text-primary;
-        font-size: vars.$fs-small;
+        font-size: 13px;
+        text-align: center;
+      }
+
+      .reason {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .submitted-on {
+        font-size: 12px;
+        color: vars.$color-text-secondary;
+      }
+
+      .applied-to {
+        font-size: 12px;
+        color: vars.$color-text-secondary;
       }
     }
   }
+
+  /* ======= LEAVE TYPE BADGES ======= */
+  .leave-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: vars.$fw-bold;
+    text-transform: capitalize;
+    white-space: nowrap;
+
+    .badge-label {
+      display: block;
+    }
+
+    &.sick {
+      background: #d4f5f1;
+      color: #0b8a78;
+    }
+
+    &.casual {
+      background: #f3e5f5;
+      color: #6a1b9a;
+    }
+
+    &.marriage {
+      background: #ffe0b2;
+      color: #e65100;
+    }
+
+    &.comp-offs {
+      background: #bbdefb;
+      color: #1565c0;
+    }
+
+    &.unpaid {
+      background: #f8bbd0;
+      color: #c2185b;
+    }
+
+    &.default {
+      background: #e0e0e0;
+      color: #424242;
+    }
+  }
+
 
   .status-pill {
     padding: 4px 10px;

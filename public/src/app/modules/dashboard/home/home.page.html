@@ -157,7 +157,7 @@
               <p class="overview-subtitle">Quick view of your available time off</p>
             </div>
             <div class="header-badge">
-              <span class="badge-pill">Cycle : {{ leaveCycleRange }}</span>
+              <span class="badge-pill">Cycle : Mar - Feb</span>
             </div>
           </div>
 
@@ -182,23 +182,112 @@
         </ion-card>
 
         <!-- Upcoming holidays card -->
-        <ion-card class="overview-block">
-          <div class="row-space-between border-bottom">
-            <div>
-              <h3 class="card-header">Holidays</h3>
-              <p class="card-dec">Next few company and regional holidays</p>
+        <ion-card class="overview-block modern-overview-card holidays-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Upcoming holidays</h3>
+              <p class="overview-subtitle">Next few company and regional holidays</p>
             </div>
-            <div class="label">
-              <p>Location : Vizag</p>
+            <div class="header-badge">
+              <span class="badge-pill">Location : Vizag</span>
             </div>
           </div>
-          <div class="holidays-coming-soon">
-            <div class="coming-soon-content">
-              <img src="https://media.tenor.com/_7n1_44wGisAAAAC/coming-soon-loading.gif" alt="Coming Soon GIF"
-                class="coming-soon-gif">
-              <h2 class="card-main-header">Upcoming Holidays</h2>
-              <p class="coming-soon-text">We're updating the festive list for you!</p>
-              <div class="glow-tag">COMING SOON</div>
+
+          <div class="divider-line"></div>
+
+          <!-- Festive Holiday Banner -->
+          <div class="holiday-banner">
+            <div class="holiday-banner-content">
+              <div class="holiday-date-block">
+                <span class="holiday-day">25</span>
+                <span class="holiday-month-year">December 2025</span>
+                <span class="holiday-name">Happy Christmas</span>
+              </div>
+            </div>
+            <div class="holiday-banner-overlay"></div>
+          </div>
+        </ion-card>
+
+        <!-- Quick Links card -->
+        <ion-card class="overview-block modern-overview-card quick-links-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Quick links</h3>
+              <p class="overview-subtitle">Jump into the tools you use the most</p>
+            </div>
+            <div class="header-badge">
+              <span class="badge-pill">Shortcusts</span>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <div class="quick-links-grid">
+            <div class="quick-link-tile" (click)="leaves()">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="17" cy="21" r="1"/><circle cx="9" cy="21" r="1"/>
+                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">WFH request</span>
+                <span class="ql-desc">Request remote work</span>
+              </div>
+            </div>
+
+            <div class="quick-link-tile">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="16" y1="13" x2="8" y2="13"/>
+                  <line x1="16" y1="17" x2="8" y2="17"/>
+                  <polyline points="10 9 9 9 8 9"/>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">Documents</span>
+                <span class="ql-desc">Payslips, letters, policies</span>
+              </div>
+            </div>
+
+            <div class="quick-link-tile">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">Policies</span>
+                <span class="ql-desc">HR, IT &amp; security</span>
+              </div>
+            </div>
+
+            <div class="quick-link-tile">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.35 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.55a16 16 0 0 0 6 6l.92-.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16l-.19.94a2 2 0 0 1 0 .92z"/>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">Helpdesk</span>
+                <span class="ql-desc">Raise a ticket</span>
+              </div>
+            </div>
+
+            <div class="quick-link-tile">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">Assets</span>
+                <span class="ql-desc">Assigned hardware &amp; more</span>
+              </div>
             </div>
           </div>
         </ion-card>

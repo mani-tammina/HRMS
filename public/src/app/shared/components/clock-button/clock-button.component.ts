@@ -55,7 +55,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     .attendance-btn-container {
       &.mini-layout {
         .modern-clock-btn {
-          min-width: 140px;
           height: 44px;
           padding: 0 16px;
           .btn-content {
@@ -173,7 +172,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     .row-center {
       display: flex;
-      justify-content: center;
+      justify-content: left;
       align-items: center;
     }
   `]

@@ -866,8 +866,6 @@ router.get("/balance", auth, async (req, res) => {
 
     // Determine if initialization is needed
     let needsInitialization = false;
-    let leaveYearStartMonth = 1;
-    let leaveYearStartDay = 1;
     if (emp.leave_plan_id) {
       const [allocRows] = await c.query(
         `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
@@ -875,23 +873,12 @@ router.get("/balance", auth, async (req, res) => {
       );
       const expectedCount = allocRows[0].count || 0;
       needsInitialization = updatedBalances.length < expectedCount;
-
-      const [planRows] = await c.query(
-        "SELECT leave_year_start_month, leave_year_start_day FROM leave_plans WHERE id = ?",
-        [emp.leave_plan_id]
-      );
-      if (planRows && planRows[0]) {
-        leaveYearStartMonth = planRows[0].leave_year_start_month || 1;
-        leaveYearStartDay = planRows[0].leave_year_start_day || 1;
-      }
     }
 
     c.end();
     res.json({
       balances: updatedBalances,
       needs_initialization: needsInitialization,
-      leave_year_start_month: leaveYearStartMonth,
-      leave_year_start_day: leaveYearStartDay
     });
   } catch (error) {
     console.error("Error fetching leave balance:", error);

@@ -25,7 +25,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   // Profile state
   currentEmployee: any;
-  profileImageUrl: string = '../../assets/Profile_Picture.png';
+  profileImageUrl: string = '../../assets/user.png';
   env: string = '';
   isAdmin: boolean = false;
   isAuthenticated: boolean = false;
@@ -135,7 +135,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   handleImageError(event: any) {
-    event.target.src = '../../assets/Profile_Picture.png';
+    event.target.src = '../../assets/user.png';
   }
 
   openEmployeeDetailsModal(emp: any) {

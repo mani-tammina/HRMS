@@ -249,6 +249,16 @@ export class LeavesPage implements OnInit, OnDestroy {
     this.currentMonthFirstDateText = firstDay.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  getLeaveTypeClass(leaveType: string): string {
+    const type = leaveType?.toLowerCase() || '';
+    if (type.includes('sick')) return 'sick';
+    if (type.includes('casual')) return 'casual';
+    if (type.includes('marriage')) return 'marriage';
+    if (type.includes('comp') || type.includes('comp off')) return 'comp-offs';
+    if (type.includes('unpaid')) return 'unpaid';
+    return 'default';
+  }
+
   updateHistoryAndPendingLeaves() {
     const today = new Date();
     const cm = today.getMonth();

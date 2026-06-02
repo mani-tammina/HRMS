@@ -751,3 +751,410 @@ ion-modal {
   --height: 70%;
   --border-radius: #{vars.$radius-xl};
 }
+
+// ── Timings Card Redesign ──
+.timings-card-new {
+  background: #ffffff !important;
+  border: 1px solid #ABABAB !important;
+  border-radius: 10px !important;
+  padding: 20px !important;
+  margin: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
+  display: flex;
+  flex-direction: column;
+  height: 380px !important;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  .timings-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+
+    .timings-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #212529;
+    }
+
+    .date-badge {
+      background: #eff1f5;
+      color: #1a2b3c;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 6px 14px;
+      border-radius: 30px;
+    }
+  }
+
+  .timings-body {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    flex: 1;
+  }
+
+  .shift-row-new {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 10px;
+    padding: 12px 14px;
+
+    .shift-icon-box {
+      width: 36px;
+      height: 36px;
+      background: #ffffff;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #3b82f6;
+      background: #e8f4fd;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.1);
+    }
+
+    .shift-text-label {
+      font-size: 14px;
+      font-weight: 400;
+      color: #202020;
+    }
+  }
+
+  .days-row-capsules {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    margin: 8px 0;
+
+    .day-capsule-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .day-capsule {
+      width: 100%;
+      height: 15px;
+      border-radius: 100px;
+
+      &.is-present {
+        background: linear-gradient(180deg, #3498DB 0%, #7FCAFD 100%);
+
+      }
+
+      &.is-today {
+        background: linear-gradient(180deg, #FF4B4B 0%, #FFCCCC 100%);
+      }
+
+      &.is-weekoff {
+        background: #e2e8f0;
+      }
+    }
+
+    .day-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: #64748b;
+    }
+  }
+
+  .today-progress-section {
+    margin-top: auto;
+    padding-bottom: 4px;
+
+    .today-progress-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+      margin: 0 0 10px 0;
+    }
+
+    .progress-bar-container-new {
+      height: 13px;
+      background: #3498DB;
+      border-radius: 100px;
+      overflow: hidden;
+      margin-bottom: 12px;
+      border: 1px solid #e2e8f0;
+
+      .progress-bar-fill-new {
+        height: 100%;
+        background: #3498DB;
+        border-radius: 6px;
+        transition: width 0.4s ease;
+      }
+    }
+
+    .progress-footer-new {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: #64748b;
+
+      .break-text {
+        display: flex;
+        align-items: center;
+        color: #0d9488;
+      }
+    }
+  }
+}
+
+// ── Today Actions Card Redesign ──
+.today-actions-card {
+  background: #ffffff !important;
+  border: 1px solid #ABABAB !important;
+  border-radius: 10px !important;
+  padding: 20px !important;
+  margin: 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
+  display: flex;
+  flex-direction: column;
+  height: 380px !important;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06) !important;
+  }
+
+  ion-card-header {
+    padding: 0 0 16px 0 !important;
+    border-bottom: none !important;
+
+    ion-card-title {
+      font-size: 18px !important;
+      font-weight: 700 !important;
+      color: #212529 !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
+    }
+  }
+
+  ion-card-content {
+    padding: 0 !important;
+    flex: 1;
+    display: flex;
+  }
+
+  .today-card-grid {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 16px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .today-left-col {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    height: 100%;
+    padding-bottom: 4px;
+  }
+
+  .status-msg-box {
+    padding-top: 24px;
+
+    .status-main {
+      font-size: 15px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0 0 4px 0;
+    }
+
+    .status-sub {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+      font-weight: 500;
+    }
+  }
+
+  .time-left-box {
+    margin: 8px 0;
+    padding-left: 10px;
+    border-left: 3px solid #ef4444;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    .tl-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #64748b;
+    }
+
+    .tl-value {
+      font-size: 14px;
+      font-weight: 700;
+      color: #ef4444;
+    }
+  }
+
+  .main-clock-btn-wrapper {
+    margin-top: auto;
+    margin-bottom: 12px;
+
+    .img-clock-btn {
+      width: 100%;
+      height: 44px;
+      background: #1870b9;
+      color: #ffffff;
+      border: none;
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(24, 112, 185, 0.2);
+
+      &:hover {
+        background: #135994;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(24, 112, 185, 0.3);
+      }
+
+      &:active {
+        transform: translateY(0);
+      }
+
+      &.clocked-in {
+        background: #ef4444;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+
+        &:hover {
+          background: #dc2626;
+          box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+        }
+      }
+    }
+  }
+
+  .pills-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    .pill-btn {
+      flex: 1;
+      height: 34px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-radius: 20px;
+      color: #475569;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+      padding: 0px 10px;
+
+      &:hover:not([disabled]) {
+        background: #f8fafc;
+        border-color: #94a3b8;
+        color: #1e293b;
+      }
+
+      &[disabled] {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+  }
+
+  .today-right-col {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .gauge-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .gauge-wrapper {
+    position: relative;
+    // width: 120px;
+    // height: 120px;
+
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      width: 215px;
+      height: 235px;
+      transform: rotate(-90deg);
+    }
+
+    .gauge-bg {
+      stroke: #f1f5f9;
+      stroke-width: 8;
+      fill: none;
+    }
+
+    .gauge-fill {
+      stroke: #3b82f6;
+      stroke-width: 9;
+      fill: none;
+      stroke-linecap: round;
+      stroke-dasharray: 251.3;
+      stroke-dashoffset: 251.3;
+      transition: stroke-dashoffset 0.3s ease;
+    }
+
+    .gauge-text-box {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      .gauge-timer {
+        font-size: 17px;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1;
+      }
+
+      .gauge-label {
+        font-size: 10px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        margin-top: 4px;
+      }
+    }
+  }
+
+  .prev-day-box {
+    font-size: 12px;
+    color: #475569;
+    font-weight: 500;
+    text-align: center;
+    white-space: nowrap;
+
+    strong {
+      color: #1e293b;
+      font-weight: 700;
+    }
+  }
+}

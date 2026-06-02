@@ -26,7 +26,7 @@
               <ion-item *ngFor="let emp of searchResults" button (click)="openEmployeeDetailsModal(emp)"
                 class="search-item">
                 <ion-avatar slot="start" class="search-avatar">
-                  <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/Profile_Picture.png'"
+                  <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/user.png'"
                     (error)="handleImageError($event)" alt="Profile">
                 </ion-avatar>
                 <ion-label class="search-label">
@@ -111,7 +111,7 @@
           <div class="employee-modal-header">
             <div class="avatar-block">
               <img
-                [src]="selectedEmployee.profile_image ? (env + selectedEmployee.profile_image) : '../../assets/Profile_Picture.png'"
+                [src]="selectedEmployee.profile_image ? (env + selectedEmployee.profile_image) : '../../assets/user.png'"
                 (error)="handleImageError($event)" alt="Profile" class="emp-modal-avatar">
             </div>
             <div class="employee-modal-info">

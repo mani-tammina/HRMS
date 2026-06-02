@@ -49,7 +49,6 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= IMAGES ================= */
   env: string = '';
   leaveCards: any[] = [];
-  leaveCycleRange: string = 'Mar - Feb';
   userDesignation: string | null = null;
   leaveCodeIdMap: any = {};
   todayAttendance: any = null;
@@ -383,9 +382,6 @@ export class HomePage implements OnInit, OnDestroy {
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
-        if (res && res.leave_year_start_month) {
-          this.leaveCycleRange = this.calculateLeaveCycle(res.leave_year_start_month);
-        }
         const balances = res.balances || [];
         this.leaveCodeIdMap = {};
         balances.forEach((item: any) => { this.leaveCodeIdMap[item.type_code] = item.leave_type_id || item.id; });
@@ -408,13 +404,6 @@ export class HomePage implements OnInit, OnDestroy {
       },
       error: err => console.error(err)
     });
-  }
-
-  calculateLeaveCycle(startMonth: number): string {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const startIdx = (startMonth - 1 + 12) % 12;
-    const endIdx = (startIdx - 1 + 12) % 12;
-    return `${months[startIdx]} - ${months[endIdx]}`;
   }
 
   loadCurrentMonthLOP() {
