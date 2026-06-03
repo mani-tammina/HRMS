@@ -3,7 +3,6 @@
 .reports-container {
   padding: 32px 24px;
   background: vars.$color-bg-page;
-  min-height: 100vh;
 }
 
 /* ═══════════════ MANAGER APPROVAL BAR ═══════════════ */
@@ -194,9 +193,9 @@
   box-shadow: vars.$shadow-sm;
   transition: vars.$transition-smooth;
   border: 1px solid transparent;
+  background:#122E44;
 
   &:hover {
-    transform: translateY(-6px);
     box-shadow: vars.$shadow-md;
   }
 
@@ -208,17 +207,16 @@
   }
 
   .card-icon {
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
     background: rgba(255, 255, 255, 0.15);
     border-radius: vars.$radius-md;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-
+    background:#1F74BB;
     ion-icon {
-      font-size: 24px;
+      font-size: 20px;
     }
   }
 
@@ -227,10 +225,9 @@
     flex-direction: column;
 
     .label {
-      font-size: 10px;
+      font-size: 14px;
       font-weight: vars.$fw-bold;
-      opacity: 0.8;
-      text-transform: uppercase;
+      text-transform: capitalize;
       letter-spacing: 1px;
     }
 
@@ -249,36 +246,37 @@
     z-index: 1;
 
     ion-icon {
-      font-size: 100px;
+      font-size: 60px;
       color: #fff;
+      padding: 18px 18px;
     }
   }
 
-  &.total {
-    background: vars.$color-sidebar;
-  }
+  // &.total {
+  //   background: vars.$color-sidebar;
+  // }
 
-  &.present {
-    background: vars.$color-success;
-  }
+  // &.present {
+  //   background: vars.$color-success;
+  // }
 
-  &.absent {
-    background: vars.$color-danger;
-  }
+  // &.absent {
+  //   background: vars.$color-danger;
+  // }
 
-  &.leave {
-    background: vars.$color-warning;
-  }
+  // &.leave {
+  //   background: vars.$color-warning;
+  // }
 
-  &.not-punched {
-    background: vars.$color-info;
-  }
+  // &.not-punched {
+  //   background: vars.$color-info;
+  // }
 
-  &.active {
-    box-shadow: 0 0 0 4px rgba(vars.$color-primary, 0.2), vars.$shadow-lg;
-    transform: translateY(-8px);
-    border-color: white;
-  }
+  // &.active {
+  //   box-shadow: 0 0 0 4px rgba(vars.$color-primary, 0.2), vars.$shadow-lg;
+  //   transform: translateY(-8px);
+  //   border-color: white;
+  // }
 }
 
 /* ═══════════════ TEAM LIST ═══════════════ */
@@ -304,7 +302,7 @@
 .premium-team-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 32px;
+  gap: 20px;
 
   @media (max-width: 600px) {
     grid-template-columns: 1fr;
@@ -318,7 +316,6 @@
   box-shadow: vars.$shadow-sm;
   overflow: hidden;
   transition: vars.$transition-smooth;
-  border: 1px solid vars.$color-border;
 
   &:hover {
     transform: translateY(-4px);
@@ -331,19 +328,23 @@
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: vars.$color-primary;
+    height: 14px;
+    background: #1a5fa8;
+    border-top-left-radius: 16px;
+    border-top-right-radius: 16px;
+    
   }
 
   .card-body {
     padding: 32px;
+        border-radius: 16px;
+        padding-bottom: 10px
   }
 
   .body-top {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 24px;
   }
 
   .profile-block {
@@ -354,9 +355,9 @@
     .emp-avatar {
       width: 60px;
       height: 60px;
-      background: vars.$color-bg-subtle;
-      border: 2px solid vars.$color-white;
       box-shadow: vars.$shadow-xs;
+    min-width: 55px;
+    min-height: 55px;
 
       img {
         border-radius: 50%;
@@ -369,7 +370,7 @@
         margin: 0;
         font-size: vars.$fs-body;
         font-weight: vars.$fw-bold;
-        color: vars.$color-text-primary;
+        color: #333333;
         letter-spacing: vars.$ls-tight;
       }
 

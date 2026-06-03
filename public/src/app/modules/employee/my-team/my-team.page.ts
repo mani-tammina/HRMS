@@ -260,7 +260,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   }
 
   getAvatarColor(id: number): string {
-    const colors = ['#E6E6FA', '#F0F8FF', '#F5FFFA', '#FFF0F5', '#FDF5E6', '#F0FFF0'];
+    const colors = ['#1F74BB', '#BB2C1F', '#00983D'];
     return colors[id % colors.length];
   }
 
@@ -395,7 +395,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   viewEmployeeAttendance(member: any) {
     const id = member.id || member.employee_id || member.EmployeeId;
     if (id) {
-       this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);
+      this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);
     }
   }
 }

@@ -1,10 +1,7 @@
 @use '../../../../theme/_variables' as vars;
 
 .leaves-block {
-  --background: #{vars.$color-bg-page};
   position: relative;
-  min-height: 100vh;
-
   &::part(background) {
     background: vars.$color-bg-page;
   }
