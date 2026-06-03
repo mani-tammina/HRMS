@@ -274,6 +274,7 @@
       transition: vars.$transition-base;
       --padding-start: 8px;
       --padding-end: 8px;
+      width: 50px;
 
       ion-icon {
         font-size: 18px;
@@ -509,13 +510,12 @@
 }
 
 .submit-btn {
-  --border-radius: #{vars.$radius-md};
-  --background: #{vars.$color-sidebar};
   --color: white;
   height: 48px;
   font-weight: vars.$fw-bold;
   letter-spacing: 0.5px;
   text-transform: none;
+  --border-radius: 20px;
   &:hover {
       opacity: 0.9;
   }

@@ -326,10 +326,7 @@ ion-menu.side-menu-list ion-list {
 /* =================== MODALS =================== */
 
 ion-modal {
-  --width: 800px;
-  --height: calc(100vh - 60px);
-  --max-height: calc(100vh - 60px);
-  --border-radius: 16px;
+  --border-radius: 20px;
 
   &.big-modal {
     justify-content: right !important;
