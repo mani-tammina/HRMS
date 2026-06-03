@@ -688,9 +688,11 @@ app-clock-button {
     }
 
     &.active {
-      background: vars.$color-white;
-      color: vars.$color-primary;
+      background: #1870B9;
+      color: #fff;
       box-shadow: vars.$shadow-sm;
+      border-radius: 20px 0px 0px 20px;
+      padding: 15px;
     }
   }
 }
@@ -1158,3 +1160,5 @@ ion-modal {
     }
   }
 }
+
+

@@ -22,27 +22,25 @@
 
 .filter-block {
   display: flex;
-  gap: 8px;
 }
 
 .btn-secondry {
   padding: 8px 16px;
   background: vars.$color-bg-subtle;
-  border: 1px solid vars.$color-border-light;
-  border-radius: vars.$radius-md;
   font-size: 11px;
   font-weight: vars.$fw-bold;
-  color: vars.$color-text-muted;
+  color: #1870B9;
+  border-right:1px solid #ABABAB99;
   cursor: pointer;
   transition: vars.$transition-base;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  text-transform: capitalize;
 
   &.active {
-    background: vars.$color-sidebar;
+  background: #1870B9 !important;
     color: #fff;
-    border-color: vars.$color-sidebar;
-    box-shadow: vars.$shadow-sm;
+   height: 44px;
+    border-radius: 99px 0px 0px 99px;
+    border: none;
   }
 
   &:hover:not(.active) {

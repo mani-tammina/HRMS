@@ -98,12 +98,22 @@ ion-menu ion-item {
     }
   }
 
-  .active-menu { display: none; }
-  .inactive-menu { display: block; }
+  .active-menu {
+    display: none;
+  }
+
+  .inactive-menu {
+    display: block;
+  }
 
   &.selected {
-    .active-menu  { display: block; }
-    .inactive-menu { display: none; }
+    .active-menu {
+      display: block;
+    }
+
+    .inactive-menu {
+      display: none;
+    }
   }
 }
 
@@ -152,34 +162,119 @@ ion-menu.side-menu-list ion-list {
 
 /* =================== UTILITY CLASSES =================== */
 
-.d-flex       { display: flex; }
-.d-block      { display: block !important; }
-.d-none       { display: none !important; }
-.text-center  { text-align: center; }
-.w-100        { width: 100%; }
-.pl-5         { padding-left: 5px; }
-.pl-15        { padding-left: 15px; }
-.pl-30        { padding-left: 30px; }
-.pr-5         { padding-right: 5px; }
-.pr-15        { padding-right: 15px; }
-.pr-30        { padding-right: 30px; }
-.mb-30        { margin-bottom: 30px !important; }
-.mt-30        { margin-top: 30px !important; }
-.mb-10        { margin-bottom: 10px !important; }
-.mb-15        { margin-bottom: 15px !important; }
-.p-8          { padding: 8px; }
-.pb-8         { padding-bottom: 8px; }
-.m-auto       { margin: auto !important; }
-.mt-0         { margin: 0 !important; }
-.mt-8         { margin-top: 8px !important; }
-.mt-10        { margin-top: 10px !important; }
-.mt-15        { margin-top: 15px !important; }
-.my-15        { margin-top: 15px !important; margin-bottom: 15px !important; }
-.ml-15        { margin-left: 15px !important; }
-.mr-15        { margin-right: 15px !important; }
-.mr-8         { margin-right: 8px !important; }
-.mx-30        { margin-left: 30px; margin-right: 30px; }
-.m-0          { margin: 0px; }
+.d-flex {
+  display: flex;
+}
+
+.d-block {
+  display: block !important;
+}
+
+.d-none {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.w-100 {
+  width: 100%;
+}
+
+.pl-5 {
+  padding-left: 5px;
+}
+
+.pl-15 {
+  padding-left: 15px;
+}
+
+.pl-30 {
+  padding-left: 30px;
+}
+
+.pr-5 {
+  padding-right: 5px;
+}
+
+.pr-15 {
+  padding-right: 15px;
+}
+
+.pr-30 {
+  padding-right: 30px;
+}
+
+.mb-30 {
+  margin-bottom: 30px !important;
+}
+
+.mt-30 {
+  margin-top: 30px !important;
+}
+
+.mb-10 {
+  margin-bottom: 10px !important;
+}
+
+.mb-15 {
+  margin-bottom: 15px !important;
+}
+
+.p-8 {
+  padding: 8px;
+}
+
+.pb-8 {
+  padding-bottom: 8px;
+}
+
+.m-auto {
+  margin: auto !important;
+}
+
+.mt-0 {
+  margin: 0 !important;
+}
+
+.mt-8 {
+  margin-top: 8px !important;
+}
+
+.mt-10 {
+  margin-top: 10px !important;
+}
+
+.mt-15 {
+  margin-top: 15px !important;
+}
+
+.my-15 {
+  margin-top: 15px !important;
+  margin-bottom: 15px !important;
+}
+
+.ml-15 {
+  margin-left: 15px !important;
+}
+
+.mr-15 {
+  margin-right: 15px !important;
+}
+
+.mr-8 {
+  margin-right: 8px !important;
+}
+
+.mx-30 {
+  margin-left: 30px;
+  margin-right: 30px;
+}
+
+.m-0 {
+  margin: 0px;
+}
 
 /* =================== BUTTONS =================== */
 
@@ -257,10 +352,21 @@ ion-modal {
     --border-radius: 0;
     justify-content: right;
 
-    &.checkinInfo-popup { --width: 460px; }
-    &.team-popup        { --width: 500px; }
-    &.timesheet-popup   { --width: 560px; }
-    &.team-report-popup { --width: 800px; }
+    &.checkinInfo-popup {
+      --width: 460px;
+    }
+
+    &.team-popup {
+      --width: 500px;
+    }
+
+    &.timesheet-popup {
+      --width: 560px;
+    }
+
+    &.team-report-popup {
+      --width: 800px;
+    }
   }
 }
 
@@ -289,8 +395,6 @@ ion-modal {
   }
 
   .table-header {
-    height: 44px;
-    border-bottom: 1px solid $color-border;
     align-items: center;
     background: $color-bg-subtle;
 
@@ -594,7 +698,8 @@ ion-content {
   cursor: pointer;
   transition: all 0.3s ease, transform 0.1s ease;
 
-  .text, ion-icon {
+  .text,
+  ion-icon {
     position: relative;
     z-index: 2;
     transition: all 0.3s ease;
@@ -655,29 +760,88 @@ ion-content {
     animation: rise var(--rise-duration) ease-in infinite var(--rise-delay);
     z-index: 1;
 
-    &:nth-child(1) { left: 10%; width: 20px; height: 20px; --rise-duration: 4s;   --rise-delay: 0s; }
-    &:nth-child(2) { left: 25%; width: 15px; height: 15px; --rise-duration: 3.5s; --rise-delay: 0.5s; }
-    &:nth-child(3) { left: 40%; width: 10px; height: 10px; --rise-duration: 3s;   --rise-delay: 1s; }
-    &:nth-child(4) { left: 55%; width: 22px; height: 22px; --rise-duration: 4.5s; --rise-delay: 1.5s; }
-    &:nth-child(5) { left: 70%; width: 18px; height: 18px; --rise-duration: 3.8s; --rise-delay: 2s; }
-    &:nth-child(6) { left: 85%; width: 12px; height: 12px; --rise-duration: 3.2s; --rise-delay: 2.5s; }
+    &:nth-child(1) {
+      left: 10%;
+      width: 20px;
+      height: 20px;
+      --rise-duration: 4s;
+      --rise-delay: 0s;
+    }
+
+    &:nth-child(2) {
+      left: 25%;
+      width: 15px;
+      height: 15px;
+      --rise-duration: 3.5s;
+      --rise-delay: 0.5s;
+    }
+
+    &:nth-child(3) {
+      left: 40%;
+      width: 10px;
+      height: 10px;
+      --rise-duration: 3s;
+      --rise-delay: 1s;
+    }
+
+    &:nth-child(4) {
+      left: 55%;
+      width: 22px;
+      height: 22px;
+      --rise-duration: 4.5s;
+      --rise-delay: 1.5s;
+    }
+
+    &:nth-child(5) {
+      left: 70%;
+      width: 18px;
+      height: 18px;
+      --rise-duration: 3.8s;
+      --rise-delay: 2s;
+    }
+
+    &:nth-child(6) {
+      left: 85%;
+      width: 12px;
+      height: 12px;
+      --rise-duration: 3.2s;
+      --rise-delay: 2.5s;
+    }
   }
 }
 
 @keyframes rotate-liquid {
-  0%   { transform: translate(-50%, -75%) rotate(0deg); }
-  100% { transform: translate(-50%, -75%) rotate(360deg); }
+  0% {
+    transform: translate(-50%, -75%) rotate(0deg);
+  }
+
+  100% {
+    transform: translate(-50%, -75%) rotate(360deg);
+  }
 }
 
 @keyframes rise {
-  0%   { bottom: -20px; opacity: 0; }
-  5%   { opacity: 0.7; }
-  95%  { opacity: 0.7; }
-  100% { bottom: 120%; opacity: 0; }
+  0% {
+    bottom: -20px;
+    opacity: 0;
+  }
+
+  5% {
+    opacity: 0.7;
+  }
+
+  95% {
+    opacity: 0.7;
+  }
+
+  100% {
+    bottom: 120%;
+    opacity: 0;
+  }
 }
 
-  .searchbar-input-container{
-    input{
-      line-height: 28px !important;
-    }
+.searchbar-input-container {
+  input {
+    line-height: 28px !important;
   }
+}

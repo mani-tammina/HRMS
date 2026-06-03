@@ -53,14 +53,20 @@
         transform: translateY(-8px);
         box-shadow: vars.$shadow-lg;
         border-color: vars.$color-primary;
-        
+
         .card-icon-wrapper {
-            background: vars.$color-primary;
-            color: white;
-            img { filter: brightness(0) invert(1); }
+          background: vars.$color-primary;
+          color: white;
+
+          img {
+            filter: brightness(0) invert(1);
+          }
         }
-        
-        ion-card-title { color: vars.$color-primary; }
+
+        ion-card-title {
+          color: #fff;
+
+        }
       }
 
       ion-card-header {
@@ -69,24 +75,27 @@
         flex-direction: column;
         align-items: flex-start;
         flex: 1;
+        --background: linear-gradient(105.32deg, #1F74BB -0.07%, #0E3555 62.91%);
+
       }
 
       .card-icon-wrapper {
         background: vars.$color-primary-light;
         padding: 16px;
-        border-radius: vars.$radius-lg;
+        border-radius: 50%;
         margin-bottom: 24px;
         transition: vars.$transition-base;
         color: vars.$color-primary;
-        display: flex; align-items: center; justify-content: center;
-        border: 1px solid rgba(vars.$color-primary, 0.1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
 
         img {
           display: block;
           width: 32px;
           height: 32px;
           transition: vars.$transition-base;
-          
+
           &.blue-img {
             filter: none;
             background: white;
@@ -103,6 +112,7 @@
         font-weight: vars.$fw-bold;
         transition: vars.$transition-base;
         letter-spacing: vars.$ls-tight;
+        color: #fff;
       }
 
       p {
@@ -112,6 +122,8 @@
         line-height: 1.6;
         flex-grow: 1;
         font-weight: vars.$fw-medium;
+        color: #fff;
+
       }
 
       .card-btn {
@@ -120,19 +132,20 @@
         font-size: 13px;
         color: vars.$color-primary;
         margin: 0;
-        display: flex; align-items: center;
+        display: flex;
+        align-items: center;
         text-transform: uppercase;
         letter-spacing: 0.5px;
-        
+
         ion-icon {
-            margin-left: 8px;
-            font-size: 18px;
-            transition: transform 0.3s ease;
+          margin-left: 8px;
+          font-size: 18px;
+          transition: transform 0.3s ease;
         }
       }
 
       &:hover .card-btn ion-icon {
-          transform: translateX(6px);
+        transform: translateX(6px);
       }
     }
   }
@@ -149,11 +162,13 @@
   .admin-dashboard .manage-block .clickable-card {
     width: 100%;
   }
-  
+
   .admin-dashboard .top-bar {
-      text-align: center;
-      padding: 24px;
+    text-align: center;
+    padding: 24px;
   }
-  
-  .admin-dashboard { padding: 20px; }
+
+  .admin-dashboard {
+    padding: 20px;
+  }
 }

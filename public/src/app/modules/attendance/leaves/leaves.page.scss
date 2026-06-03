@@ -12,7 +12,6 @@
   .content-wrapper {
     position: relative;
     z-index: 10;
-    max-width: 1650px;
     margin: 0 auto;
     padding: 32px 24px;
     padding-bottom: 80px;
@@ -25,7 +24,6 @@
     align-items: center;
     margin-bottom: 32px;
     padding: 0 8px;
-    margin-top: 25px;
 
     .header-left {
       h1 {
@@ -81,7 +79,6 @@
   .glass-dashboard {
     .dashboard-grid {
       display: grid;
-      grid-template-columns: 3fr 1fr;
       gap: 24px;
 
       @media (max-width: 1200px) {
@@ -102,6 +99,7 @@
       display: flex;
       align-items: center;
       gap: 12px;
+
       .icon-box {
         width: 36px;
         height: 36px;
@@ -119,7 +117,7 @@
       }
 
       h2 {
-        color:#212529;
+        color: #212529;
         font-size: 18px;
         font-weight: vars.$fw-bold;
       }
@@ -167,7 +165,7 @@
       justify-content: center;
 
       .icon-background {
-         width: 95px;
+        width: 95px;
         height: 95px;
         border-radius: 50%;
         background: linear-gradient(135deg, #e9d5ff 0%, #f3e8ff 100%);
@@ -223,6 +221,9 @@
     padding: 24px;
     border: 1px solid vars.$color-border;
     box-shadow: vars.$shadow-sm;
+    padding-left: 0;
+    padding-right: 0;
+    padding-bottom: 0;
   }
 
   .pending-header,
@@ -231,6 +232,7 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 24px;
+    padding: 0px 16px;
 
     .title-group {
       display: flex;
@@ -292,18 +294,18 @@
           padding: 14px 16px;
           color: vars.$color-text-secondary;
           font-size: 13px;
-          border-top: 1px solid vars.$color-border-light;
-          border-bottom: 1px solid vars.$color-border-light;
+          border-top: 1px solid #ABABAB;
+          text-align: left;
 
-          &:first-child {
-            border-left: 1px solid vars.$color-border-light;
-            border-radius: vars.$radius-md 0 0 vars.$radius-md;
-          }
+          // &:first-child {
+          //   border-left: 1px solid vars.$color-border-light;
+          //   border-radius: vars.$radius-md 0 0 vars.$radius-md;
+          // }
 
-          &:last-child {
-            border-right: 1px solid vars.$color-border-light;
-            border-radius: 0 vars.$radius-md vars.$radius-md 0;
-          }
+          // &:last-child {
+          //   border-right: 1px solid vars.$color-border-light;
+          //   border-radius: 0 vars.$radius-md vars.$radius-md 0;
+          // }
 
           .period {
             div {
@@ -315,9 +317,9 @@
         }
       }
 
-      .type-cell {
-        text-align: center;
-      }
+      // .type-cell {
+      //   text-align: center;
+      // }
 
       .days {
         font-weight: vars.$fw-bold;
@@ -561,4 +563,8 @@
       color: vars.$color-text-primary;
     }
   }
+}
+
+.history-card {
+  width: 50%;
 }

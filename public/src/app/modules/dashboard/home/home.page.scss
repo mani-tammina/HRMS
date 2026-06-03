@@ -67,8 +67,6 @@
   // WELCOME CARD — Professional flat design
   // ─────────────────────────────────────────────
   .welcome-block {
-    margin-bottom: vars.$space-6;
-
     .welcome-card-premium {
       // ── Background image (navy → grey → coral texture) ──
       background-image: url('../../../../assets/introduction.png');
@@ -83,7 +81,6 @@
       min-height: 150px;
       display: flex;
       align-items: stretch;
-      margin-top: 45px;
 
       // No accent bar needed
       &::before {
@@ -135,7 +132,7 @@
         flex-direction: column;
         justify-content: center;
         gap: 16px;
-        width: 83%;
+        width: 80%;
       }
 
       .user-profile-group {
@@ -1097,7 +1094,7 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 12px rgba(27, 108, 185, 0.3);
           }
-          
+
           &:active {
             transform: scale(0.97);
           }
@@ -1140,6 +1137,7 @@
           .cancel-btn {
             background: #f1f5f9;
             color: #475569;
+
             &:hover {
               background: #e2e8f0;
             }
@@ -1148,6 +1146,7 @@
           .send-btn {
             background: #1b6cb9;
             color: #fff;
+
             &:hover {
               background: #155894;
             }
@@ -1233,7 +1232,7 @@
         background: #e1f3ff;
         color: #1870b9;
       }
-      
+
       ion-icon {
         font-size: 30px;
       }
@@ -1275,7 +1274,7 @@
       border-radius: 12px;
       overflow: hidden;
       position: relative;
-      min-height: 200px;
+      min-height: 500px;
       background: linear-gradient(135deg, #c0392b 0%, #e74c3c 40%, #c0392b 70%, #922b21 100%);
       display: flex;
       align-items: flex-end;
@@ -1289,10 +1288,10 @@
         right: 0;
         height: 60px;
         background: radial-gradient(ellipse 80px 40px at 15% 100%, #d6eaf8 50%, transparent 50%),
-                    radial-gradient(ellipse 70px 35px at 35% 100%, #e8f4f8 50%, transparent 50%),
-                    radial-gradient(ellipse 90px 45px at 55% 100%, #d6eaf8 50%, transparent 50%),
-                    radial-gradient(ellipse 80px 40px at 75% 100%, #e8f4f8 50%, transparent 50%),
-                    radial-gradient(ellipse 60px 35px at 95% 100%, #d6eaf8 50%, transparent 50%);
+          radial-gradient(ellipse 70px 35px at 35% 100%, #e8f4f8 50%, transparent 50%),
+          radial-gradient(ellipse 90px 45px at 55% 100%, #d6eaf8 50%, transparent 50%),
+          radial-gradient(ellipse 80px 40px at 75% 100%, #e8f4f8 50%, transparent 50%),
+          radial-gradient(ellipse 60px 35px at 95% 100%, #d6eaf8 50%, transparent 50%);
         background-color: #d6eaf8;
         pointer-events: none;
         z-index: 2;
@@ -1304,8 +1303,8 @@
         position: absolute;
         inset: 0;
         background-image:
-          radial-gradient(circle, rgba(255,255,255,0.6) 1.5px, transparent 1.5px),
-          radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px);
+          radial-gradient(circle, rgba(255, 255, 255, 0.6) 1.5px, transparent 1.5px),
+          radial-gradient(circle, rgba(255, 255, 255, 0.4) 1px, transparent 1px);
         background-size: 40px 40px, 20px 20px;
         background-position: 0 0, 10px 10px;
         pointer-events: none;
@@ -1564,7 +1563,7 @@
         .emoji {
           font-size: 14px;
         }
-        
+
         .count {
           font-weight: 600;
         }
