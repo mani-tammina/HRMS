@@ -131,14 +131,14 @@
                 <ion-icon name="lock-open-outline"></ion-icon>
               </div>
               <h2 class="form-title">Reset Password</h2>
-              <p class="form-subtitle">Enter your employee ID to reset</p>
+              <p class="form-subtitle">Enter your Employee Email to reset</p>
             </div>
 
             <form [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPasswordSubmit()" class="form-body">
               <ion-list lines="none" class="input-list">
                 <ion-item class="custom-input-item">
                   <ion-icon name="person-outline" slot="start"></ion-icon>
-                  <ion-label position="floating">Employee ID</ion-label>
+                  <ion-label position="floating">Employee Email</ion-label>
                   <ion-input type="text" formControlName="employee_id" placeholder="Enter ID"></ion-input>
                 </ion-item>
 

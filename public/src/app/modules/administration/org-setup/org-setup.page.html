@@ -200,9 +200,12 @@
                 <ng-container *ngIf="activeTab === 'announcements'">
                   <tr *ngFor="let a of paginatedAnnouncements" class="table-row-hover">
                     <td>
-                      <div class="announcement-cell">
-                        <h3>{{a.title}}</h3>
-                        <p>{{a.body | slice:0:60}}...</p>
+                      <div class="announcement-cell" style="display: flex; align-items: center; gap: 12px;">
+                        <img *ngIf="a.image_url" [src]="env + a.image_url" style="width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #ddd; flex-shrink: 0;" />
+                        <div>
+                          <h3>{{a.title}}</h3>
+                          <p>{{a.body | slice:0:60}}...</p>
+                        </div>
                       </div>
                     </td>
                     <td>
@@ -434,6 +437,25 @@
                   <textarea rows="4" [(ngModel)]="announcementForm.body"
                     placeholder="Share your message here..."></textarea>
                 </div>
+              </div>
+              <div class="premium-form-group">
+                <label>Announcement Image <span class="optional-tag">(Optional)</span></label>
+                
+                <!-- Image Preview -->
+                <div *ngIf="imagePreviewUrl" class="ann-image-preview-box">
+                  <img [src]="imagePreviewUrl" class="ann-image-preview" alt="Announcement Image Preview">
+                  <button type="button" class="ann-remove-btn" (click)="removeImage()">
+                    <ion-icon name="close-circle-outline"></ion-icon>
+                  </button>
+                </div>
+
+                <!-- Upload Trigger Zone -->
+                <div *ngIf="!imagePreviewUrl" class="ann-upload-zone" (click)="fileInput.click()">
+                  <ion-icon name="cloud-upload-outline" class="upload-icon"></ion-icon>
+                  <span>Click to select an image</span>
+                  <small>Formats: JPG, PNG, GIF, WEBP (Max 10MB)</small>
+                </div>
+                <input #fileInput type="file" (change)="onFileSelected($event)" accept="image/*" style="display: none;" />
               </div>
               <div class="form-row">
                 <div class="premium-form-group half">

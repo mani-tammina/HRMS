@@ -331,7 +331,7 @@
             <div class="announcements-vertical-list" *ngIf="announcements.length > 0">
               <div class="announcement-item-row" *ngFor="let announce of announcements.slice(0, 3)">
                 <div class="announcement-thumbnail">
-                  <img src="assets/announcement_thumbnail.png" alt="Announcement Thumbnail">
+                  <img [src]="announce.image_url ? env + announce.image_url : 'assets/announcement_thumbnail.png'" alt="Announcement Thumbnail">
                 </div>
 
                 <div class="announcement-main-content">

@@ -2135,3 +2135,967 @@
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// MODERN OVERVIEW CARDS — shared layout for all dashboard cards
+// ─────────────────────────────────────────────────────────────
+.modern-overview-card {
+  background: #ffffff;
+  border: 1px solid #e8ecf0;
+  border-radius: 18px;
+  padding: 0;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: box-shadow 0.2s ease;
+
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.09);
+  }
+
+  .card-header-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px 20px 0;
+
+    .header-text {
+      .overview-title {
+        font-size: 16px;
+        font-weight: 700;
+        color: #1a2b3c;
+        margin: 0 0 2px;
+      }
+
+      .overview-subtitle {
+        font-size: 12px;
+        color: #8a94a6;
+        margin: 0;
+      }
+    }
+
+    .header-badge {
+      .badge-pill {
+        display: inline-block;
+        background: #f0f4ff;
+        color: #3b5bdb;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        border: 1px solid #d0dcff;
+        white-space: nowrap;
+
+        &.light-blue {
+          background: #e8f4fd;
+          color: #1a78c2;
+          border-color: #b8dcf5;
+        }
+      }
+    }
+  }
+
+  .divider-line {
+    height: 1px;
+    background: #f0f2f5;
+    margin: 14px 20px 0;
+  }
+
+  // ── Shared card body sections ──
+  .card-body-grid {
+    display: flex;
+    gap: 16px;
+    padding: 16px 20px 20px;
+  }
+
+  .stats-left-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .stats-right-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-width: 160px;
+  }
+
+  .stat-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+
+    .stat-label {
+      color: #8a94a6;
+      font-weight: 500;
+    }
+
+    .stat-value {
+      color: #1a2b3c;
+      font-weight: 600;
+
+      &.bold-text {
+        font-size: 14px;
+        font-weight: 700;
+      }
+    }
+  }
+
+  .effective-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+
+    .effective-labels {
+      display: flex;
+      justify-content: space-between;
+    }
+  }
+
+  .progress-bar-container {
+    height: 5px;
+    background: #eef0f3;
+    border-radius: 10px;
+    overflow: hidden;
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3b5bdb, #6c8fff);
+      border-radius: 10px;
+      transition: width 0.4s ease;
+    }
+  }
+
+  .mode-pill-row {
+    margin-top: 4px;
+
+    .mode-pill {
+      display: inline-block;
+      background: #f5f7fa;
+      color: #5a6475;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      border: 1px solid #e2e6ea;
+    }
+  }
+
+  .info-mini-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f8fafc;
+    border: 1px solid #e8ecf0;
+    border-radius: 12px;
+    padding: 12px 14px;
+
+    .mini-card-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .mini-card-label {
+        font-size: 11px;
+        color: #8a94a6;
+        font-weight: 500;
+      }
+
+      .mini-card-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1a2b3c;
+      }
+    }
+
+    .mini-card-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+
+      &.green-icon {
+        background: #e8faf0;
+        color: #12a058;
+      }
+
+      &.blue-icon {
+        background: #e8f0ff;
+        color: #3b5bdb;
+      }
+    }
+  }
+
+  // ── Status badge pills ──
+  .status-badge-pill {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 20px;
+
+    &.status-in {
+      background: #e8faf0;
+      color: #12a058;
+      border: 1px solid #b6ecd0;
+    }
+
+    &.status-out {
+      background: #fff5f5;
+      color: #e03131;
+      border: 1px solid #fcc;
+    }
+
+    &.status-pending {
+      background: #fff8e8;
+      color: #d97706;
+      border: 1px solid #fde68a;
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// LEAVE BALANCE CARD (flat design)
+// ─────────────────────────────────────────────────────────
+.leave-balance-card-flat {
+  .leave-balance-body {
+    padding: 16px 20px 20px;
+  }
+
+  .leave-columns-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .leave-column {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    min-width: 72px;
+    text-align: center;
+
+    .leave-icon-circle {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      ion-icon {
+        font-size: 20px;
+        color: #fff;
+      }
+
+      &.leave-casual {
+        background: linear-gradient(135deg, #3b82f6, #60a5fa);
+      }
+
+      &.leave-sick {
+        background: linear-gradient(135deg, #f87171, #ef4444);
+      }
+
+      &.leave-compoff {
+        background: linear-gradient(135deg, #a78bfa, #7c3aed);
+      }
+    }
+
+    .leave-type-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #5a6475;
+      margin: 0;
+    }
+
+    .leave-days-left {
+      font-size: 11px;
+      color: #8a94a6;
+      margin: 0;
+
+      .days-bold {
+        font-size: 13px;
+        font-weight: 700;
+        color: #1a2b3c;
+      }
+    }
+  }
+
+  .leave-footer-note {
+    font-size: 11px;
+    color: #8a94a6;
+    margin: 12px 0 0;
+    padding-top: 10px;
+    border-top: 1px solid #f0f2f5;
+    font-style: italic;
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// HOLIDAYS CARD
+// ─────────────────────────────────────────────────────────
+.holidays-card {
+  .holiday-banner {
+    position: relative;
+    margin: 16px 20px 20px;
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 100px;
+    background: linear-gradient(135deg, #1a2b3c 0%, #2c4a6e 100%);
+
+    .holiday-banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: url('../../../../assets/christmas_holiday.png') center/cover no-repeat;
+      opacity: 0.35;
+    }
+
+    .holiday-banner-content {
+      position: relative;
+      z-index: 2;
+      padding: 20px;
+
+      .holiday-date-block {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+
+        .holiday-day {
+          font-size: 36px;
+          font-weight: 900;
+          color: #fff;
+          line-height: 1;
+        }
+
+        .holiday-month-year {
+          font-size: 13px;
+          color: rgba(255, 255, 255, 0.8);
+          font-weight: 500;
+        }
+
+        .holiday-name {
+          font-size: 15px;
+          color: #ffd700;
+          font-weight: 700;
+          margin-top: 4px;
+        }
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// QUICK LINKS CARD
+// ─────────────────────────────────────────────────────────
+.quick-links-card {
+  .quick-links-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 16px 20px 20px;
+
+    .quick-link-tile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      background: #f8fafc;
+      border: 1px solid #e8ecf0;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: #f0f4ff;
+        border-color: #c5d3ff;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(59, 91, 219, 0.1);
+      }
+
+      .ql-icon-wrap {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: #e8f0ff;
+        color: #3b5bdb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .ql-text {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+
+        .ql-title {
+          font-size: 13px;
+          font-weight: 700;
+          color: #1a2b3c;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .ql-desc {
+          font-size: 11px;
+          color: #8a94a6;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// ANNOUNCEMENTS CARD (flat, list view with images)
+// ─────────────────────────────────────────────────────────
+.announcements-card-flat {
+  .announcements-list-body {
+    padding: 12px 20px 16px;
+  }
+
+  .no-announcements {
+    text-align: center;
+    padding: 28px 16px;
+
+    p {
+      color: #8a94a6;
+      font-size: 13px;
+      margin: 0;
+    }
+  }
+
+  .announcements-vertical-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .announcement-item-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    padding: 14px;
+    background: #f8fafc;
+    border: 1px solid #eef1f5;
+    border-radius: 14px;
+    transition: all 0.2s ease;
+    cursor: default;
+
+    &:hover {
+      background: #f0f4ff;
+      border-color: #d0dcff;
+      box-shadow: 0 3px 10px rgba(59, 91, 219, 0.07);
+    }
+
+    // ── Thumbnail image ──
+    .announcement-thumbnail {
+      flex-shrink: 0;
+      width: 68px;
+      height: 68px;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #e2e6ea;
+      background: #eef1f5;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: fill;
+        display: block;
+        transition: transform 0.3s ease;
+      }
+
+      &:hover img {
+        transform: scale(1.05);
+      }
+    }
+
+    // ── Text content ──
+    .announcement-main-content {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+
+      .announcement-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: #1a2b3c;
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .announcement-description {
+        font-size: 12px;
+        color: #5a6475;
+        margin: 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        line-height: 1.5;
+      }
+
+      .announcement-footer-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+
+        .time-ago {
+          font-size: 11px;
+          color: #8a94a6;
+          font-weight: 500;
+        }
+
+        .separator-dot {
+          color: #c0c8d4;
+          font-size: 10px;
+        }
+
+        .author-info {
+          display: flex;
+          align-items: center;
+          gap: 5px;
+
+          .author-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #d0d7e0;
+          }
+
+          .author-name {
+            font-size: 11px;
+            color: #5a6475;
+            font-weight: 600;
+          }
+        }
+      }
+    }
+
+    // ── Emoji reactions ──
+    .announcement-reactions {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      align-items: center;
+      flex-shrink: 0;
+
+      .reaction-item {
+        display: flex;
+        align-items: center;
+        gap: 3px;
+        background: #fff;
+        border: 1px solid #e8ecf0;
+        border-radius: 20px;
+        padding: 3px 8px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+
+        &:hover {
+          background: #f0f4ff;
+          border-color: #c5d3ff;
+        }
+
+        .emoji {
+          font-size: 13px;
+        }
+
+        .count {
+          font-size: 11px;
+          font-weight: 600;
+          color: #5a6475;
+        }
+      }
+    }
+  }
+
+  // ── View All link ──
+  .view-all-link-container {
+    text-align: center;
+    padding-top: 10px;
+
+    .view-all-link {
+      font-size: 13px;
+      font-weight: 600;
+      color: #3b5bdb;
+      cursor: pointer;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+        color: #2a47c0;
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// MILESTONES / BIRTHDAY CARD (flat design)
+// ─────────────────────────────────────────────────────────
+.milestone-card {
+  .milestone-list {
+    padding: 12px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-height: 380px;
+    overflow-y: auto;
+  }
+
+  .empty-milestones {
+    text-align: center;
+    padding: 28px 16px;
+    color: #8a94a6;
+
+    ion-icon {
+      font-size: 36px;
+      display: block;
+      margin-bottom: 8px;
+      opacity: 0.5;
+    }
+
+    p {
+      font-size: 13px;
+      margin: 0;
+    }
+  }
+
+  .milestone-item-flat {
+    border-radius: 14px;
+    border: 1px solid #eef1f5;
+    background: #f8fafc;
+    overflow: hidden;
+    transition: all 0.2s ease;
+
+    &.today {
+      background: #fff8f0;
+      border-color: #fde8c8;
+
+      .blue-tab-prefix {
+        background: #f59e0b !important;
+      }
+    }
+
+    .item-main {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+
+      .blue-tab-prefix {
+        width: 4px;
+        height: 40px;
+        border-radius: 4px;
+        background: #3b5bdb;
+        flex-shrink: 0;
+      }
+
+      .avatar-container {
+        width: 42px;
+        height: 42px;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+        border: 2px solid #d0d7e0;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+      }
+
+      .milestone-info {
+        flex: 1;
+        min-width: 0;
+
+        .emp-name {
+          font-size: 14px;
+          font-weight: 700;
+          color: #1a2b3c;
+          display: block;
+        }
+
+        .event-meta {
+          font-size: 12px;
+          color: #5a6475;
+          margin-top: 2px;
+        }
+      }
+
+      .milestone-action {
+        .action-btn-pill {
+          background: #3b5bdb;
+          color: #fff;
+          font-size: 12px;
+          font-weight: 600;
+          padding: 6px 14px;
+          border-radius: 20px;
+          border: none;
+          cursor: pointer;
+          transition: background 0.2s ease;
+          white-space: nowrap;
+
+          &:hover {
+            background: #2a47c0;
+          }
+        }
+      }
+    }
+
+    .milestone-wish-input-reveal {
+      padding: 10px 14px;
+      border-top: 1px solid #eef1f5;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+
+      ion-input {
+        flex: 1;
+        --background: #fff;
+        --border-radius: 10px;
+        --padding-start: 12px;
+        --padding-end: 12px;
+        font-size: 13px;
+        border: 1px solid #d0d7e0;
+        border-radius: 10px;
+      }
+
+      .reveal-btns {
+        display: flex;
+        gap: 6px;
+
+        button {
+          padding: 6px 14px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          border: none;
+          cursor: pointer;
+
+          &.send-btn {
+            background: #3b5bdb;
+            color: #fff;
+
+            &:hover {
+              background: #2a47c0;
+            }
+          }
+
+          &.cancel-btn {
+            background: #f0f2f5;
+            color: #5a6475;
+
+            &:hover {
+              background: #e2e6ea;
+            }
+          }
+        }
+      }
+    }
+
+    .celebration-footer {
+      padding: 8px 14px 12px;
+      border-top: 1px solid #fde8c8;
+
+      .notes-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        color: #d97706;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+
+        ion-icon.heart-pulse {
+          animation: heartbeat 1.4s ease-in-out infinite;
+        }
+      }
+    }
+  }
+}
+
+@keyframes heartbeat {
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  14% {
+    transform: scale(1.3);
+  }
+
+  28% {
+    transform: scale(1);
+  }
+
+  42% {
+    transform: scale(1.2);
+  }
+
+  70% {
+    transform: scale(1);
+  }
+}
+
+// ─────────────────────────────────────────────────────────
+// WISHES MODAL (premium colorful)
+// ─────────────────────────────────────────────────────────
+.wishes-modal.premium-colorful-modal {
+  --border-radius: 24px;
+
+  .modal-wrapper {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    background: #fafbff;
+  }
+
+  .colorful-header {
+    --background: linear-gradient(135deg, #3b5bdb, #6c8fff);
+    --color: #fff;
+
+    .header-content {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .star-icon {
+        font-size: 20px;
+        color: #ffd700;
+      }
+    }
+
+    ion-title {
+      color: #fff;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .close-circle {
+      color: rgba(255, 255, 255, 0.85);
+    }
+  }
+
+  .modal-content-area {
+    --background: #fafbff;
+    padding: 16px;
+  }
+
+  .wishes-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .wish-glass-card {
+    background: #fff;
+    border: 1px solid #e0e8ff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 2px 10px rgba(59, 91, 219, 0.07);
+
+    .wish-card-inner {
+      display: flex;
+      gap: 12px;
+
+      .sender-avatar-small {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b5bdb, #6c8fff);
+        color: #fff;
+        font-weight: 700;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .wish-body {
+        flex: 1;
+
+        .wish-header {
+          display: flex;
+          justify-content: space-between;
+          margin-bottom: 4px;
+
+          .sender-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1a2b3c;
+          }
+
+          .wish-time {
+            font-size: 11px;
+            color: #8a94a6;
+          }
+        }
+
+        .wish-message {
+          font-size: 13px;
+          color: #5a6475;
+          margin: 0;
+          line-height: 1.5;
+        }
+      }
+    }
+  }
+
+  .empty-wishes-state {
+    text-align: center;
+    padding: 48px 24px;
+
+    .empty-icon-box {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      background: #f0f4ff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+
+      ion-icon {
+        font-size: 36px;
+        color: #3b5bdb;
+        opacity: 0.6;
+      }
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1a2b3c;
+      margin: 0 0 8px;
+    }
+
+    p {
+      font-size: 13px;
+      color: #8a94a6;
+      margin: 0;
+    }
+  }
+}

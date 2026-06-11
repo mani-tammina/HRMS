@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { ToastController } from '@ionic/angular';
 import { AdminService, ShiftPolicyPayload, WeeklyOffPolicyPayload } from 'src/app/core/services/admin.service';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-org-setup',
@@ -12,6 +13,9 @@ import { AdminService, ShiftPolicyPayload, WeeklyOffPolicyPayload } from 'src/ap
 export class OrgSetupPage implements OnInit {
   activeTab: string = 'locations';
   userRole: string | null = null;
+  env: string = '';
+  selectedImageFile: File | null = null;
+  imagePreviewUrl: string | null = null;
 
   get isAdminOrHR(): boolean {
     return this.userRole === 'admin' || this.userRole === 'hr';
@@ -116,7 +120,8 @@ export class OrgSetupPage implements OnInit {
     title: '',
     body: '',
     starts_at: '',
-    ends_at: ''
+    ends_at: '',
+    image_url: null as string | null
   };
 
   weeklyOffPolicyForm: any = {
@@ -156,6 +161,7 @@ export class OrgSetupPage implements OnInit {
 
   ngOnInit() {
     this.userRole = (localStorage.getItem('role') || '').toLowerCase();
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
     this.loadData();
   }
 
@@ -406,10 +412,46 @@ export class OrgSetupPage implements OnInit {
       this.calculatePagination('announcements');
     });
   }
+  onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.selectedImageFile = file;
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.imagePreviewUrl = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
+  removeImage() {
+    this.selectedImageFile = null;
+    this.imagePreviewUrl = null;
+    if (this.editingAnnouncementId) {
+      this.announcementForm.image_url = null;
+    }
+  }
+
   saveAnnouncement() {
+    const formData = new FormData();
+    formData.append('title', this.announcementForm.title);
+    formData.append('body', this.announcementForm.body);
+    if (this.announcementForm.starts_at) {
+      formData.append('starts_at', this.announcementForm.starts_at);
+    }
+    if (this.announcementForm.ends_at) {
+      formData.append('ends_at', this.announcementForm.ends_at);
+    }
+    
+    if (this.selectedImageFile) {
+      formData.append('image', this.selectedImageFile);
+    } else if (this.editingAnnouncementId && !this.announcementForm.image_url) {
+      formData.append('remove_image', 'true');
+    }
+
     const action = this.editingAnnouncementId
-      ? this.adminService.updateAnnouncement(this.editingAnnouncementId, this.announcementForm)
-      : this.adminService.createAnnouncement(this.announcementForm);
+      ? this.adminService.updateAnnouncement(this.editingAnnouncementId, formData)
+      : this.adminService.createAnnouncement(formData);
 
     action.subscribe({
       next: () => {
@@ -423,11 +465,18 @@ export class OrgSetupPage implements OnInit {
       }
     });
   }
-  editAnnouncement(ann: any) { this.announcementForm = { ...ann }; this.editingAnnouncementId = ann.id; }
+  editAnnouncement(ann: any) {
+    this.announcementForm = { ...ann };
+    this.editingAnnouncementId = ann.id;
+    this.selectedImageFile = null;
+    this.imagePreviewUrl = ann.image_url ? `${this.env}${ann.image_url}` : null;
+  }
   deleteAnnouncement(id: number) { this.adminService.deleteAnnouncement(id).subscribe(() => { this.showToast('Announcement deleted', 'success'); this.loadAnnouncements(); }); }
   cancelAnnouncement() {
     this.editingAnnouncementId = null;
-    this.announcementForm = { title: '', body: '', starts_at: '', ends_at: '' };
+    this.announcementForm = { title: '', body: '', starts_at: '', ends_at: '', image_url: null };
+    this.selectedImageFile = null;
+    this.imagePreviewUrl = null;
   }
 
   /* Penalties */

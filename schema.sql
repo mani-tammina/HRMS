@@ -1287,11 +1287,12 @@ CREATE TABLE IF NOT EXISTS holidays (
 -- Announcements Table
 CREATE TABLE IF NOT EXISTS announcements (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  title VARCHAR(255),
+  title VARCHAR(2550),
   body TEXT,
   created_by INT,
   starts_at TIMESTAMP,
   ends_at TIMESTAMP,
+  image_url VARCHAR(2550) DEFAULT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (created_by) REFERENCES users(id)
 );

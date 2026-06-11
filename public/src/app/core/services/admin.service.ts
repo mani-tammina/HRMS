@@ -168,10 +168,10 @@ export class AdminService {
   getAnnouncements(): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/announcements`);
   }
-  createAnnouncement(payload: AnnouncementPayload): Observable<any> {
+  createAnnouncement(payload: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/announcements`, payload);
   }
-  updateAnnouncement(id: number, payload: AnnouncementPayload): Observable<any> {
+  updateAnnouncement(id: number, payload: any): Observable<any> {
     return this.http.put(`${this.baseUrl}/announcements/${id}`, payload);
   }
   deleteAnnouncement(id: number): Observable<any> {

@@ -710,4 +710,150 @@
         background: vars.$color-white;
         color: vars.$color-text-primary;
     }
+}
+
+/* ============ ANNOUNCEMENT IMAGE UPLOAD STYLES ============ */
+.optional-tag {
+    font-size: 10px;
+    font-weight: vars.$fw-medium;
+    color: vars.$color-text-placeholder;
+    text-transform: none;
+    letter-spacing: 0;
+}
+
+.ann-upload-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 24px 16px;
+    border: 2px dashed vars.$color-border;
+    border-radius: vars.$radius-md;
+    background: vars.$color-bg-subtle;
+    cursor: pointer;
+    transition: vars.$transition-base;
+    text-align: center;
+    color: vars.$color-text-muted;
+
+    .upload-icon {
+        font-size: 32px;
+        color: vars.$color-primary;
+        opacity: 0.7;
+    }
+
+    span {
+        font-size: vars.$fs-small;
+        font-weight: vars.$fw-semibold;
+        color: vars.$color-text-secondary;
+    }
+
+    small {
+        font-size: 10px;
+        color: vars.$color-text-placeholder;
+        font-weight: vars.$fw-medium;
+    }
+
+    &:hover {
+        border-color: vars.$color-primary;
+        background: vars.$color-primary-light;
+
+        .upload-icon { opacity: 1; }
+        span { color: vars.$color-primary; }
+    }
+}
+
+.ann-image-preview-box {
+    position: relative;
+    border-radius: vars.$radius-md;
+    overflow: hidden;
+    border: 1px solid vars.$color-border;
+    background: vars.$color-bg-subtle;
+    margin-bottom: 8px;
+
+    .ann-image-preview {
+        width: 100%;
+        max-height: 200px;
+        object-fit: cover;
+        display: block;
+    }
+}
+
+.ann-remove-btn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 30px;
+    height: 30px;
+    background: rgba(0, 0, 0, 0.6);
+    border: none;
+    border-radius: 50%;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: vars.$transition-base;
+    font-size: 18px;
+
+    &:hover {
+        background: rgba(0, 0, 0, 0.8);
+        transform: scale(1.05);
+    }
+}
+
+/* ============ ANNOUNCEMENT TABLE CELL STYLES ============ */
+.date-period {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .date-item {
+        font-size: 11px;
+        color: var(--ion-color-medium, #6b7280);
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        span {
+            font-weight: 600;
+            color: var(--ion-color-dark, #374151);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+    }
+}
+
+.announcement-cell {
+    h3 {
+        margin: 0 0 4px;
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--ion-color-dark, #1a2b3c);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 240px;
+    }
+
+    p {
+        margin: 0;
+        font-size: 11px;
+        color: var(--ion-color-medium, #6b7280);
+        line-height: 1.4;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 240px;
+    }
+}
+
+/* ============ WEEK SELECTION BOX ============ */
+.week-selection-box {
+    margin-top: 4px;
+    padding: 12px;
+    background: var(--ion-color-light, #f4f5f8);
+    border-radius: 8px;
+    border: 1px solid var(--ion-color-light-shade, #e2e3e8);
 }
