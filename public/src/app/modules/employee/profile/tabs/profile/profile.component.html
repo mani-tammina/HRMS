@@ -29,7 +29,7 @@
             </div>
             <div class="info-group">
               <p>Date of Birth</p>
-              <h6 *ngIf="!IsDetails">{{currentEmployee?.DateOfBirth || '-'}}</h6>
+              <h6 *ngIf="!IsDetails">{{(currentEmployee?.DateOfBirth | date:'dd-MM-yyyy') || '-'}}</h6>
               <ion-input type="date" [(ngModel)]="currentEmployee.DateOfBirth" *ngIf="IsDetails" name="DateOfBirth"
                 class="custom-input"></ion-input>
             </div>

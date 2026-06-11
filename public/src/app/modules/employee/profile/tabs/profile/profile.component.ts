@@ -30,6 +30,12 @@ export class ProfileTabComponent implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentEmployee']?.currentValue) {
       console.log('✅ ProfileTabComponent received employee:', this.currentEmployee);
+      if (this.currentEmployee && this.currentEmployee.DateOfBirth) {
+        const dob = this.currentEmployee.DateOfBirth;
+        if (typeof dob === 'string' && dob.includes('T')) {
+          this.currentEmployee.DateOfBirth = dob.split('T')[0];
+        }
+      }
     }
   }
 
