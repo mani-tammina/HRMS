@@ -8,6 +8,54 @@ const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+
+// Configure multer for leave type icon upload
+const storage = multer.diskStorage({
+    destination: function (req, file, cb) {
+        const dir = "uploads/leave_types/";
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+        cb(null, dir);
+    },
+    filename: function (req, file, cb) {
+        const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+        cb(null, "leave-type-" + uniqueSuffix + path.extname(file.originalname));
+    }
+});
+
+const uploadLeaveTypeIcon = multer({
+    storage: storage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
+    fileFilter: function (req, file, cb) {
+        const allowedTypes = /jpeg|jpg|png|gif|webp|svg/;
+        const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+        const mimetype = allowedTypes.test(file.mimetype);
+        if (mimetype && extname) {
+            return cb(null, true);
+        } else {
+            cb(new Error("Only image/SVG files are allowed!"));
+        }
+    }
+});
+
+// Middleware to conditionally handle uploads (supports both JSON and multipart form-data)
+const handleUpload = (req, res, next) => {
+    const contentType = req.headers['content-type'] || '';
+    if (contentType.includes('multipart/form-data')) {
+        uploadLeaveTypeIcon.single('icon')(req, res, (err) => {
+            if (err) {
+                return res.status(400).json({ error: err.message });
+            }
+            next();
+        });
+    } else {
+        next();
+    }
+};
 
 // Helper: compute available CL (monthly allocation) up to a reference date
 function computeCLAvailable(
@@ -358,31 +406,36 @@ router.put("/plans/:id", auth, hr, async (req, res) => {
    ============================================ */
 
 // Create Leave Type
-router.post("/types", auth, hr, async (req, res) => {
+router.post("/types", auth, hr, handleUpload, async (req, res) => {
   try {
     const {
       type_name,
       type_code,
       description,
-      is_paid,
-      requires_approval,
-      can_carry_forward,
-      max_carry_forward_days,
+      bg_color,
     } = req.body;
+
+    const isPaid = (req.body.is_paid === true || req.body.is_paid === 'true' || req.body.is_paid === '1' || req.body.is_paid === 1 || req.body.is_paid === undefined) ? 1 : 0;
+    const reqApproval = (req.body.requires_approval === true || req.body.requires_approval === 'true' || req.body.requires_approval === '1' || req.body.requires_approval === 1 || req.body.requires_approval === undefined) ? 1 : 0;
+    const canCF = (req.body.can_carry_forward === true || req.body.can_carry_forward === 'true' || req.body.can_carry_forward === '1' || req.body.can_carry_forward === 1) ? 1 : 0;
+    const maxCF = Number(req.body.max_carry_forward_days) || 0;
+    const icon_path = req.file ? `/uploads/leave_types/${req.file.filename}` : null;
 
     const c = await db();
     const [result] = await c.query(
       `INSERT INTO leave_types 
-             (type_name, type_code, description, is_paid, requires_approval, can_carry_forward, max_carry_forward_days)
-             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+             (type_name, type_code, description, is_paid, requires_approval, can_carry_forward, max_carry_forward_days, bg_color, icon_path)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         type_name,
         type_code,
         description,
-        is_paid !== false ? 1 : 0,
-        requires_approval !== false ? 1 : 0,
-        can_carry_forward || 0,
-        max_carry_forward_days || 0,
+        isPaid,
+        reqApproval,
+        canCF,
+        maxCF,
+        bg_color || null,
+        icon_path
       ],
     );
     c.end();
@@ -412,26 +465,38 @@ router.get("/types", auth, async (req, res) => {
 });
 
 // Update Leave Type
-router.put("/types/:id", auth, hr, async (req, res) => {
+router.put("/types/:id", auth, hr, handleUpload, async (req, res) => {
   try {
     const c = await db();
 
-    // Sanitize input data - convert empty strings to appropriate values
+    // Sanitize input data
     const updateData = { ...req.body };
 
-    // Convert empty strings to 0 for integer fields
-    if (
-      updateData.max_carry_forward_days === "" ||
-      updateData.max_carry_forward_days === null
-    ) {
-      updateData.max_carry_forward_days = 0;
+    // Convert fields to numeric/proper values for SQL insertion
+    if (updateData.is_paid !== undefined) {
+      updateData.is_paid = (updateData.is_paid === true || updateData.is_paid === 'true' || updateData.is_paid === '1' || updateData.is_paid === 1) ? 1 : 0;
+    }
+    if (updateData.requires_approval !== undefined) {
+      updateData.requires_approval = (updateData.requires_approval === true || updateData.requires_approval === 'true' || updateData.requires_approval === '1' || updateData.requires_approval === 1) ? 1 : 0;
+    }
+    if (updateData.can_carry_forward !== undefined) {
+      updateData.can_carry_forward = (updateData.can_carry_forward === true || updateData.can_carry_forward === 'true' || updateData.can_carry_forward === '1' || updateData.can_carry_forward === 1) ? 1 : 0;
+    }
+    if (updateData.max_carry_forward_days !== undefined) {
+      updateData.max_carry_forward_days = (updateData.max_carry_forward_days === "" || updateData.max_carry_forward_days === null) ? 0 : Number(updateData.max_carry_forward_days);
+    }
+    if (updateData.is_active !== undefined) {
+      updateData.is_active = (updateData.is_active === true || updateData.is_active === 'true' || updateData.is_active === '1' || updateData.is_active === 1) ? 1 : 0;
     }
 
-    // Convert empty strings to 1/0 for boolean fields
-    if (updateData.is_paid === "") updateData.is_paid = 1;
-    if (updateData.requires_approval === "") updateData.requires_approval = 1;
-    if (updateData.can_carry_forward === "") updateData.can_carry_forward = 0;
-    if (updateData.is_active === "") updateData.is_active = 1;
+    if (req.file) {
+      updateData.icon_path = `/uploads/leave_types/${req.file.filename}`;
+    } else if (req.body.remove_icon === 'true' || req.body.remove_icon === true) {
+      updateData.icon_path = null;
+    }
+
+    // Remove non-column/helper fields
+    delete updateData.remove_icon;
 
     await c.query(`UPDATE leave_types SET ? WHERE id = ?`, [
       updateData,
@@ -719,6 +784,8 @@ router.get("/balance", auth, async (req, res) => {
                 lt.is_paid,
                 lt.can_carry_forward,
                 lt.max_carry_forward_days,
+                lt.bg_color,
+                lt.icon_path,
                 COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id
@@ -902,6 +969,8 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
                 lt.is_paid,
                 lt.can_carry_forward,
                 lt.max_carry_forward_days,
+                lt.bg_color,
+                lt.icon_path,
                 COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id

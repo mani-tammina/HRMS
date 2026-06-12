@@ -45,6 +45,44 @@
             <ion-label position="floating">Max CF Days</ion-label>
             <ion-input type="number" formControlName="max_carry_forward_days"></ion-input>
           </ion-item>
+
+          <!-- Color Picker Container -->
+          <div class="color-picker-item">
+            <ion-item lines="outline" style="flex: 1;">
+              <ion-label position="floating">Background Color</ion-label>
+              <ion-input formControlName="bg_color" placeholder="#1976d2"></ion-input>
+            </ion-item>
+            <div class="color-preview-box">
+              <input type="color" [value]="leaveTypeForm.get('bg_color')?.value" (input)="onColorChange($event)" class="native-color-picker" />
+            </div>
+          </div>
+
+          <!-- Icon Upload Container -->
+          <div class="file-upload-item full-width">
+            <ion-label class="upload-title">Leave Type Icon</ion-label>
+            <div class="upload-zone" (click)="fileInput.click()">
+              <div class="upload-placeholder" *ngIf="!selectedFileName && !currentIconUrl">
+                <ion-icon name="cloud-upload-outline"></ion-icon>
+                <p>Click to choose icon image (SVG, PNG, JPG)</p>
+              </div>
+              <div class="upload-selected" *ngIf="selectedFileName">
+                <ion-icon name="document-attach-outline" color="success"></ion-icon>
+                <p>{{selectedFileName}}</p>
+              </div>
+              <div class="upload-preview" *ngIf="currentIconUrl && !selectedFileName">
+                <img [src]="env + currentIconUrl" class="icon-img-preview" alt="current icon" />
+                <p>Click to change current icon</p>
+              </div>
+              <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" style="display: none;" />
+            </div>
+            <div class="remove-btn-container" *ngIf="selectedFileName || currentIconUrl">
+              <ion-button size="small" fill="clear" color="danger" (click)="clearSelectedFile($event)">
+                <ion-icon name="trash-outline" slot="start"></ion-icon>
+                Remove Icon
+              </ion-button>
+            </div>
+          </div>
+
           <ion-item lines="outline" class="full-width">
             <ion-label position="floating">Description</ion-label>
             <ion-textarea formControlName="description"></ion-textarea>

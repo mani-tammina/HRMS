@@ -1236,6 +1236,12 @@
       ion-icon {
         font-size: 30px;
       }
+
+      .uploaded-icon-small {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+      }
     }
 
     .leave-type-title {
@@ -2383,8 +2389,6 @@
     text-align: center;
 
     .leave-icon-circle {
-      width: 42px;
-      height: 42px;
       border-radius: 50%;
       display: flex;
       align-items: center;
@@ -2395,17 +2399,7 @@
         color: #fff;
       }
 
-      &.leave-casual {
-        background: linear-gradient(135deg, #3b82f6, #60a5fa);
-      }
 
-      &.leave-sick {
-        background: linear-gradient(135deg, #f87171, #ef4444);
-      }
-
-      &.leave-compoff {
-        background: linear-gradient(135deg, #a78bfa, #7c3aed);
-      }
     }
 
     .leave-type-title {

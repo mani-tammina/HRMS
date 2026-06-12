@@ -335,6 +335,8 @@ router.get("/employee", auth, async (req, res) => {
         const [leaveBalance] = await c.query(`
             SELECT 
                 lt.type_name,
+                lt.bg_color,
+                lt.icon_path,
                 elb.allocated_days,
                 elb.used_days,
                 elb.available_days,

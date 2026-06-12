@@ -2,6 +2,7 @@
 
 .leaves-block {
   position: relative;
+
   &::part(background) {
     background: vars.$color-bg-page;
   }
@@ -122,7 +123,7 @@
 
     .balances-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
       gap: 20px;
     }
   }
@@ -148,6 +149,38 @@
       border-color: vars.$color-primary;
     }
 
+    &.has-custom-bg {
+      color: #ffffff;
+
+      .card-title {
+        color: #ffffff;
+      }
+
+      .days-display {
+
+        .available,
+        .separator,
+        .total {
+          color: #ffffff;
+        }
+      }
+
+      .label {
+        color: rgba(255, 255, 255, 0.85);
+      }
+
+      .icon-container {
+        .icon-background {
+          background: rgba(255, 255, 255, 0.25);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+          ion-icon {
+            color: #ffffff;
+          }
+        }
+      }
+    }
+
     .card-title {
       font-size: vars.$fs-body;
       font-weight: vars.$fw-bold;
@@ -165,7 +198,7 @@
         width: 95px;
         height: 95px;
         border-radius: 50%;
-        background: linear-gradient(135deg, #e9d5ff 0%, #f3e8ff 100%);
+        // background: linear-gradient(135deg, #e9d5ff 0%, #f3e8ff 100%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -174,6 +207,12 @@
         ion-icon {
           font-size: 36px;
           color: #a855f7;
+        }
+
+        .uploaded-icon {
+          width: 50px;
+          height: 50px;
+          object-fit: contain;
         }
       }
     }

@@ -2,6 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { environment } from 'src/environments/environment';
 
 import { EmployeeLeavesService } from '../../../core/services/employee-leaves.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
@@ -43,6 +44,8 @@ export class LeavesPage implements OnInit, OnDestroy {
   initializingLeaves = false;
   needsInitialization = false;
 
+  env = '';
+
   constructor(
     private employeeLeaves: EmployeeLeavesService,
     private leaveRequestService: LeaverequestService,
@@ -55,6 +58,7 @@ export class LeavesPage implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
     this.updateRole();
     this.loadLeaveBalance();
     this.getAllLeaves();
@@ -93,6 +97,8 @@ export class LeavesPage implements OnInit, OnDestroy {
             available: isLOP ? '0' : available,
             isLOP: isLOP,
             usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
+            bg_color: item.bg_color,
+            icon_path: item.icon_path,
           };
         });
       },

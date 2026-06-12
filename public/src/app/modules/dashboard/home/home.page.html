@@ -172,8 +172,11 @@
               <div class="leave-column" *ngFor="let leave of leaveCards; trackBy: trackById">
                 <ng-container *ngIf="leave.code !== 'LOP'">
                   <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'"
-                    [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'">
-                    <ion-icon
+                    [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'"
+                    [style.backgroundColor]="leave.bg_color || ''"
+                    [style.color]="leave.bg_color ? '#ffffff' : ''">
+                    <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon-small" alt="icon" />
+                    <ion-icon *ngIf="!leave.icon_path"
                       [name]="(leave.code === 'CL' || leave.code === 'PL') ? 'umbrella' : (leave.code === 'SL' ? 'bed' : 'calendar')"></ion-icon>
                   </div>
                   <p class="leave-type-title">{{ leave.title }}</p>

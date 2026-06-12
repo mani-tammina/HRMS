@@ -109,3 +109,99 @@
       border-radius: vars.$radius-md;
     }
   }
+
+  .color-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    
+    ion-item {
+      margin-top: 0 !important;
+      flex: 1;
+    }
+
+    .color-preview-box {
+      width: 48px;
+      height: 48px;
+      border-radius: vars.$radius-md;
+      border: 1px solid vars.$color-border;
+      overflow: hidden;
+      cursor: pointer;
+      position: relative;
+      margin-top: 8px;
+      box-shadow: vars.$shadow-xs;
+
+      .native-color-picker {
+        position: absolute;
+        top: -10px;
+        left: -10px;
+        width: 68px;
+        height: 68px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+      }
+    }
+  }
+
+  .file-upload-item {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 8px;
+
+    .upload-title {
+      font-weight: vars.$fw-bold;
+      color: vars.$color-text-muted;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .upload-zone {
+      border: 2px dashed vars.$color-border;
+      border-radius: vars.$radius-md;
+      background: vars.$color-bg-subtle;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: vars.$transition-smooth;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+
+      &:hover {
+        border-color: vars.$color-primary;
+        background: rgba(var(--ion-color-primary-rgb, 25, 118, 210), 0.05);
+      }
+
+      ion-icon {
+        font-size: 28px;
+        color: vars.$color-text-muted;
+        margin-bottom: 6px;
+      }
+
+      p {
+        margin: 0;
+        font-size: vars.$fs-xs;
+        color: vars.$color-text-secondary;
+        font-weight: vars.$fw-semibold;
+      }
+
+      .icon-img-preview {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        margin-bottom: 6px;
+        border-radius: 4px;
+      }
+    }
+
+    .remove-btn-container {
+      display: flex;
+      justify-content: flex-end;
+    }
+  }

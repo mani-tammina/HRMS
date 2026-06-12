@@ -41,8 +41,10 @@
             <h3 class="card-title">{{ leave.title }}</h3>
 
             <div class="icon-container">
-              <div class="icon-background">
-                <ion-icon [name]="leave.title?.toLowerCase().includes('sick') ? 'medkit-outline' :
+              <div class="icon-background" [style.backgroundColor]="leave.bg_color || ''"
+                [style.borderColor]="leave.bg_color || ''" [class.has-custom-bg]="!!leave.bg_color">
+                <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon" alt="icon" />
+                <ion-icon *ngIf="!leave.icon_path" [name]="leave.title?.toLowerCase().includes('sick') ? 'medkit-outline' :
                          (leave.title?.toLowerCase().includes('vacation') || leave.title?.toLowerCase().includes('earned') ? 'airplane-outline' :
                          (leave.title?.toLowerCase().includes('casual') ? 'umbrella-outline' : 'calendar-outline'))">
                 </ion-icon>

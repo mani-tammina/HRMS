@@ -18,12 +18,21 @@ export class LeaveTypeService {
     });
   }
 
+  private getAuthHeaders(): HttpHeaders {
+    const token = localStorage.getItem('token');
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+    });
+  }
+
   createLeaveType(payload: any): Observable<any> {
-    return this.http.post(this.API_URL, payload, { headers: this.getHeaders() });
+    const headers = payload instanceof FormData ? this.getAuthHeaders() : this.getHeaders();
+    return this.http.post(this.API_URL, payload, { headers });
   }
 
   updateLeaveType(id: number, payload: any): Observable<any> {
-    return this.http.put(`${this.API_URL}/${id}`, payload, { headers: this.getHeaders() });
+    const headers = payload instanceof FormData ? this.getAuthHeaders() : this.getHeaders();
+    return this.http.put(`${this.API_URL}/${id}`, payload, { headers });
   }
 
   getLeaveTypes(): Observable<any[]> {

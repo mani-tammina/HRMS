@@ -63,7 +63,7 @@
   .custom-searchbar {
     --background: #{vars.$color-sidebar-text};
     --color: #{vars.$color-white};
-    --placeholder-color: #818181;
+    --placeholder-color: #000000;
     --icon-color: rgba(255, 255, 255, 0.5);
     --border-radius: 88px;
     --box-shadow: none;
@@ -79,6 +79,7 @@
       border-color: vars.$color-primary;
       box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.08);
       --background-color: transparent !important;
+      color: #000;
 
     }
 
@@ -87,7 +88,10 @@
     }
 
     ::ng-deep .searchbar-input {
-      font-size: vars.$fs-body;
+      &::placeholder {
+        color: #000000 !important;
+        opacity: 1 !important;
+      }
     }
   }
 }

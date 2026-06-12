@@ -36,9 +36,9 @@
                     <span class="emp-id" *ngIf="emp.EmployeeNumber || emp.id">#{{ emp.EmployeeNumber || emp.id }}</span>
                   </div>
                   <div class="emp-details-row">
-                    <span class="detail-item"><ion-icon name="person-outline"></ion-icon> {{
+                    <!-- <span class="detail-item"><ion-icon name="person-outline"></ion-icon> {{
                       getDepartmentName(emp.DepartmentId || emp.department_id, emp.department_name ||
-                      emp.department) }}</span>
+                      emp.department) }}</span> -->
                     <span class="detail-item"><ion-icon name="mail-outline"></ion-icon> {{ emp.WorkEmail || emp.email ||
                       'N/A' }}</span>
                     <span class="detail-item" *ngIf="emp.location_name || emp.location"><ion-icon

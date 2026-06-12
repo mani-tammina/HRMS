@@ -399,6 +399,8 @@ export class HomePage implements OnInit, OnDestroy {
             usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
             icon: this.getLeaveIcon(item.type_code),
             isLOP: isLOP,
+            bg_color: item.bg_color,
+            icon_path: item.icon_path
           };
         });
       },
