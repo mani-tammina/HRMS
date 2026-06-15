@@ -20,13 +20,29 @@ function excel(file) {
     const parseTextDate = (str) => {
         if (!str || typeof str !== 'string') return null;
         const trimmed = str.trim();
-        let d = new Date(trimmed);
-        if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-        const match = trimmed.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
-        if (match) {
-            const [, day, month, year] = match;
-            d = new Date(year, month - 1, day);
-            if (!isNaN(d.getTime())) return d.toISOString().slice(0, 10);
+
+        // 1. Check YYYY-MM-DD or YYYY/MM/DD
+        const matchYYYYMMDD = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:T|\s|$)/);
+        if (matchYYYYMMDD) {
+            const [, year, month, day] = matchYYYYMMDD;
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
+        // 2. Check DD-MM-YYYY or DD/MM/YYYY
+        const matchDDMMYYYY = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+        if (matchDDMMYYYY) {
+            const [, day, month, year] = matchDDMMYYYY;
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
+        // Fallback to Date parsing
+        const d = new Date(trimmed);
+        if (!isNaN(d.getTime())) {
+            const hasTimezone = /Z|[+-]\d{2}/.test(trimmed);
+            const yyyy = hasTimezone ? d.getUTCFullYear() : d.getFullYear();
+            const mm = String((hasTimezone ? d.getUTCMonth() : d.getMonth()) + 1).padStart(2, '0');
+            const dd = String(hasTimezone ? d.getUTCDate() : d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
         }
         return null;
     };
@@ -56,7 +72,10 @@ function excel(file) {
         for (const k of Object.keys(row)) {
             const v = row[k];
             if (v instanceof Date) {
-                r[k] = v.toLocaleDateString('en-CA');
+                const yyyy = v.getUTCFullYear();
+                const mm = String(v.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(v.getUTCDate()).padStart(2, '0');
+                r[k] = `${yyyy}-${mm}-${dd}`;
             } else if (typeof v === 'string') {
                 const lower = String(k).toLowerCase();
                 if (lower.includes('date') || lower.includes('_at') || lower.includes('joining') || lower.includes('birth')) {
@@ -75,7 +94,14 @@ function excel(file) {
                 }
             } else if (typeof v === 'number' && String(k).toLowerCase().includes('date')) {
                 const d = new Date(Math.round((v - 25569) * 86400 * 1000));
-                r[k] = isNaN(d.getTime()) ? null : d.toLocaleDateString('en-CA');
+                if (!isNaN(d.getTime())) {
+                    const yyyy = d.getUTCFullYear();
+                    const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                    const dd = String(d.getUTCDate()).padStart(2, '0');
+                    r[k] = `${yyyy}-${mm}-${dd}`;
+                } else {
+                    r[k] = null;
+                }
             } else {
                 r[k] = v;
             }

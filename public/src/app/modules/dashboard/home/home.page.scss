@@ -977,11 +977,137 @@
 
   // ── Flat Milestones Styles ──
   .milestone-card {
-    .milestone-list {
+    .milestone-card-body {
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .milestone-section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a2b3c;
+      margin: 0 0 16px 0;
+    }
+
+    .birthdays-today-section {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .empty-today {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px 16px;
+      text-align: center;
+
+      .cake-illustration {
+        margin-bottom: 12px;
+      }
+
+      .empty-text {
+        font-size: 14px;
+        color: #707070;
+        margin: 0;
+        font-weight: 500;
+      }
+    }
+
+    .today-list {
       display: flex;
       flex-direction: column;
       gap: 16px;
-      margin-top: 16px;
+    }
+
+    .fallback-initials-avatar {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .upcoming-birthdays-section {
+      display: flex;
+      flex-direction: column;
+      border-top: 1px solid #f1f5f9;
+      padding-top: 24px;
+    }
+
+    .upcoming-scroll-container {
+      display: flex;
+      gap: 24px;
+      overflow-x: auto;
+      padding: 8px 4px;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE 10+ */
+      
+      &::-webkit-scrollbar {
+        display: none; /* Safari and Chrome */
+      }
+    }
+
+    .upcoming-item-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      min-width: 80px;
+      flex-shrink: 0;
+    }
+
+    .upcoming-avatar-wrapper {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      overflow: hidden;
+      margin-bottom: 8px;
+      border: 2px solid #ffffff;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+      background: #f8fafc;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .upcoming-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .upcoming-initials-avatar {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .upcoming-emp-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: #1f2937;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 84px;
+    }
+
+    .upcoming-event-date {
+      font-size: 11px;
+      color: #6b7280;
+      font-weight: 400;
     }
 
     .milestone-item-flat {
@@ -1075,7 +1201,6 @@
       .milestone-action {
         display: flex;
         align-items: center;
-        margin-left: 16px;
 
         .action-btn-pill {
           background: #1b6cb9;
@@ -1155,9 +1280,7 @@
       }
 
       .celebration-footer {
-        margin: 0 16px 12px 104px;
         padding-top: 8px;
-        border-top: 1px solid rgba(0, 0, 0, 0.05);
 
         .notes-link {
           display: flex;
@@ -1280,7 +1403,7 @@
       border-radius: 12px;
       overflow: hidden;
       position: relative;
-      min-height: 500px;
+      min-height: 350px;
       background: linear-gradient(135deg, #c0392b 0%, #e74c3c 40%, #c0392b 70%, #922b21 100%);
       display: flex;
       align-items: flex-end;
@@ -1543,6 +1666,7 @@
         opacity: 0.8;
         transform: translateY(2px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -2879,7 +3003,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-    max-height: 380px;
     overflow-y: auto;
   }
 
@@ -2925,7 +3048,6 @@
 
       .blue-tab-prefix {
         width: 4px;
-        height: 40px;
         border-radius: 4px;
         background: #3b5bdb;
         flex-shrink: 0;
@@ -3037,7 +3159,6 @@
 
     .celebration-footer {
       padding: 8px 14px 12px;
-      border-top: 1px solid #fde8c8;
 
       .notes-link {
         display: inline-flex;

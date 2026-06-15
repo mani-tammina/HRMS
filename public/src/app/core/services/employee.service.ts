@@ -131,9 +131,9 @@ export class EmployeeService {
     return this.http.get<any>(`${this.API_URL}/my-team/reporting`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
-  getBirthdays(): Observable<any> {
+  getBirthdays(period = 'today'): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    return this.http.get(`http://${this.env.apiURL}/api/birthdays`, { headers: { Authorization: `Bearer ${token}` } });
+    return this.http.get(`http://${this.env.apiURL}/api/birthdays?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
   sendBirthdayWish(employeeId: number, message: string): Observable<any> {

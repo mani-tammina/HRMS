@@ -63,11 +63,8 @@
       <div class="attendance-visual-wrap">
         <div class="attendance-bar" [class.empty-bar]="getAttendanceSegments(log).length === 0">
           <ng-container *ngIf="getAttendanceSegments(log).length > 0; else emptyBar">
-            <div
-              *ngFor="let seg of getAttendanceSegments(log)"
-              class="bar-segment"
-              [class.seg-work]="seg.type === 'work'"
-              [class.seg-break]="seg.type === 'break'"
+            <div *ngFor="let seg of getAttendanceSegments(log)" class="bar-segment"
+              [class.seg-work]="seg.type === 'work'" [class.seg-break]="seg.type === 'break'"
               [style.width.%]="seg.widthPct">
             </div>
           </ng-container>
@@ -78,7 +75,7 @@
         <!-- Break duration hint -->
         <div class="bar-legend" *ngIf="getBreakHours(log)">
           <span class="legend-dot dot-work"></span><span class="legend-lbl">Work</span>
-          <span class="legend-dot dot-break"></span><span class="legend-lbl">Break {{ getBreakHours(log) }}</span>
+          <span class="legend-dot dot-break"></span><span class="legend-lbl">Break</span>
         </div>
       </div>
     </ion-col>
@@ -112,7 +109,8 @@
             <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
           </ng-container>
           <div style="display:flex;flex-direction:column;">
-            <span [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : 'inherit')"
+            <span
+              [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : 'inherit')"
               style="font-size:13px;font-weight:500;line-height:1;">
               {{ getArrivalStatus(log) }}
             </span>
@@ -121,10 +119,10 @@
             </span>
           </div>
         </div>
-        
+
         <!-- Regularization Button for HR -->
-        <ion-button *ngIf="isHRView && (log.status === 'penalty' || log.status === 'absent')" 
-          fill="clear" color="primary" class="regularize-btn" (click)="openRegularizeModal(log); $event.stopPropagation()">
+        <ion-button *ngIf="isHRView && (log.status === 'penalty' || log.status === 'absent')" fill="clear"
+          color="primary" class="regularize-btn" (click)="openRegularizeModal(log); $event.stopPropagation()">
           <ion-icon name="create-outline" slot="icon-only"></ion-icon>
         </ion-button>
       </div>

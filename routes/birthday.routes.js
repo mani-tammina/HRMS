@@ -11,6 +11,20 @@ const { findEmployeeByUserId } = require("../utils/helpers");
 
 /* ============ BIRTHDAY MANAGEMENT ============ */
 
+// Helper to format date to IST (YYYY-MM-DD) and adjust for uploader timezone shift
+function formatDateToIST(val) {
+  if (!val) return null;
+  const date = new Date(val);
+  if (isNaN(date.getTime())) return null;
+  // Offset the date to IST (+5.5 hours) and add 1 day (24 hours) to correct the shift
+  const istTime = date.getTime() + (5.5 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000);
+  const istDate = new Date(istTime);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 // Get birthdays (today, this week, this month)
 router.get("/", auth, async (req, res) => {
   const period = req.query.period || "today";
@@ -39,7 +53,15 @@ router.get("/", auth, async (req, res) => {
 
   const [r] = await c.query(query);
   c.end();
-  res.json(r);
+
+  const formattedResults = r.map(emp => {
+    if (emp.DateOfBirth) {
+      emp.DateOfBirth = formatDateToIST(emp.DateOfBirth);
+    }
+    return emp;
+  });
+
+  res.json(formattedResults);
 });
 
 /* ============ BIRTHDAY WISHES ============ */

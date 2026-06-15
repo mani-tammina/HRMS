@@ -232,7 +232,29 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
           if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
-          if (existing) return { ...existing, noLogs: false };
+          if (existing) {
+            let updatedExisting = { ...existing, noLogs: false };
+            const isToday = this.islogToday(date);
+            if (isToday && this.todayPunches && this.todayPunches.length > 0) {
+              const lastPunch = this.todayPunches[this.todayPunches.length - 1];
+              const isPunchedIn = lastPunch.punch_type === 'in';
+              if (isPunchedIn) {
+                const lastPunchTime = new Date(lastPunch.punch_time).getTime();
+                const now = new Date().getTime();
+                const diffHours = (now - lastPunchTime) / (1000 * 60 * 60);
+
+                let effective = parseFloat(updatedExisting.total_work_hours || 0);
+                effective += diffHours;
+                updatedExisting.total_work_hours = effective.toFixed(2);
+
+                const firstPunch = this.todayPunches[0];
+                const firstPunchTime = new Date(firstPunch.punch_time).getTime();
+                const gross = (now - firstPunchTime) / (1000 * 60 * 60);
+                updatedExisting.gross_hours = gross.toFixed(2);
+              }
+            }
+            return updatedExisting;
+          }
 
           let defaultStatus = 'absent';
           const now = new Date();

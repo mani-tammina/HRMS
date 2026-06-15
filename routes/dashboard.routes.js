@@ -9,6 +9,20 @@ const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
+// Helper to format date to IST (YYYY-MM-DD) and adjust for uploader timezone shift
+function formatDateToIST(val) {
+  if (!val) return null;
+  const date = new Date(val);
+  if (isNaN(date.getTime())) return null;
+  // Offset the date to IST (+5.5 hours) and add 1 day (24 hours) to correct the shift
+  const istTime = date.getTime() + (5.5 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000);
+  const istDate = new Date(istTime);
+  const yyyy = istDate.getUTCFullYear();
+  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
+  const dd = String(istDate.getUTCDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 /* ============================================
    ADMIN DASHBOARD
    ============================================ */
@@ -124,6 +138,13 @@ router.get("/admin", auth, admin, async (req, res) => {
 
         c.end();
 
+        const formattedBirthdays = upcomingBirthdays.map(emp => {
+            if (emp.DateOfBirth) {
+                emp.DateOfBirth = formatDateToIST(emp.DateOfBirth);
+            }
+            return emp;
+        });
+
         res.json({
             employee_stats: {
                 by_status: employeeCounts,
@@ -133,7 +154,7 @@ router.get("/admin", auth, admin, async (req, res) => {
             attendance_today: attendanceSummary[0],
             leave_summary: leaveSummary[0],
             timesheet_compliance: timesheetCompliance[0],
-            upcoming_birthdays: upcomingBirthdays,
+            upcoming_birthdays: formattedBirthdays,
             project_stats: projectStats[0],
             support_stats: supportStats[0]
         });

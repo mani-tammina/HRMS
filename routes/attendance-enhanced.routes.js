@@ -665,6 +665,44 @@ router.get("/details/:date", auth, async (req, res) => {
   }
 });
 
+/**
+ * Get Attendance Details with Punches for Employee (Manager/Admin)
+ */
+router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
+  try {
+    const { employeeId, date } = req.params;
+    const c = await db();
+
+    const [attendance] = await c.query(
+      `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+      [employeeId, date]
+    );
+
+    if (attendance.length === 0) {
+      c.end();
+      return res
+        .status(404)
+        .json({ error: "No attendance record found for this date" });
+    }
+
+    const [punches] = await c.query(
+      `SELECT * FROM attendance_punches WHERE attendance_id = ? ORDER BY punch_time ASC`,
+      [attendance[0].id]
+    );
+
+    c.end();
+
+    res.json({
+      attendance: attendance[0],
+      punches,
+      punch_pairs: calculatePunchPairs(punches),
+    });
+  } catch (error) {
+    console.error("Error fetching employee attendance details:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* ============================================
    ADMIN/MANAGER REPORTS
    ============================================ */
@@ -1041,7 +1079,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
 
   const totalWorkHours = (totalWorkMinutes / 60).toFixed(2);
   const totalBreakHours = (totalBreakMinutes / 60).toFixed(2);
-  const grossHours = totalWorkHours;
+  const grossHours = (parseFloat(totalWorkHours) + parseFloat(totalBreakHours)).toFixed(2);
 
   // Update attendance record
   await connection.query(

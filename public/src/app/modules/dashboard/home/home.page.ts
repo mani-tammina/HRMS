@@ -66,7 +66,8 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   /* ================= BIRTHDAYS ================= */
-  birthdays: any[] = [];
+  todayBirthdays: any[] = [];
+  upcomingBirthdays: any[] = [];
 
   /* ================= ANNOUNCEMENTS ================= */
   announcements: any[] = [];
@@ -230,62 +231,110 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   loadBirthdays() {
-    this.employeeService.getBirthdays().pipe(takeUntil(this.destroy$)).subscribe({
+    // Fetch upcoming birthdays/anniversaries (which covers today and next 30 days)
+    this.employeeService.getBirthdays('upcoming').pipe(takeUntil(this.destroy$)).subscribe({
       next: (data: any[]) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const nextWeek = new Date(today);
-        nextWeek.setDate(today.getDate() + 7);
-        const results: any[] = [];
+
+        const todayList: any[] = [];
+        const upcomingList: any[] = [];
+        const colors = ['#ff9800', '#2196f3', '#4caf50', '#f44336', '#9c27b0', '#e91e63'];
 
         data.forEach(emp => {
           const dob = emp.DateOfBirth ? new Date(emp.DateOfBirth) : null;
           const doj = emp.DateJoined ? new Date(emp.DateJoined) : null;
+          const initials = ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase();
+          const avatarColor = colors[emp.id % colors.length];
 
           if (dob) {
             const bday = new Date(dob);
             bday.setFullYear(today.getFullYear());
-            if (bday < today) bday.setFullYear(today.getFullYear() + 1);
-            if (bday >= today && bday <= nextWeek) {
-              results.push({
-                ...emp,
-                uid: `${emp.id}_Birthday`,
-                eventType: 'Birthday',
-                eventDate: bday,
-                originalDate: dob,
-                isToday: bday.toDateString() === today.toDateString(),
-                fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : '../../assets/Profile_Picture.png'
-              });
+            if (bday < today) {
+              bday.setFullYear(today.getFullYear() + 1);
+            }
+
+            const item = {
+              ...emp,
+              uid: `${emp.id}_Birthday`,
+              eventType: 'Birthday',
+              eventDate: bday,
+              originalDate: dob,
+              isToday: bday.toDateString() === today.toDateString(),
+              initials,
+              avatarColor,
+              fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+            };
+
+            if (item.isToday) {
+              todayList.push(item);
+            } else {
+              upcomingList.push(item);
             }
           }
 
           if (doj) {
             const anniv = new Date(doj);
             anniv.setFullYear(today.getFullYear());
-            if (anniv < today) anniv.setFullYear(today.getFullYear() + 1);
-            if (anniv >= today && anniv <= nextWeek) {
-              const years = today.getFullYear() - doj.getFullYear();
-              if (years > 0) {
-                results.push({
-                  ...emp,
-                  uid: `${emp.id}_Anniversary`,
-                  eventType: 'Anniversary',
-                  eventDate: anniv,
-                  originalDate: doj,
-                  years,
-                  isToday: anniv.toDateString() === today.toDateString(),
-                  fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : '../../assets/Profile_Picture.png'
-                });
+            if (anniv < today) {
+              anniv.setFullYear(today.getFullYear() + 1);
+            }
+
+            const years = today.getFullYear() - doj.getFullYear();
+            if (years > 0) {
+              const item = {
+                ...emp,
+                uid: `${emp.id}_Anniversary`,
+                eventType: 'Anniversary',
+                eventDate: anniv,
+                originalDate: doj,
+                years,
+                isToday: anniv.toDateString() === today.toDateString(),
+                initials,
+                avatarColor,
+                fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+              };
+
+              if (item.isToday) {
+                todayList.push(item);
+              } else {
+                upcomingList.push(item);
               }
             }
           }
         });
 
-        this.birthdays = results.sort((a, b) => a.eventDate - b.eventDate);
+        this.todayBirthdays = todayList;
+        this.upcomingBirthdays = upcomingList.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
         this.cdr.detectChanges();
       },
-      error: () => { this.birthdays = []; }
+      error: () => {
+        this.todayBirthdays = [];
+        this.upcomingBirthdays = [];
+      }
     });
+  }
+
+  getEventDateLabel(eventDate: Date): string {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(today.getDate() + 1);
+
+    if (eventDate.toDateString() === today.toDateString()) {
+      return 'Today';
+    } else if (eventDate.toDateString() === tomorrow.toDateString()) {
+      return 'Tomorrow';
+    } else {
+      const day = eventDate.getDate();
+      const monthNames = [
+        'January', 'February', 'March', 'April', 'May', 'June',
+        'July', 'August', 'September', 'October', 'November', 'December'
+      ];
+      const month = monthNames[eventDate.getMonth()];
+      return `${day} ${month}`;
+    }
   }
 
   showWishInput(employeeId: number) {
