@@ -348,10 +348,9 @@
             </div>
 
             <div class="announcements-carousel-wrapper" *ngIf="announcements.length > 0">
-              <!-- Previous Button -->
-              <button class="carousel-control-btn prev-btn" (click)="prevAnnounce()" *ngIf="announcements.length > 1">
+              <!-- <button class="carousel-control-btn prev-btn" (click)="prevAnnounce()" *ngIf="announcements.length > 1">
                 <ion-icon name="chevron-back-outline"></ion-icon>
-              </button>
+              </button> -->
 
               <div class="announcements-carousel-slides">
                 <div class="announcement-item-row active-slide">
@@ -387,10 +386,10 @@
                 </div>
               </div>
 
-              <!-- Next Button -->
+              <!-- Next Button
               <button class="carousel-control-btn next-btn" (click)="nextAnnounce()" *ngIf="announcements.length > 1">
                 <ion-icon name="chevron-forward-outline"></ion-icon>
-              </button>
+              </button> -->
             </div>
 
             <!-- Indicators / Dot Navigation -->
@@ -409,16 +408,18 @@
         <!-- Birthdays & Work Anniversaries card -->
         <ion-card class="overview-block modern-overview-card milestone-card">
           <div class="card-content milestone-card-body">
-            
+
             <!-- Section: Birthdays Today -->
             <div class="birthdays-today-section">
               <h3 class="milestone-section-title">Birthdays today</h3>
-              
+
               <!-- Empty State: Custom SVG Cake Illustration -->
               <div *ngIf="todayBirthdays.length === 0" class="empty-today">
-                <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="cake-illustration">
+                <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"
+                  class="cake-illustration">
                   <!-- Garland/Bunting at the top -->
-                  <path d="M20,20 C35,28 50,28 60,20 C70,28 85,28 100,20" stroke="#E2E8F0" stroke-width="1.5" stroke-linecap="round" fill="none" />
+                  <path d="M20,20 C35,28 50,28 60,20 C70,28 85,28 100,20" stroke="#E2E8F0" stroke-width="1.5"
+                    stroke-linecap="round" fill="none" />
                   <path d="M25,23 L28,29 L22,29 Z" fill="#FEE2E2" />
                   <path d="M40,24 L43,30 L37,30 Z" fill="#E0F2FE" />
                   <path d="M58,22 L61,28 L55,28 Z" fill="#FEF3C7" />
@@ -428,25 +429,32 @@
                   <!-- Background decorative clouds/circles -->
                   <circle cx="28" cy="65" r="10" fill="#F8FAFC" />
                   <circle cx="95" cy="55" r="14" fill="#F8FAFC" />
-                  
+
                   <!-- Candle -->
                   <rect x="58" y="38" width="4" height="14" rx="1" fill="#E2E8F0" />
                   <path d="M60,38 L60,34" stroke="#94A3B8" stroke-width="1.5" />
                   <path d="M60,34 C58,34 57.5,31 60,27 C62.5,31 62,34 60,34 Z" fill="#EF4444" />
-                  
+
                   <!-- Cake Tier 1 (top) -->
-                  <rect x="40" y="52" width="40" height="18" rx="2" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.5" />
+                  <rect x="40" y="52" width="40" height="18" rx="2" fill="#FFFFFF" stroke="#94A3B8"
+                    stroke-width="1.5" />
                   <!-- Frosting drips on Tier 1 -->
-                  <path d="M40,58 C44,61 46,61 48,58 C50,55 52,62 55,58 C58,54 60,61 63,58 C66,55 68,61 70,58 C72,55 74,60 76,58 C78,56 79,59 80,58" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
-                  
+                  <path
+                    d="M40,58 C44,61 46,61 48,58 C50,55 52,62 55,58 C58,54 60,61 63,58 C66,55 68,61 70,58 C72,55 74,60 76,58 C78,56 79,59 80,58"
+                    stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
+
                   <!-- Cake Tier 2 (bottom) -->
-                  <rect x="30" y="70" width="60" height="22" rx="3" fill="#FFFFFF" stroke="#94A3B8" stroke-width="1.5" />
+                  <rect x="30" y="70" width="60" height="22" rx="3" fill="#FFFFFF" stroke="#94A3B8"
+                    stroke-width="1.5" />
                   <!-- Frosting drips on Tier 2 -->
-                  <path d="M30,78 C35,82 38,82 42,78 C46,74 50,83 55,78 C60,73 64,82 68,78 C72,74 76,82 80,78 C84,74 86,81 90,78" stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
+                  <path
+                    d="M30,78 C35,82 38,82 42,78 C46,74 50,83 55,78 C60,73 64,82 68,78 C72,74 76,82 80,78 C84,74 86,81 90,78"
+                    stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
 
                   <!-- Cake Stand/Base plate -->
                   <path d="M20,92 L100,92" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" />
-                  <path d="M35,92 L42,98 L78,98 L85,92" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5" stroke-linejoin="round" />
+                  <path d="M35,92 L42,98 L78,98 L85,92" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5"
+                    stroke-linejoin="round" />
                 </svg>
                 <p class="empty-text">No birthdays today.</p>
               </div>
@@ -459,7 +467,8 @@
                     <div class="avatar-container">
                       <img *ngIf="milestone.fullImageUrl" [src]="milestone.fullImageUrl" [alt]="milestone.FirstName"
                         onerror="this.style.display='none'">
-                      <div *ngIf="!milestone.fullImageUrl" class="fallback-initials-avatar" [style.backgroundColor]="milestone.avatarColor">
+                      <div *ngIf="!milestone.fullImageUrl" class="fallback-initials-avatar"
+                        [style.backgroundColor]="milestone.avatarColor">
                         {{ milestone.initials }}
                       </div>
                     </div>
@@ -475,14 +484,14 @@
                         </ng-container>
                       </div>
                     </div>
-                    
+
                     <div class="celebration-footer" *ngIf="activeWishEmployeeId !== milestone.id">
                       <div class="notes-link" (click)="viewWishes(milestone)">
                         <ion-icon name="heart" class="heart-pulse"></ion-icon>
                         <span>View Wishes</span>
                       </div>
                     </div>
-                    
+
                     <div class="milestone-action" *ngIf="activeWishEmployeeId !== milestone.id">
                       <button class="action-btn-pill" (click)="showWishInput(milestone.id)">
                         {{ milestone.eventType === 'Birthday' ? 'Send Wishes' : 'Celebrate' }}
@@ -505,13 +514,14 @@
             <!-- Section: Upcoming Birthdays -->
             <div class="upcoming-birthdays-section" *ngIf="upcomingBirthdays.length > 0">
               <h3 class="milestone-section-title">Upcoming Birthdays</h3>
-              
+
               <div class="upcoming-scroll-container">
                 <div class="upcoming-item-card" *ngFor="let milestone of upcomingBirthdays; trackBy: trackById">
                   <div class="upcoming-avatar-wrapper">
                     <img *ngIf="milestone.fullImageUrl" [src]="milestone.fullImageUrl" [alt]="milestone.FirstName"
                       class="upcoming-avatar-img" onerror="this.style.display='none'">
-                    <div *ngIf="!milestone.fullImageUrl" class="upcoming-initials-avatar" [style.backgroundColor]="milestone.avatarColor">
+                    <div *ngIf="!milestone.fullImageUrl" class="upcoming-initials-avatar"
+                      [style.backgroundColor]="milestone.avatarColor">
                       {{ milestone.initials }}
                     </div>
                   </div>
