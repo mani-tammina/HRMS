@@ -470,6 +470,60 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     return `${h}h ${m}m${suffix}`;
   }
 
+  /**
+   * Returns an array of segments for the attendance visual bar.
+   * Each segment: { type: 'work' | 'break', widthPct: number }
+   *
+   * Strategy (monthly report does NOT include individual punches):
+   *   - Use first_check_in → last_check_out as the total window (gross span).
+   *   - Effective work = total_work_hours (blue).
+   *   - Break = gross_hours - total_work_hours (gray gap in middle).
+   *   - Reference window = max(gross span, 8 h) so bars stay proportional.
+   *   - Segment order: [work block][break block][work block] split evenly.
+   *     If no break, just one solid work block.
+   *   - If no punch data, fall back to a single proportional work bar.
+   */
+  getAttendanceSegments(log: any): { type: 'work' | 'break'; widthPct: number }[] {
+    const workH  = parseFloat(log?.total_work_hours);
+    const grossH = parseFloat(log?.gross_hours);
+
+    // Nothing to show
+    if (!log?.first_check_in || isNaN(workH) || workH <= 0) {
+      return [];
+    }
+
+    // Reference window in hours (cap at 12 h to prevent tiny-looking bars)
+    const refH = Math.max(isNaN(grossH) ? workH : grossH, 8);
+
+    const workPct  = Math.min((workH  / refH) * 100, 100);
+    const grossPct = isNaN(grossH) ? workPct : Math.min((grossH / refH) * 100, 100);
+    const breakPct = Math.max(grossPct - workPct, 0);
+
+    if (breakPct < 0.5) {
+      // No meaningful break – single work bar
+      return [{ type: 'work', widthPct: workPct }];
+    }
+
+    // Split work on both sides of the break (equal halves)
+    const halfWorkPct = workPct / 2;
+    return [
+      { type: 'work',  widthPct: halfWorkPct },
+      { type: 'break', widthPct: breakPct    },
+      { type: 'work',  widthPct: halfWorkPct },
+    ];
+  }
+
+  /** Returns break hours = gross - effective */
+  getBreakHours(log: any): string {
+    const gross = parseFloat(log?.gross_hours);
+    const work  = parseFloat(log?.total_work_hours);
+    if (isNaN(gross) || isNaN(work) || gross <= work) return '';
+    const breakH = gross - work;
+    const h = Math.floor(breakH);
+    const m = Math.round((breakH - h) * 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
   islogToday(date: string): boolean {
     if (!date) return false;
     const today = new Date().toISOString().split('T')[0];

@@ -1447,11 +1447,73 @@
       padding: 16px 0 8px 0;
     }
 
-    .announcements-vertical-list {
+    .announcements-carousel-wrapper {
       display: flex;
-      flex-direction: column;
-      gap: 16px;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+      width: 100%;
       margin-bottom: 16px;
+
+      .announcements-carousel-slides {
+        flex: 1;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .carousel-control-btn {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        color: #4b5563;
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+
+        &:hover {
+          background: #f8fafc;
+          border-color: #cbd5e1;
+          color: #1f2937;
+          transform: scale(1.08);
+        }
+
+        &:active {
+          transform: scale(0.95);
+        }
+
+        ion-icon {
+          font-size: 16px;
+        }
+      }
+    }
+
+    .carousel-indicators {
+      display: flex;
+      justify-content: center;
+      gap: 6px;
+      margin-bottom: 16px;
+      width: 100%;
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        background: #e2e8f0;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+        &.active {
+          width: 24px;
+          background: #3b82f6;
+          border-radius: 10px;
+        }
+      }
     }
 
     .announcement-item-row {
@@ -1464,10 +1526,26 @@
       background: #ffffff;
       transition: all 0.2s ease;
       position: relative;
+      width: 100%;
 
       &:hover {
         border-color: #cbd5e1;
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      }
+
+      &.active-slide {
+        animation: slideFadeIn 0.4s ease-out;
+      }
+    }
+
+    @keyframes slideFadeIn {
+      from {
+        opacity: 0.8;
+        transform: translateY(2px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
       }
     }
 
@@ -1862,17 +1940,75 @@
         }
       }
 
-      .progress-bar-container {
-        height: 6px;
-        background: #e2e8f0;
-        border-radius: 4px;
-        overflow: hidden;
+      .attendance-visual-wrap {
         width: 100%;
+        margin-top: 8px;
+        margin-bottom: 8px;
 
-        .progress-bar-fill {
+        .attendance-bar {
+          display: flex;
+          align-items: center;
+          height: 8px;
+          border-radius: 99px;
+          overflow: hidden;
+          background: #e2e8f0;
+          width: 100%;
+          gap: 2px;
+
+          &.empty-bar {
+            background: #e2e8f0;
+          }
+        }
+
+        .bar-segment {
           height: 100%;
-          background: #3b82f6;
-          border-radius: 4px;
+          border-radius: 99px;
+          transition: width 0.4s ease;
+          flex-shrink: 0;
+
+          &.seg-work {
+            background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+            box-shadow: 0 0 4px rgba(14, 165, 233, 0.4);
+          }
+
+          &.seg-break {
+            background: #cbd5e1;
+          }
+
+          &.seg-empty {
+            background: #f1f5f9;
+          }
+        }
+
+        .bar-legend {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-top: 6px;
+        }
+
+        .legend-dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 50%;
+          flex-shrink: 0;
+
+          &.dot-work {
+            background: #0ea5e9;
+          }
+
+          &.dot-break {
+            background: #cbd5e1;
+          }
+        }
+
+        .legend-lbl {
+          font-size: 10px;
+          color: #707070;
+          font-weight: 600;
+          letter-spacing: 0.3px;
+          margin-right: 6px;
         }
       }
     }
@@ -2261,18 +2397,9 @@
     }
   }
 
-  .progress-bar-container {
-    height: 5px;
-    background: #eef0f3;
-    border-radius: 10px;
-    overflow: hidden;
-
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #3b5bdb, #6c8fff);
-      border-radius: 10px;
-      transition: width 0.4s ease;
-    }
+  .attendance-visual-wrap {
+    margin-top: 6px;
+    margin-bottom: 6px;
   }
 
   .mode-pill-row {

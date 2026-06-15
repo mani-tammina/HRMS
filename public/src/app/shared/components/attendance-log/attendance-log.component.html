@@ -59,7 +59,28 @@
     </ion-col>
 
     <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
-      <ion-progress-bar style="height: 6px; border-radius: 4px;"></ion-progress-bar>
+      <!-- Custom segmented attendance visual bar -->
+      <div class="attendance-visual-wrap">
+        <div class="attendance-bar" [class.empty-bar]="getAttendanceSegments(log).length === 0">
+          <ng-container *ngIf="getAttendanceSegments(log).length > 0; else emptyBar">
+            <div
+              *ngFor="let seg of getAttendanceSegments(log)"
+              class="bar-segment"
+              [class.seg-work]="seg.type === 'work'"
+              [class.seg-break]="seg.type === 'break'"
+              [style.width.%]="seg.widthPct">
+            </div>
+          </ng-container>
+          <ng-template #emptyBar>
+            <div class="bar-segment seg-empty" style="width:100%"></div>
+          </ng-template>
+        </div>
+        <!-- Break duration hint -->
+        <div class="bar-legend" *ngIf="getBreakHours(log)">
+          <span class="legend-dot dot-work"></span><span class="legend-lbl">Work</span>
+          <span class="legend-dot dot-break"></span><span class="legend-lbl">Break {{ getBreakHours(log) }}</span>
+        </div>
+      </div>
     </ion-col>
     <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
       <div style="display: flex; align-items: center; gap: 8px;">

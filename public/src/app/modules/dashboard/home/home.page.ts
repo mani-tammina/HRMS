@@ -498,6 +498,11 @@ export class HomePage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  prevAnnounce() {
+    this.currentAnnounceIndex = (this.currentAnnounceIndex - 1 + this.announcements.length) % this.announcements.length;
+    this.cdr.detectChanges();
+  }
+
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
       const punches = res?.punches || [];
@@ -535,6 +540,71 @@ export class HomePage implements OnInit, OnDestroy {
     this.currentAnnounceIndex = index;
     this.startAnnounceCarousel();
     this.cdr.detectChanges();
+  }
+
+  private parseHours(val: any): number {
+    if (val === null || val === undefined) return 0;
+    if (typeof val === 'number') return val;
+    const str = val.toString().trim();
+    if (!str) return 0;
+
+    // Check if it's formatted as "Xh Ym" or "Xh Y m"
+    if (str.includes('h')) {
+      const hPart = str.split('h')[0].trim();
+      const mPart = str.split('h')[1]?.replace(/[^0-9]/g, '').trim() || '0';
+      const h = parseFloat(hPart) || 0;
+      const m = parseFloat(mPart) || 0;
+      return h + (m / 60);
+    }
+
+    // Fallback: parse as direct float
+    const parsed = parseFloat(str);
+    return isNaN(parsed) ? 0 : parsed;
+  }
+
+  getAttendanceSegments(log: any): { type: 'work' | 'break'; widthPct: number }[] {
+    if (!log) return [];
+
+    const workVal = log.total_work_hours !== undefined ? log.total_work_hours : log.effective_hours;
+    const workH  = this.parseHours(workVal);
+    const grossH = this.parseHours(log.gross_hours);
+
+    // Nothing to show
+    if (!log.first_check_in || workH <= 0) {
+      return [];
+    }
+
+    // Reference window in hours (cap at 12 h to prevent tiny-looking bars)
+    const refH = Math.max(grossH <= 0 ? workH : grossH, 8);
+
+    const workPct  = Math.min((workH  / refH) * 100, 100);
+    const grossPct = grossH <= 0 ? workPct : Math.min((grossH / refH) * 100, 100);
+    const breakPct = Math.max(grossPct - workPct, 0);
+
+    if (breakPct < 0.5) {
+      // No meaningful break – single work bar
+      return [{ type: 'work', widthPct: workPct }];
+    }
+
+    // Split work on both sides of the break (equal halves)
+    const halfWorkPct = workPct / 2;
+    return [
+      { type: 'work',  widthPct: halfWorkPct },
+      { type: 'break', widthPct: breakPct    },
+      { type: 'work',  widthPct: halfWorkPct },
+    ];
+  }
+
+  getBreakHours(log: any): string {
+    if (!log) return '';
+    const gross = this.parseHours(log.gross_hours);
+    const workVal = log.total_work_hours !== undefined ? log.total_work_hours : log.effective_hours;
+    const work  = this.parseHours(workVal);
+    if (gross <= 0 || work <= 0 || gross <= work) return '';
+    const breakH = gross - work;
+    const h = Math.floor(breakH);
+    const m = Math.round((breakH - h) * 60);
+    return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
   getStatusLabel(): string {

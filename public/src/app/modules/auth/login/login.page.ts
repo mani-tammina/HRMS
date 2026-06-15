@@ -27,6 +27,11 @@ export class LoginPage implements OnInit {
   showForgotPassword = false;
   forgotPasswordForm!: FormGroup;
   forgotPasswordSuccess = false;
+  showPasswordText = false;
+  rememberMe = false;
+  usernameFocused = false;
+  passwordFocused = false;
+  createPwFocused = false;
 
   constructor(
     private fb: FormBuilder,

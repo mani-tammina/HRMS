@@ -107,8 +107,25 @@
                   <span class="stat-value">{{ todayAttendance?.effective_hours || '0h 0m' }} ({{
                     todayEffectivePercentage || 0 }}%)</span>
                 </div>
-                <div class="progress-bar-container">
-                  <div class="progress-bar-fill" [style.width.%]="todayEffectivePercentage || 0"></div>
+                <!-- Custom segmented attendance visual bar -->
+                <div class="attendance-visual-wrap">
+                  <div class="attendance-bar" [class.empty-bar]="getAttendanceSegments(todayAttendance).length === 0">
+                    <ng-container *ngIf="getAttendanceSegments(todayAttendance).length > 0; else emptyBar">
+                      <div *ngFor="let seg of getAttendanceSegments(todayAttendance)" class="bar-segment"
+                        [class.seg-work]="seg.type === 'work'" [class.seg-break]="seg.type === 'break'"
+                        [style.width.%]="seg.widthPct">
+                      </div>
+                    </ng-container>
+                    <ng-template #emptyBar>
+                      <div class="bar-segment seg-empty" style="width:100%"></div>
+                    </ng-template>
+                  </div>
+                  <!-- Break duration hint -->
+                  <div class="bar-legend" *ngIf="getBreakHours(todayAttendance)">
+                    <span class="legend-dot dot-work"></span><span class="legend-lbl">Work</span>
+                    <span class="legend-dot dot-break"></span><span class="legend-lbl">Break {{
+                      getBreakHours(todayAttendance) }}</span>
+                  </div>
                 </div>
               </div>
 
@@ -123,7 +140,7 @@
               <!-- Card 1: This Week -->
               <div class="info-mini-card">
                 <div class="mini-card-content">
-                  <span class="mini-card-label">This Week</span>
+                  <span class="mini-card-label">Today</span>
                   <span class="mini-card-value">{{ weeklyGrossHours }}</span>
                 </div>
                 <div class="mini-card-icon green-icon">
@@ -173,8 +190,7 @@
                 <ng-container *ngIf="leave.code !== 'LOP'">
                   <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'"
                     [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'"
-                    [style.backgroundColor]="leave.bg_color || ''"
-                    [style.color]="leave.bg_color ? '#ffffff' : ''">
+                    [style.backgroundColor]="leave.bg_color || ''" [style.color]="leave.bg_color ? '#ffffff' : ''">
                     <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon-small" alt="icon" />
                     <ion-icon *ngIf="!leave.icon_path"
                       [name]="(leave.code === 'CL' || leave.code === 'PL') ? 'umbrella' : (leave.code === 'SL' ? 'bed' : 'calendar')"></ion-icon>
@@ -331,36 +347,57 @@
               <p>No new announcements at this time.</p>
             </div>
 
-            <div class="announcements-vertical-list" *ngIf="announcements.length > 0">
-              <div class="announcement-item-row" *ngFor="let announce of announcements.slice(0, 3)">
-                <div class="announcement-thumbnail">
-                  <img [src]="announce.image_url ? env + announce.image_url : 'assets/announcement_thumbnail.png'" alt="Announcement Thumbnail">
-                </div>
+            <div class="announcements-carousel-wrapper" *ngIf="announcements.length > 0">
+              <!-- Previous Button -->
+              <button class="carousel-control-btn prev-btn" (click)="prevAnnounce()" *ngIf="announcements.length > 1">
+                <ion-icon name="chevron-back-outline"></ion-icon>
+              </button>
 
-                <div class="announcement-main-content">
-                  <h4 class="announcement-title">{{ announce.title }}</h4>
-                  <p class="announcement-description">{{ announce.body }}</p>
-                  <div class="announcement-footer-row">
-                    <span class="time-ago">5 hours ago</span>
-                    <span class="separator-dot">•</span>
-                    <div class="author-info">
-                      <img src="assets/user.png" class="author-avatar" alt="Author">
-                      <span class="author-name">Aswitha Anusha</span>
+              <div class="announcements-carousel-slides">
+                <div class="announcement-item-row active-slide">
+                  <div class="announcement-thumbnail">
+                    <img
+                      [src]="announcements[currentAnnounceIndex].image_url ? env + announcements[currentAnnounceIndex].image_url : 'assets/announcement_thumbnail.png'"
+                      alt="Announcement Thumbnail">
+                  </div>
+
+                  <div class="announcement-main-content">
+                    <h4 class="announcement-title">{{ announcements[currentAnnounceIndex].title }}</h4>
+                    <p class="announcement-description">{{ announcements[currentAnnounceIndex].body }}</p>
+                    <div class="announcement-footer-row">
+                      <span class="time-ago">Active Announcement</span>
+                      <span class="separator-dot">•</span>
+                      <div class="author-info">
+                        <img src="assets/user.png" class="author-avatar" alt="Author">
+                        <span class="author-name">HR Team</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="announcement-reactions">
+                    <div class="reaction-item">
+                      <span class="emoji">👍</span>
+                      <span class="count">24</span>
+                    </div>
+                    <div class="reaction-item">
+                      <span class="emoji">💬</span>
+                      <span class="count">6</span>
                     </div>
                   </div>
                 </div>
-
-                <div class="announcement-reactions">
-                  <div class="reaction-item">
-                    <span class="emoji">👍</span>
-                    <span class="count">24</span>
-                  </div>
-                  <div class="reaction-item">
-                    <span class="emoji">💬</span>
-                    <span class="count">6</span>
-                  </div>
-                </div>
               </div>
+
+              <!-- Next Button -->
+              <button class="carousel-control-btn next-btn" (click)="nextAnnounce()" *ngIf="announcements.length > 1">
+                <ion-icon name="chevron-forward-outline"></ion-icon>
+              </button>
+            </div>
+
+            <!-- Indicators / Dot Navigation -->
+            <div class="carousel-indicators" *ngIf="announcements.length > 1">
+              <span *ngFor="let announce of announcements; let idx = index" class="dot"
+                [class.active]="idx === currentAnnounceIndex" (click)="setAnnounce(idx)">
+              </span>
             </div>
 
             <div class="view-all-link-container" *ngIf="announcements.length > 0">

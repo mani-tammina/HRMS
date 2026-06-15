@@ -30,15 +30,15 @@
   font-size: 11px;
   font-weight: vars.$fw-bold;
   color: #1870B9;
-  border-right:1px solid #ABABAB99;
+  border-right: 1px solid #ABABAB99;
   cursor: pointer;
   transition: vars.$transition-base;
   text-transform: capitalize;
 
   &.active {
-  background: #1870B9 !important;
+    background: #1870B9 !important;
     color: #fff;
-   height: 44px;
+    height: 44px;
     border-radius: 99px 0px 0px 99px;
     border: none;
   }
@@ -62,14 +62,21 @@
     cursor: pointer;
     transition: vars.$transition-base;
     color: vars.$color-text-muted;
-    display: flex; align-items: center; justify-content: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
 
     &:hover {
       background: vars.$color-bg-subtle;
       border-color: vars.$color-primary;
-      color: vars.$color-primary;
+      color: #fff;
+
     }
-    ion-icon { font-size: 18px; }
+
+    ion-icon {
+      font-size: 18px;
+    }
   }
 }
 
@@ -104,12 +111,14 @@
     transition: vars.$transition-base;
     background: vars.$color-white;
 
-    &:last-child { border-bottom: none; }
-
-    &:hover {
-      background: vars.$color-bg-hover;
-      transform: translateX(4px);
+    &:last-child {
+      border-bottom: none;
     }
+
+    // &:hover {
+    //   background: vars.$color-bg-hover;
+    //   transform: translateX(4px);
+    // }
 
     ion-col {
       padding: 12px 16px;
@@ -177,6 +186,80 @@
   align-items: center;
   color: vars.$color-text-placeholder;
 }
+
+/* ── Attendance Visual Segmented Bar ─────────────────── */
+.attendance-visual-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.attendance-bar {
+  display: flex;
+  align-items: center;
+  height: 8px;
+  border-radius: 99px;
+  overflow: hidden;
+  background: vars.$color-border-xlight;
+  width: 100%;
+  gap: 2px;
+
+  &.empty-bar {
+    background: vars.$color-border-xlight;
+  }
+}
+
+.bar-segment {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+  flex-shrink: 0;
+
+  &.seg-work {
+    background: linear-gradient(90deg, #38bdf8, #0ea5e9);
+    box-shadow: 0 0 4px rgba(14, 165, 233, 0.4);
+  }
+
+  &.seg-break {
+    background: #e2e8f0;
+  }
+
+  &.seg-empty {
+    background: #f1f5f9;
+  }
+}
+
+.bar-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.legend-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+
+  &.dot-work {
+    background: #0ea5e9;
+  }
+
+  &.dot-break {
+    background: #cbd5e1;
+  }
+}
+
+.legend-lbl {
+  font-size: 9px;
+  color: vars.$color-text-muted;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  margin-right: 6px;
+}
+
 
 .clockin-out {
   background: vars.$color-bg-subtle;
@@ -274,6 +357,7 @@ ion-modal.side-custom-popup {
         margin-bottom: 4px;
         text-transform: uppercase;
       }
+
       .s-value {
         font-size: vars.$fs-heading-sm;
         font-weight: vars.$fw-bold;
@@ -329,13 +413,16 @@ ion-modal.side-custom-popup {
       margin-bottom: 12px;
 
       .time-box {
-        display: flex; align-items: center;
+        display: flex;
+        align-items: center;
+
         .time {
           font-size: vars.$fs-heading-sm;
           font-weight: vars.$fw-bold;
           color: vars.$color-text-primary;
           margin: 0;
         }
+
         .type-tag {
           font-size: 9px;
           font-weight: vars.$fw-bold;
@@ -345,12 +432,13 @@ ion-modal.side-custom-popup {
           margin-left: 12px;
           letter-spacing: 0.5px;
 
-          &.in { 
+          &.in {
             background: vars.$color-success-light;
             color: vars.$color-success;
             border: 1px solid vars.$color-success-border;
           }
-          &.out { 
+
+          &.out {
             background: vars.$color-danger-light;
             color: vars.$color-danger;
             border: 1px solid vars.$color-danger-border;
@@ -378,11 +466,11 @@ ion-modal.side-custom-popup {
       box-shadow: vars.$shadow-xs;
       transition: vars.$transition-base;
 
-      &:hover {
-        box-shadow: vars.$shadow-sm;
-        border-color: vars.$color-primary;
-      }
-      
+      // &:hover {
+      //   box-shadow: vars.$shadow-sm;
+      //   border-color: vars.$color-primary;
+      // }
+
       .location-info {
         display: flex;
         align-items: center;
@@ -390,7 +478,7 @@ ion-modal.side-custom-popup {
         color: vars.$color-text-secondary;
         margin-bottom: 4px;
         font-weight: vars.$fw-bold;
-        
+
         ion-icon {
           font-size: 16px;
           margin-right: 8px;
@@ -405,7 +493,7 @@ ion-modal.side-custom-popup {
         padding-left: 24px;
       }
     }
-    
+
     .duration-indicator {
       margin: 16px 0 -16px -40px;
       padding-left: 40px;
@@ -446,7 +534,9 @@ ion-modal.side-custom-popup {
   transition: vars.$transition-base;
   width: 44px;
   height: 44px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: vars.$color-text-muted;
 
   &:hover {
