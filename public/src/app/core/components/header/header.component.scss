@@ -16,7 +16,7 @@
     --color: #{vars.$color-white};
     --padding-start: 24px;
     --padding-end: 24px;
-    --min-height: 104px;
+    --min-height: 80px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -26,7 +26,7 @@
 
 // ── Brand Logo ──
 .brand-logo {
-  height: 60px;
+  height: 56px;
   width: auto;
   vertical-align: middle;
   transition: vars.$transition-base;
@@ -283,8 +283,8 @@
 .profile-btn {
   --padding-start: 0;
   --padding-end: 0;
-  height: 55px;
-  width: 55px;
+  height: 48px;
+  width: 48px;
   border-radius: vars.$radius-circle;
   overflow: hidden;
   margin-left: 6px;

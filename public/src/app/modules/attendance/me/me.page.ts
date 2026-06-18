@@ -315,12 +315,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         const centerY = top + height / 2;
 
         // Value
-        ctx.font = 'bold 24px "Outfit", "Inter", sans-serif';
+        ctx.font = 'bold 24px "Inter", sans-serif';
         ctx.fillStyle = '#1e293b'; // Dark slate
         ctx.fillText(this.grossHours || '00:00', centerX, centerY - 5);
 
         // Label
-        ctx.font = '700 10px "Outfit", "Inter", sans-serif';
+        ctx.font = '700 10px "Inter", sans-serif';
         ctx.fillStyle = '#64748b'; // Slate muted
         ctx.fillText('GROSS HRS', centerX, centerY + 18);
         ctx.restore();

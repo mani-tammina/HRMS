@@ -18,8 +18,8 @@
 @import "@ionic/angular/css/text-transformation.css";
 @import "@ionic/angular/css/flex-utils.css";
 
-/* Google Fonts — Inter */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Google Fonts — Inter (300 Light · 400 Regular · 500 Medium · 600 SemiBold · 700 Bold · 800 ExtraBold · 900 Black) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300;0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;0,14..32,900;1,14..32,400;1,14..32,500&display=swap');
 
 html.md {
   --ion-default-font: #{$font-primary};
@@ -31,7 +31,103 @@ body {
   color: $color-text-primary;
   background-color: $color-bg-page;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv11', 'ss01'; // Inter optical features
 }
+
+/* =================== INTER TYPOGRAPHY UTILITIES =================== */
+/* font-weight helpers — use these instead of raw font-weight values  */
+
+.fw-thin        { font-weight: $fw-light; }       // 300
+.fw-regular     { font-weight: $fw-regular; }      // 400
+.fw-medium      { font-weight: $fw-medium; }       // 500
+.fw-semibold    { font-weight: $fw-semibold; }     // 600
+.fw-bold        { font-weight: $fw-bold; }         // 700
+.fw-extrabold   { font-weight: $fw-extrabold; }   // 800
+.fw-black       { font-weight: $fw-black; }        // 900
+
+/* font-size helpers */
+.fs-display     { font-size: $fs-display; }
+.fs-heading-xl  { font-size: $fs-heading-xl; }
+.fs-heading-lg  { font-size: $fs-heading-lg; }
+.fs-heading-md  { font-size: $fs-heading-md; }
+.fs-heading-sm  { font-size: $fs-heading-sm; }
+.fs-body        { font-size: $fs-body; }
+.fs-body-lg     { font-size: $fs-body-lg; }
+.fs-small       { font-size: $fs-small; }
+.fs-xs          { font-size: $fs-xs; }
+
+/* letter-spacing helpers */
+.ls-tight       { letter-spacing: $ls-tight; }
+.ls-normal      { letter-spacing: $ls-normal; }
+.ls-wide        { letter-spacing: $ls-wide; }
+.ls-wider       { letter-spacing: $ls-wider; }
+.ls-widest      { letter-spacing: $ls-widest; }
+
+/* line-height helpers */
+.lh-tight       { line-height: $lh-tight; }
+.lh-snug        { line-height: $lh-snug; }
+.lh-normal      { line-height: $lh-normal; }
+.lh-relaxed     { line-height: $lh-relaxed; }
+.lh-loose       { line-height: $lh-loose; }
+
+/* Heading composites — Inter with tight tracking */
+.text-display {
+  font-size: $fs-display;
+  font-weight: $fw-black;
+  letter-spacing: $ls-tight;
+  line-height: $lh-tight;
+  font-family: $font-display;
+}
+.text-heading-xl {
+  font-size: $fs-heading-xl;
+  font-weight: $fw-extrabold;
+  letter-spacing: $ls-tight;
+  line-height: $lh-tight;
+}
+.text-heading-lg {
+  font-size: $fs-heading-lg;
+  font-weight: $fw-bold;
+  line-height: $lh-snug;
+}
+.text-heading-md {
+  font-size: $fs-heading-md;
+  font-weight: $fw-bold;
+  line-height: $lh-snug;
+}
+.text-heading-sm {
+  font-size: $fs-heading-sm;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+.text-body {
+  font-size: $fs-body;
+  font-weight: $fw-regular;
+  line-height: $lh-normal;
+}
+.text-body-bold {
+  font-size: $fs-body;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+.text-small {
+  font-size: $fs-small;
+  font-weight: $fw-regular;
+  line-height: $lh-normal;
+}
+.text-small-bold {
+  font-size: $fs-small;
+  font-weight: $fw-semibold;
+  line-height: $lh-normal;
+}
+.text-xs { font-size: $fs-xs; line-height: $lh-normal; }
+.text-label {
+  font-size: $fs-xs;
+  font-weight: $fw-bold;
+  letter-spacing: $ls-wide;
+  text-transform: uppercase;
+}
+.text-mono { font-family: $font-mono; }
 
 /* =================== IONIC OVERRIDES =================== */
 

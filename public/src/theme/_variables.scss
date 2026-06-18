@@ -10,8 +10,8 @@
 // 1. FONT FAMILY TOKENS
 // ─────────────────────────────────────────────
 
-$font-primary: 'Inter', 'Open Sans', sans-serif;
-$font-display: 'Inter', sans-serif;
+$font-primary: 'Inter', ;
+$font-display: 'Inter';
 $font-mono: 'JetBrains Mono', 'Courier New', monospace;
 
 // Font weight scale
@@ -28,9 +28,9 @@ $fw-black: 900;
 // ─────────────────────────────────────────────
 
 // ── Primary Brand Blue ──
-$color-primary: #1a5fa8; // Core brand blue
+$color-primary: #1F74BB; // Core brand blue
 $color-primary-hover: #175191; // Hover state (slightly darker)
-$color-primary-dark: #154c88; // Active / pressed
+$color-primary-dark: #1F74BB; // Active / pressed
 $color-primary-light: #e8f0fb; // Soft tint for bg badges
 $color-primary-xlight: #f0f5ff; // Lightest background tint
 $color-primary-rgb: 26, 95, 168;
@@ -43,7 +43,7 @@ $ff-mono: $font-mono;
 $color-navbar: #1F74BB;
 $color-sidebar: #0f2b4a; // Dark navy sidebar
 $color-sidebar-hover: #1a3d65; // Nav item hover bg
-$color-sidebar-active: #1a5fa8; // Active nav item bg
+$color-sidebar-active: #1F74BB; // Active nav item bg
 $color-sidebar-item: #a0b4cc; // Inactive nav text/icon
 $color-sidebar-text: #ffffff; // Active nav text
 

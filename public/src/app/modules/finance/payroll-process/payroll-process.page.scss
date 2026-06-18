@@ -1,3 +1,5 @@
+@use '../../../../theme/_variables' as vars;
+
 .glass-content {
   --background: #f8fafc;
   background: radial-gradient(circle at top right, #e0f2fe 0%, #f8fafc 40%);
@@ -849,7 +851,7 @@
         color: #334155;
         white-space: nowrap;
 
-        &.num { text-align: right; font-family: 'Inter', sans-serif; font-weight: 500; color: #475569; }
+        &.num { text-align: right; font-family: vars.$font-primary; font-weight: 500; color: #475569; }
         &.bold { font-weight: 700; color: #1e293b; }
       }
     }

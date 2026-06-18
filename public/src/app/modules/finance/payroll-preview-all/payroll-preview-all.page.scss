@@ -1,3 +1,5 @@
+@use '../../../../theme/_variables' as vars;
+
 .glass-content {
   --background: #f8fafc;
   background: radial-gradient(circle at top right, #e0f2fe 0%, #f8fafc 40%);
@@ -113,7 +115,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
 
-    &.num { justify-content: flex-end; text-align: right; font-family: 'Inter', monospace; }
+    &.num { justify-content: flex-end; text-align: right; font-family: vars.$font-mono; }
     &.bold { font-weight: 700; }
   }
 }
