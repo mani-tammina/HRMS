@@ -45,6 +45,48 @@ const uploadProfileImage = multer({
   },
 });
 
+/* ============ DATE FORMATTING HELPER ============ */
+
+/**
+ * Convert a Date object or ISO string to a plain YYYY-MM-DD string.
+ * Prevents timezone conversion issues when sending date fields to the frontend.
+ * A plain "YYYY-MM-DD" string is timezone-neutral and Angular DatePipe
+ * will display it correctly without any offset.
+ */
+function formatDateField(val) {
+  if (!val) return null;
+  if (typeof val === 'string') {
+    // Already a plain date string like "1994-07-15"
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    // ISO string like "1994-07-15T00:00:00.000Z" → extract date part
+    if (val.includes('T')) return val.split('T')[0];
+    return val;
+  }
+  if (val instanceof Date) {
+    const yyyy = val.getUTCFullYear();
+    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(val.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
+}
+
+/**
+ * Normalize date fields in an employee record so they are always
+ * plain YYYY-MM-DD strings when sent to the client.
+ */
+function formatEmployeeDates(emp) {
+  if (!emp) return emp;
+  const dateFields = ['DateOfBirth', 'DateJoined', 'exit_date', 'created_at', 'updated_at'];
+  const result = { ...emp };
+  for (const field of dateFields) {
+    if (result[field] !== undefined) {
+      result[field] = formatDateField(result[field]);
+    }
+  }
+  return result;
+}
+
 /* ============ EMPLOYEE MASTER ============ */
 
 // Get all employees with pagination & filters
@@ -255,7 +297,7 @@ router.get("/:id", auth, async (req, res) => {
     [req.params.id]
   );
   c.end();
-  res.json(r[0] || null);
+  res.json(r[0] ? formatEmployeeDates(r[0]) : null);
 });
 
 
@@ -359,7 +401,7 @@ router.get("/:id/details", auth, async (req, res) => {
     const maskedEmployee = maskSensitiveData(employee[0], req.user.role, isSelf);
 
     res.json({
-      employee: maskedEmployee,
+      employee: formatEmployeeDates(maskedEmployee),
       attendance_summary: {
         recent_records: attendance,
         total_present_days: attendance.filter((a) => a.status === "present")
@@ -604,7 +646,7 @@ router.get("/profile/me", auth, async (req, res) => {
 
   if (rows.length === 0)
     return res.status(404).json({ error: "Profile not found" });
-  res.json(rows[0]);
+  res.json(formatEmployeeDates(rows[0]));
 });
 
 // Update my profile

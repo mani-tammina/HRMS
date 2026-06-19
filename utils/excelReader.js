@@ -72,9 +72,11 @@ function excel(file) {
         for (const k of Object.keys(row)) {
             const v = row[k];
             if (v instanceof Date) {
-                const yyyy = v.getUTCFullYear();
-                const mm = String(v.getUTCMonth() + 1).padStart(2, '0');
-                const dd = String(v.getUTCDate()).padStart(2, '0');
+                // XLSX with cellDates:true creates Date at LOCAL midnight.
+                // Use local date parts (not UTC) to avoid IST timezone shift (-1 day bug).
+                const yyyy = v.getFullYear();
+                const mm = String(v.getMonth() + 1).padStart(2, '0');
+                const dd = String(v.getDate()).padStart(2, '0');
                 r[k] = `${yyyy}-${mm}-${dd}`;
             } else if (typeof v === 'string') {
                 const lower = String(k).toLowerCase();
@@ -93,6 +95,7 @@ function excel(file) {
                     r[k] = v.trim();
                 }
             } else if (typeof v === 'number' && String(k).toLowerCase().includes('date')) {
+                // Excel serial → UTC epoch ms. Use UTC date parts since the serial itself is UTC-based.
                 const d = new Date(Math.round((v - 25569) * 86400 * 1000));
                 if (!isNaN(d.getTime())) {
                     const yyyy = d.getUTCFullYear();

@@ -357,6 +357,24 @@
     }
   }
 
+  .dashboard-row {
+    display: flex;
+    flex-flow: row wrap;
+    align-items: stretch;
+  }
+
+  .dashboard-col {
+    display: flex;
+    flex-direction: column;
+
+    >ion-card.overview-block {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 auto;
+      height: 100%;
+    }
+  }
+
   // ─────────────────────────────────────────────
   // OVERVIEW / CARDS BLOCK
   // ─────────────────────────────────────────────
@@ -1926,7 +1944,7 @@
   border: 1px solid #ABABAB !important;
   border-radius: 10px !important;
   padding: 20px 20px !important;
-  margin: vars.$space-4 0 vars.$space-6 !important;
+  margin: 0 0 0 !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02), 0 2px 8px rgba(0, 0, 0, 0.01) !important;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 

@@ -68,8 +68,8 @@
       </ion-col>
     </ion-row>
 
-    <ion-row>
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
+    <ion-row class="dashboard-row">
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <ion-card class="overview-block modern-overview-card">
           <div class="card-header-row">
             <div class="header-text">
@@ -169,75 +169,9 @@
             </div>
           </div>
         </ion-card>
-
-        <!-- Leave balance card -->
-        <ion-card class="overview-block modern-overview-card leave-balance-card-flat">
-          <div class="card-header-row">
-            <div class="header-text">
-              <h3 class="overview-title">Leave balance</h3>
-              <p class="overview-subtitle">Quick view of your available time off</p>
-            </div>
-            <div class="header-badge">
-              <span class="badge-pill">Cycle : Mar - Feb</span>
-            </div>
-          </div>
-
-          <div class="divider-line"></div>
-
-          <div class="card-content leave-balance-body">
-            <div class="leave-columns-row">
-              <div class="leave-column" *ngFor="let leave of leaveCards; trackBy: trackById">
-                <ng-container *ngIf="leave.code !== 'LOP'">
-                  <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'"
-                    [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'"
-                    [style.backgroundColor]="leave.bg_color || ''" [style.color]="leave.bg_color ? '#ffffff' : ''">
-                    <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon-small" alt="icon" />
-                    <ion-icon *ngIf="!leave.icon_path"
-                      [name]="(leave.code === 'CL' || leave.code === 'PL') ? 'umbrella' : (leave.code === 'SL' ? 'bed' : 'calendar')"></ion-icon>
-                  </div>
-                  <p class="leave-type-title">{{ leave.title }}</p>
-                  <p class="leave-days-left">
-                    <span class="days-bold">{{ leave.available | number:'2.0-0' }}/{{ leave.allocated_days |
-                      number:'2.0-0' }}</span> days left
-                  </p>
-                </ng-container>
-              </div>
-            </div>
-            <p class="leave-footer-note">Plan ahead: peak leave usage is expected during upcoming festival weeks.</p>
-          </div>
-        </ion-card>
-
-        <!-- Upcoming holidays card -->
-        <ion-card class="overview-block modern-overview-card holidays-card">
-          <div class="card-header-row">
-            <div class="header-text">
-              <h3 class="overview-title">Upcoming holidays</h3>
-              <p class="overview-subtitle">Next few company and regional holidays</p>
-            </div>
-            <div class="header-badge">
-              <span class="badge-pill">Location : Vizag</span>
-            </div>
-          </div>
-
-          <div class="divider-line"></div>
-
-          <!-- Festive Holiday Banner -->
-          <div class="holiday-banner">
-            <div class="holiday-banner-content">
-              <div class="holiday-date-block">
-                <span class="holiday-day">25</span>
-                <span class="holiday-month-year">December 2025</span>
-                <span class="holiday-name">Happy Christmas</span>
-              </div>
-            </div>
-            <div class="holiday-banner-overlay"></div>
-          </div>
-        </ion-card>
-
-
       </ion-col>
 
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6">
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Quick Links card -->
         <ion-card class="overview-block modern-overview-card quick-links-card">
           <div class="card-header-row">
@@ -328,6 +262,50 @@
             </div>
           </div>
         </ion-card>
+      </ion-col>
+    </ion-row>
+
+    <ion-row class="dashboard-row">
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+        <!-- Leave balance card -->
+        <ion-card class="overview-block modern-overview-card leave-balance-card-flat">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Leave balance</h3>
+              <p class="overview-subtitle">Quick view of your available time off</p>
+            </div>
+            <div class="header-badge">
+              <span class="badge-pill">Cycle : Mar - Feb</span>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <div class="card-content leave-balance-body">
+            <div class="leave-columns-row">
+              <div class="leave-column" *ngFor="let leave of leaveCards; trackBy: trackById">
+                <ng-container *ngIf="leave.code !== 'LOP'">
+                  <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'"
+                    [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'"
+                    [style.backgroundColor]="leave.bg_color || ''" [style.color]="leave.bg_color ? '#ffffff' : ''">
+                    <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon-small" alt="icon" />
+                    <ion-icon *ngIf="!leave.icon_path"
+                      [name]="(leave.code === 'CL' || leave.code === 'PL') ? 'umbrella' : (leave.code === 'SL' ? 'bed' : 'calendar')"></ion-icon>
+                  </div>
+                  <p class="leave-type-title">{{ leave.title }}</p>
+                  <p class="leave-days-left">
+                    <span class="days-bold">{{ leave.available | number:'2.0-0' }}/{{ leave.allocated_days |
+                      number:'2.0-0' }}</span> days left
+                  </p>
+                </ng-container>
+              </div>
+            </div>
+            <p class="leave-footer-note">Plan ahead: peak leave usage is expected during upcoming festival weeks.</p>
+          </div>
+        </ion-card>
+      </ion-col>
+
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Announcements card -->
         <ion-card class="overview-block modern-overview-card announcements-card-flat">
           <div class="card-header-row">
@@ -404,7 +382,40 @@
             </div>
           </div>
         </ion-card>
+      </ion-col>
+    </ion-row>
 
+    <ion-row class="dashboard-row">
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+        <!-- Upcoming holidays card -->
+        <ion-card class="overview-block modern-overview-card holidays-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Upcoming holidays</h3>
+              <p class="overview-subtitle">Next few company and regional holidays</p>
+            </div>
+            <div class="header-badge">
+              <span class="badge-pill">Location : Vizag</span>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <!-- Festive Holiday Banner -->
+          <div class="holiday-banner">
+            <div class="holiday-banner-content">
+              <div class="holiday-date-block">
+                <span class="holiday-day">25</span>
+                <span class="holiday-month-year">December 2025</span>
+                <span class="holiday-name">Happy Christmas</span>
+              </div>
+            </div>
+            <div class="holiday-banner-overlay"></div>
+          </div>
+        </ion-card>
+      </ion-col>
+
+      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Birthdays & Work Anniversaries card -->
         <ion-card class="overview-block modern-overview-card milestone-card">
           <div class="card-content milestone-card-body">
@@ -533,58 +544,58 @@
 
           </div>
         </ion-card>
-
-        <!-- View Wishes Modal -->
-        <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()"
-          class="wishes-modal premium-colorful-modal">
-          <ng-template>
-            <div class="modal-wrapper">
-              <ion-header class="ion-no-border">
-                <ion-toolbar class="colorful-header">
-                  <div class="header-content">
-                    <ion-icon name="sparkles" class="star-icon"></ion-icon>
-                    <ion-title>Celebration Wall for {{ viewingMilestoneName }}</ion-title>
-                  </div>
-                  <ion-buttons slot="end">
-                    <ion-button (click)="closeWishesModal()" class="close-circle">
-                      <ion-icon slot="icon-only" name="close-circle"></ion-icon>
-                    </ion-button>
-                  </ion-buttons>
-                </ion-toolbar>
-              </ion-header>
-
-              <ion-content class="modal-content-area">
-                <div class="wishes-grid" *ngIf="wishesToView.length > 0; else noWishes">
-                  <div class="wish-glass-card" *ngFor="let wish of wishesToView">
-                    <div class="wish-card-inner">
-                      <div class="sender-avatar-small">
-                        {{ (wish.sender_name || 'U').charAt(0) }}
-                      </div>
-                      <div class="wish-body">
-                        <div class="wish-header">
-                          <span class="sender-name">{{ wish.sender_name }}</span>
-                          <span class="wish-time">{{ wish.created_at | date:'MMM dd' }}</span>
-                        </div>
-                        <p class="wish-message">{{ wish.message }}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <ng-template #noWishes>
-                  <div class="empty-wishes-state">
-                    <div class="empty-icon-box">
-                      <ion-icon name="heart-outline"></ion-icon>
-                    </div>
-                    <h2>No celebrations yet!</h2>
-                    <p>Be the first to brighten their day with a warm message.</p>
-                  </div>
-                </ng-template>
-              </ion-content>
-            </div>
-          </ng-template>
-        </ion-modal>
       </ion-col>
     </ion-row>
+
+    <!-- View Wishes Modal -->
+    <ion-modal [isOpen]="isViewingWishes" (didDismiss)="closeWishesModal()"
+      class="wishes-modal premium-colorful-modal">
+      <ng-template>
+        <div class="modal-wrapper">
+          <ion-header class="ion-no-border">
+            <ion-toolbar class="colorful-header">
+              <div class="header-content">
+                <ion-icon name="sparkles" class="star-icon"></ion-icon>
+                <ion-title>Celebration Wall for {{ viewingMilestoneName }}</ion-title>
+              </div>
+              <ion-buttons slot="end">
+                <ion-button (click)="closeWishesModal()" class="close-circle">
+                  <ion-icon slot="icon-only" name="close-circle"></ion-icon>
+                </ion-button>
+              </ion-buttons>
+            </ion-toolbar>
+          </ion-header>
+
+          <ion-content class="modal-content-area">
+            <div class="wishes-grid" *ngIf="wishesToView.length > 0; else noWishes">
+              <div class="wish-glass-card" *ngFor="let wish of wishesToView">
+                <div class="wish-card-inner">
+                  <div class="sender-avatar-small">
+                    {{ (wish.sender_name || 'U').charAt(0) }}
+                  </div>
+                  <div class="wish-body">
+                    <div class="wish-header">
+                      <span class="sender-name">{{ wish.sender_name }}</span>
+                      <span class="wish-time">{{ wish.created_at | date:'MMM dd' }}</span>
+                    </div>
+                    <p class="wish-message">{{ wish.message }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <ng-template #noWishes>
+              <div class="empty-wishes-state">
+                <div class="empty-icon-box">
+                  <ion-icon name="heart-outline"></ion-icon>
+                </div>
+                <h2>No celebrations yet!</h2>
+                <p>Be the first to brighten their day with a warm message.</p>
+              </div>
+            </ng-template>
+          </ion-content>
+        </div>
+      </ng-template>
+    </ion-modal>
   </ion-grid>
 </ion-content>
