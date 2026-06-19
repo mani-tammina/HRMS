@@ -9,18 +9,22 @@ const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
-// Helper to format date to IST (YYYY-MM-DD) and adjust for uploader timezone shift
+// Format a Date object or ISO string to plain YYYY-MM-DD.
+// Database dates are now stored correctly, so no timezone offset is needed.
 function formatDateToIST(val) {
   if (!val) return null;
-  const date = new Date(val);
-  if (isNaN(date.getTime())) return null;
-  // Offset the date to IST (+5.5 hours) and add 1 day (24 hours) to correct the shift
-  const istTime = date.getTime() + (5.5 * 60 * 60 * 1000) + (24 * 60 * 60 * 1000);
-  const istDate = new Date(istTime);
-  const yyyy = istDate.getUTCFullYear();
-  const mm = String(istDate.getUTCMonth() + 1).padStart(2, '0');
-  const dd = String(istDate.getUTCDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
+  if (typeof val === 'string') {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+    if (val.includes('T')) return val.split('T')[0];
+    return val;
+  }
+  if (val instanceof Date) {
+    const yyyy = val.getUTCFullYear();
+    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(val.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return null;
 }
 
 /* ============================================
@@ -116,6 +120,7 @@ router.get("/admin", auth, admin, async (req, res) => {
             AND DAYOFYEAR(CONCAT(YEAR(CURDATE()), '-', LPAD(MONTH(DateOfBirth), 2, '0'), '-', LPAD(DAY(DateOfBirth), 2, '0'))) 
                 BETWEEN DAYOFYEAR(CURDATE()) AND DAYOFYEAR(CURDATE() + INTERVAL 7 DAY)
             ORDER BY DAYOFYEAR(CONCAT(YEAR(CURDATE()), '-', LPAD(MONTH(DateOfBirth), 2, '0'), '-', LPAD(DAY(DateOfBirth), 2, '0')))
+            LIMIT 5
         `);
 
         // Active projects
