@@ -37,7 +37,7 @@ router.get("/", auth, async (req, res) => {
   const c = await db();
 
   let query =
-    "SELECT id, FirstName, LastName, DateOfBirth, WorkEmail, profile_image FROM employees WHERE 1=1";
+    "SELECT id, FirstName, LastName, DateOfBirth, WorkEmail, profile_image FROM employees WHERE EmploymentStatus = 'Working'";
 
   if (period === "today") {
     query +=

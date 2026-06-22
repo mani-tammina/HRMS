@@ -95,9 +95,10 @@ router.get("/", auth, async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
+    const q = (req.query.q || "").trim();
+    const status = (req.query.status || "").trim();
 
-    const c = await db();
-    const [r] = await c.query(`
+    let queryStr = `
       SELECT 
           e.*, 
           d.name as department_name, 
@@ -105,11 +106,33 @@ router.get("/", auth, async (req, res) => {
       FROM employees e
       LEFT JOIN departments d ON e.DepartmentId = d.id
       LEFT JOIN designations des ON e.DesignationId = des.id
-      ORDER BY e.id DESC
-      LIMIT ? OFFSET ?
-    `, [limit, offset]);
+      WHERE 1=1
+    `;
+    let countQueryStr = `SELECT COUNT(*) as total FROM employees e WHERE 1=1`;
+    const params = [];
+    const countParams = [];
 
-    const [countResult] = await c.query("SELECT COUNT(*) as total FROM employees");
+    if (status) {
+      queryStr += " AND e.EmploymentStatus = ?";
+      countQueryStr += " AND e.EmploymentStatus = ?";
+      params.push(status);
+      countParams.push(status);
+    }
+
+    if (q) {
+      queryStr += " AND (e.FirstName LIKE ? OR e.LastName LIKE ? OR e.WorkEmail LIKE ? OR e.EmployeeNumber LIKE ?)";
+      countQueryStr += " AND (e.FirstName LIKE ? OR e.LastName LIKE ? OR e.WorkEmail LIKE ? OR e.EmployeeNumber LIKE ?)";
+      const likeParam = `%${q}%`;
+      params.push(likeParam, likeParam, likeParam, likeParam);
+      countParams.push(likeParam, likeParam, likeParam, likeParam);
+    }
+
+    queryStr += " ORDER BY e.id DESC LIMIT ? OFFSET ?";
+    params.push(limit, offset);
+
+    const c = await db();
+    const [r] = await c.query(queryStr, params);
+    const [countResult] = await c.query(countQueryStr, countParams);
     c.end();
 
     res.json({
@@ -579,7 +602,7 @@ router.get("/search/query", auth, async (req, res) => {
        FROM employees e
        LEFT JOIN departments d ON e.DepartmentId = d.id
        LEFT JOIN designations des ON e.DesignationId = des.id
-       WHERE FirstName LIKE ? OR LastName LIKE ? OR WorkEmail LIKE ? 
+       WHERE (e.FirstName LIKE ? OR e.LastName LIKE ? OR e.WorkEmail LIKE ?) AND e.EmploymentStatus = 'Working'
        LIMIT ?`,
       [`%${q}%`, `%${q}%`, `%${q}%`, limit],
     );
