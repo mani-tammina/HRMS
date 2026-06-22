@@ -1,9 +1,14 @@
 <ion-header class="ion-no-border">
-  <ion-toolbar class="home-toolbar">
+  <ion-toolbar class="home-toolbar payslips-toolbar">
     <ion-buttons slot="start">
       <ion-menu-button></ion-menu-button>
     </ion-buttons>
-    <ion-title>Finance & Payroll</ion-title>
+    <ion-title>
+      <div class="page-title-block">
+        <span class="page-main-title">Finance & Payroll</span>
+        <span class="page-subtitle-text">Manage your payslips, tax computation and salary details.</span>
+      </div>
+    </ion-title>
     <ion-buttons slot="end">
       <ion-button color="primary" routerLink="/MyTax" title="My Tax Portal" id="go-to-tax-portal-btn">
         <ion-icon name="shield-checkmark-outline" slot="icon-only"></ion-icon>
@@ -28,33 +33,33 @@
 
 <ion-content class="payroll-content">
   <div class="payslip-wrapper" *ngIf="currentEmployee && currentTab === 'payslips'">
-    <ion-grid class="ion-no-padding">
+    <ion-grid class="payslip-grid">
       <ion-row>
         <!-- SIDEBAR: MONTH SELECTION -->
         <ion-col size="12" size-md="3" class="sidebar-col">
           <div class="sidebar-content">
             <div class="year-selector">
-              <ion-item lines="none" class="custom-select-item">
-                <ion-select [(ngModel)]="selectedYear" interface="popover" class="full-width-select"
+              <div class="filter-label">FILTER</div>
+              <div class="custom-select-wrapper">
+                <ion-icon name="calendar-outline" class="select-prefix-icon"></ion-icon>
+                <ion-select [(ngModel)]="selectedYear" interface="popover" class="year-select-input"
                   (ionChange)="onYearChange()">
                   <ion-select-option *ngFor="let y of availableYears" [value]="y">Year {{ y }}</ion-select-option>
                 </ion-select>
-              </ion-item>
+              </div>
             </div>
 
             <div class="month-list-header">PAYSLIPS</div>
-            <ion-list class="month-list">
-              <ion-item button lines="full" *ngFor="let m of availableMonths"
+            <div class="month-list-container">
+              <button *ngFor="let m of availableMonths" class="month-btn"
                 [class.selected-month]="selectedMonthStr === (m.year + '-' + (m.month | number:'2.0-0'))"
                 (click)="selectMonth(m)">
-                <ion-label>
-                  <h2>{{ getMonthName(m.month) }} {{ m.year }}</h2>
-                </ion-label>
-              </ion-item>
-              <ion-item *ngIf="availableMonths.length === 0">
-                <ion-label color="medium">No payslips found</ion-label>
-              </ion-item>
-            </ion-list>
+                {{ getMonthName(m.month) }} {{ m.year }}
+              </button>
+              <div class="no-months" *ngIf="availableMonths.length === 0">
+                No payslips found
+              </div>
+            </div>
           </div>
         </ion-col>
 
@@ -67,198 +72,327 @@
           </div>
 
           <ng-container *ngIf="!loading">
-            <div class="main-header" *ngIf="isPayslipGenerated">
-              <div class="header-left">
-                <h2>{{ selectedMonthStr | date:'MMMM yyyy' }}</h2>
-              </div>
-              <div class="header-right">
-                <button class="download-btn" (click)="downloadPayslip()">
-                  {{ selectedMonthStr | date:'MMMM yyyy' }} Pay Slip <ion-icon name="download-outline"></ion-icon>
-                </button>
-              </div>
-            </div>
-
             <!-- PAYSLIP GENERATED -->
             <div class="payslip-container" *ngIf="isPayslipGenerated">
               <div class="payslip-card paper-effect">
-                <!-- HEADER -->
-                <header class="payslip-header">
-                  <div class="company-info">
-                    <h2 class="title">PAYSLIP {{ selectedMonthStr | date:'MMMM yyyy' | uppercase }}</h2>
-                    <p class="company-name">TECH TAMMINA SOFTWARE SOLUTIONS PVT LTD</p>
-                    <p>#49-24-64, SRI VENKATA SAI TOWERS, 3RD FLOOR,</p>
-                    <p>SANKARAMATA ROAD, MADHURANAGAR,</p>
-                    <p>VISAKHAPATNAM, ANDHRA PRADESH, 530016</p>
+
+                <!-- CARD HEADER -->
+                <div class="payslip-card-header">
+                  <div class="header-left">
+                    <div class="title-badge-row">
+                      <span class="payslip-title-text">Payslip</span>
+                      <span class="status-badge generated">
+                        <ion-icon name="checkmark-circle" class="badge-icon"></ion-icon> Generated
+                      </span>
+                    </div>
+                    <span class="payslip-subtitle-text">For {{ selectedMonthStr | date:'MMMM yyyy' }}</span>
                   </div>
-                  <div class="logo-box">
-                    <img src="assets/tammina-blue-logo.svg" alt="Company Logo" />
+                  <div class="header-right">
+                    <button class="download-pdf-btn" (click)="downloadPayslip()">
+                      <img src="assets/downloadbtn.png" alt="download pdf">
+                      Download PDF
+                    </button>
                   </div>
-                </header>
-
-                <!-- EMPLOYEE NAME -->
-                <h2 class="employee-display-name">
-                  {{ currentEmployee?.FullName | uppercase }}
-                </h2>
-
-                <!-- EMPLOYEE DETAILS GRID -->
-                <div class="details-section">
-                  <ion-row class="detail-row">
-                    <ion-col size="3">
-                      <label>EMPLOYEE NUMBER</label>
-                      <p>{{ currentEmployee?.EmployeeNumber || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>DATE JOINED</label>
-                      <p>{{ currentEmployee?.DateOfJoining | date:'dd MMM yyyy' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>DEPARTMENT</label>
-                      <p>{{ currentEmployee?.department_name || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>DESIGNATION</label>
-                      <p>{{ currentEmployee?.designation_name || '-' }}</p>
-                    </ion-col>
-                  </ion-row>
-
-                  <ion-row class="detail-row">
-                    <ion-col size="3">
-                      <label>PAYMENT MODE</label>
-                      <p>Bank Transfer</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>BANK</label>
-                      <p>{{ currentEmployee?.bank_name || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>BANK IFSC</label>
-                      <p>{{ currentEmployee?.ifsc_code || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>BANK ACCOUNT</label>
-                      <p>{{ currentEmployee?.AccountNumber || '-' }}</p>
-                    </ion-col>
-                  </ion-row>
-
-                  <ion-row class="detail-row">
-                    <ion-col size="3">
-                      <label>UAN</label>
-                      <p>{{ currentEmployee?.uan_number || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>PF NUMBER</label>
-                      <p>{{ currentEmployee?.pf_number || '-' }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>MONTHLY SALARY</label>
-                      <p>{{ monthlySalary }}</p>
-                    </ion-col>
-                    <ion-col size="3">
-                      <label>PAN NUMBER</label>
-                      <p>{{ currentEmployee?.PANNumber || '-' }}</p>
-                    </ion-col>
-                  </ion-row>
-
-                  <ion-row class="detail-row">
-                    <ion-col size="3">
-                      <label>AADHAAR NUMBER</label>
-                      <p>{{ currentEmployee?.AadhaarNumber || '-' }}</p>
-                    </ion-col>
-                  </ion-row>
                 </div>
 
-                <hr class="section-divider" />
+                <!-- COMPANY DETAILS -->
+                <div class="company-details-section">
+                  <div class="company-info-left">
+                    <h3 class="company-name-text">Sree Tammina Software solutions Pvt. Ltd.</h3>
+                    <p class="company-address-text">
+                      #49-24-64,Sri venkata Sai Towers,3rd Floor,, Sankaramata<br>
+                      Road,Madhurnagar, Viskhapatnam, Andhra Pradesh,<br>
+                      530016.
+                    </p>
+                  </div>
+                  <div class="company-logo-right">
+                    <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo-img" />
+                  </div>
+                </div>
+
+                <!-- EMPLOYEE DETAILS -->
+                <div class="payslip-section-title">
+                  <div class="icon-box blue-box">
+                    <ion-icon name="person-outline"></ion-icon>
+                  </div>
+                  <span class="section-title-text">Employee Details</span>
+                </div>
+
+                <div class="employee-details-grid">
+                  <div class="detail-cell">
+                    <span class="detail-label">Employee Name</span>
+                    <span class="detail-value">{{ currentEmployee?.FullName }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Employee ID</span>
+                    <span class="detail-value">{{ currentEmployee?.EmployeeNumber || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Department</span>
+                    <span class="detail-value">{{ currentEmployee?.department_name || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Designation</span>
+                    <span class="detail-value">{{ currentEmployee?.designation_name || '-' }}</span>
+                  </div>
+
+                  <div class="detail-cell">
+                    <span class="detail-label">Date Joined</span>
+                    <span class="detail-value">{{ currentEmployee?.DateOfJoining | date:'dd MMM yyyy' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Payment Mode</span>
+                    <span class="detail-value">Bank Transfer (NEFT)</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Bank Name</span>
+                    <span class="detail-value">{{ currentEmployee?.bank_name || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Bank Account</span>
+                    <span class="detail-value">{{ currentEmployee?.AccountNumber || '-' }}</span>
+                  </div>
+
+                  <div class="detail-cell">
+                    <span class="detail-label">IFSC</span>
+                    <span class="detail-value">{{ currentEmployee?.ifsc_code || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">PAN</span>
+                    <span class="detail-value">{{ currentEmployee?.PANNumber || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">UAN</span>
+                    <span class="detail-value">{{ currentEmployee?.uan_number || '-' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">PF Number</span>
+                    <span class="detail-value">{{ currentEmployee?.pf_number || '-' }}</span>
+                  </div>
+
+                  <div class="detail-cell">
+                    <span class="detail-label">ESI Number</span>
+                    <span class="detail-value">{{ currentEmployee?.esi_number || '—' }}</span>
+                  </div>
+                  <div class="detail-cell">
+                    <span class="detail-label">Monthly Salary</span>
+                    <span class="detail-value">₹{{ monthlySalary | number:'1.0-0' }}</span>
+                  </div>
+                </div>
 
                 <!-- ATTENDANCE SUMMARY -->
-                <div class="attendance-block">
-                  <ion-row>
-                    <ion-col size="3"><label>Actual Payable Days</label>
-                      <p>{{ actualPayableDays }}</p>
-                    </ion-col>
-                    <ion-col size="3"><label>Total Working Days</label>
-                      <p>{{ totalWorkingDays }}</p>
-                    </ion-col>
-                    <ion-col size="3"><label>Loss of Pay Days</label>
-                      <p>{{ lopDays }}</p>
-                    </ion-col>
-                    <ion-col size="3"><label>Days Payable</label>
-                      <p>{{ daysPayable }}</p>
-                    </ion-col>
-                  </ion-row>
-                </div>
-
-                <!-- SALARY TABLES -->
-                <div class="salary-tables-wrap">
-                  <ion-row>
-                    <!-- Earnings -->
-                    <ion-col size="6" class="table-border-right">
-                      <div class="table-head">
-                        <span class="name-col">EARNINGS</span>
-                        <span class="val-col">Paid Amount</span>
-                        <span class="val-col">Actual Amount</span>
-                      </div>
-                      <div class="table-item" *ngFor="let item of earnings">
-                        <span class="name-col">{{ item.name }}</span>
-                        <span class="val-col">{{ item.paid | number:'1.2-2' }}</span>
-                        <span class="val-col">{{ item.actual | number:'1.2-2' }}</span>
-                      </div>
-                      <div class="table-total">
-                        <span class="name-col">Total Earnings (A)</span>
-                        <span class="val-col">{{ totalEarnings | number:'1.2-2' }}</span>
-                        <span class="val-col">{{ totalActualEarnings | number:'1.2-2' }}</span>
-                      </div>
-                    </ion-col>
-                    <!-- Deductions -->
-                    <ion-col size="6">
-                      <div class="table-head">
-                        <span class="name-col">DEDUCTIONS</span>
-                        <span class="val-col">Paid Amount</span>
-                        <span class="val-col">Actual Amount</span>
-                      </div>
-                      <div class="table-item" *ngFor="let item of contributions">
-                        <span class="name-col">{{ item.name }}</span>
-                        <span class="val-col">{{ item.paid | number:'1.2-2' }}</span>
-                        <span class="val-col">{{ item.actual | number:'1.2-2' }}</span>
-                      </div>
-                      <div class="table-item" *ngFor="let item of taxes">
-                        <span class="name-col">{{ item.name }}</span>
-                        <span class="val-col">{{ item.paid | number:'1.2-2' }}</span>
-                        <span class="val-col">{{ item.actual | number:'1.2-2' }}</span>
-                      </div>
-                      <div class="table-total">
-                        <span class="name-col">Total Deductions (B)</span>
-                        <span class="val-col">{{ totalDeductions | number:'1.2-2' }}</span>
-                        <span class="val-col">{{ totalActualDeductions | number:'1.2-2' }}</span>
-                      </div>
-                    </ion-col>
-                  </ion-row>
-                </div>
-
-                <!-- NET PAY -->
-                <div class="net-pay-footer">
-                  <div class="net-row">
-                    <span class="label">Net Salary Payable</span>
-                    <span class="amount">₹ {{ netSalary }}</span>
+                <div class="payslip-section-title">
+                  <div class="icon-box calendar-box">
+                    <ion-icon name="calendar-outline"></ion-icon>
                   </div>
-                  <div class="word-row">
-                    <span class="label">Net Salary in words:</span>
-                    <span class="words">{{ netSalaryInWords }}</span>
+                  <span class="section-title-text">Attendance Summary</span>
+                </div>
+
+                <div class="attendance-summary-bar">
+                  <div class="attendance-card">
+                    <span class="att-card-label">Working Days</span>
+                    <span class="att-card-value">{{ totalWorkingDays }}</span>
+                  </div>
+                  <div class="attendance-card">
+                    <span class="att-card-label">Payable Days</span>
+                    <span class="att-card-value">{{ daysPayable }}</span>
+                  </div>
+                  <div class="attendance-card">
+                    <span class="att-card-label">Present Days</span>
+                    <span class="att-card-value">{{ actualPayableDays }}</span>
+                  </div>
+                  <div class="attendance-card">
+                    <span class="att-card-label">Loss of Pay</span>
+                    <span class="att-card-value orange-value">{{ lopDays }}</span>
                   </div>
                 </div>
 
-                <footer class="payslip-footer">
-                  <p>* This is a system generated payslip.</p>
-                </footer>
+                <!-- SALARY BREAKDOWN TABLES -->
+                <div class="salary-tables-container">
+                  <!-- Earnings -->
+                  <div class="salary-table-column">
+                    <div class="payslip-table-wrapper">
+                      <table class="payslip-data-table">
+                        <thead>
+                          <tr>
+                            <th class="text-left">Earnings</th>
+                            <th class="text-right">Paid Amount</th>
+                            <th class="text-right">Actual Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let item of earnings">
+                            <td class="text-left">{{ item.name }}</td>
+                            <td class="text-right">₹{{ item.paid | number:'1.0-0' }}</td>
+                            <td class="text-right">₹{{ item.actual | number:'1.0-0' }}</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="total-row">
+                            <td class="text-left">Total Earnings (A)</td>
+                            <td class="text-right">₹{{ totalEarnings | number:'1.0-0' }}</td>
+                            <td class="text-right">₹{{ totalActualEarnings | number:'1.0-0' }}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- Deductions -->
+                  <div class="salary-table-column">
+                    <!-- Contributions -->
+                    <div class="payslip-table-wrapper margin-bottom-16">
+                      <table class="payslip-data-table">
+                        <thead>
+                          <tr>
+                            <th class="text-left">Contributions</th>
+                            <th class="text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let item of contributions">
+                            <td class="text-left">{{ item.name }}</td>
+                            <td class="text-right">₹{{ item.paid | number:'1.0-0' }}</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="total-row">
+                            <td class="text-left">Total Contributions (B)</td>
+                            <td class="text-right">₹{{ totalContributions | number:'1.0-0' }}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+
+                    <!-- Taxes & Deduction -->
+                    <div class="payslip-table-wrapper">
+                      <table class="payslip-data-table">
+                        <thead>
+                          <tr>
+                            <th class="text-left">Taxes & Deduction</th>
+                            <th class="text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr *ngFor="let item of taxes">
+                            <td class="text-left">{{ item.name }}</td>
+                            <td class="text-right">₹{{ item.paid | number:'1.0-0' }}</td>
+                          </tr>
+                        </tbody>
+                        <tfoot>
+                          <tr class="total-row">
+                            <td class="text-left">Total Taxes & Deduction (C)</td>
+                            <td class="text-right">₹{{ totalTaxes | number:'1.0-0' }}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- NET SALARY PAYABLE -->
+                <div class="net-salary-card">
+                  <div class="net-salary-left">
+                    <span class="net-salary-label">Net Salary Payable (A-B-C)</span>
+                    <span class="net-salary-value">₹{{ netSalary | number:'1.0-0' }}</span>
+                    <span class="net-salary-words">In Words: {{ netSalaryInWords }}</span>
+                  </div>
+                  <div class="net-salary-right">
+                    <img alt="money" src="assets/money.png">
+                  </div>
+                </div>
+
+                <!-- NOTE FOOTER -->
+                <div class="payslip-system-footer">
+                  <div class="footer-left">
+                    <div class="footer-note-header">
+                      <ion-icon name="document-text-outline" class="note-icon"></ion-icon>
+                      <span class="note-header-text">System Generated Payslip</span>
+                    </div>
+                    <div class="footer-note-content">
+                      <p class="note-bold">**Note :</p>
+                      <ul>
+                        <li>All amounts displayed in this payslip are in INR</li>
+                        <li>Paid Amount is the amount being paid after LOP adjustments</li>
+                        <li>Actual Amount is the amount as per the salary structure</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div class="footer-right">
+                    <span class="gen-on-label">Generated on</span>
+                    <span class="gen-on-value">{{ selectedMonthStr | date:'dd MMM yyyy, hh:mm a' }} IST</span>
+                  </div>
+                </div>
+
               </div>
             </div>
 
             <!-- PAYSLIP NOT GENERATED -->
             <div class="not-generated-container" *ngIf="!isPayslipGenerated">
               <div class="not-generated-card">
-                <ion-icon name="document-text-outline"></ion-icon>
-                <h2>Your payslip not generated</h2>
+                <div class="not-gen-illus">
+                  <svg width="180" height="150" viewBox="0 0 180 150" fill="none" xmlns="http://www.w3.org/2000/svg"
+                    class="payslip-svg-illus">
+                    <!-- Sparkles / Stars -->
+                    <path d="M45 42L47.5 47L52.5 49.5L47.5 52L45 57L42.5 52L37.5 49.5L42.5 47L45 42Z" fill="#3B82F6"
+                      opacity="0.6" />
+                    <path d="M142 55L143.5 58L146.5 59.5L143.5 61L142 64L140.5 61L137.5 59.5L140.5 58L142 55Z"
+                      fill="#3B82F6" opacity="0.6" />
+                    <path d="M152 35L154.5 40L159.5 42.5L154.5 45L152 50L149.5 45L144.5 42.5L149.5 40L152 35Z"
+                      fill="#3B82F6" opacity="0.8" />
+
+                    <!-- Folder Back Flap -->
+                    <path
+                      d="M68 62H128C132.418 62 136 65.5817 136 70V114C136 118.418 132.418 122 128 122H52C47.5817 122 44 118.418 44 114V54C44 49.5817 47.5817 46 52 46H74C78.4183 46 82 49.5817 82 54V58C82 60.2091 80.2091 62 78 62H68Z"
+                      fill="#93C5FD" opacity="0.5" />
+
+                    <!-- Document / Page sticking out -->
+                    <g filter="url(#page-shadow)">
+                      <rect x="74" y="38" width="52" height="66" rx="4" fill="#FFFFFF" />
+                      <path d="M116 38L126 48H118C116.895 48 116 47.1046 116 46V38Z" fill="#3B82F6" />
+                      <rect x="82" y="52" width="36" height="3" rx="1.5" fill="#3B82F6" opacity="0.8" />
+                      <rect x="82" y="60" width="36" height="3" rx="1.5" fill="#3B82F6" opacity="0.8" />
+                      <rect x="82" y="68" width="28" height="3" rx="1.5" fill="#3B82F6" opacity="0.8" />
+                      <rect x="82" y="76" width="20" height="3" rx="1.5" fill="#3B82F6" opacity="0.8" />
+                    </g>
+
+                    <!-- Folder Front Flap -->
+                    <path
+                      d="M40 76C40 71.5817 43.5817 68 48 68H122C126.418 68 130 71.5817 130 76V112C130 116.418 126.418 120 122 120H48C43.5817 120 40 116.418 40 112V76Z"
+                      fill="url(#folder-gradient)" />
+
+                    <!-- Clock Overlay -->
+                    <g filter="url(#clock-shadow)">
+                      <circle cx="126" cy="106" r="23" fill="#FFFFFF" />
+                      <circle cx="126" cy="106" r="20" fill="#FFFFFF" stroke="#3B82F6" stroke-width="4" />
+                      <circle cx="126" cy="106" r="2.5" fill="#1E293B" />
+                      <path d="M126 95V106H134" stroke="#1E293B" stroke-width="3" stroke-linecap="round"
+                        stroke-linejoin="round" />
+                    </g>
+
+                    <defs>
+                      <linearGradient id="folder-gradient" x1="40" y1="68" x2="130" y2="120"
+                        gradientUnits="userSpaceOnUse">
+                        <stop stop-color="#60A5FA" />
+                        <stop offset="1" stop-color="#2563EB" />
+                      </linearGradient>
+
+                      <filter id="page-shadow" x="70" y="36" width="60" height="74" filterUnits="userSpaceOnUse"
+                        color-interpolation-filters="sRGB">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000000" flood-opacity="0.1" />
+                      </filter>
+
+                      <filter id="clock-shadow" x="99" y="81" width="54" height="54" filterUnits="userSpaceOnUse"
+                        color-interpolation-filters="sRGB">
+                        <feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#2563EB" flood-opacity="0.2" />
+                      </filter>
+                    </defs>
+                  </svg>
+                </div>
+                <h2>Your payslip is not generated</h2>
                 <p>The payroll for {{ selectedMonthStr | date:'MMMM yyyy' }} is currently under process or has not been
                   finalized yet. Please check back later.</p>
+                <button class="notify-me-btn" id="notify-me-payslip-btn">Notify me</button>
               </div>
             </div>
           </ng-container>
@@ -292,7 +426,8 @@
     </div>
 
     <div class="contract-list">
-      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index" [class.current-card]="contract.status?.toLowerCase() === 'active'">
+      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index"
+        [class.current-card]="contract.status?.toLowerCase() === 'active'">
         <div class="card-status-bar" [class.active-bar]="contract.status?.toLowerCase() === 'active'"></div>
         <div class="badge-wrapper" *ngIf="contract.status?.toLowerCase() === 'active'">
           <span class="active-badge"><ion-icon name="checkmark-circle"></ion-icon> Current</span>
