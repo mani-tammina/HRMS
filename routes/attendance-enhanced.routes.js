@@ -493,7 +493,7 @@ router.get("/my-report", auth, async (req, res) => {
 
     const now = new Date();
     const todayStr = now.toDateString();
-    
+
     // Determine range
     let start, end;
     if (startDate && endDate) {
@@ -537,15 +537,15 @@ router.get("/my-report", auth, async (req, res) => {
       const dStr = curr.toDateString();
       const isToday = dStr === todayStr;
       const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      
+
       // Check if on leave (including partial days)
       const todaysLeaves = allLeaves.filter(l => {
         const lStart = new Date(l.start_date);
         const lEnd = new Date(l.end_date);
         const check = new Date(curr);
-        check.setHours(0,0,0,0);
-        lStart.setHours(0,0,0,0);
-        lEnd.setHours(0,0,0,0);
+        check.setHours(0, 0, 0, 0);
+        lStart.setHours(0, 0, 0, 0);
+        lEnd.setHours(0, 0, 0, 0);
         return check >= lStart && check <= lEnd;
       });
 
@@ -604,11 +604,11 @@ router.get("/my-report", auth, async (req, res) => {
       avg_work_hours:
         attendance.length > 0
           ? (
-              attendance.reduce(
-                (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
-                0
-              ) / attendance.length
-            ).toFixed(2)
+            attendance.reduce(
+              (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
+              0
+            ) / attendance.length
+          ).toFixed(2)
           : 0,
     };
 
@@ -754,11 +754,11 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
       avg_work_hours:
         attendance.length > 0
           ? (
-              attendance.reduce(
-                (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
-                0
-              ) / attendance.length
-            ).toFixed(2)
+            attendance.reduce(
+              (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
+              0
+            ) / attendance.length
+          ).toFixed(2)
           : 0,
     };
 
@@ -767,11 +767,11 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
     res.json({
       employee: attendance[0]
         ? {
-            id: attendance[0].employee_id,
-            employee_number: attendance[0].EmployeeNumber,
-            name: `${attendance[0].FirstName} ${attendance[0].LastName}`,
-            email: attendance[0].WorkEmail,
-          }
+          id: attendance[0].employee_id,
+          employee_number: attendance[0].EmployeeNumber,
+          name: `${attendance[0].FirstName} ${attendance[0].LastName}`,
+          email: attendance[0].WorkEmail,
+        }
         : null,
       summary,
       attendance,
@@ -862,10 +862,11 @@ router.get("/report/team", auth, async (req, res) => {
     if (req.user.role === "hr") {
       // HR sees all employees (except themselves)
       const [allEmployees] = await c.query(
-        `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
-         FROM employees 
-         WHERE id != ? AND EmploymentStatus = 'Working'
-         ORDER BY FirstName, LastName`,
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+         FROM employees e
+         LEFT JOIN locations loc ON e.LocationId = loc.id
+         WHERE e.id != ? AND e.EmploymentStatus = 'Working'
+         ORDER BY e.FirstName, e.LastName, e.LocationId`,
         [emp.id]
       );
       team = allEmployees;
@@ -873,10 +874,11 @@ router.get("/report/team", auth, async (req, res) => {
     } else if (["manager", "admin"].includes(req.user.role)) {
       // Manager/admin: show direct reports
       const [reportingTeam] = await c.query(
-        `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
-                 FROM employees 
-                 WHERE reporting_manager_id = ? AND EmploymentStatus = 'Working'
-                 ORDER BY FirstName, LastName`,
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+                 FROM employees e
+                 LEFT JOIN locations loc ON e.LocationId = loc.id
+                 WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
+                 ORDER BY e.FirstName, e.LastName, e.LocationId`,
         [emp.id]
       );
       team = reportingTeam;
@@ -885,10 +887,11 @@ router.get("/report/team", auth, async (req, res) => {
       // For employee role, show co-team (people reporting to same manager)
       if (emp.reporting_manager_id) {
         const [coTeam] = await c.query(
-          `SELECT id, EmployeeNumber, FirstName, LastName, WorkEmail, EmploymentStatus 
-                     FROM employees 
-                     WHERE reporting_manager_id = ? AND id != ? AND EmploymentStatus = 'Working'
-                     ORDER BY FirstName, LastName`,
+          `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+                     FROM employees e
+                     LEFT JOIN locations loc ON e.LocationId = loc.id
+                     WHERE e.reporting_manager_id = ? AND e.id != ? AND e.EmploymentStatus = 'Working'
+                     ORDER BY e.FirstName, e.LastName, e.LocationId`,
           [emp.reporting_manager_id, emp.id]
         );
         team = coTeam;
@@ -1663,13 +1666,13 @@ router.post("/regularization/backdate", auth, manager, async (req, res) => {
     if (c) {
       try {
         await c.rollback();
-      } catch (_) {}
+      } catch (_) { }
     }
 
     const statusCode =
       error.message === "Manager/HR/Admin only" ||
-      error.message === "Manager employee profile not found" ||
-      error.message.includes("direct reports")
+        error.message === "Manager employee profile not found" ||
+        error.message.includes("direct reports")
         ? 403
         : 500;
 
@@ -1714,8 +1717,8 @@ router.get("/regularization/history/:employeeId", auth, manager, async (req, res
   } catch (error) {
     const statusCode =
       error.message === "Manager/HR/Admin only" ||
-      error.message === "Manager employee profile not found" ||
-      error.message.includes("direct reports")
+        error.message === "Manager employee profile not found" ||
+        error.message.includes("direct reports")
         ? 403
         : 500;
     return res.status(statusCode).json({ error: error.message });

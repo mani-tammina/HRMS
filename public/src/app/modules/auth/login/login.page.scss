@@ -1,753 +1,677 @@
-@use '../../../../theme/_variables' as vars;
+// ─────────────────────────────────────────────────────────────
+// LOGIN PAGE — Split Panel Design (Blue left / White right)
+// Matches the reference image with illustration + clean form
+// ─────────────────────────────────────────────────────────────
 
-// ── Login Page — Dark Premium Design ──
-// Matches the provided mockup: deep navy BG, glassmorphic form card,
-// "Welcome to Master HRMS" badge, horizontal feature cards, etc.
-
-// ─────────────────────────────────────────────
-// BACKGROUND & ROOT CONTAINER
-// ─────────────────────────────────────────────
-
-.login-content {
-  --background: #070d1b;
-  --ion-background-color: #070d1b;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  min-height: 100vh;
-  font-family: vars.$font-primary; // Inter — design-system token
-}
-
-// ─────────────────────────────────────────────
-// BACKGROUND GLOW FLARES
-// ─────────────────────────────────────────────
-
-.login-bg-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-
-  .glow-flare {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(100px);
-    z-index: 0;
-    opacity: 0.4;
-    pointer-events: none;
-    mix-blend-mode: screen;
-
-    &.flare-1 {
-      top: -10%;
-      left: 5%;
-      width: 500px;
-      height: 500px;
-      background: radial-gradient(circle, rgba(20, 80, 160, 0.5) 0%, transparent 70%);
-      animation: floatGlow 14s ease-in-out infinite alternate;
-    }
-
-    &.flare-2 {
-      bottom: -10%;
-      right: 10%;
-      width: 450px;
-      height: 450px;
-      background: radial-gradient(circle, rgba(30, 100, 200, 0.35) 0%, transparent 70%);
-      animation: floatGlow 18s ease-in-out infinite alternate-reverse;
-    }
-
-    &.flare-3 {
-      top: 40%;
-      right: 35%;
-      width: 300px;
-      height: 300px;
-      background: radial-gradient(circle, rgba(60, 120, 220, 0.25) 0%, transparent 70%);
-      animation: floatGlow 12s ease-in-out infinite alternate;
-    }
+// Reset ion-content background — override any global dark theme
+:host {
+  ion-content.login-content {
+    --background: #ffffff !important;
+    --ion-background-color: #ffffff !important;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --padding-start: 0;
+    --padding-end: 0;
   }
 }
 
-@keyframes floatGlow {
-  0% { transform: translateY(0) scale(1); }
-  100% { transform: translateY(-30px) scale(1.1); }
+ion-content.login-content {
+  --background: #ffffff !important;
+  --ion-background-color: #ffffff !important;
+  --padding-top: 0;
+  --padding-bottom: 0;
+  --padding-start: 0;
+  --padding-end: 0;
+  height: 100%;
 }
 
-// Dot grid overlay
-.login-content::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(circle, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 28px 28px;
-  z-index: 0;
-  pointer-events: none;
-}
+// ─────────────────────────────────────────────────────────────
+// PAGE WRAPPER — full-height flex row
+// ─────────────────────────────────────────────────────────────
 
-// ─────────────────────────────────────────────
-// MAIN LAYOUT CONTAINER
-// ─────────────────────────────────────────────
-
-.login-page-container {
+.login-page-wrapper {
   display: flex;
   flex-direction: row;
-  width: 100%;
   height: 100%;
-  max-width: 1180px;
-  margin: 0 auto;
-  align-items: center;
-  position: relative;
-  z-index: 1;
-  padding: 40px 32px;
-  gap: 60px;
+  min-height: 100vh;
+  width: 100%;
+  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #ffffff;
 }
 
-// ─────────────────────────────────────────────
-// LEFT BRAND PANEL
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// LEFT PANEL — Blue illustration side
+// ─────────────────────────────────────────────────────────────
 
-.brand-section {
-  flex: 1;
-  padding: 32px 20px 32px 0;
+.left-panel {
+  flex: 0 0 55%;
+  // illustration contained in center-upper area, blue shows around it
+  background-image: url('/assets/login.png');
+  background-size: 72%; // ~70-75% of panel width — image sits inside blue
+  background-position: center 38%; // horizontally centered, slightly above mid
+  background-repeat: no-repeat;
+  background-color: #1964A2; // solid blue panel (same as reference)
+  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  color: #ffffff;
-
-  .brand-logo {
-    width: 200px;
-    height: auto;
-    margin-bottom: 32px;
-    opacity: 0.95;
-    filter: drop-shadow(0 2px 10px rgba(255, 255, 255, 0.08));
-  }
-
-  // ── "Welcome to Master HRMS" badge ──
-  .welcome-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 6px 16px;
-    background: rgba(56, 130, 246, 0.12);
-    border: 1px solid rgba(56, 130, 246, 0.3);
-    border-radius: 20px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #60a5fa;
-    margin-bottom: 20px;
-    width: fit-content;
-    letter-spacing: 0.02em;
-  }
-
-  // ── Main heading ──
-  .brand-title {
-    font-size: 42px;
-    font-weight: 800;
-    color: #ffffff;
-    margin: 0 0 16px 0;
-    letter-spacing: -0.8px;
-    line-height: 1.15;
-
-    .brand-title-accent {
-      background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-  }
-
-  .brand-subtitle {
-    font-size: 15px;
-    color: #8494a7;
-    max-width: 460px;
-    line-height: 1.65;
-    margin: 0 0 40px 0;
-  }
-
-  // ── Feature cards (3 in a row) ──
-  .brand-features {
-    display: flex;
-    flex-direction: row;
-    gap: 14px;
-    margin-bottom: 48px;
-
-    .feature-card {
-      flex: 1;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.06);
-      backdrop-filter: blur(8px);
-      padding: 20px 16px;
-      border-radius: 16px;
-      text-align: center;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.07);
-        border-color: rgba(56, 130, 246, 0.2);
-        transform: translateY(-3px);
-      }
-
-      .feature-icon {
-        width: 48px;
-        height: 48px;
-        background: rgba(56, 130, 246, 0.12);
-        border-radius: 14px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 14px;
-        border: 1px solid rgba(56, 130, 246, 0.2);
-
-        ion-icon {
-          font-size: 24px;
-          color: #60a5fa;
-        }
-      }
-
-      strong {
-        display: block;
-        font-size: 13px;
-        font-weight: 600;
-        color: #ffffff;
-        margin-bottom: 6px;
-      }
-
-      p {
-        margin: 0;
-        font-size: 12px;
-        color: #8494a7;
-        line-height: 1.45;
-      }
-    }
-  }
-
-  // ── Security footer ──
-  .brand-security-footer {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 20px;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 14px;
-
-    .security-icon {
-      width: 40px;
-      height: 40px;
-      background: rgba(56, 130, 246, 0.12);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      border: 1px solid rgba(56, 130, 246, 0.2);
-
-      ion-icon {
-        font-size: 20px;
-        color: #60a5fa;
-      }
-    }
-
-    .security-text {
-      strong {
-        display: block;
-        font-size: 14px;
-        font-weight: 600;
-        color: #ffffff;
-        margin-bottom: 3px;
-      }
-
-      p {
-        margin: 0;
-        font-size: 12px;
-        color: #8494a7;
-        line-height: 1.4;
-      }
-    }
-  }
-}
-
-// ─────────────────────────────────────────────
-// RIGHT FORM PANEL
-// ─────────────────────────────────────────────
-
-.login-form-section {
-  flex: 0 0 420px;
-  display: flex;
-  justify-content: center;
   align-items: center;
-  padding: 0;
+  justify-content: flex-end; // caption anchored to bottom
+  overflow: hidden;
+  min-height: 100vh;
+  padding: 40px 32px;
+  // NO overlay — image blends naturally with the blue background
 }
 
-// ─────────────────────────────────────────────
-// GLASSMORPHIC CARD
-// ─────────────────────────────────────────────
+// Floating decorative card chips
+.deco-card {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  padding: 12px 18px 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 2;
+  animation: floatCard 6s ease-in-out infinite alternate;
 
-.login-glass-card {
-  width: 100%;
-  max-width: 420px;
-  background: rgba(12, 22, 42, 0.75);
-  backdrop-filter: blur(28px) saturate(140%);
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  margin: 0;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.03), transparent 50%);
-    pointer-events: none;
+  ion-icon {
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.95);
+    flex-shrink: 0;
   }
 
-  &:hover {
-    box-shadow: 0 20px 56px rgba(0, 0, 0, 0.45);
-    border-color: rgba(255, 255, 255, 0.1);
-  }
-
-  .card-faces {
-    padding: 36px 32px 28px;
-    height: 100%;
+  .deco-lines {
     display: flex;
     flex-direction: column;
-  }
-
-  // ── Card Header ──
-  .card-header {
-    text-align: center;
-    margin-bottom: 24px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-
-    .user-icon-circle {
-      width: 64px;
-      height: 64px;
-      background: rgba(56, 130, 246, 0.12);
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 16px;
-      border: 1.5px solid rgba(56, 130, 246, 0.25);
-      box-shadow: 0 0 20px rgba(56, 130, 246, 0.08);
-
-      ion-icon {
-        font-size: 30px;
-        color: #60a5fa;
-      }
-    }
-
-    .form-title {
-      font-size: 22px;
-      font-weight: 700;
-      color: #ffffff;
-      margin: 0 0 6px 0;
-      letter-spacing: -0.2px;
-    }
-
-    .form-subtitle {
-      font-size: 13px;
-      color: #8494a7;
-      margin: 0;
-    }
-  }
-
-  // ── Form body ──
-  .form-body {
-    display: flex;
-    flex-direction: column;
-  }
-
-  // ── Field Groups ──
-  .field-group {
-    margin-bottom: 18px;
-
-    .field-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      color: #c0ccda;
-      margin-bottom: 8px;
-      letter-spacing: 0.01em;
-    }
-
-    .custom-input-wrapper {
-      display: flex;
-      align-items: center;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1.5px solid rgba(255, 255, 255, 0.08);
-      border-radius: 12px;
-      padding: 0 14px;
-      height: 48px;
-      transition: all 0.25s ease;
-      gap: 10px;
-
-      &:hover {
-        border-color: rgba(255, 255, 255, 0.15);
-        background: rgba(255, 255, 255, 0.06);
-      }
-
-      &.focused {
-        border-color: #3b82f6;
-        background: rgba(56, 130, 246, 0.05);
-        box-shadow: 0 0 0 3px rgba(56, 130, 246, 0.1);
-      }
-
-      .input-icon {
-        font-size: 18px;
-        color: #8494a7;
-        flex-shrink: 0;
-      }
-
-      .custom-input {
-        flex: 1;
-        background: transparent;
-        border: none;
-        outline: none;
-        color: #ffffff;
-        font-size: 14px;
-        font-weight: 400;
-        font-family: inherit;
-        height: 100%;
-        padding: 0;
-
-        &::placeholder {
-          color: #5a6a7e;
-          font-weight: 400;
-        }
-      }
-
-      .toggle-password-btn {
-        background: none;
-        border: none;
-        padding: 4px;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-
-        ion-icon {
-          font-size: 18px;
-          color: #8494a7;
-          transition: color 0.2s ease;
-        }
-
-        &:hover ion-icon {
-          color: #c0ccda;
-        }
-      }
-    }
-  }
-
-  // ── Remember me / Forgot password row ──
-  .remember-forgot-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
-    margin-top: -4px;
-
-    .remember-me {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 13px;
-      color: #c0ccda;
-      cursor: pointer;
-      position: relative;
-      padding-left: 26px;
-      user-select: none;
-
-      input[type="checkbox"] {
-        position: absolute;
-        opacity: 0;
-        cursor: pointer;
-        height: 0;
-        width: 0;
-      }
-
-      .checkmark {
-        position: absolute;
-        left: 0;
-        top: 50%;
-        transform: translateY(-50%);
-        width: 18px;
-        height: 18px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1.5px solid rgba(255, 255, 255, 0.15);
-        border-radius: 4px;
-        transition: all 0.2s ease;
-
-        &::after {
-          content: '';
-          position: absolute;
-          display: none;
-          left: 5px;
-          top: 1px;
-          width: 5px;
-          height: 10px;
-          border: solid #fff;
-          border-width: 0 2px 2px 0;
-          transform: rotate(45deg);
-        }
-      }
-
-      input:checked ~ .checkmark {
-        background: #3b82f6;
-        border-color: #3b82f6;
-
-        &::after {
-          display: block;
-        }
-      }
-    }
-
-    .forgot-link {
-      font-size: 13px;
-      color: #3b82f6;
-      cursor: pointer;
-      font-weight: 500;
-      transition: color 0.2s ease;
-      text-decoration: none;
-
-      &:hover {
-        color: #60a5fa;
-      }
-    }
-  }
-
-  // ── Action Buttons ──
-  .form-actions {
-    display: flex;
-    flex-direction: column;
-  }
-
-  .btn-continue {
-    width: 100%;
-    height: 48px;
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    border: none;
-    border-radius: 12px;
-    color: #ffffff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
-    font-family: inherit;
-    letter-spacing: 0.02em;
-
-    &:hover:not(:disabled) {
-      background: linear-gradient(135deg, #1d4ed8, #2563eb);
-      box-shadow: 0 6px 24px rgba(37, 99, 235, 0.4);
-      transform: translateY(-1px);
-    }
-
-    &:active:not(:disabled) {
-      transform: scale(0.98);
-    }
-
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    ion-icon {
-      font-size: 18px;
-    }
-
-    ion-spinner {
-      --color: #ffffff;
-    }
-
-    &.btn-outline {
-      background: transparent;
-      border: 1.5px solid rgba(255, 255, 255, 0.15);
-      box-shadow: none;
-
-      &:hover:not(:disabled) {
-        background: rgba(255, 255, 255, 0.05);
-        border-color: rgba(255, 255, 255, 0.3);
-        box-shadow: none;
-        transform: translateY(-1px);
-      }
-    }
-  }
-
-  // ── OR Divider ──
-  .or-divider {
-    display: flex;
-    align-items: center;
-    margin: 18px 0;
-
-    &::before,
-    &::after {
-      content: '';
-      flex: 1;
-      height: 1px;
-      background: rgba(255, 255, 255, 0.08);
-    }
+    gap: 6px;
 
     span {
-      padding: 0 14px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #5a6a7e;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
+      display: block;
+      height: 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.4);
+
+      &:nth-child(1) {
+        width: 72px;
+      }
+
+      &:nth-child(2) {
+        width: 52px;
+      }
+
+      &:nth-child(3) {
+        width: 62px;
+      }
     }
   }
 
-  // ── SSO Button ──
-  .btn-sso {
-    width: 100%;
-    height: 48px;
-    background: transparent;
-    border: 1.5px solid rgba(56, 130, 246, 0.3);
-    border-radius: 12px;
+  // TOP-LEFT card — horizontal layout: icon left, 3 lines right
+  &.deco-card-top {
+    top: 4%;
+    left: 3%;
+    animation-delay: 0s;
+  }
+
+  // BOTTOM-RIGHT card — vertical layout: icon top-right, 2 wide bars below
+  // Partially clipped off the right and bottom edges (matches reference)
+  &.deco-card-bottom {
+    bottom: 2%;
+    right: -10px; // small bleed — most of card is visible
+    animation-delay: 2s;
+
+    // vertical column layout
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px 16px;
+    width: 150px; // wider card matching reference
+
+    // Icon row — lock icon right-aligned at top
+    .deco-icon-row {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      width: 100%;
+
+      ion-icon {
+        font-size: 16px;
+        color: rgba(255, 255, 255, 0.95);
+      }
+    }
+
+    // 2 wide stacked bars below the icon
+    .deco-lines {
+      width: 100%;
+      gap: 8px;
+
+      span {
+        height: 9px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.35);
+
+        &:nth-child(1) {
+          width: 100%; // full-width bar
+        }
+
+        &:nth-child(2) {
+          width: 75%; // shorter second bar
+        }
+
+        &:nth-child(3) {
+          display: none; // only 2 bars on bottom card
+        }
+      }
+    }
+  }
+}
+
+@keyframes floatCard {
+  0% {
+    transform: translateY(0px);
+  }
+
+  100% {
+    transform: translateY(-12px);
+  }
+}
+
+// Paper airplane decoration
+.paper-plane {
+  position: absolute;
+  z-index: 2;
+
+  ion-icon {
+    font-size: 26px;
     color: #ffffff;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
+  }
+
+  // TOP-RIGHT — large plane, angled upper-right (matches reference)
+  &.plane-top {
+    top: 7%;
+    right: 8%;
+    opacity: 0.85;
+    animation: floatPlane 8s ease-in-out infinite alternate;
+
+    ion-icon {
+      font-size: 38px;
+    }
+  }
+
+  // BOTTOM-LEFT — small plane near bottom caption (matches reference)
+  &.plane-bottom {
+    bottom: 22%;
+    left: 6%;
+    opacity: 0.5;
+    animation: floatPlane 7s ease-in-out infinite alternate-reverse;
+
+    ion-icon {
+      font-size: 22px;
+    }
+  }
+}
+
+@keyframes floatPlane {
+  0% {
+    transform: translateY(0) rotate(-15deg);
+  }
+
+  100% {
+    transform: translateY(-18px) rotate(-5deg);
+  }
+}
+
+// illustration-wrapper removed — image is now a CSS background on .left-panel
+
+// Caption under illustration
+.left-caption {
+  position: relative;
+  z-index: 1;
+  text-align: center;
+  color: #ffffff;
+  margin-bottom: 28px; // comfortable distance from bottom edge
+
+  .caption-title {
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.4;
+    margin: 0 0 10px;
+    letter-spacing: -0.2px;
+
+    .caption-accent {
+      color: #bbdefb;
+    }
+  }
+
+  .caption-subtitle {
+    font-size: 13px;
+    line-height: 1.65;
+    color: rgba(255, 255, 255, 0.75);
+    margin: 0;
+    max-width: 320px;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// RIGHT PANEL — White form side
+// ─────────────────────────────────────────────────────────────
+
+.right-panel {
+  flex: 0 0 45%;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 32px;
+  overflow-y: auto;
+  position: relative;
+  z-index: 1;
+}
+
+// ─────────────────────────────────────────────────────────────
+// FORM CARD
+// ─────────────────────────────────────────────────────────────
+
+.form-card {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+// ── Brand header (logo + name) ──
+.brand-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+
+  .brand-logo-circle {
+    width: 52px;
+    height: 52px;
+    background: #1565c0;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 10px;
-    transition: all 0.25s ease;
-    font-family: inherit;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.3);
 
-    .sso-icon {
-      font-size: 20px;
-      color: #60a5fa;
-    }
-
-    ion-icon {
-      font-size: 18px;
-      color: #60a5fa;
-    }
-
-    &:hover {
-      background: rgba(56, 130, 246, 0.08);
-      border-color: rgba(56, 130, 246, 0.5);
+    .brand-logo-img {
+      width: 32px;
+      height: 32px;
+      object-fit: contain;
+      filter: brightness(0) invert(1); // make svg white on dark circle
     }
   }
 
-  // ── Copyright ──
-  .card-copyright {
-    text-align: center;
-    margin-top: 22px;
+  .brand-name {
+    .brand-name-main {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a237e;
+      line-height: 1.2;
+    }
+
+    .brand-name-sub {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1565c0;
+      line-height: 1.2;
+    }
+
+    .brand-tagline {
+      font-size: 10px;
+      color: #9e9e9e;
+      letter-spacing: 0.04em;
+      margin-top: 2px;
+      text-transform: lowercase;
+    }
+  }
+}
+
+// ── Headings ──
+.form-heading {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1a1a2e;
+  margin: 0 0 8px;
+  letter-spacing: -0.4px;
+  text-align: center;
+}
+
+.form-subheading {
+  font-size: 13.5px;
+  color: #757575;
+  margin: 0 0 28px;
+  text-align: center;
+  line-height: 1.5;
+}
+
+// ── Login form ──
+.login-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+// ── Field groups ──
+.field-group {
+  width: 100%;
+  margin-bottom: 14px;
+
+  .field-label {
+    display: block;
     font-size: 12px;
-    color: #5a6a7e;
+    font-weight: 500;
+    color: #555555; // medium gray — matches reference
+    margin-bottom: 5px;
     letter-spacing: 0.01em;
   }
 }
 
-// ─────────────────────────────────────────────
-// RESPONSIVE DESIGN
-// ─────────────────────────────────────────────
+.form-input {
+  width: 100%;
+  height: 44px;
+  background: #ffffff;
+  border: 1px solid #d4d4d4; // light gray border — matches reference
+  border-radius: 6px; // subtle round corners (not pill, not square)
+  padding: 0 12px;
+  font-size: 14px;
+  color: #212121;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 
-@media (max-width: 1100px) {
-  .brand-section .brand-features {
-    flex-direction: column;
-    gap: 10px;
+  &::placeholder {
+    color: #b0b0b0; // light placeholder — matches reference
+    font-weight: 400;
+  }
 
-    .feature-card {
-      text-align: left;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      padding: 14px 16px;
-
-      .feature-icon {
-        margin: 0;
-        width: 40px;
-        height: 40px;
-        flex-shrink: 0;
-
-        ion-icon {
-          font-size: 20px;
-        }
-      }
-
-      strong {
-        margin-bottom: 2px;
-      }
-    }
+  &:focus {
+    border-color: #1565c0;
+    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.08);
   }
 }
 
-@media (max-width: 991px) {
-  .login-page-container {
-    flex-direction: column;
-    justify-content: center;
-    padding: 24px 16px;
-    gap: 24px;
+// Input with eye-toggle wrapper
+.input-with-toggle {
+  position: relative;
+  width: 100%;
+
+  .form-input {
+    padding-right: 44px;
   }
 
-  .brand-section {
-    flex: 0 0 auto;
-    padding: 24px 16px;
-    text-align: center;
+  .eye-toggle {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
     align-items: center;
+    justify-content: center;
 
-    .welcome-badge {
-      margin-left: auto;
-      margin-right: auto;
+    ion-icon {
+      font-size: 18px;
+      color: #9e9e9e;
+      transition: color 0.2s;
     }
 
-    .brand-title {
-      font-size: 32px;
-      text-align: center;
+    &:hover ion-icon {
+      color: #616161;
     }
-
-    .brand-subtitle {
-      text-align: center;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .brand-features { display: none; }
-    .brand-security-footer { display: none; }
-    .brand-logo { width: 160px; }
-  }
-
-  .login-form-section {
-    flex: 0 0 auto;
-    padding: 0 0 24px;
-    width: 100%;
-    max-width: 440px;
   }
 }
 
-@media (max-width: 480px) {
-  .brand-section { display: none; }
+// ── Remember me / Forgot password row ──
+.remember-forgot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  width: 100%;
 
-  .login-content {
-    --background: #070d1b;
-  }
+  .remember-label {
+    display: flex;
+    align-items: center;
+    font-size: 12.5px;
+    color: #616161;
+    cursor: pointer;
+    position: relative;
+    padding-left: 24px;
+    user-select: none;
+    gap: 0;
 
-  .login-form-section {
-    padding: 20px 16px;
-    align-items: flex-start;
-    padding-top: 40px;
-  }
-
-  .login-glass-card {
-    border-radius: 20px;
-
-    .card-faces {
-      padding: 28px 20px 24px;
+    input[type='checkbox'] {
+      position: absolute;
+      opacity: 0;
+      cursor: pointer;
+      height: 0;
+      width: 0;
     }
+
+    .checkmark {
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background: #ffffff;
+      border: 1.5px solid #bdbdbd;
+      border-radius: 3px;
+      transition: all 0.2s ease;
+
+      &::after {
+        content: '';
+        position: absolute;
+        display: none;
+        left: 4px;
+        top: 0px;
+        width: 5px;
+        height: 9px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+    }
+
+    input:checked~.checkmark {
+      background: #1565c0;
+      border-color: #1565c0;
+
+      &::after {
+        display: block;
+      }
+    }
+  }
+
+  .forgot-link {
+    font-size: 12.5px;
+    color: #1565c0;
+    font-weight: 500;
+    cursor: pointer;
+    text-decoration: none;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #0d47a1;
+      text-decoration: underline;
+    }
+  }
+}
+
+// ── Primary button — pill shape, deep navy blue ──
+.btn-primary {
+  width: 100%;
+  height: 46px;
+  background: #1964A2; // deep navy blue — matches reference
+  border: none;
+  border-radius: 50px; // pill shape — matches reference
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  letter-spacing: 0.02em;
+  transition: background 0.2s ease, transform 0.15s ease;
+  box-shadow: none;
+  margin-bottom: 0;
+
+  &:hover:not(:disabled) {
+    background: #14305a;
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// ── OR divider ──
+.or-divider {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  margin: 18px 0;
+
+  &::before,
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e0e0e0;
+  }
+
+  span {
+    padding: 0 12px;
+    font-size: 12px;
+    color: #9e9e9e;
+    font-weight: 500;
+  }
+}
+
+// ── SSO button — pill shape, white with thin border ──
+.btn-sso {
+  width: 100%;
+  height: 46px;
+  background: #ffffff;
+  border: 1px solid #d4d4d4; // matches input border style
+  border-radius: 50px; // pill shape — matches reference
+  color: #424242;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-family: inherit;
+  transition: border-color 0.2s ease, background 0.2s ease;
+
+  .sso-lock-icon {
+    font-size: 16px;
+    color: #555555;
+  }
+
+  ion-icon {
+    font-size: 16px;
+    color: #555555;
+  }
+
+  &:hover {
+    border-color: #bdbdbd;
+    background: #f8f8f8;
+  }
+}
+
+// ── Copyright ──
+.copyright {
+  margin-top: 28px;
+  font-size: 12px;
+  color: #9e9e9e;
+  text-align: center;
+  letter-spacing: 0.01em;
+}
+
+// ─────────────────────────────────────────────────────────────
+// RESPONSIVE
+// ─────────────────────────────────────────────────────────────
+
+@media (max-width: 900px) {
+  .left-panel {
+    flex: 0 0 50%;
+    padding: 32px 20px;
+  }
+
+  .right-panel {
+    flex: 0 0 50%;
+    padding: 32px 20px;
+  }
+
+  .illustration-img {
+    max-height: 240px !important;
+  }
+
+  .left-caption .caption-title {
+    font-size: 22px;
+  }
+}
+
+@media (max-width: 680px) {
+  .login-page-wrapper {
+    flex-direction: column;
+  }
+
+  .left-panel {
+    flex: 0 0 auto;
+    padding: 32px 20px;
+    min-height: 280px;
+  }
+
+  .right-panel {
+    flex: 1;
+    padding: 32px 20px;
+  }
+
+  .deco-card {
+    display: none;
+  }
+
+  .illustration-wrapper .illustration-img {
+    max-height: 180px;
+  }
+}
+
+@media (max-width: 400px) {
+  .left-panel {
+    min-height: 220px;
+  }
+
+  .form-heading {
+    font-size: 22px;
+  }
+
+  .right-panel {
+    padding: 24px 16px;
   }
 }

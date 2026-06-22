@@ -49,7 +49,8 @@
         <!-- Global Search for HR -->
         <div class="global-search-wrapper" *ngIf="isHR">
           <ion-searchbar placeholder="Search employee globally..." [(ngModel)]="globalSearchQuery"
-            (ionInput)="onGlobalSearch()" (ionClear)="resetGlobalSearch()" class="premium-global-search"></ion-searchbar>
+            (ionInput)="onGlobalSearch()" (ionClear)="resetGlobalSearch()"
+            class="premium-global-search"></ion-searchbar>
         </div>
 
         <div class="date-selector">
@@ -175,7 +176,7 @@
               <div class="body-bottom">
                 <div class="info-row">
                   <span class="label">Location:</span>
-                  <span class="value">{{ member.Location || 'Site 1 - TSN' }}</span>
+                  <span class="value">{{ member.LocationName || 'Site 1 - TSN' }}</span>
                 </div>
                 <div class="info-row">
                   <span class="label">Mail:</span>
