@@ -325,8 +325,11 @@
       font-weight: 700;
 
       &.generated {
-        background: #dcfce7;
-        color: #166534;
+        background: #ECFDF5;
+        color: #2E7D32;
+        height: 30px;
+        font-size: 12px;
+        font-weight: 400;
       }
 
       .badge-icon {
