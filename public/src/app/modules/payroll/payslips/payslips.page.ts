@@ -73,6 +73,14 @@ export class PayslipsPage implements OnInit, OnDestroy {
 
   // Contracts & Modal
   employeeContracts: any[] = [];
+  get activeContractItem() {
+    return this.employeeContracts.find(c => c.status?.toLowerCase() === 'active') || this.employeeContracts[0];
+  }
+  get revisionHistoryItems() {
+    const active = this.activeContractItem;
+    if (!active) return [];
+    return this.employeeContracts.filter(c => c !== active);
+  }
   isBreakupModalOpen = false;
   selectedContractDetails: any = null;
   selectedContractBreakup: any = null;
@@ -519,6 +527,20 @@ export class PayslipsPage implements OnInit, OnDestroy {
       currency: 'INR',
       maximumFractionDigits: 0
     });
+  }
+
+  formatAnnualCTC(val: number): { integer: string; decimal: string } {
+    const formatted = (val || 0).toLocaleString('en-IN', {
+      style: 'currency',
+      currency: 'INR',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    const parts = formatted.split('.');
+    return {
+      integer: parts[0],
+      decimal: parts[1] ? '.' + parts[1] : '.00'
+    };
   }
 
   ngOnDestroy() {

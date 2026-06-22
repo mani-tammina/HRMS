@@ -353,57 +353,118 @@
 
   <!-- My Salary Tab -->
   <div *ngIf="currentTab === 'mySalary'" class="my-salary-container animate-in">
-    <div class="salary-header-section">
-      <div class="title-wrap">
-        <ion-icon name="cash-outline"></ion-icon>
-        <div>
-          <h2>Salary Contracts & Revisions</h2>
-          <p>Review your historical and current compensation details</p>
+    <div class="salary-main-card">
+      <!-- HEADER SECTION -->
+      <div class="salary-header-section">
+        <div class="title-wrap">
+          <div class="header-icon-box">
+            <img src="assets/calculator.png" />
+          </div>
+          <div class="header-texts">
+            <h2>Salary Contracts & Revisions</h2>
+            <p>Review your historical and current compensation details.</p>
+          </div>
+        </div>
+      </div> <!-- Closes salary-header-section -->
+
+      <!-- NO DATA STATE -->
+      <div *ngIf="employeeContracts.length === 0" class="no-data-card">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <h3>No Contracts Found</h3>
+        <p>We couldn't find any salary contracts for you.</p>
+      </div>
+
+      <!-- ACTIVE CONTRACT BOX -->
+      <div class="current-contract-box" *ngIf="activeContractItem">
+        <div class="top-row">
+          <div class="ctc-section">
+            <span class="label-text">ANNUAL CTC</span>
+            <div class="ctc-value">
+              <span class="currency-symbol">₹</span>
+              <span class="ctc-integer">{{ formatAnnualCTC(activeContractItem.annual_ctc).integer.replace('₹', '')
+                }}</span>
+              <span class="ctc-decimal">{{ formatAnnualCTC(activeContractItem.annual_ctc).decimal }}</span>
+            </div>
+          </div>
+          <div class="badge-section">
+            <span class="current-pill">
+              <ion-icon name="checkmark-circle"></ion-icon>
+              Current
+            </span>
+          </div>
+        </div>
+
+        <div class="divider-line"></div>
+
+        <div class="bottom-row">
+          <div class="info-column">
+            <span class="label-text">Effective Date</span>
+            <span class="value-text">{{ activeContractItem.effective_from | date:'MMM dd, yyyy' }}</span>
+          </div>
+          <div class="info-column">
+            <span class="label-text">Status</span>
+            <span class="value-text status-value">
+              <span class="status-dot" [class.green]="activeContractItem.status?.toLowerCase() === 'active'"></span>
+              {{ activeContractItem.status }}
+            </span>
+          </div>
+          <div class="info-column">
+            <span class="label-text">Template</span>
+            <span class="value-text">{{ activeContractItem.template_name || 'Standard Employee Package' }}</span>
+          </div>
+          <div class="action-column">
+            <button class="view-breakup-btn" (click)="openBreakupModal(activeContractItem)">
+              <ion-icon name="document-text-outline"></ion-icon>
+              View Salary Breakup
+            </button>
+          </div>
         </div>
       </div>
-    </div>
 
-    <div *ngIf="employeeContracts.length === 0" class="no-data-card glass-card">
-      <ion-icon name="document-text-outline"></ion-icon>
-      <h3>No Contracts Found</h3>
-      <p>We couldn't find any salary contracts for you.</p>
-    </div>
+      <!-- REVISION HISTORY SECTION -->
+      <div class="revision-history-section" *ngIf="employeeContracts.length > 0">
+        <h4 class="section-title">REVISION HISTORY</h4>
 
-    <div class="contract-list">
-      <div class="contract-card glass-card" *ngFor="let contract of employeeContracts; let i = index"
-        [class.current-card]="contract.status?.toLowerCase() === 'active'">
-        <div class="card-status-bar" [class.active-bar]="contract.status?.toLowerCase() === 'active'"></div>
-        <div class="badge-wrapper" *ngIf="contract.status?.toLowerCase() === 'active'">
-          <span class="active-badge"><ion-icon name="checkmark-circle"></ion-icon> Current</span>
+        <!-- If no previous revisions -->
+        <div class="empty-revisions-box" *ngIf="revisionHistoryItems.length === 0">
+          <p>No previous revisions to display.</p>
         </div>
 
-        <div class="contract-grid">
-          <div class="c-col">
-            <label>ANNUAL CTC</label>
-            <h3>{{ formatCurrency(contract.annual_ctc) }}</h3>
+        <!-- If there are previous revisions, list them -->
+        <div class="revisions-list" *ngIf="revisionHistoryItems.length > 0">
+          <div class="revision-row-card" *ngFor="let contract of revisionHistoryItems">
+            <div class="revision-grid">
+              <div class="r-col font-bold-ctc">
+                <span class="label-text">ANNUAL CTC</span>
+                <span class="value-text">{{ formatCurrency(contract.annual_ctc) }}</span>
+              </div>
+              <div class="r-col">
+                <span class="label-text">Effective Date</span>
+                <span class="value-text">{{ contract.effective_from | date:'MMM dd, yyyy' }}</span>
+              </div>
+              <div class="r-col">
+                <span class="label-text">Status</span>
+                <span class="value-text">
+                  <span class="status-dot" [class.green]="contract.status?.toLowerCase() === 'active'"></span>
+                  {{ contract.status }}
+                </span>
+              </div>
+              <div class="r-col">
+                <span class="label-text">Template</span>
+                <span class="value-text">{{ contract.template_name || 'Standard Employee Package' }}</span>
+              </div>
+              <div class="r-col action-btn-col">
+                <button class="view-breakup-btn mini-btn" (click)="openBreakupModal(contract)">
+                  <ion-icon name="document-text-outline"></ion-icon> View Salary Breakup
+                </button>
+              </div>
+            </div>
           </div>
-          <div class="c-col">
-            <label>EFFECTIVE DATE</label>
-            <p>{{ contract.effective_from | date:'MMM dd, yyyy' }}</p>
-          </div>
-          <div class="c-col">
-            <label>STATUS</label>
-            <p>{{ contract.status }}</p>
-          </div>
-          <div class="c-col">
-            <label>TEMPLATE</label>
-            <p>{{ contract.template_name || 'Standard Template' }}</p>
-          </div>
-        </div>
-
-        <div class="action-footer">
-          <button class="neon-btn mini-btn outline-btn" (click)="openBreakupModal(contract)">
-            <ion-icon name="analytics-outline"></ion-icon> View Salary Breakup
-          </button>
         </div>
       </div>
-    </div>
-  </div>
+
+    </div> <!-- Closes salary-main-card -->
+  </div> <!-- Closes my-salary-container -->
 
   <!-- BREAKUP MODAL -->
   <ion-modal [isOpen]="isBreakupModalOpen" (didDismiss)="closeBreakupModal()" class="salary-breakup-modal">
