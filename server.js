@@ -411,6 +411,9 @@ app.use("/api/assets", assetRoutes);
 // Dashboard & Analytics Routes
 app.use("/api/dashboard", dashboardRoutes);
 
+// Separation & Exit Management Routes
+app.use("/api/separation", require("./routes/separation.routes"));
+
 // Email Routes
 app.use("/", emailRoutes);
 

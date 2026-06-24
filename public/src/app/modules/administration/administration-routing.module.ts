@@ -37,6 +37,10 @@ const routes: Routes = [
   {
     path: 'projects/details/:id',
     loadComponent: () => import('./projects/project-details/project-details.page').then(m => m.ProjectDetailsPage)
+  },
+  {
+    path: 'separation',
+    loadChildren: () => import('./separation/separation.module').then(m => m.SeparationPageModule)
   }
 ];
 

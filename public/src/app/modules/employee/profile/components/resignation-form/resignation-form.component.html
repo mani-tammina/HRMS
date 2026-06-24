@@ -1,0 +1,127 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="modal-toolbar">
+    <ion-title>Apply Resignation</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding resignation-modal-content">
+  <form [formGroup]="resignationForm" (ngSubmit)="onSubmit()">
+    
+    <!-- Info Banner -->
+    <div class="info-banner animate__animated animate__fadeIn">
+      <div class="info-banner-icon">
+        <ion-icon name="information-circle-outline"></ion-icon>
+      </div>
+      <div class="info-banner-text">
+        <h3>Notice Period Information</h3>
+        <p>Notice Period: <strong>{{ noticePeriodDays }} Days</strong> (based on your department)</p>
+        <p>Calculated Last Working Date: <strong>{{ calculatedLastWorkingDate | date:'fullDate' }}</strong></p>
+      </div>
+    </div>
+
+    <!-- Manager Discussion -->
+    <div class="form-section">
+      <ion-label class="field-label">Have you discussed your resignation with your manager? *</ion-label>
+      <ion-radio-group formControlName="discussed_with_manager" mode="md" class="radio-row">
+        <ion-item lines="none" class="radio-item">
+          <ion-radio value="Yes" labelPlacement="end">Yes</ion-radio>
+        </ion-item>
+        <ion-item lines="none" class="radio-item">
+          <ion-radio value="No" labelPlacement="end">No</ion-radio>
+        </ion-item>
+      </ion-radio-group>
+    </div>
+
+    <!-- Discussion Summary -->
+    <div class="form-section" *ngIf="resignationForm.get('discussed_with_manager')?.value === 'Yes'">
+      <ion-label class="field-label">Discussion Summary *</ion-label>
+      <ion-textarea 
+        formControlName="discussion_summary" 
+        placeholder="Briefly summarize your discussion with your manager..."
+        class="custom-textarea" 
+        rows="3">
+      </ion-textarea>
+      <div class="error-msg" *ngIf="resignationForm.get('discussion_summary')?.touched && resignationForm.get('discussion_summary')?.invalid">
+        Discussion summary is required.
+      </div>
+    </div>
+
+    <!-- Resignation Reason -->
+    <div class="form-section">
+      <ion-label class="field-label">Reason for Resignation *</ion-label>
+      <ion-item lines="none" class="select-item">
+        <ion-select formControlName="reason" placeholder="Select a reason" interface="popover" class="custom-select">
+          <ion-select-option *ngFor="let r of reasons" [value]="r">{{ r }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <div class="error-msg" *ngIf="resignationForm.get('reason')?.touched && resignationForm.get('reason')?.invalid">
+        Please select a reason.
+      </div>
+    </div>
+
+    <!-- Early Relieving Request Section (Conditional) -->
+    <ng-container *ngIf="resSettings?.allow_early_lwd !== false">
+      <!-- Early Relieving Request -->
+      <div class="form-section">
+        <ion-label class="field-label">Do you request Early Relieving? *</ion-label>
+        <ion-radio-group formControlName="early_relieving_request" mode="md" class="radio-row">
+          <ion-item lines="none" class="radio-item">
+            <ion-radio value="Yes" labelPlacement="end">Yes</ion-radio>
+          </ion-item>
+          <ion-item lines="none" class="radio-item">
+            <ion-radio value="No" labelPlacement="end">No</ion-radio>
+          </ion-item>
+        </ion-radio-group>
+      </div>
+
+      <!-- If Yes: Preferred LWD & Reason -->
+      <ng-container *ngIf="resignationForm.get('early_relieving_request')?.value === 'Yes'">
+        <div class="form-section">
+          <ion-label class="field-label">Preferred Last Working Date *</ion-label>
+          <ion-item lines="none" class="input-item">
+            <ion-input type="date" formControlName="preferred_last_working_date" [min]="minPreferredDate" class="custom-date-input"></ion-input>
+          </ion-item>
+          <div class="error-msg" *ngIf="resignationForm.get('preferred_last_working_date')?.touched && resignationForm.get('preferred_last_working_date')?.invalid">
+            Preferred last working date is required.
+          </div>
+        </div>
+
+        <div class="form-section">
+          <ion-label class="field-label">Reason for Early Relieving *</ion-label>
+          <ion-textarea 
+            formControlName="reason_for_early_relieving" 
+            placeholder="State your reasons for requesting an early exit..." 
+            class="custom-textarea" 
+            rows="3">
+          </ion-textarea>
+          <div class="error-msg" *ngIf="resignationForm.get('reason_for_early_relieving')?.touched && resignationForm.get('reason_for_early_relieving')?.invalid">
+            Reason for early relieving is required.
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <!-- Additional Comments -->
+    <div class="form-section">
+      <ion-label class="field-label">Additional Comments</ion-label>
+      <ion-textarea 
+        formControlName="additional_comments" 
+        placeholder="Any additional feedback or information (optional)..." 
+        class="custom-textarea" 
+        rows="3">
+      </ion-textarea>
+    </div>
+
+    <!-- Submit Button -->
+    <div class="form-actions">
+      <ion-button type="button" fill="clear" color="medium" (click)="dismiss()" class="cancel-btn">Cancel</ion-button>
+      <ion-button type="submit" [disabled]="resignationForm.invalid" class="submit-btn">Submit Resignation</ion-button>
+    </div>
+
+  </form>
+</ion-content>

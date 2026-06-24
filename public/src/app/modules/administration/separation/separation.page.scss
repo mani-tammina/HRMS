@@ -1,0 +1,399 @@
+.admin-separation-content {
+  --background: #f3f4f6;
+  font-family: 'Inter', sans-serif;
+  
+  // Filtering Panel
+  .filter-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #f3f4f6;
+      padding-bottom: 10px;
+
+      h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #111827;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+    }
+
+    .filter-col {
+      padding: 0 8px;
+      
+      ion-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: #4b5563;
+        margin-bottom: 6px;
+        display: block;
+      }
+
+      .filter-input {
+        --background: #f9fafb;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        --padding-start: 12px;
+        font-size: 0.85rem;
+        min-height: 40px;
+      }
+
+      .filter-select-item {
+        --background: #f9fafb;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        --min-height: 40px;
+        
+        .filter-select {
+          width: 100%;
+          font-size: 0.85rem;
+          --padding-start: 12px;
+        }
+      }
+
+      .date-range-inputs {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 40px;
+
+        .filter-date-picker {
+          background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          padding: 8px 10px;
+          font-size: 0.82rem;
+          color: #374151;
+          flex: 1;
+          outline: none;
+          max-width: 110px;
+        }
+
+        span {
+          font-size: 0.8rem;
+          color: #9ca3af;
+        }
+      }
+    }
+  }
+
+  // Dashboard List Card
+  .list-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    margin-bottom: 24px;
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid #f3f4f6;
+
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #111827;
+      }
+    }
+  }
+
+  // Premium Table CSS
+  .table-container {
+    overflow-x: auto;
+  }
+
+  .premium-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+
+    th {
+      background: #f9fafb;
+      padding: 14px 18px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: #4b5563;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+      padding: 14px 18px;
+      font-size: 0.85rem;
+      color: #374151;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    tr:hover td {
+      background-color: #f9fafb;
+    }
+
+    .emp-name-cell {
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .lwd-text {
+      color: #ef4444;
+      font-weight: 600;
+    }
+
+    // Status Tags
+    .status-tag {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 8px;
+      border-radius: 9999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: inline-block;
+
+      &.submitted, &.manager_review {
+        background: #fef3c7;
+        color: #d97706;
+      }
+      &.hr_review {
+        background: #ede9fe;
+        color: #6d28d9;
+      }
+      &.exit_clearance {
+        background: #dbeafe;
+        color: #1d4ed8;
+      }
+      &.relieved {
+        background: #d1fae5;
+        color: #047857;
+      }
+      &.rejected {
+        background: #fee2e2;
+        color: #b91c1c;
+      }
+    }
+
+    .table-action-btn {
+      --border-radius: 6px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .action-icons {
+      display: flex;
+      gap: 4px;
+      
+      ion-button {
+        --padding-start: 4px;
+        --padding-end: 4px;
+        margin: 0;
+      }
+    }
+  }
+
+  // Active / Inactive Badge for Notice Period Config
+  .active-badge {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 3px 6px;
+    border-radius: 4px;
+    background: #d1fae5;
+    color: #065f46;
+
+    &.inactive {
+      background: #f3f4f6;
+      color: #374151;
+    }
+  }
+
+  // Config Add/Edit Pane
+  .form-pane-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    padding: 16px 20px;
+
+    .form-content {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 15px;
+
+      .form-group {
+        .field-label {
+          display: block;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #4b5563;
+          margin-bottom: 6px;
+        }
+
+        .form-select-item {
+          --background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          --min-height: 42px;
+          
+          .form-select {
+            width: 100%;
+            font-size: 0.88rem;
+            --padding-start: 12px;
+          }
+        }
+
+        .form-input {
+          --background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          --padding-start: 12px;
+          font-size: 0.88rem;
+          min-height: 42px;
+        }
+      }
+
+      .toggle-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f9fafb;
+        padding: 10px 12px;
+        border-radius: 8px;
+        border: 1px solid #e5e7eb;
+        
+        .field-label {
+          margin-bottom: 0;
+        }
+      }
+
+      .form-actions-pane {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+        
+        ion-button {
+          flex: 1;
+          --border-radius: 8px;
+          font-weight: 600;
+          margin: 0;
+        }
+      }
+    }
+  }
+
+  // Placeholder styles
+  .no-data-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: #9ca3af;
+
+    ion-icon {
+      font-size: 3rem;
+      margin-bottom: 12px;
+    }
+
+    h4 {
+      margin: 0 0 6px 0;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #4b5563;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.82rem;
+    }
+  }
+
+  .action-buttons-cell {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .form-textarea {
+    --background: #f9fafb;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    --padding-start: 12px;
+    --padding-top: 10px;
+    font-size: 0.88rem;
+    min-height: 80px;
+  }
+
+  .tracking-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 9999;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(4px);
+
+    .tracking-modal-card {
+      background: #ffffff;
+      width: 90%;
+      max-width: 650px;
+      height: 90%;
+      max-height: 600px;
+      border-radius: 16px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+
+      .tracking-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 24px;
+        border-bottom: 1px solid #f3f4f6;
+
+        .header-title {
+          h3 {
+            margin: 0 0 2px 0;
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #111827;
+          }
+          p {
+            margin: 0;
+            font-size: 0.8rem;
+            color: #6b7280;
+          }
+        }
+
+        ion-button {
+          margin: 0;
+        }
+      }
+
+      .tracking-modal-body {
+        flex: 1;
+        overflow-y: auto;
+        padding: 24px;
+      }
+    }
+  }
+}
+

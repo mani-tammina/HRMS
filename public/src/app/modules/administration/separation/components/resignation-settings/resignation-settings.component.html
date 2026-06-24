@@ -1,0 +1,48 @@
+<div class="settings-card animate__animated animate__fadeIn">
+  
+  <div class="settings-header">
+    <h2>Resignation settings</h2>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="onCancel()">Cancel</button>
+      <button class="btn btn-primary" (click)="onSave()">Save changes</button>
+    </div>
+  </div>
+
+  <div class="settings-body">
+    <div class="settings-option">
+      <label class="custom-checkbox-container">
+        <input type="checkbox" [(ngModel)]="allowEmployeeResign" />
+        <span class="checkmark"></span>
+        <span class="option-text">Allow employee to resign</span>
+      </label>
+      <span class="info-icon" title="If enabled, employees will see the 'Apply Resignation' button.">ⓘ</span>
+    </div>
+
+    <div class="settings-option">
+      <label class="custom-checkbox-container">
+        <input type="checkbox" [(ngModel)]="allowEmployeeWithdraw" />
+        <span class="checkmark"></span>
+        <span class="option-text">Allow employee to withdraw their resignation</span>
+      </label>
+    </div>
+
+    <div class="settings-option">
+      <label class="custom-checkbox-container">
+        <input type="checkbox" [(ngModel)]="allowEarlyLWD" />
+        <span class="checkmark"></span>
+        <span class="option-text">Allow employees to choose the preference on an early last working day</span>
+      </label>
+      <span class="info-icon" title="If enabled, employees can request an early exit date in the resignation form.">ⓘ</span>
+    </div>
+
+    <div class="settings-option">
+      <label class="custom-checkbox-container">
+        <input type="checkbox" [(ngModel)]="showReviewerStatus" />
+        <span class="checkmark"></span>
+        <span class="option-text">Show resignation approval/acknowledgement status to the employee in their profile (along with the names of the reviewers)</span>
+      </label>
+      <span class="info-icon" title="If enabled, the employee timeline tracker will display the actual names of reviewers.">ⓘ</span>
+    </div>
+  </div>
+
+</div>

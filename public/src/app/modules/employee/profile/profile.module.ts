@@ -11,6 +11,8 @@ import { ProfileTabComponent } from './tabs/profile/profile.component';
 import { JobTabComponent } from './tabs/job/job.component';
 import { DocumentTabComponent } from './tabs/document/document.component';
 import { AssetsTabComponent } from './tabs/assets/assets.component';
+import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
+import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
 
 const routes: Routes = [
   {
@@ -30,7 +32,9 @@ const routes: Routes = [
     ProfileTabComponent,
     JobTabComponent,
     DocumentTabComponent,
-    AssetsTabComponent
+    AssetsTabComponent,
+    ResignationFormComponent,
+    ResignationTrackingComponent
   ],
   declarations: [ProfilePage]
 })

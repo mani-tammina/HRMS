@@ -1,0 +1,273 @@
+.modal-toolbar {
+  --background: linear-gradient(135deg, #1f2937, #111827);
+  --color: #ffffff;
+  --border-color: transparent;
+  
+  ion-title {
+    font-size: 1.15rem;
+    font-weight: 600;
+  }
+  
+  ion-button {
+    --color: #ffffff;
+  }
+}
+
+.tracking-modal-content {
+  --background: #f9fafb;
+  font-family: 'Inter', sans-serif;
+
+  .tracking-container {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+
+  .summary-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+    .summary-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+
+      h2 {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #111827;
+      }
+
+      .status-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 4px 8px;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+
+        &.submitted, &.manager_review, &.hr_review {
+          background: #fef3c7;
+          color: #d97706;
+        }
+        &.approved, &.exit_clearance {
+          background: #dbeafe;
+          color: #2563eb;
+        }
+        &.relieved {
+          background: #d1fae5;
+          color: #059669;
+        }
+        &.rejected {
+          background: #fee2e2;
+          color: #dc2626;
+        }
+      }
+    }
+
+    .summary-details {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.88rem;
+
+        .label {
+          color: #6b7280;
+        }
+        .value {
+          font-weight: 500;
+          color: #374151;
+        }
+      }
+    }
+  }
+
+  // Timeline Styling
+  .timeline {
+    position: relative;
+    padding-left: 28px;
+    margin-bottom: 30px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 10px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: #e5e7eb;
+      z-index: 1;
+    }
+
+    .timeline-step {
+      position: relative;
+      margin-bottom: 24px;
+      z-index: 2;
+
+      .timeline-icon {
+        position: absolute;
+        left: -28px;
+        top: 2px;
+        width: 22px;
+        height: 22px;
+        background: #f9fafb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        color: #d1d5db;
+        font-size: 1.3rem;
+        transition: all 0.3s ease;
+      }
+
+      .timeline-content {
+        h3 {
+          margin: 0 0 4px 0;
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: #9ca3af;
+          transition: all 0.3s ease;
+        }
+        p {
+          margin: 0;
+          font-size: 0.82rem;
+          color: #9ca3af;
+        }
+        .remarks {
+          margin-top: 6px;
+          font-size: 0.8rem;
+          font-style: italic;
+          color: #6b7280;
+        }
+        
+        .progress-container {
+          margin-top: 10px;
+          background: #f3f4f6;
+          padding: 10px;
+          border-radius: 8px;
+          border: 1px solid #e5e7eb;
+          
+          .progress-bar-wrapper {
+            background: #e5e7eb;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            
+            .progress-bar-fill {
+              height: 100%;
+              background: #2563eb;
+              border-radius: 4px;
+            }
+          }
+          .progress-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: #4b5563;
+            margin-top: 6px;
+            font-weight: 500;
+          }
+        }
+
+        .clearance-grid {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          margin-top: 8px;
+
+          .dept-badge {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #6b7280;
+
+            ion-icon {
+              font-size: 0.95rem;
+            }
+
+            &.done {
+              border-color: rgba(5, 150, 105, 0.2);
+              background: rgba(5, 150, 105, 0.05);
+              color: #059669;
+            }
+          }
+        }
+      }
+
+      &.completed {
+        .timeline-icon {
+          color: #059669;
+          background: #ffffff;
+        }
+        .timeline-content {
+          h3 {
+            color: #1f2937;
+          }
+          p {
+            color: #4b5563;
+          }
+        }
+      }
+
+      &.active {
+        .timeline-icon {
+          color: #2563eb;
+          background: #ffffff;
+          animation: pulse 2s infinite;
+        }
+        .timeline-content {
+          h3 {
+            color: #111827;
+            font-weight: 700;
+          }
+          p {
+            color: #374151;
+          }
+        }
+      }
+    }
+
+    .last-step {
+      margin-bottom: 0;
+    }
+  }
+
+  .cancel-container {
+    margin-top: 30px;
+    border-top: 1px solid #e5e7eb;
+    padding-top: 20px;
+    
+    .cancel-btn {
+      --border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.9rem;
+    }
+  }
+}
+
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+}

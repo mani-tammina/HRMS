@@ -1,9 +1,12 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Subject } from 'rxjs';
 import { takeUntil } from 'rxjs/operators';
-import { PopoverController, ToastController, LoadingController } from '@ionic/angular';
+import { PopoverController, ToastController, LoadingController, ModalController } from '@ionic/angular';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { environment } from '../../../../environments/environment';
+import { SeparationService } from '../../../core/services/separation.service';
+import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
+import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
 
 @Component({
   selector: 'app-profile',
@@ -17,6 +20,8 @@ export class ProfilePage implements OnInit, OnDestroy {
   currentEmployee: any;
   selectedSegment = 'about';
   env: string = '';
+  myResignation: any = null;
+  resSettings: any = null;
   
   // Image Upload States
   selectedFile: File | null = null;
@@ -29,12 +34,16 @@ export class ProfilePage implements OnInit, OnDestroy {
     private popoverController: PopoverController,
     private toastController: ToastController,
     private loadingController: LoadingController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private separationService: SeparationService,
+    private modalController: ModalController
   ) {}
 
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
     this.loadProfile();
+    this.loadMyResignation();
+    this.loadResSettings();
 
     // Listen for profile image updates from the service
     this.employeeService.profileImageUpdate$
@@ -45,6 +54,30 @@ export class ProfilePage implements OnInit, OnDestroy {
           this.cdr.detectChanges();
         }
       });
+  }
+
+  loadMyResignation() {
+    this.separationService.getMyResignation().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res) => {
+        this.myResignation = res;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error fetching resignation status:', err);
+      }
+    });
+  }
+
+  loadResSettings() {
+    this.separationService.getResignationSettings().subscribe({
+      next: (settings) => {
+        this.resSettings = settings;
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        console.error('Error fetching resignation settings:', err);
+      }
+    });
   }
 
   async loadProfile() {
@@ -127,6 +160,44 @@ export class ProfilePage implements OnInit, OnDestroy {
       icon: color === 'success' ? 'checkmark-circle' : 'alert-circle'
     });
     await toast.present();
+  }
+
+  async openResignationModal() {
+    if (!this.currentEmployee) return;
+
+    const modal = await this.modalController.create({
+      component: ResignationFormComponent,
+      componentProps: {
+        currentEmployee: this.currentEmployee
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.submitted) {
+      this.loadProfile(); // Reload profile to update EmploymentStatus
+      this.loadMyResignation(); // Reload resignation request status
+    }
+  }
+
+  async openTrackingModal() {
+    if (!this.myResignation) return;
+
+    const modal = await this.modalController.create({
+      component: ResignationTrackingComponent,
+      componentProps: {
+        resignation: this.myResignation
+      }
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && (data.cancelled || data.submitted)) {
+      this.loadProfile(); // Reload profile to update EmploymentStatus
+      this.loadMyResignation(); // Reload resignation request status
+    }
   }
 
   ngOnDestroy() {

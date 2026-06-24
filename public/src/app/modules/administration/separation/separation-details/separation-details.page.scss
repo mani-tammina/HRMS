@@ -1,0 +1,638 @@
+.separation-details-content {
+  --background: #f3f4f6;
+  font-family: 'Inter', sans-serif;
+  
+  .workspace-wrapper {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  .workspace-header-card {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+
+    .emp-profile-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .emp-info-block {
+        h1 {
+          margin: 0;
+          font-size: 1.4rem;
+          font-weight: 700;
+          color: #111827;
+        }
+        p {
+          margin: 6px 0 0 0;
+          font-size: 0.9rem;
+          color: #4b5563;
+          strong {
+            color: #1f2937;
+          }
+        }
+      }
+    }
+  }
+
+  // Details Cards
+  .details-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    padding: 20px;
+    margin-bottom: 24px;
+    overflow: hidden;
+
+    .card-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #f3f4f6;
+      padding-bottom: 12px;
+
+      ion-icon {
+        font-size: 1.3rem;
+        color: #ef4444;
+      }
+      h2 {
+        margin: 0;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #111827;
+      }
+    }
+
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 18px;
+
+      .info-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+
+        .label {
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #6b7280;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+        .value {
+          font-size: 0.92rem;
+          font-weight: 500;
+          color: #1f2937;
+        }
+        .highlight-reason {
+          color: #ef4444;
+          font-weight: 600;
+        }
+        .highlight-lwd {
+          color: #ef4444;
+          font-weight: 700;
+        }
+        
+        .narrative-box {
+          background: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-size: 0.88rem;
+          line-height: 1.4;
+          color: #374151;
+          p {
+            margin: 0;
+          }
+        }
+      }
+
+      .full-width {
+        grid-column: span 2;
+      }
+    }
+  }
+
+  // Workflow / Approval Panel
+  .workflow-card {
+    border-left: 4px solid #ef4444;
+
+    .workflow-actions-block {
+      .subtitle {
+        font-size: 0.88rem;
+        color: #4b5563;
+        margin-bottom: 15px;
+      }
+
+      .form-group {
+        margin-bottom: 16px;
+
+        .field-label {
+          display: block;
+          font-size: 0.8rem;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 6px;
+        }
+        
+        .form-input {
+          --background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          --min-height: 40px;
+          --padding-start: 12px;
+          font-size: 0.88rem;
+        }
+
+        .custom-textarea {
+          --background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          padding: 8px 12px;
+          font-size: 0.88rem;
+        }
+      }
+
+      .workflow-btn-group {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        margin-top: 20px;
+
+        ion-button {
+          --border-radius: 8px;
+          font-weight: 600;
+          margin: 0;
+          font-size: 0.9rem;
+        }
+      }
+    }
+  }
+
+  // Stepper Timeline Trail (Static View)
+  .timeline-trail {
+    position: relative;
+    padding-left: 20px;
+    margin-left: 5px;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 6px;
+      top: 5px;
+      bottom: 5px;
+      width: 2px;
+      background: #e5e7eb;
+    }
+
+    .trail-item {
+      position: relative;
+      margin-bottom: 20px;
+
+      .bullet {
+        position: absolute;
+        left: -20px;
+        top: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #e5e7eb;
+        color: #9ca3af;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.65rem;
+        font-weight: bold;
+      }
+
+      .trail-info {
+        h4 {
+          margin: 0 0 2px 0;
+          font-size: 0.88rem;
+          font-weight: 600;
+          color: #9ca3af;
+        }
+        p {
+          margin: 0;
+          font-size: 0.78rem;
+          color: #9ca3af;
+        }
+        .remarks {
+          margin-top: 4px;
+          font-style: italic;
+          color: #6b7280;
+        }
+      }
+
+      &.completed {
+        .bullet {
+          background: #d1fae5;
+          color: #059669;
+        }
+        .trail-info h4 {
+          color: #111827;
+        }
+        .trail-info p {
+          color: #4b5563;
+        }
+      }
+
+      &.active {
+        .bullet {
+          background: #dbeafe;
+          color: #2563eb;
+        }
+        .trail-info h4 {
+          color: #111827;
+          font-weight: 700;
+        }
+      }
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+  }
+
+  // Exit Clearance Layout
+  .clearance-card {
+    .card-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #f3f4f6;
+      padding-bottom: 12px;
+
+      .card-title {
+        margin-bottom: 0;
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      .progress-indicator {
+        font-size: 0.85rem;
+        color: #4b5563;
+      }
+    }
+
+    .clearance-sections {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+
+      .clearance-dept-group {
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        overflow: hidden;
+
+        .dept-header-row {
+          background: #f9fafb;
+          padding: 10px 16px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #e5e7eb;
+
+          h3 {
+            margin: 0;
+            font-size: 0.92rem;
+            font-weight: 700;
+            color: #1f2937;
+          }
+
+          .dept-status-tag {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            background: #fee2e2;
+            color: #b91c1c;
+
+            &.completed {
+              background: #d1fae5;
+              color: #065f46;
+            }
+          }
+        }
+
+        .tasks-table-wrapper {
+          overflow-x: auto;
+        }
+
+        .clearance-tasks-table {
+          width: 100%;
+          border-collapse: collapse;
+          text-align: left;
+
+          th {
+            background: #ffffff;
+            border-bottom: 1px solid #e5e7eb;
+            padding: 8px 16px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+          }
+
+          td {
+            padding: 10px 16px;
+            font-size: 0.82rem;
+            color: #374151;
+            border-bottom: 1px solid #f3f4f6;
+          }
+
+          .clickable-task-row {
+            cursor: pointer;
+            transition: background 0.15s ease;
+            &:hover {
+              background-color: #f9fafb;
+            }
+          }
+
+          .task-status-tag {
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 2px 6px;
+            border-radius: 9999px;
+            
+            &.pending {
+              background: #fee2e2;
+              color: #b91c1c;
+            }
+            &.in_progress {
+              background: #fef3c7;
+              color: #b45309;
+            }
+            &.completed {
+              background: #d1fae5;
+              color: #065f46;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // F&F Calculations Layout
+  .warning-banner {
+    display: flex;
+    background: #fffbeb;
+    border: 1px solid #fef3c7;
+    border-left: 4px solid #d97706;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+    align-items: center;
+
+    ion-icon {
+      font-size: 2rem;
+      color: #d97706;
+      margin-right: 14px;
+    }
+    .banner-text {
+      h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #92400e;
+      }
+      p {
+        margin: 4px 0 0 0;
+        font-size: 0.82rem;
+        color: #b45309;
+      }
+    }
+  }
+
+  .settlement-card {
+    .settlement-form {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+
+      .form-sub-header {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #059669;
+        border-bottom: 1px solid #f3f4f6;
+        padding-bottom: 4px;
+        margin-top: 8px;
+      }
+      .deductions-header {
+        color: #ef4444;
+      }
+
+      .form-row-group {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+
+        ion-label {
+          font-size: 0.85rem;
+          font-weight: 500;
+          color: #374151;
+          flex: 1;
+        }
+        .calc-input {
+          --background: #f9fafb;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          --min-height: 38px;
+          --padding-start: 10px;
+          max-width: 180px;
+          font-size: 0.88rem;
+          text-align: right;
+        }
+
+        &.full-width {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+          ion-label {
+            width: 100%;
+          }
+          .custom-textarea {
+            width: 100%;
+            --background: #f9fafb;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 0.85rem;
+          }
+        }
+      }
+
+      .settlement-actions-row {
+        margin-top: 15px;
+        display: flex;
+        justify-content: flex-end;
+        
+        ion-button {
+          --border-radius: 8px;
+          font-weight: 600;
+          margin: 0;
+        }
+      }
+    }
+  }
+
+  // F&F Breakdown invoice card
+  .settlement-summary-card {
+    border-top: 4px solid #059669;
+
+    .settlement-breakdown {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 24px;
+      background: #f9fafb;
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+
+      .breakdown-row {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.88rem;
+        color: #4b5563;
+
+        .addition {
+          color: #059669;
+          font-weight: 600;
+        }
+        .deduction {
+          color: #ef4444;
+          font-weight: 600;
+        }
+        
+        &.total-row {
+          border-top: 1px solid #d1d5db;
+          padding-top: 12px;
+          margin-top: 6px;
+          font-size: 1.05rem;
+          font-weight: 700;
+          color: #111827;
+
+          .total-payable {
+            color: #059669;
+          }
+        }
+
+        &.status-row {
+          font-size: 0.82rem;
+          font-weight: 600;
+          .status-tag-text {
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            
+            &.pending { color: #b45309; }
+            &.processed { color: #2563eb; }
+            &.paid { color: #059669; }
+          }
+        }
+      }
+    }
+
+    .payment-trigger-form {
+      p {
+        font-size: 0.8rem;
+        color: #6b7280;
+        margin-bottom: 12px;
+      }
+
+      .form-group {
+        margin-bottom: 14px;
+        .field-label {
+          display: block;
+          font-size: 0.78rem;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 6px;
+        }
+        .form-input {
+          --background: #ffffff;
+          border: 1px solid #d1d5db;
+          border-radius: 6px;
+          --min-height: 38px;
+          --padding-start: 10px;
+          font-size: 0.88rem;
+        }
+      }
+
+      .complete-btn {
+        --background: #059669;
+        --background-hover: #047857;
+        --border-radius: 8px;
+        font-weight: 700;
+        margin: 0;
+      }
+    }
+
+    .payment-completed-block {
+      text-align: center;
+      padding: 15px 10px;
+
+      .paid-icon {
+        font-size: 3rem;
+        color: #059669;
+        margin-bottom: 10px;
+      }
+
+      h3 {
+        margin: 0 0 12px 0;
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #059669;
+      }
+
+      p {
+        margin: 4px 0;
+        font-size: 0.85rem;
+        color: #4b5563;
+        strong {
+          color: #111827;
+        }
+      }
+    }
+  }
+
+  // Status tag styling on details page header
+  .status-tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+
+    &.submitted, &.manager_review {
+      background: #fef3c7;
+      color: #d97706;
+    }
+    &.hr_review {
+      background: #ede9fe;
+      color: #6d28d9;
+    }
+    &.exit_clearance {
+      background: #dbeafe;
+      color: #1d4ed8;
+    }
+    &.relieved {
+      background: #d1fae5;
+      color: #047857;
+    }
+    &.rejected {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+  }
+}

@@ -1,0 +1,155 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="modal-toolbar">
+    <ion-title>Resignation Progress</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding tracking-modal-content">
+  <div class="tracking-container">
+    
+    <!-- Top Card: Summary -->
+    <div class="summary-card animate__animated animate__fadeIn">
+      <div class="summary-header">
+        <h2>Exit Formalities</h2>
+        <span class="status-badge" [class]="resignation.status?.toLowerCase()">{{ resignation.status }}</span>
+      </div>
+      <div class="summary-details">
+        <div class="detail-item">
+          <span class="label">Reason:</span>
+          <span class="value">{{ resignation.reason }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Applied Date:</span>
+          <span class="value">{{ resignation.created_at | date:'mediumDate' }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Last Working Date:</span>
+          <span class="value">{{ (resignation.hr_last_working_date || resignation.calculated_last_working_date) | date:'mediumDate' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timeline Progress -->
+    <div class="timeline animate__animated animate__fadeIn">
+      
+      <!-- Step 1: Resignation Submitted -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(1)" [class.active]="resignation.status === 'Submitted'">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(1) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Resignation Submitted</h3>
+          <p>Request sent to reporting manager and HR.</p>
+        </div>
+      </div>
+
+      <!-- Step 2: Manager Review -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(2)" [class.active]="resignation.status === 'Manager Review'">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(2) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Manager Approval</h3>
+          <p *ngIf="resignation.manager_action === 'Approve'">Approved by {{ resSettings?.show_reviewer_status !== false ? (resignation.manager_first_name + ' ' + resignation.manager_last_name) : 'Manager' }}.</p>
+          <p *ngIf="resignation.manager_action === 'Pending'">Pending review with {{ resSettings?.show_reviewer_status !== false ? 'your reporting manager' : 'Manager' }}.</p>
+          <p *ngIf="resignation.manager_remarks" class="remarks">"{{ resignation.manager_remarks }}"</p>
+        </div>
+      </div>
+
+      <!-- Step 3: HR Review -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(3)" [class.active]="resignation.status === 'HR Review'">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(3) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>HR Approval</h3>
+          <p *ngIf="resignation.hr_action === 'Approve'">Approved by HR.</p>
+          <p *ngIf="resignation.hr_action === 'Pending' && resignation.status === 'HR Review'">Pending final approval from HR.</p>
+          <p *ngIf="resignation.hr_remarks" class="remarks">"{{ resignation.hr_remarks }}"</p>
+        </div>
+      </div>
+
+      <!-- Step 4: Notice Period Running -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(4)" [class.active]="resignation.status === 'Exit Clearance'">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(4) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Notice Period running</h3>
+          <ng-container *ngIf="resignation.status === 'Exit Clearance'">
+            <div class="progress-container">
+              <div class="progress-bar-wrapper">
+                <div class="progress-bar-fill" [style.width.%]="progressPercentage"></div>
+              </div>
+              <div class="progress-stats">
+                <span>{{ daysServed }} Days Served</span>
+                <span>{{ remainingDays }} Days Remaining ({{ progressPercentage }}%)</span>
+              </div>
+            </div>
+          </ng-container>
+          <p *ngIf="resignation.status === 'Relieved'">Completed notice period.</p>
+          <p *ngIf="!['Exit Clearance', 'Relieved'].includes(resignation.status)">Notice period starts after HR approval.</p>
+        </div>
+      </div>
+
+      <!-- Step 5: Exit Clearance checklist -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(5)" [class.active]="resignation.status === 'Exit Clearance' && !isStepCompleted(5)">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(5) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Clearance Pending</h3>
+          <p>Exit clearance status across departments:</p>
+          
+          <div class="clearance-grid" *ngIf="clearanceTasks.length > 0">
+            <div class="dept-badge" *ngFor="let dept of ['IT', 'Admin', 'Finance', 'HR', 'Security']" [class.done]="getDepartmentStatus(dept) === 'Completed'">
+              <ion-icon [name]="getDepartmentStatus(dept) === 'Completed' ? 'checkmark-done' : 'time-outline'"></ion-icon>
+              <span>{{ dept }}</span>
+            </div>
+          </div>
+          <p *ngIf="clearanceTasks.length === 0" class="no-tasks">Clearance checklist will appear here upon HR approval.</p>
+        </div>
+      </div>
+
+      <!-- Step 6: Full & Final Settlement -->
+      <div class="timeline-step" [class.completed]="isStepCompleted(6)" [class.active]="isStepCompleted(5) && !isStepCompleted(6)">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(6) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Settlement Pending</h3>
+          <p *ngIf="settlementDetails?.status === 'Paid'">Settlement paid successfully.</p>
+          <p *ngIf="settlementDetails?.status === 'Processed'">Settlement calculated, awaiting bank payment.</p>
+          <p *ngIf="!settlementDetails || settlementDetails.status === 'Pending'">F&F settlement is calculated after clearances are completed.</p>
+        </div>
+      </div>
+
+      <!-- Step 7: Exit Completed -->
+      <div class="timeline-step last-step" [class.completed]="isStepCompleted(7)">
+        <div class="timeline-icon">
+          <ion-icon [name]="isStepCompleted(7) ? 'checkmark-circle' : 'ellipse-outline'"></ion-icon>
+        </div>
+        <div class="timeline-content">
+          <h3>Exit Completed</h3>
+          <p *ngIf="isStepCompleted(7)">Relieved from duty. Goodbye and good luck! 👋</p>
+          <p *ngIf="!isStepCompleted(7)">Final relieving document and letter will be processed.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Cancellation Option -->
+    <div class="cancel-container" *ngIf="resSettings?.allow_employee_withdraw !== false && ['Submitted', 'Manager Review', 'HR Review'].includes(resignation.status)">
+      <ion-button expand="block" fill="outline" color="danger" (click)="cancelResignation()" class="cancel-btn">
+        <ion-icon name="trash-outline" slot="start"></ion-icon>
+        Cancel Resignation Request
+      </ion-button>
+    </div>
+
+  </div>
+</ion-content>

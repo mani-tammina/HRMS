@@ -72,6 +72,18 @@
                 <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
                 Upload Image
               </ion-button>
+
+              <ion-button *ngIf="resSettings?.allow_employee_resign !== false && currentEmployee?.EmploymentStatus === 'Working' && (!myResignation || myResignation.status === 'Rejected')"
+                fill="solid" color="danger" (click)="openResignationModal()" class="upload-btn">
+                <ion-icon slot="start" name="exit-outline"></ion-icon>
+                Apply Resignation
+              </ion-button>
+              
+              <ion-button *ngIf="myResignation && myResignation.status !== 'Rejected' && myResignation.status !== 'Relieved'"
+                fill="solid" color="warning" (click)="openTrackingModal()" class="upload-btn">
+                <ion-icon slot="start" name="time-outline"></ion-icon>
+                Track Resignation
+              </ion-button>
             </div>
           </div>
 
