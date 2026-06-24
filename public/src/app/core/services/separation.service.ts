@@ -75,6 +75,14 @@ export class SeparationService {
     return this.http.put<any>(`${this.API_URL}/settings`, settings, { headers: this.getHeaders() });
   }
 
+  getNoticePeriodLeavesSettings(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_URL}/notice-period-leaves`, { headers: this.getHeaders() });
+  }
+
+  updateNoticePeriodLeavesSettings(payload: any[]): Observable<any> {
+    return this.http.put<any>(`${this.API_URL}/notice-period-leaves`, payload, { headers: this.getHeaders() });
+  }
+
   /* ============ EMPLOYEE RESIGNATION ============ */
   applyResignation(data: any): Observable<any> {
     return this.http.post<any>(`${this.API_URL}/apply`, data, { headers: this.getHeaders() });

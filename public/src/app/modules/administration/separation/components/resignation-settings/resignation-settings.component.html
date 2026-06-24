@@ -1,5 +1,5 @@
 <div class="settings-card animate__animated animate__fadeIn">
-  
+
   <div class="settings-header">
     <h2>Resignation settings</h2>
     <div class="header-actions">
@@ -32,16 +32,28 @@
         <span class="checkmark"></span>
         <span class="option-text">Allow employees to choose the preference on an early last working day</span>
       </label>
-      <span class="info-icon" title="If enabled, employees can request an early exit date in the resignation form.">ⓘ</span>
+      <span class="info-icon"
+        title="If enabled, employees can request an early exit date in the resignation form.">ⓘ</span>
+    </div>
+    <div class="settings-option">
+      <label class="custom-checkbox-container">
+        <input type="checkbox" [(ngModel)]="allowEarlyLWD" />
+        <span class="checkmark"></span>
+        <span class="option-text">Ensure the last working Day doesn't land on a holiday or weekly off</span>
+      </label>
+      <span class="info-icon"
+        title="If enabled, employees can request an early exit date in the resignation form.">ⓘ</span>
     </div>
 
     <div class="settings-option">
       <label class="custom-checkbox-container">
         <input type="checkbox" [(ngModel)]="showReviewerStatus" />
         <span class="checkmark"></span>
-        <span class="option-text">Show resignation approval/acknowledgement status to the employee in their profile (along with the names of the reviewers)</span>
+        <span class="option-text">Show resignation approval/acknowledgement status to the employee in their profile
+          (along with the names of the reviewers)</span>
       </label>
-      <span class="info-icon" title="If enabled, the employee timeline tracker will display the actual names of reviewers.">ⓘ</span>
+      <span class="info-icon"
+        title="If enabled, the employee timeline tracker will display the actual names of reviewers.">ⓘ</span>
     </div>
   </div>
 

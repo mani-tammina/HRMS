@@ -637,7 +637,8 @@ module.exports = {
                   allow_employee_resign: true,
                   allow_employee_withdraw: true,
                   allow_early_lwd: true,
-                  show_reviewer_status: true
+                  show_reviewer_status: true,
+                  notallowholiday_weekend: true,
                 }
               }
             }
@@ -659,7 +660,8 @@ module.exports = {
                   allow_employee_resign: { type: "boolean", example: true },
                   allow_employee_withdraw: { type: "boolean", example: true },
                   allow_early_lwd: { type: "boolean", example: true },
-                  show_reviewer_status: { type: "boolean", example: true }
+                  show_reviewer_status: { type: "boolean", example: true },
+                  notallowholiday_weekend: { type: "boolean", example: true },
                 }
               }
             }
@@ -668,6 +670,68 @@ module.exports = {
         responses: {
           200: {
             description: "Resignation settings updated successfully"
+          }
+        }
+      }
+    },
+    "/api/separation/notice-period-leaves": {
+      get: {
+        summary: "⚙️ Get notice period leave type configurations",
+        description: "Fetch all active leave plans and whether their allocated leave types are allowed during notice periods.",
+        tags: ["🚪 Separation & Exit"],
+        security: [{ bearerAuth: [] }],
+        responses: {
+          200: {
+            description: "List of leave plans with their leave types notice period configurations",
+            content: {
+              "application/json": {
+                example: [
+                  {
+                    id: 1,
+                    name: "Standard Plan",
+                    description: "Standard Leave Plan for Fulltime",
+                    leaves: [
+                      {
+                        leave_type_id: 1,
+                        type_name: "Casual Leave",
+                        type_code: "CL",
+                        is_allowed: true
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      put: {
+        summary: "⚙️ Update notice period leave type configurations",
+        description: "Update which leave types can be applied for during notice periods per plan (HR/Admin only).",
+        tags: ["🚪 Separation & Exit"],
+        security: [{ bearerAuth: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "array",
+                items: {
+                  type: "object",
+                  required: ["leave_plan_id", "leave_type_id", "is_allowed"],
+                  properties: {
+                    leave_plan_id: { type: "integer", example: 1 },
+                    leave_type_id: { type: "integer", example: 1 },
+                    is_allowed: { type: "boolean", example: true }
+                  }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: {
+            description: "Notice period leave settings updated successfully"
           }
         }
       }

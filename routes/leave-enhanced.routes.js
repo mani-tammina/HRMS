@@ -775,7 +775,7 @@ router.get("/balance", auth, async (req, res) => {
     const leaveYear = year || leave_year || new Date().getFullYear();
 
     const c = await db();
-    const [balances] = await c.query(
+    const [dbBalances] = await c.query(
       `
             SELECT 
                 elb.*,
@@ -794,6 +794,24 @@ router.get("/balance", auth, async (req, res) => {
         `,
       [emp.id, leaveYear],
     );
+
+    // Filter out restricted leave types if the employee is in their notice period
+    const [resignationRows] = await c.query(
+      "SELECT id FROM resignations WHERE employee_id = ? AND status NOT IN ('Rejected', 'Relieved')",
+      [emp.id]
+    );
+
+    let balances = dbBalances;
+    if (resignationRows.length > 0) {
+      const [disallowedRows] = await c.query(
+        "SELECT leave_type_id FROM notice_period_allowed_leaves WHERE leave_plan_id = ? AND is_allowed = 0",
+        [emp.leave_plan_id]
+      );
+      const disallowedTypeIds = disallowedRows.map(r => r.leave_type_id);
+      if (disallowedTypeIds.length > 0) {
+        balances = dbBalances.filter(b => !disallowedTypeIds.includes(b.leave_type_id));
+      }
+    }
 
     // Calculate LOP from attendance penalties for the whole year
     // 1. Existing penalties in DB
@@ -931,9 +949,9 @@ router.get("/balance", auth, async (req, res) => {
       updatedBalances.push(b);
     }
 
-    // Determine if initialization is needed
+    // Determine if initialization is needed (skip if in notice period)
     let needsInitialization = false;
-    if (emp.leave_plan_id) {
+    if (emp.leave_plan_id && resignationRows.length === 0) {
       const [allocRows] = await c.query(
         `SELECT COUNT(*) as count FROM leave_plan_allocations WHERE leave_plan_id = ?`,
         [emp.leave_plan_id],
@@ -1082,6 +1100,29 @@ router.post("/apply", auth, async (req, res) => {
 
     const c = await db();
     await c.beginTransaction();
+
+    // Notice Period Leave Restriction check
+    const [resignationRows] = await c.query(
+      "SELECT id, status FROM resignations WHERE employee_id = ? AND status NOT IN ('Rejected', 'Relieved')",
+      [emp.id]
+    );
+
+    if (resignationRows.length > 0) {
+      // Fetch allowed setting
+      const [allowedRows] = await c.query(
+        "SELECT is_allowed FROM notice_period_allowed_leaves WHERE leave_plan_id = ? AND leave_type_id = ?",
+        [emp.leave_plan_id, leave_type_id]
+      );
+      
+      if (allowedRows.length > 0 && allowedRows[0].is_allowed === 0) {
+        const [typeDetails] = await c.query("SELECT type_name FROM leave_types WHERE id = ?", [leave_type_id]);
+        const typeName = typeDetails.length > 0 ? typeDetails[0].type_name : "This type of leave";
+        await c.rollback();
+        c.end();
+        console.log(`[LEAVE NOTICE BLOCK] Employee ${emp.id} notice period block for leave type ${leave_type_id}`);
+        return res.status(400).json({ error: `${typeName} cannot be applied during the notice period.` });
+      }
+    }
 
     // Check leave type code
     const [typeData] = await c.query(

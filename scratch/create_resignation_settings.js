@@ -22,7 +22,9 @@ async function main() {
             { key: 'allow_employee_resign', value: 1 },
             { key: 'allow_employee_withdraw', value: 1 },
             { key: 'allow_early_lwd', value: 1 },
-            { key: 'show_reviewer_status', value: 1 }
+            { key: 'show_reviewer_status', value: 1 },
+            { key: 'notallowholiday_weekend', value: 1 },
+
         ];
 
         // 3. Seed table if empty

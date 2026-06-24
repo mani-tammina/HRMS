@@ -1,0 +1,44 @@
+<div class="settings-card animate__animated animate__fadeIn">
+  
+  <div class="settings-header">
+    <div class="header-title-section">
+      <h2>Notice Period Leave Policies</h2>
+      <p class="subtitle">Specify which leave types can be applied for during an employee's notice period</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="onCancel()">Cancel</button>
+      <button class="btn btn-primary" (click)="onSave()">Save changes</button>
+    </div>
+  </div>
+
+  <div class="settings-body">
+    <div class="plan-section" *ngFor="let plan of leavePlans">
+      <div class="plan-header">
+        <h3>{{ plan.name }}</h3>
+        <p *ngIf="plan.description" class="plan-desc">{{ plan.description }}</p>
+      </div>
+
+      <div class="leaves-grid">
+        <div class="settings-option" *ngFor="let leave of plan.leaves">
+          <label class="custom-checkbox-container">
+            <input type="checkbox" [(ngModel)]="leave.is_allowed" />
+            <span class="checkmark"></span>
+            <div class="option-details">
+              <span class="option-text">{{ leave.type_name }}</span>
+              <span class="badge" [class.allowed]="leave.is_allowed" [class.restricted]="!leave.is_allowed">
+                {{ leave.is_allowed ? 'Allowed' : 'Restricted' }}
+              </span>
+            </div>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="no-data-placeholder" *ngIf="leavePlans.length === 0">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+      <h4>No Leave Plans Active</h4>
+      <p>Configure leave plans in the system to enable notice period policy mappings.</p>
+    </div>
+  </div>
+
+</div>

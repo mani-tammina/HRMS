@@ -27,6 +27,36 @@ function formatDate(val) {
   return null;
 }
 
+async function isWeekendOrHoliday(dateInput, connection) {
+  const dateObj = new Date(dateInput);
+  const day = dateObj.getDay(); // 0 is Sunday, 6 is Saturday
+  if (day === 0 || day === 6) {
+    return { isWeekend: true, isHoliday: false, message: "weekend" };
+  }
+  
+  const formattedDate = formatDate(dateInput);
+  const [rows] = await connection.query(
+    "SELECT holiday_name FROM holidays WHERE holiday_date = DATE(?)",
+    [formattedDate]
+  );
+  if (rows.length > 0) {
+    return { isWeekend: false, isHoliday: true, message: `holiday (${rows[0].holiday_name})` };
+  }
+  
+  return null;
+}
+
+async function getNextWorkingDay(startDate, connection) {
+  let dateObj = new Date(startDate);
+  while (true) {
+    const check = await isWeekendOrHoliday(dateObj, connection);
+    if (!check) {
+      return dateObj;
+    }
+    dateObj.setDate(dateObj.getDate() + 1);
+  }
+}
+
 /* ============ NOTICE PERIOD CONFIG ============ */
 
 // Get all department notice period configurations
@@ -364,6 +394,103 @@ router.put("/settings", auth, hr, async (req, res) => {
 });
 
 
+// Get Notice Period allowed leaves configurations (grouped by Leave Plan)
+router.get("/notice-period-leaves", auth, async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    
+    // Fetch all active leave plans
+    const [plans] = await c.query(
+      "SELECT id, name, description FROM leave_plans WHERE is_active = 1 ORDER BY name"
+    );
+    
+    if (plans.length === 0) {
+      return res.json([]);
+    }
+    
+    // Fetch all allocations with leave type details and their notice period status
+    const [allocations] = await c.query(`
+      SELECT 
+        lpa.leave_plan_id,
+        lpa.leave_type_id,
+        lt.type_name,
+        lt.type_code,
+        COALESCE(np.is_allowed, 1) as is_allowed
+      FROM leave_plan_allocations lpa
+      INNER JOIN leave_types lt ON lpa.leave_type_id = lt.id
+      LEFT JOIN notice_period_allowed_leaves np ON np.leave_plan_id = lpa.leave_plan_id AND np.leave_type_id = lpa.leave_type_id
+      WHERE lt.is_active = 1
+      ORDER BY lpa.leave_plan_id, lt.type_name
+    `);
+    
+    // Group allocations by leave plan
+    const result = plans.map(plan => {
+      const planAllocations = allocations
+        .filter(alloc => alloc.leave_plan_id === plan.id)
+        .map(alloc => ({
+          leave_type_id: alloc.leave_type_id,
+          type_name: alloc.type_name,
+          type_code: alloc.type_code,
+          is_allowed: alloc.is_allowed === 1
+        }));
+      
+      return {
+        id: plan.id,
+        name: plan.name,
+        description: plan.description,
+        leaves: planAllocations
+      };
+    });
+    
+    res.json(result);
+  } catch (err) {
+    console.error("Error fetching notice period allowed leaves:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Update Notice Period allowed leaves configurations
+router.put("/notice-period-leaves", auth, hr, async (req, res) => {
+  let c = null;
+  try {
+    const payload = req.body; // Expect flat array: [{ leave_plan_id, leave_type_id, is_allowed }]
+    if (!Array.isArray(payload)) {
+      return res.status(400).json({ error: "Invalid payload, expected an array of settings" });
+    }
+    
+    c = await db();
+    await c.beginTransaction();
+    
+    for (const item of payload) {
+      const { leave_plan_id, leave_type_id, is_allowed } = item;
+      if (leave_plan_id === undefined || leave_type_id === undefined || is_allowed === undefined) {
+        throw new Error("Each setting must have leave_plan_id, leave_type_id, and is_allowed");
+      }
+      
+      const allowedValue = is_allowed === true || is_allowed === 1 || is_allowed === '1' ? 1 : 0;
+      
+      await c.query(`
+        INSERT INTO notice_period_allowed_leaves (leave_plan_id, leave_type_id, is_allowed)
+        VALUES (?, ?, ?)
+        ON DUPLICATE KEY UPDATE is_allowed = ?
+      `, [leave_plan_id, leave_type_id, allowedValue, allowedValue]);
+    }
+    
+    await c.commit();
+    res.json({ success: true, message: "Notice period leave settings updated successfully" });
+  } catch (err) {
+    if (c) await c.rollback();
+    console.error("Error saving notice period allowed leaves:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+
 /* ============ EMPLOYEE APIs ============ */
 
 // Apply for Resignation
@@ -429,8 +556,22 @@ router.post("/apply", auth, async (req, res) => {
     
     // Calculate last working date (Applied date is today)
     const applied_date = new Date();
-    const calculated_lwd = new Date();
+    let calculated_lwd = new Date();
     calculated_lwd.setDate(applied_date.getDate() + notice_days);
+
+    // Apply notallowholiday_weekend setting
+    if (settingsMap.notallowholiday_weekend) {
+      if (early_relieving_request === 'Yes' && preferred_last_working_date) {
+        const checkResult = await isWeekendOrHoliday(preferred_last_working_date, c);
+        if (checkResult) {
+          return res.status(400).json({ 
+            error: `Your preferred last working date lands on a ${checkResult.message}. Resignation notice periods cannot end on a weekend or holiday.` 
+          });
+        }
+      } else {
+        calculated_lwd = await getNextWorkingDay(calculated_lwd, c);
+      }
+    }
 
     // Save resignation record
     const resignationData = {

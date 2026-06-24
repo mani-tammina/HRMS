@@ -7,6 +7,7 @@ import { SeparationPage } from './separation.page';
 import { SeparationDetailsPage } from './separation-details/separation-details.page';
 import { ResignationTrackingComponent } from '../../employee/profile/components/resignation-tracking/resignation-tracking.component';
 import { ResignationSettingsComponent } from './components/resignation-settings/resignation-settings.component';
+import { NoticePeriodLeavesSettingsComponent } from './components/notice-period-leaves-settings/notice-period-leaves-settings.component';
 
 const routes: Routes = [
   {
@@ -27,7 +28,8 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes),
     ResignationTrackingComponent,
-    ResignationSettingsComponent
+    ResignationSettingsComponent,
+    NoticePeriodLeavesSettingsComponent
   ],
   declarations: [
     SeparationPage,

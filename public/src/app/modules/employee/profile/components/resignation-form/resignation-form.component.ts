@@ -118,6 +118,17 @@ export class ResignationFormComponent implements OnInit {
       prefDateCtrl?.updateValueAndValidity();
       prefReasonCtrl?.updateValueAndValidity();
     });
+
+    // Handle weekend validation check
+    this.resignationForm.get('preferred_last_working_date')?.valueChanges.subscribe(value => {
+      if (value && this.resSettings?.notallowholiday_weekend) {
+        const dateObj = new Date(value);
+        const day = dateObj.getDay(); // 0 is Sunday, 6 is Saturday
+        if (day === 0 || day === 6) {
+          this.presentToast('Notice period ending date cannot land on a weekend. Please select a regular working day.', 'danger');
+        }
+      }
+    });
   }
 
   setupMinDate() {

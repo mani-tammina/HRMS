@@ -21,7 +21,8 @@ export class ResignationSettingsComponent implements OnInit {
   allowEmployeeWithdraw = true;
   allowEarlyLWD = true;
   showReviewerStatus = true;
-
+  notallowholiday_weekend = true;
+  
   // Initial State Backup (for Cancel button)
   initialState: any = null;
 
@@ -43,6 +44,7 @@ export class ResignationSettingsComponent implements OnInit {
           this.allowEmployeeWithdraw = data.allow_employee_withdraw ?? true;
           this.allowEarlyLWD = data.allow_early_lwd ?? true;
           this.showReviewerStatus = data.show_reviewer_status ?? true;
+          this.notallowholiday_weekend = data.notallowholiday_weekend ?? true;
           
           this.initialState = { ...data };
         }
