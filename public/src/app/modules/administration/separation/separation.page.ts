@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { SeparationService } from '../../../core/services/separation.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { RouteGuardService } from '../../../core/services/route-guard.service';
 import { ToastController, AlertController, LoadingController } from '@ionic/angular';
 
 @Component({
@@ -11,6 +12,7 @@ import { ToastController, AlertController, LoadingController } from '@ionic/angu
 })
 export class SeparationPage implements OnInit {
   selectedSegment = 'requests';
+  userRole: string | null = null;
   resignationRequests: any[] = [];
   noticePeriods: any[] = [];
   departments: any[] = [];
@@ -49,12 +51,14 @@ export class SeparationPage implements OnInit {
   constructor(
     private separationService: SeparationService,
     private adminService: AdminService,
+    private routeGuardService: RouteGuardService,
     private toastController: ToastController,
     private alertController: AlertController,
     private loadingController: LoadingController
   ) {}
 
   ngOnInit() {
+    this.userRole = this.routeGuardService.userRole?.toLowerCase() || null;
     this.loadRequests();
     this.loadNoticePeriods();
     this.loadDepartments();

@@ -851,6 +851,7 @@ router.get("/requests/:id", auth, async (req, res) => {
     const [rows] = await c.query(
       `SELECT r.*, 
               e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.DateJoined,
+              e.reporting_manager_id,
               d.name as department_name, 
               des.name as designation_name,
               mgr.FirstName as manager_first_name, mgr.LastName as manager_last_name
@@ -928,7 +929,7 @@ router.post("/requests/:id/action", auth, async (req, res) => {
     }
 
     const resignation = resignations[0];
-    const isManager = emp && emp.id === resignation.reporting_manager_id;
+    const isManager = userRole === 'manager' || (emp && emp.id === resignation.reporting_manager_id);
 
     // Check authorization
     if (!isHrOrAdmin && !isManager) {
@@ -975,15 +976,24 @@ router.post("/requests/:id/action", auth, async (req, res) => {
         // Restore Employee Status to 'Working'
         await c.query("UPDATE employees SET EmploymentStatus = 'Working' WHERE id = ?", [resignation.emp_id]);
       } else if (action === 'Send Back' || action === 'Send Back for Discussion') {
-        newStatus = 'Draft';
-        currentStep = 'Manager Review';
+        newStatus = 'HR Review';
+        currentStep = 'HR Approval';
         updateFields = {
           status: newStatus,
           current_workflow_step: currentStep,
-          manager_action: 'Pending',
+          manager_action: 'Send Back',
           manager_remarks: remarks || null,
           manager_action_at: new Date()
         };
+
+        // Notify HR
+        const [hrUsers] = await c.query("SELECT id FROM users WHERE role IN ('admin', 'hr')");
+        for (const hrUser of hrUsers) {
+          await c.query(
+            "INSERT INTO notifications (user_id, message) VALUES (?, ?)",
+            [hrUser.id, `Resignation - Manager Sent Back: Manager sent back resignation for ${resignation.FirstName} ${resignation.LastName} for HR Review.`]
+          );
+        }
       } else {
         return res.status(400).json({ error: "Invalid action for manager" });
       }
@@ -1087,6 +1097,35 @@ router.post("/requests/:id/action", auth, async (req, res) => {
           await c.query(
             "INSERT INTO notifications (user_id, message) VALUES (?, ?)",
             [empUser[0].user_id, `Resignation Rejected: Your resignation request has been rejected.`]
+          );
+        }
+      } else if (action === 'Return') {
+        newStatus = 'Draft';
+        currentStep = 'Manager Review';
+        updateFields = {
+          status: newStatus,
+          current_workflow_step: currentStep,
+          hr_action: 'Return',
+          hr_remarks: remarks || null,
+          hr_action_at: new Date(),
+          manager_action: 'Pending'
+        };
+
+        // Restore Employee Status to 'Working'
+        await c.query("UPDATE employees SET EmploymentStatus = 'Working' WHERE id = ?", [resignation.emp_id]);
+
+        // Notify Employee
+        const [empUser] = await c.query(
+          `SELECT u.id AS user_id 
+           FROM users u 
+           INNER JOIN employees e ON (u.username = e.WorkEmail OR u.username = e.EmployeeNumber) 
+           WHERE e.id = ?`,
+          [resignation.emp_id]
+        );
+        if (empUser.length > 0 && empUser[0].user_id) {
+          await c.query(
+            "INSERT INTO notifications (user_id, message) VALUES (?, ?)",
+            [empUser[0].user_id, `Resignation Returned: Your resignation request has been returned to you by HR.`]
           );
         }
       } else {

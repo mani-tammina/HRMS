@@ -18,6 +18,7 @@ const routes: Routes = [
     path: 'details/:id',
     component: SeparationDetailsPage
   }
+  
 ];
 
 @NgModule({

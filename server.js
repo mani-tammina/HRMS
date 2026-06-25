@@ -260,6 +260,25 @@ async function initializeDatabase() {
             console.log(`✅ Database initialization complete: ${successCount} executed, ${skipCount} skipped`);
         }
 
+        // Ensure resignations ENUM columns support 'Send Back' and 'Return'
+        try {
+            const [cols] = await conn.query("DESCRIBE resignations");
+            const managerActionCol = cols.find(c => c.Field === 'manager_action');
+            if (managerActionCol && !managerActionCol.Type.includes('Send Back')) {
+                console.log("🔄 Updating resignations.manager_action ENUM to include 'Send Back'...");
+                await conn.query("ALTER TABLE resignations MODIFY COLUMN manager_action ENUM('Approve','Retain','Reject','Pending','Send Back') DEFAULT 'Pending'");
+                console.log("✅ Updated resignations.manager_action ENUM");
+            }
+            const hrActionCol = cols.find(c => c.Field === 'hr_action');
+            if (hrActionCol && !hrActionCol.Type.includes('Return')) {
+                console.log("🔄 Updating resignations.hr_action ENUM to include 'Return'...");
+                await conn.query("ALTER TABLE resignations MODIFY COLUMN hr_action ENUM('Approve','Reject','Pending','Return') DEFAULT 'Pending'");
+                console.log("✅ Updated resignations.hr_action ENUM");
+            }
+        } catch (alterErr) {
+            console.warn("⚠️ Warning: could not verify/alter resignations ENUM columns:", alterErr.message);
+        }
+
     } catch (error) {
         console.error("❌ Database initialization error:", error.message);
         throw error;

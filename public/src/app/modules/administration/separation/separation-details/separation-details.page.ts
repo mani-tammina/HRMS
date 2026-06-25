@@ -143,7 +143,7 @@ export class SeparationDetailsPage implements OnInit {
     });
   }
 
-  async submitHRAction(action: 'Approve' | 'Reject') {
+  async submitHRAction(action: 'Approve' | 'Reject' | 'Return') {
     const loading = await this.loadingController.create({
       message: 'Processing action...',
       spinner: 'crescent'
@@ -308,22 +308,19 @@ export class SeparationDetailsPage implements OnInit {
     return tasks.every(t => t.status === 'Completed') ? 'Completed' : 'Pending';
   }
 
-  isAuthorizedForAction(): boolean {
+  showManagerActionCard(): boolean {
     if (!this.resignation) return false;
-    
-    // Check if Manager Review is active
-    if (this.resignation.current_workflow_step === 'Manager Review') {
-      return this.currentUserRole === 'admin' || 
-             this.currentUserRole === 'hr' || 
-             this.currentUserEmployeeId === this.resignation.reporting_manager_id;
-    }
+    return this.resignation.current_workflow_step === 'Manager Review' && 
+           (this.currentUserRole === 'manager' || 
+            (!!this.currentUserEmployeeId && 
+             !!this.resignation.reporting_manager_id && 
+             this.currentUserEmployeeId === this.resignation.reporting_manager_id));
+  }
 
-    // Check if HR Approval is active
-    if (this.resignation.current_workflow_step === 'HR Approval') {
-      return this.currentUserRole === 'admin' || this.currentUserRole === 'hr';
-    }
-
-    return false;
+  showHrActionCard(): boolean {
+    if (!this.resignation) return false;
+    return this.resignation.current_workflow_step === 'HR Approval' && 
+           (this.currentUserRole === 'hr' || this.currentUserRole === 'admin');
   }
 
   getCompletedClearanceCount(): number {

@@ -6,15 +6,17 @@
     <ion-title>Resignation Workspace</ion-title>
   </ion-toolbar>
 
-  <ion-toolbar class="header-segment-toolbar" *ngIf="resignation">
+  <ion-toolbar class="header-segment-toolbar" *ngIf="resignation && currentUserRole !== 'manager'">
     <ion-segment [(ngModel)]="selectedTab" mode="md" class="profile-segment">
       <ion-segment-button value="details">
         <ion-label>DETAILS & APPROVAL</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="clearance" [disabled]="['Submitted', 'Manager Review', 'HR Review'].includes(resignation.status)">
+      <ion-segment-button value="clearance"
+        [disabled]="['Submitted', 'Manager Review', 'HR Review'].includes(resignation.status)">
         <ion-label>EXIT CLEARANCE</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="settlement" [disabled]="['Submitted', 'Manager Review', 'HR Review'].includes(resignation.status)">
+      <ion-segment-button value="settlement"
+        [disabled]="['Submitted', 'Manager Review', 'HR Review'].includes(resignation.status)">
         <ion-label>F&F SETTLEMENT</ion-label>
       </ion-segment-button>
     </ion-segment>
@@ -29,7 +31,8 @@
       <div class="emp-profile-row">
         <div class="emp-info-block">
           <h1>{{ resignation.FirstName }} {{ resignation.LastName }}</h1>
-          <p>{{ resignation.designation_name }} | <strong>{{ resignation.department_name }}</strong> ({{ resignation.EmployeeNumber }})</p>
+          <p>{{ resignation.designation_name }} | <strong>{{ resignation.department_name }}</strong> ({{
+            resignation.EmployeeNumber }})</p>
         </div>
         <div class="status-badge-block">
           <span class="status-tag" [class]="resignation.status?.toLowerCase().replace(' ', '_')">
@@ -45,7 +48,7 @@
         <ion-row>
           <!-- Left: Information Blocks -->
           <ion-col size="12" size-lg="8" class="ion-padding-end">
-            
+
             <!-- Employee Master Card -->
             <div class="details-card">
               <div class="card-title">
@@ -85,11 +88,13 @@
                 </div>
                 <div class="info-item">
                   <span class="label">Notice Period Days</span>
-                  <span class="value">{{ resignation.hr_notice_period_days || resignation.notice_period_days }} Days</span>
+                  <span class="value">{{ resignation.hr_notice_period_days || resignation.notice_period_days }}
+                    Days</span>
                 </div>
                 <div class="info-item">
                   <span class="label">Calculated Last Working Date</span>
-                  <span class="value highlight-lwd">{{ (resignation.hr_last_working_date || resignation.calculated_last_working_date) | date:'mediumDate' }}</span>
+                  <span class="value highlight-lwd">{{ (resignation.hr_last_working_date ||
+                    resignation.calculated_last_working_date) | date:'mediumDate' }}</span>
                 </div>
                 <div class="info-item">
                   <span class="label">Discussed with Manager?</span>
@@ -107,7 +112,8 @@
                 </div>
                 <div class="info-item" *ngIf="resignation.early_relieving_request === 'Yes'">
                   <span class="label">Preferred Last Working Date</span>
-                  <span class="value highlighted-pref-lwd">{{ resignation.preferred_last_working_date | date:'mediumDate' }}</span>
+                  <span class="value highlighted-pref-lwd">{{ resignation.preferred_last_working_date |
+                    date:'mediumDate' }}</span>
                 </div>
                 <div class="info-item full-width" *ngIf="resignation.additional_comments">
                   <span class="label">Employee Comments</span>
@@ -122,92 +128,149 @@
 
           <!-- Right: Approval Workflow Panel -->
           <ion-col size="12" size-lg="4">
-            
-            <!-- Approval Panel -->
-            <div class="details-card workflow-card" *ngIf="isAuthorizedForAction(); else staticWorkflowInfo">
+
+            <!-- Manager Action Panel -->
+            <div class="details-card workflow-card" *ngIf="showManagerActionCard()">
               <div class="card-title">
                 <ion-icon name="git-pull-request-outline"></ion-icon>
                 <h2>Workflow Action</h2>
               </div>
-
-              <!-- MANAGER REVIEW BLOCK -->
-              <div *ngIf="resignation.current_workflow_step === 'Manager Review'" class="workflow-actions-block">
+              <div class="workflow-actions-block">
                 <p class="subtitle">Current Step: <strong>Manager Approval</strong></p>
                 <div class="form-group">
                   <ion-label class="field-label">Approval Remarks *</ion-label>
-                  <ion-textarea [(ngModel)]="managerRemarks" placeholder="Enter review remarks..." class="custom-textarea" rows="3"></ion-textarea>
+                  <ion-textarea [(ngModel)]="managerRemarks" placeholder="Enter review remarks..."
+                    class="custom-textarea" rows="3"></ion-textarea>
                 </div>
                 <div class="workflow-btn-group">
-                  <ion-button color="danger" (click)="submitManagerAction('Reject')" expand="block" fill="outline">Reject</ion-button>
-                  <ion-button color="warning" (click)="submitManagerAction('Send Back')" expand="block" fill="outline">Send Back</ion-button>
-                  <ion-button color="success" (click)="submitManagerAction('Approve')" expand="block">Approve</ion-button>
-                </div>
-              </div>
-
-              <!-- HR APPROVAL BLOCK -->
-              <div *ngIf="resignation.current_workflow_step === 'HR Approval'" class="workflow-actions-block">
-                <p class="subtitle">Current Step: <strong>HR Approval & Date Override</strong></p>
-                
-                <div class="form-group">
-                  <ion-label class="field-label">Notice Period (Days)</ion-label>
-                  <ion-input type="number" [(ngModel)]="hrNoticeDays" class="form-input"></ion-input>
-                </div>
-
-                <div class="form-group">
-                  <ion-label class="field-label">Final Last Working Date</ion-label>
-                  <ion-input type="date" [(ngModel)]="hrLastWorkingDate" class="form-input"></ion-input>
-                </div>
-
-                <div class="form-group">
-                  <ion-label class="field-label">HR Review Remarks</ion-label>
-                  <ion-textarea [(ngModel)]="hrRemarks" placeholder="Enter HR comments..." class="custom-textarea" rows="3"></ion-textarea>
-                </div>
-
-                <div class="workflow-btn-group">
-                  <ion-button color="danger" (click)="submitHRAction('Reject')" expand="block" fill="outline">Reject</ion-button>
-                  <ion-button color="success" (click)="submitHRAction('Approve')" expand="block">Approve Resignation</ion-button>
+                  <ion-button color="warning" (click)="submitManagerAction('Send Back')" expand="block"
+                    fill="outline">Send Back</ion-button>
+                  <ion-button color="success" (click)="submitManagerAction('Approve')"
+                    expand="block">Approve</ion-button>
                 </div>
               </div>
             </div>
 
-            <!-- Static Fallback: Show Workflow status if not active or not authorized -->
-            <ng-template #staticWorkflowInfo>
-              <div class="details-card workflow-card static-workflow-card">
-                <div class="card-title">
-                  <ion-icon name="checkmark-done-circle-outline"></ion-icon>
-                  <h2>Workflow History</h2>
-                </div>
-                <div class="timeline-trail">
-                  <div class="trail-item completed">
-                    <span class="bullet">✓</span>
-                    <div class="trail-info">
-                      <h4>Resignation Submitted</h4>
-                      <p>Employee initiated request on {{ resignation.created_at | date:'mediumDate' }}</p>
-                    </div>
-                  </div>
-                  
-                  <div class="trail-item" [class.completed]="resignation.manager_action === 'Approve'" [class.active]="resignation.current_workflow_step === 'Manager Review'">
-                    <span class="bullet">{{ resignation.manager_action === 'Approve' ? '✓' : '•' }}</span>
-                    <div class="trail-info">
-                      <h4>Manager Review</h4>
-                      <p *ngIf="resignation.manager_action === 'Approve'">Approved by {{ resignation.manager_first_name }} on {{ resignation.manager_action_at | date:'short' }}</p>
-                      <p *ngIf="resignation.manager_action === 'Pending'">Awaiting approval from reporting manager</p>
-                      <p *ngIf="resignation.manager_remarks" class="remarks">"{{ resignation.manager_remarks }}"</p>
-                    </div>
+            <!-- HR Action Panel -->
+            <div class="details-card workflow-card" *ngIf="showHrActionCard()">
+              <div class="card-title">
+                <ion-icon name="shield-checkmark-outline"></ion-icon>
+                <h2>HR Action</h2>
+              </div>
+              <div class="workflow-actions-block">
+                <p class="subtitle">Current Step: <strong>HR Approval & Date Override</strong></p>
+
+                <!-- If manager action was Approve -->
+                <ng-container *ngIf="resignation.manager_action === 'Approve'">
+                  <div class="form-group">
+                    <ion-label class="field-label">Notice Period (Days)</ion-label>
+                    <ion-input type="number" [(ngModel)]="hrNoticeDays" class="form-input"></ion-input>
                   </div>
 
-                  <div class="trail-item" [class.completed]="resignation.hr_action === 'Approve'" [class.active]="resignation.current_workflow_step === 'HR Approval'">
-                    <span class="bullet">{{ resignation.hr_action === 'Approve' ? '✓' : '•' }}</span>
-                    <div class="trail-info">
-                      <h4>HR Approval</h4>
-                      <p *ngIf="resignation.hr_action === 'Approve'">Approved by HR on {{ resignation.hr_action_at | date:'short' }}</p>
-                      <p *ngIf="resignation.hr_action === 'Pending'">Pending final signoff by HR department</p>
-                      <p *ngIf="resignation.hr_remarks" class="remarks">"{{ resignation.hr_remarks }}"</p>
+                  <div class="form-group">
+                    <ion-label class="field-label">Final Last Working Date</ion-label>
+                    <ion-input type="date" [(ngModel)]="hrLastWorkingDate" class="form-input"></ion-input>
+                  </div>
+
+                  <div class="form-group">
+                    <ion-label class="field-label">HR Review Remarks</ion-label>
+                    <ion-textarea [(ngModel)]="hrRemarks" placeholder="Enter HR comments..." class="custom-textarea"
+                      rows="3"></ion-textarea>
+                  </div>
+
+                  <div class="workflow-btn-group" style="display: flex; flex-direction: column; gap: 8px;">
+                    <ion-button color="success" (click)="submitHRAction('Approve')" expand="block" style="margin: 0;">Approve Resignation</ion-button>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                      <ion-button color="warning" (click)="submitHRAction('Return')" expand="block" fill="outline" style="flex: 1; margin: 0;">Return to Employee</ion-button>
+                      <ion-button color="danger" (click)="submitHRAction('Reject')" expand="block" fill="outline" style="flex: 1; margin: 0;">Reject</ion-button>
                     </div>
+                  </div>
+                </ng-container>
+
+                <!-- If manager action was Send Back -->
+                <ng-container *ngIf="resignation.manager_action === 'Send Back'">
+                  <p
+                    style="color: var(--ion-color-warning, #e0ac08); font-size: 13px; font-weight: 500; margin-bottom: 15px; display: flex; align-items: center; gap: 5px;">
+                    <ion-icon name="alert-circle-outline" style="font-size: 16px;"></ion-icon>
+                    Manager sent this back for HR review.
+                  </p>
+                  <div class="form-group">
+                    <ion-label class="field-label">Notice Period (Days)</ion-label>
+                    <ion-input type="number" [(ngModel)]="hrNoticeDays" class="form-input"></ion-input>
+                  </div>
+
+                  <div class="form-group">
+                    <ion-label class="field-label">Final Last Working Date</ion-label>
+                    <ion-input type="date" [(ngModel)]="hrLastWorkingDate" class="form-input"></ion-input>
+                  </div>
+
+                  <div class="form-group">
+                    <ion-label class="field-label">HR Review Remarks</ion-label>
+                    <ion-textarea [(ngModel)]="hrRemarks" placeholder="Enter HR comments..." class="custom-textarea"
+                      rows="3"></ion-textarea>
+                  </div>
+
+                  <div class="workflow-btn-group" style="display: flex; flex-direction: column; gap: 8px;">
+                    <ion-button color="success" (click)="submitHRAction('Approve')" expand="block" style="margin: 0;">Approve Resignation</ion-button>
+                    <div style="display: flex; gap: 8px; width: 100%;">
+                      <ion-button color="warning" (click)="submitHRAction('Return')" expand="block" fill="outline" style="flex: 1; margin: 0;">Return to Employee</ion-button>
+                      <ion-button color="danger" (click)="submitHRAction('Reject')" expand="block" fill="outline" style="flex: 1; margin: 0;">Reject</ion-button>
+                    </div>
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+
+            <!-- Static Fallback: Show Workflow status if not active or not authorized -->
+            <div class="details-card workflow-card static-workflow-card">
+              <div class="card-title">
+                <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+                <h2>Workflow History</h2>
+              </div>
+              <div class="timeline-trail">
+                <div class="trail-item completed">
+                  <span class="bullet">✓</span>
+                  <div class="trail-info">
+                    <h4>Resignation Submitted</h4>
+                    <p>Employee initiated request on {{ resignation.created_at | date:'mediumDate' }}</p>
+                  </div>
+                </div>
+
+                <div class="trail-item"
+                  [class.completed]="resignation.manager_action === 'Approve' || resignation.manager_action === 'Send Back'"
+                  [class.active]="resignation.current_workflow_step === 'Manager Review'">
+                  <span class="bullet">{{ (resignation.manager_action === 'Approve' || resignation.manager_action ===
+                    'Send Back') ? '✓' : '•' }}</span>
+                  <div class="trail-info">
+                    <h4>Manager Review</h4>
+                    <p *ngIf="resignation.manager_action === 'Approve'">Approved by manager on {{
+                      resignation.manager_action_at | date:'short' }}</p>
+                    <p *ngIf="resignation.manager_action === 'Send Back'">Sent Back by manager on {{
+                      resignation.manager_action_at | date:'short' }}</p>
+                    <p *ngIf="resignation.manager_action === 'Pending'">Awaiting approval from reporting manager</p>
+                    <p *ngIf="resignation.manager_remarks" class="remarks">"{{ resignation.manager_remarks }}"</p>
+                  </div>
+                </div>
+
+                <div class="trail-item"
+                  [class.completed]="resignation.hr_action === 'Approve' || resignation.hr_action === 'Return' || resignation.hr_action === 'Reject'"
+                  [class.active]="resignation.current_workflow_step === 'HR Approval'">
+                  <span class="bullet">{{ (resignation.hr_action === 'Approve' || resignation.hr_action === 'Return'
+                    || resignation.hr_action === 'Reject') ? '✓' : '•' }}</span>
+                  <div class="trail-info">
+                    <h4>HR Approval</h4>
+                    <p *ngIf="resignation.hr_action === 'Approve'">Approved by HR on {{ resignation.hr_action_at |
+                      date:'short' }}</p>
+                    <p *ngIf="resignation.hr_action === 'Return'">Returned to Employee by HR on {{
+                      resignation.hr_action_at | date:'short' }}</p>
+                    <p *ngIf="resignation.hr_action === 'Reject'">Rejected by HR on {{ resignation.hr_action_at |
+                      date:'short' }}</p>
+                    <p *ngIf="resignation.hr_action === 'Pending'">Pending final signoff by HR department</p>
+                    <p *ngIf="resignation.hr_remarks" class="remarks">"{{ resignation.hr_remarks }}"</p>
                   </div>
                 </div>
               </div>
-            </ng-template>
+            </div>
 
           </ion-col>
         </ion-row>
@@ -250,7 +313,8 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr *ngFor="let task of getTasksByDept(dept)" (dblclick)="toggleTaskStatus(task)" class="clickable-task-row">
+                  <tr *ngFor="let task of getTasksByDept(dept)" (dblclick)="toggleTaskStatus(task)"
+                    class="clickable-task-row">
                     <td><strong>{{ task.task_name }}</strong></td>
                     <td>
                       <span class="task-status-tag" [class]="task.status?.toLowerCase().replace(' ', '_')">
@@ -271,7 +335,7 @@
 
     <!-- ================== TAB: FULL & FINAL SETTLEMENT ================== -->
     <div *ngIf="selectedTab === 'settlement'" class="tab-pane-content">
-      
+
       <!-- Clearance Pending Warning -->
       <div class="warning-banner" *ngIf="!allClearanceCompleted()">
         <ion-icon name="alert-circle"></ion-icon>
@@ -294,17 +358,17 @@
               <div class="settlement-form">
                 <!-- Additions -->
                 <div class="form-sub-header">Additions / Earnings</div>
-                
+
                 <div class="form-row-group">
                   <ion-label>Pending Salary (₹)</ion-label>
                   <ion-input type="number" [(ngModel)]="settlementForm.pending_salary" class="calc-input"></ion-input>
                 </div>
-                
+
                 <div class="form-row-group">
                   <ion-label>Leave Encashment (₹)</ion-label>
                   <ion-input type="number" [(ngModel)]="settlementForm.leave_encashment" class="calc-input"></ion-input>
                 </div>
-                
+
                 <div class="form-row-group">
                   <ion-label>Bonus (₹)</ion-label>
                   <ion-input type="number" [(ngModel)]="settlementForm.bonus" class="calc-input"></ion-input>
@@ -312,12 +376,12 @@
 
                 <!-- Deductions -->
                 <div class="form-sub-header deductions-header">Deductions / Recoveries</div>
-                
+
                 <div class="form-row-group">
                   <ion-label>Assets Recoveries (₹)</ion-label>
                   <ion-input type="number" [(ngModel)]="settlementForm.recoveries" class="calc-input"></ion-input>
                 </div>
-                
+
                 <div class="form-row-group">
                   <ion-label>Statutory / Other Deductions (₹)</ion-label>
                   <ion-input type="number" [(ngModel)]="settlementForm.deductions" class="calc-input"></ion-input>
@@ -326,7 +390,9 @@
                 <!-- Remarks -->
                 <div class="form-row-group full-width">
                   <ion-label>Remarks / Notes</ion-label>
-                  <ion-textarea [(ngModel)]="settlementForm.remarks" placeholder="Enter settlement references or calculations..." class="custom-textarea" rows="2"></ion-textarea>
+                  <ion-textarea [(ngModel)]="settlementForm.remarks"
+                    placeholder="Enter settlement references or calculations..." class="custom-textarea"
+                    rows="2"></ion-textarea>
                 </div>
 
                 <!-- Action button -->
@@ -360,7 +426,8 @@
                 </div>
                 <div class="breakdown-row status-row">
                   <span>Settlement Status:</span>
-                  <span class="status-tag-text" [class]="settlement?.status?.toLowerCase()">{{ settlement?.status || 'Pending' }}</span>
+                  <span class="status-tag-text" [class]="settlement?.status?.toLowerCase()">{{ settlement?.status ||
+                    'Pending' }}</span>
                 </div>
               </div>
 
@@ -369,7 +436,8 @@
                 <p>Provide a bank transaction or cheque reference to finalize the relieving formalities.</p>
                 <div class="form-group">
                   <ion-label class="field-label">Payment Reference Number *</ion-label>
-                  <ion-input [(ngModel)]="paymentRef" placeholder="UTN / IMPS / CHQ Reference" class="form-input"></ion-input>
+                  <ion-input [(ngModel)]="paymentRef" placeholder="UTN / IMPS / CHQ Reference"
+                    class="form-input"></ion-input>
                 </div>
                 <ion-button color="success" (click)="paySettlement()" expand="block" class="complete-btn">
                   <ion-icon name="wallet-outline" slot="start"></ion-icon> Confirm Payment & Relieve

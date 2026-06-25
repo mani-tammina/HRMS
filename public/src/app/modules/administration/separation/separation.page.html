@@ -6,7 +6,7 @@
     <ion-title>Exit & Separation Management</ion-title>
   </ion-toolbar>
 
-  <ion-toolbar class="header-segment-toolbar">
+  <ion-toolbar class="header-segment-toolbar" *ngIf="userRole !== 'manager'">
     <ion-segment [(ngModel)]="selectedSegment" (ionChange)="segmentChanged($event)" mode="md" class="profile-segment">
       <ion-segment-button value="requests">
         <ion-label>RESIGNATION REQUESTS</ion-label>
@@ -22,27 +22,29 @@
 </ion-header>
 
 <ion-content class="admin-separation-content ion-padding">
-  
+
   <!-- ================= TABS: RESIGNATION REQUESTS ================= -->
   <div *ngIf="selectedSegment === 'requests'" class="animate__animated animate__fadeIn">
-    
+
     <!-- Filter Card -->
-    <div class="filter-card">
+    <div class="filter-card" *ngIf="userRole !== 'manager'">
       <div class="card-header">
         <h3><ion-icon name="funnel-outline"></ion-icon> Filter Requests</h3>
         <ion-button fill="clear" color="medium" (click)="clearFilters()" size="small">Clear Filters</ion-button>
       </div>
-      
+
       <ion-grid class="ion-no-padding">
         <ion-row>
           <ion-col size="12" size-md="3" class="filter-col">
             <ion-label>Search Employee</ion-label>
-            <ion-input [(ngModel)]="filters.employee" placeholder="Name or Emp ID" class="filter-input" (ionInput)="applyFilters()"></ion-input>
+            <ion-input [(ngModel)]="filters.employee" placeholder="Name or Emp ID" class="filter-input"
+              (ionInput)="applyFilters()"></ion-input>
           </ion-col>
           <ion-col size="12" size-md="3" class="filter-col">
             <ion-label>Department</ion-label>
             <ion-item lines="none" class="filter-select-item">
-              <ion-select [(ngModel)]="filters.department" placeholder="All Departments" (ionChange)="applyFilters()" class="filter-select">
+              <ion-select [(ngModel)]="filters.department" placeholder="All Departments" (ionChange)="applyFilters()"
+                class="filter-select">
                 <ion-select-option value="">All Departments</ion-select-option>
                 <ion-select-option *ngFor="let d of departments" [value]="d.id">{{ d.name }}</ion-select-option>
               </ion-select>
@@ -51,7 +53,8 @@
           <ion-col size="12" size-md="3" class="filter-col">
             <ion-label>Status</ion-label>
             <ion-item lines="none" class="filter-select-item">
-              <ion-select [(ngModel)]="filters.status" placeholder="All Statuses" (ionChange)="applyFilters()" class="filter-select">
+              <ion-select [(ngModel)]="filters.status" placeholder="All Statuses" (ionChange)="applyFilters()"
+                class="filter-select">
                 <ion-select-option value="">All Statuses</ion-select-option>
                 <ion-select-option value="Submitted">Submitted</ion-select-option>
                 <ion-select-option value="Manager Review">Manager Review</ion-select-option>
@@ -111,7 +114,8 @@
               </td>
               <td>
                 <span class="lwd-text">
-                  {{ req.preferred_last_working_date ? (req.preferred_last_working_date | date:'mediumDate') : 'N/A' }}
+                  {{ req.preferred_last_working_date ? (req.preferred_last_working_date | date:'mediumDate') : 'N/A'
+                  }}
                 </span>
               </td>
               <td>
@@ -121,10 +125,12 @@
               </td>
               <td>
                 <div class="action-buttons-cell">
-                  <ion-button fill="outline" size="small" color="primary" [routerLink]="['/administration/separation/details', req.id]" class="table-action-btn">
+                  <ion-button fill="outline" size="small" color="primary"
+                    [routerLink]="['/administration/separation/details', req.id]" class="table-action-btn">
                     View Details
                   </ion-button>
-                  <ion-button fill="solid" size="small" color="secondary" (click)="trackResignation(req)" class="table-action-btn">
+                  <ion-button fill="solid" size="small" color="secondary" (click)="trackResignation(req)"
+                    class="table-action-btn">
                     Track
                   </ion-button>
                 </div>
@@ -146,11 +152,11 @@
 
   <!-- ================= TABS: NOTICE PERIOD CONFIGURATION ================= -->
   <div *ngIf="selectedSegment === 'notice_periods'" class="animate__animated animate__fadeIn">
-    
+
     <!-- Config List & Add panel -->
     <ion-grid class="ion-no-padding">
       <ion-row>
-        
+
         <!-- Left Pane: Configurations Table -->
         <ion-col size="12" size-lg="8" class="ion-padding-end">
           <div class="list-card notice-list-card">
@@ -217,7 +223,8 @@
               <div class="form-group">
                 <ion-label class="field-label">Department *</ion-label>
                 <ion-item lines="none" class="form-select-item" [disabled]="editingConfigId !== null">
-                  <ion-select [(ngModel)]="configForm.department_id" placeholder="Select Department" interface="popover" class="form-select">
+                  <ion-select [(ngModel)]="configForm.department_id" placeholder="Select Department" interface="popover"
+                    class="form-select">
                     <ion-select-option *ngFor="let d of departments" [value]="d.id">{{ d.name }}</ion-select-option>
                   </ion-select>
                 </ion-item>
@@ -225,7 +232,8 @@
 
               <div class="form-group">
                 <ion-label class="field-label">Notice Period (Days) *</ion-label>
-                <ion-input type="number" [(ngModel)]="configForm.notice_period_days" placeholder="Notice Period Days" class="form-input"></ion-input>
+                <ion-input type="number" [(ngModel)]="configForm.notice_period_days" placeholder="Notice Period Days"
+                  class="form-input"></ion-input>
               </div>
 
               <div class="form-group toggle-group">
@@ -234,7 +242,8 @@
               </div>
 
               <div class="form-actions-pane">
-                <ion-button fill="outline" color="medium" (click)="cancelConfigEdit()" expand="block">Cancel</ion-button>
+                <ion-button fill="outline" color="medium" (click)="cancelConfigEdit()"
+                  expand="block">Cancel</ion-button>
                 <ion-button color="primary" (click)="saveConfig()" expand="block">Save Settings</ion-button>
               </div>
             </div>
@@ -248,10 +257,10 @@
 
   <!-- ================= TABS: RESIGNATION REASONS ================= -->
   <div *ngIf="selectedSegment === 'reasons'" class="animate__animated animate__fadeIn">
-    
+
     <ion-grid class="ion-no-padding">
       <ion-row>
-        
+
         <!-- Left Pane: Reasons Table -->
         <ion-col size="12" size-lg="8" class="ion-padding-end">
           <div class="list-card notice-list-card">
@@ -302,10 +311,10 @@
               <p>Create custom reasons to display to employees on the resignation form.</p>
             </div>
           </div>
-          
+
           <!-- Resignation Settings Configuration -->
           <app-resignation-settings></app-resignation-settings>
-          
+
           <!-- Notice Period Leave Restrictions Settings -->
           <app-notice-period-leaves-settings></app-notice-period-leaves-settings>
         </ion-col>
@@ -323,12 +332,14 @@
             <div class="form-content">
               <div class="form-group">
                 <ion-label class="field-label">Reason *</ion-label>
-                <ion-input type="text" [(ngModel)]="reasonForm.reason" placeholder="Reason Title" class="form-input"></ion-input>
+                <ion-input type="text" [(ngModel)]="reasonForm.reason" placeholder="Reason Title"
+                  class="form-input"></ion-input>
               </div>
 
               <div class="form-group">
                 <ion-label class="field-label">Description</ion-label>
-                <ion-textarea [(ngModel)]="reasonForm.description" placeholder="Optional description..." class="form-textarea" rows="3"></ion-textarea>
+                <ion-textarea [(ngModel)]="reasonForm.description" placeholder="Optional description..."
+                  class="form-textarea" rows="3"></ion-textarea>
               </div>
 
               <div class="form-group toggle-group">
@@ -337,7 +348,8 @@
               </div>
 
               <div class="form-actions-pane">
-                <ion-button fill="outline" color="medium" (click)="cancelReasonEdit()" expand="block">Cancel</ion-button>
+                <ion-button fill="outline" color="medium" (click)="cancelReasonEdit()"
+                  expand="block">Cancel</ion-button>
                 <ion-button color="primary" (click)="saveReason()" expand="block">Save Reason</ion-button>
               </div>
             </div>
@@ -355,7 +367,8 @@
       <div class="tracking-modal-header">
         <div class="header-title">
           <h3>Exit Timeline & Progress</h3>
-          <p>{{ trackingResignation.FirstName }} {{ trackingResignation.LastName }} ({{ trackingResignation.EmployeeNumber }})</p>
+          <p>{{ trackingResignation.FirstName }} {{ trackingResignation.LastName }} ({{
+            trackingResignation.EmployeeNumber }})</p>
         </div>
         <ion-button fill="clear" color="dark" (click)="closeTracking()">
           <ion-icon name="close-outline" slot="icon-only"></ion-icon>
