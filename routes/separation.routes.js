@@ -1471,4 +1471,125 @@ router.put("/settlement/:resignationId/status", auth, hr, async (req, res) => {
   }
 });
 
+/* ============ RESIGNATION SETTINGS ============ */
+
+// Get resignation settings
+router.get("/settings", auth, async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    const [rows] = await c.query("SELECT setting_key, setting_value FROM resignation_settings");
+    
+    const settingsObj = {};
+    rows.forEach(row => {
+      settingsObj[row.setting_key] = row.setting_value === 1;
+    });
+
+    res.json(settingsObj);
+  } catch (err) {
+    console.error("Error fetching resignation settings:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Update resignation settings
+router.put("/settings", auth, hr, async (req, res) => {
+  let c = null;
+  try {
+    const settings = req.body;
+    c = await db();
+
+    for (const [key, val] of Object.entries(settings)) {
+      const dbVal = val ? 1 : 0;
+      await c.query(
+        "INSERT INTO resignation_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
+        [key, dbVal, dbVal]
+      );
+    }
+    
+    res.json({ success: true, message: "Settings saved successfully" });
+  } catch (err) {
+    console.error("Error updating resignation settings:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+/* ============ RESIGNATION REASONS ============ */
+
+// Get all resignation reasons
+router.get("/reasons", auth, async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    const [rows] = await c.query("SELECT * FROM resignation_reasons ORDER BY id ASC");
+    res.json(rows);
+  } catch (err) {
+    console.error("Error fetching resignation reasons:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Add a resignation reason
+router.post("/reasons", auth, hr, async (req, res) => {
+  let c = null;
+  try {
+    const { reason, description, is_active } = req.body;
+    if (!reason) return res.status(400).json({ error: "Reason is required" });
+
+    c = await db();
+    const [result] = await c.query(
+      "INSERT INTO resignation_reasons (reason, description, is_active) VALUES (?, ?, ?)",
+      [reason, description || null, is_active !== undefined ? is_active : 1]
+    );
+    res.json({ success: true, id: result.insertId, message: "Reason added successfully" });
+  } catch (err) {
+    console.error("Error adding resignation reason:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Update a resignation reason
+router.put("/reasons/:id", auth, hr, async (req, res) => {
+  let c = null;
+  try {
+    const { reason, description, is_active } = req.body;
+    if (!reason) return res.status(400).json({ error: "Reason is required" });
+
+    c = await db();
+    await c.query(
+      "UPDATE resignation_reasons SET reason = ?, description = ?, is_active = ? WHERE id = ?",
+      [reason, description || null, is_active !== undefined ? is_active : 1, req.params.id]
+    );
+    res.json({ success: true, message: "Reason updated successfully" });
+  } catch (err) {
+    console.error("Error updating resignation reason:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Delete a resignation reason
+router.delete("/reasons/:id", auth, hr, async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    await c.query("DELETE FROM resignation_reasons WHERE id = ?", [req.params.id]);
+    res.json({ success: true, message: "Reason deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting resignation reason:", err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
 module.exports = router;

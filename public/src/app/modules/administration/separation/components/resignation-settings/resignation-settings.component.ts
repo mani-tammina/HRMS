@@ -77,7 +77,8 @@ export class ResignationSettingsComponent implements OnInit {
       allow_employee_resign: this.allowEmployeeResign,
       allow_employee_withdraw: this.allowEmployeeWithdraw,
       allow_early_lwd: this.allowEarlyLWD,
-      show_reviewer_status: this.showReviewerStatus
+      show_reviewer_status: this.showReviewerStatus,
+      notallowholiday_weekend: this.notallowholiday_weekend
     };
 
     this.separationService.updateResignationSettings(payload).subscribe({
