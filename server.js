@@ -71,7 +71,7 @@ const app = express();
 const upload = multer({ dest: "uploads/" });
 
 // CORS Configuration for Production
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4201')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4203')
     .split(',')
     .map(o => o.trim())
     .filter(Boolean);
@@ -111,7 +111,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // SPA fallback - serve index.html for root path
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'www', 'browser','index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'www', 'browser', 'index.html'));
 });
 
 // SPA fallback - serve index.html for non-API routes (client-side routing)
@@ -123,7 +123,7 @@ app.get('/', (req, res) => {
 //   (?!.*uploads)  - must NOT contain /uploads
 //   (?!.*api-docs) - must NOT contain /api-docs
 app.get(/^(?!.*\.)(?!.*api|.*uploads|.*api-docs).*$/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'www', 'browser','index.html'));
+    res.sendFile(path.join(__dirname, 'public', 'www', 'browser', 'index.html'));
 });
 
 // Swagger JSON endpoint (needed for Swagger UI)
@@ -138,7 +138,7 @@ app.get('/api-docs.json', (req, res) => {
 app.get('/api/diagnostics', (req, res) => {
     const fs = require('fs');
     const browserPath = path.join(__dirname, 'public', 'www', 'browser');
-    
+
     const diagnostics = {
         timestamp: new Date().toISOString(),
         server: {
@@ -156,7 +156,7 @@ app.get('/api/diagnostics', (req, res) => {
                 polyfillsJs: fs.readdirSync(browserPath).filter(f => f.startsWith('polyfills-')).length > 0,
                 stylesCss: fs.readdirSync(browserPath).filter(f => f.startsWith('styles-')).length > 0,
             },
-            fileList: fs.existsSync(browserPath) ? 
+            fileList: fs.existsSync(browserPath) ?
                 fs.readdirSync(browserPath)
                     .filter(f => f.match(/\.(js|css|html|map)$/))
                     .map(f => ({
@@ -174,7 +174,7 @@ app.get('/api/diagnostics', (req, res) => {
         },
         status: '✅ Frontend build detected - UI should render properly'
     };
-    
+
     res.json(diagnostics);
 });
 

@@ -27,7 +27,7 @@ export class PayrollStructurePage implements OnInit {
   employeeSearchTerm: string = '';
   isEditMode = false;
   selectedStructureId: number | null = null;
-  env: string = 'http://tamminademoapps.com:9295'; // Matches the backend base
+  env: string = 'http://localhost:4203'; // Matches the backend base
   isSearching = false;
 
   private employeeSearch$ = new Subject<string>();
@@ -126,7 +126,7 @@ export class PayrollStructurePage implements OnInit {
   selectEmployee(emp: any) {
     this.structureForm.patchValue({ employee_id: emp.id });
     this.employeeSearchTerm = emp.FullName;
-    this.filteredEmployees = []; 
+    this.filteredEmployees = [];
   }
 
   fetchComponents() {
@@ -177,7 +177,7 @@ export class PayrollStructurePage implements OnInit {
 
     const emp = this.employees.find(e => e.id === Number(struct.employee_id));
     this.employeeSearchTerm = emp ? emp.FullName : (struct.FullName || '');
-    
+
     this.structureForm.patchValue({
       employee_id: struct.employee_id,
       structure_name: struct.structure_name,

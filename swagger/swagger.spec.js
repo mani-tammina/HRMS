@@ -6,7 +6,7 @@
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? process.env.API_BASE_URL
-    : "http://localhost:3000";
+    : "http://localhost:4203";
 
 const swaggerSpec = {
   openapi: "3.0.0",
