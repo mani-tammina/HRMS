@@ -50,15 +50,11 @@ const uploadProfileImage = multer({
 /**
  * Convert a Date object or ISO string to a plain YYYY-MM-DD string.
  * Prevents timezone conversion issues when sending date fields to the frontend.
- * A plain "YYYY-MM-DD" string is timezone-neutral and Angular DatePipe
- * will display it correctly without any offset.
  */
-function formatDateField(val) {
+const formatDateField = function(val) {
   if (!val) return null;
   if (typeof val === 'string') {
-    // Already a plain date string like "1994-07-15"
     if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    // ISO string like "1994-07-15T00:00:00.000Z" → extract date part
     if (val.includes('T')) return val.split('T')[0];
     return val;
   }
@@ -69,23 +65,31 @@ function formatDateField(val) {
     return `${yyyy}-${mm}-${dd}`;
   }
   return null;
-}
+};
 
 /**
  * Normalize date fields in an employee record so they are always
  * plain YYYY-MM-DD strings when sent to the client.
  */
-function formatEmployeeDates(emp) {
+const formatEmployeeDates = function(emp) {
   if (!emp) return emp;
   const dateFields = ['DateOfBirth', 'DateJoined', 'exit_date', 'created_at', 'updated_at'];
   const result = { ...emp };
   for (const field of dateFields) {
-    if (result[field] !== undefined) {
+    if (result[field] !== undefined && result[field] !== null) {
+      // Add 1 day to DateOfBirth specifically
+      if (field === 'DateOfBirth') {
+        let d = new Date(result[field]);
+        if (!isNaN(d.getTime())) {
+          d.setUTCDate(d.getUTCDate() + 1);
+          result[field] = d;
+        }
+      }
       result[field] = formatDateField(result[field]);
     }
   }
   return result;
-}
+};
 
 /* ============ EMPLOYEE MASTER ============ */
 

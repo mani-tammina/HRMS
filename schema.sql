@@ -1699,6 +1699,56 @@ CREATE TABLE IF NOT EXISTS notice_period_allowed_leaves (
   FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE,
   FOREIGN KEY (leave_type_id) REFERENCES leave_types(id) ON DELETE CASCADE
 );
+
+-- ============================================
+-- Separation / Resignation Tables
+-- ============================================
+
+CREATE TABLE IF NOT EXISTS department_notice_periods (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  department_id INT,
+  notice_period_days INT DEFAULT 30,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (department_id) REFERENCES departments(id)
+);
+
+CREATE TABLE IF NOT EXISTS resignations (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT,
+  discussed_with_manager ENUM('Yes', 'No') DEFAULT 'No',
+  discussion_summary TEXT,
+  reason VARCHAR(255),
+  early_relieving_request ENUM('Yes', 'No') DEFAULT 'No',
+  preferred_last_working_date DATE,
+  additional_comments TEXT,
+  notice_period_days INT,
+  calculated_last_working_date DATE,
+  status VARCHAR(50) DEFAULT 'Submitted',
+  current_workflow_step VARCHAR(50),
+  manager_action ENUM('Approve','Retain','Reject','Pending','Send Back') DEFAULT 'Pending',
+  hr_action ENUM('Approve','Reject','Pending','Return') DEFAULT 'Pending',
+  manager_remarks TEXT,
+  hr_remarks TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id)
+);
+
+CREATE TABLE IF NOT EXISTS separation_audit_logs (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  resignation_id INT,
+  employee_id INT,
+  action VARCHAR(100),
+  performed_by INT,
+  new_status VARCHAR(50),
+  remarks TEXT,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (resignation_id) REFERENCES resignations(id),
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (performed_by) REFERENCES users(id)
+);
 -- ============================================
 
 
