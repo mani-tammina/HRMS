@@ -379,8 +379,8 @@ router.put("/settings", auth, hr, async (req, res) => {
     for (const [key, value] of Object.entries(settings)) {
       const intValue = value === true || value === 1 || value === '1' ? 1 : 0;
       await c.query(
-        "UPDATE resignation_settings SET setting_value = ? WHERE setting_key = ?",
-        [intValue, key]
+        "INSERT INTO resignation_settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?",
+        [key, intValue, intValue]
       );
     }
 
@@ -1140,9 +1140,9 @@ router.post("/requests/:id/action", auth, async (req, res) => {
 
     // Log separation audit
     await c.query(
-      `INSERT INTO separation_audit_logs (resignation_id, employee_id, action, performed_by, old_status, new_status, remarks) 
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [resignationId, resignation.emp_id, `Action: ${action}`, req.user.id, oldStatus, newStatus, remarks || 'Workflow action taken']
+      `INSERT INTO separation_audit_logs (resignation_id, employee_id, action, performed_by, new_status, remarks) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [resignationId, resignation.emp_id, `Action: ${action}`, req.user.id, newStatus, remarks || 'Workflow action taken']
     );
 
     res.json({ success: true, message: `Resignation request successfully updated with action: ${action}` });

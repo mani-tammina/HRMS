@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { IonicModule, ModalController, ToastController, LoadingController } from '@ionic/angular';
 import { SeparationService } from '../../../../../core/services/separation.service';
+import { AdminService } from '../../../../../core/services/admin.service';
 
 @Component({
   selector: 'app-resignation-form',
@@ -24,6 +25,7 @@ export class ResignationFormComponent implements OnInit {
   calculatedLastWorkingDate: Date = new Date();
   minPreferredDate: string = '';
   resSettings: any = null;
+  weekOffDays: number[] = [0, 6];
 
   reasons: string[] = [
     'Career Growth',
@@ -43,7 +45,8 @@ export class ResignationFormComponent implements OnInit {
     private modalController: ModalController,
     private separationService: SeparationService,
     private toastController: ToastController,
-    private loadingController: LoadingController
+    private loadingController: LoadingController,
+    private adminService: AdminService
   ) {}
 
   ngOnInit() {
@@ -52,6 +55,7 @@ export class ResignationFormComponent implements OnInit {
     this.loadNoticePeriod();
     this.loadReasons();
     this.loadResSettings();
+    this.loadWeeklyOffPolicy();
   }
 
   loadReasons() {
@@ -121,11 +125,33 @@ export class ResignationFormComponent implements OnInit {
 
     // Handle weekend validation check
     this.resignationForm.get('preferred_last_working_date')?.valueChanges.subscribe(value => {
-      if (value && this.resSettings?.notallowholiday_weekend) {
+      if (value && (this.resSettings?.notallowholiday_weekend ?? true)) {
         const dateObj = new Date(value);
         const day = dateObj.getDay(); // 0 is Sunday, 6 is Saturday
-        if (day === 0 || day === 6) {
-          this.presentToast('Notice period ending date cannot land on a weekend. Please select a regular working day.', 'danger');
+        if (this.weekOffDays.includes(day)) {
+          this.presentToast('We can\'t select last working day on weekends', 'danger');
+          setTimeout(() => {
+            this.resignationForm.get('preferred_last_working_date')?.setValue(null, { emitEvent: false });
+          });
+        }
+      }
+    });
+  }
+
+  loadWeeklyOffPolicy() {
+    this.adminService.getWeeklyOffPolicies().subscribe(policies => {
+      const myPolicyId = this.currentEmployee?.weekly_off_policy_id;
+      if (myPolicyId && policies && policies.length > 0) {
+        const policy = policies.find((p: any) => p.id === myPolicyId);
+        if (policy) {
+          this.weekOffDays = [];
+          if (Number(policy.sunday_off) === 1) this.weekOffDays.push(0);
+          if (Number(policy.monday_off) === 1) this.weekOffDays.push(1);
+          if (Number(policy.tuesday_off) === 1) this.weekOffDays.push(2);
+          if (Number(policy.wednesday_off) === 1) this.weekOffDays.push(3);
+          if (Number(policy.thursday_off) === 1) this.weekOffDays.push(4);
+          if (Number(policy.friday_off) === 1) this.weekOffDays.push(5);
+          if (Number(policy.saturday_off) === 1) this.weekOffDays.push(6);
         }
       }
     });
