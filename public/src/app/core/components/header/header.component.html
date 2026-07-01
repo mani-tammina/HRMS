@@ -144,8 +144,25 @@
               <div class="info-text">
                 <span class="info-label">Attendance Status</span>
                 <span class="info-value attendance-status"
-                  [class.status-in]="selectedEmployee.attendance_status === 'In'">{{ selectedEmployee.attendance_status
-                  || 'Out' }}</span>
+                  [class.status-in]="selectedEmployee.attendance_status === 'In'"
+                  [class.status-out]="selectedEmployee.attendance_status === 'Out'"
+                  [class.status-leave]="selectedEmployee.attendance_status === 'On Leave'"
+                  [class.status-not-in]="selectedEmployee.attendance_status === 'Not In Yet' || !selectedEmployee.attendance_status">
+                  {{ selectedEmployee.attendance_status || 'Not In Yet' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="info-card" *ngIf="selectedEmployee.attendance_status !== 'Not In Yet' && selectedEmployee.attendance_status !== 'On Leave'">
+              <div class="icon-box"><ion-icon name="briefcase-outline"></ion-icon></div>
+              <div class="info-text">
+                <span class="info-label">Work Mode</span>
+                <span class="info-value work-mode-badge"
+                  [class.mode-wfh]="selectedEmployee.work_mode === 'WFH'"
+                  [class.mode-office]="selectedEmployee.work_mode === 'Office'"
+                  [class.mode-remote]="selectedEmployee.work_mode === 'Remote' || selectedEmployee.work_mode === 'Hybrid'">
+                  {{ selectedEmployee.work_mode || 'N/A' }}
+                </span>
               </div>
             </div>
 

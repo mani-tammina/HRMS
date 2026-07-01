@@ -525,6 +525,14 @@
           }
         }
 
+        &:nth-child(6) .icon-box {
+          background: rgba(0, 168, 150, 0.1);
+
+          ion-icon {
+            color: #00a896;
+          }
+        }
+
         .info-text {
           flex: 1;
           display: flex;
@@ -559,11 +567,38 @@
                 width: 8px;
                 height: 8px;
                 border-radius: 50%;
-                background: vars.$color-danger;
+                background: #8099b0; // Default Not In Yet (grey)
               }
 
               &.status-in::before {
-                background: vars.$color-success;
+                background: #00983d; // In (green)
+              }
+
+              &.status-out::before {
+                background: #bb2c1f; // Out (red)
+              }
+
+              &.status-leave::before {
+                background: #1f74bb; // Leave (blue)
+              }
+
+              &.status-not-in::before {
+                background: #8099b0; // Not In Yet (grey)
+              }
+            }
+
+            &.work-mode-badge {
+              font-weight: vars.$fw-bold;
+              color: vars.$color-text-secondary;
+              
+              &.mode-wfh {
+                color: #1f74bb;
+              }
+              &.mode-office {
+                color: #00983d;
+              }
+              &.mode-remote {
+                color: #e28743;
               }
             }
           }
