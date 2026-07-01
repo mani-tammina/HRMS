@@ -7,18 +7,34 @@
       <div class="header-top">
         <div class="header-text">
           <h1>Payroll Master Setup</h1>
-          <p>Configure and manage global payroll components, templates, and reporting structures.</p>
+          <p>Configure and manage global payroll components, templates, structures and statutory rules from a single
+            command center.</p>
         </div>
         <div class="header-actions">
-          <ion-button (click)="onRestoreDefaults()" class="action-btn restore-btn">
-            <ion-icon name="shield-checkmark-outline" slot="start"></ion-icon>
-            SET DEFAULT PAYROLL
-          </ion-button>
-          <ion-button (click)="onClearSetup()" class="action-btn clear-btn">
+          <ion-button (click)="onClearSetup()" fill="outline" class="action-btn clear-btn">
             <ion-icon name="trash-outline" slot="start"></ion-icon>
-            CLEAR ALL SETUP
+            Clear All Setup
+          </ion-button>
+          <ion-button (click)="onRestoreDefaults()" class="action-btn restore-btn">
+            <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+            Set Default Payroll
           </ion-button>
         </div>
+      </div>
+    </div>
+
+    <!-- Info Section / Maintenance Notice -->
+    <div class="info-banner fade-in-up" style="animation-delay: 0.05s;">
+      <div class="info-icon">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+      </div>
+      <div class="info-text">
+        <h3>
+          System Maintenance Notice
+          <span class="badge badge-warning">Scheduled</span>
+        </h3>
+        <p>Payroll engine maintenance scheduled for Sunday, 2:00 AM – 4:00 AM IST. Generation may be temporarily
+          unavailable.</p>
       </div>
     </div>
 
@@ -27,11 +43,14 @@
       <div class="management-card fade-in-up" style="animation-delay: 0.1s;">
         <div class="card-accent accent-blue"></div>
         <div class="card-body">
-          <!-- <div class="card-icon">
-            <ion-icon name="layers-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-blue">
+              <img src="../../../../assets/fone.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-green">Healthy</span>
+          </div>
           <h3>Payroll Components</h3>
-          <p>Define earnings, deductions, and statutory components for your organization.</p>
+          <p>Define earnings, deductions and statutory components for your organization.</p>
           <div class="card-footer">
             <div class="stats">
               <span class="stat-label">Active Components</span>
@@ -45,12 +64,15 @@
       </div>
 
       <!-- Payroll Templates Card -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.2s;">
-        <div class="card-accent accent-indigo"></div>
+      <div class="management-card fade-in-up" style="animation-delay: 0.15s;">
+        <div class="card-accent accent-purple"></div>
         <div class="card-body">
-          <!-- <div class="card-icon">
-            <ion-icon name="document-text-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-purple">
+              <img src="../../../../assets/ftwo.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-green">Up to date</span>
+          </div>
           <h3>Payroll Templates</h3>
           <p>Create and manage reusable salary structure templates for different roles.</p>
           <div class="card-footer">
@@ -66,12 +88,15 @@
       </div>
 
       <!-- Payroll Structure Card -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.3s;">
-        <div class="card-accent accent-purple"></div>
+      <div class="management-card fade-in-up" style="animation-delay: 0.2s;">
+        <div class="card-accent accent-pink"></div>
         <div class="card-body">
-          <!-- <div class="card-icon">
-            <ion-icon name="git-network-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-pink">
+              <img src="../../../../assets/fthree.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-orange">Review needed</span>
+          </div>
           <h3>Payroll Structure</h3>
           <p>Map your components to templates and define hierarchy and dependencies.</p>
           <div class="card-footer">
@@ -86,97 +111,100 @@
         </div>
       </div>
 
-      <!-- NEW: Employee Salary Mapping (Payroll Assignment) -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.35s;">
-        <div class="card-accent accent-pink"></div>
+      <!-- Employee Salary Setup Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.25s;">
+        <div class="card-accent accent-red"></div>
         <div class="card-body">
-          <!-- <div class="card-icon icon-pink">
-            <ion-icon name="people-circle-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-red">
+              <img src="../../../../assets/f4.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-blue">HR / Finance</span>
+          </div>
           <h3>Employee Salary Setup</h3>
           <p>Map employees to salary templates and define Annual CTC with effective dates.</p>
           <div class="card-footer">
             <div class="stats">
-              <span class="stat-label">Role</span>
-              <span class="stat-value">HR / Finance</span>
+              <span class="stat-label">Employees Mapped</span>
+              <span class="stat-value">486</span>
             </div>
-            <ion-button fill="clear" class="manage-btn btn-pink" routerLink="/finance/assignment">
-              Map Salary <ion-icon name="link-outline" slot="end"></ion-icon>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/assignment">
+              Map Salary <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
 
-      <!-- Payroll Generation Card (V2 Engine) -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.38s;">
-        <div class="card-accent accent-indigo"></div>
+      <!-- Payroll Generation Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.3s;">
+        <div class="card-accent accent-blue"></div>
         <div class="card-body">
+          <div class="card-header-row">
+            <div class="card-icon icon-blue">
+              <img src="../../../../assets/f5.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-blue">Ready</span>
+          </div>
           <h3>Payroll Generation</h3>
-          <p>Automated stepped generation using forecasting, validation, and real-time processing.</p>
+          <p>Automated stepped generation using forecasting, validation and real-time processing.</p>
           <div class="card-footer">
             <div class="stats">
-              <span class="stat-label">Model</span>
-              <span class="stat-value">V2 Engine</span>
+              <span class="stat-label">Engine Model</span>
+              <span class="stat-value">V2</span>
             </div>
-            <ion-button fill="clear" class="manage-btn btn-indigo" routerLink="/finance/process">
-              Process <ion-icon name="rocket-outline" slot="end"></ion-icon>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/process">
+              Process <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
 
       <!-- Payroll Execution Card -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.4s;">
+      <div class="management-card fade-in-up" style="animation-delay: 0.35s;">
         <div class="card-accent accent-green"></div>
         <div class="card-body">
-          <!-- <div class="card-icon icon-green">
-            <ion-icon name="flash-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-green">
+              <img src="../../../../assets/f6.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-green">Completed</span>
+          </div>
           <h3>Payroll Execution</h3>
-          <p>Run payroll, view history, manage defaults, LOP summary, and adjustments.</p>
+          <p>Run payroll, view history, manage defaults, LOP summary and adjustments.</p>
           <div class="card-footer">
             <div class="stats">
               <span class="stat-label">Last Run</span>
               <span class="stat-value">Mar 2024</span>
             </div>
-            <ion-button fill="clear" class="manage-btn btn-green" routerLink="/finance/execution">
-              Execute <ion-icon name="flash-outline" slot="end"></ion-icon>
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/execution">
+              Execute <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
       </div>
 
       <!-- Tax Administration Card -->
-      <div class="management-card fade-in-up" style="animation-delay: 0.5s;">
+      <div class="management-card fade-in-up" style="animation-delay: 0.4s;">
         <div class="card-accent accent-orange"></div>
         <div class="card-body">
-          <!-- <div class="card-icon icon-orange">
-            <ion-icon name="shield-checkmark-outline"></ion-icon>
-          </div> -->
+          <div class="card-header-row">
+            <div class="card-icon icon-orange">
+              <img src="../../../../assets/f7.png" alt="finance" />
+            </div>
+            <span class="status-badge badge-orange">Action needed</span>
+          </div>
           <h3>Tax Administration</h3>
-          <p>Manage statutory rules, tax slabs, limits, proofs, and payouts.</p>
+          <p>Manage statutory rules, tax slabs, limits, proofs and payouts.</p>
           <div class="card-footer">
             <div class="stats">
               <span class="stat-label">Pending Verifications</span>
               <span class="stat-value">15</span>
             </div>
-            <ion-button fill="clear" class="manage-btn btn-orange" routerLink="/finance/tax-admin">
+            <ion-button fill="clear" class="manage-btn" routerLink="/finance/tax-admin">
               Manage <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
             </ion-button>
           </div>
         </div>
-      </div>
-    </div>
-
-    <!-- Info Section -->
-    <div class="info-banner glass-card fade-in-up" style="animation-delay: 0.6s;">
-      <div class="info-icon">
-        <ion-icon name="alert-circle-outline"></ion-icon>
-      </div>
-      <div class="info-text">
-        <h3>System Maintenance Notice</h3>
-        <p>Operational tasks performed here affect the entire organization. Please ensure no payroll runs are in
-          progress before performing these sensitive configuration actions.</p>
       </div>
     </div>
   </div>

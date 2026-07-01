@@ -1,20 +1,13 @@
 <ion-header class="assignment-header">
-  <ion-toolbar>
+  <ion-toolbar *ngIf="selectedEmployee">
     <ion-buttons slot="start">
-      <ion-back-button *ngIf="!selectedEmployee" defaultHref="/finance/admin"></ion-back-button>
-      <ion-button *ngIf="selectedEmployee" (click)="deselectEmployee()">
+      <ion-button (click)="deselectEmployee()">
         <ion-icon name="arrow-back-outline"></ion-icon>
+        <span style="margin-left: 8px;">Back to Employee List</span>
       </ion-button>
     </ion-buttons>
-    <ion-title>{{ selectedEmployee ? 'Manage Contracts' : 'Payroll Assignment (HR)' }}</ion-title>
+    <ion-title>Manage Contracts - {{ selectedEmployee.name }}</ion-title>
   </ion-toolbar>
-
-  <div class="search-container" *ngIf="!selectedEmployee">
-    <div class="glass-search">
-      <ion-icon name="search-outline"></ion-icon>
-      <input type="text" placeholder="Search employees by name or ID..." (input)="onSearch($event)" />
-    </div>
-  </div>
 </ion-header>
 
 <ion-content class="assignment-content">
@@ -22,39 +15,85 @@
 
     <!-- 🟢 VIEW A: EMPLOYEE LIST -->
     <div *ngIf="!selectedEmployee">
-      <div class="view-header">
-        <h2>Employee Salary Mapping</h2>
-        <p>Assign payroll structures and set CTC for employees</p>
+      
+      <!-- Custom Header Breadcrumb & Title -->
+      <div class="custom-page-header">
+        <a routerLink="/finance/admin" class="back-link">
+          <ion-icon name="arrow-back-outline"></ion-icon> Back to Payroll Dashboard
+        </a>
+        <div class="breadcrumb-trail">
+          <span>Payroll Master Setup</span>
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+          <span class="active-crumb">Employee Salary Setup</span>
+        </div>
+        <h1 class="page-main-title">Employee Salary Setup</h1>
+        <p class="page-sub-title">Map employees to salary templates and define Annual CTC with effective dates.</p>
       </div>
 
-      <!-- Bulk Assignment Mapping -->
-      <div class="bulk-import-card glass-card animate-in">
-        <div class="bulk-header">
-          <div class="bulk-title">
-            <ion-icon name="cloud-upload-outline"></ion-icon>
-            <div>
-              <h3>Bulk Assignment Mapping</h3>
-              <p>Map multiple employees to a template using Excel</p>
+      <!-- Bulk Assignment Mapping Card -->
+      <div class="bulk-assignment-card">
+        <div class="bulk-left-info">
+          <div class="bulk-icon-wrapper">
+            <ion-icon name="document-text"></ion-icon>
+          </div>
+          <div class="bulk-text-details">
+            <h2>Bulk Assignment Mapping</h2>
+            <p>Upload employee salary contracts using Excel templates for bulk payroll assignment.</p>
+            <div class="bulk-bullets">
+              <span class="bullet-item"><span class="bullet-dot">•</span> Employee ID</span>
+              <span class="bullet-item"><span class="bullet-dot">•</span> Annual CTC</span>
+              <span class="bullet-item"><span class="bullet-dot">•</span> Payroll Structure</span>
             </div>
           </div>
-          <button class="text-btn" (click)="downloadTemplate()">
+        </div>
+
+        <!-- Drag & Drop Area -->
+        <div class="bulk-drag-drop" 
+             [class.drag-over]="dragOver"
+             (dragover)="$event.preventDefault(); dragOver = true"
+             (dragleave)="dragOver = false"
+             (drop)="$event.preventDefault(); dragOver = false; handleDrop($event)"
+             (click)="fileInput.click()">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+          <span class="drop-title">Drop Excel file here</span>
+          <span class="drop-subtitle">or click to browse - .xlsx, .xls</span>
+        </div>
+
+        <!-- Stacked Buttons -->
+        <div class="bulk-actions-stack">
+          <button class="btn-download-template" (click)="downloadTemplate(); $event.stopPropagation()">
             <ion-icon name="download-outline"></ion-icon>
             Download Template
           </button>
+          <button class="btn-upload-map" (click)="fileInput.click(); $event.stopPropagation()">
+            <ion-icon name="cloud-upload-outline"></ion-icon>
+            Upload & Map Contracts
+          </button>
         </div>
+        
+        <!-- Hidden File Input -->
+        <input type="file" #fileInput (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" hidden />
+      </div>
 
-        <div class="bulk-body">
-          <div class="bulk-action">
-            <label class="upload-area">
-              <input type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" hidden />
-              <div class="upload-content">
-                <ion-icon name="document-attach-outline"></ion-icon>
-                <span>{{ isImporting ? 'Processing...' : 'Upload & Map Contracts' }}</span>
-              </div>
-            </label>
-            <p class="bulk-hint">Excel must contain: <strong>EmployeeNumber</strong>,
-              <strong>remuneration_amount</strong> (Annual CTC) and <strong>template_name</strong></p>
-          </div>
+      <!-- Toolbar: Search and Filter -->
+      <div class="search-filter-toolbar">
+        <div class="search-box-wrapper">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input type="text" placeholder="Search components" [value]="searchQuery" (input)="onSearch($event)" />
+        </div>
+        <div class="toolbar-actions">
+          <button class="btn-toolbar-action">
+            <ion-icon name="funnel-outline"></ion-icon>
+            Filter
+          </button>
+          <button class="btn-toolbar-action">
+            <ion-icon name="download-outline"></ion-icon>
+            Export
+          </button>
+          <button class="btn-toolbar-badge">
+            <ion-icon name="people-outline"></ion-icon>
+            {{ filteredEmployees.length }} Employees
+          </button>
         </div>
       </div>
 
@@ -72,29 +111,79 @@
       </div>
 
       <!-- Employee Grid -->
-      <div *ngIf="!isLoading && filteredEmployees.length > 0" class="employee-grid">
-        <div *ngFor="let emp of filteredEmployees" class="emp-card glass-card" (click)="selectEmployee(emp)">
-          <div class="emp-info">
-            <div class="avatar-box">
-              {{ emp.name.charAt(0) }}
+      <div class="employee-grid" *ngIf="!isLoading && filteredEmployees.length > 0">
+        <div *ngFor="let emp of filteredEmployees; let i = index" class="employee-card animate-in" (click)="selectEmployee(emp)">
+          
+          <!-- Card Header -->
+          <div class="card-header">
+            <div class="card-header-left">
+              <div [class]="'avatar-box color-' + (emp.name.charCodeAt(0) % 7)">
+                {{ emp.name.charAt(0) }}
+              </div>
+              <div class="name-id-meta">
+                <span class="employee-name">{{ emp.name }}</span>
+                <span class="employee-id">{{ emp.employeeNumber || 'EMP' + (100 + emp.id) }}</span>
+              </div>
             </div>
-            <div class="meta">
-              <span class="name">{{ emp.name }}</span>
-              <!-- <span class="dept">{{ emp.department }} • {{ emp.designation }}</span> -->
+            <div [class]="'status-badge ' + (emp.assignmentStatus?.toLowerCase()?.replace(' ', '-') || 'not-assigned')">
+              {{ emp.assignmentStatus || 'Not Assigned' }}
             </div>
           </div>
 
-          <!-- <div class="salary-box">
-            <span class="label">Current CTC</span>
-            <span class="value">{{ formatCurrency(emp.salary) }}</span>
-          </div> -->
+          <!-- Card Body: Department & Designation -->
+          <div class="card-body-grid">
+            <div class="meta-column">
+              <span class="meta-label">DEPARTMENT</span>
+              <div class="meta-val-icon">
+                <ion-icon name="business-outline"></ion-icon>
+                <span>{{ emp.department || 'Engineering' }}</span>
+              </div>
+            </div>
+            <div class="meta-column">
+              <span class="meta-label">DESIGNATION</span>
+              <div class="meta-val-icon">
+                <ion-icon name="briefcase-outline"></ion-icon>
+                <span>{{ emp.designation || 'Senior Developer' }}</span>
+              </div>
+            </div>
+          </div>
 
-          <div class="card-footer">
-            <button class="action-btn">
+          <!-- Structure Card -->
+          <div class="structure-info-box">
+            <div class="struct-left">
+              <ion-icon name="layers-outline"></ion-icon>
+              <span>Structure</span>
+            </div>
+            <div class="struct-right">
+              {{ emp.assignedStructureName || 'Senior Structure' }}
+            </div>
+          </div>
+
+          <!-- Card Footer Action Buttons -->
+          <div class="card-footer-actions">
+            <!-- If Assigned: View Contracts full-width -->
+            <button *ngIf="emp.assignmentStatus === 'Assigned'" 
+                    class="btn-view-contracts-full" 
+                    (click)="selectEmployee(emp); $event.stopPropagation()">
               <ion-icon name="eye-outline"></ion-icon>
               View Contracts
             </button>
+            
+            <!-- If Pending or Not Assigned: Dual Buttons -->
+            <ng-container *ngIf="emp.assignmentStatus !== 'Assigned'">
+              <button class="btn-view-contracts-half" 
+                      (click)="selectEmployee(emp); $event.stopPropagation()">
+                <ion-icon name="eye-outline"></ion-icon>
+                View Contracts
+              </button>
+              <button class="btn-assign-structure-half" 
+                      (click)="selectEmployee(emp); openAssignmentModal(); $event.stopPropagation()">
+                <ion-icon name="add-circle-outline"></ion-icon>
+                Assign Structure
+              </button>
+            </ng-container>
           </div>
+          
         </div>
       </div>
     </div>

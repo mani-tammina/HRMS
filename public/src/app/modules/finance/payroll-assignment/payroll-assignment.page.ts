@@ -17,6 +17,7 @@ export class PayrollAssignmentPage implements OnInit {
   allEmployees: EmployeeInfo[] = [];
   filteredEmployees: EmployeeInfo[] = [];
   templates: any[] = [];
+  cachedContracts: any[] = [];
   isLoading = false;
   searchQuery = '';
 
@@ -48,8 +49,7 @@ export class PayrollAssignmentPage implements OnInit {
   }
 
   ngOnInit() {
-    this.loadEmployees();
-    this.loadTemplates();
+    this.loadTemplatesAndContracts();
     this.setupSearch();
   }
 
@@ -66,25 +66,87 @@ export class PayrollAssignmentPage implements OnInit {
     });
   }
 
+  loadTemplatesAndContracts() {
+    this.isLoading = true;
+    this.payrollService.getPayrollTempletes().subscribe({
+      next: (res) => {
+        this.templates = Array.isArray(res) ? res : (res.data || []);
+        this.financeService.getAllContracts().subscribe({
+          next: (contractsRes) => {
+            this.cachedContracts = contractsRes || [];
+            this.loadEmployees();
+          },
+          error: () => {
+            this.loadEmployees();
+          }
+        });
+      },
+      error: () => {
+        this.loadEmployees();
+      }
+    });
+  }
+
+  refreshContracts(callback?: () => void) {
+    this.financeService.getAllContracts().subscribe({
+      next: (contractsRes) => {
+        this.cachedContracts = contractsRes || [];
+        this.allEmployees = this.mapEmployeeContracts(this.allEmployees);
+        this.applyFilter();
+        if (callback) callback();
+      },
+      error: () => {
+        if (callback) callback();
+      }
+    });
+  }
+
+  mapEmployeeContracts(employees: EmployeeInfo[]): EmployeeInfo[] {
+    return employees.map(emp => {
+      const empContracts = this.cachedContracts.filter((c: any) => c.employee_id === emp.id);
+      const activeContract = empContracts.find((c: any) => c.status?.toLowerCase() === 'active');
+      const pendingContract = empContracts.find((c: any) => c.status?.toLowerCase() === 'pending');
+      
+      let assignmentStatus = 'Not Assigned';
+      let assignedStructureName = 'Senior Structure';
+      let annualCtc = 0;
+      
+      if (activeContract) {
+        assignmentStatus = 'Assigned';
+        assignedStructureName = activeContract.template_name || 'Senior Structure';
+        annualCtc = activeContract.annual_ctc;
+      } else if (pendingContract) {
+        assignmentStatus = 'Pending';
+        assignedStructureName = pendingContract.template_name || 'Senior Structure';
+        annualCtc = pendingContract.annual_ctc;
+      } else if (empContracts.length > 0) {
+        const latestContract = empContracts[0];
+        assignmentStatus = latestContract.status || 'Inactive';
+        assignedStructureName = latestContract.template_name || 'Senior Structure';
+        annualCtc = latestContract.annual_ctc;
+      }
+      
+      return {
+        ...emp,
+        assignmentStatus,
+        assignedStructureName,
+        annualCtc,
+        contractsCount: empContracts.length
+      };
+    });
+  }
+
   loadEmployees() {
     this.isLoading = true;
     this.financeService.getWorkingEmployees(1, 1000, '').subscribe({
       next: (res) => {
-        this.allEmployees = res.data || [];
+        this.allEmployees = this.mapEmployeeContracts(res.data || []);
         this.applyFilter();
         this.isLoading = false;
       },
       error: () => {
         this.isLoading = false;
         this.toaster.showError('Failed to load employees');
-      }
-    });
-  }
-
-  loadTemplates() {
-    this.payrollService.getPayrollTempletes().subscribe({
-      next: (res) => {
-        this.templates = Array.isArray(res) ? res : (res.data || []);
       }
     });
   }
@@ -99,7 +161,7 @@ export class PayrollAssignmentPage implements OnInit {
     this.isLoading = true;
     this.financeService.searchEmployees(q).subscribe({
       next: (res) => {
-        this.filteredEmployees = res.data || [];
+        this.filteredEmployees = this.mapEmployeeContracts(res.data || []);
         this.isLoading = false;
       },
       error: () => {
@@ -110,7 +172,6 @@ export class PayrollAssignmentPage implements OnInit {
   }
 
   applyFilter() {
-    // If we have a searchQuery, the results are already from the server
     if (!this.searchQuery) {
       this.filteredEmployees = [...this.allEmployees];
     }
@@ -185,7 +246,11 @@ export class PayrollAssignmentPage implements OnInit {
         this.isModalOpen = false;
         loading.dismiss();
         this.toaster.showSuccess(`Contract ${this.editingContractId ? 'updated' : 'created'} successfully.`);
-        this.loadEmployeeContracts(this.selectedEmployee!.id);
+        this.refreshContracts(() => {
+          if (this.selectedEmployee) {
+            this.loadEmployeeContracts(this.selectedEmployee.id);
+          }
+        });
       },
       error: (err) => {
         this.isSaving = false;
@@ -243,7 +308,11 @@ export class PayrollAssignmentPage implements OnInit {
       next: () => {
         loading.dismiss();
         this.toaster.showSuccess('Contract terminated successfully');
-        if (this.selectedEmployee) this.loadEmployeeContracts(this.selectedEmployee.id);
+        this.refreshContracts(() => {
+          if (this.selectedEmployee) {
+            this.loadEmployeeContracts(this.selectedEmployee.id);
+          }
+        });
       },
       error: (err) => {
         loading.dismiss();
@@ -270,6 +339,13 @@ export class PayrollAssignmentPage implements OnInit {
   // --- Bulk Import ---
   selectedTemplateForBulk: number | null = null;
   isImporting = false;
+  dragOver = false;
+
+  handleDrop(event: DragEvent) {
+    if (event.dataTransfer && event.dataTransfer.files.length > 0) {
+      this.importContracts(event.dataTransfer.files[0]);
+    }
+  }
 
   async onFileSelected(event: any) {
     const file = event.target.files[0];
@@ -294,7 +370,7 @@ export class PayrollAssignmentPage implements OnInit {
         loading.dismiss();
         if (res.success) {
           this.toaster.showSuccess(`Successfully mapped ${res.inserted} contracts. ${res.skipped} skipped.`);
-          this.loadEmployees();
+          this.refreshContracts();
         } else {
           this.toaster.showError(res.message || 'Import failed');
         }

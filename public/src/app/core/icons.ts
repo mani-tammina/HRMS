@@ -64,6 +64,10 @@ import {
   megaphoneOutline,
   walletOutline,
   pencilOutline,
+  layersOutline,
+  gitNetworkOutline,
+  playCircleOutline,
+  receiptOutline,
 } from 'ionicons/icons';
 
 // Register all used icons to enable tree shaking
@@ -129,4 +133,8 @@ addIcons({
   'trash-outline': trashOutline,
   'wallet-outline' : walletOutline,
   'pencil-outline' : pencilOutline,
+  'layers-outline': layersOutline,
+  'git-network-outline': gitNetworkOutline,
+  'play-circle-outline': playCircleOutline,
+  'receipt-outline': receiptOutline,
 });

@@ -13,6 +13,11 @@ export interface EmployeeInfo {
   joinDate: string;
   status: string;
   profile_image?: string;
+  employeeNumber?: string;
+  assignmentStatus?: string;
+  assignedStructureName?: string;
+  annualCtc?: number;
+  contractsCount?: number;
 }
 
 export interface DashboardStats {
@@ -70,12 +75,13 @@ export class FinanceAdminService {
           id: emp.id || emp.EmployeeId,
           name: emp.name || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || 'Unknown',
           email: emp.email || emp.Email || '',
-          department: emp.department || emp.DepartmentName || emp.Department || 'General',
-          designation: emp.designation || emp.DesignationName || emp.Designation || 'Staff',
+          department: emp.department || emp.department_name || emp.DepartmentName || emp.Department || 'General',
+          designation: emp.designation || emp.designation_name || emp.DesignationName || emp.Designation || 'Staff',
           salary: Number(emp.salary || emp.BaseSalary || 0),
           joinDate: emp.joinDate || emp.DateJoined || '',
           status: emp.status || emp.EmploymentStatus || 'Working',
-          profile_image: emp.profile_image || emp.ProfileImage || ''
+          profile_image: emp.profile_image || emp.ProfileImage || '',
+          employeeNumber: emp.EmployeeNumber || emp.employee_number || emp.employee_code || ''
         }));
         return { ...res, data: normalized };
       })
@@ -99,12 +105,13 @@ export class FinanceAdminService {
           id: emp.id || emp.EmployeeId,
           name: emp.name || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || 'Unknown',
           email: emp.email || emp.Email || '',
-          department: emp.department || emp.DepartmentName || emp.Department || 'General',
-          designation: emp.designation || emp.DesignationName || emp.Designation || 'Staff',
+          department: emp.department || emp.department_name || emp.DepartmentName || emp.Department || 'General',
+          designation: emp.designation || emp.designation_name || emp.DesignationName || emp.Designation || 'Staff',
           salary: Number(emp.salary || emp.BaseSalary || 0),
           joinDate: emp.joinDate || emp.DateJoined || '',
           status: emp.status || emp.EmploymentStatus || 'Working',
-          profile_image: emp.profile_image || emp.ProfileImage || ''
+          profile_image: emp.profile_image || emp.ProfileImage || '',
+          employeeNumber: emp.EmployeeNumber || emp.employee_number || emp.employee_code || ''
         }));
         return { ...res, data: normalized };
       })
@@ -174,6 +181,14 @@ export class FinanceAdminService {
     const url = `${this.baseUrl}/payroll-master/contracts`;
     const params = new HttpParams().set('employee_id', employeeId.toString());
     return this.http.get<any>(url, { params, headers: this.getHeaders() });
+  }
+
+  /**
+   * List all employee contracts globally
+   */
+  getAllContracts(): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts`;
+    return this.http.get<any>(url, { headers: this.getHeaders() });
   }
 
   /**
