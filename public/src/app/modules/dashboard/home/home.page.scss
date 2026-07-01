@@ -1000,6 +1000,35 @@
       display: flex;
       flex-direction: column;
       gap: 24px;
+
+      .celebration-segment {
+        --background: #f0f4ff;
+        border-radius: 10px;
+        padding: 4px;
+        margin-bottom: 8px;
+
+        ion-segment-button {
+          --indicator-color: #1E73BB;
+          --color: #64748b;
+          --color-checked: #ffffff;
+          --border-radius: 8px;
+          font-weight: 600;
+          min-height: 36px;
+          text-transform: none;
+          font-size: 18px;
+
+          &::part(indicator-background) {
+            background: #1E73BB !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+          }
+
+          &.segment-button-checked {
+            --background-checked: #1E73BB;
+            --indicator-color: #1E73BB;
+            color: #ffffff;
+          }
+        }
+      }
     }
 
     .milestone-section-title {
@@ -3019,6 +3048,34 @@
 // MILESTONES / BIRTHDAY CARD (flat design)
 // ─────────────────────────────────────────────────────────
 .milestone-card {
+  .celebration-segment {
+    --background: #f1f5f9;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 8px;
+
+    ion-segment-button {
+      --indicator-color: #1E73BB;
+      --color: #64748b;
+      --color-checked: #ffffff;
+      --border-radius: 8px;
+      font-weight: 600;
+      min-height: 36px;
+      text-transform: none;
+
+      &::part(indicator-background) {
+        background: #1E73BB !important;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      }
+
+      &.segment-button-checked {
+        --background-checked: #1E73BB;
+        --indicator-color: #1E73BB;
+        color: #ffffff;
+      }
+    }
+  }
+
   .milestone-list {
     padding: 12px 20px 20px;
     display: flex;

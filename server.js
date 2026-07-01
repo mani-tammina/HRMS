@@ -49,6 +49,7 @@ const complianceRoutes = require("./routes/compliance.routes"); // Compliance tr
 const announcementRoutes = require("./routes/announcement.routes");
 const supportRoutes = require("./routes/support.routes");
 const birthdayRoutes = require("./routes/birthday.routes");
+const anniversaryRoutes = require("./routes/anniversary.routes");
 const holidayRoutes = require("./routes/holiday.routes");
 const reportRoutes = require("./routes/report.routes");
 const reportRoutesEnhanced = require("./routes/report.routes.enhanced"); // Enhanced analytics
@@ -339,6 +340,7 @@ const ACCESS_MATRIX = {
         "/api/support": { "GET": { admin: true, hr: true, manager: true, employee: true }, "POST": { admin: true, hr: true, manager: true, employee: true } },
         "/api/holidays": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
         "/api/birthdays": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
+        "/api/anniversaries": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
         "/api/birthday-wishes": { "POST": { admin: true, hr: true, manager: true, employee: true }, "GET /api/birthday-wishes/{employee_id}": { admin: true, hr: true, manager: true, employee: true } },
         "/api/support": { admin: true, hr: true, manager: true, employee: true },
         "/api/access-matrix": { admin: true, hr: true, manager: true, employee: true, method: "GET", note: "Returns this matrix" }
@@ -403,6 +405,9 @@ app.use("/api/support", supportRoutes);
 // Birthday Routes
 app.use("/api/birthdays", birthdayRoutes);
 app.use("/api/birthday-wishes", birthdayRoutes); // Also mount for wishes
+
+// Anniversary Routes
+app.use("/api/anniversaries", anniversaryRoutes);
 
 // Holiday Routes
 app.use("/api/holidays", holidayRoutes);

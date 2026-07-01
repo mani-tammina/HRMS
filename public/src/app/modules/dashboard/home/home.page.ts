@@ -68,6 +68,9 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= BIRTHDAYS ================= */
   todayBirthdays: any[] = [];
   upcomingBirthdays: any[] = [];
+  todayAnniversaries: any[] = [];
+  upcomingAnniversaries: any[] = [];
+  activeCelebrationTab: 'birthdays' | 'anniversaries' = 'birthdays';
 
   /* ================= ANNOUNCEMENTS ================= */
   announcements: any[] = [];
@@ -231,19 +234,18 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   loadBirthdays() {
-    // Fetch upcoming birthdays/anniversaries (which covers today and next 30 days)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const colors = ['#ff9800', '#2196f3', '#4caf50', '#f44336', '#9c27b0', '#e91e63'];
+
+    // 1. Fetch upcoming birthdays
     this.employeeService.getBirthdays('upcoming').pipe(takeUntil(this.destroy$)).subscribe({
       next: (data: any[]) => {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-
-        const todayList: any[] = [];
-        const upcomingList: any[] = [];
-        const colors = ['#ff9800', '#2196f3', '#4caf50', '#f44336', '#9c27b0', '#e91e63'];
+        const todayBdays: any[] = [];
+        const upcomingBdays: any[] = [];
 
         data.forEach(emp => {
           const dob = emp.DateOfBirth ? new Date(emp.DateOfBirth) : null;
-          const doj = emp.DateJoined ? new Date(emp.DateJoined) : null;
           const initials = ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase();
           const avatarColor = colors[emp.id % colors.length];
 
@@ -267,11 +269,34 @@ export class HomePage implements OnInit, OnDestroy {
             };
 
             if (item.isToday) {
-              todayList.push(item);
+              todayBdays.push(item);
             } else {
-              upcomingList.push(item);
+              upcomingBdays.push(item);
             }
           }
+        });
+
+        this.todayBirthdays = todayBdays;
+        this.upcomingBirthdays = upcomingBdays.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.todayBirthdays = [];
+        this.upcomingBirthdays = [];
+        this.cdr.detectChanges();
+      }
+    });
+
+    // 2. Fetch upcoming work anniversaries
+    this.employeeService.getAnniversaries('upcoming').pipe(takeUntil(this.destroy$)).subscribe({
+      next: (data: any[]) => {
+        const todayAnnivs: any[] = [];
+        const upcomingAnnivs: any[] = [];
+
+        data.forEach(emp => {
+          const doj = emp.DateJoined ? new Date(emp.DateJoined) : null;
+          const initials = ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase();
+          const avatarColor = colors[emp.id % colors.length];
 
           if (doj) {
             const anniv = new Date(doj);
@@ -296,21 +321,22 @@ export class HomePage implements OnInit, OnDestroy {
               };
 
               if (item.isToday) {
-                todayList.push(item);
+                todayAnnivs.push(item);
               } else {
-                upcomingList.push(item);
+                upcomingAnnivs.push(item);
               }
             }
           }
         });
 
-        this.todayBirthdays = todayList;
-        this.upcomingBirthdays = upcomingList.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
+        this.todayAnniversaries = todayAnnivs;
+        this.upcomingAnniversaries = upcomingAnnivs.sort((a, b) => a.eventDate.getTime() - b.eventDate.getTime());
         this.cdr.detectChanges();
       },
       error: () => {
-        this.todayBirthdays = [];
-        this.upcomingBirthdays = [];
+        this.todayAnniversaries = [];
+        this.upcomingAnniversaries = [];
+        this.cdr.detectChanges();
       }
     });
   }

@@ -136,6 +136,11 @@ export class EmployeeService {
     return this.http.get(`http://${this.env.apiURL}/api/birthdays?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
+  getAnniversaries(period = 'today'): Observable<any> {
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    return this.http.get(`http://${this.env.apiURL}/api/anniversaries?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
+  }
+
   sendBirthdayWish(employeeId: number, message: string): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     return this.http.post(`http://${this.env.apiURL}/api/birthdays/wishes`, {
