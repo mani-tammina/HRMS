@@ -65,9 +65,16 @@ router.get("/notice-periods", auth, async (req, res) => {
   try {
     c = await db();
     const [rows] = await c.query(
-      `SELECT dnp.*, d.name as department_name 
-       FROM department_notice_periods dnp
-       INNER JOIN departments d ON dnp.department_id = d.id
+      `SELECT 
+         dnp.id,
+         d.id as department_id,
+         d.name as department_name,
+         COALESCE(dnp.notice_period_days, 30) as notice_period_days,
+         COALESCE(dnp.is_active, 1) as is_active,
+         dnp.created_at,
+         dnp.updated_at
+       FROM departments d
+       LEFT JOIN department_notice_periods dnp ON d.id = dnp.department_id
        ORDER BY d.name`
     );
     res.json(rows);
