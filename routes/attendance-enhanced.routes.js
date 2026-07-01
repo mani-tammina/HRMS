@@ -857,48 +857,63 @@ router.get("/report/team", auth, async (req, res) => {
     const c = await db();
 
     // Determine which team to show based on role
+    // Current logged-in employee is always fetched separately and included first
     let team;
 
     if (req.user.role === "hr") {
-      // HR sees all employees (except themselves)
+      // HR sees ALL employees INCLUDING themselves
       const [allEmployees] = await c.query(
-        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+                CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
          FROM employees e
          LEFT JOIN locations loc ON e.LocationId = loc.id
-         WHERE e.id != ? AND e.EmploymentStatus = 'Working'
-         ORDER BY e.FirstName, e.LastName, e.LocationId`,
+         WHERE e.EmploymentStatus = 'Working'
+         ORDER BY is_current_user DESC, e.FirstName, e.LastName`,
         [emp.id]
       );
       team = allEmployees;
-      console.log(`HR: All employees count: ${team.length}`);
+      console.log(`HR: All employees count (including self): ${team.length}`);
     } else if (["manager", "admin"].includes(req.user.role)) {
-      // Manager/admin: show direct reports
+      // Manager/admin: show direct reports PLUS themselves
       const [reportingTeam] = await c.query(
-        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+                CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
                  FROM employees e
                  LEFT JOIN locations loc ON e.LocationId = loc.id
-                 WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
-                 ORDER BY e.FirstName, e.LastName, e.LocationId`,
-        [emp.id]
+                 WHERE (e.reporting_manager_id = ? OR e.id = ?) AND e.EmploymentStatus = 'Working'
+                 ORDER BY is_current_user DESC, e.FirstName, e.LastName`,
+        [emp.id, emp.id, emp.id]
       );
       team = reportingTeam;
-      console.log(`Reporting team count: ${team.length}`);
+      console.log(`Reporting team count (including self): ${team.length}`);
     } else {
-      // For employee role, show co-team (people reporting to same manager)
+      // For employee role, show co-team (people reporting to same manager) PLUS themselves
       if (emp.reporting_manager_id) {
         const [coTeam] = await c.query(
-          `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName
+          `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+                  CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
                      FROM employees e
                      LEFT JOIN locations loc ON e.LocationId = loc.id
-                     WHERE e.reporting_manager_id = ? AND e.id != ? AND e.EmploymentStatus = 'Working'
-                     ORDER BY e.FirstName, e.LastName, e.LocationId`,
-          [emp.reporting_manager_id, emp.id]
+                     WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
+                     ORDER BY is_current_user DESC, e.FirstName, e.LastName`,
+          [emp.id, emp.reporting_manager_id]
         );
         team = coTeam;
-        console.log(`Co-team count: ${team.length}`);
+        console.log(`Co-team count (including self): ${team.length}`);
       } else {
-        team = [];
-        console.log(`Employee has no reporting manager, no co-team available`);
+        // No manager — just show the employee themselves
+        team = [{
+          id: emp.id,
+          EmployeeNumber: emp.EmployeeNumber,
+          FirstName: emp.FirstName,
+          LastName: emp.LastName,
+          WorkEmail: emp.WorkEmail,
+          EmploymentStatus: emp.EmploymentStatus,
+          LocationId: emp.LocationId,
+          LocationName: null,
+          is_current_user: 1
+        }];
+        console.log(`Employee has no reporting manager, showing only self`);
       }
     }
 
@@ -917,6 +932,7 @@ router.get("/report/team", auth, async (req, res) => {
         team_members: [],
         attendance: [],
         date: targetDate,
+        current_user_id: emp.id,
         summary: {
           total_team: 0,
           present: 0,
@@ -968,6 +984,7 @@ router.get("/report/team", auth, async (req, res) => {
     res.json({
       team_members: team,
       date: targetDate,
+      current_user_id: emp.id, // Helps frontend highlight the logged-in user
       attendance,
       on_leave: onLeave, // List of leave records for today
       summary: {

@@ -148,41 +148,51 @@
 
       <div class="premium-team-grid" *ngIf="!isLoading; else loadingState">
         <div class="employee-card-wrapper" *ngFor="let member of filteredTeam" (click)="viewEmployeeAttendance(member)">
-          <div class="premium-emp-card">
-            <div class="card-accent" [style.background]="getAvatarColor(member.id)"></div>
+          <div class="premium-emp-card" [class.current-user-card]="isCurrentUser(member)">
+
+            <!-- Left colour strip based on attendance status -->
+            <div class="card-accent" [style.background]="getAccentColor(member.id)"></div>
 
             <div class="card-body">
-              <div class="body-top">
-                <div class="profile-block">
+
+              <!-- TOP: Avatar + Name + Status -->
+              <div class="card-header-row">
+                <div class="avatar-wrap" [style.border-color]="getAccentColor(member.id)">
                   <ion-avatar class="emp-avatar">
                     <img [src]="getProfileImage(member)" onerror="this.src='../../assets/Profile_Picture.png'" />
                   </ion-avatar>
-                  <div class="emp-identity">
-                    <h3 class="emp-name">{{ member.FirstName }} {{ member.LastName }}</h3>
-                    <p class="emp-title">{{ member.EmployeeNumber || 'Employee' }}</p>
-                    <p class="emp-dept" *ngIf="member.ProcessName">{{ member.ProcessName }}</p>
-                  </div>
                 </div>
 
-                <!-- Status Badge -->
-                <div class="status-badge-container">
-                  <div class="status-badge" [ngClass]="getDisplayStatusClass(member.id)">
-                    <span class="dot"></span>
-                    <span class="text">{{ getDisplayStatusText(member.id) }}</span>
+                <div class="emp-info">
+                  <div class="name-row">
+                    <span class="emp-name">{{ member.FirstName }} {{ member.LastName }}</span>
+                    <span class="you-badge" *ngIf="isCurrentUser(member)">You</span>
                   </div>
+                  <span class="emp-number">{{ member.EmployeeNumber || '—' }}</span>
+                  <span class="emp-dept" *ngIf="member.ProcessName">{{ member.ProcessName }}</span>
+                </div>
+
+                <div class="status-badge" [ngClass]="getDisplayStatusClass(member.id)">
+                  <span class="dot"></span>
+                  <span class="text">{{ getDisplayStatusText(member.id) }}</span>
                 </div>
               </div>
 
-              <div class="body-bottom">
-                <div class="info-row">
-                  <span class="label">Location:</span>
-                  <span class="value">{{ member.LocationName || 'Site 1 - TSN' }}</span>
+              <!-- DIVIDER -->
+              <div class="card-divider"></div>
+
+              <!-- BOTTOM: Meta info -->
+              <div class="card-meta">
+                <div class="meta-item">
+                  <ion-icon name="location-outline"></ion-icon>
+                  <span>{{ member.LocationName || 'Site 1 - TSN' }}</span>
                 </div>
-                <div class="info-row">
-                  <span class="label">Mail:</span>
-                  <span class="value mail">{{ member.WorkEmail }}</span>
+                <div class="meta-item">
+                  <ion-icon name="mail-outline"></ion-icon>
+                  <span class="meta-mail">{{ member.WorkEmail }}</span>
                 </div>
               </div>
+
             </div>
           </div>
         </div>

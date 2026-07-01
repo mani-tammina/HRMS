@@ -28,6 +28,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   isManager = false;
   userRole: string | null = null;
   teamAttendanceSummary: any = null;
+  currentUserId: number | null = null; // ID of the logged-in employee
 
   // HR Search
   isHR = false;
@@ -122,6 +123,10 @@ export class MyTeamPage implements OnInit, OnDestroy {
 
     this.employeeService.getTeamAttendanceReport(selectedDate).subscribe({
       next: (res: any) => {
+        // Capture the logged-in user's employee id for highlighting
+        if (res?.current_user_id) {
+          this.currentUserId = res.current_user_id;
+        }
         if (res?.team_members) {
           this.teamMembers = res.team_members;
         } else {
@@ -264,6 +269,22 @@ export class MyTeamPage implements OnInit, OnDestroy {
     return colors[id % colors.length];
   }
 
+  /** Returns card-accent color based on attendance status */
+  getAccentColor(employeeId: number): string {
+    const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
+    if (status === 'in' || status === 'present' || status.includes('in') || status === 'wfh') {
+      return 'rgb(0, 152, 61)';      // Present / Clocked-in — Green
+    }
+    if (status.includes('leave') || status === 'on_leave') {
+      return 'rgb(31, 116, 187)';    // On Leave — Blue
+    }
+    if (status === 'absent') {
+      return 'rgb(187, 44, 31)';     // Absent — Red
+    }
+    // Not punched / default
+    return '#1f74bb';       // Not Punched — Warm Amber-Brown
+  }
+
   async navigateToLeaveApprovals() {
     const modal = await this.modalCtrl.create({
       component: ManagerLeaveApprovalsComponent,
@@ -397,5 +418,11 @@ export class MyTeamPage implements OnInit, OnDestroy {
     if (id) {
       this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);
     }
+  }
+
+  /** Returns true if the given team member is the logged-in user */
+  isCurrentUser(member: any): boolean {
+    const id = member.id || member.employee_id;
+    return this.currentUserId !== null && id === this.currentUserId;
   }
 }
