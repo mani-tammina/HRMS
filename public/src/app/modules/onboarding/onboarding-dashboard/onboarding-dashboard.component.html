@@ -1,22 +1,25 @@
-<ion-header class="ion-no-border">
-  <ion-toolbar class="gradient-header">
-    <div class="header-content">
-      <div class="title-block">
-        <ion-title>Candidate Onboarding</ion-title>
-        <p class="subtitle">Streamline your hiring process and candidate experience</p>
-      </div>
-      <div class="actions-block">
-        <button class="premium-btn" (click)="openCreateCandidateModal()">
-          <ion-icon name="person-add-outline"></ion-icon>
-          <span>New Candidate</span>
-        </button>
-      </div>
-    </div>
-  </ion-toolbar>
+<ion-header [translucent]="true" class="ion-no-border">
 </ion-header>
 
-<ion-content>
-  <div class="dashboard-wrap">
+<ion-content [fullscreen]="true" class="glass-content">
+  <div class="page-container">
+    
+    <!-- Header Section -->
+    <div class="header-section fade-in">
+      <div class="header-top">
+        <div class="header-text">
+          <h1>Candidate Onboarding</h1>
+          <p>Streamline your hiring process, track candidate experience, and manage the pre-onboarding pipeline.</p>
+        </div>
+        <div class="header-actions">
+          <ion-button (click)="openCreateCandidateModal()" class="action-btn restore-btn">
+            <ion-icon name="person-add-outline" slot="start"></ion-icon>
+            New Candidate
+          </ion-button>
+        </div>
+      </div>
+    </div>
+
     <!-- Quick Stats -->
     <div class="stats-grid">
       <div class="stat-item total" (click)="navigateToPreonboarding('all')">

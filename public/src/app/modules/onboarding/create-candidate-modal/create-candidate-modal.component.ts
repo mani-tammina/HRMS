@@ -21,7 +21,9 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
     departments: any[] = [];
     locations: any[] = [];
     designations: any[] = [];
-    reportingManagers: any[] = [];
+    reportingManagers: any[] = [];      // full list (Management dept, Working only)
+    filteredManagers: any[] = [];       // list shown in dropdown after search
+    managerSearchQuery = '';            // search text bound to the input
 
     // Static options
     genderOptions = ['Male', 'Female', 'Other'];
@@ -112,15 +114,20 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (response) => {
                     const employees = Array.isArray(response) ? response : response.data || [];
-                    // Filter to get employees that can be reporting managers
-                    this.reportingManagers = employees.map((emp: any) => ({
+                    // Filter: Working employees in the Management department only
+                    const mgmtEmployees = employees.filter((emp: any) => {
+                        const dept = (emp.department_name || '').toLowerCase();
+                        return dept === 'management';
+                    });
+                    this.reportingManagers = mgmtEmployees.map((emp: any) => ({
                         id: emp.id,
                         employee_number: emp.EmployeeNumber,
                         first_name: emp.FirstName,
                         last_name: emp.LastName,
                         full_name: `${emp.FirstName} ${emp.LastName}`,
-                        designation: emp.designation_name || emp.DesignationId
+                        designation: emp.designation_name || ''
                     }));
+                    this.filteredManagers = [...this.reportingManagers];
                     this.isLoadingMasterData = false;
                 },
                 error: (err) => {
@@ -129,6 +136,21 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
                     this.isLoadingMasterData = false;
                 }
             });
+    }
+
+    /** Filter the manager dropdown based on the search text */
+    filterManagers(query: string): void {
+        this.managerSearchQuery = query;
+        const q = query.trim().toLowerCase();
+        if (!q) {
+            this.filteredManagers = [...this.reportingManagers];
+        } else {
+            this.filteredManagers = this.reportingManagers.filter(m =>
+                m.full_name.toLowerCase().includes(q) ||
+                (m.employee_number || '').toLowerCase().includes(q) ||
+                (m.designation || '').toLowerCase().includes(q)
+            );
+        }
     }
 
     get f(): any {
@@ -157,11 +179,11 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
             // Format dates to YYYY-MM-DD for MySQL
             date_of_birth: formData.date_of_birth ? formData.date_of_birth.split('T')[0] : null,
             joining_date: formData.joining_date ? formData.joining_date.split('T')[0] : null,
-            // Convert selected objects to IDs if needed
-            department_id: formData.department_id?.id || formData.department_id,
-            location_id: formData.location_id?.id || formData.location_id,
-            designation_id: formData.designation_id?.id || formData.designation_id,
-            reporting_manager_id: formData.reporting_manager_id?.id || formData.reporting_manager_id || null,
+            // Native selects return string values — cast to numbers
+            department_id: formData.department_id ? Number(formData.department_id) : null,
+            location_id: formData.location_id ? Number(formData.location_id) : null,
+            designation_id: formData.designation_id ? Number(formData.designation_id) : null,
+            reporting_manager_id: formData.reporting_manager_id ? Number(formData.reporting_manager_id) : null,
             full_name: `${formData.first_name}${formData.middle_name ? ' ' + formData.middle_name : ''} ${formData.last_name}`.trim()
         };
 

@@ -142,8 +142,8 @@ export class CandidateService {
     return this.http.get<any>(`http://${environment.apiURL}/api/designations`);
   }
 
-  // Get all employees (for reporting managers)
-  getEmployees(limit: number = 1000): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/employees?limit=${limit}`);
+  // Get working employees for reporting managers (with optional department filter)
+  getEmployees(limit: number = 1000, status: string = 'Working'): Observable<any> {
+    return this.http.get<any>(`http://${environment.apiURL}/api/employees?limit=${limit}&status=${status}`);
   }
 }

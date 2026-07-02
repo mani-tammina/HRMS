@@ -1,67 +1,79 @@
 @use '../../../../theme/_variables' as vars;
 
-.gradient-header {
-  --background: #{vars.$color-sidebar};
-  --color: #{vars.$color-white};
-  padding: 12px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+.glass-content {
+  --background: #f8fafc;
+}
 
-  .header-content {
+.page-container {
+  padding: 32px 40px;
+  margin: 0 auto;
+}
+
+/* ────────── HEADER SECTION ────────── */
+.header-section {
+  margin-bottom: 24px;
+  background: vars.$color-bg-card;
+  border-radius: vars.$radius-xl;
+  border: 1px solid #eef2f6;
+  box-shadow: vars.$shadow-xs;
+
+  .header-top {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 32px;
     padding: 24px 32px;
 
-    .title-block {
-      ion-title {
-        --padding-start: 0;
-        font-size: vars.$fs-heading-lg !important;
-        font-weight: vars.$fw-bold;
-        letter-spacing: vars.$ls-tight;
-        color: vars.$color-white;
+    .header-text {
+      h1 {
+        font-size: 28px;
+        font-weight: 800;
+        color: vars.$color-text-primary;
+        margin: 0;
+        letter-spacing: -0.02em;
       }
-      
-      .subtitle {
-        margin: 6px 0 0;
+
+      p {
         font-size: vars.$fs-small;
-        color: rgba(255, 255, 255, 0.7);
+        color: vars.$color-text-subtle;
+        margin: 6px 0 0;
+        max-width: 650px;
         font-weight: vars.$fw-medium;
+        line-height: 1.5;
       }
     }
 
-    .premium-btn {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      color: vars.$color-white;
-      padding: 10px 24px;
-      border-radius: vars.$radius-md;
-      font-size: vars.$fs-small;
-      font-weight: vars.$fw-bold;
+    .header-actions {
       display: flex;
-      align-items: center;
-      gap: 10px;
-      cursor: pointer;
-      transition: vars.$transition-base;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      gap: 12px;
 
-      ion-icon {
-        font-size: 18px;
-      }
+      .action-btn {
+        --border-radius: #{vars.$radius-md};
+        --padding-start: 20px;
+        --padding-end: 20px;
+        font-weight: vars.$fw-bold;
+        height: 42px;
+        margin: 0;
+        font-size: vars.$fs-small;
+        text-transform: none;
+        letter-spacing: 0;
+        --box-shadow: #{vars.$shadow-xs};
+        
+        &::part(native) {
+          border-radius: vars.$radius-md;
+        }
 
-      &:hover {
-        background: vars.$color-white;
-        color: vars.$color-sidebar;
-        transform: translateY(-2px);
+        &.restore-btn {
+          --background: #{vars.$color-primary};
+          --color: #{vars.$color-white};
+
+          &:hover {
+            --background: #{vars.$color-primary-hover};
+          }
+        }
       }
     }
   }
-}
-
-.dashboard-wrap {
-  padding: 40px 32px;
-  background: vars.$color-bg-page;
-  min-height: 100vh;
 }
 
 /* ═══════════ STATS GRID ═══════════ */
@@ -80,7 +92,7 @@
     transition: vars.$transition-smooth;
     box-shadow: vars.$shadow-sm;
     background: vars.$color-bg-card;
-    border: 1px solid vars.$color-border;
+    border: 1px solid #eef2f6;
 
     .item-content {
       position: relative;
@@ -189,7 +201,7 @@
     .line {
       height: 1px;
       flex-grow: 1;
-      background: vars.$color-border;
+      background: vars.$color-border-light;
     }
   }
 
@@ -206,7 +218,7 @@
       align-items: center;
       gap: 20px;
       cursor: pointer;
-      border: 1px solid vars.$color-border;
+      border: 1px solid #eef2f6;
       transition: vars.$transition-smooth;
 
       .card-icon {
@@ -298,7 +310,7 @@
     .line {
       height: 1px;
       flex-grow: 1;
-      background: vars.$color-border;
+      background: vars.$color-border-light;
     }
   }
 
@@ -316,7 +328,7 @@
       align-items: center;
       gap: 16px;
       cursor: pointer;
-      border: 1px solid vars.$color-border;
+      border: 1px solid #eef2f6;
       transition: vars.$transition-smooth;
 
       .tile-icon {

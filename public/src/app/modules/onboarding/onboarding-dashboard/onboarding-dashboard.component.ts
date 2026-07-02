@@ -33,7 +33,7 @@ export class OnboardingDashboardComponent implements OnInit {
   async openCreateCandidateModal() {
     const modal = await this.modalController.create({
       component: CreateCandidateModalComponent,
-      cssClass: 'side-custom-popup checkinInfo-popup'
+      cssClass: 'side-custom-popup'
     });
 
     modal.onDidDismiss().then((result) => {
