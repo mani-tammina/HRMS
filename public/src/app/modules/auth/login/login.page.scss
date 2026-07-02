@@ -640,17 +640,49 @@ ion-content.login-content {
 @media (max-width: 680px) {
   .login-page-wrapper {
     flex-direction: column;
+    height: auto;
+    min-height: 100vh;
   }
 
   .left-panel {
-    flex: 0 0 auto;
-    padding: 32px 20px;
-    min-height: 280px;
+    flex: none;
+    width: 100%;
+    padding: 40px 20px 70px; // extra bottom padding for the overlapping card
+    min-height: 360px;
+    background-size: 220px; // fixed image size for mobile to ensure it looks good
+    background-position: center 40px;
+    
+    // hide decorative planes on small screens for cleaner look
+    .paper-plane {
+      display: none;
+    }
+  }
+
+  .left-caption {
+    margin-bottom: 0;
+  }
+  
+  .left-caption .caption-title {
+    font-size: 20px;
+  }
+  
+  .left-caption .caption-subtitle {
+    font-size: 13px;
+    max-width: 280px;
+    margin: 0 auto;
   }
 
   .right-panel {
-    flex: 1;
-    padding: 32px 20px;
+    flex: none;
+    width: 100%;
+    padding: 40px 24px;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    margin-top: -40px; // overlap effect
+    position: relative;
+    z-index: 10;
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.08); // subtle shadow for depth
+    min-height: calc(100vh - 320px); // ensure it takes remaining space
   }
 
   .deco-card {
@@ -664,14 +696,20 @@ ion-content.login-content {
 
 @media (max-width: 400px) {
   .left-panel {
-    min-height: 220px;
+    min-height: 320px;
+    background-size: 180px;
+    background-position: center 30px;
+    padding: 30px 20px 60px;
+  }
+  
+  .right-panel {
+    padding: 32px 20px;
+    margin-top: -30px;
+    border-top-left-radius: 24px;
+    border-top-right-radius: 24px;
   }
 
   .form-heading {
     font-size: 22px;
-  }
-
-  .right-panel {
-    padding: 24px 16px;
   }
 }

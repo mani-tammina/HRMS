@@ -3,6 +3,6 @@ const local =
   window.location.hostname === 'localhost';
 
 export const environment = {
-  production: false,
-  apiURL: 'localhost:4203',
+  production: true,
+  apiURL: 'localhost:4201',
 };

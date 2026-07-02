@@ -16,8 +16,8 @@ const reasons = [
 const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwicm9sZSI6ImFkbWluIiwiaWF0IjoxNzgyODg0NTcyLCJleHAiOjE3ODI5MTMzNzJ9.nACA2VWSzmIRnFlVvRU2gd1uSwzXBZFqifgzI05rhF8';
 
 const options = {
-  hostname: 'hrms.tamminahub.com',
-  port: 80,
+  hostname: 'localhost',
+  port: 4201,
   path: '/api/separation/reasons',
   method: 'POST',
   headers: {
