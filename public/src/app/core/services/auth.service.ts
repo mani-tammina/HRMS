@@ -14,6 +14,8 @@ export class AuthService {
   private CREATE_USER_URL = `http://${this.env.apiURL}/api/auth/user/create`;
   private CREATE_AUTO_USER_URL = `http://${this.env.apiURL}/api/auth/user/create-auto`;
   private CREATE_PASSWORD_URL = `http://${this.env.apiURL}/api/auth/password/create`;
+  private SEND_OTP_URL = `http://${this.env.apiURL}/api/auth/password/send-otp`;
+  private VERIFY_OTP_URL = `http://${this.env.apiURL}/api/auth/password/verify-otp`;
   private PREVIEW_ROLE_URL = `http://${this.env.apiURL}/api/auth/user/preview-role`;
   private LOGOUT_URL = `http://${this.env.apiURL}/api/auth/logout`;
 
@@ -24,6 +26,14 @@ export class AuthService {
 
   checkEmployee(email: string): Observable<any> {
     return this.http.get(`${this.CHECK_EMAIL_URL}?email=${email}`);
+  }
+
+  sendOtp(email: string): Observable<any> {
+    return this.http.post<any>(this.SEND_OTP_URL, { email });
+  }
+
+  verifyOtp(email: string, otp: string): Observable<any> {
+    return this.http.post<any>(this.VERIFY_OTP_URL, { email, otp });
   }
 
   login(payload: { username: string; password: string }): Observable<any> {
@@ -42,8 +52,8 @@ export class AuthService {
     );
   }
 
-  autoCreateUser(employee_id: number, password: string): Observable<any> {
-    return this.http.post<any>(this.CREATE_AUTO_USER_URL, { employee_id, password }).pipe(
+  autoCreateUser(employee_id: number, password: string, otp: string): Observable<any> {
+    return this.http.post<any>(this.CREATE_AUTO_USER_URL, { employee_id, password, otp }).pipe(
       tap(res => {
         const token = res?.token;
         if (token && res?.user) {
@@ -54,8 +64,8 @@ export class AuthService {
     );
   }
 
-  createUser(email: string, password: string): Observable<any> {
-    return this.http.post<any>(this.CREATE_USER_URL, { email, password, role: 'employee' }).pipe(
+  createUser(email: string, password: string, otp: string): Observable<any> {
+    return this.http.post<any>(this.CREATE_USER_URL, { email, password, role: 'employee', otp }).pipe(
       tap(res => {
         const token = res?.token;
         if (token && res?.user) {

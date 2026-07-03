@@ -213,6 +213,116 @@ router.post("/password/create", async (req, res) => {
   }
 });
 
+// Send OTP to email for password creation
+router.post("/password/send-otp", async (req, res) => {
+  console.log("hii")
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ error: "Email is required" });
+  }
+
+  let c = null;
+  try {
+    c = await db();
+    // Verify employee exists
+    const [emp] = await c.query(
+      "SELECT id, WorkEmail, FullName FROM employees WHERE WorkEmail = ?",
+      [email]
+    );
+
+    if (!emp.length) {
+      if (c) c.end();
+      return res.status(404).json({ error: "Employee not found with this email" });
+    }
+
+    const employee = emp[0];
+    // Check if user already exists
+    const [user] = await c.query(
+      "SELECT id FROM users WHERE username = ?",
+      [email]
+    );
+
+    if (user.length > 0) {
+      if (c) c.end();
+      return res.status(400).json({ error: "User account already exists for this email" });
+    }
+
+    // Generate 6-digit numeric OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    // Store or update in database
+    await c.query(
+      "INSERT INTO otp_verifications (email, otp, expires_at) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE otp = VALUES(otp), expires_at = VALUES(expires_at)",
+      [email, otp, expiresAt]
+    );
+
+    // Send OTP Email
+    try {
+      const { sendMail } = require("../utils/mail.service");
+      await sendMail({
+        to: employee.WorkEmail,
+        subject: "Master HRMS - OTP for Creating Password",
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px; max-width: 600px;">
+            <h2 style="color: #0054e9; margin-top: 0;">Welcome to Master HRMS</h2>
+            <p>Hello <strong>${employee.FullName || 'Employee'}</strong>,</p>
+            <p>Please use the following One-Time Password (OTP) to create your password and set up your account:</p>
+            <div style="background: #f4f7fe; padding: 15px; text-align: center; border-radius: 4px; margin: 20px 0;">
+              <span style="font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #0054e9;">${otp}</span>
+            </div>
+            <p>This OTP is valid for 10 minutes. If you did not request this, please ignore this email.</p>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+            <p style="font-size: 12px; color: #999;">© 2024 Tech Tammina. All rights reserved.</p>
+          </div>
+        `
+      });
+      res.json({ message: "OTP sent successfully to email" });
+    } catch (mailErr) {
+      console.warn("⚠️ Warning: Failed to send OTP email:", mailErr.message);
+      console.log(`🔑 Generated OTP for ${email}: ${otp}`);
+      res.json({ 
+        message: "OTP generated successfully (email sending failed, please check server logs/DB)", 
+        warning: "Email sending failed" 
+      });
+    }
+  } catch (err) {
+    console.error("send otp error", err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Verify OTP for password creation
+router.post("/password/verify-otp", async (req, res) => {
+  const { email, otp } = req.body;
+  if (!email || !otp) {
+    return res.status(400).json({ error: "Email and OTP are required" });
+  }
+
+  let c = null;
+  try {
+    c = await db();
+    const [otpRow] = await c.query(
+      "SELECT id FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > ?",
+      [email, otp, new Date()]
+    );
+
+    if (!otpRow.length) {
+      if (c) c.end();
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    res.json({ message: "OTP verified successfully", valid: true });
+  } catch (err) {
+    console.error("verify otp error", err.message);
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
 // Check employee by email
 router.get("/employee/check", async (req, res) => {
   const { email } = req.query;
@@ -457,13 +567,29 @@ router.get("/user/preview-role/:email", async (req, res) => {
 
 // Set password and create user account
 router.post("/user/create", async (req, res) => {
-  const { email, password, role } = req.body;
+  const { email, password, role, otp } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: "Email and password are required" });
+  }
+  if (!otp) {
+    return res.status(400).json({ error: "OTP is required for password creation" });
   }
 
   const c = await db();
   try {
+    // Verify OTP
+    const [otpRow] = await c.query(
+      "SELECT id FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > ?",
+      [email, otp, new Date()]
+    );
+    if (!otpRow.length) {
+      c.end();
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    // Delete verified OTP so it can't be reused
+    await c.query("DELETE FROM otp_verifications WHERE email = ?", [email]);
+
     // Check if employee exists
     const [emp] = await c.query(
       "SELECT id, EmployeeNumber, FullName, WorkEmail FROM employees WHERE WorkEmail = ?",
@@ -523,11 +649,14 @@ router.post("/user/create", async (req, res) => {
 // Create user with automatic role assignment based on department and report count
 // Public endpoint for self-registration
 router.post("/user/create-auto", async (req, res) => {
-  const { employee_id, password } = req.body;
+  const { employee_id, password, otp } = req.body;
   if (!employee_id || !password) {
     return res
       .status(400)
       .json({ error: "Employee ID/Number and password are required" });
+  }
+  if (!otp) {
+    return res.status(400).json({ error: "OTP is required for password creation" });
   }
 
   const c = await db();
@@ -575,6 +704,19 @@ router.post("/user/create-auto", async (req, res) => {
         .status(400)
         .json({ error: "Employee does not have a work email" });
     }
+
+    // Verify OTP
+    const [otpRow] = await c.query(
+      "SELECT id FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > ?",
+      [employee.WorkEmail, otp, new Date()]
+    );
+    if (!otpRow.length) {
+      c.end();
+      return res.status(400).json({ error: "Invalid or expired OTP" });
+    }
+
+    // Delete verified OTP so it can't be reused
+    await c.query("DELETE FROM otp_verifications WHERE email = ?", [employee.WorkEmail]);
 
     // Check if user already exists
     const [existingUser] = await c.query(

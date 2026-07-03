@@ -19,6 +19,7 @@ export class LoginPage implements OnInit {
   emailChecked = false;
   showPassword = false;
   showCreatePassword = false;
+  otpVerified = false;
   loading = false;
   isAdmin = false;
   isEmpId = false;
@@ -50,7 +51,8 @@ export class LoginPage implements OnInit {
   private initForms() {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required]],
-      password: ['']
+      password: [''],
+      otp: ['']
     });
 
     this.loginForm.get('email')?.valueChanges.subscribe(() => {
@@ -69,6 +71,7 @@ export class LoginPage implements OnInit {
     this.emailChecked = false;
     this.showPassword = false;
     this.showCreatePassword = false;
+    this.otpVerified = false;
     this.isAdmin = false;
     this.isEmpId = false;
     this.empId = null;
@@ -77,6 +80,10 @@ export class LoginPage implements OnInit {
     this.loginForm.get('password')?.setErrors(null);
     this.loginForm.get('password')?.setValue('');
     this.loginForm.get('password')?.updateValueAndValidity();
+    this.loginForm.get('otp')?.clearValidators();
+    this.loginForm.get('otp')?.setErrors(null);
+    this.loginForm.get('otp')?.setValue('');
+    this.loginForm.get('otp')?.updateValueAndValidity();
   }
 
   ionViewWillEnter(): void {
@@ -118,21 +125,85 @@ export class LoginPage implements OnInit {
         this.empId = res.employee?.id || (this.isEmpId ? parseInt(emailValue) : null);
         this.fetchRolePreview(emailValue);
 
-        this.emailChecked = true;
         if (res.hasUserAccount) {
+          this.emailChecked = true;
           this.showPassword = true;
+          this.loginForm.get('password')?.setValidators(Validators.required);
+          this.loginForm.get('password')?.updateValueAndValidity();
         } else {
-          this.showCreatePassword = true;
+          this.sendCreatePasswordOtp(emailValue);
         }
-
-        this.loginForm.get('password')?.setValidators(Validators.required);
-        this.loginForm.get('password')?.updateValueAndValidity();
       },
       error: () => {
         loader.dismiss();
         this.presentToast('Failed to verify employee', 'danger');
       }
     });
+  }
+
+  async sendCreatePasswordOtp(email: string) {
+    const loader = await this.loadingController.create({ message: 'Sending OTP to email...' });
+    await loader.present();
+    
+    this.authService.sendOtp(email).subscribe({
+      next: (res) => {
+        loader.dismiss();
+        if (res?.warning) {
+          this.presentToast(res.message, 'warning');
+        } else {
+          this.presentToast('OTP sent to your email address', 'success');
+        }
+        this.emailChecked = true;
+        this.showCreatePassword = true;
+        this.otpVerified = false;
+        this.loginForm.get('otp')?.setValidators([Validators.required, Validators.minLength(6), Validators.maxLength(6)]);
+        this.loginForm.get('otp')?.updateValueAndValidity();
+        this.loginForm.get('password')?.clearValidators();
+        this.loginForm.get('password')?.setValue('');
+        this.loginForm.get('password')?.updateValueAndValidity();
+      },
+      error: (err) => {
+        loader.dismiss();
+        const msg = err.error?.error || 'Failed to send OTP. Please try again.';
+        this.presentToast(msg, 'danger');
+      }
+    });
+  }
+
+  async verifyOtp() {
+    const email = this.loginForm.get('email')?.value?.trim().toLowerCase();
+    const otp = this.loginForm.get('otp')?.value?.trim();
+    if (!email || !otp || otp.length !== 6) {
+      this.presentToast('Please enter a valid 6-digit OTP', 'warning');
+      return;
+    }
+
+    const loader = await this.loadingController.create({ message: 'Verifying OTP...' });
+    await loader.present();
+
+    this.authService.verifyOtp(email, otp).subscribe({
+      next: (res) => {
+        loader.dismiss();
+        this.presentToast('OTP verified successfully! Please set your new password.', 'success');
+        this.otpVerified = true;
+        
+        // Now that OTP is verified, make password required
+        this.loginForm.get('password')?.setValidators(Validators.required);
+        this.loginForm.get('password')?.updateValueAndValidity();
+      },
+      error: (err) => {
+        loader.dismiss();
+        const msg = err.error?.error || 'Invalid or expired OTP. Please try again.';
+        this.presentToast(msg, 'danger');
+      }
+    });
+  }
+
+  resendOtp() {
+    const emailValue = this.loginForm.get('email')?.value;
+    if (emailValue) {
+      this.sendCreatePasswordOtp(emailValue.trim().toLowerCase());
+    }
   }
 
   private setupPasswordStep() {
@@ -160,12 +231,17 @@ export class LoginPage implements OnInit {
       return;
     }
 
+    if (this.showCreatePassword && !this.otpVerified) {
+      this.presentToast('Please verify your OTP first', 'warning');
+      return;
+    }
+
     if (this.loginForm.invalid) {
       this.presentToast('Please fill all fields', 'warning');
       return;
     }
 
-    const { email, password } = this.loginForm.value;
+    const { email, password, otp } = this.loginForm.value;
     const loader = await this.loadingController.create({ message: 'Signing in...' });
     await loader.present();
 
@@ -188,8 +264,8 @@ export class LoginPage implements OnInit {
     
     if (isCreate) {
       const createCall$ = this.empId 
-        ? this.authService.autoCreateUser(this.empId, password)
-        : this.authService.createUser(email, password);
+        ? this.authService.autoCreateUser(this.empId, password, otp)
+        : this.authService.createUser(email, password, otp);
 
       authSource$ = createCall$.pipe(
         switchMap(res => {

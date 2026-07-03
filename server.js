@@ -280,6 +280,22 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not verify/alter resignations ENUM columns:", alterErr.message);
         }
 
+        // Check/Create otp_verifications table dynamically
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS otp_verifications (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    email VARCHAR(255) NOT NULL UNIQUE,
+                    otp VARCHAR(10) NOT NULL,
+                    expires_at TIMESTAMP NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log("  ✓ Checked/Created table: otp_verifications");
+        } catch (otpTableErr) {
+            console.warn("⚠️ Warning: could not check/create otp_verifications table:", otpTableErr.message);
+        }
+
     } catch (error) {
         console.error("❌ Database initialization error:", error.message);
         throw error;

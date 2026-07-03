@@ -1750,5 +1750,12 @@ CREATE TABLE IF NOT EXISTS separation_audit_logs (
   FOREIGN KEY (performed_by) REFERENCES users(id)
 );
 -- ============================================
-
-
+-- OTP Verifications Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS otp_verifications (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  otp VARCHAR(10) NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
