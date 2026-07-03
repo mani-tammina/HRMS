@@ -28,8 +28,8 @@ export class AuthService {
     return this.http.get(`${this.CHECK_EMAIL_URL}?email=${email}`);
   }
 
-  sendOtp(email: string): Observable<any> {
-    return this.http.post<any>(this.SEND_OTP_URL, { email });
+  sendOtp(email: string, isReset: boolean = false): Observable<any> {
+    return this.http.post<any>(this.SEND_OTP_URL, { email, isReset });
   }
 
   verifyOtp(email: string, otp: string): Observable<any> {
@@ -76,8 +76,8 @@ export class AuthService {
     );
   }
 
-  createPassword(employee_id: string, password: string, token: string): Observable<any> {
-    return this.http.post(this.CREATE_PASSWORD_URL, { employee_id, password }, {
+  createPassword(employee_id: string, password: string, token: string, otp?: string): Observable<any> {
+    return this.http.post(this.CREATE_PASSWORD_URL, { employee_id, password, otp }, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',

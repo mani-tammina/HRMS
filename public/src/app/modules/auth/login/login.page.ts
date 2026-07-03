@@ -33,6 +33,8 @@ export class LoginPage implements OnInit {
   usernameFocused = false;
   passwordFocused = false;
   createPwFocused = false;
+  forgotPasswordOtpSent = false;
+  forgotPasswordOtpVerified = false;
 
   constructor(
     private fb: FormBuilder,
@@ -63,7 +65,8 @@ export class LoginPage implements OnInit {
 
     this.forgotPasswordForm = this.fb.group({
       employee_id: ['', Validators.required],
-      password: ['', Validators.required]
+      otp: [''],
+      password: ['']
     });
   }
 
@@ -296,32 +299,98 @@ export class LoginPage implements OnInit {
     });
   }
 
+  async sendForgotPasswordOtp() {
+    const email = this.forgotPasswordForm.get('employee_id')?.value?.trim().toLowerCase();
+    if (!email) {
+      this.presentToast('Please enter your employee email address', 'warning');
+      return;
+    }
+
+    const loader = await this.loadingController.create({ message: 'Sending OTP...' });
+    await loader.present();
+
+    this.authService.sendOtp(email, true).subscribe({
+      next: (res) => {
+        loader.dismiss();
+        if (res?.warning) {
+          this.presentToast(res.message, 'warning');
+        } else {
+          this.presentToast('OTP sent to your email address', 'success');
+        }
+        this.forgotPasswordOtpSent = true;
+        this.forgotPasswordForm.get('otp')?.setValidators([Validators.required, Validators.minLength(6), Validators.maxLength(6)]);
+        this.forgotPasswordForm.get('otp')?.updateValueAndValidity();
+        this.forgotPasswordForm.get('password')?.clearValidators();
+        this.forgotPasswordForm.get('password')?.updateValueAndValidity();
+      },
+      error: (err) => {
+        loader.dismiss();
+        const msg = err.error?.error || 'Failed to send OTP. Please try again.';
+        this.presentToast(msg, 'danger');
+      }
+    });
+  }
+
+  async verifyForgotPasswordOtp() {
+    const email = this.forgotPasswordForm.get('employee_id')?.value?.trim().toLowerCase();
+    const otp = this.forgotPasswordForm.get('otp')?.value?.trim();
+    if (!email || !otp || otp.length !== 6) {
+      this.presentToast('Please enter a valid 6-digit OTP', 'warning');
+      return;
+    }
+
+    const loader = await this.loadingController.create({ message: 'Verifying OTP...' });
+    await loader.present();
+
+    this.authService.verifyOtp(email, otp).subscribe({
+      next: (res) => {
+        loader.dismiss();
+        this.presentToast('OTP verified successfully! Please enter your new password.', 'success');
+        this.forgotPasswordOtpVerified = true;
+        this.forgotPasswordForm.get('password')?.setValidators(Validators.required);
+        this.forgotPasswordForm.get('password')?.updateValueAndValidity();
+      },
+      error: (err) => {
+        loader.dismiss();
+        const msg = err.error?.error || 'Invalid or expired OTP. Please try again.';
+        this.presentToast(msg, 'danger');
+      }
+    });
+  }
+
+  resendForgotPasswordOtp() {
+    this.sendForgotPasswordOtp();
+  }
+
   async onForgotPasswordSubmit() {
     if (this.forgotPasswordForm.invalid) return;
     const loader = await this.loadingController.create({ message: 'Resetting password...' });
     await loader.present();
     
-    const { employee_id, password } = this.forgotPasswordForm.value;
-    this.authService.createPassword(employee_id, password, '').subscribe({
-      next: () => {
+    const { employee_id, password, otp } = this.forgotPasswordForm.value;
+    this.authService.createPassword(employee_id, password, '', otp).subscribe({
+      next: (res) => {
         this.forgotPasswordSuccess = true;
         this.showForgotPassword = false;
         this.presentToast('Password reset successful! Logging you in...', 'success');
-        this.authService.login({ username: employee_id, password }).subscribe({
+        // Use the WorkEmail returned from API as the login username (not the raw employee_id)
+        const loginUsername = res?.username || employee_id;
+        this.authService.login({ username: loginUsername, password }).subscribe({
           next: () => {
             loader.dismiss();
             this.navigateBasedOnRole();
           },
           error: () => {
             loader.dismiss();
-            this.presentToast('Password reset, but auto-login failed.', 'warning');
+            this.presentToast('Password reset successfully! Please log in with your new password.', 'success');
             this.showForgotPassword = false;
           }
         });
       },
-      error: () => {
+      error: (err) => {
         loader.dismiss();
-        this.presentToast('Failed to reset password.', 'danger');
+        const msg = err.error?.error || 'Failed to reset password.';
+        this.presentToast(msg, 'danger');
       }
     });
   }
@@ -343,6 +412,8 @@ export class LoginPage implements OnInit {
     this.showForgotPassword = !this.showForgotPassword;
     if (this.showForgotPassword) {
       this.forgotPasswordForm.reset();
+      this.forgotPasswordOtpSent = false;
+      this.forgotPasswordOtpVerified = false;
     }
   }
 

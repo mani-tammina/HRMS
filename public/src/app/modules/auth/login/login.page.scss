@@ -37,6 +37,7 @@ ion-content.login-content {
   width: 100%;
   font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #ffffff;
+  overflow-x: hidden;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -60,6 +61,8 @@ ion-content.login-content {
   min-height: 100vh;
   padding: 40px 32px;
   // NO overlay — image blends naturally with the blue background
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
 }
 
 // Floating decorative card chips
@@ -268,6 +271,8 @@ ion-content.login-content {
   overflow-y: auto;
   position: relative;
   z-index: 1;
+  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  will-change: transform;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -673,5 +678,39 @@ ion-content.login-content {
 
   .right-panel {
     padding: 24px 16px;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SWAP ANIMATION (FORGOT PASSWORD MODE)
+// ─────────────────────────────────────────────────────────────
+.login-page-wrapper.forgot-mode {
+  .left-panel {
+    transform: translateX(calc(100% * 45 / 55));
+  }
+  .right-panel {
+    transform: translateX(calc(-100% * 55 / 45));
+  }
+}
+
+@media (max-width: 900px) {
+  .login-page-wrapper.forgot-mode {
+    .left-panel {
+      transform: translateX(100%);
+    }
+    .right-panel {
+      transform: translateX(-100%);
+    }
+  }
+}
+
+@media (max-width: 680px) {
+  .login-page-wrapper.forgot-mode {
+    .left-panel {
+      transform: none;
+    }
+    .right-panel {
+      transform: none;
+    }
   }
 }

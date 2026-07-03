@@ -1,6 +1,6 @@
 <ion-content class="ion-no-border login-content" [fullscreen]="true">
 
-  <div class="login-page-wrapper">
+  <div class="login-page-wrapper" [class.forgot-mode]="showForgotPassword">
 
     <!-- ── LEFT: Blue Illustration Panel ── -->
     <div class="left-panel">
@@ -164,19 +164,51 @@
 
         <form [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPasswordSubmit()" class="login-form">
 
+          <!-- Employee Email Field -->
           <div class="field-group">
             <label class="field-label" for="reset-email">Employee Email</label>
             <input id="reset-email" type="text" formControlName="employee_id"
-              placeholder="Enter your employee ID or email" class="form-input" />
+              placeholder="Enter your employee ID or email" class="form-input" [readonly]="forgotPasswordOtpSent" />
           </div>
 
-          <div class="field-group">
+          <!-- OTP Verification Field -->
+          <div class="field-group" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified">
+            <div class="label-row" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+              <label class="field-label" for="reset-otp" style="margin-bottom: 0;">OTP Verification</label>
+              <a (click)="resendForgotPasswordOtp()" style="font-size: 11px; color: #1565c0; cursor: pointer; font-weight: 600; text-decoration: none;">Resend OTP</a>
+            </div>
+            <input id="reset-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP"
+              class="form-input" maxlength="6" />
+          </div>
+
+          <!-- OTP Verified Success Badge -->
+          <div *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified" class="otp-success-alert" style="background-color: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 20px; display: flex; align-items: center; font-size: 14px; font-weight: 500;">
+            <ion-icon name="checkmark-circle" style="font-size: 20px; margin-right: 8px; color: #2e7d32;"></ion-icon>
+            OTP Verified Successfully
+          </div>
+
+          <!-- New Password Field -->
+          <div class="field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
             <label class="field-label" for="reset-password">New Password</label>
             <input id="reset-password" type="password" formControlName="password" placeholder="Enter new password"
               class="form-input" />
           </div>
 
-          <button class="btn-primary" type="submit" [disabled]="forgotPasswordForm.invalid">
+          <!-- SEND OTP BUTTON -->
+          <button class="btn-primary" type="button" *ngIf="!forgotPasswordOtpSent" (click)="sendForgotPasswordOtp()"
+            [disabled]="forgotPasswordForm.get('employee_id')?.invalid">
+            Send OTP
+          </button>
+
+          <!-- VERIFY OTP BUTTON -->
+          <button class="btn-primary" type="button" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified"
+            (click)="verifyForgotPasswordOtp()" [disabled]="forgotPasswordForm.get('otp')?.invalid">
+            Verify OTP
+          </button>
+
+          <!-- RESET PASSWORD BUTTON -->
+          <button class="btn-primary" type="submit" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified"
+            [disabled]="forgotPasswordForm.invalid">
             Reset Password
           </button>
 

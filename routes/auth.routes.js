@@ -169,7 +169,7 @@ router.get("/password/setup/validate", async (req, res) => {
 
 // Create password for new employee
 router.post("/password/create", async (req, res) => {
-  const { employee_id, password } = req.body;
+  const { employee_id, password, otp } = req.body;
   if (!employee_id || !password)
     return res.status(400).json({ error: "Employee ID and password required" });
 
@@ -191,20 +191,51 @@ router.post("/password/create", async (req, res) => {
       emp = rows;
     }
     if (!emp || !emp.length) {
+      if (c) await c.end();
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    const hash = await bcrypt.hash(password, 10);
-    const username = emp[0].WorkEmail;
-    const fullName = emp[0].FullName || "Employee";
-    const role = "employee";
+    const email = emp[0].WorkEmail;
 
-    await c.query(
-      "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?) ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), role = VALUES(role), full_name = VALUES(full_name)",
-      [username, hash, role, fullName]
+    // Verify OTP if provided
+    if (otp) {
+      const [otpRow] = await c.query(
+        "SELECT id FROM otp_verifications WHERE email = ? AND otp = ? AND expires_at > ?",
+        [email, otp, new Date()]
+      );
+
+      if (!otpRow.length) {
+        if (c) await c.end();
+        return res.status(400).json({ error: "Invalid or expired OTP" });
+      }
+    }
+
+    const hash = await bcrypt.hash(password, 10);
+    const username = email;
+    const fullName = emp[0].FullName || "Employee";
+
+    // Check if user already exists
+    const [existingUser] = await c.query(
+      "SELECT id, role FROM users WHERE username = ?",
+      [username]
     );
 
-    res.json({ message: "Password set successfully" });
+    if (existingUser.length > 0) {
+      // User exists (password RESET) — only update password_hash, PRESERVE role and full_name
+      await c.query(
+        "UPDATE users SET password_hash = ? WHERE username = ?",
+        [hash, username]
+      );
+    } else {
+      // New user (password CREATION) — insert with default role employee
+      await c.query(
+        "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
+        [username, hash, "employee", fullName]
+      );
+    }
+
+    // Return the actual WorkEmail so the frontend uses the correct login username
+    res.json({ message: "Password set successfully", username: email });
   } catch (err) {
     console.error("password create error", err.message);
     res.status(500).json({ error: err.message });
@@ -213,10 +244,10 @@ router.post("/password/create", async (req, res) => {
   }
 });
 
-// Send OTP to email for password creation
+// Send OTP to email for password creation / reset
 router.post("/password/send-otp", async (req, res) => {
   console.log("hii")
-  const { email } = req.body;
+  const { email, isReset } = req.body;
   if (!email) {
     return res.status(400).json({ error: "Email is required" });
   }
@@ -242,9 +273,16 @@ router.post("/password/send-otp", async (req, res) => {
       [email]
     );
 
-    if (user.length > 0) {
-      if (c) c.end();
-      return res.status(400).json({ error: "User account already exists for this email" });
+    if (isReset) {
+      if (user.length === 0) {
+        if (c) c.end();
+        return res.status(400).json({ error: "No user account exists for this email address" });
+      }
+    } else {
+      if (user.length > 0) {
+        if (c) c.end();
+        return res.status(400).json({ error: "User account already exists for this email" });
+      }
     }
 
     // Generate 6-digit numeric OTP
@@ -262,12 +300,12 @@ router.post("/password/send-otp", async (req, res) => {
       const { sendMail } = require("../utils/mail.service");
       await sendMail({
         to: employee.WorkEmail,
-        subject: "Master HRMS - OTP for Creating Password",
+        subject: isReset ? "Master HRMS - OTP for Resetting Password" : "Master HRMS - OTP for Creating Password",
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px; max-width: 600px;">
             <h2 style="color: #0054e9; margin-top: 0;">Welcome to Master HRMS</h2>
             <p>Hello <strong>${employee.FullName || 'Employee'}</strong>,</p>
-            <p>Please use the following One-Time Password (OTP) to create your password and set up your account:</p>
+            <p>Please use the following One-Time Password (OTP) to ${isReset ? 'reset your password' : 'create your password and set up your account'}:</p>
             <div style="background: #f4f7fe; padding: 15px; text-align: center; border-radius: 4px; margin: 20px 0;">
               <span style="font-size: 24px; font-weight: bold; letter-spacing: 5px; color: #0054e9;">${otp}</span>
             </div>
