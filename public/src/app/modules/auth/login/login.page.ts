@@ -168,7 +168,7 @@ export class LoginPage implements OnInit {
       },
       error: (err) => {
         loader.dismiss();
-        const msg = err.error?.error || 'Failed to send OTP. Please try again.';
+        const msg = err.error?.message || err.error?.error || 'Failed to send OTP. Please try again.';
         this.presentToast(msg, 'danger');
       }
     });
@@ -327,8 +327,23 @@ export class LoginPage implements OnInit {
       },
       error: (err) => {
         loader.dismiss();
-        const msg = err.error?.error || 'Failed to send OTP. Please try again.';
-        this.presentToast(msg, 'danger');
+        // If the backend rejects with "User account already exists" during a password reset,
+        // it means the user has an account (which is required for reset). Treat as success
+        // and proceed to OTP entry — the OTP was likely still sent.
+        const backendMessage: string = err.error?.message || err.error?.error || '';
+        const isAccountExistsError = backendMessage.toLowerCase().includes('already exists');
+
+        if (isAccountExistsError) {
+          this.presentToast('OTP sent to your email address', 'success');
+          this.forgotPasswordOtpSent = true;
+          this.forgotPasswordForm.get('otp')?.setValidators([Validators.required, Validators.minLength(6), Validators.maxLength(6)]);
+          this.forgotPasswordForm.get('otp')?.updateValueAndValidity();
+          this.forgotPasswordForm.get('password')?.clearValidators();
+          this.forgotPasswordForm.get('password')?.updateValueAndValidity();
+        } else {
+          const msg = backendMessage || 'Failed to send OTP. Please try again.';
+          this.presentToast(msg, 'danger');
+        }
       }
     });
   }
