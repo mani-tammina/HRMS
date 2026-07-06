@@ -295,31 +295,43 @@
               </ng-template>
             </ion-modal>
 
-            <div class="log-table-wrapper">
-              <table class="log-table">
-                <thead>
-                  <tr>
-                    <th style="width: 15%">Time Slot</th>
-                    <th style="width: 65%">Task Description</th>
-                    <th style="width: 10%">Hrs</th>
-                    <th style="width: 10%"></th>
-                  </tr>
-                </thead>
-                <tbody formArrayName="hours_breakdown">
-                  <tr *ngFor="let row of breakdowns.controls; let i = index" [formGroupName]="i">
-                    <td><input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input"></td>
-                    <td><textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea"
-                        rows="1"></textarea></td>
-                    <td><input type="number" formControlName="hours" (ionChange)="onHoursChange(i)"
-                        class="glass-input center"></td>
-                    <td class="actions-cell">
-                      <button class="remove-btn" (click)="removeRow(i)" [disabled]="breakdowns.length <= 1">
-                        <ion-icon name="trash-outline"></ion-icon>
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+            <div class="log-cards-container" formArrayName="hours_breakdown">
+              <!-- Desktop Header -->
+              <div class="log-cards-header">
+                <div class="col-time">Time Slot</div>
+                <div class="col-task">Task Description</div>
+                <div class="col-hrs">Hrs</div>
+                <div class="col-action"></div>
+              </div>
+
+              <!-- Log Rows / Cards -->
+              <div class="log-card-row" *ngFor="let row of breakdowns.controls; let i = index" [formGroupName]="i">
+                
+                <div class="card-field col-time">
+                  <label class="mobile-label">Time Slot</label>
+                  <input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input">
+                </div>
+                
+                <div class="card-field col-task">
+                  <label class="mobile-label">Task Description</label>
+                  <textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea"
+                    rows="1"></textarea>
+                </div>
+                
+                <div class="card-field col-hrs">
+                  <label class="mobile-label">Hrs</label>
+                  <input type="number" formControlName="hours" (ionChange)="onHoursChange(i)"
+                    class="glass-input center">
+                </div>
+                
+                <div class="card-field col-action">
+                  <button class="remove-btn" (click)="removeRow(i)" [disabled]="breakdowns.length <= 1">
+                    <ion-icon name="trash-outline"></ion-icon>
+                    <span class="mobile-remove-text">Remove</span>
+                  </button>
+                </div>
+
+              </div>
             </div>
 
             <div class="form-footer">

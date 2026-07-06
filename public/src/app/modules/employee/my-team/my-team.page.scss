@@ -447,28 +447,40 @@
       background: #e6f9ee;
       color: #00983d;
       border: 1px solid #b3eacc;
-      .dot { background: #00983d; }
+
+      .dot {
+        background: #00983d;
+      }
     }
 
     &.absent {
       background: #fdecea;
       color: #bb2c1f;
       border: 1px solid #f5b8b3;
-      .dot { background: #bb2c1f; }
+
+      .dot {
+        background: #bb2c1f;
+      }
     }
 
     &.leave-status {
       background: #e8f3fc;
       color: #1f74bb;
       border: 1px solid #b3d4f0;
-      .dot { background: #1f74bb; }
+
+      .dot {
+        background: #1f74bb;
+      }
     }
 
     &.not-punched-status {
       background: #f0f4f8;
       color: #5a6f85;
       border: 1px solid #cbd5e0;
-      .dot { background: #8099b0; }
+
+      .dot {
+        background: #8099b0;
+      }
     }
   }
 
@@ -613,4 +625,16 @@
   --border-radius: 10px;
   // border: 1px solid #e2e8f0;
   height: 40px;
+}
+
+@media (max-width:767px) {
+  .premium-team-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+    gap: 20px;
+  }
+
+  .reports-header-card .date-selector {
+    display: block;
+  }
 }

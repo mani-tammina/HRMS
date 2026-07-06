@@ -34,7 +34,7 @@ function request(urlStr, options, body = null) {
 
 async function run() {
   // Fetch all departments
-  const deptsUrl = 'http://hrms.tamminahub.com/api/departments';
+  const deptsUrl = 'http://localhost:4201/api/departments';
   let deptsResponse = await request(deptsUrl, {
     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
   });
@@ -52,14 +52,14 @@ async function run() {
     // We will POST to the API. If it exists it will update, if not it will insert.
     // For IT Services Technology, we keep 900 days as per the previous image, others default to 30.
     const days = (dept.name === 'IT Services Technology') ? 900 : 30;
-    
+
     const payload = JSON.stringify({
       department_id: dept.id,
       notice_period_days: days,
       is_active: 1
     });
 
-    const postUrl = 'http://hrms.tamminahub.com/api/separation/notice-periods';
+    const postUrl = 'http://localhost:4201/api/separation/notice-periods';
     const postRes = await request(postUrl, { method: 'POST', headers }, payload);
     console.log(`Response for ${dept.name} (${days} days): ${postRes.statusCode} ${postRes.body}`);
   }

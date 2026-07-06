@@ -1,9 +1,12 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.ionic.starter',
+  appId: 'com.tamminahub.hrms',
   appName: 'HRMS',
-  webDir: 'www'
+  webDir: 'www/browser',
+  android: {
+    allowMixedContent: true
+  }
 };
 
 export default config;

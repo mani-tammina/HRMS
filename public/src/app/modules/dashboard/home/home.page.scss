@@ -133,12 +133,20 @@
         justify-content: center;
         gap: 16px;
         width: 80%;
+
+        @media (max-width: 1024px) {
+          width: 100%;
+        }
       }
 
       .user-profile-group {
         display: flex;
         align-items: center;
         gap: 16px;
+
+        @media (max-width: 680px) {
+          align-items: flex-start;
+        }
       }
 
       // ── Avatar ──
@@ -193,6 +201,10 @@
           font-weight: vars.$fw-regular;
           text-transform: none;
           padding-top: 34px;
+
+          @media (max-width: 680px) {
+            padding-top: 0;
+          }
         }
 
         .premium-name-row {
@@ -242,6 +254,14 @@
         gap: 9px;
         flex-wrap: wrap;
 
+        @media (max-width: 680px) {
+          width: calc(100% + 111px);
+          margin-left: -111px;
+          // flex-direction: column;
+          align-items: center;
+          gap: 12px;
+        }
+
         .glass-action-btn {
           background: #fff;
           border-radius: 78px;
@@ -255,6 +275,11 @@
           height: 36px;
           padding: 0 14px;
           font-size: 14px;
+
+          @media (max-width: 680px) {
+            min-width: 160px;
+            justify-content: center;
+          }
 
           ion-icon {
             font-size: 15px;
@@ -323,6 +348,11 @@
         gap: 4px;
         padding-top: 30px;
 
+        @media (max-width: 680px) {
+          align-items: center;
+          padding-top: 15px;
+        }
+
         .time-label {
           color: #000;
           font-size: 20px;
@@ -353,6 +383,10 @@
       .premium-clock-action {
         width: 100%;
         display: flex;
+
+        @media (max-width: 680px) {
+          justify-content: center;
+        }
       }
     }
   }
@@ -2474,6 +2508,11 @@
     justify-content: space-between;
     align-items: flex-start;
     padding: 20px 20px 0;
+    
+    @media (max-width: 680px) {
+      flex-direction: column;
+      gap: 12px;
+    }
 
     .header-text {
       .overview-title {
@@ -2522,6 +2561,11 @@
     display: flex;
     gap: 16px;
     padding: 16px 20px 20px;
+
+    @media (max-width: 680px) {
+      flex-direction: column;
+      gap: 20px;
+    }
   }
 
   .stats-left-col {

@@ -590,13 +590,15 @@
             &.work-mode-badge {
               font-weight: vars.$fw-bold;
               color: vars.$color-text-secondary;
-              
+
               &.mode-wfh {
                 color: #1f74bb;
               }
+
               &.mode-office {
                 color: #00983d;
               }
+
               &.mode-remote {
                 color: #e28743;
               }
@@ -627,4 +629,16 @@ input:-internal-autofill-selected {
   background-image: none !important;
   background: transparent !important;
   color: fieldtext !important;
+}
+
+@media (max-width:767px) {
+  .search-container {
+    display: none;
+  }
+
+  .premium-team-grid[_ngcontent-ng-c3750017621] {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100%, 1fr));
+    gap: 20px;
+  }
 }
