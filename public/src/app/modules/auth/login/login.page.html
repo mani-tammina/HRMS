@@ -4,25 +4,13 @@
 
     <!-- ── LEFT: Blue Illustration Panel ── -->
     <div class="left-panel">
-      <!-- Floating decorative elements -->
-
-
-
-
-      <!-- Paper airplane top -->
-      <div class="paper-plane plane-top">
-        <ion-icon name="paper-plane-outline"></ion-icon>
-      </div>
-      <!-- Paper airplane bottom -->
-      <div class="paper-plane plane-bottom">
-        <ion-icon name="paper-plane-outline"></ion-icon>
-      </div>
-
-      <!-- illustration is applied as background-image on .left-panel via CSS -->
+      
+      <!-- Illustration Image -->
+      <img src="assets/login.png" class="illustration-img" alt="Manage better, Empower faster" />
 
       <!-- Caption text -->
       <div class="left-caption">
-        <h2 class="caption-title">Manage Smarter.<br /><span class="caption-accent">Empower Better.</span></h2>
+        <h2 class="caption-title">Manage better.<br /><span class="caption-accent">Empower</span> faster.</h2>
         <p class="caption-subtitle">A unified platform to manage your workforce,<br />attendance, payroll, and more —
           all in one place.</p>
       </div>
@@ -47,9 +35,12 @@
           <!-- USERNAME / EMAIL FIELD -->
           <div class="field-group">
             <label class="field-label" for="login-email">Email Address</label>
-            <input id="login-email" type="text" formControlName="email" placeholder="Enter your email address"
-              class="form-input" (focus)="usernameFocused = true" (blur)="usernameFocused = false"
-              (keydown.enter)="!emailChecked ? onNext() : null" />
+            <div class="input-with-icon-left">
+              <ion-icon name="mail-outline" class="left-icon"></ion-icon>
+              <input id="login-email" type="text" formControlName="email" placeholder="Enter your email address"
+                class="form-input has-left-icon" (focus)="usernameFocused = true" (blur)="usernameFocused = false"
+                (keydown.enter)="!emailChecked ? onNext() : null" />
+            </div>
           </div>
 
           <!-- PASSWORD FIELD -->
@@ -140,12 +131,16 @@
 
           <!-- SSO BUTTON -->
           <button type="button" id="btn-sso" class="btn-sso">
-            <ion-icon name="lock-closed-outline" class="sso-lock-icon"></ion-icon>
+            <ion-icon name="logo-google" class="sso-google-icon"></ion-icon>
             Continue with SSO
           </button>
 
         </form>
 
+        <div class="secure-data-notice">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>Your data is secure with us</span>
+        </div>
         <div class="copyright">© 2024 Tech Tammina. All rights reserved.</div>
       </div>
 

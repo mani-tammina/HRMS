@@ -46,11 +46,6 @@ ion-content.login-content {
 
 .left-panel {
   flex: 0 0 55%;
-  // illustration contained in center-upper area, blue shows around it
-  background-image: url('/assets/login.png');
-  background-size: 72%; // ~70-75% of panel width — image sits inside blue
-  background-position: center 38%; // horizontally centered, slightly above mid
-  background-repeat: no-repeat;
   background-color: #1964A2; // solid blue panel (same as reference)
   position: relative;
   display: flex;
@@ -63,6 +58,15 @@ ion-content.login-content {
   // NO overlay — image blends naturally with the blue background
   transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
+}
+
+.illustration-img {
+  width: 72%;
+  max-width: 500px;
+  margin: auto;
+  /* Centers the image vertically and pushes caption to the bottom */
+  object-fit: contain;
+  z-index: 2;
 }
 
 // Floating decorative card chips
@@ -243,7 +247,7 @@ ion-content.login-content {
     letter-spacing: -0.2px;
 
     .caption-accent {
-      color: #bbdefb;
+      color: #3ba4ff; // Brighter blue to match image
     }
   }
 
@@ -438,6 +442,27 @@ ion-content.login-content {
   }
 }
 
+// Input with icon on left
+.input-with-icon-left {
+  position: relative;
+  width: 100%;
+
+  .form-input.has-left-icon {
+    padding-left: 44px;
+  }
+
+  .left-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #9e9e9e;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
 // ── Remember me / Forgot password row ──
 .remember-forgot-row {
   display: flex;
@@ -519,10 +544,10 @@ ion-content.login-content {
 // ── Primary button — pill shape, deep navy blue ──
 .btn-primary {
   width: 100%;
-  height: 46px;
-  background: #1964A2; // deep navy blue — matches reference
+  height: 48px;
+  background: linear-gradient(90deg, #486df0 0%, #584df5 100%); // Vibrant blue-purple gradient
   border: none;
-  border-radius: 50px; // pill shape — matches reference
+  border-radius: 12px; // Slightly rounded rectangle instead of pill to match image
   color: #ffffff;
   font-size: 15px;
   font-weight: 600;
@@ -568,20 +593,28 @@ ion-content.login-content {
   }
 
   span {
-    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid #e0e0e0;
+    border-radius: 50%;
     font-size: 12px;
-    color: #9e9e9e;
-    font-weight: 500;
+    color: #757575;
+    background: #fff;
+    margin: 0 16px;
+    padding: 0;
   }
 }
 
 // ── SSO button — pill shape, white with thin border ──
 .btn-sso {
   width: 100%;
-  height: 46px;
+  height: 48px;
   background: #ffffff;
-  border: 1px solid #d4d4d4; // matches input border style
-  border-radius: 50px; // pill shape — matches reference
+  border: 1px solid #e0e0e0; // Lighter border
+  border-radius: 12px; // Match primary button shape
   color: #424242;
   font-size: 14px;
   font-weight: 500;
@@ -593,13 +626,13 @@ ion-content.login-content {
   font-family: inherit;
   transition: border-color 0.2s ease, background 0.2s ease;
 
-  .sso-lock-icon {
-    font-size: 16px;
-    color: #555555;
+  .sso-google-icon {
+    font-size: 18px;
+    color: #ea4335; // Google Red for the icon
   }
 
   ion-icon {
-    font-size: 16px;
+    font-size: 18px;
     color: #555555;
   }
 
@@ -609,10 +642,31 @@ ion-content.login-content {
   }
 }
 
+// ── Secure Data Notice ──
+.secure-data-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+  background: #f4f6f9;
+  padding: 14px;
+  border-radius: 12px;
+  color: #1a237e; // dark navy
+  font-size: 12px;
+  font-weight: 600;
+  width: 100%;
+
+  ion-icon {
+    font-size: 18px;
+    color: #3f51b5;
+  }
+}
+
 // ── Copyright ──
 .copyright {
-  margin-top: 28px;
-  font-size: 12px;
+  margin-top: 12px;
+  font-size: 11px;
   color: #9e9e9e;
   text-align: center;
   letter-spacing: 0.01em;
@@ -642,42 +696,262 @@ ion-content.login-content {
   }
 }
 
-@media (max-width: 680px) {
+@media screen and (max-width: 680px) {
+
   .login-page-wrapper {
     flex-direction: column;
+    background: #ffffff;
+    min-height: 100vh;
+  }
+
+  /* -----------------------------
+     BLUE SECTION (Image & Text)
+     ------------------------------*/
+  @keyframes gradientFlow {
+    0% {
+      background-position: 0% 50%;
+    }
+
+    50% {
+      background-position: 100% 50%;
+    }
+
+    100% {
+      background-position: 0% 50%;
+    }
   }
 
   .left-panel {
-    flex: 0 0 auto;
-    padding: 32px 20px;
-    min-height: 280px;
+    flex: none;
+    width: 100%;
+    height: auto;
+    min-height: 400px;
+    background: linear-gradient(-45deg, #535af6, #298af4, #00d2ff, #3a7bd5);
+    background-size: 400% 400%;
+    animation: gradientFlow 10s ease infinite;
+    border-radius: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    /* Start from top */
+    align-items: center;
+    padding: 10px 20px 80px;
+    /* Space at bottom for overlap */
+    position: relative;
+    z-index: 1;
   }
 
-  .right-panel {
-    flex: 1;
-    padding: 32px 20px;
+  .illustration-img {
+    width: 50%;
+    max-width: 350px;
+    height: auto;
+    object-fit: contain;
+    // margin: 0 auto 30px auto; /* 30px space below image */
+    display: block;
+    z-index: 2;
+    margin-bottom: 0;
+    margin-top: 0;
+    // animation: floatCard 4s ease-in-out infinite alternate;
   }
 
-  .deco-card {
+  /* Hide HTML decorative elements since they are baked into the image */
+  .deco-card,
+  .paper-plane.plane-bottom,
+  .paper-plane.plane-top {
     display: none;
   }
 
-  .illustration-wrapper .illustration-img {
-    max-height: 180px;
-  }
-}
-
-@media (max-width: 400px) {
-  .left-panel {
-    min-height: 220px;
-  }
-
-  .form-heading {
-    font-size: 22px;
+  /* -----------------------
+     Caption
+     -----------------------*/
+  .left-caption {
+    margin: 0;
+    text-align: center;
+    position: relative;
+    z-index: 2;
+    width: 100%;
   }
 
+  .left-caption .caption-title {
+    font-size: 28px;
+    line-height: 1.25;
+    font-weight: 700;
+    color: #ffffff;
+    margin-bottom: 12px;
+    letter-spacing: -0.2px;
+  }
+
+  .left-caption .caption-title .caption-accent {
+    color: #ffffff;
+  }
+
+  .left-caption .caption-subtitle {
+    font-size: 14px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.9);
+    margin: auto;
+    display: none;
+  }
+
+  /* --------------------------------
+     WHITE CARD
+     -------------------------------- */
   .right-panel {
-    padding: 24px 16px;
+    flex: 1;
+    width: 90%;
+    margin-top: -120px;
+    background: #ffffff;
+    border-radius: 40px 40px 40px 40px;
+    padding: 14px 24px 0px;
+    position: relative;
+    z-index: 20;
+    box-shadow: none;
+    min-height: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    /* margin-left: 50px; */
+    /* margin-right: -50px; */
+    margin-left: auto;
+    margin-right: auto;
+    max-height: calc(100vh - 310px);
+    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+  }
+
+  .form-card {
+    width: 100%;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+
+  /* Logo */
+  .brand-header {
+    margin-top: 0;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .brand-logo-img {
+    width: 150px;
+    /* Correct proportion for mobile */
+    height: auto;
+    display: block;
+  }
+
+  /* Welcome */
+  .form-heading {
+    font-size: 26px;
+    color: #0b1134;
+    font-weight: 800;
+    margin-bottom: 8px;
+    text-align: center;
+  }
+
+  .form-subheading {
+    font-size: 14px;
+    color: #6b7280;
+    margin-bottom: 30px;
+    text-align: center;
+  }
+
+  /* Inputs */
+  .field-group {
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  .field-label {
+    font-size: 13px !important;
+    margin-bottom: 8px !important;
+    color: #374151;
+    font-weight: 500;
+    display: block;
+  }
+
+  .form-input {
+    height: 48px;
+    border-radius: 8px;
+    font-size: 14px;
+    padding-left: 42px;
+    border: 1px solid #d1d5db;
+    color: #111827;
+    width: 100%;
+  }
+
+  .input-with-icon-left .form-input.has-left-icon {
+    padding-left: 42px;
+  }
+
+  .input-with-icon-left .left-icon {
+    left: 14px !important;
+    font-size: 20px !important;
+    color: #9ca3af;
+  }
+
+  /* Button */
+  .btn-primary {
+    height: 48px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    margin-top: 8px;
+    box-shadow: none;
+    background: linear-gradient(90deg, #4f5af5 0%, #466BF5 100%);
+    width: 100%;
+  }
+
+  /* Divider */
+  .or-divider {
+    margin: 24px 0;
+    width: 100%;
+
+    span {
+      font-size: 12px;
+      width: 32px;
+      height: 32px;
+      color: #9ca3af;
+      border: 1px solid #e5e7eb;
+      background: #ffffff;
+    }
+  }
+
+  /* SSO */
+  .btn-sso {
+    height: 48px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: none;
+    border: 1px solid #d1d5db;
+    color: #374151;
+    width: 100%;
+    background: #ffffff;
+  }
+
+  /* Security */
+  .secure-data-notice {
+    margin-top: 28px;
+    height: 44px;
+    border-radius: 8px;
+    background: #f3f4f6;
+    font-size: 12px;
+    font-weight: 500;
+    color: #1e3a8a;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .copyright {
+    margin-top: 24px;
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+    width: 100%;
   }
 }
 
