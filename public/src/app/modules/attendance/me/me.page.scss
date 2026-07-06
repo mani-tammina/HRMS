@@ -1160,3 +1160,254 @@ ion-modal {
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// MOBILE RESPONSIVE ADAPTATIONS
+// ─────────────────────────────────────────────────────────────
+
+@media screen and (max-width: 768px) {
+  .dashboard {
+    padding: 16px 12px;
+    gap: 16px;
+    
+    .attendance-block {
+      margin-bottom: 16px;
+      
+      ion-row {
+        margin: -6px;
+      }
+      
+      ion-card {
+        margin: 6px;
+        height: auto !important;
+        min-height: auto !important;
+        max-height: none !important;
+      }
+    }
+  }
+
+  // Attendance Status Card
+  .attendance-status {
+    ion-card-content {
+      padding: 16px !important;
+    }
+
+    .today-status {
+      margin-bottom: 16px;
+    }
+
+    .monthly-stats {
+      padding: 12px 10px;
+      
+      .stat-label {
+        font-size: 9px;
+        letter-spacing: 0.5px;
+      }
+      
+      .stat-value {
+        font-size: 18px;
+      }
+    }
+
+    .today-summary {
+      padding: 16px 0 0;
+      margin-top: 16px;
+      
+      .label-box {
+        .l-l {
+          font-size: 9px;
+        }
+        .l-v {
+          font-size: 13px;
+        }
+      }
+    }
+  }
+
+  // Timings Card
+  .timings-card-new {
+    height: auto !important;
+    padding: 16px !important;
+    
+    .timings-header-row {
+      margin-bottom: 16px;
+      
+      .timings-title {
+        font-size: 16px;
+      }
+      
+      .date-badge {
+        font-size: 11px;
+        padding: 4px 10px;
+      }
+    }
+
+    .timings-body {
+      gap: 16px;
+    }
+
+    .days-row-capsules {
+      gap: 4px;
+      margin: 4px 0;
+      
+      .day-capsule {
+        height: 10px;
+      }
+      
+      .day-label {
+        font-size: 10px;
+      }
+    }
+
+    .today-progress-section {
+      .today-progress-label {
+        font-size: 13px;
+        margin-bottom: 8px;
+      }
+
+      .progress-bar-container-new {
+        height: 10px;
+        margin-bottom: 8px;
+      }
+    }
+  }
+
+  // Today Actions Card
+  .today-actions-card {
+    height: auto !important;
+    padding: 16px !important;
+    
+    ion-card-header {
+      padding: 0 0 12px 0 !important;
+      
+      ion-card-title {
+        font-size: 16px !important;
+      }
+    }
+  }
+
+  // Logs & Requests
+  .attendance-log-card {
+    padding: 16px;
+    gap: 16px;
+    
+    h2 {
+      font-size: 14px;
+      margin-bottom: 12px;
+    }
+  }
+}
+
+@media screen and (max-width: 600px) {
+  // Today Actions Card Grid Stacking
+  .today-actions-card {
+    .today-card-grid {
+      grid-template-columns: 1fr; // Stack vertically on mobile
+      gap: 20px;
+    }
+
+    .today-left-col {
+      gap: 12px;
+      align-items: center;
+      text-align: center;
+    }
+
+    .status-msg-box {
+      padding-top: 10px;
+      
+      .status-main {
+        font-size: 14px;
+      }
+      .status-sub {
+        font-size: 12px;
+      }
+    }
+
+    .time-left-box {
+      border-left: none;
+      border-bottom: 2px solid #ef4444;
+      padding-left: 0;
+      padding-bottom: 4px;
+      justify-content: center;
+      margin: 4px 0;
+    }
+
+    .main-clock-btn-wrapper {
+      margin-top: 10px;
+      margin-bottom: 8px;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .pills-row {
+      width: 100%;
+      justify-content: center;
+      gap: 6px;
+
+      .pill-btn {
+        flex: 1 1 auto;
+        min-width: 80px;
+        font-size: 11px;
+        padding: 0 8px;
+      }
+    }
+
+    .today-right-col {
+      width: 100%;
+      justify-content: center;
+      border-top: 1px solid #f0f2f5;
+      padding-top: 16px;
+    }
+
+    .gauge-wrapper {
+      width: 150px;
+      height: 150px;
+      margin: 0 auto;
+      
+      .gauge-svg {
+        width: 150px;
+        height: 150px;
+      }
+
+      .gauge-text-box {
+        .gauge-timer {
+          font-size: 15px;
+        }
+        .gauge-label {
+          font-size: 9px;
+        }
+      }
+    }
+
+    .prev-day-box {
+      font-size: 11px;
+    }
+  }
+
+  // Logs & Requests Custom Tab Scrolling
+  .custom-tabs {
+    width: 100% !important;
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; // Firefox
+    border-radius: 12px;
+    
+    &::-webkit-scrollbar {
+      display: none; // Chrome/Safari/Edge
+    }
+    
+    button {
+      flex: 0 0 auto !important;
+      padding: 10px 16px !important;
+      font-size: 11px;
+      
+      &.active {
+        border-radius: 10px !important; // Clean active indicator
+        padding: 10px 16px !important;
+      }
+    }
+  }
+}

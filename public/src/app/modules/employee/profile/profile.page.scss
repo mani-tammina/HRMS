@@ -49,6 +49,10 @@
         box-shadow: vars.$shadow-md;
         object-fit: cover;
         background: vars.$color-bg-subtle;
+
+        @media (max-width: 767px) {
+          margin-top: 11px;
+        }
       }
     }
 
@@ -286,6 +290,169 @@
         .action-buttons {
           justify-content: flex-start;
           margin-top: 32px;
+        }
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// MOBILE RESPONSIVE ADAPTATIONS
+// ─────────────────────────────────────────────────────────────
+
+@media (max-width: 768px) {
+  .profile-page-content {
+    .profile-top-section {
+      margin: 40px 12px 12px 12px !important;
+      overflow: visible !important;
+
+      .content-block {
+        padding: 16px 16px 20px !important;
+      }
+    }
+
+    .tab-content-container {
+      margin: 0 12px 20px !important;
+    }
+  }
+
+  // Deep overrides for nested tab components
+  ::ng-deep {
+
+    // About Tab & Job Tab
+    app-about-tab,
+    app-job-tab {
+      .detail-row {
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin-bottom: 12px !important;
+      }
+
+      .details-card {
+        width: 100% !important;
+        flex: unset !important;
+        min-width: unset !important;
+        padding: 16px 12px !important;
+
+        .card-header {
+          font-size: 14px !important;
+          margin-bottom: 12px !important;
+        }
+      }
+    }
+
+    // About Tab Primary Details 2-column override
+    app-about-tab {
+      ion-grid {
+        ion-row {
+          flex-wrap: wrap !important;
+        }
+
+        ion-col.info-group {
+          padding-left: 0 !important;
+          padding-right: 8px !important;
+          margin-bottom: 12px !important;
+          max-width: 50% !important;
+          width: 50% !important;
+          flex: 0 0 50% !important;
+        }
+      }
+    }
+
+    // Profile Tab forms stacking
+    app-profile-tab {
+      .content-detail-block {
+        flex-direction: column !important;
+        gap: 12px !important;
+        margin-bottom: 12px !important;
+
+        .ion-card {
+          width: 100% !important;
+          padding: 16px 12px !important;
+
+          .header-text {
+            font-size: 14px !important;
+            margin-bottom: 12px !important;
+          }
+
+          ion-col[size="6"] {
+            max-width: 100% !important;
+            width: 100% !important;
+            flex: 0 0 100% !important;
+            padding: 0 !important;
+          }
+
+          .primary-btn {
+            width: 100% !important;
+            margin-top: 16px !important;
+            float: none !important;
+            height: 40px !important;
+          }
+        }
+      }
+
+      .address-section {
+        margin-top: 0 !important;
+      }
+    }
+  }
+}
+
+@media (max-width: 600px) {
+
+  // Segment Tabs Scrolling support
+  .profile-segment {
+    display: flex !important;
+    overflow-x: auto !important;
+    white-space: nowrap !important;
+    width: 100% !important;
+    max-width: none !important;
+    border-radius: 12px !important;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+
+    ion-segment-button {
+      flex: 0 0 auto !important;
+      min-width: 90px !important;
+      padding: 0 12px !important;
+      font-size: 11px !important;
+      min-height: 36px !important;
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .profile-page-content .profile-top-section {
+    .content-block {
+      .action-buttons {
+        flex-direction: column !important;
+        width: 100% !important;
+        gap: 8px !important;
+        margin-top: 16px !important;
+
+        .upload-btn {
+          width: 100% !important;
+          margin: 0 !important;
+          height: 38px !important;
+        }
+      }
+
+      .basic-info {
+        gap: 12px !important;
+        margin-top: 16px !important;
+        padding-top: 16px !important;
+
+        .info-row {
+          width: 100% !important;
+          justify-content: center !important;
+          font-size: 12px !important;
+
+          ion-icon {
+            font-size: 16px !important;
+          }
         }
       }
     }

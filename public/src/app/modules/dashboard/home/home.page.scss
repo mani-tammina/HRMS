@@ -3463,3 +3463,512 @@
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// MOBILE RESPONSIVE ADAPTATIONS
+// ─────────────────────────────────────────────────────────────
+
+@media screen and (max-width: 768px) {
+  // General layout adjustments
+  .main-block {
+    margin: 8px !important;
+  }
+
+  // Welcome Card
+  .main-block .welcome-block .welcome-card-premium {
+    min-height: auto;
+    
+    .welcome-main-layout {
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      padding: 20px 16px;
+      gap: 20px;
+    }
+
+    .welcome-left-panel {
+      width: 100%;
+      align-items: center;
+    }
+
+    .user-profile-group {
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .premium-avatar-wrapper {
+      width: 72px;
+      height: 72px;
+    }
+
+    .premium-user-details {
+      align-items: center;
+      text-align: center;
+      width: 100%;
+
+      .premium-greeting {
+        font-size: 13px;
+        padding-top: 0;
+      }
+
+      .premium-name-row {
+        justify-content: center;
+        gap: 6px;
+        
+        .premium-name {
+          font-size: 18px;
+          text-align: center;
+        }
+      }
+
+      .premium-meta-info {
+        font-size: 13px;
+        margin-top: 4px;
+      }
+    }
+
+    .premium-action-row {
+      margin-top: 16px;
+      width: 100% !important;
+      margin-left: 0 !important;
+      justify-content: center;
+      gap: 8px;
+
+      .glass-action-btn {
+        flex: 1 1 auto;
+        min-width: 120px;
+        max-width: 160px;
+        justify-content: center;
+        height: 34px;
+        padding: 0 8px;
+        
+        span {
+          font-size: 11px;
+        }
+        
+        img {
+          width: 14px;
+          height: 14px;
+        }
+      }
+    }
+
+    .welcome-right-panel {
+      width: 100%;
+      align-items: center;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding-top: 16px;
+      margin-top: 4px;
+      gap: 12px;
+    }
+
+    .time-container {
+      padding-top: 0;
+      align-items: center;
+
+      .time-label {
+        font-size: 14px;
+        
+        &::before {
+          font-size: 14px;
+        }
+      }
+
+      .premium-clock-display {
+        font-size: 28px;
+      }
+    }
+
+    .premium-clock-action {
+      justify-content: center;
+    }
+  }
+
+  // Today's Overview
+  .modern-overview-card {
+    padding: 14px !important;
+
+    .card-header-row {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 10px 10px 0;
+
+      .header-text .overview-subtitle {
+        font-size: 12px;
+      }
+
+      .header-badge .badge-pill {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+    }
+
+    .divider-line {
+      margin: 12px 10px 0;
+    }
+
+    .card-body-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 12px 10px 10px;
+    }
+
+    .stats-left-col {
+      gap: 12px;
+    }
+
+    .stats-right-col {
+      flex-direction: row;
+      width: 100%;
+      min-width: unset;
+      gap: 10px;
+
+      .info-mini-card {
+        flex: 1;
+        padding: 10px 12px;
+        
+        .mini-card-content {
+          .mini-card-label {
+            font-size: 10px;
+          }
+          .mini-card-value {
+            font-size: 13px;
+          }
+        }
+        
+        .mini-card-icon {
+          width: 30px;
+          height: 30px;
+          svg {
+            width: 24px;
+            height: 24px;
+          }
+        }
+      }
+    }
+
+    .stat-item-row {
+      font-size: 12px;
+      
+      .stat-label {
+        font-size: 13px;
+      }
+      
+      .stat-value {
+        font-size: 13px;
+        &.bold-text {
+          font-size: 13px;
+        }
+      }
+
+      .status-badge-pill {
+        padding: 4px 12px;
+        font-size: 11px;
+      }
+    }
+  }
+}
+
+@media screen and (max-width: 576px) {
+  // Quick Links Card
+  .quick-links-card {
+    .quick-links-grid {
+      grid-template-columns: 1fr; // Single column list view on mobile
+      padding: 12px 10px 10px;
+      gap: 8px;
+
+      .quick-link-tile {
+        padding: 10px 12px;
+        gap: 12px;
+
+        .ql-icon-wrap {
+          width: 32px;
+          height: 32px;
+          
+          svg {
+            width: 16px;
+            height: 16px;
+          }
+        }
+
+        .ql-text {
+          .ql-title {
+            font-size: 13px;
+          }
+          .ql-desc {
+            font-size: 11px;
+            white-space: normal; // Let description wrap on mobile
+            text-overflow: unset;
+            overflow: visible;
+          }
+        }
+      }
+    }
+  }
+
+  // Leave Balance Card
+  .leave-balance-card-flat {
+    .leave-balance-body {
+      padding: 12px 10px 10px;
+    }
+
+    .leave-columns-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr; // Nice 2x2 grid
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .leave-column {
+      display: flex;
+      flex-direction: row;
+      align-items: center;
+      text-align: left;
+      gap: 10px;
+      background: #f8fafc;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #eef1f5;
+      min-width: unset;
+
+      .leave-icon-circle {
+        width: 40px;
+        height: 40px;
+        font-size: 18px;
+        margin-bottom: 0;
+        flex-shrink: 0;
+        
+        ion-icon {
+          font-size: 20px;
+        }
+
+        .uploaded-icon-small {
+          width: 22px;
+          height: 22px;
+        }
+      }
+
+      .leave-type-title {
+        font-size: 11px;
+        margin: 0;
+        font-weight: 700;
+        color: #1a2b3c;
+      }
+
+      .leave-days-left {
+        font-size: 11px;
+        margin-top: 2px;
+        
+        .days-bold {
+          font-size: 12px;
+        }
+      }
+    }
+
+    .leave-footer-note {
+      margin-top: 10px;
+      padding-top: 8px;
+      font-size: 11px;
+    }
+  }
+
+  // Announcements Card
+  .announcements-card-flat {
+    .announcements-list-body {
+      padding: 12px 10px 10px;
+    }
+
+    .announcements-carousel-wrapper {
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .announcement-item-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 12px;
+      padding: 12px;
+
+      .announcement-thumbnail {
+        width: 100%;
+        height: 120px;
+        border-radius: 10px;
+        
+        img {
+          object-fit: cover;
+        }
+      }
+
+      .announcement-main-content {
+        gap: 6px;
+        
+        .announcement-title {
+          font-size: 14px;
+          white-space: normal;
+          overflow: visible;
+          text-overflow: unset;
+        }
+
+        .announcement-description {
+          font-size: 12px;
+          -webkit-line-clamp: 3;
+          line-clamp: 3;
+        }
+
+        .announcement-footer-row {
+          font-size: 11px;
+          margin-top: 4px;
+        }
+      }
+
+      .announcement-reactions {
+        flex-direction: row;
+        justify-content: flex-start;
+        align-self: flex-start;
+        width: 100%;
+        border-top: 1px solid #f0f2f5;
+        padding-top: 8px;
+        margin-top: 4px;
+        gap: 10px;
+      }
+    }
+    
+    .view-all-link-container {
+      margin-top: 8px;
+      
+      .view-all-link {
+        font-size: 13px;
+      }
+    }
+  }
+
+  // Celebrations/Milestones Card
+  .milestone-card {
+    .milestone-card-body {
+      padding: 8px 10px;
+      gap: 16px;
+    }
+
+    .celebration-segment {
+      margin-bottom: 4px;
+
+      ion-segment-button {
+        font-size: 13px;
+        min-height: 32px;
+      }
+    }
+
+    .milestone-section-title {
+      font-size: 14px;
+      margin-bottom: 10px;
+    }
+
+    .today-list {
+      gap: 12px;
+    }
+
+    .milestone-item-flat {
+      border-radius: 12px;
+
+      .item-main {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 14px 14px 14px 20px;
+        min-height: auto;
+        gap: 10px;
+      }
+
+      .blue-tab-prefix {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 5px;
+        height: 100%;
+        border-radius: 12px 0 0 12px;
+        
+        &::after {
+          display: none;
+        }
+      }
+
+      .avatar-container {
+        position: static;
+        transform: none;
+        width: 44px;
+        height: 44px;
+        margin: 0;
+      }
+
+      .milestone-info {
+        width: 100%;
+        
+        .emp-name {
+          font-size: 14px;
+        }
+        
+        .event-meta {
+          font-size: 12px;
+          margin-top: 2px;
+        }
+      }
+
+      .milestone-action {
+        width: 100%;
+        
+        .action-btn-pill {
+          width: 100%;
+          text-align: center;
+          padding: 8px 16px;
+          font-size: 12px;
+        }
+      }
+
+      .celebration-footer {
+        padding: 0;
+        margin-top: 2px;
+      }
+
+      .milestone-wish-input-reveal {
+        margin: 0 14px 14px 20px;
+        padding-top: 10px;
+        
+        .reveal-btns {
+          width: 100%;
+          justify-content: flex-end;
+        }
+      }
+    }
+  }
+
+  // Upcoming Holidays Card
+  .holidays-card {
+    .holiday-banner {
+      margin: 12px 10px 10px;
+      min-height: 90px;
+      
+      .holiday-banner-content {
+        padding: 16px;
+        width: 100%;
+        
+        .holiday-date-block {
+          .holiday-day {
+            font-size: 32px;
+          }
+          
+          .holiday-month-year {
+            font-size: 12px;
+          }
+          
+          .holiday-name {
+            font-size: 14px;
+            margin-top: 2px;
+          }
+        }
+      }
+    }
+  }
+}

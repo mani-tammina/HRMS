@@ -545,3 +545,277 @@ ion-modal.side-custom-popup {
     border-color: vars.$color-primary;
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// MOBILE RESPONSIVE ADAPTATIONS
+// ─────────────────────────────────────────────────────────────
+
+@media screen and (max-width: 768px) {
+  // Filter Header
+  .row-space-between {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 12px;
+    gap: 12px;
+    
+    .filters {
+      width: 100%;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .filter-block {
+      overflow-x: auto;
+      white-space: nowrap;
+      flex: 1;
+      scrollbar-width: none; // Firefox
+      
+      &::-webkit-scrollbar {
+        display: none; // Chrome/Safari
+      }
+      
+      .btn-secondry {
+        padding: 6px 10px;
+        font-size: 10px;
+        height: 36px;
+        flex: 0 0 auto;
+        
+        &.active {
+          height: 36px;
+          border-radius: 18px 0px 0px 18px;
+        }
+      }
+    }
+
+    .outline-btns {
+      flex-shrink: 0;
+      
+      .btn-secondry {
+        padding: 6px;
+        height: 36px;
+        width: 36px;
+      }
+    }
+  }
+
+  // Grid to Card Transformation
+  .attendance-table {
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    margin-top: 8px;
+
+    .table-header {
+      display: none !important; // Hide header on mobile
+    }
+
+    .table-row {
+      display: grid !important;
+      grid-template-columns: 1fr 1fr !important;
+      gap: 12px !important;
+      margin-bottom: 16px !important;
+      padding: 16px !important;
+      border: 1px solid vars.$color-border-light !important;
+      border-radius: 12px !important;
+      box-shadow: vars.$shadow-sm !important;
+      background: #fff !important;
+      border-left-width: 5px !important; // Maintain status color indicator
+      
+      ion-col {
+        padding: 0 !important;
+        display: flex !important;
+        align-items: center !important;
+        min-height: unset !important;
+        max-width: none !important;
+        width: 100% !important;
+        flex: unset !important;
+      }
+
+      // Date Column
+      ion-col:nth-of-type(1) {
+        grid-column: 1 / -1 !important;
+        border-bottom: 1px solid #f1f5f9 !important;
+        padding-bottom: 8px !important;
+        font-size: 13px !important;
+        font-weight: 700 !important;
+        color: #1e293b !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        
+        .badge-leave, .badge-woff, .badge-penalty {
+          margin-left: auto;
+          font-size: 9px;
+          padding: 3px 8px;
+        }
+      }
+
+      // Attendance Visual Progress Bar
+      ion-col:nth-of-type(2) {
+        grid-column: 1 / -1 !important;
+        padding: 4px 0 !important;
+      }
+
+      // Effective Hours
+      ion-col:nth-of-type(3) {
+        grid-column: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        
+        &::before {
+          content: 'Effective';
+          font-size: 9px;
+          color: #94a3b8;
+          text-transform: uppercase;
+          font-weight: 700;
+        }
+        
+        div {
+          font-size: 12px !important;
+          
+          ion-icon {
+            font-size: 10px !important;
+          }
+        }
+      }
+
+      // Gross Hours
+      ion-col:nth-of-type(4) {
+        grid-column: 2 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        
+        &::before {
+          content: 'Gross';
+          font-size: 9px;
+          color: #94a3b8;
+          text-transform: uppercase;
+          font-weight: 700;
+        }
+        
+        div {
+          font-size: 12px !important;
+          
+          ion-icon {
+            font-size: 10px !important;
+          }
+        }
+      }
+
+      // Arrival Column
+      ion-col:nth-of-type(5) {
+        grid-column: 1 !important;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        
+        &::before {
+          content: 'Arrival';
+          font-size: 9px;
+          color: #94a3b8;
+          text-transform: uppercase;
+          font-weight: 700;
+        }
+        
+        div {
+          font-size: 12px !important;
+          
+          ion-icon {
+            font-size: 14px !important;
+          }
+        }
+      }
+
+      // Log details button
+      ion-col:nth-of-type(6) {
+        grid-column: 2 !important;
+        display: flex !important;
+        justify-content: flex-end !important;
+        align-items: flex-end !important;
+        
+        .log-btn {
+          width: 100% !important;
+          max-width: 120px !important;
+          height: 32px !important;
+          
+          &::after {
+            content: 'View Logs';
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 6px;
+          }
+          
+          img {
+            width: 14px;
+            height: 14px;
+          }
+        }
+      }
+
+      // Weekend or Leave info row
+      ion-col.no-log {
+        grid-column: 1 / -1 !important;
+        padding: 8px 0 !important;
+        display: flex !important;
+        justify-content: center !important;
+        
+        p {
+          font-size: 11px !important;
+        }
+      }
+    }
+  }
+}
+
+@media screen and (max-width: 576px) {
+  // Slide Activity log modal
+  ion-modal.side-custom-popup {
+    --width: 100% !important; // Fill screen on mobile
+    
+    .modal-content-wrapper {
+      padding: 16px;
+    }
+
+    .daily-summary-card {
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .timeline-container {
+      padding-left: 0;
+      
+      &::before {
+        left: 10px;
+      }
+    }
+
+    .timeline-item {
+      padding: 0 0 24px 28px;
+      
+      .timeline-dot {
+        left: 6px;
+      }
+
+      .timeline-content {
+        .punch-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 6px;
+          margin-bottom: 8px;
+          
+          .mode-badge {
+            align-self: flex-start;
+          }
+        }
+
+        .record-card {
+          padding: 12px;
+        }
+      }
+    }
+  }
+}

@@ -289,6 +289,14 @@ ion-split-pane.is-authenticated {
     }
   }
 
+  .logout-item {
+    ion-label {
+      font-size: 13px !important;
+      text-transform: none !important;
+      letter-spacing: normal !important;
+    }
+  }
+
   .submenu-wrapper .parent-item .submenu-toggle-icon {
     right: 20px;
   }

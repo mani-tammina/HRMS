@@ -1,8 +1,7 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
-    <ion-buttons slot="start">
-      <ion-menu-button *ngIf="!isHRView"></ion-menu-button>
-      <ion-button *ngIf="isHRView" (click)="goBack()">
+    <ion-buttons slot="start" *ngIf="isHRView">
+      <ion-button (click)="goBack()">
         <ion-icon slot="icon-only" name="arrow-back-outline"></ion-icon>
       </ion-button>
     </ion-buttons>
