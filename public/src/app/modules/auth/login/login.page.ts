@@ -128,9 +128,10 @@ export class LoginPage implements OnInit {
         this.loginForm.get('password')?.setValidators(Validators.required);
         this.loginForm.get('password')?.updateValueAndValidity();
       },
-      error: () => {
+      error: (err) => {
         loader.dismiss();
-        this.presentToast('Failed to verify employee', 'danger');
+        const msg = err.error?.message || err.message || `Failed to verify employee (${err.status || 'no connection'})`;
+        this.presentToast(msg, 'danger');
       }
     });
   }
@@ -175,9 +176,10 @@ export class LoginPage implements OnInit {
           loader.dismiss();
           this.navigateBasedOnRole();
         },
-        error: () => {
+        error: (err) => {
           loader.dismiss();
-          this.presentToast('Invalid admin credentials', 'danger');
+          const msg = err.error?.message || err.message || `Login failed (${err.status || 'no connection'})`;
+          this.presentToast(msg, 'danger');
         }
       });
       return;
