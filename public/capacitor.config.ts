@@ -4,8 +4,8 @@ const config: CapacitorConfig = {
   appId: 'com.tamminahub.hrms',
   appName: 'HRMS',
   webDir: 'www/browser',
-  server: {
-    androidScheme: 'http'
+  android: {
+    allowMixedContent: true
   }
 };
 
