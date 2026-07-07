@@ -1461,4 +1461,86 @@
   .breakup-summary {
     flex-direction: column;
   }
+
+  /* Responsive Payslip Card Layout */
+  .payslip-card {
+    padding: 24px 16px;
+    border-radius: 12px;
+  }
+
+  .payslip-card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+
+    .header-right {
+      .download-pdf-btn {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+  }
+
+  .company-details-section {
+    flex-direction: column-reverse;
+    align-items: center;
+    gap: 16px;
+    text-align: center;
+
+    .company-logo-right {
+      margin-bottom: 8px;
+    }
+  }
+
+  .employee-details-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 16px;
+  }
+
+  .attendance-summary-bar {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .salary-tables-container {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .net-salary-card {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 20px 16px;
+    gap: 16px;
+    text-align: center;
+
+    .net-salary-left {
+      align-items: center;
+    }
+
+    .net-salary-right {
+      justify-content: center;
+    }
+  }
+
+  .payslip-system-footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 20px;
+    text-align: center;
+
+    .footer-right {
+      align-items: center;
+    }
+  }
+
+  .not-generated-card {
+    padding: 40px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .employee-details-grid {
+    grid-template-columns: 1fr !important;
+  }
 }
