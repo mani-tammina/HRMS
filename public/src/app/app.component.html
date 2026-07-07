@@ -1,4 +1,21 @@
 <ion-app>
+  <!-- Animated Intro/Splash Screen -->
+  <div class="app-intro-screen" *ngIf="showIntro" [class.fade-out]="fadeOutIntro">
+    <div class="sky-background">
+      <div class="cloud cloud-1"></div>
+      <div class="cloud cloud-2"></div>
+      <div class="cloud cloud-3"></div>
+      <div class="cloud cloud-4"></div>
+    </div>
+    
+    <div class="logo-box animate__animated animate__zoomIn">
+      <img src="assets/tt_blue_logo.png" alt="Tech Tammina Logo" class="intro-logo" />
+      <div class="loading-bar">
+        <div class="loading-progress"></div>
+      </div>
+    </div>
+  </div>
+
   <app-header *ngIf="!isLoginPage"></app-header>
 
   <ion-split-pane contentId="main-content" [disabled]="isLoginPage" [class.is-authenticated]="!isLoginPage">

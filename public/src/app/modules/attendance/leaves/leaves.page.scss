@@ -15,6 +15,16 @@
     padding-bottom: 80px;
   }
 
+  .pending-section,
+  .history-column,
+  .balances-section,
+  .balances-grid {
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
   /* ======= PAGE HEADER ======= */
   .page-header {
     display: flex;
@@ -77,6 +87,7 @@
   .glass-dashboard {
     .dashboard-grid {
       display: grid;
+      grid-template-columns: 2.5fr 1fr;
       gap: 24px;
 
       @media (max-width: 1200px) {
@@ -300,6 +311,12 @@
   }
 
   .history-table {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    box-sizing: border-box;
+
     table {
       width: 100%;
       border-collapse: separate;
@@ -599,8 +616,107 @@
       color: vars.$color-text-primary;
     }
   }
+
+  @media (max-width: 768px) {
+    .leaves-block {
+      --overflow-x: hidden;
+    }
+
+    .content-wrapper {
+      padding: 96px 16px 40px !important;
+      max-width: 100%;
+      overflow-x: hidden;
+      box-sizing: border-box;
+    }
+
+    .pending-section {
+      .history-table table {
+        min-width: 650px;
+      }
+    }
+
+    .history-column {
+      .history-table table {
+        min-width: 380px;
+      }
+    }
+
+    .page-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 24px;
+
+      .header-actions {
+        width: 100%;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        ion-button {
+          flex: 1 1 auto;
+          margin: 0;
+          font-size: 13px;
+        }
+      }
+    }
+
+    .balances-section {
+      padding: 16px;
+      margin-bottom: 24px;
+      border-radius: 12px;
+    }
+
+    .leave-card {
+      min-height: 180px;
+      padding: 16px;
+
+      .card-title {
+        font-size: 14px;
+        margin-bottom: 8px;
+      }
+
+      .icon-container {
+        margin: 4px 0 12px 0;
+
+        .icon-background {
+          width: 64px;
+          height: 64px;
+
+          ion-icon {
+            font-size: 24px;
+          }
+
+          .uploaded-icon {
+            width: 32px;
+            height: 32px;
+          }
+        }
+      }
+
+      .days-display {
+        margin-bottom: 4px;
+
+        .available,
+        .separator,
+        .total {
+          font-size: 20px;
+        }
+      }
+
+      .label {
+        font-size: 13px;
+      }
+    }
+
+    .pending-card,
+    .history-card {
+      padding: 16px 12px 0 12px;
+      border-radius: 12px;
+    }
+  }
 }
 
 .history-card {
-  width: 50%;
+  width: 100%;
 }

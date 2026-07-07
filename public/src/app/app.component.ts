@@ -1,10 +1,11 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { RouteGuardService } from './core/services/route-guard.service';
 import { EmployeeService } from './core/services/employee.service';
 import { AuthService } from './core/services/auth.service';
 import { CustomIconService } from './core/services/custom-icon.service';
+import { MenuController, Platform } from '@ionic/angular';
 import './core/icons';
 
 @Component({
@@ -15,6 +16,8 @@ import './core/icons';
 })
 export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  showIntro = false;
+  fadeOutIntro = false;
   showMenu = false;
   isLoginPage = true;
   userRole: string | null = null;
@@ -45,7 +48,9 @@ export class AppComponent implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private authService: AuthService,
     private cdr: ChangeDetectorRef,
-    private customIconService: CustomIconService
+    private customIconService: CustomIconService,
+    private menuController: MenuController,
+    private platform: Platform
   ) {
     this.router.events.pipe(takeUntil(this.destroy$)).subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -60,10 +65,45 @@ export class AppComponent implements OnInit, OnDestroy {
     });
   }
 
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent) {
+    if (this.isLoginPage || !this.showMenu) return;
+
+    const target = event.target as HTMLElement;
+    this.menuController.isOpen().then((isOpen) => {
+      if (isOpen) {
+        const menuElement = document.querySelector('ion-menu');
+        const menuButtonElement = document.querySelector('ion-menu-button');
+        if (
+          menuElement &&
+          !menuElement.contains(target) &&
+          (!menuButtonElement || !menuButtonElement.contains(target))
+        ) {
+          this.menuController.close();
+        }
+      }
+    });
+  }
+
   ngOnInit(): void {
     // Initial visibility fixes
     document.documentElement.style.opacity = '1';
     document.body.style.opacity = '1';
+
+    // Only show animated intro screen if running in a native mobile application (Capacitor/Cordova)
+    if (this.platform.is('hybrid')) {
+      this.showIntro = true;
+      
+      // Start intro screen timer
+      setTimeout(() => {
+        this.fadeOutIntro = true;
+        setTimeout(() => {
+          this.showIntro = false;
+          this.cdr.detectChanges();
+        }, 600); // match transition duration
+        this.cdr.detectChanges();
+      }, 2500);
+    }
   }
 
   private fetchProfileInfoIfNeeded() {

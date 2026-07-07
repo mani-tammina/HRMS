@@ -816,10 +816,13 @@
   --background: #{vars.$color-white};
   --border-radius: #{vars.$radius-xl};
   --box-shadow: #{vars.$shadow-xl};
-  --width: 380px;
-  --height: 480px;
+  --width: 350px;
+  --height: 460px;
 
   ion-datetime {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
     --background: #{vars.$color-white};
     color: vars.$color-text-primary;
     --ion-color-primary: #{vars.$color-primary};

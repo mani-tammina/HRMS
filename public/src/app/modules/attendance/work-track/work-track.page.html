@@ -183,7 +183,8 @@
               <div class="ts-row-body">
                 <div class="ts-row-top">
                   <span class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</span>
-                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
+                    }}</span>
                 </div>
                 <div class="ts-row-meta">
                   <span class="meta-item">
@@ -306,24 +307,24 @@
 
               <!-- Log Rows / Cards -->
               <div class="log-card-row" *ngFor="let row of breakdowns.controls; let i = index" [formGroupName]="i">
-                
+
                 <div class="card-field col-time">
                   <label class="mobile-label">Time Slot</label>
                   <input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input">
                 </div>
-                
+
                 <div class="card-field col-task">
                   <label class="mobile-label">Task Description</label>
                   <textarea formControlName="task" placeholder="Describe your task..." class="glass-textarea"
-                    rows="1"></textarea>
+                    rows="4"></textarea>
                 </div>
-                
+
                 <div class="card-field col-hrs">
                   <label class="mobile-label">Hrs</label>
                   <input type="number" formControlName="hours" (ionChange)="onHoursChange(i)"
                     class="glass-input center">
                 </div>
-                
+
                 <div class="card-field col-action">
                   <button class="remove-btn" (click)="removeRow(i)" [disabled]="breakdowns.length <= 1">
                     <ion-icon name="trash-outline"></ion-icon>
@@ -443,7 +444,8 @@
                     <ion-icon name="time-outline"></ion-icon>
                     {{ t.total_hours }} hrs
                   </span>
-                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
+                    }}</span>
                 </div>
                 <div class="ts-row-meta">
                   <span class="meta-item">

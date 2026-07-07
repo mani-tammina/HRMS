@@ -49,6 +49,7 @@
         box-shadow: vars.$shadow-md;
         object-fit: cover;
         background: vars.$color-bg-subtle;
+        image-rendering: -webkit-optimize-contrast;
 
         @media (max-width: 767px) {
           margin-top: 11px;

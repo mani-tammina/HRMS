@@ -543,6 +543,58 @@ ion-popover ion-content {
   -ms-overflow-style: none !important;
 }
 
+/* Premium Popover & Select Styling */
+ion-popover {
+  &::part(content) {
+    border-radius: 14px !important;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08), 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+    border: 1px solid rgba(0, 0, 0, 0.06) !important;
+    background: #ffffff !important;
+  }
+
+  ion-select-popover,
+  .select-popover,
+  .datetime-popover {
+    background: #ffffff !important;
+
+    ion-list {
+      background: transparent !important;
+      padding: 6px !important;
+      margin: 0 !important;
+    }
+
+    ion-item {
+      --background: transparent !important;
+      --background-hover: #f4f7fb !important;
+      --background-activated: #e6f0fa !important;
+      --color: #2d3748 !important;
+      --border-radius: 8px !important;
+      --min-height: 42px !important;
+      --padding-start: 12px !important;
+      --padding-end: 12px !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      margin: 2px 0 !important;
+      transition: all 0.2s ease-in-out !important;
+
+      &.item-radio-checked {
+        --background: #e6f0fa !important;
+        --color: #1870b9 !important;
+        font-weight: 600 !important;
+
+        ion-radio {
+          --color-checked: #1870b9 !important;
+        }
+      }
+
+      &:hover {
+        --background: #f4f7fb !important;
+        --color: #1a202c !important;
+      }
+    }
+  }
+}
+
 /* =================== SUBMENU POPOVER =================== */
 
 .custom-submenu-popover {
