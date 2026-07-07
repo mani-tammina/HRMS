@@ -77,8 +77,8 @@ const formatEmployeeDates = function(emp) {
   const result = { ...emp };
   for (const field of dateFields) {
     if (result[field] !== undefined && result[field] !== null) {
-      // Add 1 day to DateOfBirth specifically
-      if (field === 'DateOfBirth') {
+      // Add 1 day to DateOfBirth and DateJoined to compensate for UTC timezone shift
+      if (field === 'DateOfBirth' || field === 'DateJoined' || field === 'exit_date') {
         let d = new Date(result[field]);
         if (!isNaN(d.getTime())) {
           d.setUTCDate(d.getUTCDate() + 1);
