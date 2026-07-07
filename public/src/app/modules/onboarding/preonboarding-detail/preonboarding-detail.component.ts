@@ -28,6 +28,15 @@ export class PreonboardingDetailComponent implements OnInit, OnDestroy {
     uploadingDocument = false;
     documentType = 'resume';
 
+    // Email state
+    isEmailModalOpen = false;
+    emailData: any = {
+        to: '',
+        subject: '',
+        html: '',
+        text: ''
+    };
+
     // Offer form
     showOfferForm = false;
     offerData: any = {
@@ -233,14 +242,79 @@ export class PreonboardingDetailComponent implements OnInit, OnDestroy {
             });
     }
 
+    openEmailModal(): void {
+        if (!this.candidate) {
+            this.toasterService.showError('No candidate details loaded');
+            return;
+        }
+
+        this.emailData.to = this.candidate.email || '';
+        this.emailData.subject = `Job Offer Confirmation - ${this.candidate.full_name}`;
+        
+        const formattedCtc = this.candidate.offered_ctc ? Number(this.candidate.offered_ctc).toLocaleString('en-IN') : '0';
+        const formattedDate = this.candidate.joining_date ? new Date(this.candidate.joining_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' }) : 'TBD';
+        
+        // Generate default email body HTML template
+        this.emailData.html = `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f8fafc; color: #1e293b;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+        <div style="background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); padding: 30px 40px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Employment Offer Letter</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Tech Tammina HR Portal</p>
+        </div>
+        <div style="padding: 40px;">
+            <h2 style="margin-top: 0; color: #1e3a8a; font-size: 20px;">Dear ${this.candidate.full_name},</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 25px;">
+                We are thrilled to offer you the position of <strong>${this.candidate.position || 'Software Engineer'}</strong> at Tech Tammina.
+            </p>
+            <div style="background-color: #f1f5f9; padding: 25px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #cbd5e1;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; color: #475569; font-size: 14px; font-weight: 700; text-transform: uppercase;">Offer Details</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px; color: #334155;">
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; width: 140px; color: #64748b;">Position:</td>
+                        <td style="padding: 6px 0; font-weight: 700;">${this.candidate.position}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Annual CTC:</td>
+                        <td style="padding: 6px 0; font-weight: 700; color: #0f766e;">₹${formattedCtc}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Joining Date:</td>
+                        <td style="padding: 6px 0; font-weight: 700;">${formattedDate}</td>
+                    </tr>
+                </table>
+            </div>
+            <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 30px;">
+                Please click the button below to view the detailed salary breakup, download your formal offer letter, and proceed with the pre-onboarding formalities.
+            </p>
+            <div style="text-align: center; margin-bottom: 35px;">
+                <a href="http://localhost:4203/view-offer/${this.candidate.id}/${this.candidate.candidate_id}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 28px; text-decoration: none; display: inline-block; font-size: 16px; font-weight: 600; border-radius: 6px; box-shadow: 0 4px 6px -1px rgba(79, 70, 229, 0.4);">
+                    View & Action Offer
+                </a>
+            </div>
+            <p style="font-size: 14px; line-height: 1.5; color: #64748b; margin-bottom: 0;">
+                If you have any questions regarding this offer, please feel free to reach out to your HR Coordinator.
+            </p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 25px 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0 0 5px 0;">This is an automated email from Tech Tammina MasterHRMS.</p>
+            <p style="margin: 0;">© 2026 Tech Tammina. All rights reserved.</p>
+        </div>
+    </div>
+</div>
+        `;
+        this.isEmailModalOpen = true;
+    }
+
     sendOffer(): void {
         if (!this.candidateId) return;
 
-        this.candidateService.sendOffer(this.candidateId)
+        this.candidateService.sendOffer(this.candidateId, this.emailData)
             .pipe(takeUntil(this.destroy$))
             .subscribe({
                 next: () => {
                     this.toasterService.showSuccess('Offer sent to candidate');
+                    this.isEmailModalOpen = false;
                     this.loadData();
                 },
                 error: (err) => {

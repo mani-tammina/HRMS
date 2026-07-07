@@ -52,8 +52,8 @@ export class CandidateService {
   }
 
   // Send offer
-  sendOffer(candidateId: number): Observable<any> {
-    return this.http.post<any>(`${this.apiUrl}/${candidateId}/send-offer`, {});
+  sendOffer(candidateId: number, emailData: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/${candidateId}/send-offer`, emailData);
   }
 
   // View offer

@@ -213,7 +213,7 @@
             <div class="action-box">
               <h3>Communication</h3>
               <p>Email the generated offer letter to the candidate.</p>
-              <ion-button expand="block" color="secondary" (click)="sendOffer()">
+              <ion-button expand="block" color="secondary" (click)="openEmailModal()">
                 <ion-icon name="send" slot="start"></ion-icon>
                 Send to Candidate
               </ion-button>
@@ -417,4 +417,50 @@
 
     </div>
   </div>
+
+  <!-- ═══════════ EMAIL TEMPLATE MODAL ═══════════ -->
+  <ion-modal [isOpen]="isEmailModalOpen" (didDismiss)="isEmailModalOpen = false" style="--width: 700px; --height: 600px; --border-radius: 16px;">
+    <ng-template>
+      <ion-header class="ion-no-border">
+        <ion-toolbar class="gradient-header">
+          <ion-title>Email Offer Confirmation</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="isEmailModalOpen = false">
+              <ion-icon name="close" style="color: white; font-size: 24px;"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="ion-padding">
+        <div style="display: flex; flex-direction: column; gap: 20px; padding: 10px 0;">
+          <ion-item class="ion-no-padding" style="--background: transparent;">
+            <ion-label position="stacked" style="font-weight: 700; color: #475569;">To (Recipient Email)</ion-label>
+            <ion-input [(ngModel)]="emailData.to" type="email" placeholder="candidate@example.com" style="margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; --padding-start: 12px;"></ion-input>
+          </ion-item>
+
+          <ion-item class="ion-no-padding" style="--background: transparent;">
+            <ion-label position="stacked" style="font-weight: 700; color: #475569;">Subject</ion-label>
+            <ion-input [(ngModel)]="emailData.subject" type="text" placeholder="Enter email subject" style="margin-top: 8px; border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 12px; --padding-start: 12px;"></ion-input>
+          </ion-item>
+
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <label style="font-size: 14px; font-weight: 700; color: #475569;">Email HTML Template Body</label>
+            <textarea [(ngModel)]="emailData.html" rows="12" style="width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; font-family: monospace; font-size: 13px; line-height: 1.5; color: #334155; outline: none; background: #f8fafc; resize: vertical;"></textarea>
+          </div>
+        </div>
+      </ion-content>
+
+      <ion-footer style="border-top: 1px solid #e2e8f0; padding: 15px 20px; background: white; display: flex; justify-content: flex-end; gap: 12px;">
+        <ion-button color="medium" fill="outline" (click)="isEmailModalOpen = false" style="margin: 0; font-weight: 600;">
+          Cancel
+        </ion-button>
+        <ion-button color="primary" (click)="sendOffer()" style="margin: 0; font-weight: 600;">
+          <ion-icon name="send-outline" slot="start"></ion-icon>
+          Send Offer Email
+        </ion-button>
+      </ion-footer>
+    </ng-template>
+  </ion-modal>
+
 </ion-content>

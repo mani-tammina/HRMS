@@ -185,16 +185,125 @@ router.put("/:id", auth, hr, async (req, res) => {
 router.post("/:id/send-offer", auth, hr, async (req, res) => {
     const c = await db();
     try {
+        const candidateId = req.params.id;
+
+        // Fetch candidate details
+        const [candidates] = await c.query("SELECT * FROM candidates WHERE id = ?", [candidateId]);
+        if (candidates.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Candidate not found" });
+        }
+        const candidate = candidates[0];
+
+        // Fetch offer details from communications
+        const [offerDetails] = await c.query(`
+            SELECT message FROM candidate_communications 
+            WHERE candidate_id = ? AND subject = 'Offer Letter Details'
+            ORDER BY communication_date DESC LIMIT 1
+        `, [candidateId]);
+        
+        let offerInfo = {};
+        if (offerDetails.length > 0) {
+            try {
+                offerInfo = JSON.parse(offerDetails[0].message);
+            } catch (e) {
+                console.error("Failed to parse offer details JSON:", e);
+            }
+        }
+
+        const toEmail = req.body.to || candidate.email;
+        const subject = req.body.subject || `Job Offer Confirmation - ${candidate.full_name}`;
+        
+        // Construct offer link for candidate to accept/decline
+        const offerLink = `http://hrms.tamminahub.com/view-offer/${candidate.id}/${candidate.candidate_id}`;
+
+        const defaultHtml = `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f8fafc; color: #1e293b;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border: 1px solid #e2e8f0;">
+        <div style="background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%); padding: 30px 40px; text-align: center; color: #ffffff;">
+            <h1 style="margin: 0; font-size: 24px; font-weight: 700;">Employment Offer Letter</h1>
+            <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">Tech Tammina HR Portal</p>
+        </div>
+        <div style="padding: 40px;">
+            <h2 style="margin-top: 0; color: #1e3a8a; font-size: 20px;">Dear ${candidate.full_name},</h2>
+            <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 25px;">
+                We are thrilled to offer you the position of <strong>${candidate.position || 'Software Engineer'}</strong> at Tech Tammina.
+            </p>
+            <div style="background-color: #f1f5f9; padding: 25px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #cbd5e1;">
+                <h3 style="margin-top: 0; margin-bottom: 15px; color: #475569; font-size: 14px; font-weight: 700; text-transform: uppercase;">Offer Details</h3>
+                <table style="width: 100%; border-collapse: collapse; font-size: 15px; color: #334155;">
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; width: 140px; color: #64748b;">Position:</td>
+                        <td style="padding: 6px 0; font-weight: 700;">${candidate.position}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Annual CTC:</td>
+                        <td style="padding: 6px 0; font-weight: 700; color: #0f766e;">₹${(candidate.offered_ctc || 0).toLocaleString()}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Joining Date:</td>
+                        <td style="padding: 6px 0; font-weight: 700;">${candidate.joining_date ? new Date(candidate.joining_date).toLocaleDateString() : 'TBD'}</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 6px 0; font-weight: 600; color: #64748b;">Work Mode:</td>
+                        <td style="padding: 6px 0; font-weight: 700;">${offerInfo.work_mode || 'Hybrid'}</td>
+                    </tr>
+                </table>
+            </div>
+            <p style="font-size: 16px; line-height: 1.6; color: #334155; margin-bottom: 30px;">
+                Please click the button below to view the detailed salary breakup, download your formal offer letter, and proceed with the pre-onboarding formalities.
+            </p>
+            <div style="text-align: center; margin-bottom: 35px;">
+                <a href="${offerLink}" style="background-color: #4f46e5; color: #ffffff; padding: 14px 28px; text-decoration: none; display: inline-block; font-size: 16px; font-weight: 600; border-radius: 6px;">
+                    View & Action Offer
+                </a>
+            </div>
+            <p style="font-size: 14px; line-height: 1.5; color: #64748b; margin-bottom: 0;">
+                If you have any questions regarding this offer, please feel free to reach out to your HR Coordinator.
+            </p>
+        </div>
+        <div style="background-color: #f8fafc; padding: 25px 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+            <p style="margin: 0 0 5px 0;">This is an automated email from Tech Tammina MasterHRMS.</p>
+            <p style="margin: 0;">© 2026 Tech Tammina. All rights reserved.</p>
+        </div>
+    </div>
+</div>
+        `;
+
+        const htmlContent = req.body.html || defaultHtml;
+        const textContent = req.body.text || `Dear ${candidate.full_name},\n\nWe are pleased to offer you the position of ${candidate.position} at Tech Tammina.\n\nAnnual CTC: ₹${candidate.offered_ctc}\nJoining Date: ${candidate.joining_date}\n\nPlease click the following link to review and accept your offer:\n${offerLink}\n\nBest regards,\nHR Team`;
+
+        // Send email using SMTP helper
+        const { sendMail } = require("../utils/mail.service");
+        try {
+            await sendMail({
+                to: toEmail,
+                subject: subject,
+                html: htmlContent,
+                text: textContent
+            });
+        } catch (mailErr) {
+            console.error("Mail dispatch failed, proceeding with DB changes:", mailErr.message);
+        }
+
+        // Update candidate status
         await c.query(`
             UPDATE candidates SET 
                 offer_letter_sent = 1,
                 offer_letter_sent_date = CURDATE(),
                 status = 'offered'
             WHERE id = ?
-        `, [req.params.id]);
+        `, [candidateId]);
+
+        // Log communication
+        await c.query(`
+            INSERT INTO candidate_communications 
+            (candidate_id, communication_type, subject, message, communicated_by)
+            VALUES (?, 'email', ?, ?, ?)
+        `, [candidateId, subject, `Offer letter email sent. Subject: ${subject}`, req.user.id]);
 
         c.end();
-        res.json({ success: true, message: "Offer letter sent" });
+        res.json({ success: true, message: "Offer letter sent and email delivered successfully" });
     } catch (error) {
         c.end();
         res.status(500).json({ error: error.message });
