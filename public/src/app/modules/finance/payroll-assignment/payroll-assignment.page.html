@@ -47,19 +47,7 @@
           </div>
         </div>
 
-        <!-- Drag & Drop Area -->
-        <div class="bulk-drag-drop" 
-             [class.drag-over]="dragOver"
-             (dragover)="$event.preventDefault(); dragOver = true"
-             (dragleave)="dragOver = false"
-             (drop)="$event.preventDefault(); dragOver = false; handleDrop($event)"
-             (click)="fileInput.click()">
-          <ion-icon name="cloud-upload-outline"></ion-icon>
-          <span class="drop-title">Drop Excel file here</span>
-          <span class="drop-subtitle">or click to browse - .xlsx, .xls</span>
-        </div>
-
-        <!-- Stacked Buttons -->
+        <!-- Actions Buttons -->
         <div class="bulk-actions-stack">
           <button class="btn-download-template" (click)="downloadTemplate(); $event.stopPropagation()">
             <ion-icon name="download-outline"></ion-icon>
@@ -75,8 +63,24 @@
         <input type="file" #fileInput (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" hidden />
       </div>
 
+      <!-- Tabs Selector -->
+      <div class="payroll-tabs-container">
+        <button class="payroll-tab-button" [class.active-tab]="activeTab === 'all'" (click)="setTab('all')">
+          <ion-icon name="people-outline"></ion-icon>
+          All Workforce ({{ allEmployees.length }})
+        </button>
+        <button class="payroll-tab-button" [class.active-tab]="activeTab === 'skipped'" (click)="setTab('skipped')">
+          <ion-icon name="alert-circle-outline"></ion-icon>
+          Skipped / Unassigned
+        </button>
+        <button class="payroll-tab-button" *ngIf="uploadErrors.length > 0" [class.active-tab]="activeTab === 'uploadErrors'" (click)="setTab('uploadErrors')">
+          <ion-icon name="warning-outline"></ion-icon>
+          Upload Errors ({{ uploadErrors.length }})
+        </button>
+      </div>
+
       <!-- Toolbar: Search and Filter -->
-      <div class="search-filter-toolbar">
+      <div class="search-filter-toolbar" *ngIf="activeTab !== 'uploadErrors'">
         <div class="search-box-wrapper">
           <ion-icon name="search-outline" class="search-icon"></ion-icon>
           <input type="text" placeholder="Search components" [value]="searchQuery" (input)="onSearch($event)" />
@@ -98,20 +102,20 @@
       </div>
 
       <!-- Loading State -->
-      <div *ngIf="isLoading" class="loader-wrap">
+      <div *ngIf="isLoading && activeTab !== 'uploadErrors'" class="loader-wrap">
         <ion-spinner name="crescent"></ion-spinner>
         <p>Fetching workforce records...</p>
       </div>
 
       <!-- Empty State -->
-      <div *ngIf="!isLoading && filteredEmployees.length === 0" class="empty-wrap">
+      <div *ngIf="!isLoading && filteredEmployees.length === 0 && activeTab !== 'uploadErrors'" class="empty-wrap">
         <ion-icon name="people-outline"></ion-icon>
-        <h3>No Employees Found</h3>
-        <p>Adjust your search filters or check system records.</p>
+        <h3>{{ activeTab === 'skipped' ? 'All Employees Configured!' : 'No Employees Found' }}</h3>
+        <p>{{ activeTab === 'skipped' ? 'Every active employee has been mapped to a payroll structure.' : 'Adjust your search filters or check system records.' }}</p>
       </div>
 
       <!-- Employee Grid -->
-      <div class="employee-grid" *ngIf="!isLoading && filteredEmployees.length > 0">
+      <div class="employee-grid" *ngIf="!isLoading && filteredEmployees.length > 0 && activeTab !== 'uploadErrors'">
         <div *ngFor="let emp of filteredEmployees; let i = index" class="employee-card animate-in" (click)="selectEmployee(emp)">
           
           <!-- Card Header -->
@@ -186,6 +190,33 @@
           
         </div>
       </div>
+
+      <!-- Upload Errors View -->
+      <div class="upload-errors-view animate-in" *ngIf="activeTab === 'uploadErrors'">
+        <div class="error-summary-banner">
+          <div class="banner-left">
+            <ion-icon name="warning-outline" class="warn-pulse"></ion-icon>
+            <div>
+              <h3>Import Discrepancies Detected</h3>
+              <p>The following rows could not be processed due to validation or mapping issues. Please correct your Excel file and upload again.</p>
+            </div>
+          </div>
+          <button class="btn-clear-errors" (click)="clearUploadErrors()">
+            Clear List
+          </button>
+        </div>
+
+        <div class="error-cards-list">
+          <div *ngFor="let err of uploadErrors; let idx = index" class="error-card">
+            <div class="err-index">#{{ idx + 1 }}</div>
+            <div class="err-details">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              <span>{{ err }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- 🔵 VIEW B: CONTRACT MANAGEMENT (TIMELINE DASHBOARD) -->

@@ -1,32 +1,62 @@
 <ion-header [translucent]="true" class="ion-no-border">
 </ion-header>
 
-<ion-content [fullscreen]="true" class="glass-content">
+<ion-content [fullscreen]="true" class="payroll-content">
   <div class="payroll-container">
+    <!-- Back Navigation & Breadcrumbs Group -->
+    <div class="navigation-header">
+      <div class="back-nav">
+        <a routerLink="/finance/templates" class="back-link">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back to Templates
+        </a>
+      </div>
+
+      <div class="breadcrumb">
+        <span class="breadcrumb-item">Payroll Master Setup</span>
+        <span class="breadcrumb-separator">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </span>
+        <span class="breadcrumb-item">Payroll Templates</span>
+        <span class="breadcrumb-separator">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </span>
+        <span class="breadcrumb-item active">Composition</span>
+      </div>
+    </div>
+
+    <!-- Header Section -->
     <div class="header">
       <div class="header-info">
-        <div class="back-nav">
-          <a routerLink="/finance/templates" class="back-link">
-            <ion-icon name="arrow-back-outline"></ion-icon>
-            Back to Templates
-          </a>
-        </div>
-        <div class="template-brief">
-          <h2>{{ templateInfo?.template_name || 'Loading Template...' }}</h2>
-          <p class="subtitle">
-            <ion-icon name="information-circle-outline"></ion-icon>
-            {{ templateInfo?.description || 'Managing salary components for this template structure' }}
-          </p>
-        </div>
+        <h1>{{ templateInfo?.template_name || 'Loading Template...' }}</h1>
+        <p class="subtitle">{{ templateInfo?.description || 'Managing salary components for this template structure.' }}</p>
       </div>
       <div class="header-actions">
-        <ion-button class="primary-btn" (click)="openAddModal()">
-          <ion-icon name="add-circle-outline" slot="start"></ion-icon>
+        <button class="create-btn" (click)="openAddModal()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
           Add Component
-        </ion-button>
+        </button>
         <div class="ctc-preview-wrap">
           <label class="ctc-label">
-            <ion-icon name="calculator-outline"></ion-icon>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+              <line x1="9" y1="22" x2="15" y2="22"></line>
+              <line x1="8" y1="10" x2="16" y2="10"></line>
+              <line x1="8" y1="14" x2="16" y2="14"></line>
+              <line x1="9" y1="6" x2="15" y2="6"></line>
+            </svg>
             Preview CTC (₹)
           </label>
           <input
@@ -43,21 +73,37 @@
     <!-- Summary Cards -->
     <div class="summary-grid" *ngIf="!loading && compositionData.length > 0">
       <div class="summary-card earnings">
-        <div class="summary-icon"><ion-icon name="wallet-outline"></ion-icon></div>
+        <div class="summary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="2"></rect>
+            <circle cx="12" cy="12" r="2"></circle>
+            <path d="M6 12h.01M18 12h.01"></path>
+          </svg>
+        </div>
         <div class="summary-content">
           <span class="summary-label">Total Earnings</span>
           <span class="summary-value">₹{{ totalEarnings | number:'1.0-0' }}</span>
         </div>
       </div>
       <div class="summary-card deductions">
-        <div class="summary-icon"><ion-icon name="trending-down-outline"></ion-icon></div>
+        <div class="summary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 18 13.5 8.5 8.5 13.5 1 6"></polyline>
+            <polyline points="17 18 23 18 23 12"></polyline>
+          </svg>
+        </div>
         <div class="summary-content">
           <span class="summary-label">Total Deductions</span>
           <span class="summary-value">₹{{ totalDeductions | number:'1.0-0' }}</span>
         </div>
       </div>
       <div class="summary-card net">
-        <div class="summary-icon"><ion-icon name="calculator-outline"></ion-icon></div>
+        <div class="summary-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="1" x2="12" y2="23"></line>
+            <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+          </svg>
+        </div>
         <div class="summary-content">
           <span class="summary-label">Net Pay</span>
           <span class="summary-value">₹{{ (totalEarnings - totalDeductions) | number:'1.0-0' }}</span>
@@ -66,102 +112,113 @@
     </div>
 
     <!-- Components Table Section -->
-    <div class="composition-card glass-card">
-      <div class="card-header">
+    <div class="components-card">
+      <div class="card-title-header">
         <div class="title-block">
           <h3>Component Breakdown</h3>
-          <span class="item-count" *ngIf="compositionData.length">{{ compositionData.length }} Items</span>
+          <span class="item-count" *ngIf="compositionData.length && !loading">{{ compositionData.length }} Items</span>
         </div>
         <div class="loading-state" *ngIf="loading">
-          <ion-spinner name="crescent" size="small"></ion-spinner>
           <span>Fetching details...</span>
         </div>
       </div>
 
-      <div class="table-container" *ngIf="!loading && compositionData.length > 0">
-        <div class="composition-table">
-          <div class="table-head">
-            <span class="col-id">#</span>
-            <span class="col-name">Component Detail</span>
-            <span class="col-type">Type</span>
-            <span class="col-calc">Calculation</span>
-            <span class="col-value">Formula/Value</span>
-            <span class="col-status">Taxable</span>
-            <span class="col-status">Prorated</span>
-            <span class="col-action">Actions</span>
-          </div>
-
-          <div class="table-row fade-in" *ngFor="let comp of compositionData; trackBy: trackById">
-            <span class="col-id text-muted">{{ comp.component_id }}</span>
-            <span class="col-name">
-              <div class="info-cell">
-                <span class="main-text">{{ comp.component_name }}</span>
-                <span class="sub-text">{{ comp.component_code }}</span>
-              </div>
-            </span>
-            <span class="col-type">
-              <span class="badge" [ngClass]="comp.component_type?.toLowerCase()">
-                {{ comp.component_type }}
-              </span>
-            </span>
-            <span class="col-calc">
-              <div class="info-cell">
-                <span class="calc-text">{{ comp.calculation_type }}</span>
-                <span class="sub-text" *ngIf="comp.percentage_of_code">of {{ comp.percentage_of_code }}</span>
-              </div>
-            </span>
-            <span class="col-value">
-              <div class="value-cell">
-                <span class="amt-text">₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</span>
-                <span class="sub-text" *ngIf="getCalculationLabel(comp)">
-                  {{ getCalculationLabel(comp) }}
+      <div class="table-responsive" *ngIf="!loading && compositionData.length > 0">
+        <table class="payroll-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-code">CODE</th>
+              <th class="col-name">NAME</th>
+              <th class="col-type text-center">TYPE</th>
+              <th class="col-calc">CALC TYPE</th>
+              <th class="col-formula">FORMULA / VALUE</th>
+              <th class="col-amount text-right">CALCULATED AMOUNT</th>
+              <th class="col-taxable text-center">TAXABLE</th>
+              <th class="col-prorated text-center">PRORATED</th>
+              <th class="col-actions text-center">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let comp of compositionData; trackBy: trackById">
+              <td class="col-id">{{ comp.component_id }}</td>
+              <td class="col-code">{{ comp.component_code }}</td>
+              <td class="col-name">{{ comp.component_name }}</td>
+              <td class="col-type text-center">
+                <span class="badge" [ngClass]="comp.component_type?.toLowerCase()">
+                  {{ comp.component_type }}
                 </span>
-              </div>
-            </span>
-            <span class="col-status text-center">
-              <ion-icon [name]="comp.is_taxable ? 'shield-checkmark' : 'shield-outline'"
-                [color]="comp.is_taxable ? 'success' : 'medium'"></ion-icon>
-            </span>
-            <span class="col-status text-center">
-              <ion-icon [name]="comp.is_prorated ? 'checkmark-circle' : 'close-circle-outline'"
-                [color]="comp.is_prorated ? 'primary' : 'medium'"></ion-icon>
-            </span>
-            <span class="col-action">
-              <div class="action-cell">
-                <button class="icon-btn edit" (click)="editComposition(comp)" title="Edit Mapping">
-                  <ion-icon name="create-outline"></ion-icon>
+              </td>
+              <td class="col-calc">{{ comp.calculation_type }}</td>
+              <td class="col-formula">{{ getCalculationLabel(comp) }}</td>
+              <td class="col-amount text-right amount-val">₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</td>
+              <td class="col-taxable text-center">
+                <svg class="status-icon active" *ngIf="comp.is_taxable" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="8 12 11 15 16 9"></polyline>
+                </svg>
+                <svg class="status-icon inactive" *ngIf="!comp.is_taxable" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              </td>
+              <td class="col-prorated text-center">
+                <svg class="status-icon active" *ngIf="comp.is_prorated" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="8 12 11 15 16 9"></polyline>
+                </svg>
+                <svg class="status-icon inactive" *ngIf="!comp.is_prorated" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              </td>
+              <td class="col-actions text-center">
+                <button class="action-btn edit" (click)="editComposition(comp)" title="Edit Mapping">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
                 </button>
-                <button class="icon-btn delete" (click)="deleteComposition(comp.composition_id)"
-                  title="Remove Component">
-                  <ion-icon name="trash-outline"></ion-icon>
+                <button class="action-btn delete" (click)="deleteComposition(comp.composition_id)" title="Remove Component">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
                 </button>
-              </div>
-            </span>
-          </div>
-        </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       <!-- Empty State -->
-      <div *ngIf="!loading && compositionData.length === 0" class="empty-layout">
-        <div class="empty-visual">
-          <ion-icon name="layers-outline"></ion-icon>
-        </div>
+      <div *ngIf="!loading && compositionData.length === 0" class="empty-state-container">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+          <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+          <line x1="12" y1="12" x2="12" y2="12"></line>
+        </svg>
         <h3>No Components Linked</h3>
         <p>This template currently has no components configured in its composition.</p>
-        <ion-button class="attach-btn" fill="outline" (click)="openAddModal()">
-          <ion-icon name="link-outline" slot="start"></ion-icon>
+        <button class="attach-btn" (click)="openAddModal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px; display: inline-block; vertical-align: middle;">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
           Attach First Component
-        </ion-button>
+        </button>
       </div>
     </div>
   </div>
 
   <!-- Right Side Modal -->
-  <div class="side-modal-overlay pill-overlay" *ngIf="isModalOpen" (click)="isModalOpen = false"></div>
-  <div class="side-modal glass-modal" [class.open]="isModalOpen">
+  <div class="side-modal-overlay" *ngIf="isModalOpen" (click)="closeModal()"></div>
+  <div class="side-modal" [class.open]="isModalOpen">
     <div class="modal-header">
       <h3>{{ isEditMode ? 'Edit Composition Mapping' : 'Add Composition' }}</h3>
-      <ion-icon name="close-outline" class="close-icon" (click)="isModalOpen = false"></ion-icon>
+      <button class="close-btn" (click)="closeModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
     <div class="modal-body">
       <form [formGroup]="compositionForm" (ngSubmit)="saveComposition()" class="composition-form-vertical">
@@ -188,14 +245,16 @@
           <div class="form-group glass-input-group dropdown-stack">
             <label>Assigned By</label>
             <div class="search-input-wrapper">
-              <ion-icon name="search-outline" class="search-prefix"></ion-icon>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="search-prefix">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
               <input type="text" placeholder="Search administrator..." [value]="employeeSearchTerm"
                 (input)="filterEmployees($event)" (focus)="filteredEmployees = employees"
                 class="glass-input search-field" />
             </div>
 
-            <div class="search-dropdown fade-in-sm"
-              *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
+            <div class="search-dropdown" *ngIf="filteredEmployees.length > 0 && employeeSearchTerm.length > 0">
               <div class="dropdown-item" *ngFor="let emp of filteredEmployees" (click)="selectEmployee(emp)">
                 <div class="item-avatar">{{ emp.FullName?.charAt(0) }}</div>
                 <div class="item-info">
@@ -208,10 +267,10 @@
         </div>
 
         <div class="form-footer">
-          <ion-button type="button" fill="clear" color="medium" (click)="isModalOpen = false">Cancel</ion-button>
-          <ion-button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
+          <button type="button" class="cancel-btn" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="submit-btn" [disabled]="compositionForm.invalid">
             {{ isEditMode ? 'Update Mapping' : 'Save Mapping' }}
-          </ion-button>
+          </button>
         </div>
       </form>
     </div>

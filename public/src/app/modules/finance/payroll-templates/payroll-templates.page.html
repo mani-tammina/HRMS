@@ -1,107 +1,128 @@
 <ion-header [translucent]="true" class="ion-no-border">
-
 </ion-header>
 
-<ion-content [fullscreen]="true" class="glass-content">
-  <!-- Decorative Background Elements -->
-  <div class="bg-blob blob-1"></div>
-  <div class="bg-blob blob-2"></div>
-
+<ion-content [fullscreen]="true" class="payroll-content">
   <div class="payroll-container">
-
     <!-- Back Navigation -->
     <div class="back-nav">
       <a (click)="goBack()" class="back-link">
-        <ion-icon name="arrow-back-outline"></ion-icon>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
         Back to Payroll Setup
       </a>
+    </div>
+
+    <!-- Breadcrumbs -->
+    <div class="breadcrumb">
+      <span class="breadcrumb-item">Payroll Master Setup</span>
+      <span class="breadcrumb-separator">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+      <span class="breadcrumb-item active">Payroll Templates</span>
     </div>
 
     <!-- Header Section -->
     <div class="header">
       <div class="header-info">
-        <h2>Payroll Templates</h2>
-        <p>Manage and configure salary structure templates for different employee groups</p>
+        <h1>Payroll Templates</h1>
+        <p>Manage and configure salary structure templates for different employee groups.</p>
       </div>
-      <ion-button class="primary-btn" (click)="openCreateModal()">
-        <ion-icon name="add-outline" slot="start"></ion-icon>
+      <button class="create-btn" (click)="openCreateModal()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+          <polyline points="14 2 14 8 20 8"></polyline>
+          <line x1="12" y1="18" x2="12" y2="12"></line>
+          <line x1="9" y1="15" x2="15" y2="15"></line>
+        </svg>
         Create New Template
-      </ion-button>
+      </button>
     </div>
 
-    <!-- Templates Grid/Table -->
-    <div class="templates-card glass-card">
-      <div class="card-header">
+    <!-- Templates Card -->
+    <div class="components-card">
+      <div class="card-title-header">
         <h3>Configured Templates</h3>
         <p>Click on the template name to view its composition</p>
       </div>
 
-      <div class="table-wrapper">
-        <div class="custom-table">
-          <!-- Table Head -->
-          <div class="table-head">
-            <span class="col-id">ID</span>
-            <span class="col-name">Template Name</span>
-            <span class="col-desc">Description</span>
-            <span class="col-creator">Created By</span>
-            <span class="col-date">Created At</span>
-            <span class="col-action">Actions</span>
-          </div>
-
-          <!-- Table Rows -->
-          <div class="table-row fade-in" *ngFor="let temp of templates">
-            <span class="col-id">{{ temp.template_id || temp.id }}</span>
-
-            <span class="col-name template-name" (click)="viewComposition(temp.template_id || temp.id)">
-              {{ temp.template_name }}
-            </span>
-
-            <span class="col-desc text-muted">
-              {{ temp.description || '-' }}
-            </span>
-
-            <span class="col-creator">
-              <div class="creator-badge">
-                <ion-icon name="person-circle-outline"></ion-icon>
-                User #{{ temp.created_by }}
-              </div>
-            </span>
-
-            <span class="col-date">
-              {{ (temp.created_at || temp.createdAt) | date:'mediumDate' }}
-            </span>
-
-            <span class="col-action">
-              <div class="action-buttons">
-                <button class="action-icon edit" (click)="editTemplate(temp)" title="Edit Template">
-                  <ion-icon name="create-outline"></ion-icon>
+      <div class="table-responsive">
+        <table class="payroll-table">
+          <thead>
+            <tr>
+              <th class="col-id">ID</th>
+              <th class="col-name">TEMPLATE NAME</th>
+              <th class="col-desc">DESCRIPTION</th>
+              <th class="col-creator">CREATED BY</th>
+              <th class="col-date">CREATED AT</th>
+              <th class="col-actions text-center">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let temp of templates">
+              <td class="col-id">{{ temp.template_id || temp.id }}</td>
+              <td class="col-name template-name" (click)="viewComposition(temp.template_id || temp.id)">
+                {{ temp.template_name }}
+              </td>
+              <td class="col-desc text-muted">
+                {{ temp.description || '-' }}
+              </td>
+              <td class="col-creator">
+                <span class="creator-badge">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="creator-icon">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                  User #{{ temp.created_by }}
+                </span>
+              </td>
+              <td class="col-date">
+                {{ (temp.created_at || temp.createdAt) | date:'mediumDate' }}
+              </td>
+              <td class="col-actions text-center">
+                <button class="action-btn edit" (click)="editTemplate(temp)" title="Edit Template">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
                 </button>
-                <button class="action-icon delete" (click)="deleteTemplate(temp.template_id || temp.id)"
-                  title="Delete Template">
-                  <ion-icon name="trash-outline"></ion-icon>
+                <button class="action-btn delete" (click)="deleteTemplate(temp.template_id || temp.id)" title="Delete Template">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  </svg>
                 </button>
-              </div>
-            </span>
-          </div>
-
-          <!-- Empty State -->
-          <div class="empty-state-row" *ngIf="templates.length === 0">
-            <ion-icon name="file-tray-outline"></ion-icon>
-            <p>No templates found. Create your first template to get started.</p>
-          </div>
-        </div>
+              </td>
+            </tr>
+            <tr *ngIf="templates.length === 0">
+              <td colspan="6" class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+                  <rect x="2" y="2" width="20" height="20" rx="2" ry="2"></rect>
+                  <line x1="12" y1="12" x2="12" y2="12"></line>
+                </svg>
+                <p>No templates found. Create your first template to get started.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   </div>
 
-  <!-- Right Side Modal Overlay -->
-  <div class="side-modal-overlay" *ngIf="isModalOpen" (click)="isModalOpen = false"></div>
-
   <!-- Right Side Modal -->
-  <div class="side-modal glass-modal" [class.open]="isModalOpen">
+  <div class="side-modal-overlay" *ngIf="isModalOpen" (click)="closeModal()"></div>
+  <div class="side-modal" [class.open]="isModalOpen">
     <div class="modal-header">
       <h3>{{ isEditMode ? 'Edit Template' : 'Create New Template' }}</h3>
-      <ion-icon name="close-outline" class="close-icon" (click)="isModalOpen = false"></ion-icon>
+      <button class="close-btn" (click)="closeModal()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
     </div>
 
     <div class="modal-body">
@@ -110,10 +131,8 @@
           <!-- Template Name Input -->
           <div class="form-group glass-input-group">
             <label>Template Name</label>
-            <input type="text" formControlName="template_name" placeholder="e.g. Standard Executive Package"
-              class="glass-input" />
-            <small class="error-text"
-              *ngIf="templateForm.get('template_name')?.invalid && templateForm.get('template_name')?.touched">
+            <input type="text" formControlName="template_name" placeholder="e.g. Standard Executive Package" class="glass-input" />
+            <small class="error-text" *ngIf="templateForm.get('template_name')?.invalid && templateForm.get('template_name')?.touched">
               Template name is required.
             </small>
           </div>
@@ -121,15 +140,13 @@
           <!-- Description Textarea -->
           <div class="form-group glass-input-group">
             <label>Description (Optional)</label>
-            <textarea formControlName="description" rows="5"
-              placeholder="Briefly describe the purpose of this template..." class="glass-textarea"></textarea>
+            <textarea formControlName="description" rows="5" placeholder="Briefly describe the purpose of this template..." class="glass-textarea"></textarea>
           </div>
 
           <!-- Active Switch -->
           <div class="form-group checkbox-row">
             <label class="glass-checkbox">
               <input type="checkbox" formControlName="is_active" />
-              <span class="checkmark"></span>
               Is Template Active?
             </label>
           </div>
@@ -137,10 +154,10 @@
 
         <!-- Form Footer Actions -->
         <div class="form-footer">
-          <ion-button type="button" fill="clear" color="medium" (click)="isModalOpen = false">Cancel</ion-button>
-          <ion-button type="submit" class="submit-btn" [disabled]="templateForm.invalid">
+          <button type="button" class="cancel-btn" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="submit-btn" [disabled]="templateForm.invalid">
             {{ isEditMode ? 'Update' : 'Save' }} Template
-          </ion-button>
+          </button>
         </div>
       </form>
     </div>

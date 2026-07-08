@@ -131,4 +131,10 @@ export class PayrollTemplatesPage implements OnInit {
       });
     }
   }
+
+  closeModal() {
+    this.isModalOpen = false;
+    this.isEditMode = false;
+    this.selectedTemplateId = null;
+  }
 }

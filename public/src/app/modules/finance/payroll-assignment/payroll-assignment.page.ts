@@ -20,6 +20,8 @@ export class PayrollAssignmentPage implements OnInit {
   cachedContracts: any[] = [];
   isLoading = false;
   searchQuery = '';
+  activeTab: 'all' | 'skipped' | 'uploadErrors' = 'all';
+  uploadErrors: string[] = [];
 
   // Mapping State
   isModalOpen = false;
@@ -161,7 +163,12 @@ export class PayrollAssignmentPage implements OnInit {
     this.isLoading = true;
     this.financeService.searchEmployees(q).subscribe({
       next: (res) => {
-        this.filteredEmployees = this.mapEmployeeContracts(res.data || []);
+        const searched = this.mapEmployeeContracts(res.data || []);
+        if (this.activeTab === 'skipped') {
+          this.filteredEmployees = searched.filter(emp => emp.assignmentStatus !== 'Assigned');
+        } else {
+          this.filteredEmployees = searched;
+        }
         this.isLoading = false;
       },
       error: () => {
@@ -172,9 +179,24 @@ export class PayrollAssignmentPage implements OnInit {
   }
 
   applyFilter() {
-    if (!this.searchQuery) {
-      this.filteredEmployees = [...this.allEmployees];
+    let list = [...this.allEmployees];
+    if (this.activeTab === 'skipped') {
+      list = list.filter(emp => emp.assignmentStatus !== 'Assigned');
     }
+    this.filteredEmployees = list;
+  }
+
+  setTab(tab: 'all' | 'skipped' | 'uploadErrors') {
+    this.activeTab = tab;
+    this.applyFilter();
+  }
+
+  clearUploadErrors() {
+    this.uploadErrors = [];
+    if (this.activeTab === 'uploadErrors') {
+      this.activeTab = 'all';
+    }
+    this.applyFilter();
   }
 
   async selectEmployee(emp: EmployeeInfo) {
@@ -370,7 +392,11 @@ export class PayrollAssignmentPage implements OnInit {
         loading.dismiss();
         if (res.success) {
           this.toaster.showSuccess(`Successfully mapped ${res.inserted} contracts. ${res.skipped} skipped.`);
+          this.uploadErrors = res.errors || [];
           this.refreshContracts();
+          if (res.skipped > 0 && this.uploadErrors.length > 0) {
+            this.activeTab = 'uploadErrors';
+          }
         } else {
           this.toaster.showError(res.message || 'Import failed');
         }

@@ -176,8 +176,31 @@ export class PayrollComponentsPage implements OnInit {
     this.selectedComponentId = null;
   }
 
-  getTotal() {
-    return this.components.reduce((sum, c) => sum + Number(c.value), 0);
+  get totalEarningsAllocation(): string {
+    const total = this.components
+      .filter(c => c.component_type === 'EARNING' && c.calculation_type === 'PERCENTAGE')
+      .reduce((sum, c) => sum + Number(c.value || 0), 0);
+    return total.toFixed(2) + '%';
+  }
+
+  get totalDeductionsAllocation(): string {
+    const total = this.components
+      .filter(c => c.component_type === 'DEDUCTION' && c.calculation_type === 'PERCENTAGE')
+      .reduce((sum, c) => sum + Number(c.value || 0), 0);
+    return total.toFixed(2) + '%';
+  }
+
+  get taxableComponentsCount(): number {
+    return this.components.filter(c => c.taxable).length;
+  }
+
+  formatValue(comp: any): string {
+    const val = Number(comp.value);
+    if (isNaN(val)) return '0.00';
+    if (comp.calculation_type === 'PERCENTAGE') {
+      return val.toFixed(2) + '%';
+    }
+    return val.toFixed(2);
   }
 
   goBack() {

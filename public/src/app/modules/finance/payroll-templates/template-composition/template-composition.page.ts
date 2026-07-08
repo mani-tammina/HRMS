@@ -389,4 +389,12 @@ export class TemplateCompositionPage implements OnInit {
       this.calculateTotals();
     }
   }
+
+  closeModal() {
+    this.isModalOpen = false;
+    this.isEditMode = false;
+    this.selectedCompositionId = null;
+    this.employeeSearchTerm = '';
+    this.filteredEmployees = [];
+  }
 }
