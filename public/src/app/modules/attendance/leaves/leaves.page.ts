@@ -201,6 +201,42 @@ export class LeavesPage implements OnInit, OnDestroy {
 
   closePopup() { this.isPopupOpen = false; this.selectedLeave = null; }
 
+  cancellingLeave = false;
+  async cancelLeaveRequest(leave: any) {
+    if (!leave || !leave.id || leave.id === -1 || leave.id === 'lop-current') {
+      this.presentToast('This type of entry cannot be cancelled', 'warning');
+      return;
+    }
+
+    if (leave.status === 'CANCELLED') {
+      this.presentToast('Leave request is already cancelled', 'warning');
+      return;
+    }
+
+    if (leave.status === 'REJECTED') {
+      this.presentToast('Cannot cancel a rejected leave request', 'warning');
+      return;
+    }
+
+    this.cancellingLeave = true;
+    this.leaveRequestService.cancelLeave(leave.id).subscribe({
+      next: (res) => {
+        this.presentToast('Leave request cancelled successfully', 'success');
+        this.closePopup();
+        this.getAllLeaves();
+        this.loadLeaveBalance();
+        this.cancellingLeave = false;
+      },
+      error: (err) => {
+        console.error('Cancel leave error:', err);
+        const msg = err.error?.error || 'Failed to cancel leave request';
+        this.presentToast(msg, 'danger');
+        this.cancellingLeave = false;
+      }
+    });
+  }
+
+
   async initializeLeaves() {
     this.initializingLeaves = true;
     const employeeId = Number(this.routeGuardService.employeeID);

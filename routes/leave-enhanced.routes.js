@@ -1227,7 +1227,7 @@ router.post("/apply", auth, async (req, res) => {
       const [rows] = await c.query(
         `SELECT id, start_date, end_date, is_half_day, half_day_session, status 
          FROM leaves 
-         WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ? AND LOWER(status) != 'rejected'`,
+         WHERE employee_id = ? AND DATE(start_date) <= ? AND DATE(end_date) >= ? AND LOWER(status) NOT IN ('rejected', 'cancelled')`,
         [emp.id, dStr, dStr],
       );
 
@@ -1578,6 +1578,101 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Cancel Leave Request (Employee Self-Service / HR / Manager)
+router.put("/cancel/:leaveId", auth, async (req, res) => {
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp)
+      return res.status(404).json({ error: "Employee not found" });
+
+    const c = await db();
+    await c.beginTransaction();
+
+    // Get leave details with employee info
+    const [leaves] = await c.query(
+      `SELECT l.*, lt.type_code 
+       FROM leaves l
+       LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+       WHERE l.id = ?`,
+      [req.params.leaveId],
+    );
+
+    if (leaves.length === 0) {
+      await c.rollback();
+      c.end();
+      return res.status(404).json({ error: "Leave request not found" });
+    }
+
+    const leave = leaves[0];
+
+    // Check authorization: Employee can cancel their own, HR/Admin can cancel any
+    const isHR = ["admin", "hr"].includes(req.user.role);
+    const isOwner = leave.employee_id === currentEmp.id;
+
+    if (!isHR && !isOwner) {
+      await c.rollback();
+      c.end();
+      return res.status(403).json({ error: "You are not authorized to cancel this leave request" });
+    }
+
+    if (leave.status === "cancelled") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Leave request is already cancelled" });
+    }
+
+    if (leave.status === "rejected") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Cannot cancel a rejected leave request" });
+    }
+
+    const leaveYear = new Date(leave.start_date).getFullYear();
+
+    // Update leave status to cancelled
+    await c.query(
+      `UPDATE leaves SET status = 'cancelled', updated_at = NOW() WHERE id = ?`,
+      [req.params.leaveId],
+    );
+
+    // If the leave was already approved, revert the balance deduction
+    if (leave.status === "approved") {
+      const ltcode = (leave.type_code || "").toUpperCase();
+      if (ltcode === "CL") {
+        // For CL, only revert used_days
+        await c.query(
+          `UPDATE employee_leave_balances 
+           SET used_days = GREATEST(0, used_days - ?) 
+           WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [leave.total_days, leave.employee_id, leave.leave_type_id, leaveYear],
+        );
+      } else {
+        await c.query(
+          `UPDATE employee_leave_balances 
+           SET used_days = GREATEST(0, used_days - ?), available_days = available_days + ?
+           WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [
+            leave.total_days,
+            leave.total_days,
+            leave.employee_id,
+            leave.leave_type_id,
+            leaveYear,
+          ],
+        );
+      }
+    }
+
+    await c.commit();
+    c.end();
+
+    res.json({ success: true, message: "Leave request cancelled successfully" });
+  } catch (error) {
+    console.error("Error cancelling leave:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 // Get Pending Leaves (HR/Manager)
 router.get("/pending", auth, async (req, res) => {

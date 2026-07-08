@@ -77,6 +77,11 @@ export class LeaverequestService {
     return this.http.put(`${this.API_URL}/reject/${leaveId}`, { rejection_reason });
   }
 
+  cancelLeave(leaveId: number): Observable<any> {
+    return this.http.put(`${this.API_URL}/cancel/${leaveId}`, {});
+  }
+
+
   getPendingLeaveRequests(): Observable<any[]> {
     return this.http.get<any[]>(`${this.API_URL}/pending`).pipe(
       tap((requests) => this.leaveRequestsSource.next(requests))

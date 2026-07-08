@@ -233,7 +233,7 @@
   <ion-modal [isOpen]="isPopupOpen" (didDismiss)="closePopup()" class="custom-popup">
     <ng-template>
       <ion-header>
-        <ion-toolbar color="primary">
+        <ion-toolbar>
           <ion-title>Leave Detail</ion-title>
           <ion-buttons slot="end">
             <ion-button (click)="closePopup()">
@@ -243,46 +243,86 @@
         </ion-toolbar>
       </ion-header>
       <ion-content class="ion-padding">
-        <div class="detail-card">
-          <div class="detail-header">
-            <h3 [ngClass]="selectedLeave?.status">{{ selectedLeave?.status }}</h3>
-            <p>{{ selectedLeave?.leave_type }}</p>
+        <div class="detail-card-premium-v2">
+          
+          <!-- Hero Section with status banner -->
+          <div class="modal-hero-banner" [ngClass]="selectedLeave?.status?.toLowerCase()">
+            <div class="hero-top">
+              <div class="icon-bubble" [ngClass]="selectedLeave?.type_code?.toLowerCase()">
+                <ion-icon name="calendar-outline"></ion-icon>
+              </div>
+              <div class="badge-status-pill {{ selectedLeave?.status }}">
+                <span class="status-dot"></span>
+                {{ selectedLeave?.status }}
+              </div>
+            </div>
+            <div class="hero-bottom">
+              <h3>{{ selectedLeave?.leave_type }}</h3>
+              <p class="applied-date" *ngIf="selectedLeave?.applied_on">Applied on {{ selectedLeave?.applied_on | date:'MMM d, y, h:mm a' }}</p>
+            </div>
           </div>
-          <ion-list lines="full">
-            <ion-item>
-              <ion-label>
-                <p>{{ selectedLeave?.from_date | date:'MMMM d, y' }} <span *ngIf="!selectedLeave?.is_half_day">— {{
-                    selectedLeave?.to_date | date:'MMMM d, y' }}</span>
-                </p>
-                <p><strong>{{ selectedLeave?.days }} {{ selectedLeave?.days === 0.5 ? 'Half Day' : 'Days Total'
-                    }}</strong>
-                  <span *ngIf="selectedLeave?.is_half_day" class="session-badge">({{ selectedLeave?.half_day_session
-                    }})</span>
-                </p>
-              </ion-label>
-            </ion-item>
-            <ion-item>
-              <ion-label>
-                <h2>Reason</h2>
-                <p style="white-space: normal;">{{ selectedLeave?.reason || 'No reason provided' }}</p>
-              </ion-label>
-            </ion-item>
-            <ion-item *ngIf="selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason">
-              <ion-label>
-                <h2>Rejection Reason</h2>
-                <p style="white-space: normal; color: #ef4444;">{{ selectedLeave?.rejection_reason }}</p>
-              </ion-label>
-            </ion-item>
-            <ion-item *ngIf="selectedLeave?.approver_name">
-              <ion-label>
-                <h2>Processed By</h2>
-                <p>{{ selectedLeave?.approver_name }}</p>
-              </ion-label>
-            </ion-item>
-          </ion-list>
+
+          <!-- Cards Grid for Details -->
+          <div class="details-grid-v2">
+            <div class="grid-card duration-card">
+              <span class="card-label">Duration</span>
+              <span class="card-value highlight">{{ selectedLeave?.days }} {{ selectedLeave?.days === 0.5 ? 'Half Day' : 'Days' }}</span>
+              <span *ngIf="selectedLeave?.is_half_day" class="card-sub-value">({{ selectedLeave?.half_day_session }})</span>
+            </div>
+            
+            <div class="grid-card date-card">
+              <span class="card-label">From Date</span>
+              <span class="card-value">{{ selectedLeave?.from_date | date:'mediumDate' }}</span>
+            </div>
+
+            <div class="grid-card date-card" *ngIf="!selectedLeave?.is_half_day">
+              <span class="card-label">To Date</span>
+              <span class="card-value">{{ selectedLeave?.to_date | date:'mediumDate' }}</span>
+            </div>
+          </div>
+
+          <!-- Reason & Notes Section -->
+          <div class="notes-section-v2">
+            <h4 class="section-title">Reason for Leave</h4>
+            <div class="reason-quote-box">
+              <p>{{ selectedLeave?.reason || 'No reason specified by employee.' }}</p>
+            </div>
+          </div>
+
+          <!-- Processed Info -->
+          <div class="processed-section-v2" *ngIf="selectedLeave?.approver_name || (selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason)">
+            <h4 class="section-title">Approval Details</h4>
+            
+            <div class="processed-info-box" *ngIf="selectedLeave?.approver_name">
+              <ion-icon name="checkbox-outline" class="success-icon"></ion-icon>
+              <div class="processed-text">
+                <span class="label">Processed By</span>
+                <span class="value">{{ selectedLeave?.approver_name }}</span>
+              </div>
+            </div>
+
+            <div class="processed-info-box reject-box" *ngIf="selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason">
+              <ion-icon name="alert-circle-outline" class="danger-icon"></ion-icon>
+              <div class="processed-text">
+                <span class="label">Rejection Reason</span>
+                <span class="value error-message">{{ selectedLeave?.rejection_reason }}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Premium Action Footer (Cancel Request) -->
+          <div class="action-footer-premium-v2" *ngIf="selectedLeave && selectedLeave.id && selectedLeave.id !== -1 && selectedLeave.id !== 'lop-current' && selectedLeave.status !== 'CANCELLED' && selectedLeave.status !== 'REJECTED'">
+            <ion-button expand="block" class="cancel-request-btn-v2" (click)="cancelLeaveRequest(selectedLeave)" [disabled]="cancellingLeave">
+              <ion-spinner name="crescent" *ngIf="cancellingLeave" slot="start"></ion-spinner>
+              <ion-icon name="trash-sharp" slot="start" *ngIf="!cancellingLeave"></ion-icon>
+              Cancel Leave Request
+            </ion-button>
+          </div>
+
         </div>
       </ion-content>
     </ng-template>
   </ion-modal>
+
 
 </ion-content>
