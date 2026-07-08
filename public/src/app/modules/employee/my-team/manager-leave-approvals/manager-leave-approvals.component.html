@@ -5,10 +5,22 @@
     </ion-buttons>
     <ion-title>Leave Approvals</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="loadPendingLeaves()">
+      <ion-button (click)="ngOnInit()">
         <ion-icon name="refresh" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
+  </ion-toolbar>
+
+  <!-- Segment Tab Control -->
+  <ion-toolbar>
+    <ion-segment [value]="activeTab" (ionChange)="onTabChange($event)">
+      <ion-segment-button value="leaves">
+        <ion-label>Leave Requests</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="compoff">
+        <ion-label>Comp Off Requests</ion-label>
+      </ion-segment-button>
+    </ion-segment>
   </ion-toolbar>
 
   <ion-toolbar>
@@ -16,7 +28,7 @@
     </ion-searchbar>
   </ion-toolbar>
 
-  <ion-toolbar>
+  <ion-toolbar *ngIf="activeTab === 'leaves'">
     <ion-item lines="none">
       <div class="select-tag row-right">
         <ion-label>Leave Type:</ion-label>
@@ -45,74 +57,147 @@
     <p>Loading pending leave requests...</p>
   </div>
 
-  <!-- Empty State -->
-  <ion-row class="no-leaves" *ngIf="!isLoading && filteredLeaves.length === 0">
-    <ion-col size="12" class="ion-text-center">
-      <img src="assets/icon/no_leavedata_img.svg" onerror="this.src='../../assets/Profile_Picture.png'">
-      <p class="no-data-text">No Pending Leaves.</p>
-    </ion-col>
-  </ion-row>
+  <!-- Leave Requests Tab Content -->
+  <div *ngIf="activeTab === 'leaves'">
+    <!-- Empty State -->
+    <ion-row class="no-leaves" *ngIf="!isLoading && filteredLeaves.length === 0">
+      <ion-col size="12" class="ion-text-center">
+        <img src="assets/icon/no_leavedata_img.svg" onerror="this.src='../../assets/Profile_Picture.png'">
+        <p class="no-data-text">No Pending Leaves.</p>
+      </ion-col>
+    </ion-row>
 
-  <!-- Leave Cards -->
-  <div class="requests-container" *ngIf="!isLoading && filteredLeaves.length > 0">
-    <ion-card *ngFor="let leave of filteredLeaves" class="wfh-card">
-      <ion-card-header>
-        <div class="card-header-content row-space-between">
-          <div class="row-left">
-            <ion-avatar class="employee-avatar mr-8">
-              <img [src]="getProfileImage(leave)" />
-            </ion-avatar>
-            <div class="employee-info">
-              <ion-card-title>{{ leave.FirstName }} {{ leave.LastName }}</ion-card-title>
-              <p class="employee-number">{{ leave.EmployeeNumber }}</p>
+    <!-- Leave Cards -->
+    <div class="requests-container" *ngIf="!isLoading && filteredLeaves.length > 0">
+      <ion-card *ngFor="let leave of filteredLeaves" class="wfh-card">
+        <ion-card-header>
+          <div class="card-header-content row-space-between">
+            <div class="row-left">
+              <ion-avatar class="employee-avatar mr-8">
+                <img [src]="getProfileImage(leave)" />
+              </ion-avatar>
+              <div class="employee-info">
+                <ion-card-title>{{ leave.FirstName }} {{ leave.LastName }}</ion-card-title>
+                <p class="employee-number">{{ leave.EmployeeNumber }}</p>
+              </div>
+            </div>
+            <ion-badge [ngClass]="getStatusColor(leave.status)">
+              {{ leave.status || 'pending' }}
+            </ion-badge>
+          </div>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="row-space-between">
+            <div>
+              <label>Leave Type:</label>
+              <p>{{ leave.type_name }} ({{ leave.type_code }})</p>
+            </div>
+            <div>
+              <label>Start Date - End Date</label>
+              <p>{{ leave.start_date | date:'mediumDate' }} - {{ leave.end_date | date:'mediumDate' }}</p>
+            </div>
+            <div>
+              <label>Duration:</label>
+              <p class="total-days">{{ leave.total_days }} day(s)</p>
+            </div>
+            <div>
+              <label>Applied On:</label>
+              <p>{{ leave.applied_at | date }}</p>
             </div>
           </div>
-          <ion-badge [ngClass]="getStatusColor(leave.status)">
-            {{ leave.status || 'pending' }}
-          </ion-badge>
-        </div>
-      </ion-card-header>
 
-      <ion-card-content>
-        <div class="row-space-between">
-          <div>
-            <label>Leave Type:</label>
-            <p>{{ leave.type_name }} ({{ leave.type_code }})</p>
+          <!-- Reason -->
+          <div class="info-row" *ngIf="leave.reason">
+            <label>Reason:</label>
+            <p>{{ leave.reason }}</p>
           </div>
-          <div>
-            <label>Start Date - End Date</label>
-            <p>{{ leave.start_date | date:'mediumDate' }} - {{ leave.end_date | date:'mediumDate' }}</p>
-          </div>
-          <div>
-            <label>Duration:</label>
-            <p class="total-days">{{ leave.total_days }} day(s)</p>
-          </div>
-          <div>
-            <label>Applied On:</label>
-            <p>{{ leave.applied_at | date }}</p>
-          </div>
-        </div>
 
-        <!-- Reason -->
-        <div class="info-row" *ngIf="leave.reason">
-          <label>Reason:</label>
-          <p>{{ leave.reason }}</p>
-        </div>
+          <!-- Rejection Reason Input -->
+          <div class="rejection-reason-block">
+            <ion-textarea [(ngModel)]="rejectionReasons[leave.id]"
+              placeholder="Enter rejection reason (required to reject)..." class="rejection-textarea" rows="2"
+              auto-grow="false">
+            </ion-textarea>
+          </div>
 
-        <!-- Rejection Reason Input -->
-        <div class="rejection-reason-block">
-          <ion-textarea [(ngModel)]="rejectionReasons[leave.id]"
-            placeholder="Enter rejection reason (required to reject)..." class="rejection-textarea" rows="2"
-            auto-grow="false">
-          </ion-textarea>
-        </div>
+          <!-- Action Buttons -->
+          <div class="row-right action-btns">
+            <ion-button class="primary-outline-btn" (click)="rejectLeave(leave)">Reject</ion-button>
+            <ion-button class="primary-btn" (click)="approveLeave(leave)">Approve</ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
 
-        <!-- Action Buttons -->
-        <div class="row-right action-btns">
-          <ion-button class="primary-outline-btn" (click)="rejectLeave(leave)">Reject</ion-button>
-          <ion-button class="primary-btn" (click)="approveLeave(leave)">Approve</ion-button>
-        </div>
-      </ion-card-content>
-    </ion-card>
+  <!-- Comp Off Requests Tab Content -->
+  <div *ngIf="activeTab === 'compoff'">
+    <!-- Empty State -->
+    <ion-row class="no-leaves" *ngIf="!isLoading && filteredCompOffs.length === 0">
+      <ion-col size="12" class="ion-text-center">
+        <ion-icon name="time-outline" style="font-size:48px;color:#ccc;display:block;margin:0 auto 8px;"></ion-icon>
+        <p class="no-data-text">No Pending Comp Off Requests.</p>
+      </ion-col>
+    </ion-row>
+
+    <!-- Comp Off Cards -->
+    <div class="requests-container" *ngIf="!isLoading && filteredCompOffs.length > 0">
+      <ion-card *ngFor="let req of filteredCompOffs" class="wfh-card">
+        <ion-card-header>
+          <div class="card-header-content row-space-between">
+            <div class="row-left">
+              <ion-avatar class="employee-avatar mr-8">
+                <img [src]="getProfileImage(req)" />
+              </ion-avatar>
+              <div class="employee-info">
+                <ion-card-title>{{ req.FirstName }} {{ req.LastName }}</ion-card-title>
+                <p class="employee-number">{{ req.EmployeeNumber }}</p>
+              </div>
+            </div>
+            <ion-badge color="warning">
+              {{ req.status || 'pending' }}
+            </ion-badge>
+          </div>
+        </ion-card-header>
+
+        <ion-card-content>
+          <div class="row-space-between">
+            <div>
+              <label>Worked Date:</label>
+              <p>{{ req.date_worked | date:'mediumDate' }}</p>
+            </div>
+            <div>
+              <label>Days Earmarked:</label>
+              <p class="total-days">{{ req.total_days }} day(s)</p>
+            </div>
+            <div>
+              <label>Applied On:</label>
+              <p>{{ req.created_at | date }}</p>
+            </div>
+          </div>
+
+          <!-- Reason -->
+          <div class="info-row" *ngIf="req.reason">
+            <label>Reason:</label>
+            <p>{{ req.reason }}</p>
+          </div>
+
+          <!-- Rejection Reason Input -->
+          <div class="rejection-reason-block">
+            <ion-textarea [(ngModel)]="rejectionReasons[req.id]"
+              placeholder="Enter rejection reason (required to reject)..." class="rejection-textarea" rows="2"
+              auto-grow="false">
+            </ion-textarea>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="row-right action-btns">
+            <ion-button class="primary-outline-btn" (click)="rejectCompOff(req)">Reject</ion-button>
+            <ion-button class="primary-btn" (click)="approveCompOff(req)">Approve</ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
   </div>
 </ion-content>

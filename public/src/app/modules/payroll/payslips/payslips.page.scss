@@ -1498,13 +1498,30 @@
   }
 
   .attendance-summary-bar {
-    flex-direction: column;
+    display: grid !important;
+    grid-template-columns: repeat(2, 1fr) !important;
     gap: 12px;
+    padding: 12px;
+
+    .attendance-card {
+      width: 100%;
+      align-items: center;
+      text-align: center;
+      box-sizing: border-box;
+      padding: 12px;
+    }
   }
 
   .salary-tables-container {
     flex-direction: column;
     gap: 20px;
+  }
+
+  .payslip-data-table {
+    th, td {
+      padding: 8px 12px !important;
+      font-size: 12px !important;
+    }
   }
 
   .net-salary-card {
@@ -1520,6 +1537,10 @@
 
     .net-salary-right {
       justify-content: center;
+      img {
+        max-height: 80px;
+        object-fit: contain;
+      }
     }
   }
 

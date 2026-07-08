@@ -25,6 +25,7 @@ export class LeavesPage implements OnInit, OnDestroy {
 
   /** UI STATE */
   IsOpenleavePopup = false;
+  IsOpenCompOffPopup = false;
   isPopupOpen = false;
   selectedLeave: any = null;
   currentMonthFirstDateText = '';
@@ -120,7 +121,7 @@ export class LeavesPage implements OnInit, OnDestroy {
   getAllLeaves() {
     this.leaveRequestService.getMyLeaves(this.currentYear).subscribe({
       next: (res: any[]) => {
-        this.leaveRequestsDetails = res.map((item: any) => ({
+        const mappedLeaves = res.map((item: any) => ({
           id: item.id,
           leave_type: item.type_name,
           type_code: (item.type_code || '').toUpperCase(),
@@ -131,9 +132,38 @@ export class LeavesPage implements OnInit, OnDestroy {
           applied_on: item.applied_at,
           reason: item.reason,
           is_half_day: item.is_half_day,
-          half_day_session: item.half_day_session
+          half_day_session: item.half_day_session,
+          isCompOffGrant: false
         }));
-        this.updateHistoryAndPendingLeaves();
+
+        this.leaveRequestService.getMyCompOffRequests().subscribe({
+          next: (compOffs: any[]) => {
+            const mappedCompOffs = compOffs.map((item: any) => ({
+              id: item.id,
+              leave_type: 'Comp Off Grant',
+              type_code: 'COMP_OFF_GRANT',
+              from_date: item.date_worked,
+              to_date: item.date_worked,
+              days: Number(item.total_days),
+              status: item.status.toUpperCase(),
+              applied_on: item.created_at,
+              reason: item.reason,
+              is_half_day: Number(item.total_days) === 0.5,
+              half_day_session: Number(item.total_days) === 0.5 ? 'Half Day' : null,
+              isCompOffGrant: true,
+              approver_name: item.approver_name,
+              rejection_reason: item.rejection_reason
+            }));
+
+            this.leaveRequestsDetails = [...mappedLeaves, ...mappedCompOffs];
+            this.updateHistoryAndPendingLeaves();
+          },
+          error: err => {
+            console.error('Error fetching comp off details:', err);
+            this.leaveRequestsDetails = mappedLeaves;
+            this.updateHistoryAndPendingLeaves();
+          }
+        });
       },
       error: err => console.error('Error fetching leave details:', err),
     });
@@ -162,6 +192,10 @@ export class LeavesPage implements OnInit, OnDestroy {
   openLeaveModal() { this.IsOpenleavePopup = true; }
 
   closeleavePopup() { this.IsOpenleavePopup = false; }
+
+  openCompOffModal() { this.IsOpenCompOffPopup = true; }
+
+  closeCompOffPopup() { this.IsOpenCompOffPopup = false; }
 
   openPopup(leave: any) { this.selectedLeave = leave; this.isPopupOpen = true; }
 
@@ -209,6 +243,12 @@ export class LeavesPage implements OnInit, OnDestroy {
     this.getAllLeaves();
     this.loadLeaveBalance();
     this.closeleavePopup();
+  }
+
+  onCompOffSubmitted() {
+    this.getAllLeaves();
+    this.loadLeaveBalance();
+    this.closeCompOffPopup();
   }
 
   /* ===================== MANAGER NAVIGATION ===================== */

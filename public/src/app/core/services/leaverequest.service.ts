@@ -87,4 +87,28 @@ export class LeaverequestService {
     const params = new HttpParams().set('startDate', startDate).set('endDate', endDate);
     return this.http.get<any[]>(`${this.API_URL}/team-report`, { params });
   }
+
+  applyCompOff(payload: {
+    date_worked: string;
+    total_days: number;
+    reason: string;
+  }): Observable<any> {
+    return this.http.post<any>(`${this.API_URL}/comp-off/request`, payload);
+  }
+
+  getMyCompOffRequests(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_URL}/comp-off/my-requests`);
+  }
+
+  getPendingCompOffRequests(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.API_URL}/comp-off/pending`);
+  }
+
+  approveCompOff(id: number): Observable<any> {
+    return this.http.put(`${this.API_URL}/comp-off/approve/${id}`, {});
+  }
+
+  rejectCompOff(id: number, rejection_reason: string): Observable<any> {
+    return this.http.put(`${this.API_URL}/comp-off/reject/${id}`, { rejection_reason });
+  }
 }

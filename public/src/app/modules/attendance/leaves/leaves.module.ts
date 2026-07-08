@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { LeavesPage } from './leaves.page';
 import { RouterModule, Routes } from '@angular/router';
 import { LeaveRequestComponent } from '../../../shared/components/leave-request/leave-request.component';
+import { CompOffRequestComponent } from '../../../shared/components/comp-off-request/comp-off-request.component';
 
 const routes: Routes = [
   {
@@ -21,6 +22,7 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes),
     LeaveRequestComponent,
+    CompOffRequestComponent,
   ],
   declarations: [LeavesPage]
 })

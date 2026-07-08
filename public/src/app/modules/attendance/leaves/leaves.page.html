@@ -20,6 +20,12 @@
           Initialize Balance
         </ion-button>
 
+        <!-- Apply Comp Off Button -->
+        <ion-button (click)="openCompOffModal()" fill="outline" class="compoff-btn">
+          <ion-icon name="time-outline" slot="start"></ion-icon>
+          Apply Comp Off
+        </ion-button>
+
         <ion-button (click)="openLeaveModal()" class="request-btn">
           <ion-icon name="add-circle" slot="start"></ion-icon>
           New Request
@@ -204,6 +210,25 @@
     </ng-template>
   </ion-modal>
 
+  <!-- Side Modal for Comp Off Request -->
+  <ion-modal [isOpen]="IsOpenCompOffPopup" (didDismiss)="closeCompOffPopup()" class="cute-side-popup" [animated]="true">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar class="leave-header-toolbar">
+          <ion-title>Create Comp Off Request</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeCompOffPopup()">
+              <ion-icon name="close-outline"></ion-icon>
+            </ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <app-comp-off-request (compOffSubmitted)="onCompOffSubmitted()"></app-comp-off-request>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
   <!-- Leave Details Modal -->
   <ion-modal [isOpen]="isPopupOpen" (didDismiss)="closePopup()" class="custom-popup">
     <ng-template>
@@ -240,6 +265,18 @@
               <ion-label>
                 <h2>Reason</h2>
                 <p style="white-space: normal;">{{ selectedLeave?.reason || 'No reason provided' }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item *ngIf="selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason">
+              <ion-label>
+                <h2>Rejection Reason</h2>
+                <p style="white-space: normal; color: #ef4444;">{{ selectedLeave?.rejection_reason }}</p>
+              </ion-label>
+            </ion-item>
+            <ion-item *ngIf="selectedLeave?.approver_name">
+              <ion-label>
+                <h2>Processed By</h2>
+                <p>{{ selectedLeave?.approver_name }}</p>
               </ion-label>
             </ion-item>
           </ion-list>

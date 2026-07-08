@@ -16,10 +16,13 @@ import { environment } from 'src/environments/environment';
 export class ManagerLeaveApprovalsComponent implements OnInit {
   pendingLeaves: any[] = [];
   filteredLeaves: any[] = [];
+  pendingCompOffs: any[] = [];
+  filteredCompOffs: any[] = [];
   leaveTypes: any[] = [];
   isLoading = false;
   searchTerm = '';
   leaveTypeFilter = 'all';
+  activeTab: 'leaves' | 'compoff' = 'leaves';
   rejectionReasons: { [id: number]: string } = {};
 
   constructor(
@@ -32,6 +35,7 @@ export class ManagerLeaveApprovalsComponent implements OnInit {
   ngOnInit() {
     this.loadLeaveTypes();
     this.loadPendingLeaves();
+    this.loadPendingCompOffs();
   }
 
   ionViewWillEnter() {
@@ -62,6 +66,21 @@ export class ManagerLeaveApprovalsComponent implements OnInit {
     });
   }
 
+  loadPendingCompOffs() {
+    this.isLoading = true;
+    this.leaveRequestService.getPendingCompOffRequests().subscribe({
+      next: (requests) => {
+        this.pendingCompOffs = requests;
+        this.applyCompOffFilters();
+        this.isLoading = false;
+      },
+      error: () => {
+        this.showToast('Failed to load pending comp off requests', 'danger');
+        this.isLoading = false;
+      }
+    });
+  }
+
   applyFilters() {
     this.filteredLeaves = this.pendingLeaves.filter(leave => {
       const matchesSearch = !this.searchTerm ||
@@ -72,14 +91,28 @@ export class ManagerLeaveApprovalsComponent implements OnInit {
     });
   }
 
+  applyCompOffFilters() {
+    this.filteredCompOffs = this.pendingCompOffs.filter(req => {
+      const matchesSearch = !this.searchTerm ||
+        `${req.FirstName} ${req.LastName}`.toLowerCase().includes(this.searchTerm.toLowerCase()) ||
+        req.EmployeeNumber?.toLowerCase().includes(this.searchTerm.toLowerCase());
+      return matchesSearch;
+    });
+  }
+
   onSearchChange(event: any) {
     this.searchTerm = event.detail.value || '';
     this.applyFilters();
+    this.applyCompOffFilters();
   }
 
   onTypeFilterChange(event: any) {
     this.leaveTypeFilter = event.detail.value;
     this.applyFilters();
+  }
+
+  onTabChange(event: any) {
+    this.activeTab = event.detail.value;
   }
 
   approveLeave(leave: any) {
@@ -116,6 +149,40 @@ export class ManagerLeaveApprovalsComponent implements OnInit {
     this.rejectionReasons[leave.id] = '';
   }
 
+  approveCompOff(req: any) {
+    this.isLoading = true;
+    this.leaveRequestService.approveCompOff(req.id).subscribe({
+      next: () => {
+        this.showToast('Comp Off request approved successfully', 'success');
+        this.loadPendingCompOffs();
+      },
+      error: (error) => {
+        this.showToast(error.error?.error || 'Failed to approve Comp Off', 'danger');
+        this.isLoading = false;
+      }
+    });
+  }
+
+  rejectCompOff(req: any) {
+    const reason = (this.rejectionReasons[req.id] || '').trim();
+    if (!reason) {
+      this.showToast('Please enter a rejection reason before rejecting.', 'warning');
+      return;
+    }
+    this.isLoading = true;
+    this.leaveRequestService.rejectCompOff(req.id, reason).subscribe({
+      next: () => {
+        this.showToast('Comp Off request rejected successfully', 'success');
+        this.loadPendingCompOffs();
+      },
+      error: (error) => {
+        this.showToast(error.error?.error || 'Failed to reject Comp Off', 'danger');
+        this.isLoading = false;
+      }
+    });
+    this.rejectionReasons[req.id] = '';
+  }
+
   async showToast(message: string, color = 'dark') {
     const toast = await this.toastController.create({ message, duration: 3000, position: 'bottom', color });
     await toast.present();
@@ -123,6 +190,7 @@ export class ManagerLeaveApprovalsComponent implements OnInit {
 
   handleRefresh(event: any) {
     this.loadPendingLeaves();
+    this.loadPendingCompOffs();
     setTimeout(() => event.target.complete(), 1000);
   }
 

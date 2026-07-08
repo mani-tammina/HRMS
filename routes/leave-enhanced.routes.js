@@ -1937,4 +1937,262 @@ router.post("/wfh-request", auth, async (req, res) => {
   }
 });
 
+// ============================================
+// Comp Off Requests
+// ============================================
+
+// 1. Submit a Comp Off Request
+router.post("/comp-off/request", auth, async (req, res) => {
+  try {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+    const { date_worked, total_days, reason } = req.body;
+    if (!date_worked || !total_days || !reason) {
+      return res.status(400).json({ error: "All fields are required" });
+    }
+
+    const workedDate = new Date(date_worked);
+    const today = new Date();
+    today.setHours(23, 59, 59, 999); // Allow requests for today
+    if (workedDate > today) {
+      return res.status(400).json({ error: "Cannot request Comp Off for a future date" });
+    }
+
+    const c = await db();
+
+    // Check for duplicate pending or approved requests for same date
+    const [existing] = await c.query(
+      `SELECT id, status FROM comp_off_requests 
+       WHERE employee_id = ? AND date_worked = ? AND status IN ('pending', 'approved')`,
+      [emp.id, date_worked]
+    );
+
+    if (existing.length > 0) {
+      c.end();
+      return res.status(400).json({ 
+        error: `You already have a ${existing[0].status} Comp Off request for this date.` 
+      });
+    }
+
+    await c.query(
+      `INSERT INTO comp_off_requests (employee_id, date_worked, total_days, reason, status)
+       VALUES (?, ?, ?, ?, 'pending')`,
+      [emp.id, date_worked, total_days, reason]
+    );
+
+    c.end();
+    res.json({ success: true, message: "Comp Off request submitted successfully" });
+  } catch (error) {
+    console.error("Error submitting Comp Off request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 2. Get Employee's Own Comp Off Requests
+router.get("/comp-off/my-requests", auth, async (req, res) => {
+  try {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+    const c = await db();
+    const [requests] = await c.query(
+      `SELECT cor.*, u.full_name AS approver_name
+       FROM comp_off_requests cor
+       LEFT JOIN users u ON cor.approver_id = u.id
+       WHERE cor.employee_id = ?
+       ORDER BY cor.created_at DESC`,
+      [emp.id]
+    );
+    c.end();
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching own Comp Off requests:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 3. Get Pending Comp Off Requests (Manager / HR)
+router.get("/comp-off/pending", auth, async (req, res) => {
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
+    const isHR = ["admin", "hr"].includes(req.user.role);
+    const c = await db();
+
+    let query = `
+      SELECT cor.*, e.EmployeeNumber, e.FirstName, e.LastName
+      FROM comp_off_requests cor
+      INNER JOIN employees e ON cor.employee_id = e.id
+      WHERE cor.status = 'pending'`;
+
+    const params = [];
+    if (!isHR) {
+      query += ` AND e.reporting_manager_id = ?`;
+      params.push(currentEmp.id);
+    }
+
+    query += ` ORDER BY cor.created_at ASC`;
+
+    const [requests] = await c.query(query, params);
+    c.end();
+    res.json(requests);
+  } catch (error) {
+    console.error("Error fetching pending Comp Off requests:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 4. Approve a Comp Off Request
+router.put("/comp-off/approve/:id", auth, async (req, res) => {
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
+    const c = await db();
+    await c.beginTransaction();
+
+    // Get the request details
+    const [requests] = await c.query(
+      `SELECT cor.*, e.reporting_manager_id 
+       FROM comp_off_requests cor
+       JOIN employees e ON cor.employee_id = e.id
+       WHERE cor.id = ?`,
+      [req.params.id]
+    );
+
+    if (requests.length === 0) {
+      await c.rollback();
+      c.end();
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    const request = requests[0];
+
+    if (request.status !== "pending") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Request is already processed" });
+    }
+
+    // Check auth: HR/Admin or reporting manager
+    const isHR = ["admin", "hr"].includes(req.user.role);
+    const isReportingManager = request.reporting_manager_id === currentEmp.id;
+
+    if (!isHR && !isReportingManager) {
+      await c.rollback();
+      c.end();
+      return res.status(403).json({ error: "You can only approve requests for your direct reports" });
+    }
+
+    // 1. Update status in comp_off_requests
+    await c.query(
+      `UPDATE comp_off_requests SET status = 'approved', approver_id = ?, approval_date = NOW() WHERE id = ?`,
+      [req.user.id, req.params.id]
+    );
+
+    // 2. Find COMP_OFF leave type ID
+    const [leaveTypes] = await c.query(
+      `SELECT id FROM leave_types WHERE type_code = 'COMP_OFF'`
+    );
+
+    if (leaveTypes.length === 0) {
+      await c.rollback();
+      c.end();
+      return res.status(500).json({ error: "COMP_OFF leave type not found in database" });
+    }
+
+    const compOffTypeId = leaveTypes[0].id;
+    const leaveYear = new Date(request.date_worked).getFullYear();
+
+    // 3. Update or Insert leave balance
+    await c.query(
+      `INSERT INTO employee_leave_balances 
+         (employee_id, leave_type_id, leave_year, allocated_days, used_days, carry_forward_days, available_days)
+       VALUES (?, ?, ?, ?, 0, 0, ?)
+       ON DUPLICATE KEY UPDATE 
+         allocated_days = allocated_days + ?,
+         available_days = available_days + ?`,
+      [
+        request.employee_id,
+        compOffTypeId,
+        leaveYear,
+        request.total_days,
+        request.total_days,
+        request.total_days,
+        request.total_days
+      ]
+    );
+
+    await c.commit();
+    c.end();
+    res.json({ success: true, message: "Comp Off request approved successfully" });
+  } catch (error) {
+    console.error("Error approving Comp Off request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 5. Reject a Comp Off Request
+router.put("/comp-off/reject/:id", auth, async (req, res) => {
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
+    const { rejection_reason } = req.body;
+    if (!rejection_reason || !rejection_reason.trim()) {
+      return res.status(400).json({ error: "Rejection reason is required" });
+    }
+
+    const c = await db();
+    await c.beginTransaction();
+
+    const [requests] = await c.query(
+      `SELECT cor.*, e.reporting_manager_id 
+       FROM comp_off_requests cor
+       JOIN employees e ON cor.employee_id = e.id
+       WHERE cor.id = ?`,
+      [req.params.id]
+    );
+
+    if (requests.length === 0) {
+      await c.rollback();
+      c.end();
+      return res.status(404).json({ error: "Request not found" });
+    }
+
+    const request = requests[0];
+
+    if (request.status !== "pending") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Request is already processed" });
+    }
+
+    const isHR = ["admin", "hr"].includes(req.user.role);
+    const isReportingManager = request.reporting_manager_id === currentEmp.id;
+
+    if (!isHR && !isReportingManager) {
+      await c.rollback();
+      c.end();
+      return res.status(403).json({ error: "You can only reject requests for your direct reports" });
+    }
+
+    await c.query(
+      `UPDATE comp_off_requests 
+       SET status = 'rejected', approver_id = ?, approval_date = NOW(), rejection_reason = ? 
+       WHERE id = ?`,
+      [req.user.id, rejection_reason, req.params.id]
+    );
+
+    await c.commit();
+    c.end();
+    res.json({ success: true, message: "Comp Off request rejected successfully" });
+  } catch (error) {
+    console.error("Error rejecting Comp Off request:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

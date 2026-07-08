@@ -1,0 +1,62 @@
+<form class="premium-form-container" [formGroup]="compOffForm">
+
+  <div class="form-header-premium">
+    <div class="header-text">
+      <h2>Apply Comp Off</h2>
+      <p>Request leave credits for working on a non-working day</p>
+    </div>
+  </div>
+
+  <div class="form-section">
+    <!-- Date Worked -->
+    <div class="input-group full-width">
+      <label class="premium-label">Date Worked <span class="required-asterisk">*</span></label>
+      <div class="premium-input-wrapper">
+        <ion-icon name="calendar-clear-outline" class="input-icon-left"></ion-icon>
+        <ion-input id="worked-date-input" class="premium-input with-left-icon with-cursor" 
+          placeholder="Select Date" readonly
+          [value]="selectedDate ? (selectedDate | date:'dd MMM yyyy') : ''"></ion-input>
+      </div>
+      <ion-popover #datePopover trigger="worked-date-input" class="premium-popover" triggerAction="click">
+        <ng-template>
+          <ion-datetime [max]="maxDate" (ionChange)="onDateChange($event, datePopover)" presentation="date"></ion-datetime>
+          <div class="datetime-footer">
+          </div>
+        </ng-template>
+      </ion-popover>
+    </div>
+
+    <!-- Duration (Full Day vs Half Day) -->
+    <div class="input-group full-width">
+      <label class="premium-label">Duration <span class="required-asterisk">*</span></label>
+      <ion-segment formControlName="total_days" class="premium-segment">
+        <ion-segment-button value="1.0">
+          <ion-label>Full Day (1.0)</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="0.5">
+          <ion-label>Half Day (0.5)</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+
+    <!-- Reason -->
+    <div class="input-group full-width">
+      <label class="premium-label">Reason for Working <span class="required-asterisk">*</span></label>
+      <div class="premium-textarea-wrapper">
+        <ion-textarea placeholder="Describe the task or project you worked on..."
+          formControlName="reason" rows="4" class="premium-textarea" (ionInput)="validateWordLimit($event)"></ion-textarea>
+        <div class="word-count" [class.warning]="wordsCount > 90">
+          {{ wordsCount }} / 100
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <ion-button expand="block" class="submit-btn" [disabled]="compOffForm.invalid" (click)="submitRequest()">
+      Submit Request
+      <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+    </ion-button>
+  </div>
+
+</form>
