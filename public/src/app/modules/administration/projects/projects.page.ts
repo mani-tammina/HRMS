@@ -125,6 +125,11 @@ export class ProjectsPage implements OnInit {
     });
   }
 
+  openCreateForm() {
+    this.cancelCreate();
+    this.showCreateForm = true;
+  }
+
   cancelCreate() {
     this.showCreateForm = false;
     this.isEditMode = false;
@@ -169,6 +174,20 @@ export class ProjectsPage implements OnInit {
   private formatDate(date: any): string {
     if (!date) return '';
     return new Date(date).toISOString().split('T')[0];
+  }
+
+  countByStatus(status: string): number {
+    return this.projects.filter(p => p.status === status).length;
+  }
+
+  formatDateDisplay(date: any): string {
+    if (!date) return '—';
+    try {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' });
+    } catch {
+      return '—';
+    }
   }
 
   async showToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary' = 'primary') {

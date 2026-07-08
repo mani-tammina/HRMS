@@ -372,6 +372,16 @@ export class ProjectDetailsPage implements OnInit, OnDestroy {
     return new Date(date).toISOString().split('T')[0];
   }
 
+  formatDateDisplay(date: any): string {
+    if (!date) return '—';
+    try {
+      const d = new Date(date);
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return '—';
+    }
+  }
+
   async showToast(message: string, color: string) {
     const toast = await this.toastCtrl.create({ message, duration: 2000, color, position: 'top' });
     toast.present();

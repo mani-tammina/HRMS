@@ -555,12 +555,28 @@ router.put("/assignments/:assignmentId", auth, hr, async (req, res) => {
 
         const c = await db();
 
+        // Build dynamic UPDATE to avoid overwriting fields not provided
+        const updates = [];
+        const values = [];
+
+        if (shift_id !== undefined) { updates.push('shift_id = ?'); values.push(shift_id); }
+        if (assignment_end_date !== undefined) { updates.push('assignment_end_date = ?'); values.push(assignment_end_date); }
+        if (role_in_project !== undefined) { updates.push('role_in_project = ?'); values.push(role_in_project); }
+        if (allocation_percentage !== undefined) { updates.push('allocation_percentage = ?'); values.push(allocation_percentage); }
+        // Only update status if explicitly provided — prevents NULL overwrite that hides the record
+        if (status !== undefined) { updates.push('status = ?'); values.push(status); }
+
+        if (updates.length === 0) {
+            c.end();
+            return res.status(400).json({ success: false, message: 'No fields to update' });
+        }
+
+        updates.push('updated_at = NOW()');
+        values.push(req.params.assignmentId);
+
         await c.query(
-            `UPDATE project_assignments 
-            SET shift_id = ?, assignment_end_date = ?, role_in_project = ?, 
-                allocation_percentage = ?, status = ?, updated_at = NOW()
-            WHERE id = ?`,
-            [shift_id, assignment_end_date, role_in_project, allocation_percentage, status, req.params.assignmentId]
+            `UPDATE project_assignments SET ${updates.join(', ')} WHERE id = ?`,
+            values
         );
 
         c.end();
