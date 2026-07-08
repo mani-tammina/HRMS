@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { Router } from '@angular/router';
 import { ToastController, AlertController } from '@ionic/angular';
 import { LeavePlanService, LeavePlan } from '../../../core/services/leave-plans.service';
 import { LeaveTypeService } from '../../../core/services/leavetype.service';
@@ -14,7 +15,7 @@ export class LeavePlansPage implements OnInit {
   leavePlanForm!: FormGroup;
   loading = false;
   loadingPlans = false;
-  showCreateForm = false;
+  isModalOpen = false;
   isEditMode = false;
   editingPlanId: number | null = null;
   leavePlans: LeavePlan[] = [];
@@ -29,6 +30,7 @@ export class LeavePlansPage implements OnInit {
 
   constructor(
     private fb: FormBuilder,
+    private router: Router,
     private leavePlanService: LeavePlanService,
     private leaveTypeService: LeaveTypeService,
     private toastCtrl: ToastController,
@@ -73,7 +75,7 @@ export class LeavePlansPage implements OnInit {
     this.editingPlanId = null;
     this.editingPlanAllocations = [];
     this.leavePlanForm.reset({ leave_year_start_month: 1, leave_year_start_day: 1, is_active: true });
-    this.showCreateForm = true;
+    this.isModalOpen = true;
   }
 
   editPlan(plan: any) {
@@ -91,7 +93,7 @@ export class LeavePlansPage implements OnInit {
           is_active: fullPlan.is_active
         });
         this.loading = false;
-        this.showCreateForm = true;
+        this.isModalOpen = true;
       },
       error: () => {
         this.loading = false;
@@ -119,6 +121,31 @@ export class LeavePlansPage implements OnInit {
     }
   }
 
+  isAllocationSelected(leaveTypeId: number): boolean {
+    return this.editingPlanAllocations.some(a => Number(a.leave_type_id) === Number(leaveTypeId));
+  }
+
+  toggleLeaveTypeAllocation(lt: any, event: any) {
+    const checked = event.target.checked;
+    const leaveTypeId = Number(lt.id);
+    if (checked) {
+      const existing = this.editingPlanAllocations.find(a => Number(a.leave_type_id) === leaveTypeId);
+      if (!existing) {
+        this.editingPlanAllocations.push({
+          leave_type_id: lt.id,
+          type_name: lt.type_name,
+          days_allocated: 0,
+          prorate_on_joining: true
+        });
+      }
+    } else {
+      const index = this.editingPlanAllocations.findIndex(a => Number(a.leave_type_id) === leaveTypeId);
+      if (index > -1) {
+        this.editingPlanAllocations.splice(index, 1);
+      }
+    }
+  }
+
   removeAllocation(index: number) {
     this.editingPlanAllocations.splice(index, 1);
   }
@@ -143,7 +170,7 @@ export class LeavePlansPage implements OnInit {
       next: () => {
         this.showToast(this.isEditMode ? 'Plan updated' : 'Plan created', 'success');
         this.loading = false;
-        this.showCreateForm = false;
+        this.isModalOpen = false;
         this.loadLeavePlans();
       },
       error: () => {
@@ -169,7 +196,7 @@ export class LeavePlansPage implements OnInit {
   }
 
   cancelCreate() {
-    this.showCreateForm = false;
+    this.isModalOpen = false;
   }
 
   async showToast(message: string, color: string) {
@@ -179,5 +206,9 @@ export class LeavePlansPage implements OnInit {
 
   getMonthName(monthNum: number): string {
     return this.months[monthNum - 1] || 'Unknown';
+  }
+
+  goBack() {
+    this.router.navigate(['/administration/leaves-admin']);
   }
 }

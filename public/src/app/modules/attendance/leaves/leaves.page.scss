@@ -534,11 +534,88 @@
   }
 }
 
-/* Modal Customization */
-.custom-popup,
+/* ===== CUTE SIDE POPUP — Premium Right-Slide Panel ===== */
 .cute-side-popup {
-  --border-radius: #{vars.$radius-xl};
-  --box-shadow: #{vars.$shadow-xl};
+  --width: 480px;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: -8px 0 40px rgba(0, 0, 0, 0.15);
+
+  &::part(backdrop) {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+  }
+
+  &::part(content) {
+    position: fixed;
+    right: 0;
+    top: 0;
+    width: var(--width);
+    height: 100%;
+    border-radius: 20px 0 0 20px;
+    overflow: hidden;
+    background: #f8fafc;
+    border-left: 1px solid #e2e8f0;
+  }
+
+  ion-header {
+    ion-toolbar.leave-header-toolbar {
+      --background: linear-gradient(135deg, #1e70cd 0%, #0e4fa3 100%);
+      --color: #ffffff;
+      --padding-top: 18px;
+      --padding-bottom: 18px;
+      --padding-start: 24px;
+      --padding-end: 16px;
+      --min-height: 68px;
+      --border-width: 0;
+      box-shadow: 0 4px 20px rgba(30, 112, 205, 0.3);
+
+      ion-title {
+        font-weight: 700;
+        font-size: 18px;
+        letter-spacing: -0.3px;
+        color: #ffffff;
+        padding: 0;
+      }
+
+      ion-buttons {
+        ion-button {
+          --color: rgba(255, 255, 255, 0.75);
+          --border-radius: 8px;
+          --background: rgba(255, 255, 255, 0.12);
+          --background-hover: rgba(255, 255, 255, 0.2);
+          width: 36px;
+          height: 36px;
+          margin: 0;
+
+          ion-icon {
+            font-size: 20px;
+          }
+        }
+      }
+    }
+  }
+
+  ion-content {
+    --background: #f8fafc;
+    --padding-top: 0;
+    --padding-bottom: 0;
+    --padding-start: 0;
+    --padding-end: 0;
+  }
+}
+
+/* ===== CUSTOM POPUP (Leave Details View) ===== */
+.custom-popup {
+  --border-radius: 20px;
+  --box-shadow: 0 25px 60px rgba(0, 0, 0, 0.15);
+  --width: 440px;
+
+  &::part(backdrop) {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(4px);
+  }
 
   ion-header {
     ion-toolbar {

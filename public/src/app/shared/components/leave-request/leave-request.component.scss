@@ -1,121 +1,199 @@
 .premium-form-container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 10px 0;
+  gap: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #f8fafc;
 
+  /* ── TOP VISUAL BANNER ── */
   .form-header-premium {
-    background: linear-gradient(to right, #f8fafc, #ffffff);
-    border-radius: 16px;
+    background: linear-gradient(160deg, #eff6ff 0%, #f0f9ff 60%, #f8fafc 100%);
+    border-bottom: 1px solid #e2e8f0;
+    padding: 24px 24px 20px;
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    position: relative;
     overflow: hidden;
-    margin-bottom: 8px;
-    border: 1px solid #e2e8f0;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -30px;
+      right: -20px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(30, 112, 205, 0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .header-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #1e70cd, #0e4fa3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 12px rgba(30, 112, 205, 0.25);
+
+      ion-icon {
+        font-size: 22px;
+        color: #ffffff;
+      }
+    }
 
     .header-text {
-      padding: 16px 20px;
+      flex: 1;
 
       h2 {
-        margin: 0;
-        font-size: 1.25rem;
+        margin: 0 0 4px;
+        font-size: 17px;
         font-weight: 800;
-        color: #1e293b;
-        letter-spacing: -0.5px;
+        color: #0f172a;
+        letter-spacing: -0.4px;
       }
 
       p {
-        margin: 4px 0 0;
-        font-size: 0.875rem;
+        margin: 0;
+        font-size: 13px;
         color: #64748b;
         font-weight: 500;
+        line-height: 1.4;
       }
     }
   }
 
+  /* ── FORM BODY ── */
   .form-section {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 0;
+    padding: 8px 0;
+  }
+
+  /* ── FIELD GROUPS ── */
+  .field-block {
+    padding: 16px 24px;
+    border-bottom: 1px solid #f1f5f9;
+
+    &:last-child {
+      border-bottom: none;
+    }
   }
 
   .input-group {
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
 
-    .premium-label {
+  .premium-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #475569;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .required-asterisk {
+      color: #ef4444;
       font-size: 14px;
-      font-weight: 600;
-      color: #374151;
-      letter-spacing: 0.3px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+      font-weight: 700;
+    }
 
-      .required-asterisk { color: #ef4444; }
-      .optional-label { font-size: 12px; color: #9ca3af; font-weight: 400; }
+    .optional-label {
+      font-size: 11px;
+      color: #94a3b8;
+      font-weight: 500;
+      text-transform: none;
+      letter-spacing: 0;
     }
   }
 
+  /* ── DATE ROW ── */
   .date-row {
     display: flex;
-    gap: 16px;
+    gap: 12px;
+
     .half-width { flex: 1; }
     .full-width { flex: 1; }
   }
 
+  /* ── HALF DAY TOGGLE ROW ── */
   .half-day-row {
-    margin-bottom: -10px;
     .half-day-item {
       --padding-start: 0;
       --background: transparent;
       --inner-padding-end: 0;
-      ion-label { font-size: 15px; font-weight: 600; color: #374151; }
-      ion-toggle { --handle-background: #ffffff; --handle-background-checked: #ffffff; --background: #e5e7eb; --background-checked: #2563eb; }
-    }
-  }
+      --min-height: 44px;
 
-  .session-row {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-bottom: 4px;
-  }
+      ion-label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #334155;
+      }
 
-  .premium-segment {
-    background: #f1f5f9;
-    border-radius: 12px;
-    padding: 4px;
-    --background: transparent;
-    
-    ion-segment-button {
-      --indicator-color: #ffffff;
-      --color: #64748b;
-      --color-checked: #1e293b;
-      --border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      min-height: 36px;
-      text-transform: none;
-      
-      &::part(indicator-background) {
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      ion-toggle {
+        --handle-background: #ffffff;
+        --handle-background-checked: #ffffff;
+        --background: #cbd5e1;
+        --background-checked: #1e70cd;
+        --handle-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        padding: 0;
       }
     }
   }
 
+  /* ── SESSION SEGMENT ── */
+  .session-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .premium-segment {
+    background: #f1f5f9;
+    border-radius: 10px;
+    padding: 3px;
+    --background: transparent;
+
+    ion-segment-button {
+      --indicator-color: #ffffff;
+      --color: #64748b;
+      --color-checked: #1e70cd;
+      --border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      min-height: 34px;
+      text-transform: none;
+      letter-spacing: 0;
+
+      &::part(indicator-background) {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+      }
+    }
+  }
+
+  /* ── INPUT WRAPPERS ── */
   .premium-input-wrapper,
   .custom-select-wrapper,
   .premium-textarea-wrapper {
     position: relative;
     background: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 
     &:focus-within {
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+      border-color: #1e70cd;
+      box-shadow: 0 0 0 3px rgba(30, 112, 205, 0.12);
     }
   }
 
@@ -123,81 +201,92 @@
     ion-select {
       --padding-start: 16px;
       --padding-end: 40px;
-      --padding-top: 14px;
-      --padding-bottom: 14px;
+      --padding-top: 13px;
+      --padding-bottom: 13px;
       width: 100%;
-      height: 48px;
+      height: 46px;
+      font-size: 14px;
+      color: #0f172a;
+      font-weight: 500;
     }
 
     .select-chevron {
       position: absolute;
-      right: 14px;
+      right: 13px;
       top: 50%;
       transform: translateY(-50%);
-      font-size: 20px;
-      color: #6b7280;
+      font-size: 18px;
+      color: #94a3b8;
       pointer-events: none;
       z-index: 2;
     }
 
     ion-select::part(icon) { display: none; }
+    ion-select::part(text) {
+      font-size: 14px;
+      font-weight: 500;
+    }
   }
 
   .premium-input {
     --padding-start: 16px;
-    --padding-end: 40px;
-    --padding-top: 14px;
-    --padding-bottom: 14px;
-    font-size: 15px;
-    color: #1f2937;
-    --placeholder-color: #9ca3af;
+    --padding-end: 16px;
+    --padding-top: 13px;
+    --padding-bottom: 13px;
+    font-size: 14px;
+    color: #0f172a;
+    --placeholder-color: #94a3b8;
     --background: transparent;
+    font-weight: 500;
     margin: 0;
 
-    &.with-left-icon { --padding-start: 44px; --padding-end: 16px; }
+    &.with-left-icon { --padding-start: 42px; }
     &.with-cursor { cursor: pointer; }
   }
 
   .premium-textarea {
     --padding-start: 16px;
     --padding-end: 16px;
-    --padding-top: 16px;
-    --padding-bottom: 30px;
-    font-size: 15px;
-    color: #1f2937;
-    --placeholder-color: #9ca3af;
+    --padding-top: 14px;
+    --padding-bottom: 32px;
+    font-size: 14px;
+    color: #0f172a;
+    --placeholder-color: #94a3b8;
     --background: transparent;
+    font-weight: 500;
     margin: 0;
+    line-height: 1.5;
   }
 
   .input-icon {
     position: absolute;
-    right: 14px;
+    right: 13px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 20px;
-    color: #6b7280;
+    font-size: 18px;
+    color: #94a3b8;
     pointer-events: none;
     z-index: 2;
   }
 
   .input-icon-left {
     position: absolute;
-    left: 14px;
+    left: 13px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 20px;
-    color: #6b7280;
+    font-size: 18px;
+    color: #64748b;
     pointer-events: none;
     z-index: 2;
   }
 
+  /* ── WORD COUNT ── */
   .word-count {
     position: absolute;
     bottom: 8px;
     right: 12px;
     font-size: 11px;
-    color: #9ca3af;
+    color: #94a3b8;
     font-weight: 600;
     background: rgba(255, 255, 255, 0.9);
     padding: 2px 6px;
@@ -206,114 +295,174 @@
     &.warning { color: #ef4444; background: #fef2f2; }
   }
 
+  /* ── DURATION BADGE ── */
   .total-days-badge {
     display: inline-flex;
     align-items: center;
     gap: 12px;
-    background: #eff6ff;
-    padding: 12px 16px;
-    border-radius: 12px;
-    border: 1px dashed #bfdbfe;
+    background: linear-gradient(135deg, #eff6ff, #f0f9ff);
+    padding: 12px 18px;
+    border-radius: 10px;
+    border: 1.5px dashed #93c5fd;
     align-self: flex-start;
-    margin-top: -8px;
+    margin: 0;
 
     .badge-icon {
       display: flex;
       align-items: center;
       justify-content: center;
       background: #dbeafe;
-      width: 32px;
-      height: 32px;
-      border-radius: 8px;
-      ion-icon { font-size: 20px; color: #2563eb; }
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      flex-shrink: 0;
+
+      ion-icon {
+        font-size: 20px;
+        color: #1e70cd;
+      }
     }
 
     .badge-content {
       display: flex;
       flex-direction: column;
-      .badge-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #3b82f6; font-weight: 600; }
-      .badge-value { font-size: 15px; font-weight: 700; color: #1e3a8a; }
+      gap: 2px;
+
+      .badge-title {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #3b82f6;
+        font-weight: 700;
+      }
+
+      .badge-value {
+        font-size: 16px;
+        font-weight: 800;
+        color: #1e40af;
+        letter-spacing: -0.3px;
+      }
     }
   }
 
+  /* ── SUBMIT BUTTON AREA ── */
   .form-actions {
-    margin-top: 10px;
+    padding: 20px 24px 28px;
+    border-top: 1px solid #e2e8f0;
+    background: #ffffff;
+    margin-top: auto;
 
     .submit-btn {
-      --background: linear-gradient(135deg, #2563eb, #1d4ed8);
-      --background-hover: #1e40af;
-      --box-shadow: 0 4px 14px rgba(37, 99, 235, 0.3);
+      --background: linear-gradient(135deg, #1e70cd 0%, #0e4fa3 100%);
+      --background-hover: #0e4fa3;
+      --box-shadow: 0 6px 20px rgba(30, 112, 205, 0.35);
       --padding-top: 18px;
       --padding-bottom: 18px;
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
       margin: 0;
-      height: 54px;
+      height: 52px;
+      text-transform: none;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
 
-      &::part(native) { border-radius: 14px; }
+      &::part(native) { border-radius: 12px; }
       &:active { transform: scale(0.98); }
 
       &[disabled] {
-        --background: #f3f4f6;
-        --color: #9ca3af;
+        --background: #e2e8f0;
+        --color: #94a3b8;
         --box-shadow: none;
-        opacity: 0.8;
+        opacity: 1;
       }
 
-      ion-icon { margin-left: 8px; font-size: 18px; }
+      ion-icon {
+        margin-left: 8px;
+        font-size: 18px;
+      }
     }
   }
 
+  /* ── ANIMATIONS ── */
   .fade-in {
-    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* ── DATETIME FOOTER ── */
   .datetime-footer {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px;
+    padding: 10px 12px;
     background: #f9fafb;
     border-top: 1px solid #e5e7eb;
-    font-size: 13px;
+    font-size: 12px;
     color: #4b5563;
     font-weight: 500;
 
     .highlight-off {
-      width: 12px;
-      height: 12px;
+      width: 10px;
+      height: 10px;
       background-color: #eff6ff;
       border: 1px solid #bfdbfe;
-      border-radius: 4px;
+      border-radius: 3px;
       display: inline-block;
     }
   }
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+  @keyframes slideUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
   }
 }
 
+/* ── ION DATETIME POPOVER ── */
 ion-datetime {
   --background: #ffffff;
   --background-rgb: 255, 255, 255;
-  border-radius: 16px;
+  border-radius: 14px;
   overflow: hidden;
 
-  &::part(calendar-day) { font-size: 14px; font-weight: 500; color: #374151; border-radius: 10px; }
-  &::part(calendar-day-active) { background: #2563eb !important; color: #ffffff !important; font-weight: 700; box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3); }
-  &::part(calendar-day-today) { color: #2563eb; background: #eff6ff; font-weight: 700; }
-  &::part(header) { background: #f9fafb; padding: 16px; border-bottom: 1px solid #e5e7eb; }
-  &::part(month-year-button) { font-weight: 700; color: #111827; }
+  &::part(calendar-day) {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    border-radius: 8px;
+  }
+
+  &::part(calendar-day-active) {
+    background: #1e70cd !important;
+    color: #ffffff !important;
+    font-weight: 700;
+    box-shadow: 0 4px 10px rgba(30, 112, 205, 0.3);
+  }
+
+  &::part(calendar-day-today) {
+    color: #1e70cd;
+    background: #eff6ff;
+    font-weight: 700;
+  }
+
+  &::part(header) {
+    background: #f9fafb;
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  &::part(month-year-button) {
+    font-weight: 700;
+    color: #111827;
+  }
 }
 
 .premium-popover {
-  --width: 320px;
-  --box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  &::part(content) { border-radius: 20px; border: 1px solid rgba(229, 231, 235, 0.5); }
+  --width: 310px;
+  --box-shadow: 0 20px 40px rgba(0, 0, 0, 0.12), 0 6px 12px rgba(0, 0, 0, 0.06);
+
+  &::part(content) {
+    border-radius: 16px;
+    border: 1px solid rgba(226, 232, 240, 0.8);
+  }
 }
 
 :host { display: block; }

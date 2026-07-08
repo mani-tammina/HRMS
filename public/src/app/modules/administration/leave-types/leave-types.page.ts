@@ -16,7 +16,7 @@ export class LeaveTypesPage implements OnInit {
   leaveTypes: any[] = [];
   loading = false;
   listLoading = false;
-  showCreateForm = false;
+  isModalOpen = false;
   isEditMode = false;
   selectedLeaveTypeId: number | null = null;
 
@@ -76,7 +76,7 @@ export class LeaveTypesPage implements OnInit {
       max_carry_forward_days: 0,
       bg_color: '#1976d2'
     });
-    this.showCreateForm = true;
+    this.isModalOpen = true;
   }
 
   editLeaveType(type: any) {
@@ -96,7 +96,7 @@ export class LeaveTypesPage implements OnInit {
       description: type.description,
       bg_color: type.bg_color || '#1976d2'
     });
-    this.showCreateForm = true;
+    this.isModalOpen = true;
   }
 
   onFileSelected(event: any) {
@@ -150,7 +150,7 @@ export class LeaveTypesPage implements OnInit {
       next: () => {
         this.showToast(`Leave type ${this.isEditMode ? 'updated' : 'created'} successfully`, 'success');
         this.loading = false;
-        this.showCreateForm = false;
+        this.isModalOpen = false;
         this.loadLeaveTypes();
       },
       error: () => {
@@ -166,7 +166,11 @@ export class LeaveTypesPage implements OnInit {
   }
 
   cancelCreate() {
-    this.showCreateForm = false;
+    this.isModalOpen = false;
     this.isEditMode = false;
+  }
+
+  goBack() {
+    this.router.navigate(['/administration/leaves-admin']);
   }
 }

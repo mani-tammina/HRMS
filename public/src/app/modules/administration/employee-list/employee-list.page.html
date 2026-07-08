@@ -1,231 +1,372 @@
-<!-- Beautiful Loading Overlay (outside ion-content for proper z-index) -->
-<div class="upload-loading-overlay animate__animated animate__fadeIn" *ngIf="isUploading">
-    <div class="loading-content">
-        <div class="spinner-container">
-            <ion-spinner name="crescent" color="primary"></ion-spinner>
-        </div>
-        <h2>Uploading Employees</h2>
-        <p>Please wait while we process your file...</p>
-        <div class="progress-dots">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-        </div>
+<!-- Upload Loading Overlay -->
+<div class="upload-loading-overlay" *ngIf="isUploading">
+  <div class="loading-content">
+    <div class="spinner-ring"></div>
+    <h2>Uploading Employees</h2>
+    <p>Please wait while we process your file...</p>
+    <div class="progress-dots">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
     </div>
+  </div>
 </div>
 
-<ion-header class="ion-no-border">
-    <ion-toolbar color="primary" class="gradient-header">
-        <ion-buttons slot="start">
-            <ion-back-button defaultHref="/administration"></ion-back-button>
-        </ion-buttons>
-        <ion-title>All Employees</ion-title>
-        <ion-buttons slot="end">
-            <ion-button id="open-upload-modal" class="primary-outline-btn" style="--color: #fff; --border-color: #fff;">
-                <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
-                Upload Employees
+<ion-header [translucent]="true" class="ion-no-border"></ion-header>
+
+<ion-content [fullscreen]="true" class="emp-list-content">
+  <div class="emp-list-container">
+
+    <!-- Page Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <div class="header-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+        </div>
+        <div>
+          <h1>Employee List
+            <span class="count-badge">{{ totalEmployees }}</span>
+          </h1>
+          <p>Monitor and maintain all employee records</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <!-- Search -->
+        <div class="search-box">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="search-icon">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" [(ngModel)]="searchTerm" (input)="applySearch()"
+            placeholder="Search name, ID, department..." class="search-input" />
+        </div>
+        <!-- Upload button -->
+        <button id="open-upload-modal" class="upload-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 16 12 12 8 16"></polyline>
+            <line x1="12" y1="12" x2="12" y2="21"></line>
+            <path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"></path>
+          </svg>
+          Upload Employees
+        </button>
+      </div>
+    </div>
+
+    <!-- Employee Table Card -->
+    <div class="table-card">
+      <div class="table-responsive">
+        <table class="emp-table">
+          <thead>
+            <tr>
+              <!-- <th class="col-id">EMP ID</th> -->
+              <th class="col-num">EMP ID</th>
+              <th class="col-name">NAME</th>
+              <th class="col-email">EMAIL</th>
+              <th class="col-dept">DEPARTMENT</th>
+              <th class="col-desig">DESIGNATION</th>
+              <th class="col-actions text-center">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let emp of pagedCandidates" class="emp-row">
+              <!-- ID -->
+              <td class="col-id">
+                <span class="id-chip">{{ emp.EmployeeNumber || '—' }}</span>
+              </td>
+              <!-- Emp Number -->
+
+              <!-- Name with avatar -->
+              <td class="col-name">
+                <div class="emp-name-cell">
+                  <div class="emp-avatar" [style.background]="getAvatarColor(emp.FullName)">
+                    {{ getInitials(emp.FullName) }}
+                  </div>
+                  <span class="emp-fullname">{{ emp.FullName }}</span>
+                </div>
+              </td>
+              <!-- Email -->
+              <td class="col-email">
+                <span class="email-text">{{ emp.WorkEmail }}</span>
+              </td>
+              <!-- Department -->
+              <td class="col-dept">
+                <span class="dept-badge" *ngIf="emp.department_name">{{ emp.department_name }}</span>
+                <span class="empty-val" *ngIf="!emp.department_name">—</span>
+              </td>
+              <!-- Designation -->
+              <td class="col-desig">{{ emp.designation_name || '—' }}</td>
+              <!-- Actions -->
+              <td class="col-actions text-center">
+                <button class="action-btn edit" (click)="selectEmployee(emp)" title="Edit Profile">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            <!-- Empty State Row -->
+            <tr *ngIf="pagedCandidates.length === 0">
+              <td colspan="7" class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                  stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+                <p>No employees found matching your search.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Table Footer / Pagination -->
+      <div class="table-footer" *ngIf="totalEmployees > 0">
+        <div class="footer-stats">
+          <span class="stat-label">TOTAL EMPLOYEES</span>
+          <span class="stat-value">{{ totalEmployees }}</span>
+        </div>
+        <div class="pagination" *ngIf="totalPages > 1">
+          <button class="page-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <span class="page-info">Page <strong>{{ currentPage }}</strong> of <strong>{{ totalPages }}</strong></span>
+          <button class="page-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+              stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
+        <div class="footer-showing">
+          Showing <strong>{{ pagedCandidates.length }}</strong> of <strong>{{ totalEmployees }}</strong> employees
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ── Update Employee Profile Side Modal ── -->
+  <div class="side-modal-overlay" *ngIf="selectedEmployee !== null" (click)="selectedEmployee = null"></div>
+  <div class="side-modal" [class.open]="selectedEmployee !== null">
+    <div class="modal-header">
+      <div class="modal-header-info">
+        <div class="modal-avatar" [style.background]="getAvatarColor(selectedEmployee?.FullName)">
+          {{ getInitials(selectedEmployee?.FullName) }}
+        </div>
+        <div>
+          <h3>{{ selectedEmployee?.FullName }}</h3>
+          <span class="modal-emp-id">#{{ selectedEmployee?.id }} · {{ selectedEmployee?.EmployeeNumber || 'N/A'
+            }}</span>
+        </div>
+      </div>
+      <button class="close-btn" (click)="selectedEmployee = null">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="modal-section-title">Update Profile Settings</div>
+
+      <!-- Reporting Manager -->
+      <div class="form-group">
+        <label class="form-label">Reporting Manager</label>
+        <div class="manager-trigger" (click)="toggleManagerDropdown()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="trigger-icon">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span class="trigger-text">{{ getManagerName(updateData.reporting_manager_id) }}</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="trigger-chevron">
+            <polyline *ngIf="!managerDropdownOpen" points="6 9 12 15 18 9"></polyline>
+            <polyline *ngIf="managerDropdownOpen" points="18 15 12 9 6 15"></polyline>
+          </svg>
+        </div>
+        <div class="manager-panel" *ngIf="managerDropdownOpen">
+          <div class="manager-search-wrap">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" [(ngModel)]="managerSearchTerm" (input)="filterManagers()"
+              placeholder="Search manager..." class="manager-search-input" />
+          </div>
+          <div class="manager-list">
+            <div class="manager-option clear-option" (click)="selectManager(null)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="15" y1="9" x2="9" y2="15"></line>
+                <line x1="9" y1="9" x2="15" y2="15"></line>
+              </svg>
+              <span>No Manager</span>
+            </div>
+            <div class="manager-option" *ngFor="let emp of filteredManagers" (click)="selectManager(emp.id)"
+              [class.is-selected]="updateData.reporting_manager_id === emp.id">
+              <div class="mgr-avatar" [style.background]="getAvatarColor(emp.FullName)">{{ getInitials(emp.FullName) }}
+              </div>
+              <span>{{ emp.FullName }}</span>
+              <svg *ngIf="updateData.reporting_manager_id === emp.id" width="14" height="14" viewBox="0 0 24 24"
+                fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"
+                class="check-icon">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </div>
+            <div class="manager-option empty-msg" *ngIf="filteredManagers.length === 0">
+              <span>No matches found</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Department -->
+      <div class="form-group">
+        <label class="form-label">Department</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.DepartmentId" class="glass-select">
+            <option [ngValue]="null">Select Department</option>
+            <option *ngFor="let dep of departments" [value]="dep.id">{{ dep.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Leave Plan -->
+      <div class="form-group">
+        <label class="form-label">Leave Plan</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.leave_plan_id" class="glass-select">
+            <option [ngValue]="null">Select Leave Plan</option>
+            <option *ngFor="let plan of leavePlans" [value]="plan.id">{{ plan.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Shift Policy -->
+      <div class="form-group">
+        <label class="form-label">Shift Policy</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.shift_policy_id" class="glass-select">
+            <option [ngValue]="null">Select Shift Policy</option>
+            <option *ngFor="let s of shiftPolicies" [value]="s.id">{{ s.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Attendance Policy -->
+      <div class="form-group">
+        <label class="form-label">Attendance Policy</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.attendance_policy_id" class="glass-select">
+            <option [ngValue]="null">Select Attendance Policy</option>
+            <option *ngFor="let a of attendancePolicies" [value]="a.id">{{ a.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Weekly Off Policy -->
+      <div class="form-group">
+        <label class="form-label">Weekly Off Policy</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.weekly_off_policy_id" class="glass-select">
+            <option [ngValue]="null">Select Weekly Off</option>
+            <option *ngFor="let w of weeklyOffPolicies" [value]="w.id">{{ w.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="cancel-btn" (click)="selectedEmployee = null">Cancel</button>
+      <button class="submit-btn" (click)="updateEmployeeProfile()">Update Profile</button>
+    </div>
+  </div>
+
+  <!-- ── Upload Employees Modal ── -->
+  <ion-modal trigger="open-upload-modal" #uploadModal class="upload-modal-sheet">
+    <ng-template>
+      <ion-header class="ion-no-border">
+        <ion-toolbar class="upload-toolbar">
+          <ion-title>Upload Employee List</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="uploadModal.dismiss()">
+              <ion-icon name="close-outline" slot="icon-only"></ion-icon>
             </ion-button>
-        </ion-buttons>
-    </ion-toolbar>
-    <ion-toolbar>
-        <ion-searchbar (ionInput)="applySearch()" [(ngModel)]="searchTerm" placeholder="Search Employees, Employee ID or Department"
-            animated="true" class="custom-searchbar"></ion-searchbar>
-    </ion-toolbar>
-</ion-header>
-
-<ion-content [fullscreen]="true" class="admin-dashboard ion-padding">
-    <div class="top-bar">
-        <h1>Employees List <small style="font-size: 16px; color: #71717a; font-weight: 500;">({{totalEmployees}})</small></h1>
-        <p>Monitor and maintain employee records</p>
-    </div>
-
-    <div class="table-block">
-        <div class="table-header">
-            <ion-grid>
-                <ion-row>
-                    <ion-col size="0.8">Emp ID</ion-col>
-                    <ion-col size="1.2">Emp Number</ion-col>
-                    <ion-col size="2">Name</ion-col>
-                    <ion-col size="3">Email ID</ion-col>
-                    <ion-col size="2">Department</ion-col>
-                    <ion-col size="2">Designation</ion-col>
-                    <ion-col size="1" class="ion-text-right">Actions</ion-col>
-                </ion-row>
-            </ion-grid>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+      <ion-content class="ion-padding">
+        <div class="upload-block" (click)="EmployeeInput.click()">
+          <div class="upload-icon-ring">
+            <ion-icon [name]="EmployeeselectedFile ? 'document-text-outline' : 'cloud-upload-outline'"
+              [color]="EmployeeselectedFile ? 'success' : 'primary'"></ion-icon>
+          </div>
+          <h3>{{ EmployeeselectedFile ? EmployeeselectedFile.name : 'Click to browse file' }}</h3>
+          <p>{{ EmployeeselectedFile ? 'File selected — ready to upload' : 'Accepts .xls and .xlsx formats' }}</p>
+          <input type="file" #EmployeeInput accept=".xlsx,.xls" (change)="EmployeeSelected($event)"
+            style="display: none;" />
         </div>
 
-        <div class="table-list-container">
-            <ion-grid>
-                <ion-row *ngFor="let emp of pagedCandidates" class="table-list-row animate__animated animate__fadeIn">
-                    <ion-col size="0.8">{{emp.id}}</ion-col>
-                    <ion-col size="1.2">{{emp.EmployeeNumber || '-'}}</ion-col>
-                    <ion-col size="2" class="emp-name-cell">{{emp.FullName}}</ion-col>
-                    <ion-col size="3">{{emp.WorkEmail}}</ion-col>
-                    <ion-col size="2">{{emp.department_name || '-'}}</ion-col>
-                    <ion-col size="2">{{emp.designation_name || '-'}}</ion-col>
-                    <ion-col size="1" class="ion-text-right">
-                        <ion-button fill="clear" (click)="selectEmployee(emp)" color="primary" class="ion-no-margin">
-                            <ion-icon name="pencil-outline" slot="icon-only"  style="font-size: 18px;"></ion-icon>
-                        </ion-button>
-                    </ion-col>
-                </ion-row>
-            </ion-grid>
+        <div class="upload-instructions">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="12" y1="8" x2="12" y2="12"></line>
+            <line x1="12" y1="16" x2="12.01" y2="16"></line>
+          </svg>
+          <p>Ensure headers match the template provided in the admin guide.</p>
         </div>
 
-        <!-- Empty State -->
-        <div class="empty-state ion-text-center ion-padding" *ngIf="pagedCandidates.length === 0">
-            <ion-icon name="people-outline" style="font-size: 48px; color: #e4e4e7;"></ion-icon>
-            <p style="color: #71717a; margin-top: 12px;">No employees found</p>
+        <div class="upload-actions">
+          <ion-button expand="block" class="start-upload-btn" (click)="EmployeesUpload()"
+            [disabled]="!EmployeeselectedFile">
+            <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+            Start Upload
+          </ion-button>
+          <ion-button expand="block" fill="clear" color="medium" (click)="uploadModal.dismiss()">Cancel</ion-button>
         </div>
-    </div>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
 
-    <!-- Pagination -->
-    <div class="pagination-controls ion-padding-top" *ngIf="totalPages > 0">
-        <ion-button fill="clear" (click)="prevPage()" [disabled]="currentPage === 1">
-            <ion-icon name="chevron-back-outline"></ion-icon>
-        </ion-button>
-        <span class="page-info">Page {{currentPage}} of {{totalPages}}</span>
-        <ion-button fill="clear" (click)="nextPage()" [disabled]="currentPage === totalPages">
-            <ion-icon name="chevron-forward-outline"></ion-icon>
-        </ion-button>
-    </div>
-
-    <!-- Update Employee Profile Modal (Side Popup Style) -->
-    <ion-modal [isOpen]="selectedEmployee !== null" (didDismiss)="selectedEmployee = null" class="side-custom-popup">
-        <ng-template>
-            <ion-header class="ion-no-border">
-                <ion-toolbar color="primary">
-                    <ion-title>Update Employee Profile</ion-title>
-                    <ion-buttons slot="end">
-                        <ion-button (click)="selectedEmployee = null">
-                            <ion-icon name="close-outline" slot="icon-only"></ion-icon>
-                        </ion-button>
-                    </ion-buttons>
-                </ion-toolbar>
-            </ion-header>
-
-            <ion-content class="ion-padding">
-                <div class="employee-summary">
-                    <h3 style="margin-top: 0; font-weight: 700;">{{selectedEmployee?.FullName}}</h3>
-                    <p style="color: #71717a; font-size: 14px; margin-top: -4px;">Employee ID: {{selectedEmployee?.id}}</p>
-                </div>
-
-                <div class="form-container">
-                    <ion-list lines="none">
-                        <!-- Searchable Manager Dropdown (Legacy Behavior) -->
-                        <div class="manager-field-wrapper">
-                            <ion-label class="manager-field-label">Reporting Manager</ion-label>
-                            <div class="manager-trigger" (click)="toggleManagerDropdown()">
-                                <ion-icon name="person-circle-outline" class="trigger-icon"></ion-icon>
-                                <span class="trigger-text">{{ getManagerName(updateData.reporting_manager_id) }}</span>
-                                <ion-icon [name]="managerDropdownOpen ? 'chevron-up-outline' : 'chevron-down-outline'" class="trigger-chevron"></ion-icon>
-                            </div>
-
-                            <div class="manager-panel" *ngIf="managerDropdownOpen">
-                                <ion-searchbar [(ngModel)]="managerSearchTerm" (ionInput)="filterManagers()" placeholder="Search by name..." [debounce]="150" 
-                                    showCancelButton="never" class="manager-search"></ion-searchbar>
-                                <div class="manager-list">
-                                    <div class="manager-option clear-option" (click)="selectManager(null)">
-                                        <ion-icon name="close-circle-outline"></ion-icon>
-                                        <span>No Manager</span>
-                                    </div>
-                                    <div class="manager-option" *ngFor="let emp of filteredManagers" (click)="selectManager(emp.id)" [class.is-selected]="updateData.reporting_manager_id === emp.id">
-                                        <ion-icon name="person-outline"></ion-icon>
-                                        <span>{{ emp.FullName }}</span>
-                                        <ion-icon name="checkmark" class="check-icon" *ngIf="updateData.reporting_manager_id === emp.id"></ion-icon>
-                                    </div>
-                                    <div class="manager-option empty-msg" *ngIf="filteredManagers.length === 0">
-                                        <ion-icon name="search-outline"></ion-icon>
-                                        <span>No matches found</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <ion-item>
-                            <ion-label position="stacked">Department</ion-label>
-                            <ion-select [(ngModel)]="updateData.DepartmentId" placeholder="Select Department" interface="popover">
-                                <ion-select-option *ngFor="let dep of departments" [value]="dep.id">{{dep.name}}</ion-select-option>
-                            </ion-select>
-                        </ion-item>
-
-                        <ion-item>
-                            <ion-label position="stacked">Leave Plan</ion-label>
-                            <ion-select [(ngModel)]="updateData.leave_plan_id" placeholder="Select Leave Plan" interface="popover">
-                                <ion-select-option *ngFor="let plan of leavePlans" [value]="plan.id">{{plan.name}}</ion-select-option>
-                            </ion-select>
-                        </ion-item>
-
-                        <ion-item>
-                            <ion-label position="stacked">Shift Policy</ion-label>
-                            <ion-select [(ngModel)]="updateData.shift_policy_id" placeholder="Select Shift Policy" interface="popover">
-                                <ion-select-option *ngFor="let s of shiftPolicies" [value]="s.id">{{s.name}}</ion-select-option>
-                            </ion-select>
-                        </ion-item>
-
-                        <ion-item>
-                            <ion-label position="stacked">Attendance Policy</ion-label>
-                            <ion-select [(ngModel)]="updateData.attendance_policy_id" placeholder="Select Attendance Policy" interface="popover">
-                                <ion-select-option *ngFor="let a of attendancePolicies" [value]="a.id">{{a.name}}</ion-select-option>
-                            </ion-select>
-                        </ion-item>
-
-                        <ion-item>
-                            <ion-label position="stacked">Weekly Off Policy</ion-label>
-                            <ion-select [(ngModel)]="updateData.weekly_off_policy_id" placeholder="Select Weekly Off" interface="popover">
-                                <ion-select-option *ngFor="let w of weeklyOffPolicies" [value]="w.id">{{w.name}}</ion-select-option>
-                            </ion-select>
-                        </ion-item>
-                    </ion-list>
-                </div>
-
-                <div class="form-footer">
-                    <ion-button class="primary-outline-btn" (click)="selectedEmployee = null">Cancel</ion-button>
-                    <ion-button class="primary-btn" (click)="updateEmployeeProfile()">Update Profile</ion-button>
-                </div>
-            </ion-content>
-        </ng-template>
-    </ion-modal>
-
-    <!-- Upload Employees Modal (Legacy Style) -->
-    <ion-modal trigger="open-upload-modal" #uploadModal class="upload-main-block">
-        <ng-template>
-            <ion-header class="ion-no-border">
-                <ion-toolbar color="primary">
-                    <ion-title>Upload Employee List</ion-title>
-                    <ion-buttons slot="end">
-                        <ion-button (click)="uploadModal.dismiss()">
-                            <ion-icon name="close-outline" slot="icon-only"></ion-icon>
-                        </ion-button>
-                    </ion-buttons>
-                </ion-toolbar>
-            </ion-header>
-            <ion-content class="ion-padding">
-                <div class="upload-block" (click)="EmployeeInput.click()">
-                    <ion-icon name="folder-open-outline" class="folder-icon"></ion-icon>
-                    <p><strong>Upload a file</strong></p>
-                    <p style="color: #71717a; font-size: 13px;">Attach the employee data file below</p>
-
-                    <div class="drag-drop-area">
-                        <ion-icon name="arrow-down-circle-outline" class="upload-icon" *ngIf="!EmployeeselectedFile"></ion-icon>
-                        <ion-icon name="document-text-outline" class="upload-icon" *ngIf="EmployeeselectedFile" color="success"></ion-icon>
-                        <p *ngIf="!EmployeeselectedFile">Click here to browse your computer.</p>
-                        <p *ngIf="EmployeeselectedFile" style="color: #18191c; font-weight: 600;">{{EmployeeselectedFile.name}}</p>
-                        <input type="file" #EmployeeInput accept=".xlsx,.xls" (change)="EmployeeSelected($event)" style="display: none;" />
-                    </div>
-                </div>
-
-                <div class="modal-actions" style="margin-top: 24px;">
-                    <ion-button expand="block" class="primary-btn" (click)="EmployeesUpload()" [disabled]="!EmployeeselectedFile">
-                        Start Upload
-                    </ion-button>
-                    <ion-button expand="block" fill="clear" color="medium" (click)="uploadModal.dismiss()">Cancel</ion-button>
-                </div>
-                
-                <div class="instructions ion-padding-top" style="font-size: 13px; color: #71717a;">
-                   <p><strong>Instructions:</strong> Use Excel formats (.xls, .xlsx). Ensure headers match the template provided in the admin guide.</p>
-                </div>
-            </ion-content>
-        </ng-template>
-    </ion-modal>
 </ion-content>

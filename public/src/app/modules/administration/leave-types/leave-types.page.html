@@ -1,74 +1,240 @@
-<ion-header>
-  <ion-toolbar color="primary" class="gradient-header">
-    <ion-buttons slot="start">
-      <ion-back-button defaultHref="/administration"></ion-back-button>
-    </ion-buttons>
-    <ion-title>Manage Leave Types</ion-title>
-    <ion-buttons slot="end">
-      <ion-button (click)="openCreateForm()" [disabled]="showCreateForm">
-        <ion-icon name="add-outline" slot="icon-only"></ion-icon>
-      </ion-button>
-    </ion-buttons>
-  </ion-toolbar>
+<ion-header [translucent]="true" class="ion-no-border">
 </ion-header>
 
-<ion-content class="ion-padding page-containerOn">
-  <!-- Create Form Modal View -->
-  <ion-card class="form-card" *ngIf="showCreateForm">
-    <ion-card-header>
-      <ion-card-title>{{isEditMode ? 'Edit' : 'Add'}} Leave Type</ion-card-title>
-    </ion-card-header>
-    <ion-card-content>
-      <form [formGroup]="leaveTypeForm" (ngSubmit)="submit()">
-        <div class="form-grid">
-          <ion-item lines="outline">
-            <ion-label position="floating">Type Name</ion-label>
-            <ion-input formControlName="type_name"></ion-input>
-          </ion-item>
-          <ion-item lines="outline">
-            <ion-label position="floating">Type Code</ion-label>
-            <ion-input formControlName="type_code"></ion-input>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label>Is Paid Leave</ion-label>
-            <ion-checkbox slot="start" formControlName="is_paid"></ion-checkbox>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label>Requires Approval</ion-label>
-            <ion-checkbox slot="start" formControlName="requires_approval"></ion-checkbox>
-          </ion-item>
-          <ion-item lines="none">
-            <ion-label>Can Carry Forward</ion-label>
-            <ion-checkbox slot="start" formControlName="can_carry_forward"></ion-checkbox>
-          </ion-item>
-          <ion-item lines="outline" *ngIf="leaveTypeForm.get('can_carry_forward')?.value">
-            <ion-label position="floating">Max CF Days</ion-label>
-            <ion-input type="number" formControlName="max_carry_forward_days"></ion-input>
-          </ion-item>
+<ion-content [fullscreen]="true" class="payroll-content">
+  <div class="payroll-container">
+    <!-- Back Navigation -->
+    <div class="back-nav">
+      <a (click)="goBack()" class="back-link">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"></line>
+          <polyline points="12 19 5 12 12 5"></polyline>
+        </svg>
+        Back to Leave Configuration Dashboard
+      </a>
+    </div>
 
-          <!-- Color Picker Container -->
-          <div class="color-picker-item">
-            <ion-item lines="outline" style="flex: 1;">
-              <ion-label position="floating">Background Color</ion-label>
-              <ion-input formControlName="bg_color" placeholder="#1976d2"></ion-input>
-            </ion-item>
-            <div class="color-preview-box">
-              <input type="color" [value]="leaveTypeForm.get('bg_color')?.value" (input)="onColorChange($event)" class="native-color-picker" />
+    <!-- Breadcrumbs -->
+    <div class="breadcrumb">
+      <span class="breadcrumb-item" (click)="goBack()">Leave Configuration</span>
+      <span class="breadcrumb-separator">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+      </span>
+      <span class="breadcrumb-item active">Leave Types</span>
+    </div>
+
+    <!-- Header Section -->
+    <div class="header">
+      <div class="header-info">
+        <h1>Manage Leave Types</h1>
+        <p>Configure leave categories, paid status, carry forward ceilings, and display visual rules.</p>
+      </div>
+      <button class="create-btn" (click)="openCreateForm()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Create New Leave Type
+      </button>
+    </div>
+
+    <!-- Leave Types Table Card -->
+    <div class="components-card">
+      <div class="table-responsive">
+        <table class="payroll-table">
+          <thead>
+            <tr>
+              <th class="col-id">Icon</th>
+              <th class="col-code">CODE</th>
+              <th class="col-name">NAME</th>
+              <th class="col-type text-center">IS PAID</th>
+              <th class="col-calc text-center">APPROVAL REQ</th>
+              <th class="col-base text-center">CARRY FORWARD</th>
+              <th class="col-value text-right">MAX CF DAYS</th>
+              <th class="col-taxable text-center">COLOR KEY</th>
+              <th class="col-actions text-center">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let type of leaveTypes; let i = index">
+              <!-- Icon col -->
+              <td class="col-id">
+                <div class="table-icon-preview" [style.background-color]="type.bg_color + '15'">
+                  <img *ngIf="type.icon_path" [src]="env + type.icon_path" alt="icon" class="type-icon-img" />
+                  <svg *ngIf="!type.icon_path" width="18" height="18" viewBox="0 0 24 24" fill="none" [attr.stroke]="type.bg_color || '#64748b'" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                    <line x1="3" y1="10" x2="21" y2="10"></line>
+                  </svg>
+                </div>
+              </td>
+              <!-- Code -->
+              <td class="col-code">{{ type.type_code }}</td>
+              <!-- Name -->
+              <td class="col-name">{{ type.type_name }}</td>
+              <!-- Is Paid -->
+              <td class="col-type text-center">
+                <span class="badge" [ngClass]="type.is_paid ? 'earning' : 'deduction'">
+                  {{ type.is_paid ? 'Paid' : 'Unpaid' }}
+                </span>
+              </td>
+              <!-- Approval Req -->
+              <td class="col-calc text-center">
+                <svg class="status-icon active" *ngIf="type.requires_approval" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="8 12 11 15 16 9"></polyline>
+                </svg>
+                <svg class="status-icon inactive" *ngIf="!type.requires_approval" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              </td>
+              <!-- Carry Forward -->
+              <td class="col-base text-center">
+                <svg class="status-icon active" *ngIf="type.can_carry_forward" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="8 12 11 15 16 9"></polyline>
+                </svg>
+                <svg class="status-icon inactive" *ngIf="!type.can_carry_forward" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                </svg>
+              </td>
+              <!-- Max CF Days -->
+              <td class="col-value text-right" [class.empty-val]="!type.can_carry_forward">
+                {{ type.can_carry_forward ? type.max_carry_forward_days : '-' }}
+              </td>
+              <!-- Color key -->
+              <td class="col-taxable text-center">
+                <div class="color-dot-indicator" [style.background-color]="type.bg_color" [title]="type.bg_color"></div>
+              </td>
+              <!-- Actions -->
+              <td class="col-actions text-center">
+                <button class="action-btn edit" (click)="editLeaveType(type)" title="Edit">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"></path>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                  </svg>
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="leaveTypes.length === 0">
+              <td colspan="9" class="empty-state">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+                <p>No leave types found. Create your first leave type to get started.</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Footer Summary -->
+      <div class="table-footer" *ngIf="leaveTypes.length > 0">
+        <div class="footer-stats">
+          <div class="stat-item taxable">
+            <span class="stat-label">TOTAL LEAVE TYPES</span>
+            <span class="stat-value">{{ leaveTypes.length }}</span>
+          </div>
+        </div>
+        <div class="footer-pagination">
+          Showing <strong>{{ leaveTypes.length }}</strong> of <strong>{{ leaveTypes.length }}</strong> categories
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side Slide Drawer Modal -->
+  <div class="side-modal-overlay" *ngIf="isModalOpen" (click)="cancelCreate()"></div>
+  <div class="side-modal" [class.open]="isModalOpen">
+    <div class="modal-header">
+      <h3>{{ isEditMode ? 'Edit Leave Type' : 'Create Leave Type' }}</h3>
+      <button class="close-btn" (click)="cancelCreate()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form [formGroup]="leaveTypeForm" (ngSubmit)="submit()" class="component-form-vertical">
+        <div class="form-container">
+          
+          <div class="form-row">
+            <div class="form-group glass-input-group">
+              <label>Type Name</label>
+              <input type="text" formControlName="type_name" placeholder="e.g. Annual Leave" class="glass-input" />
+            </div>
+            <div class="form-group glass-input-group">
+              <label>Type Code</label>
+              <input type="text" formControlName="type_code" placeholder="e.g. AL" class="glass-input" />
             </div>
           </div>
 
-          <!-- Icon Upload Container -->
-          <div class="file-upload-item full-width">
-            <ion-label class="upload-title">Leave Type Icon</ion-label>
+          <!-- Checkboxes Block -->
+          <div class="checkbox-container">
+            <div class="checkbox-row-wrapper">
+              <label class="section-label">Rules & Eligibility</label>
+              <div class="checkbox-row">
+                <label class="glass-checkbox">
+                  <input type="checkbox" formControlName="is_paid" />
+                  <span>Is Paid Leave</span>
+                </label>
+                <label class="glass-checkbox">
+                  <input type="checkbox" formControlName="requires_approval" />
+                  <span>Requires Approval</span>
+                </label>
+                <label class="glass-checkbox">
+                  <input type="checkbox" formControlName="can_carry_forward" />
+                  <span>Can Carry Forward</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Carry forward sub-input -->
+          <div class="form-group glass-input-group" *ngIf="leaveTypeForm.get('can_carry_forward')?.value">
+            <label>Max Carry Forward Days</label>
+            <input type="number" formControlName="max_carry_forward_days" placeholder="0" class="glass-input" />
+          </div>
+
+          <!-- Color Picker Selector -->
+          <div class="form-group glass-input-group">
+            <label>Background Color / Theme Tag</label>
+            <div class="color-picker-wrapper">
+              <input type="text" formControlName="bg_color" placeholder="#1976d2" class="glass-input" />
+              <div class="color-preview-box" [style.background-color]="leaveTypeForm.get('bg_color')?.value">
+                <input type="color" [value]="leaveTypeForm.get('bg_color')?.value" (input)="onColorChange($event)" class="native-color-picker" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Leave Type Icon Upload Container -->
+          <div class="form-group upload-group">
+            <label class="upload-title">Leave Type Icon</label>
             <div class="upload-zone" (click)="fileInput.click()">
+              <!-- Empty state upload -->
               <div class="upload-placeholder" *ngIf="!selectedFileName && !currentIconUrl">
-                <ion-icon name="cloud-upload-outline"></ion-icon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="upload-icon">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
                 <p>Click to choose icon image (SVG, PNG, JPG)</p>
               </div>
+              <!-- Selected state -->
               <div class="upload-selected" *ngIf="selectedFileName">
-                <ion-icon name="document-attach-outline" color="success"></ion-icon>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
                 <p>{{selectedFileName}}</p>
               </div>
+              <!-- Server URL Preview state -->
               <div class="upload-preview" *ngIf="currentIconUrl && !selectedFileName">
                 <img [src]="env + currentIconUrl" class="icon-img-preview" alt="current icon" />
                 <p>Click to change current icon</p>
@@ -76,63 +242,33 @@
               <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" style="display: none;" />
             </div>
             <div class="remove-btn-container" *ngIf="selectedFileName || currentIconUrl">
-              <ion-button size="small" fill="clear" color="danger" (click)="clearSelectedFile($event)">
-                <ion-icon name="trash-outline" slot="start"></ion-icon>
+              <button type="button" class="remove-btn" (click)="clearSelectedFile($event)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
                 Remove Icon
-              </ion-button>
+              </button>
             </div>
           </div>
 
-          <ion-item lines="outline" class="full-width">
-            <ion-label position="floating">Description</ion-label>
-            <ion-textarea formControlName="description"></ion-textarea>
-          </ion-item>
-        </div>
-        <div class="actions mt-20">
-          <ion-button expand="block" type="submit" [disabled]="loading">
-            {{loading ? 'Please Wait...' : (isEditMode ? 'Update' : 'Save')}}
-          </ion-button>
-          <ion-button expand="block" fill="clear" color="medium" (click)="cancelCreate()">Cancel</ion-button>
-        </div>
-      </form>
-    </ion-card-content>
-  </ion-card>
+          <!-- Description -->
+          <div class="form-group glass-input-group">
+            <label>Description</label>
+            <textarea formControlName="description" rows="3" placeholder="Provide details about leave accrual and usage rules..." class="glass-textarea"></textarea>
+          </div>
 
-  <!-- List View -->
-  <div class="table-block" *ngIf="!showCreateForm">
-    <div class="table-header">
-      <ion-grid>
-        <ion-row>
-          <ion-col size="3">Code</ion-col>
-          <ion-col size="4">Name</ion-col>
-          <ion-col size="2">Is Paid</ion-col>
-          <ion-col size="3">Actions</ion-col>
-        </ion-row>
-      </ion-grid>
-    </div>
-    <div class="table-list-container">
-      <div *ngIf="listLoading" class="ion-text-center ion-padding">
-        <ion-spinner name="crescent"></ion-spinner>
-      </div>
-      <ion-grid *ngIf="!listLoading">
-        <ion-row *ngFor="let type of leaveTypes" class="table-list-row">
-          <ion-col size="3"><b>{{type.type_code}}</b></ion-col>
-          <ion-col size="4">{{type.type_name}}</ion-col>
-          <ion-col size="2">
-            <ion-badge [color]="type.is_paid ? 'success' : 'medium'">
-              {{type.is_paid ? 'Yes' : 'No'}}
-            </ion-badge>
-          </ion-col>
-          <ion-col size="3">
-            <ion-button fill="clear" (click)="editLeaveType(type)">
-              <ion-icon name="create-outline"></ion-icon>
-            </ion-button>
-          </ion-col>
-        </ion-row>
-        <div *ngIf="leaveTypes.length === 0" class="ion-text-center ion-padding">
-          No records found.
         </div>
-      </ion-grid>
+        
+        <!-- Form Buttons in Footer -->
+        <div class="form-footer">
+          <button type="button" class="cancel-btn" (click)="cancelCreate()">Cancel</button>
+          <button type="submit" class="submit-btn" [disabled]="loading || leaveTypeForm.invalid">
+            {{ loading ? 'Saving...' : (isEditMode ? 'Update Type' : 'Save Leave Type') }}
+          </button>
+        </div>
+
+      </form>
     </div>
   </div>
 </ion-content>

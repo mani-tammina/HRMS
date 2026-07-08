@@ -98,7 +98,7 @@ export class EmployeeListPage implements OnInit {
   loadEmployees() {
     // Fetch a large number of employees to support local filtering like app-roles
     this.employeeService.getAllEmployees(1, 2000, '').subscribe((res: any) => {
-      this.allLoadedEmployees = res.data || [];
+      this.allLoadedEmployees = (res.data || []).sort((a: any, b: any) => Number(a.id) - Number(b.id));
       this.allEmployees = [...this.allLoadedEmployees];
       this.filteredManagers = [...this.allEmployees];
       this.applySearch();
@@ -233,6 +233,23 @@ export class EmployeeListPage implements OnInit {
     if (!id) return 'Select Reporting Manager';
     const found = this.allEmployees.find(e => e.id === id);
     return found ? found.FullName : 'Select Reporting Manager';
+  }
+
+  getInitials(name: string | null | undefined): string {
+    if (!name) return '?';
+    const parts = name.trim().split(' ').filter(p => p.length > 0);
+    if (parts.length === 1) return parts[0][0].toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  getAvatarColor(name: string | null | undefined): string {
+    const colors = [
+      '#1e70cd', '#0e4fa3', '#7c3aed', '#059669',
+      '#d97706', '#dc2626', '#0891b2', '#7c3aed'
+    ];
+    if (!name) return colors[0];
+    const index = name.charCodeAt(0) % colors.length;
+    return colors[index];
   }
 
   async presentToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary') {
