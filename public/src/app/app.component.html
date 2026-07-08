@@ -35,6 +35,7 @@
               <!-- Standard Item -->
               <ion-menu-toggle auto-hide="false" *ngIf="!p.children">
                 <ion-item routerDirection="root" [routerLink]="[p.url]" routerLinkActive="selected"
+                  [routerLinkActiveOptions]="{ exact: !!p.exactMatch }"
                   class="menu-nav-item">
                   <div class="row-left">
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon inactive-icon" />
