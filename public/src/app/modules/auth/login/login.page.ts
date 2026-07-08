@@ -7,6 +7,7 @@ import { switchMap, catchError } from 'rxjs/operators';
 import { AuthService } from '../../../core/services/auth.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { RouteGuardService } from '../../../core/services/route-guard.service';
+import { EmployeeLeavesService } from '../../../core/services/employee-leaves.service';
 
 @Component({
   selector: 'app-login',
@@ -40,6 +41,7 @@ export class LoginPage implements OnInit {
     private fb: FormBuilder,
     private authService: AuthService,
     private employeeService: EmployeeService,
+    private employeeLeavesService: EmployeeLeavesService,
     private router: Router,
     private routeGuardService: RouteGuardService,
     private toastController: ToastController,
@@ -291,6 +293,20 @@ export class LoginPage implements OnInit {
     ).subscribe({
       next: () => {
         loader.dismiss();
+        if (isCreate) {
+          // Auto-initialize leave balance on first login after password creation
+          const currentYear = new Date().getFullYear();
+          this.employeeLeavesService.initializeBalance(currentYear).subscribe({
+            next: () => {
+              console.log('Leave balances initialized successfully');
+              this.presentToast('Leave balances initialized successfully!', 'success');
+            },
+            error: (err) => {
+              // Silently ignore — employee may not have a leave plan assigned yet
+              console.warn('Leave balance initialization skipped:', err?.error?.error || err?.message);
+            }
+          });
+        }
         this.navigateBasedOnRole();
       },
       error: (err) => {

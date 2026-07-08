@@ -98,11 +98,11 @@
 
 // ── Employee Search Popover ──
 .custom-employee-popover {
-  --width: 460px;
-  --max-height: 500px;
-  --border-radius: #{vars.$radius-lg};
-  --box-shadow: #{vars.$shadow-xl};
-  margin-top: 6px;
+  --width: 558px;
+  --max-height: 600px;
+  --border-radius: 16px;
+  --box-shadow: 0px 8px 32px rgba(0, 0, 0, 0.08), 0px 1px 3px rgba(0, 0, 0, 0.04);
+  margin-top: 4px;
 
   .dropdown-content {
     --padding-top: 0;
@@ -110,37 +110,181 @@
     --background: #{vars.$color-white};
   }
 
-  .search-results-header {
-    font-size: vars.$fs-small;
-    font-weight: vars.$fw-bold;
-    color: vars.$color-text-muted;
-    text-transform: uppercase;
-    letter-spacing: vars.$ls-wide;
-    padding: 14px 16px 10px;
-    background: vars.$color-bg-subtle;
-    border-bottom: 1px solid vars.$color-border-light;
+  // ── Scrollable Content Area ──
+  .popover-scrollable-content {
+    max-height: 420px;
+    overflow-y: auto;
   }
 
-  .search-results-list {
-    background: vars.$color-white;
-    padding: 0;
+  // ── No Results State ──
+  .no-results-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 36px 24px;
+    text-align: center;
 
-    .search-item {
-      --padding-start: 16px;
-      --padding-end: 16px;
-      --inner-padding-end: 0;
-      --background-hover: #{vars.$color-bg-hover};
+    .no-results-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+
+      ion-icon {
+        font-size: 24px;
+        color: #9ca3af;
+      }
+    }
+
+    .no-results-title {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .no-results-subtitle {
+      margin: 0;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+  }
+
+  // ── Popover History Section ──
+  .popover-history-row {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    gap: 12px;
+    border-bottom: 1px solid #f3f4f6;
+
+    .history-icon {
+      font-size: 20px;
+      color: #4b5563;
+      flex-shrink: 0;
+    }
+
+    .history-chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+
+      .history-chip {
+        background: #f3f4f6;
+        border-radius: 100px;
+        padding: 6px 14px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #4b5563;
+        cursor: pointer;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: #e5e7eb;
+          color: #1f2937;
+        }
+      }
+    }
+  }
+
+  .search-results-header {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 16px 20px 8px;
+  }
+
+  // ── Quick Actions ──
+  .quick-actions-list {
+    padding: 4px 12px 12px;
+
+    .quick-action-item {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 10px;
       cursor: pointer;
-      border-bottom: 1px solid vars.$color-border-light;
-      transition: vars.$transition-fast;
+      margin-bottom: 4px;
+      transition: all 0.2s ease;
 
       &:last-child {
-        border-bottom: none;
+        margin-bottom: 0;
+      }
+
+      .icon-wrapper {
+        width: 36px;
+        height: 36px;
+        border-radius: 8px;
+        background: rgba(59, 130, 246, 0.08);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 14px;
+        color: #2563eb;
+        flex-shrink: 0;
+
+        ion-icon {
+          font-size: 18px;
+        }
+      }
+
+      .action-text {
+        flex: 1;
+
+        h3 {
+          margin: 0 0 2px 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: #1f2937;
+        }
+
+        p {
+          margin: 0;
+          font-size: 12px;
+          color: #6b7280;
+        }
+      }
+
+      // Hover / Key Navigation selection
+      &.selected, &:hover {
+        background: #f3f4f6;
+      }
+    }
+  }
+
+  // ── Employee Search Results List ──
+  .search-results-list {
+    background: vars.$color-white;
+    padding: 0 12px 12px;
+
+    .search-item {
+      --padding-start: 12px;
+      --padding-end: 12px;
+      --inner-padding-end: 0;
+      --background-hover: #f3f4f6;
+      cursor: pointer;
+      border-radius: 10px;
+      margin-bottom: 4px;
+      transition: all 0.2s ease;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+
+      &.selected {
+        --background: #f3f4f6;
       }
 
       .search-avatar {
-        width: 44px;
-        height: 44px;
+        width: 40px;
+        height: 40px;
         margin-right: 14px;
         border: 2px solid vars.$color-border-light;
 
@@ -150,7 +294,7 @@
       }
 
       .search-label {
-        margin: 12px 0;
+        margin: 10px 0;
 
         .emp-name-row {
           display: flex;
@@ -200,6 +344,58 @@
             }
           }
         }
+      }
+    }
+  }
+
+  // ── Popover Footer ──
+  .popover-footer {
+    background: #f9fafb;
+    padding: 6px 16px;
+    border-top: 1px solid #f3f4f6;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    .popover-close-btn {
+      --color: #6b7280;
+      font-size: 13px;
+      font-weight: 500;
+      text-transform: none;
+      margin: 0;
+      height: 32px;
+
+      ion-icon {
+        font-size: 16px;
+      }
+    }
+
+    .nav-shortcuts {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #9ca3af;
+      font-family: inherit;
+
+      .nav-text {
+        font-weight: 500;
+      }
+
+      .key-badge {
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 4px;
+        padding: 2px 6px;
+        font-weight: 600;
+        color: #4b5563;
+        font-size: 11px;
+        box-shadow: 0px 1px 2px rgba(0, 0, 0, 0.05);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
       }
     }
   }

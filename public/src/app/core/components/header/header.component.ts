@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
 import { Router } from '@angular/router';
 import { NavController } from '@ionic/angular';
 import { Subject, takeUntil } from 'rxjs';
@@ -18,6 +18,44 @@ export class HeaderComponent implements OnInit, OnDestroy {
   searchQuery: string = '';
   searchResults: any[] = [];
   results: string[] = [];
+
+  isSearchPopoverOpen: boolean = false;
+  selectedIndex: number = -1;
+  filteredQuickActions: any[] = [];
+
+  quickActions = [
+
+    {
+      title: 'Attendance',
+      description: 'View & manage attendance',
+      icon: 'calendar-outline',
+      action: 'attendance'
+    },
+    {
+      title: 'Apply Leave',
+      description: 'Request for time-off.',
+      icon: 'document-text-outline',
+      action: 'apply-leave'
+    },
+    {
+      title: 'Payslips',
+      description: 'View & download your payslips.',
+      icon: 'receipt-outline',
+      action: 'payslips'
+    },
+    {
+      title: 'Leaves',
+      description: 'View leave summary.',
+      icon: 'git-network-outline',
+      action: 'leaves'
+    },
+    {
+      title: 'Work Track',
+      description: 'Access logs detailing your working hours.',
+      icon: 'list-outline',
+      action: 'attendance-logs'
+    }
+  ];
 
   // Employee details modal state
   isViewingEmployeeModal: boolean = false;
@@ -48,6 +86,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
     this.isAdmin = this.routeGuardService.userRole?.toLowerCase() === 'admin';
+    this.filteredQuickActions = this.quickActions;
 
     const currentUrl = this.router.url;
     const isLoginPage = currentUrl.includes('/login');
@@ -121,16 +160,112 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   onSearch() {
-    if (this.searchQuery.trim().length > 2) {
+    const query = this.searchQuery.trim().toLowerCase();
+    if (query.length === 0) {
+      this.isSearchPopoverOpen = false;
+      this.searchResults = [];
+      this.results = [];
+      this.selectedIndex = -1;
+      return;
+    }
+
+    this.isSearchPopoverOpen = true;
+
+    this.filteredQuickActions = this.quickActions.filter(action =>
+      action.title.toLowerCase().includes(query) ||
+      action.description.toLowerCase().includes(query)
+    );
+
+    if (query.length > 2) {
       this.employeeService.searchEmployees(this.searchQuery.trim(), 1, 10).subscribe({
         next: (res: any) => {
           this.searchResults = res.data || [];
           this.results = this.searchResults.map(emp => emp.FullName || `${emp.FirstName} ${emp.LastName}`);
+          this.selectedIndex = -1;
         }
       });
     } else {
       this.searchResults = [];
       this.results = [];
+      this.selectedIndex = -1;
+    }
+  }
+
+  onSearchFocus() {
+    if (this.searchQuery.trim().length > 0) {
+      this.isSearchPopoverOpen = true;
+      this.onSearch();
+    }
+  }
+
+  closePopover() {
+    this.isSearchPopoverOpen = false;
+    this.searchQuery = '';
+    this.searchResults = [];
+    this.results = [];
+    this.selectedIndex = -1;
+    this.filteredQuickActions = this.quickActions;
+  }
+
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscapeKey(event: KeyboardEvent) {
+    if (this.isSearchPopoverOpen) {
+      event.preventDefault();
+      this.closePopover();
+    }
+  }
+
+  get allItems() {
+    return [...this.filteredQuickActions, ...this.searchResults];
+  }
+
+  onKeyDown(event: KeyboardEvent) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closePopover();
+      return;
+    }
+    const items = this.allItems;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.selectedIndex = (this.selectedIndex + 1) % items.length;
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.selectedIndex = (this.selectedIndex - 1 + items.length) % items.length;
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      if (this.selectedIndex >= 0 && this.selectedIndex < items.length) {
+        const selected = items[this.selectedIndex];
+        if (selected.action) {
+          this.handleQuickAction(selected.action);
+        } else {
+          this.openEmployeeDetailsModal(selected);
+        }
+      }
+    }
+  }
+
+  handleQuickAction(action: string) {
+    this.closePopover();
+
+    switch (action) {
+      case 'clock-in':
+      case 'clock-out':
+      case 'attendance':
+        this.router.navigate(['/Me']);
+        break;
+      case 'apply-leave':
+      case 'leaves':
+        this.router.navigate(['/leaves']);
+        break;
+      case 'payslips':
+        this.router.navigate(['/MyPay']);
+        break;
+      case 'attendance-logs':
+        this.router.navigate(['/workTrack']);
+        break;
+      default:
+        break;
     }
   }
 
@@ -139,7 +274,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   openEmployeeDetailsModal(emp: any) {
-    this.searchResults = []; // Close the popover by clearing results
+    this.closePopover();
 
     // Fetch full details from Employee API to ensure fields like department_name are populated
     const idToFetch = emp.id || emp.employee_id || emp.EmployeeId;
@@ -151,7 +286,6 @@ export class HeaderComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           console.error('Error fetching full employee details:', err);
-          // Fallback to basic search object
           this.selectedEmployee = emp;
           this.isViewingEmployeeModal = true;
         }

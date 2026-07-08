@@ -12,41 +12,99 @@
 
     <!-- Center: Search Bar -->
     <div class="search-container" *ngIf="isAuthenticated">
-      <ion-searchbar placeholder="Search employee by name" [(ngModel)]="searchQuery" (ionInput)="onSearch()"
+      <ion-searchbar id="header-searchbar" placeholder="Search employee by name" [(ngModel)]="searchQuery"
+        (ionFocus)="onSearchFocus()" (ionInput)="onSearch()" (ionClear)="closePopover()" (keydown)="onKeyDown($event)"
         showCancelButton="never" class="custom-searchbar">
       </ion-searchbar>
 
       <!-- Search Results Popover -->
-      <ion-popover [isOpen]="searchResults.length > 0" [keyboardClose]="false" [backdropDismiss]="true"
-        (didDismiss)="searchResults = []" class="custom-employee-popover">
+      <ion-popover trigger="header-searchbar" [isOpen]="isSearchPopoverOpen" [keyboardClose]="false"
+        [backdropDismiss]="true" (didDismiss)="closePopover()" class="custom-employee-popover" side="bottom"
+        alignment="start">
         <ng-template>
           <ion-content class="dropdown-content">
-            <div class="search-results-header">Employees</div>
-            <ion-list lines="none" class="search-results-list">
-              <ion-item *ngFor="let emp of searchResults" button (click)="openEmployeeDetailsModal(emp)"
-                class="search-item">
-                <ion-avatar slot="start" class="search-avatar">
-                  <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/user.png'"
-                    (error)="handleImageError($event)" alt="Profile">
-                </ion-avatar>
-                <ion-label class="search-label">
-                  <div class="emp-name-row">
-                    <h2>{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</h2>
-                    <span class="emp-designation">{{ emp.designation_name || emp.designation || 'Employee' }} | </span>
-                    <span class="emp-id" *ngIf="emp.EmployeeNumber || emp.id">#{{ emp.EmployeeNumber || emp.id }}</span>
+            <div class="popover-scrollable-content">
+              <!-- History section (only visible when query is empty or short) -->
+              <div class="popover-history-row" *ngIf="searchQuery.trim().length === 0">
+                <ion-icon name="time-outline" class="history-icon"></ion-icon>
+                <div class="history-chips">
+                  <span class="history-chip" (click)="searchQuery = 'Payslips'; onSearch()">Payslips</span>
+                  <span class="history-chip" (click)="searchQuery = 'Web Clock-In'; onSearch()">Web Clock-In</span>
+                </div>
+              </div>
+
+              <!-- Quick Actions heading -->
+              <div class="search-results-header" *ngIf="searchQuery.trim().length === 0">Quick Actions</div>
+              <div class="search-results-header"
+                *ngIf="searchQuery.trim().length > 0 && filteredQuickActions.length > 0">Quick Actions</div>
+
+              <!-- Quick Actions List -->
+              <div class="quick-actions-list" *ngIf="filteredQuickActions.length > 0">
+                <div class="quick-action-item" *ngFor="let action of filteredQuickActions; let i = index"
+                  [class.selected]="selectedIndex === i" (click)="handleQuickAction(action.action)">
+                  <div class="icon-wrapper">
+                    <ion-icon [name]="action.icon"></ion-icon>
                   </div>
-                  <div class="emp-details-row">
-                    <!-- <span class="detail-item"><ion-icon name="person-outline"></ion-icon> {{
-                      getDepartmentName(emp.DepartmentId || emp.department_id, emp.department_name ||
-                      emp.department) }}</span> -->
-                    <span class="detail-item"><ion-icon name="mail-outline"></ion-icon> {{ emp.WorkEmail || emp.email ||
-                      'N/A' }}</span>
-                    <span class="detail-item" *ngIf="emp.location_name || emp.location"><ion-icon
-                        name="location-outline"></ion-icon> {{ emp.location_name || emp.location }}</span>
+                  <div class="action-text">
+                    <h3>{{ action.title }}</h3>
+                    <p>{{ action.description }}</p>
                   </div>
-                </ion-label>
-              </ion-item>
-            </ion-list>
+                </div>
+              </div>
+
+              <!-- Employees Section -->
+              <div class="search-results-header" *ngIf="searchResults.length > 0">Employees</div>
+              <ion-list lines="none" class="search-results-list" *ngIf="searchResults.length > 0">
+                <ion-item *ngFor="let emp of searchResults; let i = index" button
+                  (click)="openEmployeeDetailsModal(emp)"
+                  [class.selected]="selectedIndex === (filteredQuickActions.length + i)" class="search-item">
+                  <ion-avatar slot="start" class="search-avatar">
+                    <img [src]="emp.profile_image ? (env + emp.profile_image) : '../../assets/user.png'"
+                      (error)="handleImageError($event)" alt="Profile">
+                  </ion-avatar>
+                  <ion-label class="search-label">
+                    <div class="emp-name-row">
+                      <h2>{{ emp.FullName || (emp.FirstName + ' ' + emp.LastName) }}</h2>
+                      <span class="emp-designation">{{ emp.designation_name || emp.designation || 'Employee' }} |
+                      </span>
+                      <span class="emp-id" *ngIf="emp.EmployeeNumber || emp.id">#{{ emp.EmployeeNumber || emp.id
+                        }}</span>
+                    </div>
+                    <div class="emp-details-row">
+                      <span class="detail-item"><ion-icon name="mail-outline"></ion-icon> {{ emp.WorkEmail || emp.email
+                        || 'N/A' }}</span>
+                      <span class="detail-item" *ngIf="emp.location_name || emp.location"><ion-icon
+                          name="location-outline"></ion-icon> {{ emp.location_name || emp.location }}</span>
+                    </div>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+
+              <!-- No Results State -->
+              <div class="no-results-state"
+                *ngIf="searchQuery.trim().length > 0 && filteredQuickActions.length === 0 && searchResults.length === 0">
+                <div class="no-results-icon">
+                  <ion-icon name="search-outline"></ion-icon>
+                </div>
+                <p class="no-results-title">No results for "{{ searchQuery }}"</p>
+                <!-- <p class="no-results-subtitle">Try a different keyword or check spelling</p> -->
+              </div>
+            </div>
+
+            <!-- Footer matching the design -->
+            <div class="popover-footer">
+              <ion-button fill="clear" size="small" color="medium" (click)="closePopover()" class="popover-close-btn">
+                <ion-icon name="close-outline" slot="start"></ion-icon>
+                Close
+              </ion-button>
+              <div class="nav-shortcuts">
+                <span class="nav-text">Navigate</span>
+                <span class="key-badge">↑</span>
+                <span class="key-badge">↓</span>
+                <span class="nav-text">To select</span>
+                <span class="key-badge">↵</span>
+              </div>
+            </div>
           </ion-content>
         </ng-template>
       </ion-popover>
@@ -153,12 +211,12 @@
               </div>
             </div>
 
-            <div class="info-card" *ngIf="selectedEmployee.attendance_status !== 'Not In Yet' && selectedEmployee.attendance_status !== 'On Leave'">
+            <div class="info-card"
+              *ngIf="selectedEmployee.attendance_status !== 'Not In Yet' && selectedEmployee.attendance_status !== 'On Leave'">
               <div class="icon-box"><ion-icon name="briefcase-outline"></ion-icon></div>
               <div class="info-text">
                 <span class="info-label">Work Mode</span>
-                <span class="info-value work-mode-badge"
-                  [class.mode-wfh]="selectedEmployee.work_mode === 'WFH'"
+                <span class="info-value work-mode-badge" [class.mode-wfh]="selectedEmployee.work_mode === 'WFH'"
                   [class.mode-office]="selectedEmployee.work_mode === 'Office'"
                   [class.mode-remote]="selectedEmployee.work_mode === 'Remote' || selectedEmployee.work_mode === 'Hybrid'">
                   {{ selectedEmployee.work_mode || 'N/A' }}
