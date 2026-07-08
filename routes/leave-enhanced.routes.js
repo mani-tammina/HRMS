@@ -2290,4 +2290,107 @@ router.put("/comp-off/reject/:id", auth, async (req, res) => {
   }
 });
 
+// 6. Cancel a Comp Off Request (Employee Self-Service / HR / Manager)
+router.put("/comp-off/cancel/:id", auth, async (req, res) => {
+  let c;
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp)
+      return res.status(404).json({ error: "Employee not found" });
+
+    c = await db();
+    await c.beginTransaction();
+
+    // Get the request details
+    const [requests] = await c.query(
+      `SELECT * FROM comp_off_requests WHERE id = ?`,
+      [req.params.id]
+    );
+
+    if (requests.length === 0) {
+      await c.rollback();
+      c.end();
+      return res.status(404).json({ error: "Comp Off request not found" });
+    }
+
+    const request = requests[0];
+
+    // Authorization: Employee can cancel their own, HR/Admin can cancel any
+    const isHR = ["admin", "hr"].includes(req.user.role);
+    const isOwner = request.employee_id === currentEmp.id;
+
+    if (!isHR && !isOwner) {
+      await c.rollback();
+      c.end();
+      return res.status(403).json({ error: "You are not authorized to cancel this Comp Off request" });
+    }
+
+    if (request.status === "cancelled") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Comp Off request is already cancelled" });
+    }
+
+    if (request.status === "rejected") {
+      await c.rollback();
+      c.end();
+      return res.status(400).json({ error: "Cannot cancel a rejected Comp Off request" });
+    }
+
+    // Update status to cancelled
+    await c.query(
+      `UPDATE comp_off_requests SET status = 'cancelled', updated_at = NOW() WHERE id = ?`,
+      [req.params.id]
+    );
+
+    // If it was approved, we must revert the balance addition!
+    if (request.status === "approved") {
+      const [leaveTypes] = await c.query(
+        `SELECT id FROM leave_types WHERE type_code = 'COMP_OFF'`
+      );
+
+      if (leaveTypes.length > 0) {
+        const compOffTypeId = leaveTypes[0].id;
+        const leaveYear = new Date(request.date_worked).getFullYear();
+
+        // Subtract from allocated and available days
+        await c.query(
+          `UPDATE employee_leave_balances 
+           SET 
+             allocated_days = GREATEST(0, allocated_days - ?),
+             available_days = GREATEST(0, available_days - ?)
+           WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [
+            request.total_days,
+            request.total_days,
+            request.employee_id,
+            compOffTypeId,
+            leaveYear
+          ]
+        );
+      }
+    }
+
+    await c.commit();
+    c.end();
+
+    res.json({ success: true, message: "Comp Off request cancelled successfully" });
+  } catch (error) {
+    console.error("Error cancelling Comp Off request:", error);
+    if (c) {
+      try {
+        await c.rollback();
+      } catch (rollbackErr) {
+        console.error("Rollback failed:", rollbackErr);
+      }
+      try {
+        c.end();
+      } catch (endErr) {
+        console.error("Connection end failed:", endErr);
+      }
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

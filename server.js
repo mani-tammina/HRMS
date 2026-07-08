@@ -270,7 +270,7 @@ async function initializeDatabase() {
                     date_worked DATE NOT NULL,
                     total_days DECIMAL(3,1) NOT NULL,
                     reason TEXT NOT NULL,
-                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
                     rejection_reason TEXT NULL,
                     approver_id INT NULL,
                     approval_date DATETIME NULL,
@@ -283,6 +283,19 @@ async function initializeDatabase() {
             console.log("✅ Verified comp_off_requests table exists");
         } catch (tableErr) {
             console.warn("⚠️ Warning: could not verify/create comp_off_requests table:", tableErr.message);
+        }
+
+        // Ensure comp_off_requests status column supports 'cancelled'
+        try {
+            const [cols] = await conn.query("DESCRIBE comp_off_requests");
+            const statusCol = cols.find(c => c.Field === 'status');
+            if (statusCol && !statusCol.Type.includes('cancelled')) {
+                console.log("🔄 Updating comp_off_requests.status ENUM to include 'cancelled'...");
+                await conn.query("ALTER TABLE comp_off_requests MODIFY COLUMN status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending'");
+                console.log("✅ Updated comp_off_requests.status ENUM");
+            }
+        } catch (alterErr) {
+            console.warn("⚠️ Warning: could not update comp_off_requests.status ENUM:", alterErr.message);
         }
 
         // Ensure resignations ENUM columns support 'Send Back' and 'Return'

@@ -116,4 +116,8 @@ export class LeaverequestService {
   rejectCompOff(id: number, rejection_reason: string): Observable<any> {
     return this.http.put(`${this.API_URL}/comp-off/reject/${id}`, { rejection_reason });
   }
+
+  cancelCompOff(id: number): Observable<any> {
+    return this.http.put(`${this.API_URL}/comp-off/cancel/${id}`, {});
+  }
 }

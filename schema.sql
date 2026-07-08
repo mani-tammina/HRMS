@@ -1769,7 +1769,7 @@ CREATE TABLE IF NOT EXISTS comp_off_requests (
   date_worked DATE NOT NULL,
   total_days DECIMAL(3,1) NOT NULL,
   reason TEXT NOT NULL,
-  status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+  status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending',
   rejection_reason TEXT NULL,
   approver_id INT NULL,
   approval_date DATETIME NULL,

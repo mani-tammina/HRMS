@@ -219,17 +219,27 @@ export class LeavesPage implements OnInit, OnDestroy {
     }
 
     this.cancellingLeave = true;
-    this.leaveRequestService.cancelLeave(leave.id).subscribe({
+    const request$ = leave.isCompOffGrant
+      ? this.leaveRequestService.cancelCompOff(leave.id)
+      : this.leaveRequestService.cancelLeave(leave.id);
+
+    request$.subscribe({
       next: (res) => {
-        this.presentToast('Leave request cancelled successfully', 'success');
+        const successMsg = leave.isCompOffGrant
+          ? 'Comp Off request cancelled successfully'
+          : 'Leave request cancelled successfully';
+        this.presentToast(successMsg, 'success');
         this.closePopup();
         this.getAllLeaves();
         this.loadLeaveBalance();
         this.cancellingLeave = false;
       },
       error: (err) => {
-        console.error('Cancel leave error:', err);
-        const msg = err.error?.error || 'Failed to cancel leave request';
+        console.error('Cancel request error:', err);
+        const fallbackMsg = leave.isCompOffGrant
+          ? 'Failed to cancel Comp Off request'
+          : 'Failed to cancel leave request';
+        const msg = err.error?.error || fallbackMsg;
         this.presentToast(msg, 'danger');
         this.cancellingLeave = false;
       }

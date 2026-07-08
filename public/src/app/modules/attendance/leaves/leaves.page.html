@@ -315,7 +315,7 @@
             <ion-button expand="block" class="cancel-request-btn-v2" (click)="cancelLeaveRequest(selectedLeave)" [disabled]="cancellingLeave">
               <ion-spinner name="crescent" *ngIf="cancellingLeave" slot="start"></ion-spinner>
               <ion-icon name="trash-sharp" slot="start" *ngIf="!cancellingLeave"></ion-icon>
-              Cancel Leave Request
+              {{ selectedLeave?.isCompOffGrant ? 'Cancel Comp Off Request' : 'Cancel Leave Request' }}
             </ion-button>
           </div>
 
