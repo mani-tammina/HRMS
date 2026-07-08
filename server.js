@@ -261,6 +261,30 @@ async function initializeDatabase() {
             console.log(`✅ Database initialization complete: ${successCount} executed, ${skipCount} skipped`);
         }
 
+        // Ensure comp_off_requests table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS comp_off_requests (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    employee_id INT NOT NULL,
+                    date_worked DATE NOT NULL,
+                    total_days DECIMAL(3,1) NOT NULL,
+                    reason TEXT NOT NULL,
+                    status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+                    rejection_reason TEXT NULL,
+                    approver_id INT NULL,
+                    approval_date DATETIME NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (employee_id) REFERENCES employees(id),
+                    FOREIGN KEY (approver_id) REFERENCES users(id)
+                )
+            `);
+            console.log("✅ Verified comp_off_requests table exists");
+        } catch (tableErr) {
+            console.warn("⚠️ Warning: could not verify/create comp_off_requests table:", tableErr.message);
+        }
+
         // Ensure resignations ENUM columns support 'Send Back' and 'Return'
         try {
             const [cols] = await conn.query("DESCRIBE resignations");

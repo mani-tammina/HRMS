@@ -1759,3 +1759,22 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
   expires_at TIMESTAMP NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ============================================
+-- Comp Off Requests Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS comp_off_requests (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  date_worked DATE NOT NULL,
+  total_days DECIMAL(3,1) NOT NULL,
+  reason TEXT NOT NULL,
+  status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+  rejection_reason TEXT NULL,
+  approver_id INT NULL,
+  approval_date DATETIME NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id),
+  FOREIGN KEY (approver_id) REFERENCES users(id)
+);
