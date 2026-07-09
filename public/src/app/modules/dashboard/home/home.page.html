@@ -98,14 +98,13 @@
 
               <div class="stat-item-row">
                 <span class="stat-label">Gross Hours</span>
-                <span class="stat-value bold-text">{{ todayAttendance?.gross_hours || '0h 0m' }}</span>
+                <span class="stat-value bold-text">{{ formatGrossHours(todayAttendance?.gross_hours) }}</span>
               </div>
 
               <div class="stat-item-row effective-row">
                 <div class="effective-labels">
                   <span class="stat-label">Effective Hours</span>
-                  <span class="stat-value">{{ todayAttendance?.effective_hours || '0h 0m' }} ({{
-                    todayEffectivePercentage || 0 }}%)</span>
+                  <span class="stat-value">{{ formatGrossHours(todayAttendance?.total_work_hours) }}</span>
                 </div>
                 <!-- Custom segmented attendance visual bar -->
                 <div class="attendance-visual-wrap">
@@ -140,7 +139,7 @@
               <!-- Card 1: This Week -->
               <div class="info-mini-card">
                 <div class="mini-card-content">
-                  <span class="mini-card-label">Today</span>
+                  <span class="mini-card-label">Weekly Gross Hours</span>
                   <span class="mini-card-value">{{ weeklyGrossHours }}</span>
                 </div>
                 <div class="mini-card-icon green-icon">
@@ -153,7 +152,7 @@
               </div>
 
               <!-- Card 2: Avg. Start Time -->
-              <div class="info-mini-card">
+              <!-- <div class="info-mini-card">
                 <div class="mini-card-content">
                   <span class="mini-card-label">Avg. Start Time</span>
                   <span class="mini-card-value">{{ avgStartTime }}</span>
@@ -165,7 +164,7 @@
                     <polyline points="12 6 12 12 15 9"></polyline>
                   </svg>
                 </div>
-              </div>
+              </div> -->
             </div>
           </div>
         </ion-card>
@@ -187,7 +186,7 @@
           <div class="divider-line"></div>
 
           <div class="quick-links-grid">
-            <div class="quick-link-tile" (click)="leaves()">
+            <div class="quick-link-tile" (click)="attendance()">
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">

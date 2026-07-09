@@ -158,7 +158,7 @@ export class HomePage implements OnInit, OnDestroy {
           const timeStr = r.first_check_in.toString().trim();
           let hours = -1;
           let minutes = -1;
-          
+
           if (timeStr.includes('-') && (timeStr.includes('T') || timeStr.includes(' '))) {
             const date = new Date(timeStr);
             if (!isNaN(date.getTime())) {
@@ -170,13 +170,13 @@ export class HomePage implements OnInit, OnDestroy {
             hours = parseInt(parts[0], 10);
             minutes = parseInt(parts[1], 10);
           }
-          
+
           if (hours >= 0 && minutes >= 0 && !isNaN(hours) && !isNaN(minutes)) {
             totalMinutes += hours * 60 + minutes;
             count++;
           }
         });
-        
+
         if (count > 0) {
           const avgMinutes = Math.round(totalMinutes / count);
           let avgHours = Math.floor(avgMinutes / 60);
@@ -580,18 +580,20 @@ export class HomePage implements OnInit, OnDestroy {
 
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
+      console.log(res)
       const punches = res?.punches || [];
       this.hasPunchedToday = punches.length > 0;
 
       if (this.hasPunchedToday) {
         // Build the overview data object
+
         this.todayAttendance = {
           ...this.todayAttendance,
           first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
           last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
           gross_hours: this.formatMinutesToHours(res.gross_hours),
           work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
-          effective_hours: this.formatMinutesToHours(res.effective_hours)
+          effective_hours: this.formatMinutesToHours(res.total_work_hours)
         };
 
         const eff = parseFloat(res.effective_hours) || 0;
@@ -603,12 +605,31 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   private formatMinutesToHours(val: any): string {
-    if (!val) return '0h 0 m';
+    if (!val) return '0h 0m';
     // Ensure we handle strings like "120" or numeric values correctly
     const totalMinutes = typeof val === 'number' ? val : parseInt(val.toString().replace(/[^0-9]/g, '')) || 0;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
-    return `${hours}h ${minutes} m`;
+    return `${hours}h ${minutes}m`;
+  }
+
+  formatGrossHours(val: any): string {
+    if (val === null || val === undefined || val === '') return '0h 0m';
+    const str = val.toString().trim();
+    // Already formatted as "Xh Ym" or "Xh Y m"
+    if (str.includes('h')) {
+      const hPart = parseFloat(str.split('h')[0].trim()) || 0;
+      const mPart = parseFloat((str.split('h')[1] || '').replace(/[^0-9.]/g, '')) || 0;
+      return `${hPart}h ${mPart}m`;
+    }
+    // Numeric decimal hours (e.g. 7.5 from monthly report)
+    const num = parseFloat(str);
+    if (!isNaN(num)) {
+      const hours = Math.floor(num);
+      const minutes = Math.round((num - hours) * 60);
+      return `${hours}h ${minutes}m`;
+    }
+    return '0h 0m';
   }
 
   setAnnounce(index: number) {
@@ -641,7 +662,7 @@ export class HomePage implements OnInit, OnDestroy {
     if (!log) return [];
 
     const workVal = log.total_work_hours !== undefined ? log.total_work_hours : log.effective_hours;
-    const workH  = this.parseHours(workVal);
+    const workH = this.parseHours(workVal);
     const grossH = this.parseHours(log.gross_hours);
 
     // Nothing to show
@@ -652,7 +673,7 @@ export class HomePage implements OnInit, OnDestroy {
     // Reference window in hours (cap at 12 h to prevent tiny-looking bars)
     const refH = Math.max(grossH <= 0 ? workH : grossH, 8);
 
-    const workPct  = Math.min((workH  / refH) * 100, 100);
+    const workPct = Math.min((workH / refH) * 100, 100);
     const grossPct = grossH <= 0 ? workPct : Math.min((grossH / refH) * 100, 100);
     const breakPct = Math.max(grossPct - workPct, 0);
 
@@ -664,9 +685,9 @@ export class HomePage implements OnInit, OnDestroy {
     // Split work on both sides of the break (equal halves)
     const halfWorkPct = workPct / 2;
     return [
-      { type: 'work',  widthPct: halfWorkPct },
-      { type: 'break', widthPct: breakPct    },
-      { type: 'work',  widthPct: halfWorkPct },
+      { type: 'work', widthPct: halfWorkPct },
+      { type: 'break', widthPct: breakPct },
+      { type: 'work', widthPct: halfWorkPct },
     ];
   }
 
@@ -674,7 +695,7 @@ export class HomePage implements OnInit, OnDestroy {
     if (!log) return '';
     const gross = this.parseHours(log.gross_hours);
     const workVal = log.total_work_hours !== undefined ? log.total_work_hours : log.effective_hours;
-    const work  = this.parseHours(workVal);
+    const work = this.parseHours(workVal);
     if (gross <= 0 || work <= 0 || gross <= work) return '';
     const breakH = gross - work;
     const h = Math.floor(breakH);

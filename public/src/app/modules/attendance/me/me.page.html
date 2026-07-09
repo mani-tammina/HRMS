@@ -103,7 +103,7 @@
               </div>
 
               <div class="today-progress-section">
-                <p class="today-progress-label">Today ( {{ shift_policy?.start_time | timeFormat }} - {{
+                <p class="today-progress-label">Shift ( {{ shift_policy?.start_time | timeFormat }} - {{
                   shift_policy?.end_time | timeFormat }} )</p>
                 <div class="progress-bar-container-new">
                   <div class="progress-bar-fill-new" [style.width.%]="(progressValue * 100) || 0"></div>
@@ -141,7 +141,7 @@
                   <div class="biometric-icon-container">
                     <img src="../../../../assets/Biometric.png" alt="Biometric" class="biometric-img">
                   </div>
-                  
+
                   <div class="status-msg-box" *ngIf="!clockButton?.isClockedIn">
                     <p class="status-main">You have not check-in</p>
                     <p class="status-sub">Yourself as present today!</p>
@@ -199,7 +199,7 @@
                 <!-- Collapsible / Side-by-side Gauge Section -->
                 <div class="today-collapsible-gauge">
                   <div class="card-divider"></div>
-                  
+
                   <div class="gauge-container">
                     <div class="gauge-wrapper">
                       <svg viewBox="0 0 100 100" class="gauge-svg">
@@ -211,10 +211,10 @@
                         <span class="gauge-label">Work Time</span>
                       </div>
                     </div>
-                    <div class="prev-day-box">
+                    <!-- <div class="prev-day-box">
                       <span class="prev-day-text">Previous Day : <strong>{{ previousDayHours || '9h 20m 30s'
                           }}</strong></span>
-                    </div>
+                    </div> -->
                   </div>
                 </div>
 
@@ -263,8 +263,8 @@
     <div *ngIf="activeTab === 'requests'">
       <app-attendance-request></app-attendance-request>
     </div>
-    </div>
-  </ion-content>
+  </div>
+</ion-content>
 
 <!-- ════════════════════════════════════════════════════════════
      REMOTE CLOCK-IN ─ PREMIUM SIDE PANEL
@@ -278,12 +278,12 @@
     <div class="sp-hero-orb sp-orb2"></div>
     <div class="sp-hero-inner">
       <div class="sp-hero-icon-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-          <line x1="12" y1="20" x2="12.01" y2="20"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+          <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+          <line x1="12" y1="20" x2="12.01" y2="20" />
         </svg>
       </div>
       <div class="sp-hero-text">
@@ -341,24 +341,22 @@
       </div>
       <div class="sp-textarea-wrap" [class.sp-textarea-focused]="remoteReason.length > 0">
         <textarea class="sp-textarea" [(ngModel)]="remoteReason"
-          placeholder="Explain why you are clocking in remotely today…"
-          rows="5" maxlength="250"
+          placeholder="Explain why you are clocking in remotely today…" rows="5" maxlength="250"
           [disabled]="remoteLoading"></textarea>
       </div>
     </div>
 
     <!-- Submit -->
-    <button class="sp-submit-btn sp-submit--remote"
-      (click)="submitRemoteRequest()"
+    <button class="sp-submit-btn sp-submit--remote" (click)="submitRemoteRequest()"
       [disabled]="remoteLoading || !remoteReason.trim()">
       <div class="sp-btn-content">
         <ion-spinner *ngIf="remoteLoading" name="crescent" class="sp-spinner"></ion-spinner>
-        <svg *ngIf="!remoteLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-          <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
-          <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
-          <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
-          <line x1="12" y1="20" x2="12.01" y2="20"/>
+        <svg *ngIf="!remoteLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+          <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+          <line x1="12" y1="20" x2="12.01" y2="20" />
         </svg>
         <span>{{ remoteLoading ? 'Submitting Request…' : 'Submit Remote Request' }}</span>
       </div>
@@ -380,10 +378,10 @@
     <div class="sp-hero-orb sp-orb2"></div>
     <div class="sp-hero-inner">
       <div class="sp-hero-icon-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
-          stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"
+          stroke-linejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
       </div>
       <div class="sp-hero-text">
@@ -436,8 +434,7 @@
         Selecting {{ wfhActivePicker === 'from' ? 'start' : 'end' }} date
       </div>
       <ion-datetime presentation="date" [min]="wfhMinDate"
-        [value]="wfhActivePicker === 'from' ? wfhFromDate : wfhToDate"
-        (ionChange)="wfhOnDateSelected($event)">
+        [value]="wfhActivePicker === 'from' ? wfhFromDate : wfhToDate" (ionChange)="wfhOnDateSelected($event)">
       </ion-datetime>
     </div>
 
@@ -448,7 +445,8 @@
       </div>
       <div class="sp-duration-info">
         <span class="sp-duration-label">Total Duration</span>
-        <span class="sp-duration-value">{{ wfhTotalDays }} {{ wfhTotalDays > 1 ? 'Working Days' : 'Working Day' }}</span>
+        <span class="sp-duration-value">{{ wfhTotalDays }} {{ wfhTotalDays > 1 ? 'Working Days' : 'Working Day'
+          }}</span>
       </div>
       <div class="sp-duration-pill" [class.sp-pill-multi]="wfhTotalDays > 1">
         {{ wfhTotalDays }}d
@@ -468,22 +466,20 @@
       </div>
       <div class="sp-textarea-wrap" [class.sp-textarea-focused]="wfhReason.length > 0">
         <textarea class="sp-textarea" [(ngModel)]="wfhReason"
-          placeholder="Briefly explain your reason for working from home…"
-          rows="4" maxlength="250"
+          placeholder="Briefly explain your reason for working from home…" rows="4" maxlength="250"
           [disabled]="wfhLoading"></textarea>
       </div>
     </div>
 
     <!-- Submit -->
-    <button class="sp-submit-btn sp-submit--wfh"
-      (click)="submitWFHRequest()"
+    <button class="sp-submit-btn sp-submit--wfh" (click)="submitWFHRequest()"
       [disabled]="wfhLoading || !wfhReason.trim() || wfhTotalDays < 1">
       <div class="sp-btn-content">
         <ion-spinner *ngIf="wfhLoading" name="crescent" class="sp-spinner"></ion-spinner>
-        <svg *ngIf="!wfhLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-          stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+        <svg *ngIf="!wfhLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" width="18" height="18">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
         </svg>
         <span>{{ wfhLoading ? 'Sending Request…' : 'Send WFH Request' }}</span>
       </div>

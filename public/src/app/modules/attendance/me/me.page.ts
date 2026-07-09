@@ -63,8 +63,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   // UI
   shiftDuration = '9h 0m';
   breakMinutes = 60;
-  effectiveHours = '00:00';
-  grossHours = '00:00';
+  effectiveHours = '0h 0m';
+  grossHours = '0h 0m';
   status = 'NOT In Yet';
   activeTab = 'log';
   progressValue = 0.85;
@@ -107,6 +107,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   toggleTodayCard() {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
+  }
+
+  formatHours(value: number): string {
+    if (value === null || value === undefined || isNaN(value)) return '0h 0m';
+    const hours = Math.floor(value);
+    const minutes = Math.round((value - hours) * 60);
+    return `${hours}h ${minutes}m`;
   }
 
   constructor(
@@ -220,8 +227,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             gross = (now - new Date(firstPunch.punch_time).getTime()) / (1000 * 60 * 60);
           }
 
-          this.grossHours = pipe.transform(gross);
-          this.effectiveHours = pipe.transform(effective);
+          this.grossHours = this.formatHours(gross);
+          this.effectiveHours = this.formatHours(effective);
 
           this.grossMinutes = Math.round(gross * 60);
           this.effectiveMinutes = Math.round(effective * 60);
@@ -244,8 +251,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.createTimelineData(punches);
           this.startLiveTimer(punches, res.last_punch_type);
         } else {
-          this.grossHours = '00:00';
-          this.effectiveHours = '00:00';
+          this.grossHours = '0h 0m';
+          this.effectiveHours = '0h 0m';
           this.lateMinutes = 0;
           this.totalBreakMinutes = 0;
           this.createTimelineData([]);
@@ -254,8 +261,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       },
       error: () => {
         this.status = 'NOT In Yet';
-        this.grossHours = '00:00';
-        this.effectiveHours = '00:00';
+        this.grossHours = '0h 0m';
+        this.effectiveHours = '0h 0m';
         this.lateMinutes = 0;
         this.totalBreakMinutes = 0;
         this.createTimelineData([]);
@@ -357,7 +364,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         // Value
         ctx.font = 'bold 24px "Inter", sans-serif';
         ctx.fillStyle = '#1e293b'; // Dark slate
-        ctx.fillText(this.grossHours || '00:00', centerX, centerY - 5);
+        ctx.fillText(this.grossHours || '0h 0m', centerX, centerY - 5);
 
         // Label
         ctx.font = '700 10px "Inter", sans-serif';
@@ -477,7 +484,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.clockButton.isClockedIn) {
       this.clockButton.clockOut();
     } else {
-      this.clockButton.clockIn('Office');
+      const mode = this.clockButton.workMode === 'WFH' ? 'WFH' : 'Office';
+      this.clockButton.clockIn(mode);
     }
   }
 

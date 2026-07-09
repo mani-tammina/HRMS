@@ -13,7 +13,16 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   <div class="attendance-btn-container" [class.mini-layout]="currentUrl === '/Me'">
     <!-- Clock In Button -->
     <div *ngIf="!isClockedIn" class="row-center">
-      <button class="modern-clock-btn in" (click)="clockIn('Office')">
+      <!-- WFH Clock In -->
+      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockIn('WFH')">
+        <div class="inner-pulse cyan"></div>
+        <div class="btn-content">
+                  <span class="text">WFH In</span>
+        </div>
+      </button>
+
+      <!-- Standard Clock In -->
+      <button *ngIf="workMode !== 'WFH'" class="modern-clock-btn in" (click)="clockIn('Office')">
         <div class="inner-pulse"></div>
         <div class="btn-content">
           <span class="text">Clock In</span>
@@ -44,7 +53,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockOut()">
         <div class="inner-pulse cyan"></div>
         <div class="btn-content">
-          <ion-icon name="home-outline"></ion-icon>
           <span class="text">WFH Out</span>
         </div>
       </button>
@@ -68,7 +76,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 
     .modern-clock-btn {
       position: relative;
-      min-width: 188px;
+      // min-width: 188px;
       height: 38px;
       border: none;
       border-radius: 64px;
@@ -219,14 +227,37 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         const punches = res?.punches || [];
         if (!punches.length) {
           this.isClockedIn = false;
-          this.workMode = 'Office';
-          this.remoteActive = false;
-          localStorage.removeItem('remoteActive');
+          this.attendanceApi.checkTodayWFH().subscribe({
+            next: (wfhRes) => {
+              if (wfhRes?.has_wfh && wfhRes?.work_mode === 'WFH') {
+                this.workMode = 'WFH';
+              } else if (wfhRes?.has_wfh && wfhRes?.work_mode === 'Remote') {
+                this.workMode = 'Remote';
+                this.remoteActive = true;
+                localStorage.setItem('remoteActive', 'true');
+              } else {
+                this.workMode = 'Office';
+                this.remoteActive = false;
+                localStorage.removeItem('remoteActive');
+              }
+            },
+            error: () => {
+              this.workMode = 'Office';
+              this.remoteActive = false;
+              localStorage.removeItem('remoteActive');
+            }
+          });
           return;
         }
         const lastPunch = punches[punches.length - 1];
         this.isClockedIn = lastPunch.punch_type === 'in';
-        this.workMode = lastPunch.work_mode || 'Office';
+
+        if (res?.attendance?.work_mode === 'WFH' || punches.some((p: any) => p.work_mode === 'WFH')) {
+          this.workMode = 'WFH';
+        } else {
+          this.workMode = lastPunch.work_mode || 'Office';
+        }
+
         localStorage.setItem('todayPunches', JSON.stringify(punches));
         if (this.isClockedIn && this.workMode === 'Remote') {
           this.remoteActive = true;
@@ -289,7 +320,6 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         if (res?.success) {
           this.showToast(res?.message || 'Clocked out successfully', 'danger');
           this.statusChanged.emit({ punch_type: 'out', work_mode: this.workMode });
-          if (wasWFH) this.workMode = 'Office';
         }
       },
       error: (err) => {
