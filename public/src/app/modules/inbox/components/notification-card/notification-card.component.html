@@ -1,0 +1,70 @@
+<div class="card-wrapper" [class.unread]="notification.is_read === 0">
+  <!-- Unread indicator bar -->
+  <div class="unread-indicator" *ngIf="notification.is_read === 0"></div>
+
+  <div class="card-header">
+    <div class="header-left">
+      <div class="icon-wrapper" [ngClass]="getIconColor(notification.request_type)">
+        <ion-icon [name]="getIconName(notification.request_type)"></ion-icon>
+      </div>
+      <div>
+        <h4 class="request-type">{{ notification.request_type }}</h4>
+        <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+      </div>
+    </div>
+    
+    <div class="header-right">
+      <ion-badge [color]="getPriorityColor(notification.priority)" class="priority-badge">
+        {{ notification.priority }}
+      </ion-badge>
+      <ion-badge [color]="getStatusColor(notification.status)" class="status-badge">
+        {{ notification.status }}
+      </ion-badge>
+    </div>
+  </div>
+
+  <div class="card-body">
+    <h3 class="card-title">{{ notification.title }}</h3>
+    
+    <!-- Employee Info Box -->
+    <div class="employee-info">
+      <div class="info-item">
+        <ion-icon name="person-outline"></ion-icon>
+        <span class="info-text font-bold">{{ notification.employee_name || 'N/A' }}</span>
+      </div>
+      <div class="info-item">
+        <ion-icon name="id-card-outline"></ion-icon>
+        <span class="info-text">{{ notification.employee_number || 'N/A' }}</span>
+      </div>
+      <div class="info-item" *ngIf="notification.department_name">
+        <ion-icon name="business-outline"></ion-icon>
+        <span class="info-text">{{ notification.department_name }}</span>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <p class="description-text">{{ notification.description }}</p>
+  </div>
+
+  <!-- Footer Actions (only shown if there is an actionable choice) -->
+  <div class="card-footer" *ngIf="notification.status === 'Pending' || notification.is_read === 0">
+    <div class="footer-left">
+      <ng-container *ngIf="notification.status === 'Pending'">
+        <ion-button size="small" color="success" fill="solid" (click)="onApprove($event)" class="action-btn">
+          <ion-icon name="checkmark-outline" slot="start"></ion-icon>
+          Approve
+        </ion-button>
+        <ion-button size="small" color="danger" fill="outline" (click)="onReject($event)" class="action-btn">
+          <ion-icon name="close-outline" slot="start"></ion-icon>
+          Reject
+        </ion-button>
+      </ng-container>
+    </div>
+
+    <div class="footer-right">
+      <ion-button size="small" fill="clear" color="medium" *ngIf="notification.is_read === 0" (click)="onMarkRead($event)" title="Mark as Read" class="icon-only-btn">
+        <ion-icon name="mail-open-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </div>
+  </div>
+</div>

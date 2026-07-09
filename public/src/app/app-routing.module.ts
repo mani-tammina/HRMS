@@ -61,6 +61,12 @@ const routes: Routes = [
     canActivate: [AuthGuard]
   },
   {
+    path: 'inbox',
+    loadComponent: () => import('./modules/inbox/pages/inbox/inbox.page').then(m => m.InboxPage),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['manager', 'hr', 'admin', 'approver'] }
+  },
+  {
     path: 'Me',
     loadComponent: () => import('./modules/attendance/me/me.page').then(m => m.MePage),
     canActivate: [AuthGuard],

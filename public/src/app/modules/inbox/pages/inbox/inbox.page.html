@@ -1,0 +1,847 @@
+<ion-header [translucent]="true" class="ion-no-border">
+  <ion-toolbar class="main-toolbar">
+    <ion-buttons slot="start">
+      <ion-menu-button></ion-menu-button>
+    </ion-buttons>
+    <ion-title>Inbox</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true" class="inbox-content">
+  <!-- Pull to Refresh -->
+  <ion-refresher slot="fixed" (ionRefresh)="refresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+
+  <div class="inbox-dashboard-container">
+    <!-- Header Section -->
+    <div class="inbox-header-row">
+      <div class="header-left">
+        <h1 class="inbox-title">Inbox</h1>
+        <p class="inbox-subtitle">Manage and take action on employee requests</p>
+      </div>
+      <div class="header-right">
+        <!-- Search bar inside header -->
+        <div class="header-search-wrapper">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="search-icon-inline">
+            <circle cx="11" cy="11" r="8"></circle>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+          </svg>
+          <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search in inbox..." />
+          <span class="shortcut-badge">Ctrl /</span>
+        </div>
+
+        <button class="btn btn-outline" (click)="toggleInlineFilters()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="btn-icon-left"
+            style="width: 14px; height: 14px; margin-right: 6px;">
+            <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
+          </svg>
+          Filters
+        </button>
+
+        <button class="btn btn-outline" (click)="markAllAsRead()">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="btn-icon-left"
+            style="width: 14px; height: 14px; margin-right: 6px;">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+          Mark all as read
+        </button>
+
+        <button class="btn btn-primary" (click)="loadNotifications(null, true)">
+          Refresh
+        </button>
+
+        <button class="btn btn-icon-only">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <circle cx="12" cy="12" r="1"></circle>
+            <circle cx="12" cy="5" r="1"></circle>
+            <circle cx="12" cy="19" r="1"></circle>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats Cards Row -->
+    <div class="stats-cards-row">
+      <!-- Card 1: Total -->
+      <div class="stats-card total-card">
+        <div class="card-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="card-svg-icon">
+            <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+            <path
+              d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
+            </path>
+          </svg>
+        </div>
+        <div class="card-details">
+          <span class="card-title">Total Requests</span>
+          <h2 class="card-number">{{ stats.totalRequests }}</h2>
+          <span class="card-desc">All requests</span>
+        </div>
+        <!-- Watermark icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          class="card-watermark-icon">
+          <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+          <path
+            d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z">
+          </path>
+        </svg>
+      </div>
+
+      <!-- Card 2: Unread -->
+      <div class="stats-card unread-card">
+        <div class="card-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="card-svg-icon">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+            <polyline points="22,6 12,13 2,6"></polyline>
+          </svg>
+        </div>
+        <div class="card-details">
+          <span class="card-title">Unread</span>
+          <h2 class="card-number">{{ stats.unread }}</h2>
+          <span class="card-desc">New notifications</span>
+        </div>
+        <!-- Watermark icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          class="card-watermark-icon">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+          <polyline points="22,6 12,13 2,6"></polyline>
+        </svg>
+      </div>
+
+      <!-- Card 3: Pending -->
+      <div class="stats-card pending-card">
+        <div class="card-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="card-svg-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+        <div class="card-details">
+          <span class="card-title">Pending</span>
+          <h2 class="card-number">{{ stats.pending }}</h2>
+          <span class="card-desc">Requires action</span>
+        </div>
+        <!-- Watermark icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          class="card-watermark-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+      </div>
+
+      <!-- Card 4: Approved -->
+      <div class="stats-card approved-card">
+        <div class="card-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="card-svg-icon">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+        </div>
+        <div class="card-details">
+          <span class="card-title">Approved</span>
+          <h2 class="card-number">{{ stats.approved }}</h2>
+          <span class="card-desc">This month</span>
+        </div>
+        <!-- Watermark icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          class="card-watermark-icon">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+      </div>
+
+      <!-- Card 5: Rejected -->
+      <div class="stats-card rejected-card">
+        <div class="card-icon-circle">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="card-svg-icon">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+        <div class="card-details">
+          <span class="card-title">Rejected</span>
+          <h2 class="card-number">{{ stats.rejected }}</h2>
+          <span class="card-desc">This month</span>
+        </div>
+        <!-- Watermark icon -->
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          class="card-watermark-icon">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="15" y1="9" x2="9" y2="15"></line>
+          <line x1="9" y1="9" x2="15" y2="15"></line>
+        </svg>
+      </div>
+    </div>
+    <!-- Filters Section -->
+    <div class="filters-card-row" *ngIf="showFilters">
+      <div class="search-input-wrapper">
+        <ion-icon name="search-outline" class="search-icon-inline"></ion-icon>
+        <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)"
+          placeholder="Search by employee name, request type..." />
+      </div>
+
+      <div class="dropdowns-group">
+        <div class="dropdown-select-item">
+          <ion-icon name="funnel-outline" class="select-icon-left"></ion-icon>
+          <ion-select [(ngModel)]="filterRequestType" (ionChange)="applyDropdownFilters()" placeholder="Request Type"
+            interface="popover" class="inline-select">
+            <ion-select-option value="">All Types</ion-select-option>
+            <ion-select-option value="Leave Request">Leave</ion-select-option>
+            <ion-select-option value="Attendance Regularization">Attendance</ion-select-option>
+            <ion-select-option value="Timesheet Request">Timesheet</ion-select-option>
+            <ion-select-option value="Resignation Request">Resignation</ion-select-option>
+          </ion-select>
+        </div>
+
+        <div class="dropdown-select-item">
+          <ion-icon name="options-outline" class="select-icon-left"></ion-icon>
+          <ion-select [(ngModel)]="filterStatus" (ionChange)="applyDropdownFilters()" placeholder="Status"
+            interface="popover" class="inline-select">
+            <ion-select-option value="">All Status</ion-select-option>
+            <ion-select-option value="Pending">Pending</ion-select-option>
+            <ion-select-option value="Approved">Approved</ion-select-option>
+            <ion-select-option value="Rejected">Rejected</ion-select-option>
+            <ion-select-option value="Cancelled">Cancelled</ion-select-option>
+          </ion-select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Split Workspace Layout -->
+    <div class="inbox-split-layout">
+      <!-- Left Column: Scrollable List -->
+      <div class="inbox-list-column">
+        <!-- Tab segments row -->
+        <div class="list-tabs-row">
+          <button class="list-tab-btn" [class.active]="selectedTab === 'All'" (click)="selectTab('All')">
+            All <span class="tab-badge-count fill-blue">{{ stats.totalRequests }}</span>
+          </button>
+          <button class="list-tab-btn" [class.active]="selectedTab === 'Unread'" (click)="selectTab('Unread')">
+            Unread <span class="tab-badge-count fill-red">{{ stats.unread }}</span>
+          </button>
+          <!-- <button class="list-tab-btn" [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
+            Leave
+          </button>
+          <button class="list-tab-btn" [class.active]="selectedTab === 'Attendance'" (click)="selectTab('Attendance')">
+            Attendance
+          </button>
+          <button class="list-tab-btn" [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
+            Timesheet
+          </button>
+          <button class="list-tab-btn" [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
+            Resignation
+          </button> -->
+        </div>
+
+        <!-- Sorting bar -->
+        <div class="sort-selector-bar">
+          <button class="sort-dropdown-btn">
+            Newest first
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" class="chevron-down-svg"
+              style="width: 12px; height: 12px; margin-left: 4px; color: #64748b;">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Scrollable Cards Stack -->
+        <div class="scrollable-list-wrapper">
+          <!-- Skeleton Loader -->
+          <div class="skeleton-list" *ngIf="loading && page === 1">
+            <div class="skeleton-card" *ngFor="let item of [1, 2, 3]">
+              <ion-skeleton-text animated style="width: 70%; height: 14px; border-radius: 4px;"></ion-skeleton-text>
+              <ion-skeleton-text animated
+                style="width: 45%; height: 10px; margin-top: 6px; border-radius: 4px;"></ion-skeleton-text>
+            </div>
+          </div>
+
+          <!-- Empty Fallback -->
+          <app-notification-empty *ngIf="!loading && notifications.length === 0"
+            [message]="'No ' + selectedTab + ' requests found'"
+            [subMessage]="'You have no pending requests in this tab.'">
+          </app-notification-empty>
+
+          <!-- Cards Stack -->
+          <div class="list-cards-stack" *ngIf="notifications.length > 0">
+            <div class="inbox-list-card animate__animated animate__fadeIn" *ngFor="let notification of notifications"
+              [class.active]="selectedNotification?.notification_id === notification.notification_id"
+              [class.unread]="notification.is_read === 0" (click)="selectNotification(notification)">
+
+              <div class="card-left-visual">
+                <div class="list-avatar-circle" [ngClass]="getIconColor(notification.request_type)">
+                  {{ getInitials(notification.employee_name) }}
+                </div>
+              </div>
+
+              <div class="card-main-content">
+                <div class="card-top-line">
+                  <span class="request-type-label" [ngClass]="getIconColor(notification.request_type)">
+                    {{ notification.request_type }}
+                  </span>
+                  <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+                </div>
+                <h4 class="card-emp-name">{{ notification.employee_name }}</h4>
+                <p class="card-summary-desc">{{ getCardShortSummary(notification) }}</p>
+              </div>
+
+              <div class="card-right-status">
+                <span class="read-dot" [class.is-unread]="notification.is_read === 0"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pagination Bar -->
+        <div class="pagination-footer-bar" *ngIf="notifications.length > 0">
+          <span class="entries-info">
+            Showing {{ ((page - 1) * limit) + 1 }}-{{ MathMin(page * limit, total) }} of {{ total }} entries
+          </span>
+          <div class="pag-btn-group">
+            <button class="pag-btn" [disabled]="page === 1" (click)="page = page - 1; loadNotifications(null, true)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" style="width: 14px; height: 14px;">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+            <button class="pag-btn" [disabled]="page * limit >= total"
+              (click)="page = page + 1; loadNotifications(null, true)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" style="width: 14px; height: 14px;">
+                <polyline points="9 18 15 12 9 6"></polyline>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Column: Reader Pane -->
+      <div class="inbox-reader-column">
+        <!-- Render details if set -->
+        <ng-container *ngIf="selectedNotification; else noSelectionTemplate">
+          <div class="reader-pane-wrapper animate__animated animate__fadeIn">
+
+            <!-- Header Section -->
+            <div class="reader-header">
+              <div class="header-title-section">
+                <h2 class="reader-title">{{ selectedNotification.request_type }}</h2>
+                <span class="status-badge-bubble" [ngClass]="selectedNotification.status.toLowerCase()">
+                  {{ selectedNotification.status }}
+                </span>
+              </div>
+              <div class="header-action-group">
+                <button class="action-btn-flat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="btn-icon-svg">
+                    <polyline points="9 17 4 12 9 7"></polyline>
+                    <path d="M20 18v-2a4 4 0 0 0-4-4H4"></path>
+                  </svg>
+                  Reply
+                </button>
+                <button class="action-btn-flat">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="btn-icon-svg">
+                    <polyline points="15 17 20 12 15 7"></polyline>
+                    <path d="M4 18v-2a4 4 0 0 1 4-4h12"></path>
+                  </svg>
+                  Forward
+                </button>
+                <button class="action-btn-flat icon-only">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="btn-icon-svg" style="color: #64748b;">
+                    <polygon
+                      points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2">
+                    </polygon>
+                  </svg>
+                </button>
+                <button class="action-btn-flat icon-only">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="btn-icon-svg" style="color: #64748b;">
+                    <circle cx="12" cy="12" r="1"></circle>
+                    <circle cx="12" cy="5" r="1"></circle>
+                    <circle cx="12" cy="19" r="1"></circle>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Employee Info Block -->
+            <div class="reader-emp-block">
+              <div class="emp-avatar-big" [ngClass]="getIconColor(selectedNotification.request_type)">
+                {{ getInitials(selectedNotification.employee_name) }}
+              </div>
+              <div class="emp-text-details">
+                <div class="emp-top-row">
+                  <h3 class="emp-name">{{ selectedNotification.employee_name }}</h3>
+                  <span class="filed-date-time">{{ formatDate(selectedNotification.created_at) }} • 2:30 PM</span>
+                </div>
+                <p class="emp-code-dept">{{ selectedNotification.employee_number || 'STS-102' }} • {{
+                  selectedNotification.department_name || 'IT Services' }}</p>
+                <p class="to-line-manager">To: Siva Ganesh (Manager)</p>
+              </div>
+            </div>
+
+            <div class="reader-divider"></div>
+
+            <!-- Message Body -->
+            <div class="reader-body-message">
+              <p class="greeting-text">Dear Manager,</p>
+              <p class="main-msg-body">I have applied for {{ selectedNotification.request_type.toLowerCase() }}. Please
+                review and take action.</p>
+              <p class="thank-you-msg">Thank you.</p>
+            </div>
+
+            <!-- Parameters Grid Box -->
+            <div class="attributes-grid-box">
+              <!-- Leave Grid -->
+              <ng-container *ngIf="selectedNotification.request_type === 'Leave Request'">
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Leave Type</span>
+                    <span class="attr-value">{{ getParsedMetadata(selectedNotification.metadata).reason ||
+                      getFallbackReason(selectedNotification) }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="16" y1="2" x2="16" y2="6"></line>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">End Date</span>
+                    <span class="attr-value">{{ formatDate(getFallbackLeaveDates(selectedNotification).end) || 'N/A'
+                      }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                      <line x1="8" y1="2" x2="8" y2="6"></line>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Start Date</span>
+                    <span class="attr-value">{{ formatDate(getFallbackLeaveDates(selectedNotification).start) || 'N/A'
+                      }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Applied On</span>
+                    <span class="attr-value">{{ formatDate(selectedNotification.created_at) }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon" style="color: #1870B9;">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Total Days</span>
+                    <span class="attr-value font-bold" style="color: #1870B9;">{{
+                      getParsedMetadata(selectedNotification.metadata).total_days ||
+                      getCalculatedDays(selectedNotification) }} Days</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Reason</span>
+                    <span class="attr-value">{{ getParsedMetadata(selectedNotification.metadata).reason ||
+                      getFallbackReason(selectedNotification) }}</span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Attendance Grid -->
+              <ng-container *ngIf="selectedNotification.request_type === 'Attendance Regularization'">
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Regularization Date</span>
+                    <span class="attr-value">{{ formatDate(getFallbackAttendanceDate(selectedNotification)) || 'N/A'
+                      }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Punch Time</span>
+                    <span class="attr-value">{{ getParsedMetadata(selectedNotification.metadata).check_in || '09:45 AM'
+                      }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Applied On</span>
+                    <span class="attr-value">{{ formatDate(selectedNotification.created_at) }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Reason</span>
+                    <span class="attr-value">{{ getParsedMetadata(selectedNotification.metadata).reason ||
+                      getFallbackReason(selectedNotification) }}</span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Timesheet Grid -->
+              <ng-container *ngIf="selectedNotification.request_type === 'Timesheet Request'">
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Week Period</span>
+                    <span class="attr-value">{{ getParsedMetadata(selectedNotification.metadata).week_range || '14 Jul -
+                      20 Jul' }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon" style="color: #28c76f;">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <polyline points="12 6 12 12 16 14"></polyline>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Total Hours</span>
+                    <span class="attr-value font-bold" style="color: #28c76f;">{{
+                      getParsedMetadata(selectedNotification.metadata).total_hours || '45h 30m' }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Applied On</span>
+                    <span class="attr-value">{{ formatDate(selectedNotification.created_at) }}</span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- Resignation Grid -->
+              <ng-container *ngIf="selectedNotification.request_type === 'Resignation Request'">
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Last Working Day</span>
+                    <span class="attr-value">{{
+                      formatDate(getParsedMetadata(selectedNotification.metadata).calculated_last_working_date) || '20
+                      Aug 2026' }}</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon" style="color: #ea5455;">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Notice Days</span>
+                    <span class="attr-value font-bold" style="color: #ea5455;">{{
+                      getParsedMetadata(selectedNotification.metadata).notice_period_days || '30' }} Days</span>
+                  </div>
+                </div>
+
+                <div class="attr-item">
+                  <div class="attr-icon-circle">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" class="attr-icon">
+                      <circle cx="12" cy="12" r="10"></circle>
+                    </svg>
+                  </div>
+                  <div class="attr-texts">
+                    <span class="attr-label">Applied On</span>
+                    <span class="attr-value">{{ formatDate(selectedNotification.created_at) }}</span>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+
+            <!-- Attachments block -->
+            <div class="attachments-section-box">
+              <h4 class="attach-title">Attachments (1)</h4>
+              <div class="attachment-file-card">
+                <div class="file-icon-left">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="doc-icon-svg" style="width: 20px; height: 20px; color: #64748b;">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                    <polyline points="14 2 14 8 20 8"></polyline>
+                  </svg>
+                </div>
+                <div class="file-info-details">
+                  <span class="file-name">Family_Event_Invitation.pdf</span>
+                  <span class="file-size">1.2 MB</span>
+                </div>
+                <button class="download-btn-circle">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" style="width: 14px; height: 14px; color: #475569;">
+                    <polyline points="8 17 12 21 16 17"></polyline>
+                    <line x1="12" y1="12" x2="12" y2="21"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Timeline history -->
+            <div class="workflow-history-box">
+              <h4 class="history-title">History</h4>
+              <div class="timeline-stack">
+                <div class="timeline-step">
+                  <div class="timeline-node active"></div>
+                  <div class="step-text-details">
+                    <span class="step-timestamp">{{ formatDate(selectedNotification.created_at) }}, 02:30 PM</span>
+                    <span class="step-message">Request submitted by {{ selectedNotification.employee_name }}</span>
+                  </div>
+                </div>
+                <div class="timeline-step">
+                  <div class="timeline-node"></div>
+                  <div class="step-text-details">
+                    <span class="step-timestamp">{{ formatDate(selectedNotification.created_at) }}, 02:30 PM</span>
+                    <span class="step-message">Pending for approval</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer approval actions -->
+            <div class="reader-footer-actions">
+              <ng-container *ngIf="selectedNotification.status === 'Pending'">
+                <button class="btn-action-pane approve" (click)="approveRequest(selectedNotification)">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.5" class="action-icon-svg" style="width: 14px; height: 14px; margin-right: 6px;">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                  </svg>
+                  Approve
+                </button>
+                <button class="btn-action-pane reject" (click)="rejectRequest(selectedNotification)">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2.5" class="action-icon-svg" style="width: 14px; height: 14px; margin-right: 6px;">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                  Reject
+                </button>
+              </ng-container>
+              <button class="btn-action-pane secondary">
+                More Actions
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" style="width: 12px; height: 12px; margin-left: 6px;">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </button>
+            </div>
+
+          </div>
+        </ng-container>
+
+        <!-- No request selected placeholder -->
+        <ng-template #noSelectionTemplate>
+          <div class="no-selection-pane-wrapper">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="1" class="no-selection-icon">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <h3>No request selected</h3>
+            <p>Choose a request from the left list to view its complete details and action history.</p>
+          </div>
+        </ng-template>
+      </div>
+    </div>
+
+    <!-- Mobile Request Details Modal fallback -->
+    <ion-modal [isOpen]="isModalOpen" (didDismiss)="isModalOpen = false" class="inbox-details-modal">
+      <ng-template>
+        <div class="modal-wrapper">
+          <div class="modal-header">
+            <div class="header-left">
+              <span class="badge request-type-badge" [ngClass]="getIconColor(selectedNotification?.request_type || '')">
+                {{ selectedNotification?.request_type }}
+              </span>
+              <h2 class="modal-title">{{ selectedNotification?.title }}</h2>
+            </div>
+            <button class="close-btn" (click)="isModalOpen = false">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.5" class="close-icon-svg" style="width: 18px; height: 18px;">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="modal-body" *ngIf="selectedNotification">
+            <div class="employee-card-header">
+              <div class="modal-avatar-circle">
+                {{ getInitials(selectedNotification.employee_name) }}
+              </div>
+              <div class="emp-title-details">
+                <h3 class="emp-name">{{ selectedNotification.employee_name }}</h3>
+                <span class="emp-code">{{ selectedNotification.employee_number || 'N/A' }} • {{
+                  selectedNotification.department_name || 'IT Services' }}</span>
+              </div>
+            </div>
+
+            <div class="details-divider"></div>
+
+            <div class="details-fields-grid">
+              <div class="field-item">
+                <span class="field-label">Status</span>
+                <span class="badge status-badge" [ngClass]="selectedNotification.status.toLowerCase()">
+                  {{ selectedNotification.status }}
+                </span>
+              </div>
+
+              <div class="field-item full-width" *ngIf="selectedNotification.request_type === 'Leave Request'">
+                <span class="field-label">Leave Duration</span>
+                <div class="duration-display">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="field-icon" style="width: 20px; height: 20px;">
+                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                    <line x1="16" y1="2" x2="16" y2="6"></line>
+                    <line x1="8" y1="2" x2="8" y2="6"></line>
+                  </svg>
+                  <div class="duration-text">
+                    <span class="bold">{{ formatDate(getFallbackLeaveDates(selectedNotification).start) || 'N/A'
+                      }}</span>
+                    <span class="arrow">&rarr;</span>
+                    <span class="bold">{{ formatDate(getFallbackLeaveDates(selectedNotification).end) || 'N/A' }}</span>
+                    <span class="days-count" style="margin-left: 8px; font-weight: 700; color: #1870B9;">({{
+                      getParsedMetadata(selectedNotification.metadata).total_days ||
+                      getCalculatedDays(selectedNotification) }} Days)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-item full-width"
+                *ngIf="selectedNotification.request_type === 'Attendance Regularization'">
+                <span class="field-label">Regularization Details</span>
+                <div class="duration-display">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    stroke-width="2" class="field-icon" style="width: 20px; height: 20px;">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polyline points="12 6 12 12 16 14"></polyline>
+                  </svg>
+                  <div class="duration-text">
+                    <span class="bold">Date:</span> {{ formatDate(getFallbackAttendanceDate(selectedNotification)) ||
+                    'N/A' }}
+                    <span class="separator" style="margin: 0 8px; color: #cbd5e1;">•</span>
+                    <span class="bold">Punch Time:</span> {{ getParsedMetadata(selectedNotification.metadata).check_in
+                    || '09:45 AM' }}
+                  </div>
+                </div>
+              </div>
+
+              <div class="field-item full-width">
+                <span class="field-label">Reason / Description</span>
+                <div class="description-box">
+                  {{ selectedNotification.description }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="modal-footer" *ngIf="selectedNotification">
+            <button class="btn btn-outline" (click)="isModalOpen = false">Close</button>
+            <ng-container *ngIf="selectedNotification.status === 'Pending'">
+              <button class="btn btn-danger" (click)="rejectRequest(selectedNotification); isModalOpen = false">
+                Reject
+              </button>
+              <button class="btn btn-success" (click)="approveRequest(selectedNotification); isModalOpen = false">
+                Approve
+              </button>
+            </ng-container>
+          </div>
+        </div>
+      </ng-template>
+    </ion-modal>
+  </div>
+</ion-content>

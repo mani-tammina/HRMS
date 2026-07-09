@@ -12,7 +12,9 @@ export class CustomIconService {
         'admin': 'assets/icons/menu/admin.svg',
         'worktrack': 'assets/icons/menu/worktrack.svg',
         'attendance': 'assets/icons/menu/attendance.svg',
-        'logout': 'assets/icons/menu/logout.svg'
+        'logout': 'assets/icons/menu/logout.svg',
+        'notifications-outline': 'assets/icons/menu/notifications-outline.svg',
+        'inbox-outline': 'assets/icons/menu/inbox-outline.svg'
     };
 
     constructor() { }

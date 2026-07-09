@@ -8,6 +8,7 @@ const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+const { createInboxNotification, updateNotificationStatus } = require("../utils/inbox-helper");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
@@ -1282,6 +1283,19 @@ router.post("/apply", auth, async (req, res) => {
     );
     console.log("[LEAVE DEBUG] Leave application inserted:", result);
 
+    // Create Inbox Notification for reporting manager
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Leave Request",
+      result.insertId,
+      `Leave Request - ${emp.FullName || 'Employee'}`,
+      `Applied for Leave from ${start_date} to ${end_date}. Reason: ${reason || 'N/A'}`,
+      "Medium",
+      { start_date, end_date, total_days, reason }
+    );
+
     await c.commit();
     c.end();
 
@@ -1516,6 +1530,9 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
       );
     }
 
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Approved", currentEmp.id);
+
     await c.commit();
     c.end();
 
@@ -1570,6 +1587,10 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
              WHERE id = ?`,
       [req.user.id, rejection_reason, req.params.leaveId],
     );
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Rejected", currentEmp.id);
+
     c.end();
 
     res.json({ success: true, message: "Leave rejected successfully" });
@@ -1662,6 +1683,9 @@ router.put("/cancel/:leaveId", auth, async (req, res) => {
         );
       }
     }
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Cancelled", currentEmp.id);
 
     await c.commit();
     c.end();
@@ -2005,6 +2029,19 @@ router.post("/wfh-request", auth, async (req, res) => {
         finalTotalDays,
         reason || `${work_mode} request`,
       ],
+    );
+
+    // Create Inbox Notification for WFH/Remote
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Leave Request",
+      result.insertId,
+      `Work From Home Request - ${emp.FullName || 'Employee'}`,
+      `Requested ${work_mode} from ${finalStartDate} to ${finalEndDate}. Reason: ${reason || 'N/A'}`,
+      "Medium",
+      { start_date: finalStartDate, end_date: finalEndDate, total_days: finalTotalDays, reason: reason || `${work_mode} request` }
     );
 
     await c.commit();

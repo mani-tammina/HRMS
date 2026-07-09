@@ -62,6 +62,7 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const emailRoutes = require("./routes/email.routes");
 const payrollTaxV1Routes = require("./routes/payroll-tax.v1.routes");
 const taxationWorkflowRoutes = require("./routes/taxation-workflow.routes");
+const inboxRoutes = require("./routes/inbox.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -285,6 +286,42 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not verify/create comp_off_requests table:", tableErr.message);
         }
 
+        // Ensure inbox_notifications table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS inbox_notifications (
+                    notification_id INT PRIMARY KEY AUTO_INCREMENT,
+                    employee_id INT NOT NULL,
+                    manager_id INT NOT NULL,
+                    request_type VARCHAR(100) NOT NULL,
+                    request_id INT NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    description TEXT NULL,
+                    status VARCHAR(50) DEFAULT 'Pending',
+                    priority VARCHAR(50) DEFAULT 'Medium',
+                    is_read TINYINT(1) DEFAULT 0,
+                    is_archived TINYINT(1) DEFAULT 0,
+                    metadata TEXT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    action_taken_by INT NULL,
+                    action_taken_on TIMESTAMP NULL,
+                    FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+                    FOREIGN KEY (manager_id) REFERENCES employees(id) ON DELETE CASCADE,
+                    INDEX idx_manager_id (manager_id),
+                    INDEX idx_employee_id (employee_id),
+                    INDEX idx_status (status),
+                    INDEX idx_is_read (is_read),
+                    INDEX idx_is_archived (is_archived),
+                    INDEX idx_request_type (request_type),
+                    INDEX idx_created_at (created_at)
+                )
+            `);
+            console.log("✅ Verified inbox_notifications table exists");
+        } catch (tableErr) {
+            console.warn("⚠️ Warning: could not verify/create inbox_notifications table:", tableErr.message);
+        }
+
         // Ensure comp_off_requests status column supports 'cancelled'
         try {
             const [cols] = await conn.query("DESCRIBE comp_off_requests");
@@ -472,6 +509,7 @@ app.use("/api/reports/export", reportRoutesEnhanced); // Enhanced export endpoin
 
 // Notification Routes
 app.use("/api/notifications", notificationRoutesEnhanced); // Enhanced notification system
+app.use("/api/inbox", inboxRoutes);
 
 // Work Updates Routes (Employee)
 app.use("/api/work-updates", workUpdatesRoutes);

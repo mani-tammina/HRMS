@@ -8,6 +8,7 @@ const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+const { createInboxNotification, updateNotificationStatus } = require("../utils/inbox-helper");
 
 /* ============ HELPERS ============ */
 
@@ -610,6 +611,19 @@ router.post("/apply", auth, async (req, res) => {
       [resignationId, emp.id, 'Resignation Submitted', req.user.id, 'Submitted', 'Employee initiated resignation']
     );
 
+    // Create Inbox Notification for reporting manager
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Resignation Request",
+      resignationId,
+      `Resignation Request - ${emp.FullName || 'Employee'}`,
+      `Submitted resignation. Notice Period: ${notice_days} days. Last Working Day: ${formatDate(calculated_lwd)}. Reason: ${reason}`,
+      "High",
+      { calculated_last_working_date: calculated_lwd, notice_period_days: notice_days, reason: reason }
+    );
+
     // Create notifications for Manager, HR, and Admin
     // For simplicity, we create database notifications
     const notifyRoles = ['admin', 'hr'];
@@ -1144,6 +1158,19 @@ router.post("/requests/:id/action", auth, async (req, res) => {
 
     // Apply updates
     await c.query("UPDATE resignations SET ? WHERE id = ?", [updateFields, resignationId]);
+
+    // Translate resignation action to notification status
+    let notificationStatus = 'Pending';
+    if (action === 'Approve') {
+      notificationStatus = 'Approved';
+    } else if (action === 'Reject') {
+      notificationStatus = 'Rejected';
+    } else if (action === 'Send Back' || action === 'Return') {
+      notificationStatus = 'Pending';
+    }
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Resignation Request", resignationId, notificationStatus, emp ? emp.id : null);
 
     // Log separation audit
     await c.query(

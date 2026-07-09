@@ -42,6 +42,9 @@
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon active-icon" />
                     <ion-label>{{ p.title }}</ion-label>
                   </div>
+                  <div class="menu-badge animate__animated animate__pulse animate__infinite" *ngIf="p.title === 'Inbox' && unreadInboxCount > 0">
+                    {{ unreadInboxCount }}
+                  </div>
                 </ion-item>
               </ion-menu-toggle>
 

@@ -6,6 +6,7 @@ import { EmployeeService } from './core/services/employee.service';
 import { AuthService } from './core/services/auth.service';
 import { CustomIconService } from './core/services/custom-icon.service';
 import { MenuController, Platform } from '@ionic/angular';
+import { InboxService } from './modules/inbox/services/inbox.service';
 import './core/icons';
 
 @Component({
@@ -28,8 +29,10 @@ export class AppComponent implements OnInit, OnDestroy {
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
 
+
     { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'admin', 'approver'] },
     { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
     { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
@@ -42,6 +45,8 @@ export class AppComponent implements OnInit, OnDestroy {
     },
   ];
 
+  unreadInboxCount = 0;
+
   constructor(
     private router: Router,
     private routeGuardService: RouteGuardService,
@@ -50,7 +55,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private customIconService: CustomIconService,
     private menuController: MenuController,
-    private platform: Platform
+    private platform: Platform,
+    private inboxService: InboxService
   ) {
     this.router.events.pipe(takeUntil(this.destroy$)).subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -60,6 +66,7 @@ export class AppComponent implements OnInit, OnDestroy {
         this.userRole = this.routeGuardService.userRole;
         this.isAdmin = (this.userRole === 'admin' || this.userRole === 'hr');
         this.fetchProfileInfoIfNeeded();
+        this.fetchUnreadInboxCount();
         this.cdr.detectChanges();
       }
     });
@@ -93,7 +100,7 @@ export class AppComponent implements OnInit, OnDestroy {
     // Only show animated intro screen if running in a native mobile application (Capacitor/Cordova)
     if (this.platform.is('hybrid')) {
       this.showIntro = true;
-      
+
       // Start intro screen timer
       setTimeout(() => {
         this.fadeOutIntro = true;
@@ -121,6 +128,26 @@ export class AppComponent implements OnInit, OnDestroy {
           }
         }
       });
+    }
+  }
+
+  private fetchUnreadInboxCount() {
+    const role = this.userRole?.toLowerCase() || '';
+    const hasAccess = ['manager', 'hr', 'admin', 'approver'].includes(role);
+    if (!this.isLoginPage && this.routeGuardService.isLoggedIn && hasAccess) {
+      this.inboxService.getNotifications({ page: 1, limit: 1 }).subscribe({
+        next: (res) => {
+          if (res && res.success) {
+            this.unreadInboxCount = res.unreadCount;
+            this.cdr.detectChanges();
+          }
+        },
+        error: (err) => {
+          console.warn('Could not fetch inbox unread count:', err);
+        }
+      });
+    } else {
+      this.unreadInboxCount = 0;
     }
   }
 

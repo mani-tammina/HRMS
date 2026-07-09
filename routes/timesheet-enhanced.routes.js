@@ -8,6 +8,7 @@ const router = express.Router();
 const { db } = require("../config/database");
 const { auth, hr, admin } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+const { createInboxNotification, updateNotificationStatus } = require("../utils/inbox-helper");
 const multer = require("multer");
 const path = require("path");
 
@@ -158,6 +159,19 @@ router.post("/regular/submit", auth, async (req, res) => {
         [JSON.stringify(hours_breakdown), total_hours, notes, existing[0].id]
       );
 
+      // Create Inbox Notification for timesheet update
+      await createInboxNotification(
+        c,
+        emp.id,
+        emp.reporting_manager_id,
+        "Timesheet Request",
+        existing[0].id,
+        `Timesheet Request - ${emp.FullName || 'Employee'}`,
+        `Submitted timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
+        "Medium",
+        { week_range: date, total_hours: total_hours }
+      );
+
       c.end();
       return res.json({
         success: true,
@@ -174,6 +188,19 @@ router.post("/regular/submit", auth, async (req, res) => {
             VALUES (?, ?, 'regular', ?, ?, ?, 'submitted', NOW())
         `,
       [emp.id, date, JSON.stringify(hours_breakdown), total_hours, notes]
+    );
+
+    // Create Inbox Notification for timesheet insert
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Timesheet Request",
+      result.insertId,
+      `Timesheet Request - ${emp.FullName || 'Employee'}`,
+      `Submitted timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
+      "Medium",
+      { week_range: date, total_hours: total_hours }
     );
 
     c.end();
@@ -300,6 +327,19 @@ router.post("/project/submit", auth, async (req, res) => {
         ]
       );
 
+      // Create Inbox Notification for timesheet update
+      await createInboxNotification(
+        c,
+        emp.id,
+        emp.reporting_manager_id,
+        "Timesheet Request",
+        existing[0].id,
+        `Timesheet Request - ${emp.FullName || 'Employee'}`,
+        `Submitted project timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
+        "Medium",
+        { week_range: date, total_hours: total_hours }
+      );
+
       c.end();
       return res.json({
         success: true,
@@ -325,6 +365,19 @@ router.post("/project/submit", auth, async (req, res) => {
         work_description,
         notes,
       ]
+    );
+
+    // Create Inbox Notification for timesheet insert
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Timesheet Request",
+      result.insertId,
+      `Timesheet Request - ${emp.FullName || 'Employee'}`,
+      `Submitted project timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
+      "Medium",
+      { week_range: date, total_hours: total_hours }
     );
 
     c.end();
@@ -1159,6 +1212,9 @@ router.put("/manager/approve/:timesheetId", auth, async (req, res) => {
       [req.user.id, req.params.timesheetId]
     );
 
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Timesheet Request", req.params.timesheetId, "Approved", manager.id);
+
     c.end();
     res.json({ success: true, message: "Timesheet verified successfully" });
   } catch (error) {
@@ -1212,6 +1268,9 @@ router.put("/manager/reject/:timesheetId", auth, async (req, res) => {
              WHERE id = ?`,
       [req.user.id, rejection_reason, req.params.timesheetId]
     );
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Timesheet Request", req.params.timesheetId, "Rejected", manager.id);
 
     c.end();
     res.json({ success: true, message: "Timesheet rejected successfully" });

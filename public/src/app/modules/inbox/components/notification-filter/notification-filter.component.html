@@ -1,0 +1,33 @@
+<div class="filter-card">
+  <div class="search-row">
+    <ion-searchbar
+      [value]="searchQuery"
+      (ionInput)="onSearchChange($event)"
+      placeholder="Search requests, employees..."
+      debounce="400"
+      class="custom-searchbar">
+    </ion-searchbar>
+  </div>
+
+  <div class="options-row">
+    <div class="sort-container">
+      <ion-item lines="none" class="sort-item">
+        <ion-label>Sort By</ion-label>
+        <ion-select [value]="sortField" (ionChange)="onSortChange($event)" interface="popover" class="custom-select">
+          <ion-select-option value="created_at">Date</ion-select-option>
+          <ion-select-option value="priority">Priority</ion-select-option>
+          <ion-select-option value="status">Status</ion-select-option>
+        </ion-select>
+      </ion-item>
+      
+      <ion-button fill="clear" (click)="toggleSortOrder()" class="order-btn">
+        <ion-icon [name]="sortOrder === 'DESC' ? 'arrow-down-outline' : 'arrow-up-outline'"></ion-icon>
+      </ion-button>
+    </div>
+
+    <div class="view-all-container" *ngIf="showViewAll">
+      <ion-label class="toggle-label">View All requests</ion-label>
+      <ion-toggle [checked]="viewAll" (ionChange)="onViewAllChange($event)" color="primary"></ion-toggle>
+    </div>
+  </div>
+</div>

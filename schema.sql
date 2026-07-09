@@ -1778,3 +1778,35 @@ CREATE TABLE IF NOT EXISTS comp_off_requests (
   FOREIGN KEY (employee_id) REFERENCES employees(id),
   FOREIGN KEY (approver_id) REFERENCES users(id)
 );
+
+-- ============================================
+-- Inbox Notifications Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS inbox_notifications (
+  notification_id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  manager_id INT NOT NULL,
+  request_type VARCHAR(100) NOT NULL,
+  request_id INT NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  description TEXT NULL,
+  status VARCHAR(50) DEFAULT 'Pending',
+  priority VARCHAR(50) DEFAULT 'Medium',
+  is_read TINYINT(1) DEFAULT 0,
+  is_archived TINYINT(1) DEFAULT 0,
+  metadata TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  action_taken_by INT NULL,
+  action_taken_on TIMESTAMP NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (manager_id) REFERENCES employees(id) ON DELETE CASCADE,
+  INDEX idx_manager_id (manager_id),
+  INDEX idx_employee_id (employee_id),
+  INDEX idx_status (status),
+  INDEX idx_is_read (is_read),
+  INDEX idx_is_archived (is_archived),
+  INDEX idx_request_type (request_type),
+  INDEX idx_created_at (created_at)
+);
+
