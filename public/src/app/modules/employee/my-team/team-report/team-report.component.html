@@ -111,30 +111,110 @@
     </div>
 
     <div class="table-body">
-      <div class="table-row" *ngFor="let row of reportData">
-        <div class="col col-date">
-          <span class="day">{{ row.attendance_date | date:'EEE' }}</span>
-          <span class="date">{{ row.attendance_date | date:'dd MMM' }}</span>
+      <div class="table-row-wrapper" *ngFor="let row of reportData" [class.is-expanded]="expandedRowDate === row.attendance_date">
+        <div class="table-row clickable-row" (click)="openAttendanceDetails(row)">
+          <div class="col col-date">
+            <span class="day">{{ row.attendance_date | date:'EEE' }}</span>
+            <span class="date">{{ row.attendance_date | date:'dd MMM' }}</span>
+          </div>
+          <div class="col col-status">
+            <span class="status-badge" [ngClass]="getStatusClass(row.status)">
+              <ion-icon name="alert-circle-outline" *ngIf="row.status?.toLowerCase() === 'absent'"></ion-icon>
+              {{ row.status | uppercase }}
+            </span>
+          </div>
+          <div class="col col-in">
+            {{ (row.first_check_in | date:'hh:mm a') || '--:--' }}
+          </div>
+          <div class="col col-out">
+            {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
+          </div>
+          <div class="col col-hours">
+            {{ row.gross_hours || '0.00' }} hrs
+          </div>
+          <div class="col col-mode">
+            {{ row.work_mode || 'OFFICE' }}
+          </div>
+          <div class="col col-view">
+            <ion-button fill="clear" color="primary" class="row-view-btn" *ngIf="row.status?.toLowerCase() !== 'absent'">
+              <ion-icon [name]="expandedRowDate === row.attendance_date ? 'chevron-up-outline' : 'eye-outline'" slot="icon-only"></ion-icon>
+            </ion-button>
+            <span *ngIf="row.status?.toLowerCase() === 'absent'" class="no-view-placeholder">—</span>
+          </div>
         </div>
-        <div class="col col-status">
-          <span class="status-badge" [ngClass]="getStatusClass(row.status)">
-            <ion-icon name="alert-circle-outline" *ngIf="row.status?.toLowerCase() === 'absent'"></ion-icon>
-            {{ row.status | uppercase }}
-          </span>
-        </div>
-        <div class="col col-in">
-          {{ (row.first_check_in | date:'hh:mm a') || '--:--' }} {{ row.gross_hours || '0.00' }} hrs
-        </div>
-        <div class="col col-out">
-          {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
-        </div>
-        <div class="col col-mode">
-          {{ row.work_mode || 'OFFICE' }}
-        </div>
-        <div class="col col-view">
-          <ion-button fill="clear" color="primary" (click)="openAttendanceDetails(row)">
-            <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
-          </ion-button>
+
+        <!-- Expanded Details Area -->
+        <div class="details-expanded-row" *ngIf="expandedRowDate === row.attendance_date">
+          <div class="details-loading" *ngIf="isDetailsLoading">
+            <ion-spinner name="crescent" size="small"></ion-spinner>
+            <span>Fetching daily punch logs...</span>
+          </div>
+
+          <div class="details-content" *ngIf="!isDetailsLoading && selectedRowDetails">
+            <!-- Timings Summary Chips -->
+            <div class="details-summary-header" *ngIf="selectedRowDetails.attendance">
+              <div class="summary-chip">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>Gross Hours: <strong>{{ selectedRowDetails.attendance.gross_hours || '0.00' }} hrs</strong></span>
+              </div>
+              <div class="summary-chip" *ngIf="selectedRowDetails.attendance.effective_hours">
+                <ion-icon name="hourglass-outline"></ion-icon>
+                <span>Effective Hours: <strong>{{ selectedRowDetails.attendance.effective_hours }} hrs</strong></span>
+              </div>
+              <div class="summary-chip">
+                <ion-icon name="briefcase-outline"></ion-icon>
+                <span>Mode: <strong>{{ selectedRowDetails.attendance.work_mode || 'OFFICE' }}</strong></span>
+              </div>
+            </div>
+
+            <!-- Vertical Timeline of Punches -->
+            <div class="logs-timeline" *ngIf="selectedRowDetails.punches?.length > 0; else noPunches">
+              <h4 class="logs-title">Punch Activity Timeline</h4>
+              <div class="timeline-container">
+                <div class="timeline-item" *ngFor="let punch of selectedRowDetails.punches; let idx = index">
+                  <div class="timeline-marker" [ngClass]="punch.punch_type">
+                    <ion-icon [name]="punch.punch_type === 'in' ? 'log-in-outline' : 'log-out-outline'"></ion-icon>
+                  </div>
+                  <div class="timeline-card">
+                    <div class="card-header-row">
+                      <span class="punch-badge" [ngClass]="punch.punch_type">
+                        {{ punch.punch_type === 'in' ? 'PUNCH IN' : 'PUNCH OUT' }}
+                      </span>
+                      <span class="punch-time">{{ punch.punch_time | date:'hh:mm:ss a' }}</span>
+                    </div>
+                    
+                    <div class="card-body-row">
+                      <div class="meta-detail" *ngIf="punch.location">
+                        <ion-icon name="location-outline"></ion-icon>
+                        <span>{{ punch.location }}</span>
+                      </div>
+                      <div class="meta-detail" *ngIf="punch.ip_address">
+                        <ion-icon name="globe-outline"></ion-icon>
+                        <span>IP: {{ punch.ip_address }}</span>
+                      </div>
+                      <div class="meta-detail" *ngIf="punch.device_info">
+                        <ion-icon name="desktop-outline"></ion-icon>
+                        <span class="device-text" [title]="punch.device_info">{{ punch.device_info }}</span>
+                      </div>
+                    </div>
+
+                    <!-- Notes -->
+                    <div class="punch-notes" *ngIf="punch.notes">
+                      <ion-icon name="chatbox-ellipses-outline"></ion-icon>
+                      <p class="notes-content"><strong>Note:</strong> {{ punch.notes }}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <ng-template #noPunches>
+              <div class="no-logs-state">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                <p>No punch details found for this day.</p>
+              </div>
+            </ng-template>
+          </div>
         </div>
       </div>
     </div>

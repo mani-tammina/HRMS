@@ -18,6 +18,10 @@ export class TeamReportComponent implements OnInit {
   summary: any = null;
   isLoading = false;
 
+  expandedRowDate: string | null = null;
+  selectedRowDetails: any = null;
+  isDetailsLoading = false;
+
   startDate: string = '';
   endDate: string = '';
   month: number = new Date().getMonth() + 1;
@@ -74,11 +78,15 @@ export class TeamReportComponent implements OnInit {
 
   onEmployeeChange(event: any) {
     this.selectedEmployeeId = event.detail.value;
+    this.expandedRowDate = null;
+    this.selectedRowDetails = null;
     this.fetchReport();
   }
 
   onDateChange() {
     this.updateDateRange();
+    this.expandedRowDate = null;
+    this.selectedRowDetails = null;
     this.fetchReport();
   }
 
@@ -130,9 +138,38 @@ export class TeamReportComponent implements OnInit {
   }
 
   async openAttendanceDetails(row: any) {
-    if (row.status?.toLowerCase() === 'absent') return;
-    // For now we just show a toast or we can implement a punch detail modal
-    console.log('Viewing details for', row.attendance_date);
+    if (row.status?.toLowerCase() === 'absent' || !this.selectedEmployeeId) {
+      this.expandedRowDate = null;
+      this.selectedRowDetails = null;
+      return;
+    }
+
+    if (this.expandedRowDate === row.attendance_date) {
+      this.expandedRowDate = null;
+      this.selectedRowDetails = null;
+      return;
+    }
+
+    this.expandedRowDate = row.attendance_date;
+    this.selectedRowDetails = null;
+    this.isDetailsLoading = true;
+
+    const d = new Date(row.attendance_date);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+
+    this.attendanceService.getAttendanceDetailsByDate(dateStr, this.selectedEmployeeId).subscribe({
+      next: (res: any) => {
+        this.selectedRowDetails = res;
+        this.isDetailsLoading = false;
+      },
+      error: (err: any) => {
+        console.error('Failed to fetch details', err);
+        this.isDetailsLoading = false;
+      }
+    });
   }
 
   downloadAttendanceReport() {

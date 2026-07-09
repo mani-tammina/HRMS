@@ -82,6 +82,10 @@ export class TimesheetService {
 
   /* ================= MANAGER: APPROVE / REJECT ================= */
 
+  getTimesheetDetails(timesheetId: number): Observable<any> {
+    return this.http.get(`${this.baseUrl}/details/${timesheetId}`);
+  }
+
   approveTimesheet(timesheetId: number): Observable<any> {
     return this.http.put(`${this.baseUrl}/manager/approve/${timesheetId}`, {});
   }

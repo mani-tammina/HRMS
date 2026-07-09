@@ -450,6 +450,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   attendance() { this.router.navigate(['/Me']); }
+  wfhRequest() { this.router.navigate(['/Me'], { queryParams: { action: 'wfh' } }); }
   leaves() { this.router.navigate(['/leaves']); }
   myteam() { this.router.navigate(['/MyTeam']); }
   viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }

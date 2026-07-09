@@ -138,6 +138,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       }
       this.loadAllData();
     });
+
+    this.route.queryParams.subscribe(queryParams => {
+      if (queryParams['action'] === 'wfh') {
+        this.openWFHModal();
+      }
+    });
   }
 
   loadAllData() {
@@ -523,7 +529,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.gaugeDashOffset = (251.3 * (1 - progress)).toFixed(1);
 
       // Countdown
-      if (!isPunchedIn) {
+      if (!isPunchedIn && punches.length === 0) {
         if (this.shift_policy) {
           const [sh, sm] = this.shift_policy.start_time.split(':').map(Number);
           const shiftStart = new Date();

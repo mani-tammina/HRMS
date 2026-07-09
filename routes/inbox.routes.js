@@ -32,16 +32,23 @@ router.get("/", auth, async (req, res) => {
         const sortOrder = req.query.sortOrder === "ASC" ? "ASC" : "DESC";
 
         c = await db();
+        const [allLeaveTypes] = await c.query("SELECT * FROM leave_types");
+        console.log("=== DB LEAVE TYPES ===", allLeaveTypes.map(t => ({ id: t.id, name: t.type_name, code: t.type_code })));
 
         let query = `
             SELECT 
                 n.*, 
                 e.FullName as employee_name, 
                 e.EmployeeNumber as employee_number, 
-                d.name as department_name
+                d.name as department_name,
+                m.FullName as manager_name,
+                COALESCE(lt.type_name, l.leave_type) as leave_type_name
             FROM inbox_notifications n
             LEFT JOIN employees e ON n.employee_id = e.id
             LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN employees m ON n.manager_id = m.id
+            LEFT JOIN leaves l ON n.request_id = l.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
             WHERE 1=1
         `;
         const params = [];
@@ -151,6 +158,8 @@ router.get("/", auth, async (req, res) => {
         stats.timesheetCount = stats.timesheetCount || 0;
         stats.resignationCount = stats.resignationCount || 0;
 
+        console.log("[Inbox API] Returned leave_type_names:", rows.map(r => ({ id: r.notification_id, type: r.request_type, req_id: r.request_id, leave_type_name: r.leave_type_name })));
+
         res.json({
             success: true,
             data: rows,
@@ -166,16 +175,46 @@ router.get("/", auth, async (req, res) => {
     }
 });
 
+// Diagnostics endpoint
+router.get("/diagnose-leaves-join", async (req, res) => {
+    let c = null;
+    try {
+        c = await db();
+        const [rows] = await c.query(`
+            SELECT 
+                n.notification_id,
+                n.request_type,
+                n.request_id,
+                n.title,
+                l.id as leaf_id,
+                l.leave_type_id,
+                l.leave_type,
+                lt.type_name
+            FROM inbox_notifications n
+            LEFT JOIN leaves l ON n.request_id = l.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+        `);
+        res.json({ success: true, data: rows });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
 // GET /api/inbox/:id - Get a single notification details
 router.get("/:id", auth, async (req, res) => {
     let c = null;
     try {
         c = await db();
         const [rows] = await c.query(
-            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, d.name as department_name
+            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, d.name as department_name, m.FullName as manager_name, COALESCE(lt.type_name, l.leave_type) as leave_type_name
              FROM inbox_notifications n
              LEFT JOIN employees e ON n.employee_id = e.id
              LEFT JOIN departments d ON e.DepartmentId = d.id
+             LEFT JOIN employees m ON n.manager_id = m.id
+             LEFT JOIN leaves l ON n.request_id = l.id
+             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
              WHERE n.notification_id = ?`,
             [req.params.id]
         );

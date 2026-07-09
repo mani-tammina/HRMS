@@ -1531,7 +1531,8 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
     }
 
     // Update Inbox Notification
-    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Approved", currentEmp.id);
+    const approveNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
+    await updateNotificationStatus(c, approveNotifType, req.params.leaveId, "Approved", currentEmp.id);
 
     await c.commit();
     c.end();
@@ -1589,7 +1590,8 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
     );
 
     // Update Inbox Notification
-    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Rejected", currentEmp.id);
+    const rejectNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
+    await updateNotificationStatus(c, rejectNotifType, req.params.leaveId, "Rejected", currentEmp.id);
 
     c.end();
 
@@ -1685,7 +1687,8 @@ router.put("/cancel/:leaveId", auth, async (req, res) => {
     }
 
     // Update Inbox Notification
-    await updateNotificationStatus(c, "Leave Request", req.params.leaveId, "Cancelled", currentEmp.id);
+    const cancelNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
+    await updateNotificationStatus(c, cancelNotifType, req.params.leaveId, "Cancelled", currentEmp.id);
 
     await c.commit();
     c.end();
@@ -2036,12 +2039,12 @@ router.post("/wfh-request", auth, async (req, res) => {
       c,
       emp.id,
       emp.reporting_manager_id,
-      "Leave Request",
+      "Attendance Regularization",
       result.insertId,
-      `Work From Home Request - ${emp.FullName || 'Employee'}`,
+      `${work_mode} Request - ${emp.FullName || 'Employee'}`,
       `Requested ${work_mode} from ${finalStartDate} to ${finalEndDate}. Reason: ${reason || 'N/A'}`,
       "Medium",
-      { start_date: finalStartDate, end_date: finalEndDate, total_days: finalTotalDays, reason: reason || `${work_mode} request` }
+      { start_date: finalStartDate, end_date: finalEndDate, total_days: finalTotalDays, reason: reason || `${work_mode} request`, work_mode }
     );
 
     await c.commit();

@@ -1111,6 +1111,47 @@ router.get("/manager/pending-timesheets", auth, async (req, res) => {
   }
 });
 
+// Get timesheet details by ID (Manager/HR/Admin/Employee)
+router.get("/details/:timesheetId", auth, async (req, res) => {
+  try {
+    const currentEmp = await findEmployeeByUserId(req.user.id);
+    if (!currentEmp) return res.status(404).json({ error: "Employee not found" });
+
+    const c = await db();
+
+    const [timesheets] = await c.query(
+      `SELECT t.*, e.reporting_manager_id, e.FirstName, e.LastName, e.FullName
+       FROM timesheets t
+       JOIN employees e ON t.employee_id = e.id
+       WHERE t.id = ?`,
+      [req.params.timesheetId]
+    );
+
+    if (timesheets.length === 0) {
+      c.end();
+      return res.status(404).json({ error: "Timesheet not found" });
+    }
+
+    const timesheet = timesheets[0];
+
+    // Check authorization: HR/Admin can view any. Employee can view their own. Manager can view their direct reports'
+    const isHR = ["admin", "hr"].includes(req.user.role?.toLowerCase());
+    const isOwner = timesheet.employee_id === currentEmp.id;
+    const isReportingManager = timesheet.reporting_manager_id === currentEmp.id;
+
+    if (!isHR && !isOwner && !isReportingManager) {
+      c.end();
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    c.end();
+    res.json(timesheet);
+  } catch (error) {
+    console.error("Error fetching timesheet details:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Get team member's timesheets (for manager review)
 router.get("/manager/team-timesheets/:employeeId", auth, async (req, res) => {
   try {

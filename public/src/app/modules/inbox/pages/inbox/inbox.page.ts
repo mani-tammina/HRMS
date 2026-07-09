@@ -2,7 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
-import { AlertController, LoadingController } from '@ionic/angular';
+import { AlertController, LoadingController, ModalController } from '@ionic/angular';
 
 import { InboxNotification } from '../../models/notification.model';
 import { InboxService } from '../../services/inbox.service';
@@ -11,6 +11,7 @@ import { TimesheetService } from 'src/app/core/services/timesheet.service';
 import { SeparationService } from 'src/app/core/services/separation.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
 import { RouteGuardService } from 'src/app/core/services/route-guard.service';
+import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
 
 import { NotificationCardComponent } from '../../components/notification-card/notification-card.component';
 import { NotificationFilterComponent } from '../../components/notification-filter/notification-filter.component';
@@ -72,7 +73,8 @@ export class InboxPage implements OnInit {
     private toaster: ToasterService,
     private auth: RouteGuardService,
     private alertCtrl: AlertController,
-    private loadingCtrl: LoadingController
+    private loadingCtrl: LoadingController,
+    private modalCtrl: ModalController
   ) {}
 
   showFilters = false;
@@ -460,6 +462,15 @@ export class InboxPage implements OnInit {
     this.loadNotifications(event);
   }
 
+  isWfhRemoteRequest(notification: InboxNotification): boolean {
+    if (!notification) return false;
+    const title = (notification.title || '').toLowerCase();
+    const desc = (notification.description || '').toLowerCase();
+    const isWfh = title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('wfh');
+    const isRemote = title.includes('remote') || desc.includes('requested remote') || desc.includes('remote');
+    return isWfh || isRemote;
+  }
+
   async approveRequest(notification: InboxNotification) {
     const loading = await this.loadingCtrl.create({
       message: 'Approving request...',
@@ -467,7 +478,12 @@ export class InboxPage implements OnInit {
     await loading.present();
 
     let obs$;
-    if (notification.request_type === 'Leave Request') {
+    const isWfhRemote = this.isWfhRemoteRequest(notification);
+
+    if (isWfhRemote) {
+      // WFH/Remote request is structurally a Leave record in DB, call approveLeave
+      obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
+    } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
     } else if (notification.request_type === 'Timesheet Request') {
       obs$ = this.timesheetService.approveTimesheet(notification.request_id);
@@ -540,7 +556,12 @@ export class InboxPage implements OnInit {
     await loading.present();
 
     let obs$;
-    if (notification.request_type === 'Leave Request') {
+    const isWfhRemote = this.isWfhRemoteRequest(notification);
+
+    if (isWfhRemote) {
+      // WFH/Remote request is structurally a Leave record in DB, call rejectLeave
+      obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
+    } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
     } else if (notification.request_type === 'Timesheet Request') {
       obs$ = this.timesheetService.rejectTimesheet(notification.request_id, reason);
@@ -573,6 +594,37 @@ export class InboxPage implements OnInit {
     } else {
       loading.dismiss();
     }
+  }
+
+  async openTimesheetPreview(notification: InboxNotification) {
+    const loading = await this.loadingCtrl.create({
+      message: 'Loading work logs...',
+    });
+    await loading.present();
+
+    this.timesheetService.getTimesheetDetails(notification.request_id).subscribe({
+      next: async (res: any) => {
+        loading.dismiss();
+        if (typeof res.hours_breakdown === 'string') {
+          try {
+            res.hours_breakdown = JSON.parse(res.hours_breakdown);
+          } catch (e) {
+            res.hours_breakdown = [];
+          }
+        }
+        const modal = await this.modalCtrl.create({
+          component: TimesheetPreviewComponent,
+          cssClass: 'side-custom-popup view-work-log',
+          componentProps: { data: res },
+        });
+        await modal.present();
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Failed to load timesheet details', err);
+        this.toaster.showError('Failed to load timesheet details');
+      }
+    });
   }
 
   MathMin(a: number, b: number): number {

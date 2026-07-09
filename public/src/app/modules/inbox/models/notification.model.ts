@@ -20,4 +20,6 @@ export interface InboxNotification {
   employee_name?: string;
   employee_number?: string;
   department_name?: string;
+  manager_name?: string;
+  leave_type_name?: string;
 }
