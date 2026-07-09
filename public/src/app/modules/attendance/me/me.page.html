@@ -129,15 +129,19 @@
 
         <!-- Actions Card -->
         <ion-col size="12" size-sm="12" size-md="12" size-lg="4" size-xl="4">
-          <ion-card class="today-actions-card">
+          <ion-card class="today-actions-card" [class.is-expanded]="isTodayCardExpanded">
             <ion-card-header>
               <ion-card-title>Today</ion-card-title>
             </ion-card-header>
 
             <ion-card-content>
-              <div class="today-card-grid">
-                <!-- Left Column -->
-                <div class="today-left-col">
+              <div class="today-card-stack">
+                <!-- Main Info / Top Section -->
+                <div class="today-main-info">
+                  <div class="biometric-icon-container">
+                    <img src="../../../../assets/Biometric.png" alt="Biometric" class="biometric-img">
+                  </div>
+                  
                   <div class="status-msg-box" *ngIf="!clockButton?.isClockedIn">
                     <p class="status-main">You have not check-in</p>
                     <p class="status-sub">Yourself as present today!</p>
@@ -146,9 +150,7 @@
                     <p class="status-main">You are clocked in</p>
                     <p class="status-sub">Have a productive day!</p>
                   </div>
-                  <div>
-                    <img src="../../../../assets/Biometric.png" alt="Biometric" width="45px" height="45px">
-                  </div>
+
                   <div class="time-left-box">
                     <span class="tl-label">Time Left : </span>
                     <span class="tl-value">{{ shiftTimeLeft || '10m06s' }}</span>
@@ -194,8 +196,10 @@
                   </div>
                 </div>
 
-                <!-- Right Column -->
-                <div class="today-right-col">
+                <!-- Collapsible / Side-by-side Gauge Section -->
+                <div class="today-collapsible-gauge">
+                  <div class="card-divider"></div>
+                  
                   <div class="gauge-container">
                     <div class="gauge-wrapper">
                       <svg viewBox="0 0 100 100" class="gauge-svg">
@@ -212,6 +216,14 @@
                           }}</strong></span>
                     </div>
                   </div>
+                </div>
+
+                <!-- Expansion Toggle Button -->
+                <div class="toggle-btn-container">
+                  <button class="card-toggle-btn" (click)="toggleTodayCard()">
+                    <span>{{ isTodayCardExpanded ? 'Show Less' : 'Show Details' }}</span>
+                    <ion-icon [name]="isTodayCardExpanded ? 'chevron-up-outline' : 'chevron-down-outline'"></ion-icon>
+                  </button>
                 </div>
               </div>
             </ion-card-content>

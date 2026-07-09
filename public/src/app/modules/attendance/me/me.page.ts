@@ -87,6 +87,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   isHRView = false;
   viewEmployeeId: number | null = null;
+  isTodayCardExpanded = false;
+
+  toggleTodayCard() {
+    this.isTodayCardExpanded = !this.isTodayCardExpanded;
+  }
 
   constructor(
     private attendanceService: AttendanceService,

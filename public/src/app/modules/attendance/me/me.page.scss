@@ -24,7 +24,8 @@
       flex: 1;
       display: flex;
       flex-direction: column;
-      height: 380px;
+      min-height: 380px;
+      height: auto;
       overflow: hidden;
       transition: vars.$transition-smooth;
 
@@ -75,6 +76,7 @@ ion-progress-bar {
 
 .attendance-status {
   padding-bottom: 0;
+  height: 380px !important;
 
   .today-status {
     font-size: vars.$fs-small;
@@ -764,7 +766,8 @@ ion-modal {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
   display: flex;
   flex-direction: column;
-  height: 380px !important;
+  min-height: 380px !important;
+  height: auto !important;
   transition: all 0.3s ease;
 
   &:hover {
@@ -880,7 +883,7 @@ ion-modal {
 
     .progress-bar-container-new {
       height: 13px;
-      background: #3498DB;
+      background: #eff1f5;
       border-radius: 100px;
       overflow: hidden;
       margin-bottom: 12px;
@@ -921,7 +924,6 @@ ion-modal {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02) !important;
   display: flex;
   flex-direction: column;
-  height: 380px !important;
   transition: all 0.3s ease;
 
   &:hover {
@@ -945,36 +947,61 @@ ion-modal {
     padding: 0 !important;
     flex: 1;
     display: flex;
+    flex-direction: column;
   }
 
-  .today-card-grid {
-    display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 16px;
+  /* ─────────────────────────────────────────────────────────────
+     NARROW RESOLUTIONS (< 1200px) — DEFAULT TOGGLED LAYOUT
+     ───────────────────────────────────────────────────────────── */
+  height: 380px !important; /* Default collapsed equal height */
+  overflow: hidden;
+
+  &.is-expanded {
+    height: auto !important; /* Dynamically expands to show gauge */
+  }
+
+  .today-card-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
     height: 100%;
   }
 
-  .today-left-col {
+  .today-main-info {
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    height: 100%;
-    padding-bottom: 4px;
+    align-items: center;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .biometric-icon-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 4px;
+
+    .biometric-img {
+      width: 40px;
+      height: 40px;
+      object-fit: contain;
+    }
   }
 
   .status-msg-box {
-    padding-top: 24px;
+    text-align: center;
+    margin-bottom: 4px;
 
     .status-main {
       font-size: 15px;
       font-weight: 700;
       color: #1e293b;
-      margin: 0 0 4px 0;
+      margin: 0 0 2px 0;
     }
 
     .status-sub {
-      font-size: 13px;
+      font-size: 12px;
       color: #64748b;
       margin: 0;
       font-weight: 500;
@@ -982,90 +1009,85 @@ ion-modal {
   }
 
   .time-left-box {
-    margin: 8px 0;
-    padding-left: 10px;
-    border-left: 3px solid #ef4444;
+    margin: 4px 0;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #ef4444;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    width: fit-content;
 
     .tl-label {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: #64748b;
     }
 
     .tl-value {
-      font-size: 14px;
+      font-size: 13px;
       font-weight: 700;
       color: #ef4444;
     }
   }
 
   .main-clock-btn-wrapper {
-    margin-top: auto;
-    margin-bottom: 12px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
 
-    .img-clock-btn {
+    ::ng-deep .attendance-btn-container {
       width: 100%;
-      height: 44px;
-      background: #1870b9;
-      color: #ffffff;
-      border: none;
-      border-radius: 30px;
-      font-size: 14px;
-      font-weight: 700;
       display: flex;
-      align-items: center;
       justify-content: center;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      box-shadow: 0 4px 12px rgba(24, 112, 185, 0.2);
 
-      &:hover {
-        background: #135994;
-        transform: translateY(-1px);
-        box-shadow: 0 6px 16px rgba(24, 112, 185, 0.3);
-      }
+      .modern-clock-btn {
+        width: 100%;
+        max-width: 220px;
+        height: 38px !important;
+        border-radius: 30px !important;
+        box-shadow: 0 4px 12px rgba(24, 112, 185, 0.15) !important;
 
-      &:active {
-        transform: translateY(0);
-      }
-
-      &.clocked-in {
-        background: #ef4444;
-        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
-
-        &:hover {
-          background: #dc2626;
-          box-shadow: 0 6px 16px rgba(239, 68, 68, 0.3);
+        .btn-content {
+          width: 100%;
+          justify-content: center;
+          gap: 6px !important;
+          
+          .text {
+            font-size: 14px !important;
+            letter-spacing: 0.5px;
+          }
         }
       }
     }
   }
 
   .pills-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 8px;
-    flex-wrap: wrap;
+    width: 100%;
+    max-width: 280px;
 
     .pill-btn {
-      flex: 1;
-      height: 34px;
+      width: 100%;
+      height: 32px;
       background: #ffffff;
       border: 1px solid #cbd5e1;
       border-radius: 20px;
       color: #475569;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 600;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
       cursor: pointer;
       transition: all 0.2s ease;
       white-space: nowrap;
-      padding: 0px 10px;
+      padding: 0 10px;
 
       &:hover:not([disabled]) {
         background: #f8fafc;
@@ -1077,32 +1099,54 @@ ion-modal {
         opacity: 0.5;
         cursor: not-allowed;
       }
+
+      &:last-child {
+        grid-column: span 2;
+        width: 100%;
+      }
     }
   }
 
-  .today-right-col {
-    display: flex;
+  .today-collapsible-gauge {
+    width: 100%;
+    display: none; /* Hidden by default when collapsed on narrow resolutions */
+    flex-direction: column;
     align-items: center;
-    justify-content: center;
+    gap: 12px;
+    margin-top: 8px;
+
+    .card-divider {
+      width: 100%;
+      height: 1px;
+      background: #f1f5f9;
+      margin: 8px 0;
+      display: block;
+    }
+  }
+
+  &.is-expanded {
+    .today-collapsible-gauge {
+      display: flex; /* Shown when card is expanded */
+    }
   }
 
   .gauge-container {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 12px;
   }
 
   .gauge-wrapper {
     position: relative;
-    // width: 120px;
-    // height: 120px;
+    width: 140px;
+    height: 140px;
+    margin: 0 auto;
+    container-type: inline-size;
 
     .gauge-svg {
       width: 100%;
       height: 100%;
-      width: 215px;
-      height: 235px;
       transform: rotate(-90deg);
     }
 
@@ -1131,18 +1175,18 @@ ion-modal {
       justify-content: center;
 
       .gauge-timer {
-        font-size: 17px;
+        font-size: 13cqw;
         font-weight: 800;
         color: #1e293b;
         line-height: 1;
       }
 
       .gauge-label {
-        font-size: 10px;
+        font-size: 7cqw;
         font-weight: 700;
         color: #64748b;
         text-transform: uppercase;
-        margin-top: 4px;
+        margin-top: 3cqw;
       }
     }
   }
@@ -1157,6 +1201,233 @@ ion-modal {
     strong {
       color: #1e293b;
       font-weight: 700;
+    }
+  }
+
+  .toggle-btn-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-top: auto;
+    padding-top: 10px;
+  }
+
+  .card-toggle-btn {
+    background: none;
+    border: none;
+    color: vars.$color-primary;
+    font-size: 12px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    padding: 4px 12px;
+    border-radius: 20px;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: rgba(vars.$color-primary, 0.05);
+    }
+
+    ion-icon {
+      font-size: 14px;
+    }
+  }
+
+  /* ─────────────────────────────────────────────────────────────
+     LARGE RESOLUTIONS (>= 1200px) — DEFAULT SIDE-BY-SIDE GRID
+     ───────────────────────────────────────────────────────────── */
+  @media screen and (min-width: 1200px) {
+    height: 380px !important; /* Always equal height on large desktop */
+    overflow: hidden;
+
+    &.is-expanded {
+      height: 380px !important; /* Expanded class has no height effect on large desktop */
+    }
+
+    ion-card-content {
+      padding: 16px 20px !important;
+    }
+
+    .today-card-stack {
+      display: grid;
+      grid-template-columns: 1fr minmax(115px, 170px);
+      gap: 20px;
+      width: 100%;
+      height: 100%;
+    }
+
+    .today-main-info {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      height: 100%;
+      align-items: flex-start;
+      text-align: left;
+      gap: 0;
+    }
+
+    .biometric-icon-container {
+      display: flex;
+      justify-content: flex-start;
+      margin-bottom: 4px;
+      
+      .biometric-img {
+        width: 32px;
+        height: 32px;
+        object-fit: contain;
+      }
+    }
+
+    .status-msg-box {
+      text-align: left;
+      margin-bottom: 0;
+
+      .status-main {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        margin: 0 0 4px 0;
+      }
+
+      .status-sub {
+        font-size: 13px;
+        color: #64748b;
+      }
+    }
+
+    .time-left-box {
+      border-left: 3px solid #ef4444;
+      border-bottom: none;
+      padding-left: 10px;
+      padding-bottom: 0;
+      margin: 8px 0;
+      width: auto;
+      justify-content: flex-start;
+
+      .tl-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #64748b;
+      }
+
+      .tl-value {
+        font-size: 14px;
+        font-weight: 700;
+        color: #ef4444;
+      }
+    }
+
+    .main-clock-btn-wrapper {
+      margin-top: auto;
+      margin-bottom: 12px;
+      width: 100%;
+      display: flex;
+      justify-content: flex-start;
+
+      ::ng-deep .attendance-btn-container {
+        width: 100%;
+        justify-content: flex-start;
+
+        .modern-clock-btn {
+          width: 100%;
+          min-width: 110px !important; /* reduce min-width to allow shrinking on narrow desktops */
+          max-width: 100%;
+          height: 40px !important;
+          border-radius: 8px !important;
+          
+          .btn-content {
+            justify-content: flex-start;
+            gap: 8px !important;
+            
+            .text {
+              font-size: 14px !important;
+            }
+          }
+        }
+      }
+    }
+
+    .pills-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      width: 100%;
+      max-width: 260px;
+
+      .pill-btn {
+        width: 100%;
+        height: 30px;
+        font-size: 10px;
+        padding: 0 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        &:last-child {
+          grid-column: span 2;
+          width: 100%;
+        }
+      }
+    }
+
+    .today-collapsible-gauge {
+      display: flex; /* Always visible side-by-side on desktop */
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      margin-top: 0;
+      height: 100%;
+
+      .card-divider {
+        display: none; /* Hide horizontal divider on desktop */
+      }
+    }
+
+    .gauge-container {
+      gap: 12px;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .gauge-wrapper {
+      width: 100% !important;
+      height: auto !important;
+      max-width: 155px !important;
+      aspect-ratio: 1 !important;
+      margin: 0 auto;
+      container-type: inline-size;
+
+      .gauge-svg {
+        width: 100%;
+        height: 100%;
+      }
+
+      .gauge-text-box {
+        .gauge-timer {
+          font-size: 13cqw !important;
+        }
+        .gauge-label {
+          font-size: 7cqw !important;
+          margin-top: 3cqw !important;
+        }
+      }
+    }
+
+    .prev-day-box {
+      font-size: 11px !important;
+      white-space: nowrap !important;
+      text-align: center;
+      margin-top: 8px !important;
+
+      strong {
+        display: inline !important;
+      }
+    }
+
+    .toggle-btn-container {
+      display: none !important; /* Hide toggle button since it is always expanded */
     }
   }
 }
@@ -1411,3 +1682,5 @@ ion-modal {
     }
   }
 }
+
+// Tablet optimization query removed (layout is now single-column and naturally responsive).
