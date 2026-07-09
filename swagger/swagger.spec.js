@@ -10828,6 +10828,77 @@ Object.assign(swaggerSpec.paths, {
         200: { description: "Deleted" }
       }
     }
+  },
+  // ============ BREAK TIMES ============
+  "/api/master/break-times": {
+    get: {
+      summary: "Get Break Times",
+      description: "List of all break times based on leave plan",
+      tags: ["Penalty Details"],
+      responses: {
+        200: { description: "Success" }
+      }
+    },
+    post: {
+      summary: "Create Break Time",
+      description: "Admin can create break time based on leave plan",
+      tags: ["Penalty Details"],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                leave_plan_id: { type: "integer" },
+                break_time: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Created" }
+      }
+    }
+  },
+  "/api/master/break-times/{id}": {
+    put: {
+      summary: "Update Break Time",
+      description: "Admin can edit break time threshold",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              properties: {
+                leave_plan_id: { type: "integer" },
+                break_time: { type: "integer" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: { description: "Updated" }
+      }
+    },
+    delete: {
+      summary: "Delete Break Time",
+      description: "Admin can delete break time threshold",
+      tags: ["Penalty Details"],
+      parameters: [
+        { name: "id", in: "path", required: true, schema: { type: "integer" } }
+      ],
+      responses: {
+        200: { description: "Deleted" }
+      }
+    }
   }
 });
 

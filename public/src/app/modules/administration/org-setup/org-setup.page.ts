@@ -80,7 +80,7 @@ export class OrgSetupPage implements OnInit {
   penalties: any[] = []; // Combined or currently selected list
   penaltiesBackup: any[] = [];
   paginatedPenalties: any[] = [];
-  penaltyType: 'missingLogs' | 'lateArrivals' = 'missingLogs';
+  penaltyType: 'missingLogs' | 'lateArrivals' | 'breaks' = 'missingLogs';
 
   // Form Models
   locationName: string = '';
@@ -487,8 +487,14 @@ export class OrgSetupPage implements OnInit {
         this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
         this.calculatePagination('penalties');
       });
-    } else {
+    } else if (this.penaltyType === 'lateArrivals') {
       this.adminService.getLateArrivals().subscribe(res => {
+        this.penalties = res || [];
+        this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
+        this.calculatePagination('penalties');
+      });
+    } else if (this.penaltyType === 'breaks') {
+      this.adminService.getBreakTimes().subscribe(res => {
         this.penalties = res || [];
         this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
         this.calculatePagination('penalties');
@@ -506,7 +512,7 @@ export class OrgSetupPage implements OnInit {
     });
   }
 
-  setPenaltyType(type: 'missingLogs' | 'lateArrivals') {
+  setPenaltyType(type: 'missingLogs' | 'lateArrivals' | 'breaks') {
     this.penaltyType = type;
     this.cancelPenalty();
     this.loadPenalties();
@@ -514,19 +520,26 @@ export class OrgSetupPage implements OnInit {
 
   savePenalty() {
     const payload: any = { leave_plan_id: this.penaltyForm.leave_plan_id };
-    let action;
+    let action: any;
 
     if (this.penaltyType === 'missingLogs') {
       payload.threshold_hours = this.penaltyForm.threshold_hours;
       action = this.editingPenaltyId
         ? this.adminService.updateMissingLogTime(this.editingPenaltyId, payload)
         : this.adminService.createMissingLogTime(payload);
-    } else {
+    } else if (this.penaltyType === 'lateArrivals') {
       payload.threshold_minutes = this.penaltyForm.threshold_minutes;
       action = this.editingPenaltyId
         ? this.adminService.updateLateArrival(this.editingPenaltyId, payload)
         : this.adminService.createLateArrival(payload);
+    } else if (this.penaltyType === 'breaks') {
+      payload.break_time = this.penaltyForm.break_time;
+      action = this.editingPenaltyId
+        ? this.adminService.updateBreakTime(this.editingPenaltyId, payload)
+        : this.adminService.createBreakTime(payload);
     }
+
+    if (!action) return;
 
     action.subscribe({
       next: () => {
@@ -534,7 +547,7 @@ export class OrgSetupPage implements OnInit {
         this.loadPenalties();
         this.cancelPenalty();
       },
-      error: (err) => {
+      error: (err: any) => {
         this.showToast(err.error?.message || 'Error saving penalty', 'danger');
       }
     });
@@ -548,7 +561,9 @@ export class OrgSetupPage implements OnInit {
   deletePenalty(id: number) {
     const action = this.penaltyType === 'missingLogs'
       ? this.adminService.deleteMissingLogTime(id)
-      : this.adminService.deleteLateArrival(id);
+      : this.penaltyType === 'lateArrivals'
+      ? this.adminService.deleteLateArrival(id)
+      : this.adminService.deleteBreakTime(id);
 
     action.subscribe(() => {
       this.showToast('Penalty configuration deleted', 'success');
@@ -558,7 +573,7 @@ export class OrgSetupPage implements OnInit {
 
   cancelPenalty() {
     this.editingPenaltyId = null;
-    this.penaltyForm = { leave_plan_id: null, threshold_hours: null, threshold_minutes: null };
+    this.penaltyForm = { leave_plan_id: null, threshold_hours: null, threshold_minutes: null, break_time: null };
   }
 
   // Common Pagination Methods
@@ -687,7 +702,8 @@ export class OrgSetupPage implements OnInit {
         return (plan && plan.name.toLowerCase().includes(searchLower)) ||
           (planNameFromList.toLowerCase().includes(searchLower)) ||
           (item.threshold_hours && item.threshold_hours.toString().includes(searchLower)) ||
-          (item.threshold_minutes && item.threshold_minutes.toString().includes(searchLower));
+          (item.threshold_minutes && item.threshold_minutes.toString().includes(searchLower)) ||
+          (item.break_time && item.break_time.toString().includes(searchLower));
       }
 
       return (item.name && item.name.toLowerCase().includes(searchLower));
@@ -874,7 +890,9 @@ export class OrgSetupPage implements OnInit {
       case 'announcements': return !!this.announcementForm.title && !!this.announcementForm.body;
       case 'penalties':
         return !!this.penaltyForm.leave_plan_id &&
-          (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours : !!this.penaltyForm.threshold_minutes);
+          (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours : 
+           this.penaltyType === 'lateArrivals' ? !!this.penaltyForm.threshold_minutes : 
+           !!this.penaltyForm.break_time);
       default: return false;
     }
   }

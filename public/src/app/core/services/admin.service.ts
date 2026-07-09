@@ -242,5 +242,18 @@ export class AdminService {
   deleteLateArrival(id: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/master/late-time-arrivals/${id}`);
   }
+
+  getBreakTimes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/master/break-times`);
+  }
+  createBreakTime(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/master/break-times`, payload);
+  }
+  updateBreakTime(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/master/break-times/${id}`, payload);
+  }
+  deleteBreakTime(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/master/break-times/${id}`);
+  }
 }
 

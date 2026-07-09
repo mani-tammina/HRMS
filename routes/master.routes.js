@@ -266,6 +266,101 @@ router.delete("/master/missing-log-times/:id", auth, roleAuth(["admin", "hr"]), 
   }
 });
 
+// ============ BREAK TIMES ============
+router.get("/master/break-times", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
+  try {
+    const c = await db();
+    
+    // Auto-create table if not exists
+    await c.query(`
+      CREATE TABLE IF NOT EXISTS break_times (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        leave_plan_id INT NOT NULL,
+        break_time INT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_leave_plan (leave_plan_id),
+        FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    const [rows] = await c.query(`
+      SELECT bt.*, lp.name as leave_plan_name 
+      FROM break_times bt
+      LEFT JOIN leave_plans lp ON bt.leave_plan_id = lp.id
+      ORDER BY lp.name ASC
+    `);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post("/master/break-times", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { leave_plan_id, break_time } = req.body;
+    if (!leave_plan_id || break_time === undefined) {
+      return res.status(400).json({ error: "leave_plan_id and break_time are required" });
+    }
+    const c = await db();
+
+    const [existing] = await c.query("SELECT id FROM break_times WHERE leave_plan_id = ?", [leave_plan_id]);
+    if (existing.length > 0) {
+      c.end();
+      return res.status(409).json({ error: "Break time for this leave plan already exists" });
+    }
+
+    const [result] = await c.query("INSERT INTO break_times (leave_plan_id, break_time) VALUES (?, ?)", [leave_plan_id, break_time]);
+    c.end();
+    res.json({ success: true, message: "Break time created successfully", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put("/master/break-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const { leave_plan_id, break_time } = req.body;
+    const c = await db();
+    const updates = [];
+    const values = [];
+    if (leave_plan_id !== undefined) {
+      updates.push("leave_plan_id = ?");
+      values.push(leave_plan_id);
+    }
+    if (break_time !== undefined) {
+      updates.push("break_time = ?");
+      values.push(break_time);
+    }
+    if (updates.length === 0) {
+      c.end();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    values.push(req.params.id);
+    await c.query(`UPDATE break_times SET ${updates.join(", ")} WHERE id = ?`, values);
+    c.end();
+    res.json({ success: true, message: "Break time updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete("/master/break-times/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [result] = await c.query("DELETE FROM break_times WHERE id = ?", [req.params.id]);
+    c.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Break time not found" });
+    }
+    res.json({ success: true, message: "Break time deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 // Enhanced Shift Policies Route
 router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {

@@ -69,7 +69,7 @@
             <div class="header-left">
               <ion-icon [name]="getTabIcon()" class="tab-main-icon"></ion-icon>
               <div>
-                <h3>{{ activeTab === 'penalties' ? (penaltyType === 'missingLogs' ? 'Missing Logs' : 'Late Arrivals') : (activeTab | titlecase) }} List</h3>
+                <h3>{{ activeTab === 'penalties' ? (penaltyType === 'missingLogs' ? 'Missing Logs' : penaltyType === 'lateArrivals' ? 'Late Arrivals' : 'Breaks') : (activeTab | titlecase) }} List</h3>
                 <p>Showing {{ getEntityList().length }} registered entries</p>
               </div>
             </div>
@@ -103,6 +103,9 @@
               <ion-segment-button value="lateArrivals">
                 <ion-label>Late Arrivals</ion-label>
               </ion-segment-button>
+              <ion-segment-button value="breaks">
+                <ion-label>Breaks</ion-label>
+              </ion-segment-button>
             </ion-segment>
           </div>
 
@@ -131,7 +134,11 @@
                 </tr>
                 <tr *ngIf="activeTab === 'penalties'">
                   <th>Leave Plan</th>
-                  <th>Threshold ({{ penaltyType === 'missingLogs' ? 'Hours' : 'Minutes' }})</th>
+                  <th>
+                    {{ penaltyType === 'missingLogs' ? 'Threshold (Hours)' : 
+                       penaltyType === 'lateArrivals' ? 'Threshold (Minutes)' : 
+                       'Break Time (Minutes)' }}
+                  </th>
                   <th class="text-right">Actions</th>
                 </tr>
               </thead>
@@ -236,7 +243,9 @@
                     </td>
                     <td>
                       <span class="threshold-value">
-                        {{ penaltyType === 'missingLogs' ? p.threshold_hours + ' hrs' : p.threshold_minutes + ' mins' }}
+                        {{ penaltyType === 'missingLogs' ? p.threshold_hours + ' hrs' : 
+                           penaltyType === 'lateArrivals' ? p.threshold_minutes + ' mins' : 
+                           p.break_time + ' mins' }}
                       </span>
                     </td>
                     <td class="text-right">
@@ -501,6 +510,14 @@
                 <div class="input-wrapper">
                   <ion-icon name="timer-outline" class="field-icon"></ion-icon>
                   <input type="number" [(ngModel)]="penaltyForm.threshold_minutes" placeholder="e.g. 15" />
+                </div>
+              </div>
+
+              <div class="premium-form-group" *ngIf="penaltyType === 'breaks'">
+                <label>Break Time (Minutes)*</label>
+                <div class="input-wrapper">
+                  <ion-icon name="cafe-outline" class="field-icon"></ion-icon>
+                  <input type="number" [(ngModel)]="penaltyForm.break_time" placeholder="e.g. 60" />
                 </div>
               </div>
             </ng-container>

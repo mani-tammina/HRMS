@@ -1,9 +1,10 @@
 import { Component, OnInit, ViewChild, ElementRef, AfterViewInit, OnDestroy } from '@angular/core';
-import { IonicModule, ModalController, ToastController, NavController } from '@ionic/angular';
+import { IonicModule, ToastController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Subject } from 'rxjs';
-import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 
 import { AttendanceService } from '../../../core/services/attendance.service';
@@ -11,14 +12,13 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 import { AdminService } from '../../../core/services/admin.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
+import { WorkFromHomeService } from '../../../core/services/work-from-home.service';
 import { TimeFormatPipe } from '../../../shared/pipes/time-format.pipe';
 
 import { ClockButtonComponent } from '../../../shared/components/clock-button/clock-button.component';
 import { AttendanceLogComponent } from '../../../shared/components/attendance-log/attendance-log.component';
 import { CalendarComponent } from '../../../shared/components/calendar/calendar.component';
 import { AttendanceRequestComponent } from '../../../shared/components/attendance-request/attendance-request.component';
-import { RemoteClockinModalComponent } from './components/remote-clockin-modal.component';
-import { WorkFromHomeComponent } from './components/work-from-home.component';
 
 @Component({
   selector: 'app-me',
@@ -28,11 +28,12 @@ import { WorkFromHomeComponent } from './components/work-from-home.component';
   imports: [
     IonicModule,
     CommonModule,
+    FormsModule,
     ClockButtonComponent,
     AttendanceLogComponent,
     CalendarComponent,
     AttendanceRequestComponent,
-    TimeFormatPipe
+    TimeFormatPipe,
   ],
 })
 export class MePage implements OnInit, AfterViewInit, OnDestroy {
@@ -89,6 +90,21 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   viewEmployeeId: number | null = null;
   isTodayCardExpanded = false;
 
+  // ── Remote Clock-In Panel ──
+  showRemotePanel = false;
+  remoteReason = '';
+  remoteLoading = false;
+
+  // ── WFH Request Panel ──
+  showWFHPanel = false;
+  wfhFromDate = new Date().toISOString();
+  wfhToDate = new Date().toISOString();
+  wfhMinDate = new Date().toISOString();
+  wfhActivePicker: 'from' | 'to' | null = null;
+  wfhReason = '';
+  wfhTotalDays = 1;
+  wfhLoading = false;
+
   toggleTodayCard() {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
   }
@@ -100,7 +116,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     private employeeService: EmployeeService,
     private toastCtrl: ToastController,
     private leaveService: LeaverequestService,
-    private modalCtrl: ModalController,
+    private wfhService: WorkFromHomeService,
     private route: ActivatedRoute,
     private navCtrl: NavController,
   ) {
@@ -161,6 +177,25 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.weekend_id = profile.weekly_off_policy_id || profile.WeeklyOffPolicyId;
       this.matchEmployeeShift();
       this.matchEmployeeWeekend();
+
+      const leavePlanId = profile.leave_plan_id || profile.LeavePlanId;
+      if (leavePlanId) {
+        this.adminService.getBreakTimes().subscribe({
+          next: (breaks) => {
+            const match = breaks.find(b => b.leave_plan_id === leavePlanId);
+            if (match && match.break_time !== undefined) {
+              this.breakMinutes = match.break_time;
+            } else {
+              this.breakMinutes = 60;
+            }
+          },
+          error: () => {
+            this.breakMinutes = 60;
+          }
+        });
+      } else {
+        this.breakMinutes = 60;
+      }
     });
   }
 
@@ -563,39 +598,127 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // ================= MODALS =================
+  // ================= INLINE SIDE PANELS =================
 
-  async openRemoteClockinModal() {
-    const modal = await this.modalCtrl.create({
-      component: RemoteClockinModalComponent,
-      cssClass: 'side-custom-popup team-popup',
-      backdropDismiss: false,
-    });
-
-    modal.onDidDismiss().then((res) => {
-      if (res.data?.success) {
-        this.loadTodayAttendance();
-        this.attendanceRefresh = Date.now();
-      }
-    });
-
-    return await modal.present();
+  // ── Remote Clock-In Panel ──
+  openRemoteClockinModal() {
+    this.remoteReason = '';
+    this.remoteLoading = false;
+    this.showRemotePanel = true;
   }
 
-  async openWFHModal() {
-    const modal = await this.modalCtrl.create({
-      component: WorkFromHomeComponent,
-      cssClass: 'side-custom-popup team-popup',
-      backdropDismiss: false,
-    });
+  closeRemotePanel() {
+    this.showRemotePanel = false;
+  }
 
-    modal.onDidDismiss().then((data) => {
-      if (data.role === 'success') {
-        this.attendanceRefresh = Date.now();
+  submitRemoteRequest() {
+    if (!this.remoteReason.trim()) return;
+    this.remoteLoading = true;
+    const today = new Date().toISOString().split('T')[0];
+
+    this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
+      next: () => {
+        const punchIn = () =>
+          this.attendanceApi.apiPunchIn({
+            work_mode: 'Remote',
+            location: 'Remote',
+            notes: 'Remote Clock-In: ' + this.remoteReason
+          }).subscribe({
+            next: () => this.finalizeRemote(),
+            error: (err) => {
+              this.remoteLoading = false;
+              this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
+            }
+          });
+
+        if (!this.attendanceApi.getClockState()) {
+          punchIn();
+        } else {
+          this.finalizeRemote();
+        }
+      },
+      error: (err) => {
+        this.remoteLoading = false;
+        this.showToast(err?.error?.error || 'Failed to submit remote request', 'danger');
       }
     });
+  }
 
-    return await modal.present();
+  private finalizeRemote() {
+    this.remoteLoading = false;
+    this.showRemotePanel = false;
+    this.showToast('Remote Clock-In request submitted successfully!', 'success');
+    this.loadTodayAttendance();
+    this.attendanceRefresh = Date.now();
+  }
+
+  // ── WFH Request Panel ──
+  openWFHModal() {
+    this.wfhReason = '';
+    this.wfhLoading = false;
+    this.wfhFromDate = new Date().toISOString();
+    this.wfhToDate = new Date().toISOString();
+    this.wfhMinDate = new Date().toISOString();
+    this.wfhActivePicker = null;
+    this.wfhCalculateDays();
+    this.showWFHPanel = true;
+  }
+
+  closeWFHPanel() {
+    this.showWFHPanel = false;
+    this.wfhActivePicker = null;
+  }
+
+  wfhTogglePicker(type: 'from' | 'to') {
+    this.wfhActivePicker = this.wfhActivePicker === type ? null : type;
+  }
+
+  wfhOnDateSelected(event: any) {
+    const date = event.detail.value;
+    if (this.wfhActivePicker === 'from') {
+      this.wfhFromDate = date;
+      if (new Date(this.wfhToDate) < new Date(date)) {
+        this.wfhToDate = date;
+      }
+    } else {
+      this.wfhToDate = date;
+    }
+    this.wfhCalculateDays();
+    this.wfhActivePicker = null;
+  }
+
+  wfhCalculateDays() {
+    const start = new Date(this.wfhFromDate);
+    const end = new Date(this.wfhToDate);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+    if (end < start) { this.wfhTotalDays = 0; return; }
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    this.wfhTotalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+  }
+
+  submitWFHRequest() {
+    if (!this.wfhReason.trim()) return;
+    this.wfhLoading = true;
+    const payload = {
+      start_date: this.wfhFromDate.split('T')[0],
+      end_date: this.wfhToDate.split('T')[0],
+      total_days: this.wfhTotalDays,
+      work_mode: 'WFH' as const,
+      reason: this.wfhReason
+    };
+    this.wfhService.wfh(payload).subscribe({
+      next: () => {
+        this.wfhLoading = false;
+        this.showWFHPanel = false;
+        this.showToast('Work From Home request submitted successfully!', 'success');
+        this.attendanceRefresh = Date.now();
+      },
+      error: (err) => {
+        this.wfhLoading = false;
+        this.showToast(err?.error?.error || 'Failed to submit WFH request', 'danger');
+      }
+    });
   }
 
   // ================= HELPERS =================

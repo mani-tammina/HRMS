@@ -523,11 +523,20 @@ ion-modal {
   --border-radius: 20px;
 
   &.big-modal {
-    justify-content: right !important;
     --max-height: 100vh;
     --height: 100vh;
     --border-radius: 0;
     --width: 650px;
+
+    &::part(content) {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: auto;
+      width: var(--width);
+      height: 100vh;
+    }
   }
 
   &.date-modal {
@@ -541,7 +550,23 @@ ion-modal {
     --height: 100vh;
     --max-height: 100vh;
     --border-radius: 0;
-    justify-content: right;
+
+    // Position the modal panel to the right edge using Shadow DOM part
+    &::part(content) {
+      position: absolute;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: auto;
+      width: var(--width);
+      height: 100vh;
+      box-shadow: -4px 0 24px rgba(0, 0, 0, 0.12);
+    }
+
+    // Backdrop only covers the LEFT area (outside the panel)
+    &::part(backdrop) {
+      pointer-events: auto;
+    }
 
     &.checkinInfo-popup {
       --width: 460px;
