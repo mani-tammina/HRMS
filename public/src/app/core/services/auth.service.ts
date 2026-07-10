@@ -22,7 +22,7 @@ export class AuthService {
   constructor(
     private http: HttpClient,
     private routeGuardService: RouteGuardService
-  ) {}
+  ) { }
 
   checkEmployee(email: string): Observable<any> {
     return this.http.get(`${this.CHECK_EMAIL_URL}?email=${email}`);
@@ -40,13 +40,17 @@ export class AuthService {
     return this.http.post<any>(this.LOGIN_URL, payload).pipe(
       tap(res => {
         if (res?.token && res?.user) {
+          const refreshToken = res?.refreshToken || res?.token;
           this.routeGuardService.storeTokens(
             res.token,
-            res.token,
+            refreshToken,
             res.user.id?.toString() || null,
             res.user.role || 'employee'
           );
           localStorage.setItem('token', res.token);
+          if (refreshToken) {
+            localStorage.setItem('refresh_token', refreshToken);
+          }
         }
       })
     );
@@ -57,8 +61,12 @@ export class AuthService {
       tap(res => {
         const token = res?.token;
         if (token && res?.user) {
-          this.routeGuardService.storeTokens(token, token, res.user.id?.toString() || null, res.user.role || 'employee');
+          const refreshToken = res?.refreshToken || token;
+          this.routeGuardService.storeTokens(token, refreshToken, res.user.id?.toString() || null, res.user.role || 'employee');
           localStorage.setItem('token', token);
+          if (refreshToken) {
+            localStorage.setItem('refresh_token', refreshToken);
+          }
         }
       })
     );
@@ -69,8 +77,12 @@ export class AuthService {
       tap(res => {
         const token = res?.token;
         if (token && res?.user) {
-          this.routeGuardService.storeTokens(token, token, res.user.id?.toString() || null, res.user.role || 'employee');
+          const refreshToken = res?.refreshToken || token;
+          this.routeGuardService.storeTokens(token, refreshToken, res.user.id?.toString() || null, res.user.role || 'employee');
           localStorage.setItem('token', token);
+          if (refreshToken) {
+            localStorage.setItem('refresh_token', refreshToken);
+          }
         }
       })
     );

@@ -46,7 +46,7 @@ const auth = (req, res, next) => {
         const decoded = jwt.verify(token, JWT_SECRET);
         
         // Validate required fields in token
-        if (!decoded.id || !decoded.role) {
+        if (!decoded.id || !decoded.role || (decoded.type && decoded.type !== "access")) {
             return res.status(401).json({ error: "Invalid token payload" });
         }
 

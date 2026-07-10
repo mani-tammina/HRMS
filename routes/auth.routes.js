@@ -6,6 +6,151 @@ const { db } = require("../config/database");
 const { JWT_SECRET } = require("../config/constants");
 const { auth, hr } = require("../middleware/auth");
 
+const ACCESS_TOKEN_EXPIRES_IN = "15m";
+const REFRESH_TOKEN_EXPIRES_IN = "45d";
+const AUTH_TOKEN_TABLE = "user_auth_tokens";
+
+function getBearerToken(req) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) {
+    return null;
+  }
+
+  const parts = authHeader.split(" ");
+  if (parts.length !== 2 || parts[0] !== "Bearer") {
+    return null;
+  }
+
+  return parts[1];
+}
+
+function getRefreshTokenFromRequest(req) {
+  return (
+    req.body?.refreshToken ||
+    req.body?.refresh_token ||
+    req.headers["x-refresh-token"] ||
+    req.headers["x-refresh_token"] ||
+    null
+  );
+}
+
+function getTokenExpiryDate(token) {
+  const decoded = jwt.decode(token);
+  if (!decoded || !decoded.exp) {
+    return null;
+  }
+
+  return new Date(decoded.exp * 1000);
+}
+
+function createAccessToken(user) {
+  return jwt.sign(
+    { id: user.id, role: user.role, type: "access" },
+    JWT_SECRET,
+    { expiresIn: ACCESS_TOKEN_EXPIRES_IN }
+  );
+}
+
+function createRefreshToken(user) {
+  return jwt.sign(
+    { id: user.id, role: user.role, type: "refresh" },
+    JWT_SECRET,
+    { expiresIn: REFRESH_TOKEN_EXPIRES_IN }
+  );
+}
+
+async function storeAuthTokens(conn, userId, accessToken, refreshToken) {
+  const accessTokenExpiresAt = getTokenExpiryDate(accessToken);
+  const refreshTokenExpiresAt = getTokenExpiryDate(refreshToken);
+
+  await conn.query(
+    `
+      INSERT INTO ${AUTH_TOKEN_TABLE} (
+        user_id,
+        access_token,
+        refresh_token,
+        access_token_expires_at,
+        refresh_token_expires_at
+      ) VALUES (?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        access_token = VALUES(access_token),
+        refresh_token = VALUES(refresh_token),
+        access_token_expires_at = VALUES(access_token_expires_at),
+        refresh_token_expires_at = VALUES(refresh_token_expires_at),
+        updated_at = CURRENT_TIMESTAMP
+    `,
+    [userId, accessToken, refreshToken, accessTokenExpiresAt, refreshTokenExpiresAt]
+  );
+}
+
+async function clearAuthTokenByAccessToken(conn, accessToken) {
+  if (!accessToken) {
+    return;
+  }
+
+  await conn.query(
+    `DELETE FROM ${AUTH_TOKEN_TABLE} WHERE access_token = ?`,
+    [accessToken]
+  );
+}
+
+async function refreshAuthTokens(conn, refreshToken) {
+  let decodedRefreshToken;
+
+  try {
+    decodedRefreshToken = jwt.verify(refreshToken, JWT_SECRET);
+  } catch (error) {
+    if (error.name === "TokenExpiredError") {
+      return { status: 401, body: { error: "Session Expired" } };
+    }
+
+    return { status: 401, body: { error: "Invalid token" } };
+  }
+
+  if (!decodedRefreshToken || decodedRefreshToken.type !== "refresh") {
+    return { status: 401, body: { error: "Invalid token" } };
+  }
+
+  const [sessions] = await conn.query(
+    `
+      SELECT user_id
+      FROM ${AUTH_TOKEN_TABLE}
+      WHERE refresh_token = ?
+      LIMIT 1
+    `,
+    [refreshToken]
+  );
+
+  if (!sessions.length) {
+    return { status: 401, body: { error: "Session Expired" } };
+  }
+
+  const [users] = await conn.query(
+    "SELECT id, username, role FROM users WHERE id = ? LIMIT 1",
+    [decodedRefreshToken.id]
+  );
+
+  if (!users.length) {
+    return { status: 401, body: { error: "Session Expired" } };
+  }
+
+  const user = users[0];
+  const newAccessToken = createAccessToken(user);
+  const newRefreshToken = createRefreshToken(user);
+
+  await storeAuthTokens(conn, user.id, newAccessToken, newRefreshToken);
+
+  return {
+    status: 200,
+    body: {
+      token: newAccessToken,
+      refreshToken: newRefreshToken,
+      refreshed: true,
+      user: { id: user.id, username: user.username, role: user.role },
+    },
+  };
+}
+
 // LOGIN
 router.post("/login", async (req, res) => {
   let c = null;
@@ -21,12 +166,15 @@ router.post("/login", async (req, res) => {
     const ok = await bcrypt.compare(req.body.password, u[0].password_hash);
     if (!ok) return res.status(401).json({ message: "Invalid credentials" });
 
-    const token = jwt.sign({ id: u[0].id, role: u[0].role }, JWT_SECRET, {
-      expiresIn: "8h",
-    });
+    const user = { id: u[0].id, role: u[0].role };
+    const token = createAccessToken(user);
+    const refreshToken = createRefreshToken(user);
+
+    await storeAuthTokens(c, user.id, token, refreshToken);
 
     res.json({
       token,
+      refreshToken,
       user: { id: u[0].id, username: u[0].username, role: u[0].role },
     });
   } catch (error) {
@@ -41,6 +189,7 @@ router.post("/logout", auth, async (req, res) => {
   let c = null;
   try {
     c = await db();
+    const accessToken = getBearerToken(req);
 
     // Log logout activity for audit trail
     await c
@@ -52,6 +201,8 @@ router.post("/logout", auth, async (req, res) => {
       .catch((err) =>
         console.log("Failed to log logout activity:", err.message)
       );
+
+    await clearAuthTokenByAccessToken(c, accessToken);
 
     console.log(
       `User ${req.user.id} (${req.user.role
@@ -76,13 +227,44 @@ router.post("/logout", auth, async (req, res) => {
 });
 
 // Refresh token
-router.post("/refresh-token", auth, (req, res) => {
-  const newToken = jwt.sign(
-    { id: req.user.id, role: req.user.role },
-    JWT_SECRET,
-    { expiresIn: "8h" }
-  );
-  res.json({ token: newToken });
+router.post("/refresh-token", async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    const refreshToken = getRefreshTokenFromRequest(req);
+
+    if (!refreshToken) {
+      return res.status(401).json({ error: "Missing token" });
+    }
+
+    const result = await refreshAuthTokens(c, refreshToken);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Refresh token error:", error);
+    res.status(500).json({ error: "Server error during token refresh" });
+  } finally {
+    if (c) await c.end();
+  }
+});
+
+// Check token and refresh if expired
+router.post("/refresh-expired", async (req, res) => {
+  let c = null;
+  try {
+    c = await db();
+    const refreshToken = getRefreshTokenFromRequest(req);
+    if (!refreshToken) {
+      return res.status(401).json({ error: "Missing token" });
+    }
+
+    const result = await refreshAuthTokens(c, refreshToken);
+    return res.status(result.status).json(result.body);
+  } catch (error) {
+    console.error("Refresh-expired error:", error);
+    res.status(500).json({ error: "Server error during token refresh" });
+  } finally {
+    if (c) await c.end();
+  }
 });
 
 // Forgot Password
@@ -147,7 +329,7 @@ router.post("/password/setup/send/:empId", auth, async (req, res) => {
     const token = jwt.sign(
       { empId: req.params.empId, type: "setup" },
       JWT_SECRET,
-      { expiresIn: "24h" }
+      { expiresIn: "1h" }
     );
     res.json({ message: "Setup link sent to email (mock)", token });
   } catch (error) {
@@ -319,9 +501,9 @@ router.post("/password/send-otp", async (req, res) => {
     } catch (mailErr) {
       console.warn("⚠️ Warning: Failed to send OTP email:", mailErr.message);
       console.log(`🔑 Generated OTP for ${email}: ${otp}`);
-      res.json({ 
-        message: "OTP generated successfully (email sending failed, please check server logs/DB)", 
-        warning: "Email sending failed" 
+      res.json({
+        message: "OTP generated successfully (email sending failed, please check server logs/DB)",
+        warning: "Email sending failed"
       });
     }
   } catch (err) {
