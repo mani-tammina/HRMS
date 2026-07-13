@@ -9,6 +9,34 @@ const { db } = require("../config/database");
 const { auth, admin, hr, manager } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 
+const ATTENDANCE_LOCK_WAIT_SECONDS = 10;
+
+// The daily attendance row may not exist yet, so row locks alone cannot
+// serialize concurrent first punch requests. MySQL named locks cover that gap.
+async function acquireAttendanceLock(connection, employeeId, attendanceDate) {
+  const lockName = `attendance:${employeeId}:${attendanceDate}`;
+  const [rows] = await connection.query(
+    "SELECT GET_LOCK(?, ?) AS acquired",
+    [lockName, ATTENDANCE_LOCK_WAIT_SECONDS]
+  );
+
+  if (Number(rows[0]?.acquired) !== 1) {
+    const error = new Error(
+      "An attendance request is already being processed. Please try again."
+    );
+    error.statusCode = 409;
+    throw error;
+  }
+
+  return lockName;
+}
+
+async function releaseAttendanceLock(connection, lockName) {
+  if (connection && lockName) {
+    await connection.query("SELECT RELEASE_LOCK(?)", [lockName]);
+  }
+}
+
 /* ============================================
    PUNCH IN/OUT (Employee)
    ============================================ */
@@ -17,6 +45,10 @@ const { findEmployeeByUserId } = require("../utils/helpers");
  * Punch In - Can be done multiple times per day
  */
 router.post("/punch-in", auth, async (req, res) => {
+  let c = null;
+  let lockName = null;
+  let transactionStarted = false;
+
   try {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
@@ -26,41 +58,37 @@ router.post("/punch-in", auth, async (req, res) => {
       req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     const device_info = req.headers["user-agent"];
 
-    const c = await db();
-    await c.beginTransaction();
-
     const today = new Date().toISOString().split("T")[0];
     const now = new Date();
 
-    // Check if there's an active punch-in (no punch-out yet)
-    const [activePunch] = await c.query(
-      `SELECT ap.id 
-             FROM attendance_punches ap
-             WHERE ap.employee_id = ? AND ap.punch_date = ? 
-             ORDER BY ap.punch_time DESC LIMIT 1`,
+    c = await db();
+    lockName = await acquireAttendanceLock(c, emp.id, today);
+    await c.beginTransaction();
+    transactionStarted = true;
+
+    // The named lock serializes all punch requests for this employee and day.
+    const [lastPunch] = await c.query(
+      `SELECT punch_type
+             FROM attendance_punches
+             WHERE employee_id = ? AND punch_date = ?
+             ORDER BY punch_time DESC, id DESC
+             LIMIT 1 FOR UPDATE`,
       [emp.id, today]
     );
 
-    if (activePunch.length > 0) {
-      const [lastPunch] = await c.query(
-        `SELECT punch_type FROM attendance_punches WHERE id = ?`,
-        [activePunch[0].id]
-      );
-
-      if (lastPunch[0].punch_type === "in") {
-        await c.rollback();
-        c.end();
-        return res.status(400).json({
-          error: "Already punched in. Please punch out first.",
-          message:
-            "You have an active punch-in. Punch out before punching in again.",
-        });
-      }
+    if (lastPunch[0]?.punch_type === "in") {
+      return res.status(400).json({
+        error: "Already punched in. Please punch out first.",
+        message:
+          "You have an active punch-in. Punch out before punching in again.",
+      });
     }
 
     // Get or create attendance record for today
     let [attendance] = await c.query(
-      `SELECT id FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+      `SELECT id FROM attendance
+             WHERE employee_id = ? AND attendance_date = ?
+             FOR UPDATE`,
       [emp.id, today]
     );
 
@@ -110,9 +138,9 @@ router.post("/punch-in", auth, async (req, res) => {
     );
 
     await c.commit();
-    c.end();
+    transactionStarted = false;
 
-    res.json({
+    return res.json({
       success: true,
       message: "Punched in successfully",
       punch_time: now,
@@ -120,8 +148,24 @@ router.post("/punch-in", auth, async (req, res) => {
       attendance_id: attendanceId,
     });
   } catch (error) {
+    if (c && transactionStarted) {
+      try {
+        await c.rollback();
+      } catch (rollbackError) {
+        console.error("Punch in rollback error:", rollbackError);
+      }
+    }
     console.error("Punch in error:", error);
-    res.status(500).json({ error: error.message });
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  } finally {
+    if (c) {
+      try {
+        await releaseAttendanceLock(c, lockName);
+      } catch (releaseError) {
+        console.error("Punch in lock release error:", releaseError);
+      }
+      await c.end();
+    }
   }
 });
 
@@ -129,6 +173,10 @@ router.post("/punch-in", auth, async (req, res) => {
  * Punch Out - Can be done multiple times per day
  */
 router.post("/punch-out", auth, async (req, res) => {
+  let c = null;
+  let lockName = null;
+  let transactionStarted = false;
+
   try {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
@@ -138,21 +186,23 @@ router.post("/punch-out", auth, async (req, res) => {
       req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
     const device_info = req.headers["user-agent"];
 
-    const c = await db();
-    await c.beginTransaction();
-
     const today = new Date().toISOString().split("T")[0];
     const now = new Date();
 
-    // Check if there's an active attendance record
+    c = await db();
+    lockName = await acquireAttendanceLock(c, emp.id, today);
+    await c.beginTransaction();
+    transactionStarted = true;
+
+    // Lock the daily record while we validate and append the next punch.
     const [attendance] = await c.query(
-      `SELECT id FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+      `SELECT id FROM attendance
+             WHERE employee_id = ? AND attendance_date = ?
+             FOR UPDATE`,
       [emp.id, today]
     );
 
     if (attendance.length === 0) {
-      await c.rollback();
-      c.end();
       return res.status(400).json({
         error: "No attendance record found. Please punch in first.",
       });
@@ -164,21 +214,18 @@ router.post("/punch-out", auth, async (req, res) => {
     const [lastPunch] = await c.query(
       `SELECT punch_type, punch_time FROM attendance_punches 
              WHERE attendance_id = ? 
-             ORDER BY punch_time DESC LIMIT 1`,
+             ORDER BY punch_time DESC, id DESC
+             LIMIT 1 FOR UPDATE`,
       [attendanceId]
     );
 
     if (lastPunch.length === 0) {
-      await c.rollback();
-      c.end();
       return res.status(400).json({
         error: "No punch-in found. Please punch in first.",
       });
     }
 
     if (lastPunch[0].punch_type === "out") {
-      await c.rollback();
-      c.end();
       return res.status(400).json({
         error: "Already punched out. Punch in first to punch out again.",
       });
@@ -196,17 +243,33 @@ router.post("/punch-out", auth, async (req, res) => {
     await calculateAndUpdateHours(c, attendanceId);
 
     await c.commit();
-    c.end();
+    transactionStarted = false;
 
-    res.json({
+    return res.json({
       success: true,
       message: "Punched out successfully",
       punch_time: now,
       attendance_id: attendanceId,
     });
   } catch (error) {
+    if (c && transactionStarted) {
+      try {
+        await c.rollback();
+      } catch (rollbackError) {
+        console.error("Punch out rollback error:", rollbackError);
+      }
+    }
     console.error("Punch out error:", error);
-    res.status(500).json({ error: error.message });
+    return res.status(error.statusCode || 500).json({ error: error.message });
+  } finally {
+    if (c) {
+      try {
+        await releaseAttendanceLock(c, lockName);
+      } catch (releaseError) {
+        console.error("Punch out lock release error:", releaseError);
+      }
+      await c.end();
+    }
   }
 });
 
@@ -1066,9 +1129,9 @@ router.get("/report/all", auth, hr, async (req, res) => {
 async function calculateAndUpdateHours(connection, attendanceId) {
   // Get all punches for this attendance
   const [punches] = await connection.query(
-    `SELECT punch_type, punch_time FROM attendance_punches 
+    `SELECT id, punch_type, punch_time FROM attendance_punches
          WHERE attendance_id = ? 
-         ORDER BY punch_time ASC`,
+         ORDER BY punch_time ASC, id ASC`,
     [attendanceId]
   );
 

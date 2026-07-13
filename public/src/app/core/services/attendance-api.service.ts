@@ -62,6 +62,7 @@ export class AttendanceApiService {
   private todayAttendance$: Observable<any> | null = null;
 
   getTodayAttendance(force = false): Observable<any> {
+    console.log("Service LoadPunch")
     if (!force && this.todayAttendance$) return this.todayAttendance$;
     this.todayAttendance$ = this.http.get(`${this.BASE_URL}/today`, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {

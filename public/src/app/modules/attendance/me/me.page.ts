@@ -94,6 +94,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   showRemotePanel = false;
   remoteReason = '';
   remoteLoading = false;
+  wfhClockInLoading = false;
 
   // ── WFH Request Panel ──
   showWFHPanel = false;
@@ -595,20 +596,33 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   // ================= WFH CLOCK-IN =================
 
   wfhClockIn() {
+    if (this.wfhClockInLoading || this.clockButton?.loading) return;
+    this.wfhClockInLoading = true;
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh) { this.showToast('WFH not approved for today', 'warning'); return; }
+        if (!res?.has_wfh) {
+          this.showToast('WFH not approved for today', 'warning');
+          this.wfhClockInLoading = false;
+          return;
+        }
         this.attendanceApi.apiPunchIn({ work_mode: 'WFH', location: 'Home', notes: 'WFH Clock-In' }).subscribe({
           next: () => {
+            this.wfhClockInLoading = false;
             this.showToast('WFH Clock-In successful', 'success');
             this.loadTodayAttendance();
             if (this.clockButton) { this.clockButton.workMode = 'WFH'; this.clockButton.isClockedIn = true; }
             this.attendanceRefresh = Date.now();
           },
-          error: err => this.showToast(err?.error?.message || 'WFH Clock-In failed', 'danger'),
+          error: err => {
+            this.wfhClockInLoading = false;
+            this.showToast(err?.error?.message || 'WFH Clock-In failed', 'danger');
+          },
         });
       },
-      error: () => this.showToast('WFH check failed', 'danger'),
+      error: () => {
+        this.wfhClockInLoading = false;
+        this.showToast('WFH check failed', 'danger');
+      },
     });
   }
 

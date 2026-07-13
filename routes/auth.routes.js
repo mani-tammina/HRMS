@@ -6,7 +6,7 @@ const { db } = require("../config/database");
 const { JWT_SECRET } = require("../config/constants");
 const { auth, hr } = require("../middleware/auth");
 
-const ACCESS_TOKEN_EXPIRES_IN = "15m";
+const ACCESS_TOKEN_EXPIRES_IN = "1d";
 const REFRESH_TOKEN_EXPIRES_IN = "45d";
 const AUTH_TOKEN_TABLE = "user_auth_tokens";
 

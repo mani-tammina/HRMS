@@ -14,17 +14,19 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     <!-- Clock In Button -->
     <div *ngIf="!isClockedIn" class="row-center">
       <!-- WFH Clock In -->
-      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockIn('WFH')">
+      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockIn('WFH')" [disabled]="loading">
         <div class="inner-pulse cyan"></div>
         <div class="btn-content">
-                  <span class="text">WFH In</span>
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
+          <span class="text">{{ loading ? 'Please wait' : 'WFH In' }}</span>
         </div>
       </button>
 
       <!-- Standard Clock In -->
-      <button *ngIf="workMode !== 'WFH'" class="modern-clock-btn in" (click)="clockIn('Office')">
+      <button *ngIf="workMode !== 'WFH'" class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
         <div class="inner-pulse"></div>
         <div class="btn-content">
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
           <span class="text">Clock In</span>
         </div>
       </button>
@@ -33,26 +35,29 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     <!-- Clock Out Button Group -->
     <div *ngIf="isClockedIn" class="row-center">
       <!-- Office Out -->
-      <button *ngIf="workMode === 'Office'" class="modern-clock-btn out" (click)="clockOut()">
+      <button *ngIf="workMode === 'Office'" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading">
         <div class="inner-pulse red"></div>
         <div class="btn-content">
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
           <span class="text">Clock Out</span>
         </div>
       </button>
 
       <!-- Remote Out -->
-      <button *ngIf="workMode === 'Remote'" class="modern-clock-btn remote" (click)="remoteClockOut()">
+      <button *ngIf="workMode === 'Remote'" class="modern-clock-btn remote" (click)="remoteClockOut()" [disabled]="loading">
         <div class="inner-pulse orange"></div>
         <div class="btn-content">
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
           <ion-icon name="cloud-offline-outline"></ion-icon>
           <span class="text">Remote Out</span>
         </div>
       </button>
 
       <!-- WFH Out -->
-      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockOut()">
+      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockOut()" [disabled]="loading">
         <div class="inner-pulse cyan"></div>
         <div class="btn-content">
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
           <span class="text">WFH Out</span>
         </div>
       </button>
@@ -112,6 +117,18 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
         transform: translateY(0) scale(0.98);
       }
 
+      &:disabled {
+        cursor: not-allowed;
+        opacity: 0.75;
+        transform: none;
+        box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.18);
+      }
+
+      &:disabled:hover {
+        transform: none;
+        box-shadow: 0 8px 18px -8px rgba(0, 0, 0, 0.18);
+      }
+
       .btn-content {
         position: relative;
         z-index: 2;
@@ -119,6 +136,11 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
         align-items: center;
         gap: 12px;
         color: #fff;
+
+        .btn-spinner {
+          width: 16px;
+          height: 16px;
+        }
 
         ion-icon {
           font-size: 24px;
@@ -206,7 +228,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUrl = this.router.url;
-
+    this.loadLastPunch()
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe((isClockedIn: boolean) => {
       this.isClockedIn = isClockedIn;
       this.remoteActive = localStorage.getItem('remoteActive') === 'true';
@@ -222,6 +244,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   }
 
   private loadLastPunch(): void {
+    console.log("loadLastPunch")
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
         const punches = res?.punches || [];
@@ -276,7 +299,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   }
 
   clockIn(mode: 'Office' | 'Remote' | 'WFH'): void {
-    if (this.isClockedIn) return;
+    if (this.isClockedIn || this.loading) return;
     this.loading = true;
     let location = 'Mumbai Office';
     let notes = 'Office Clock-In';
@@ -284,19 +307,15 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     else if (mode === 'WFH') { location = 'Home'; notes = 'WFH Clock-In'; this.workMode = 'WFH'; }
     else { this.workMode = 'Office'; }
 
-    this.isClockedIn = true;
-    this.statusChanged.emit({ punch_type: 'in', work_mode: mode });
-
     this.attendanceApi.apiPunchIn({ work_mode: mode, location, notes }).subscribe({
       next: (res: any) => {
-        this.loading = false;
         if (res?.success) {
           this.showToast(res?.message || 'Clocked in successfully', 'success');
+          this.isClockedIn = true;
           this.statusChanged.emit({ punch_type: 'in', work_mode: mode });
         }
       },
       error: (err: any) => {
-        this.loading = false;
         if (err?.error?.message?.includes('active punch-in')) {
           this.showToast('You already have an active punch-in. Please clock out first.', 'warning');
           this.isClockedIn = true;
@@ -305,49 +324,51 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.isClockedIn = false;
         }
       }
+    }).add(() => {
+      this.loading = false;
     });
   }
 
   clockOut(): void {
+    if (!this.isClockedIn || this.loading) return;
     this.loading = true;
-    this.isClockedIn = false;
-    this.statusChanged.emit({ punch_type: 'out', work_mode: this.workMode });
     const wasWFH = this.workMode === 'WFH';
 
     this.attendanceApi.apiPunchOut({ notes: wasWFH ? 'WFH Clock-Out' : 'Going for lunch' }).subscribe({
       next: (res: any) => {
-        this.loading = false;
         if (res?.success) {
-          this.showToast(res?.message || 'Clocked out successfully', 'danger');
+          this.showToast(res?.message || 'Clocked out successfully', 'success');
+          this.isClockedIn = false;
           this.statusChanged.emit({ punch_type: 'out', work_mode: this.workMode });
         }
       },
       error: (err) => {
-        this.loading = false;
         this.showToast((err as any)?.error?.message || 'Clock-Out failed. Please try again.', 'danger');
       }
+    }).add(() => {
+      this.loading = false;
     });
   }
 
   remoteClockOut(): void {
+    if (!this.isClockedIn || this.loading) return;
     this.loading = true;
-    this.isClockedIn = false;
-    this.remoteActive = false;
-    this.workMode = 'Office';
-    localStorage.removeItem('remoteActive');
-    this.statusChanged.emit({ punch_type: 'out', work_mode: 'Remote' });
     this.attendanceApi.apiPunchOut({ notes: 'Remote Clock-Out' }).subscribe({
       next: (res: any) => {
-        this.loading = false;
         if (res?.success) {
-          this.showToast(res?.message || 'Remote clocked out successfully', 'danger');
+          this.showToast(res?.message || 'Remote clocked out successfully', 'success');
+          this.isClockedIn = false;
+          this.remoteActive = false;
+          this.workMode = 'Office';
+          localStorage.removeItem('remoteActive');
           this.statusChanged.emit({ punch_type: 'out', work_mode: 'Remote' });
         }
       },
       error: (err) => {
-        this.loading = false;
         this.showToast((err as any)?.error?.message || 'Remote Clock-Out failed.', 'danger');
       }
+    }).add(() => {
+      this.loading = false;
     });
   }
 
