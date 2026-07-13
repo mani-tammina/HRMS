@@ -69,7 +69,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   activeTab = 'log';
   progressValue = 0.85;
   workTimeTimer: string = '00:00:00';
-  shiftTimeLeft: string = '10m06s';
+  shiftTimeLeft: string = '';
   gaugeDashOffset: string = '251.3';
   previousDayHours: string = '9h 20m 30s';
   timerInterval: any;
@@ -180,7 +180,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadEmployeeProfile() {
-    const request = this.viewEmployeeId 
+    const request = this.viewEmployeeId
       ? this.employeeService.getEmployeeById(this.viewEmployeeId)
       : this.employeeService.getMyProfile();
 
@@ -452,7 +452,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     }
     const todayStr = new Date().toISOString().split('T')[0];
     const prevRecord = this.lastAttendance.find(r => r.date && r.date !== todayStr);
-    
+
     if (prevRecord && prevRecord.total_work_hours) {
       const hours = parseFloat(prevRecord.total_work_hours);
       const h = Math.floor(hours);
@@ -523,7 +523,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       const shiftSeconds = 9 * 3600;
       const progress = Math.min(1, totalSec / shiftSeconds);
       this.progressValue = progress;
-      
+
       // Gauge circumferance is 251.3
       // We calculate offset: 251.3 at 0% to 0 at 100% progress
       this.gaugeDashOffset = (251.3 * (1 - progress)).toFixed(1);
@@ -534,7 +534,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           const [sh, sm] = this.shift_policy.start_time.split(':').map(Number);
           const shiftStart = new Date();
           shiftStart.setHours(sh, sm, 0, 0);
-          
+
           if (Date.now() < shiftStart.getTime()) {
             const diffSec = Math.floor((shiftStart.getTime() - Date.now()) / 1000);
             const m = Math.floor(diffSec / 60);
