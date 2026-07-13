@@ -1,13 +1,16 @@
 // ─────────────────────────────────────────────────────────────
-// LOGIN PAGE — Split Panel Design (Blue left / White right)
-// Matches the reference image with illustration + clean form
+// LOGIN PAGE — Pixel-perfect match to loginnew.png reference
+// Left: blue gradient panel with overlay content
+// Right: pure white panel with centered form card
 // ─────────────────────────────────────────────────────────────
 
-// Reset ion-content background — override any global dark theme
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+// ── Ion Content Reset ──
 :host {
   ion-content.login-content {
-    --background: #ffffff !important;
-    --ion-background-color: #ffffff !important;
+    --background: #ffffff;
+    --ion-background-color: #ffffff;
     --padding-top: 0;
     --padding-bottom: 0;
     --padding-start: 0;
@@ -18,397 +21,265 @@
 ion-content.login-content {
   --background: #ffffff !important;
   --ion-background-color: #ffffff !important;
-  --padding-top: 0;
-  --padding-bottom: 0;
-  --padding-start: 0;
-  --padding-end: 0;
-  height: 100%;
 }
 
-// ─────────────────────────────────────────────────────────────
-// PAGE WRAPPER — full-height flex row
-// ─────────────────────────────────────────────────────────────
-
+// ── Page Wrapper ──
 .login-page-wrapper {
   display: flex;
   flex-direction: row;
-  height: 100%;
-  min-height: 100vh;
+  align-items: stretch;
+  height: 100vh;
   width: 100%;
-  font-family: 'Inter', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #ffffff;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
 // ─────────────────────────────────────────────────────────────
-// LEFT PANEL — Blue illustration side
+// LEFT PANEL — Blue gradient with overlay content
+// loginleft_pannel.png is the background, HTML content overlaid
 // ─────────────────────────────────────────────────────────────
-
 .left-panel {
-  flex: 0 0 55%;
-  background-color: #1964A2; // solid blue panel (same as reference)
+  flex: 0 0 50%;
+  width: 50%;
+  min-height: 100vh;
+  background-image: url('/assets/bg.svg');
+  background-repeat: no-repeat;
+  background-size: cover;
+  background-position: center center;
   position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-end; // caption anchored to bottom
-  overflow: hidden;
-  min-height: 100vh;
-  padding: 40px 32px;
-  // NO overlay — image blends naturally with the blue background
-  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  padding: 36px 40px 0;
+  box-sizing: border-box;
+  transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
 }
 
-.illustration-img {
-  width: 72%;
-  max-width: 500px;
-  margin: auto;
-  /* Centers the image vertically and pushes caption to the bottom */
-  object-fit: contain;
-  z-index: 2;
-}
-
-// Floating decorative card chips
-.deco-card {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 12px;
-  padding: 12px 18px 12px 14px;
+// ── Tech Tammina logo (top-left) ──
+.left-logo {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-shrink: 0;
   z-index: 2;
-  animation: floatCard 6s ease-in-out infinite alternate;
 
-  ion-icon {
-    font-size: 18px;
-    color: rgba(255, 255, 255, 0.95);
+  .left-logo-img {
+    object-fit: contain;
+    padding: 4px;
+    box-sizing: border-box;
     flex-shrink: 0;
   }
 
-  .deco-lines {
+  .left-logo-text {
     display: flex;
     flex-direction: column;
-    gap: 6px;
 
-    span {
-      display: block;
-      height: 6px;
-      border-radius: 4px;
-      background: rgba(255, 255, 255, 0.4);
-
-      &:nth-child(1) {
-        width: 72px;
-      }
-
-      &:nth-child(2) {
-        width: 52px;
-      }
-
-      &:nth-child(3) {
-        width: 62px;
-      }
-    }
-  }
-
-  // TOP-LEFT card — horizontal layout: icon left, 3 lines right
-  &.deco-card-top {
-    top: 4%;
-    left: 3%;
-    animation-delay: 0s;
-  }
-
-  // BOTTOM-RIGHT card — vertical layout: icon top-right, 2 wide bars below
-  // Partially clipped off the right and bottom edges (matches reference)
-  &.deco-card-bottom {
-    bottom: 2%;
-    right: -10px; // small bleed — most of card is visible
-    animation-delay: 2s;
-
-    // vertical column layout
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-    padding: 14px 16px 16px;
-    width: 150px; // wider card matching reference
-
-    // Icon row — lock icon right-aligned at top
-    .deco-icon-row {
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      width: 100%;
-
-      ion-icon {
-        font-size: 16px;
-        color: rgba(255, 255, 255, 0.95);
-      }
+    .logo-name {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.2;
     }
 
-    // 2 wide stacked bars below the icon
-    .deco-lines {
-      width: 100%;
-      gap: 8px;
-
-      span {
-        height: 9px;
-        border-radius: 5px;
-        background: rgba(255, 255, 255, 0.35);
-
-        &:nth-child(1) {
-          width: 100%; // full-width bar
-        }
-
-        &:nth-child(2) {
-          width: 75%; // shorter second bar
-        }
-
-        &:nth-child(3) {
-          display: none; // only 2 bars on bottom card
-        }
-      }
+    .logo-tagline {
+      font-size: 9px;
+      color: rgba(255, 255, 255, 0.65);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-top: 1px;
     }
   }
 }
 
-@keyframes floatCard {
-  0% {
-    transform: translateY(0px);
-  }
-
-  100% {
-    transform: translateY(-12px);
-  }
-}
-
-// Paper airplane decoration
-.paper-plane {
-  position: absolute;
-  z-index: 2;
-
-  ion-icon {
-    font-size: 26px;
-    color: #ffffff;
-  }
-
-  // TOP-RIGHT — large plane, angled upper-right (matches reference)
-  &.plane-top {
-    top: 7%;
-    right: 8%;
-    opacity: 0.85;
-    animation: floatPlane 8s ease-in-out infinite alternate;
-
-    ion-icon {
-      font-size: 38px;
-    }
-  }
-
-  // BOTTOM-LEFT — small plane near bottom caption (matches reference)
-  &.plane-bottom {
-    bottom: 22%;
-    left: 6%;
-    opacity: 0.5;
-    animation: floatPlane 7s ease-in-out infinite alternate-reverse;
-
-    ion-icon {
-      font-size: 22px;
-    }
-  }
-}
-
-@keyframes floatPlane {
-  0% {
-    transform: translateY(0) rotate(-15deg);
-  }
-
-  100% {
-    transform: translateY(-18px) rotate(-5deg);
-  }
-}
-
-// illustration-wrapper removed — image is now a CSS background on .left-panel
-
-// Caption under illustration
+// ── Caption text ──
 .left-caption {
-  position: relative;
-  z-index: 1;
-  text-align: center;
-  color: #ffffff;
-  margin-bottom: 28px; // comfortable distance from bottom edge
+  margin-top: 52px;
+  z-index: 2;
+  flex-shrink: 0;
 
-  .caption-title {
-    font-size: 22px;
+  .caption-line1 {
+    font-size: 48px;
     font-weight: 700;
-    line-height: 1.4;
-    margin: 0 0 10px;
-    letter-spacing: -0.2px;
+    color: #ffffff;
+    margin: 0;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+  }
 
-    .caption-accent {
-      color: #3ba4ff; // Brighter blue to match image
-    }
+  .caption-line2 {
+    font-size: 48px;
+    font-weight: 700;
+    color: #00D4FF; // bright cyan-blue accent from mockup
+    margin: 0 0 20px;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
   }
 
   .caption-subtitle {
-    font-size: 13px;
-    line-height: 1.65;
+    font-size: 14px;
     color: rgba(255, 255, 255, 0.75);
+    line-height: 1.65;
     margin: 0;
-    max-width: 320px;
+    max-width: 340px;
+    font-weight: 400;
+  }
+}
+
+// ── Illustration image ──
+.left-illustration {
+  flex: 1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  position: relative;
+  z-index: 2;
+  padding-bottom: 0;
+
+  .illustration-img {
+    width: 100%;
+    max-width: 580px;
+    height: auto;
+    object-fit: contain;
+    object-position: bottom;
+    display: block;
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// RIGHT PANEL — White form side
+// RIGHT PANEL — Pure white background
 // ─────────────────────────────────────────────────────────────
-
 .right-panel {
-  flex: 0 0 45%;
-  background: #ffffff !important;
-  background-color: #ffffff !important;
+  flex: 0 0 50%;
+  width: 50%;
+  min-height: 100vh;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 40px 32px;
+  padding: 32px 40px;
+  box-sizing: border-box;
   overflow-y: auto;
-  position: relative;
-  z-index: 1;
-  transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+  transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
 }
 
 // ─────────────────────────────────────────────────────────────
-// FORM CARD
+// FORM CARD — Floating white card with subtle border & shadow
 // ─────────────────────────────────────────────────────────────
-
 .form-card {
   width: 100%;
-  max-width: 340px;
+  max-width: 380px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid #E5E7EB;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
+  padding: 40px 36px 32px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-}
-
-// ── Brand header (logo + name) ──
-.brand-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 18px;
-
-  .brand-logo-circle {
-    width: 52px;
-    height: 52px;
-    background: #1565c0;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(21, 101, 192, 0.3);
-
-    .brand-logo-img {
-      width: 32px;
-      height: 32px;
-      object-fit: contain;
-      filter: brightness(0) invert(1); // make svg white on dark circle
-    }
-  }
-
-  .brand-name {
-    .brand-name-main {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1a237e;
-      line-height: 1.2;
-    }
-
-    .brand-name-sub {
-      font-size: 16px;
-      font-weight: 700;
-      color: #1565c0;
-      line-height: 1.2;
-    }
-
-    .brand-tagline {
-      font-size: 10px;
-      color: #9e9e9e;
-      letter-spacing: 0.04em;
-      margin-top: 2px;
-      text-transform: lowercase;
-    }
-  }
+  align-items: stretch;
 }
 
 // ── Headings ──
 .form-heading {
   font-size: 26px;
-  font-weight: 800;
-  color: #1a1a2e;
+  font-weight: 700;
+  color: #111827;
   margin: 0 0 8px;
-  letter-spacing: -0.4px;
-  text-align: center;
+  letter-spacing: -0.3px;
+  text-align: left;
+  line-height: 1.25;
+
+  .heading-wave {
+    font-size: 22px;
+    vertical-align: middle;
+    margin-left: 2px;
+  }
 }
 
 .form-subheading {
   font-size: 13.5px;
-  color: #757575;
-  margin: 0 0 28px;
-  text-align: center;
+  color: #6B7280;
+  margin: 0 0 24px;
+  text-align: left;
   line-height: 1.5;
+  font-weight: 400;
 }
 
-// ── Login form ──
+// ── Form ──
 .login-form {
   width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0;
 }
 
-// ── Field groups ──
+// ── Field Groups ──
 .field-group {
   width: 100%;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 
   .field-label {
     display: block;
-    font-size: 12px;
-    font-weight: 500;
-    color: #555555; // medium gray — matches reference
-    margin-bottom: 5px;
-    letter-spacing: 0.01em;
+    font-size: 13px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 7px;
+    letter-spacing: 0em;
   }
 }
 
+// ── Inputs ──
 .form-input {
   width: 100%;
-  height: 44px;
+  height: 46px;
   background: #ffffff;
-  border: 1px solid #d4d4d4; // light gray border — matches reference
-  border-radius: 6px; // subtle round corners (not pill, not square)
-  padding: 0 12px;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 10px;
+  padding: 0 14px;
   font-size: 14px;
-  color: #212121;
-  font-family: inherit;
+  color: #111827;
+  font-family: 'Inter', sans-serif;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
+  appearance: none;
+  -webkit-appearance: none;
 
   &::placeholder {
-    color: #b0b0b0; // light placeholder — matches reference
+    color: #9CA3AF;
     font-weight: 400;
   }
 
   &:focus {
-    border-color: #1565c0;
-    box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.08);
+    border-color: #2563EB;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
   }
 }
 
-// Input with eye-toggle wrapper
+// Input with mail icon on left
+.input-with-icon-left {
+  position: relative;
+  width: 100%;
+
+  .form-input.has-left-icon {
+    padding-left: 42px;
+  }
+
+  .left-icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 17px;
+    color: #9CA3AF;
+    pointer-events: none;
+    z-index: 1;
+  }
+}
+
+// Input with eye toggle (password)
 .input-with-toggle {
   position: relative;
   width: 100%;
@@ -428,38 +299,16 @@ ion-content.login-content {
     cursor: pointer;
     display: flex;
     align-items: center;
-    justify-content: center;
 
     ion-icon {
       font-size: 18px;
-      color: #9e9e9e;
+      color: #9CA3AF;
       transition: color 0.2s;
     }
 
     &:hover ion-icon {
-      color: #616161;
+      color: #6B7280;
     }
-  }
-}
-
-// Input with icon on left
-.input-with-icon-left {
-  position: relative;
-  width: 100%;
-
-  .form-input.has-left-icon {
-    padding-left: 44px;
-  }
-
-  .left-icon {
-    position: absolute;
-    left: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    font-size: 18px;
-    color: #9e9e9e;
-    pointer-events: none;
-    z-index: 1;
   }
 }
 
@@ -468,19 +317,19 @@ ion-content.login-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   width: 100%;
 
   .remember-label {
     display: flex;
     align-items: center;
     font-size: 12.5px;
-    color: #616161;
+    color: #6B7280;
     cursor: pointer;
     position: relative;
-    padding-left: 24px;
+    padding-left: 22px;
     user-select: none;
-    gap: 0;
+    font-weight: 400;
 
     input[type='checkbox'] {
       position: absolute;
@@ -495,10 +344,10 @@ ion-content.login-content {
       left: 0;
       top: 50%;
       transform: translateY(-50%);
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       background: #ffffff;
-      border: 1.5px solid #bdbdbd;
+      border: 1.5px solid #D1D5DB;
       border-radius: 3px;
       transition: all 0.2s ease;
 
@@ -508,8 +357,8 @@ ion-content.login-content {
         display: none;
         left: 4px;
         top: 0px;
-        width: 5px;
-        height: 9px;
+        width: 4px;
+        height: 8px;
         border: solid #fff;
         border-width: 0 2px 2px 0;
         transform: rotate(45deg);
@@ -517,8 +366,8 @@ ion-content.login-content {
     }
 
     input:checked~.checkmark {
-      background: #1565c0;
-      border-color: #1565c0;
+      background: #2563EB;
+      border-color: #2563EB;
 
       &::after {
         display: block;
@@ -528,26 +377,28 @@ ion-content.login-content {
 
   .forgot-link {
     font-size: 12.5px;
-    color: #1565c0;
+    color: #2563EB;
     font-weight: 500;
     cursor: pointer;
     text-decoration: none;
     transition: color 0.2s;
 
     &:hover {
-      color: #0d47a1;
+      color: #1d4ed8;
       text-decoration: underline;
     }
   }
 }
 
-// ── Primary button — pill shape, deep navy blue ──
+// ─────────────────────────────────────────────────────────────
+// PRIMARY BUTTON — Solid royal blue (matches loginnew.png)
+// ─────────────────────────────────────────────────────────────
 .btn-primary {
   width: 100%;
   height: 48px;
-  background: linear-gradient(90deg, #486df0 0%, #584df5 100%); // Vibrant blue-purple gradient
+  background: #2563EB;
   border: none;
-  border-radius: 12px; // Slightly rounded rectangle instead of pill to match image
+  border-radius: 10px;
   color: #ffffff;
   font-size: 15px;
   font-weight: 600;
@@ -555,15 +406,15 @@ ion-content.login-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-family: inherit;
-  letter-spacing: 0.02em;
+  gap: 6px;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.01em;
   transition: background 0.2s ease, transform 0.15s ease;
   box-shadow: none;
   margin-bottom: 0;
 
   &:hover:not(:disabled) {
-    background: #14305a;
+    background: #1d4ed8;
     transform: translateY(-1px);
   }
 
@@ -577,45 +428,42 @@ ion-content.login-content {
   }
 }
 
-// ── OR divider ──
+// ─────────────────────────────────────────────────────────────
+// OR DIVIDER
+// ─────────────────────────────────────────────────────────────
 .or-divider {
   display: flex;
   align-items: center;
   width: 100%;
-  margin: 18px 0;
+  margin: 16px 0;
 
   &::before,
   &::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: #e0e0e0;
+    background: #E5E7EB;
   }
 
   span {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid #e0e0e0;
-    border-radius: 50%;
     font-size: 12px;
-    color: #757575;
+    color: #9CA3AF;
     background: #fff;
-    margin: 0 16px;
-    padding: 0;
+    margin: 0 12px;
+    font-weight: 400;
   }
 }
 
-// ── SSO button — pill shape, white with thin border ──
+// ─────────────────────────────────────────────────────────────
+// SSO BUTTON — white with border + shield icon
+// ─────────────────────────────────────────────────────────────
 .btn-sso {
   width: 100%;
   height: 48px;
   background: #ffffff;
-  border: 1px solid #e0e0e0; // Lighter border
-  border-radius: 12px; // Match primary button shape
-  color: #424242;
+  border: 1.5px solid #E5E7EB;
+  border-radius: 10px;
+  color: #374151;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -623,368 +471,191 @@ ion-content.login-content {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-family: inherit;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  font-family: 'Inter', sans-serif;
+  transition: all 0.2s ease;
 
-  .sso-google-icon {
-    font-size: 18px;
-    color: #ea4335; // Google Red for the icon
+  .sso-shield-icon {
+    font-size: 17px;
+    color: #2563EB;
   }
 
   ion-icon {
-    font-size: 18px;
-    color: #555555;
+    font-size: 17px;
+    color: #6B7280;
   }
 
   &:hover {
-    border-color: #bdbdbd;
-    background: #f8f8f8;
+    border-color: #D1D5DB;
+    background: #F9FAFB;
   }
 }
 
-// ── Secure Data Notice ──
+// ─────────────────────────────────────────────────────────────
+// SECURE DATA NOTICE — Light blue pill (matches loginnew.png)
+// ─────────────────────────────────────────────────────────────
 .secure-data-notice {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  margin-top: 24px;
-  background: #f4f6f9;
-  padding: 14px;
-  border-radius: 12px;
-  color: #1a237e; // dark navy
-  font-size: 12px;
+  gap: 7px;
+  margin-top: 20px;
+  background: #EBF5FF;
+  padding: 12px 20px;
+  border-radius: 100px;
+  color: #1e40af;
+  font-size: 12.5px;
   font-weight: 600;
   width: 100%;
+  box-sizing: border-box;
 
-  ion-icon {
-    font-size: 18px;
-    color: #3f51b5;
+  .secure-icon {
+    font-size: 15px;
+    color: #2563EB;
+    flex-shrink: 0;
   }
 }
 
-// ── Copyright ──
+// ─────────────────────────────────────────────────────────────
+// FOOTER (copyright + links) — Gray, small, centered
+// ─────────────────────────────────────────────────────────────
+.form-footer {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
 .copyright {
-  margin-top: 12px;
-  font-size: 11px;
-  color: #9e9e9e;
+  font-size: 11.5px;
+  color: #9CA3AF;
   text-align: center;
-  letter-spacing: 0.01em;
+  font-weight: 400;
+}
+
+.footer-links {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+
+  a {
+    color: #9CA3AF;
+    text-decoration: none;
+    font-weight: 400;
+    transition: color 0.2s;
+
+    &:hover {
+      color: #2563EB;
+    }
+  }
+
+  .dot {
+    color: #D1D5DB;
+    font-size: 13px;
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
-// RESPONSIVE
+// FORGOT PASSWORD MODE — Panel slide animation
 // ─────────────────────────────────────────────────────────────
-
-@media (max-width: 900px) {
+.login-page-wrapper.forgot-mode {
   .left-panel {
-    flex: 0 0 50%;
-    padding: 32px 20px;
+    transform: translateX(calc(100% * 43 / 57));
   }
 
   .right-panel {
-    flex: 0 0 50%;
-    padding: 32px 20px;
-  }
-
-  .illustration-img {
-    max-height: 240px !important;
-  }
-
-  .left-caption .caption-title {
-    font-size: 22px;
+    transform: translateX(calc(-100% * 57 / 43));
   }
 }
 
-@media screen and (max-width: 680px) {
-
+// ─────────────────────────────────────────────────────────────
+// RESPONSIVE — Tablet & Mobile
+// ─────────────────────────────────────────────────────────────
+@media (max-width: 960px) {
   .login-page-wrapper {
     flex-direction: column;
-    background: #ffffff;
+    height: auto;
     min-height: 100vh;
-  }
-
-  /* -----------------------------
-     BLUE SECTION (Image & Text)
-     ------------------------------*/
-  @keyframes gradientFlow {
-    0% {
-      background-position: 0% 50%;
-    }
-
-    50% {
-      background-position: 100% 50%;
-    }
-
-    100% {
-      background-position: 0% 50%;
-    }
   }
 
   .left-panel {
     flex: none;
     width: 100%;
-    height: auto;
-    min-height: 400px;
-    background: linear-gradient(-45deg, #535af6, #298af4, #00d2ff, #3a7bd5);
-    background-size: 400% 400%;
-    animation: gradientFlow 10s ease infinite;
-    border-radius: 0;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    /* Start from top */
-    align-items: center;
-    padding: 10px 20px 80px;
-    /* Space at bottom for overlap */
-    position: relative;
-    z-index: 1;
+    min-height: 280px;
+    height: 280px;
+    padding: 28px 24px 0;
+    background-position: center center;
+
+    .left-caption {
+      margin-top: 24px;
+
+      .caption-line1,
+      .caption-line2 {
+        font-size: 30px;
+      }
+
+      .caption-subtitle {
+        display: none;
+      }
+    }
+
+    .left-illustration {
+      padding-bottom: 0;
+
+      .illustration-img {
+        max-width: 200px;
+      }
+    }
   }
 
-  .illustration-img {
-    width: 50%;
-    max-width: 350px;
-    height: auto;
-    object-fit: contain;
-    // margin: 0 auto 30px auto; /* 30px space below image */
-    display: block;
-    z-index: 2;
-    margin-bottom: 0;
-    margin-top: 0;
-    // animation: floatCard 4s ease-in-out infinite alternate;
-  }
-
-  /* Hide HTML decorative elements since they are baked into the image */
-  .deco-card,
-  .paper-plane.plane-bottom,
-  .paper-plane.plane-top {
-    display: none;
-  }
-
-  /* -----------------------
-     Caption
-     -----------------------*/
-  .left-caption {
-    margin: 0;
-    text-align: center;
-    position: relative;
-    z-index: 2;
-    width: 100%;
-  }
-
-  .left-caption .caption-title {
-    font-size: 28px;
-    line-height: 1.25;
-    font-weight: 700;
-    color: #ffffff;
-    margin-bottom: 12px;
-    letter-spacing: -0.2px;
-  }
-
-  .left-caption .caption-title .caption-accent {
-    color: #ffffff;
-  }
-
-  .left-caption .caption-subtitle {
-    font-size: 14px;
-    line-height: 1.5;
-    color: rgba(255, 255, 255, 0.9);
-    margin: auto;
-    display: none;
-  }
-
-  /* --------------------------------
-     WHITE CARD
-     -------------------------------- */
   .right-panel {
     flex: 1;
-    width: 90%;
-    margin-top: -120px;
-    background: #ffffff;
-    border-radius: 40px 40px 40px 40px;
-    padding: 14px 24px 0px;
-    position: relative;
-    z-index: 20;
-    box-shadow: none;
+    width: 100%;
     min-height: auto;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    align-items: center;
-    /* margin-left: 50px; */
-    /* margin-right: -50px; */
-    margin-left: auto;
-    margin-right: auto;
-    max-height: calc(100vh - 310px);
-    box-shadow: rgba(0, 0, 0, 0.1) 0px 4px 12px;
+    padding: 28px 20px 40px;
+    align-items: flex-start;
+    justify-content: center;
+    background: #F3F4F6;
   }
 
   .form-card {
-    width: 100%;
-    max-width: 400px;
-    margin: 0 auto;
+    max-width: 100%;
+    padding: 32px 24px 28px;
+    border-radius: 16px;
   }
 
-  /* Logo */
-  .brand-header {
-    margin-top: 0;
-    margin-bottom: 10px;
-    display: flex;
-    justify-content: center;
-    width: 100%;
-  }
+  // Reset slide animation on mobile
+  .login-page-wrapper.forgot-mode {
 
-  .brand-logo-img {
-    width: 150px;
-    /* Correct proportion for mobile */
-    height: auto;
-    display: block;
-  }
-
-  /* Welcome */
-  .form-heading {
-    font-size: 26px;
-    color: #0b1134;
-    font-weight: 800;
-    margin-bottom: 8px;
-    text-align: center;
-  }
-
-  .form-subheading {
-    font-size: 14px;
-    color: #6b7280;
-    margin-bottom: 30px;
-    text-align: center;
-  }
-
-  /* Inputs */
-  .field-group {
-    margin-bottom: 20px;
-    width: 100%;
-  }
-
-  .field-label {
-    font-size: 13px !important;
-    margin-bottom: 8px !important;
-    color: #374151;
-    font-weight: 500;
-    display: block;
-  }
-
-  .form-input {
-    height: 48px;
-    border-radius: 8px;
-    font-size: 14px;
-    padding-left: 42px;
-    border: 1px solid #d1d5db;
-    color: #111827;
-    width: 100%;
-  }
-
-  .input-with-icon-left .form-input.has-left-icon {
-    padding-left: 42px;
-  }
-
-  .input-with-icon-left .left-icon {
-    left: 14px !important;
-    font-size: 20px !important;
-    color: #9ca3af;
-  }
-
-  /* Button */
-  .btn-primary {
-    height: 48px;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
-    margin-top: 8px;
-    box-shadow: none;
-    background: linear-gradient(90deg, #4f5af5 0%, #466BF5 100%);
-    width: 100%;
-  }
-
-  /* Divider */
-  .or-divider {
-    margin: 24px 0;
-    width: 100%;
-
-    span {
-      font-size: 12px;
-      width: 32px;
-      height: 32px;
-      color: #9ca3af;
-      border: 1px solid #e5e7eb;
-      background: #ffffff;
+    .left-panel,
+    .right-panel {
+      transform: none !important;
     }
-  }
-
-  /* SSO */
-  .btn-sso {
-    height: 48px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    box-shadow: none;
-    border: 1px solid #d1d5db;
-    color: #374151;
-    width: 100%;
-    background: #ffffff;
-  }
-
-  /* Security */
-  .secure-data-notice {
-    margin-top: 28px;
-    height: 44px;
-    border-radius: 8px;
-    background: #f3f4f6;
-    font-size: 12px;
-    font-weight: 500;
-    color: #1e3a8a;
-    width: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .copyright {
-    margin-top: 24px;
-    font-size: 12px;
-    color: #9ca3af;
-    text-align: center;
-    width: 100%;
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// SWAP ANIMATION (FORGOT PASSWORD MODE)
-// ─────────────────────────────────────────────────────────────
-.login-page-wrapper.forgot-mode {
+@media (max-width: 480px) {
   .left-panel {
-    transform: translateX(calc(100% * 45 / 55));
+    height: 220px;
+    min-height: 220px;
   }
-  .right-panel {
-    transform: translateX(calc(-100% * 55 / 45));
-  }
-}
 
-@media (max-width: 900px) {
-  .login-page-wrapper.forgot-mode {
-    .left-panel {
-      transform: translateX(100%);
-    }
-    .right-panel {
-      transform: translateX(-100%);
+  .left-caption {
+    margin-top: 16px !important;
+
+    .caption-line1,
+    .caption-line2 {
+      font-size: 26px !important;
     }
   }
-}
 
-@media (max-width: 680px) {
-  .login-page-wrapper.forgot-mode {
-    .left-panel {
-      transform: none;
-    }
-    .right-panel {
-      transform: none;
-    }
+  .form-card {
+    padding: 24px 18px 20px;
+  }
+
+  .form-heading {
+    font-size: 22px;
   }
 }

@@ -4,15 +4,23 @@
 
     <!-- ── LEFT: Blue Illustration Panel ── -->
     <div class="left-panel">
-      
-      <!-- Illustration Image -->
-      <img src="assets/login.png" class="illustration-img" alt="Manage better, Empower faster" />
+      <!-- Tech Tammina Logo (top-left) -->
+      <div class="left-logo">
+        <img src="assets/TamminaLogo.png" alt="Tech Tammina" class="left-logo-img" />
 
-      <!-- Caption text -->
+      </div>
+
+      <!-- Caption Text -->
       <div class="left-caption">
-        <h2 class="caption-title">Manage better.<br /><span class="caption-accent">Empower</span> faster.</h2>
+        <h2 class="caption-line1">Manage better.</h2>
+        <h2 class="caption-line2">Empower faster.</h2>
         <p class="caption-subtitle">A unified platform to manage your workforce,<br />attendance, payroll, and more —
           all in one place.</p>
+      </div>
+
+      <!-- Illustration Image (3D character + dashboard) -->
+      <div class="left-illustration">
+        <img src="assets/innerloginimg.png" alt="HRMS illustration" class="illustration-img" />
       </div>
     </div>
 
@@ -22,12 +30,7 @@
       <!-- LOGIN CARD -->
       <div class="form-card" *ngIf="!showForgotPassword">
 
-        <!-- Logo + Brand -->
-        <div class="brand-header">
-          <img src="assets/tt_blue_logo.png" alt="Tech Tammina" class="brand-logo-img" />
-        </div>
-
-        <h1 class="form-heading">Welcome!</h1>
+        <h1 class="form-heading">Welcome! <span class="heading-wave">&#x1F44B;</span></h1>
         <p class="form-subheading">Sign in to continue to Master HRMS</p>
 
         <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
@@ -62,7 +65,7 @@
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
               <label class="field-label" for="login-otp" style="margin-bottom: 0;">OTP Verification</label>
               <a (click)="resendOtp()"
-                style="font-size: 11px; color: #1565c0; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
+                style="font-size: 11px; color: #2563EB; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
                 OTP</a>
             </div>
             <input id="login-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
@@ -131,28 +134,30 @@
 
           <!-- SSO BUTTON -->
           <button type="button" id="btn-sso" class="btn-sso">
-            <ion-icon name="logo-google" class="sso-google-icon"></ion-icon>
+            <ion-icon name="shield-checkmark-outline" class="sso-shield-icon"></ion-icon>
             Continue with SSO
           </button>
 
         </form>
 
         <div class="secure-data-notice">
-          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <ion-icon name="shield-checkmark-outline" class="secure-icon"></ion-icon>
           <span>Your data is secure with us</span>
         </div>
-        <div class="copyright">© 2024 Tech Tammina. All rights reserved.</div>
+        <div class="form-footer">
+          <div class="copyright">&#169; 2024 Tech Tammina. All rights reserved.</div>
+          <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <span class="dot">&middot;</span>
+            <a href="#">Terms of Service</a>
+            <span class="dot">&middot;</span>
+            <a href="#">Support</a>
+          </div>
+        </div>
       </div>
 
       <!-- FORGOT PASSWORD CARD -->
       <div class="form-card" *ngIf="showForgotPassword">
-
-        <div class="brand-header">
-          <div class="brand-header">
-            <img src="assets/tt_blue_logo.png" alt="Tech Tammina" class="brand-logo-img" />
-          </div>
-
-        </div>
 
         <h1 class="form-heading">Reset Password</h1>
         <p class="form-subheading">Enter your Employee Email to reset</p>
@@ -172,7 +177,7 @@
               style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
               <label class="field-label" for="reset-otp" style="margin-bottom: 0;">OTP Verification</label>
               <a (click)="resendForgotPasswordOtp()"
-                style="font-size: 11px; color: #1565c0; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
+                style="font-size: 11px; color: #2563EB; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
                 OTP</a>
             </div>
             <input id="reset-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
@@ -220,7 +225,16 @@
 
         </form>
 
-        <div class="copyright">© 2024 Tech Tammina. All rights reserved.</div>
+        <div class="form-footer">
+          <div class="copyright">&#169; 2024 Tech Tammina. All rights reserved.</div>
+          <div class="footer-links">
+            <a href="#">Privacy Policy</a>
+            <span class="dot">&middot;</span>
+            <a href="#">Terms of Service</a>
+            <span class="dot">&middot;</span>
+            <a href="#">Support</a>
+          </div>
+        </div>
       </div>
 
     </div>
