@@ -12,6 +12,9 @@ interface AttendanceRequestHistory {
   reason?: string;
   status: string;
   lastAction: string;
+  startDate: string;
+  totaldays: number
+  endDate?: string;
   nextApprover?: string;
 }
 
@@ -48,9 +51,11 @@ export class AttendanceRequestComponent implements OnInit {
   private loadWFHRequests() {
     this.wfhService.getAllWFHRequests().subscribe({
       next: (res: any) => {
+        console.log(res)
         const resData = Array.isArray(res) ? res : (res.data || res.requests || []);
         const wfhRecords = resData.filter((item: any) => item.leave_type === 'WFH').map((item: any) => this.mapWFHRecord(item, 'WFH'));
         const regularizationRecords = resData.filter((item: any) => item.leave_type === 'Remote').map((item: any) => this.mapWFHRecord(item, 'Regularization'));
+        console.log(wfhRecords)
         this.assignGroup('Work From Home / On Duty Requests', wfhRecords);
         this.assignGroup('Remote Clock In Requests', regularizationRecords);
       },
@@ -70,8 +75,11 @@ export class AttendanceRequestComponent implements OnInit {
           requestedOn: this.formatRequestedOn(item.created_at),
           note: item.reason,
           reason: 'Remote',
+          totaldays: item.total_days,
           status: this.formatStatus(item.status),
           lastAction: item.approved_by ? `Approved by ${item.approved_by}` : '-',
+          startDate: this.formatRequestedOn(item.start_date),
+          endDate: this.formatRequestedOn(item.end_date),
           nextApprover: '-',
         }));
         this.assignGroup('Remote Clock In Requests', records);
@@ -87,8 +95,11 @@ export class AttendanceRequestComponent implements OnInit {
       requestedOn: this.formatRequestedOn(item.created_at),
       note: item.reason,
       reason: item.reason,
+      totaldays: item.total_days,
       status: this.formatStatus(item.status),
       lastAction: item.updated_by || '-',
+      startDate: this.formatRequestedOn(item.start_date),
+      endDate: this.formatRequestedOn(item.end_date),
       nextApprover: item.next_approver || '-',
     };
   }

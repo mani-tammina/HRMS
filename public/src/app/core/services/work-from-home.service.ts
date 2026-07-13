@@ -21,6 +21,7 @@ export class WorkFromHomeService {
 
   getAllWFHRequests(): Observable<any> {
     return this.http.get<any>(`${this.API_URL}/wfh-requests`, { headers: this.getHeaders() });
+    
   }
 
   wfh(payload: { start_date?: string; end_date?: string; date?: string; total_days?: number; work_mode: 'WFH' | 'WFO' | 'Remote'; reason: string }): Observable<any> {
