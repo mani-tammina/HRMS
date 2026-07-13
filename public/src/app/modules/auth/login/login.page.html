@@ -1,6 +1,6 @@
 <ion-content class="ion-no-border login-content" [fullscreen]="true">
 
-  <div class="login-page-wrapper" [class.forgot-mode]="showForgotPassword">
+  <div class="login-page-wrapper">
 
     <!-- ── LEFT: Blue Illustration Panel ── -->
     <div class="left-panel">
@@ -157,7 +157,7 @@
       </div>
 
       <!-- FORGOT PASSWORD CARD -->
-      <div class="form-card" *ngIf="showForgotPassword">
+      <div class="form-card" *ngIf="showForgotPassword" [class.forgot-mode]="showForgotPassword">
 
         <h1 class="form-heading">Reset Password</h1>
         <p class="form-subheading">Enter your Employee Email to reset</p>

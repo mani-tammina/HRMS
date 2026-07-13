@@ -46,7 +46,7 @@ ion-content.login-content {
   background-image: url('/assets/bg.svg');
   background-repeat: no-repeat;
   background-size: cover;
-  background-position: center center;
+  background-position: left;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -139,7 +139,7 @@ ion-content.login-content {
 
   .illustration-img {
     width: 100%;
-    max-width: 580px;
+    max-width: 480px;
     height: auto;
     object-fit: contain;
     object-position: bottom;
