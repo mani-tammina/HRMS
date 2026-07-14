@@ -83,6 +83,11 @@ export class EmployeeService {
     return this.http.get<any>(`${this.API_URL}/${id}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
+  getEmployeeDetails(id: number): Observable<any> {
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    return this.http.get<any>(`${this.API_URL}/${id}/details`, { headers: { Authorization: `Bearer ${token}` } });
+  }
+
   getAllEmployees(page = 1, limit = 20, search = ''): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     let params = new HttpParams().set('page', page.toString()).set('limit', limit.toString());

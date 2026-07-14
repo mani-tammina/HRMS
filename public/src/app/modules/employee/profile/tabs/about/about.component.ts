@@ -19,6 +19,7 @@ import { ReportingTeamComponent } from '../reporting-team/reporting-team.compone
 })
 export class AboutTabComponent implements OnChanges {
   @Input() currentEmployee: any | null = null;
+  @Input() isOwnProfile: boolean = true;
   IsSummary = false;
   IsOrg = false;
   viewEditor = false;

@@ -316,6 +316,9 @@ router.get("/:id", auth, async (req, res) => {
             d.name  AS department_name,
             des.name AS designation_name,
             l.name  AS location_name,
+            bu.name as business_unit_name,
+            mgr.FirstName as manager_first_name,
+            mgr.LastName as manager_last_name,
             COALESCE(
               (SELECT CASE 
                         WHEN ap.punch_type = 'in' THEN 'In'
@@ -341,6 +344,8 @@ router.get("/:id", auth, async (req, res) => {
      LEFT JOIN departments  d   ON e.DepartmentId  = d.id
      LEFT JOIN designations des ON e.DesignationId = des.id
      LEFT JOIN locations    l   ON e.LocationId    = l.id
+     LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+     LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
      WHERE e.id = ?`,
     [req.params.id]
   );

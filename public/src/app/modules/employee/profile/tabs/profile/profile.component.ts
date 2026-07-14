@@ -18,6 +18,7 @@ import { EmployeeService } from '../../../../../core/services/employee.service';
 })
 export class ProfileTabComponent implements OnChanges {
   @Input() currentEmployee: any;
+  @Input() isOwnProfile: boolean = true;
   IsDetails = false;
   Isedit = false;
   isAdress = false;

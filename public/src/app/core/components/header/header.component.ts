@@ -57,9 +57,16 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
   ];
 
-  // Employee details modal state
   isViewingEmployeeModal: boolean = false;
   selectedEmployee: any = null;
+
+  openEmployeeDetailsModal(emp: any) {
+    const id = emp.id || emp.employee_id || emp.EmployeeId;
+    if (id) {
+      this.router.navigate(['/profile'], { queryParams: { id } });
+    }
+    this.closePopover();
+  }
 
   // Profile state
   currentEmployee: any;
@@ -155,8 +162,8 @@ export class HeaderComponent implements OnInit, OnDestroy {
   }
 
   viewProfile() {
-    // Navigate to profile details page if available
-    this.navCtrl.navigateForward('/profile');
+    // Navigate to profile details page if available and clear query params to load own profile
+    this.router.navigate(['/profile'], { queryParams: {} });
   }
 
   onSearch() {
@@ -273,28 +280,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     event.target.src = '../../assets/user.png';
   }
 
-  openEmployeeDetailsModal(emp: any) {
-    this.closePopover();
 
-    // Fetch full details from Employee API to ensure fields like department_name are populated
-    const idToFetch = emp.id || emp.employee_id || emp.EmployeeId;
-    if (idToFetch) {
-      this.employeeService.getEmployeeById(idToFetch).subscribe({
-        next: (fullEmpDetails: any) => {
-          this.selectedEmployee = { ...emp, ...fullEmpDetails };
-          this.isViewingEmployeeModal = true;
-        },
-        error: (err) => {
-          console.error('Error fetching full employee details:', err);
-          this.selectedEmployee = emp;
-          this.isViewingEmployeeModal = true;
-        }
-      });
-    } else {
-      this.selectedEmployee = emp;
-      this.isViewingEmployeeModal = true;
-    }
-  }
 
   closeEmployeeDetailsModal() {
     this.isViewingEmployeeModal = false;

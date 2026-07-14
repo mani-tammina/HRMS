@@ -9,7 +9,8 @@
   </ion-toolbar>
 
   <ion-toolbar class="header-segment-toolbar">
-    <ion-segment [(ngModel)]="selectedSegment" (ionChange)="segmentChanged($event)" mode="md" class="profile-segment" scrollable="true">
+    <ion-segment [(ngModel)]="selectedSegment" (ionChange)="segmentChanged($event)" mode="md" class="profile-segment"
+      scrollable="true">
       <ion-segment-button value="about">
         <ion-label>ABOUT</ion-label>
       </ion-segment-button>
@@ -62,21 +63,38 @@
                 <ion-icon name="mail-outline"></ion-icon>
                 <span>{{currentEmployee?.WorkEmail}}</span>
               </div>
+              <!-- <div class="info-row" *ngIf="currentEmployee?.manager_first_name">
+                <ion-icon name="people-outline"></ion-icon>
+                <span>Reporting Manager: <strong>{{currentEmployee?.manager_first_name}} {{currentEmployee?.manager_last_name}}</strong></span>
+              </div> -->
+              <div class="info-row" *ngIf="currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus">
+                <ion-icon name="time-outline"></ion-icon>
+                <span>Status: </span>
+                <span class="status-badge"
+                  [class.status-in]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'In'"
+                  [class.status-out]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Out'"
+                  [class.status-leave]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'On Leave' || (currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Leave'"
+                  [class.status-not-in]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Not In Yet' || !(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus)">
+                  {{ currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus || 'Not In Yet' }}
+                </span>
+              </div>
             </div>
 
-            <div class="action-buttons">
+            <div class="action-buttons" *ngIf="isOwnProfile">
               <ion-button fill="outline" color="primary" id="image-upload-trigger" class="upload-btn">
                 <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
                 Upload Image
               </ion-button>
 
-              <ion-button *ngIf="resSettings?.allow_employee_resign !== false && currentEmployee?.EmploymentStatus === 'Working' && (!myResignation || myResignation.status === 'Rejected')"
+              <ion-button
+                *ngIf="resSettings?.allow_employee_resign !== false && currentEmployee?.EmploymentStatus === 'Working' && (!myResignation || myResignation.status === 'Rejected')"
                 fill="solid" color="danger" (click)="openResignationModal()" class="upload-btn">
                 <ion-icon slot="start" name="exit-outline"></ion-icon>
                 Apply Resignation
               </ion-button>
-              
-              <ion-button *ngIf="myResignation && myResignation.status !== 'Rejected' && myResignation.status !== 'Relieved'"
+
+              <ion-button
+                *ngIf="myResignation && myResignation.status !== 'Rejected' && myResignation.status !== 'Relieved'"
                 fill="solid" color="warning" (click)="openTrackingModal()" class="upload-btn">
                 <ion-icon slot="start" name="time-outline"></ion-icon>
                 Track Resignation
@@ -116,8 +134,10 @@
   <!-- TAB CONTENT -->
   <div class="tab-content-container ion-padding animate__animated animate__fadeIn">
     <div [ngSwitch]="selectedSegment">
-      <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"></app-about-tab>
-      <app-profile-tab *ngSwitchCase="'profile'" [currentEmployee]="currentEmployee"></app-profile-tab>
+      <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"
+        [isOwnProfile]="isOwnProfile"></app-about-tab>
+      <app-profile-tab *ngSwitchCase="'profile'" [currentEmployee]="currentEmployee"
+        [isOwnProfile]="isOwnProfile"></app-profile-tab>
       <app-job-tab *ngSwitchCase="'job'" [currentEmployee]="currentEmployee"></app-job-tab>
       <app-document-tab *ngSwitchCase="'documents'" [currentEmployee]="currentEmployee"></app-document-tab>
       <app-assets-tab *ngSwitchCase="'assets'" [currentEmployee]="currentEmployee"></app-assets-tab>

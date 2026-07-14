@@ -110,6 +110,36 @@
             font-size: 20px;
             color: vars.$color-primary;
           }
+
+          .status-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-left: 6px;
+
+            &.status-in {
+              background: #DCFCE7;
+              color: #15803D;
+            }
+            &.status-out {
+              background: #FEE2E2;
+              color: #B91C1C;
+            }
+            &.status-leave {
+              background: #DBEAFE;
+              color: #1D4ED8;
+            }
+            &.status-not-in {
+              background: #F3F4F6;
+              color: #4B5563;
+            }
+          }
         }
       }
 

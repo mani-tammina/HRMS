@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { Subject, forkJoin } from 'rxjs';
+import { ActivatedRoute } from '@angular/router';
+import { takeUntil, map } from 'rxjs/operators';
 import { PopoverController, ToastController, LoadingController, ModalController } from '@ionic/angular';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { environment } from '../../../../environments/environment';
@@ -22,6 +23,7 @@ export class ProfilePage implements OnInit, OnDestroy {
   env: string = '';
   myResignation: any = null;
   resSettings: any = null;
+  isOwnProfile: boolean = true;
   
   // Image Upload States
   selectedFile: File | null = null;
@@ -30,6 +32,7 @@ export class ProfilePage implements OnInit, OnDestroy {
   isUploading: boolean = false;
 
   constructor(
+    private route: ActivatedRoute,
     private employeeService: EmployeeService,
     private popoverController: PopoverController,
     private toastController: ToastController,
@@ -41,7 +44,11 @@ export class ProfilePage implements OnInit, OnDestroy {
 
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
-    this.loadProfile();
+    
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      this.loadProfile(params['id']);
+    });
+
     this.loadMyResignation();
     this.loadResSettings();
 
@@ -80,27 +87,90 @@ export class ProfilePage implements OnInit, OnDestroy {
     });
   }
 
-  async loadProfile() {
+  async loadProfile(empId?: string) {
     const loading = await this.loadingController.create({
       message: 'Loading profile...',
       spinner: 'crescent'
     });
     await loading.present();
 
-    this.employeeService.getMyProfile().pipe(takeUntil(this.destroy$)).subscribe({
-      next: (res: any) => {
-        // Unwrap data if it's wrapped in { data: [...] } or { data: {...} }
-        if (res?.data) {
-          this.currentEmployee = Array.isArray(res.data) ? res.data[0] : res.data;
-        } else {
-          this.currentEmployee = res;
-        }
-        loading.dismiss();
-        this.cdr.detectChanges();
+    const targetId = empId || this.route.snapshot.queryParams['id'];
+
+    this.employeeService.getMyProfile().subscribe({
+      next: (myProfile: any) => {
+        const myId = myProfile?.id || myProfile?.data?.id || (Array.isArray(myProfile?.data) ? myProfile?.data[0]?.id : null);
+        this.isOwnProfile = !targetId || Number(targetId) === Number(myId);
+
+        const profileObservable = this.isOwnProfile
+          ? this.employeeService.getMyProfile()
+          : forkJoin({
+              basic: this.employeeService.getEmployeeById(+targetId),
+              details: this.employeeService.getEmployeeDetails(+targetId)
+            }).pipe(
+              map(({ basic, details }) => {
+                const employeeDetails = details?.employee || details;
+                return {
+                  ...basic,
+                  ...employeeDetails,
+                  attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
+                  AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
+                };
+              })
+            );
+
+        profileObservable.pipe(takeUntil(this.destroy$)).subscribe({
+          next: (res: any) => {
+            const employeeData = res?.employee || res;
+            // Unwrap data if it's wrapped in { data: [...] } or { data: {...} }
+            if (employeeData?.data) {
+              this.currentEmployee = Array.isArray(employeeData.data) ? employeeData.data[0] : employeeData.data;
+            } else {
+              this.currentEmployee = employeeData;
+            }
+            loading.dismiss();
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            loading.dismiss();
+            this.showToast('Failed to load profile', 'danger');
+          }
+        });
       },
       error: () => {
-        loading.dismiss();
-        this.showToast('Failed to load profile', 'danger');
+        this.isOwnProfile = !targetId;
+        const profileObservable = targetId
+          ? forkJoin({
+              basic: this.employeeService.getEmployeeById(+targetId),
+              details: this.employeeService.getEmployeeDetails(+targetId)
+            }).pipe(
+              map(({ basic, details }) => {
+                const employeeDetails = details?.employee || details;
+                return {
+                  ...basic,
+                  ...employeeDetails,
+                  attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
+                  AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
+                };
+              })
+            )
+          : this.employeeService.getMyProfile();
+
+        profileObservable.pipe(takeUntil(this.destroy$)).subscribe({
+          next: (res: any) => {
+            const employeeData = res?.employee || res;
+            if (employeeData?.data) {
+              this.currentEmployee = Array.isArray(employeeData.data) ? employeeData.data[0] : employeeData.data;
+            } else {
+              this.currentEmployee = employeeData;
+            }
+            loading.dismiss();
+            this.cdr.detectChanges();
+          },
+          error: () => {
+            loading.dismiss();
+            this.showToast('Failed to load profile', 'danger');
+          }
+        });
       }
     });
   }
