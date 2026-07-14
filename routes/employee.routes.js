@@ -577,27 +577,32 @@ router.get("/reporting/:managerId", auth, async (req, res) => {
 
     const c = await db();
     const [r] = await c.query(
-      `SELECT e.*, d.name as department_name, des.name as designation_name 
+      `SELECT e.*, d.name as department_name, des.name as designation_name,
+              (SELECT COUNT(*) FROM employees WHERE reporting_manager_id = e.id AND EmploymentStatus = 'Working') as reports_count 
        FROM employees e
        LEFT JOIN departments d ON e.DepartmentId = d.id
        LEFT JOIN designations des ON e.DesignationId = des.id
-       WHERE e.reporting_manager_id = ?
+       WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
        ORDER BY e.FirstName, e.LastName
        LIMIT ? OFFSET ?`,
       [managerId, limit, offset],
     );
 
     const [countResult] = await c.query(
-      "SELECT COUNT(*) as total FROM employees WHERE reporting_manager_id = ?",
+      "SELECT COUNT(*) as total FROM employees WHERE reporting_manager_id = ? AND EmploymentStatus = 'Working'",
       [managerId]
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = r.map(emp => maskSensitiveData(emp, req.user.role, false));
+    // Map counts and apply data masking
+    const mappedData = r.map(emp => {
+      emp.reports_count = parseInt(emp.reports_count) || 0;
+      emp.has_reports = emp.reports_count > 0;
+      return maskSensitiveData(emp, req.user.role, false);
+    });
 
     res.json({
-      data: maskedData,
+      data: mappedData,
       pagination: {
         page,
         limit,
@@ -1081,7 +1086,8 @@ const handleGetOrgTree = async (req, res) => {
     const fetchEmployeeDetail = async (empId) => {
       const [rows] = await c.query(
         `SELECT 
-            e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+            e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+            (SELECT COUNT(*) FROM employees WHERE reporting_manager_id = e.id AND EmploymentStatus = 'Working') as reports_count
          FROM employees e
          LEFT JOIN departments d ON e.DepartmentId = d.id
          LEFT JOIN designations des ON e.DesignationId = des.id
@@ -1090,6 +1096,10 @@ const handleGetOrgTree = async (req, res) => {
         [empId]
       );
       if (rows.length === 0) return null;
+      if (rows[0]) {
+        rows[0].reports_count = parseInt(rows[0].reports_count) || 0;
+        rows[0].has_reports = rows[0].reports_count > 0;
+      }
       return maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId);
     };
 
@@ -1097,7 +1107,8 @@ const handleGetOrgTree = async (req, res) => {
     const fetchReports = async (managerId) => {
       const [rows] = await c.query(
         `SELECT 
-            e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+            e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+            (SELECT COUNT(*) FROM employees WHERE reporting_manager_id = e.id AND EmploymentStatus = 'Working') as reports_count
          FROM employees e
          LEFT JOIN departments d ON e.DepartmentId = d.id
          LEFT JOIN designations des ON e.DesignationId = des.id
@@ -1106,49 +1117,76 @@ const handleGetOrgTree = async (req, res) => {
          ORDER BY e.FirstName, e.LastName`,
         [managerId]
       );
-      return rows.map(e => maskSensitiveData(e, req.user.role, e.id === targetEmployeeId));
+      return rows.map(e => {
+        e.reports_count = parseInt(e.reports_count) || 0;
+        e.has_reports = e.reports_count > 0;
+        return maskSensitiveData(e, req.user.role, e.id === targetEmployeeId);
+      });
     };
 
-    // 1. Fetch current (target) employee
-    const employee = await fetchEmployeeDetail(targetEmployeeId);
-    if (!employee) {
-      c.end();
-      return res.status(404).json({ error: "Target employee not found" });
-    }
+    // 1. Trace the reporting line up to the root CEO to build pathIds
+    const pathIds = new Set();
+    let currentId = targetEmployeeId;
+    let rootId = targetEmployeeId;
 
-    // 2. Fetch current employee's team (Level -1)
-    const directReports = await fetchReports(targetEmployeeId);
-
-    // 3. Fetch manager (Level 1) & manager's team
-    let manager = null;
-    let managerTeam = [];
-    if (employee.reporting_manager_id) {
-      manager = await fetchEmployeeDetail(employee.reporting_manager_id);
-      if (manager) {
-        managerTeam = await fetchReports(employee.reporting_manager_id);
+    while (currentId) {
+      if (pathIds.has(currentId)) {
+        console.warn("Circular reporting hierarchy detected for employee:", currentId);
+        break;
+      }
+      pathIds.add(currentId);
+      rootId = currentId;
+      
+      const [rows] = await c.query(
+        "SELECT reporting_manager_id FROM employees WHERE id = ?",
+        [currentId]
+      );
+      if (rows.length > 0 && rows[0].reporting_manager_id) {
+        currentId = rows[0].reporting_manager_id;
+      } else {
+        currentId = null;
       }
     }
 
-    // 4. Fetch manager's manager (Level 2) & grand manager's team
-    let grandManager = null;
-    let grandManagerTeam = [];
-    if (manager && manager.reporting_manager_id) {
-      grandManager = await fetchEmployeeDetail(manager.reporting_manager_id);
-      if (grandManager) {
-        grandManagerTeam = await fetchReports(manager.reporting_manager_id);
-      }
-    }
+    // 2. Build the recursive tree starting from rootId (CEO)
+    const buildSubtree = async (nodeId) => {
+      const employee = await fetchEmployeeDetail(nodeId);
+      if (!employee) return null;
 
+      const isPathNode = pathIds.has(nodeId);
+      const isFocusEmployee = (nodeId === targetEmployeeId);
+
+      let directReports = [];
+      if (isPathNode || isFocusEmployee) {
+        const reports = await fetchReports(nodeId);
+        directReports = await Promise.all(
+          reports.map(async (report) => {
+            if (pathIds.has(report.id)) {
+              return await buildSubtree(report.id);
+            } else {
+              return {
+                employee: report,
+                isPathNode: false,
+                isFocusEmployee: false,
+                directReports: []
+              };
+            }
+          })
+        );
+      }
+
+      return {
+        employee,
+        isPathNode,
+        isFocusEmployee,
+        directReports
+      };
+    };
+
+    const root = await buildSubtree(rootId);
     c.end();
 
-    res.json({
-      employee,
-      directReports,
-      manager,
-      managerTeam,
-      grandManager,
-      grandManagerTeam
-    });
+    res.json({ root });
 
   } catch (error) {
     console.error("Error fetching org tree hierarchy:", error);

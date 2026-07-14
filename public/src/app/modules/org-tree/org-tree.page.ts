@@ -24,9 +24,8 @@ export class OrgTreePage implements OnInit, OnDestroy {
   searchResults: any[] = [];
   showSearchDropdown = false;
 
-  // Expand / collapse states
-  isManagerBranchExpanded = true;
-  isEmployeeBranchExpanded = true;
+    // Expand / collapse states
+  expandedNodes = new Set<number>();
 
   constructor(
     private employeeService: EmployeeService,
@@ -70,8 +69,10 @@ export class OrgTreePage implements OnInit, OnDestroy {
     this.employeeService.getOrgTree(employeeId).pipe(takeUntil(this.destroy$)).subscribe({
       next: (data) => {
         this.treeData = data;
-        this.isManagerBranchExpanded = true;
-        this.isEmployeeBranchExpanded = true;
+        this.expandedNodes.clear();
+        if (data && data.root) {
+          this.initializeExpandedStates(data.root);
+        }
         this.isLoading = false;
         this.cdr.detectChanges();
       },
@@ -84,16 +85,92 @@ export class OrgTreePage implements OnInit, OnDestroy {
     });
   }
 
-  toggleManagerBranch(event: Event) {
-    event.stopPropagation();
-    this.isManagerBranchExpanded = !this.isManagerBranchExpanded;
-    this.cdr.detectChanges();
+  initializeExpandedStates(node: any) {
+    if (!node) return;
+    
+    // Expand nodes on the path, including the focus employee if they have reports
+    if (node.isPathNode) {
+      if (!node.isFocusEmployee || (node.employee.reports_count > 0)) {
+        this.expandedNodes.add(node.employee.id);
+      }
+    }
+    
+    if (node.directReports) {
+      for (const child of node.directReports) {
+        this.initializeExpandedStates(child);
+      }
+    }
   }
 
-  toggleEmployeeBranch(event: Event) {
+  isExpanded(employeeId: number): boolean {
+    return this.expandedNodes.has(employeeId);
+  }
+
+  toggleNode(event: Event, node: any, parentList?: any[]) {
     event.stopPropagation();
-    this.isEmployeeBranchExpanded = !this.isEmployeeBranchExpanded;
-    this.cdr.detectChanges();
+    const employeeId = node.employee.id;
+    if (this.expandedNodes.has(employeeId)) {
+      this.expandedNodes.delete(employeeId);
+      this.cdr.detectChanges();
+    } else {
+      // Collapse all other managers in the same row
+      if (parentList) {
+        for (const sibling of parentList) {
+          if (sibling.employee.id !== employeeId) {
+            this.expandedNodes.delete(sibling.employee.id);
+            this.collapseAllChildren(sibling);
+          }
+        }
+      }
+      
+      if (node.employee.has_reports && (!node.directReports || node.directReports.length === 0) && !node.loading) {
+        node.loading = true;
+        this.cdr.detectChanges();
+        this.employeeService.getReportingEmployees(employeeId).subscribe({
+          next: (res: any) => {
+            const reports = Array.isArray(res) ? res : (res.data || []);
+            node.directReports = reports.map((emp: any) => ({
+              employee: emp,
+              isPathNode: false,
+              isFocusEmployee: false,
+              directReports: []
+            }));
+            this.expandedNodes.add(employeeId);
+            node.loading = false;
+            this.cdr.detectChanges();
+          },
+          error: (err) => {
+            console.error('Error fetching reporting employees:', err);
+            node.loading = false;
+            this.cdr.detectChanges();
+          }
+        });
+      } else if (!node.loading) {
+        this.expandedNodes.add(employeeId);
+        this.cdr.detectChanges();
+      }
+    }
+  }
+
+  collapseAllChildren(node: any) {
+    if (!node) return;
+    this.expandedNodes.delete(node.employee.id);
+    if (node.directReports) {
+      for (const child of node.directReports) {
+        this.collapseAllChildren(child);
+      }
+    }
+  }
+
+  onCardClick(event: Event, node: any, parentList?: any[]) {
+    event.stopPropagation();
+    if (node.employee.has_reports) {
+      if (node.isFocusEmployee || !this.isExpanded(node.employee.id)) {
+        this.toggleNode(event, node, parentList);
+      }
+    } else {
+      this.reCenter(node.employee.id);
+    }
   }
 
   onSearchInput(event: any) {

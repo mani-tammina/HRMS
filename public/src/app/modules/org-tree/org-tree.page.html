@@ -47,431 +47,198 @@
   </div>
 
   <!-- Main Organization Chart (Recursive Canvas) -->
-  <div class="org-tree-chart" *ngIf="!isLoading && treeData">
+  <div class="org-tree-chart" *ngIf="!isLoading && treeData?.root">
     <div class="org-tree-wrapper">
-
-      <!-- ==================== CASE 1: HAS GRAND MANAGER ==================== -->
-      <div class="tree-node-group" *ngIf="treeData.grandManager; else noGrandManager">
-        <!-- Level 2 Root Card: Grand Manager -->
-        <div class="employee-card grand-manager-card" (click)="reCenter(treeData.grandManager.id)">
+      
+      <!-- Top Level: CEO / Root Card -->
+      <div class="tree-node-group">
+        <div 
+          class="employee-card" 
+          [class.focus-employee-card]="treeData.root.isFocusEmployee" 
+          [class.active-focus]="treeData.root.isFocusEmployee" 
+          [class.highlight-relation]="treeData.root.isPathNode"
+          [class.expanded-manager]="isExpanded(treeData.root.employee.id)"
+          (click)="onCardClick($event, treeData.root)"
+        >
           <div class="card-left">
             <div class="avatar-container">
-              <img [src]="getProfileImage(treeData.grandManager)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+              <img [src]="getProfileImage(treeData.root.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
             </div>
           </div>
           <div class="card-right">
             <div class="info-block">
-              <h3 class="emp-name" [title]="treeData.grandManager.FirstName + ' ' + treeData.grandManager.LastName">
-                {{ treeData.grandManager.FirstName }} {{ treeData.grandManager.LastName }}
+              <h3 class="emp-name" [title]="treeData.root.employee.FirstName + ' ' + treeData.root.employee.LastName">
+                {{ treeData.root.employee.FirstName }} {{ treeData.root.employee.LastName }}
               </h3>
-              <p class="emp-title" [title]="treeData.grandManager.designation_name">
-                {{ treeData.grandManager.designation_name || 'N/A' }}
+              <p class="emp-title" [title]="treeData.root.employee.designation_name">
+                {{ treeData.root.employee.designation_name || 'N/A' }}
               </p>
-              <p class="emp-loc" [title]="treeData.grandManager.location_name">
-                {{ treeData.grandManager.location_name || 'N/A' }}
+              <p class="emp-loc" [title]="treeData.root.employee.location_name">
+                {{ treeData.root.employee.location_name || 'N/A' }}
               </p>
-              <p class="emp-dept" [title]="treeData.grandManager.department_name">
-                {{ treeData.grandManager.department_name || 'N/A' }}
+              <p class="emp-dept" [title]="treeData.root.employee.department_name">
+                {{ treeData.root.employee.department_name || 'N/A' }}
               </p>
             </div>
             <div class="card-actions-row">
-              <span class="relation-tag manager-tag" style="background: rgba(139, 92, 246, 0.08); color: #6d28d9; border-color: rgba(139, 92, 246, 0.2)">Grand Mgr</span>
-              <button class="profile-action-btn" (click)="viewProfile($event, treeData.grandManager.id)">
+              <span class="relation-tag focus-tag" *ngIf="treeData.root.isFocusEmployee">Focus</span>
+              <span class="relation-tag manager-tag" *ngIf="treeData.root.isPathNode && !treeData.root.isFocusEmployee">Mgr</span>
+              <span class="relation-tag report-tag" *ngIf="!treeData.root.isPathNode && !treeData.root.isFocusEmployee">Peer</span>
+              <span class="relation-tag team-size-tag" *ngIf="treeData.root.employee.reports_count > 0">Team: {{ treeData.root.employee.reports_count }}</span>
+              
+              <!-- Expand/Collapse Button -->
+              <button 
+                class="expand-action-btn" 
+                *ngIf="treeData.root.employee.reports_count > 0"
+                (click)="toggleNode($event, treeData.root)" 
+                title="Toggle Team"
+              >
+                <ion-icon [name]="isExpanded(treeData.root.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+              </button>
+
+              <button class="profile-action-btn" (click)="viewProfile($event, treeData.root.employee.id)">
                 <ion-icon name="arrow-forward-outline"></ion-icon>
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Grand Manager team connection (only if team is loaded and expanded) -->
-        <ng-container *ngIf="treeData.grandManagerTeam && treeData.grandManagerTeam.length > 0">
+        <!-- Render the team rows below CEO -->
+        <ng-container *ngIf="isExpanded(treeData.root.employee.id) && treeData.root.directReports && treeData.root.directReports.length > 0">
           <div class="parent-line-down"></div>
-
-          <!-- Level 1: Grand Manager's Team (contains Manager) -->
-          <div class="children-row">
-            <div class="child-wrapper" *ngFor="let member of treeData.grandManagerTeam">
-              <div class="branch-line"></div>
-              <div 
-                class="employee-card" 
-                [class.highlight-relation]="member.id === treeData.manager?.id" 
-                (click)="reCenter(member.id)"
-              >
-                <div class="card-left">
-                  <div class="avatar-container">
-                    <img [src]="getProfileImage(member)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                  </div>
-                </div>
-                <div class="card-right">
-                  <div class="info-block">
-                    <h3 class="emp-name" [title]="member.FirstName + ' ' + member.LastName">
-                      {{ member.FirstName }} {{ member.LastName }}
-                    </h3>
-                    <p class="emp-title" [title]="member.designation_name">
-                      {{ member.designation_name || 'N/A' }}
-                    </p>
-                    <p class="emp-loc" [title]="member.location_name">
-                      {{ member.location_name || 'N/A' }}
-                    </p>
-                    <p class="emp-dept" [title]="member.department_name">
-                      {{ member.department_name || 'N/A' }}
-                    </p>
-                  </div>
-                  <div class="card-actions-row">
-                    <span class="relation-tag manager-tag" *ngIf="member.id === treeData.manager?.id">Manager</span>
-                    <span class="relation-tag report-tag" *ngIf="member.id !== treeData.manager?.id">Peer</span>
-                    
-                    <!-- Expand/Collapse Button (Only on the Manager card since they have children) -->
-                    <button 
-                      class="expand-action-btn" 
-                      *ngIf="member.id === treeData.manager?.id && treeData.managerTeam && treeData.managerTeam.length > 0"
-                      (click)="toggleManagerBranch($event)" 
-                      title="Toggle Team"
-                    >
-                      <ion-icon [name]="isManagerBranchExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                    </button>
-
-                    <button class="profile-action-btn" (click)="viewProfile($event, member.id)">
-                      <ion-icon name="arrow-forward-outline"></ion-icon>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- If this is the Manager, nest their team underneath! -->
-              <ng-container *ngIf="member.id === treeData.manager?.id && isManagerBranchExpanded && treeData.managerTeam && treeData.managerTeam.length > 0">
-                <div class="parent-line-down"></div>
-
-                <!-- Level 0: Manager's Team (contains Employee) -->
-                <div class="children-row">
-                  <div class="child-wrapper" *ngFor="let subMember of treeData.managerTeam">
-                    <div class="branch-line"></div>
-                    <div 
-                      class="employee-card" 
-                      [class.highlight-relation]="subMember.id === treeData.employee.id" 
-                      (click)="reCenter(subMember.id)"
-                    >
-                      <div class="card-left">
-                        <div class="avatar-container">
-                          <img [src]="getProfileImage(subMember)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                        </div>
-                      </div>
-                      <div class="card-right">
-                        <div class="info-block">
-                          <h3 class="emp-name" [title]="subMember.FirstName + ' ' + subMember.LastName">
-                            {{ subMember.FirstName }} {{ subMember.LastName }}
-                          </h3>
-                          <p class="emp-title" [title]="subMember.designation_name">
-                            {{ subMember.designation_name || 'N/A' }}
-                          </p>
-                          <p class="emp-loc" [title]="subMember.location_name">
-                            {{ subMember.location_name || 'N/A' }}
-                          </p>
-                          <p class="emp-dept" [title]="subMember.department_name">
-                            {{ subMember.department_name || 'N/A' }}
-                          </p>
-                      </div>
-                      <div class="card-actions-row">
-                        <span class="relation-tag focus-tag" *ngIf="subMember.id === treeData.employee.id">Focus</span>
-                        <span class="relation-tag report-tag" *ngIf="subMember.id !== treeData.employee.id">Peer</span>
-                        
-                        <!-- Expand/Collapse Button (Only on the Focus Employee card since they have children) -->
-                        <button 
-                          class="expand-action-btn" 
-                          *ngIf="subMember.id === treeData.employee.id && treeData.directReports && treeData.directReports.length > 0"
-                          (click)="toggleEmployeeBranch($event)" 
-                          title="Toggle Team"
-                        >
-                          <ion-icon [name]="isEmployeeBranchExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                        </button>
-
-                        <button class="profile-action-btn" (click)="viewProfile($event, subMember.id)">
-                          <ion-icon name="arrow-forward-outline"></ion-icon>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- If this is the focus Employee, nest direct reports underneath! -->
-                  <ng-container *ngIf="subMember.id === treeData.employee.id && isEmployeeBranchExpanded && treeData.directReports && treeData.directReports.length > 0">
-                    <div class="parent-line-down"></div>
-
-                    <!-- Level -1: Employee's Team (Direct Reports) -->
-                    <div class="children-row">
-                      <div class="child-wrapper" *ngFor="let report of treeData.directReports">
-                        <div class="branch-line"></div>
-                        <div class="employee-card" (click)="reCenter(report.id)">
-                          <div class="card-left">
-                            <div class="avatar-container">
-                              <img [src]="getProfileImage(report)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                            </div>
-                          </div>
-                          <div class="card-right">
-                            <div class="info-block">
-                              <h3 class="emp-name" [title]="report.FirstName + ' ' + report.LastName">
-                                {{ report.FirstName }} {{ report.LastName }}
-                              </h3>
-                              <p class="emp-title" [title]="report.designation_name">
-                                {{ report.designation_name || 'N/A' }}
-                              </p>
-                              <p class="emp-loc" [title]="report.location_name">
-                                {{ report.location_name || 'N/A' }}
-                              </p>
-                              <p class="emp-dept" [title]="report.department_name">
-                                {{ report.department_name || 'N/A' }}
-                              </p>
-                            </div>
-                            <div class="card-actions-row">
-                              <span class="relation-tag report-tag">Direct Report</span>
-                              <button class="profile-action-btn" (click)="viewProfile($event, report.id)">
-                                <ion-icon name="arrow-forward-outline"></ion-icon>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </ng-container>
-                </div>
-              </div>
-            </ng-container>
-          </div>
-        </div>
+          <ng-container *ngTemplateOutlet="childrenListTemplate; context: { nodes: treeData.root.directReports }"></ng-container>
         </ng-container>
       </div>
 
-      <!-- ==================== CASE 2: NO GRAND MANAGER (Starts with Manager) ==================== -->
-      <ng-template #noGrandManager>
-        <div class="tree-node-group" *ngIf="treeData.manager; else noManager">
-          <!-- Level 1 Root Card: Manager -->
-          <div class="employee-card manager-card" (click)="reCenter(treeData.manager.id)">
-            <div class="card-left">
-              <div class="avatar-container">
-                <img [src]="getProfileImage(treeData.manager)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-              </div>
-            </div>
-            <div class="card-right">
-              <div class="info-block">
-                <h3 class="emp-name" [title]="treeData.manager.FirstName + ' ' + treeData.manager.LastName">
-                  {{ treeData.manager.FirstName }} {{ treeData.manager.LastName }}
-                </h3>
-                <p class="emp-title" [title]="treeData.manager.designation_name">
-                  {{ treeData.manager.designation_name || 'N/A' }}
-                </p>
-                <p class="emp-loc" [title]="treeData.manager.location_name">
-                  {{ treeData.manager.location_name || 'N/A' }}
-                </p>
-                <p class="emp-dept" [title]="treeData.manager.department_name">
-                  {{ treeData.manager.department_name || 'N/A' }}
-                </p>
-              </div>
-              <div class="card-actions-row">
-                <span class="relation-tag manager-tag">Manager</span>
-                
-                <!-- Expand/Collapse Button for Manager -->
-                <button 
-                  class="expand-action-btn" 
-                  *ngIf="treeData.managerTeam && treeData.managerTeam.length > 0"
-                  (click)="toggleManagerBranch($event)" 
-                  title="Toggle Team"
-                >
-                  <ion-icon [name]="isManagerBranchExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                </button>
-
-                <button class="profile-action-btn" (click)="viewProfile($event, treeData.manager.id)">
-                  <ion-icon name="arrow-forward-outline"></ion-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Manager team connection (only if team is loaded and expanded) -->
-          <ng-container *ngIf="isManagerBranchExpanded && treeData.managerTeam && treeData.managerTeam.length > 0">
-            <div class="parent-line-down"></div>
-
-            <!-- Level 0: Manager's Team (contains Employee) -->
-            <div class="children-row">
-              <div class="child-wrapper" *ngFor="let member of treeData.managerTeam">
-                <div class="branch-line"></div>
-                <div 
-                  class="employee-card" 
-                  [class.highlight-relation]="member.id === treeData.employee.id" 
-                  (click)="reCenter(member.id)"
-                >
-                  <div class="card-left">
-                    <div class="avatar-container">
-                      <img [src]="getProfileImage(member)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                    </div>
-                  </div>
-                  <div class="card-right">
-                    <div class="info-block">
-                      <h3 class="emp-name" [title]="member.FirstName + ' ' + member.LastName">
-                        {{ member.FirstName }} {{ member.LastName }}
-                      </h3>
-                      <p class="emp-title" [title]="member.designation_name">
-                        {{ member.designation_name || 'N/A' }}
-                      </p>
-                      <p class="emp-loc" [title]="member.location_name">
-                        {{ member.location_name || 'N/A' }}
-                      </p>
-                      <p class="emp-dept" [title]="member.department_name">
-                        {{ member.department_name || 'N/A' }}
-                      </p>
-                    </div>
-                    <div class="card-actions-row">
-                      <span class="relation-tag focus-tag" *ngIf="member.id === treeData.employee.id">Focus</span>
-                      <span class="relation-tag report-tag" *ngIf="member.id !== treeData.employee.id">Peer</span>
-                      
-                      <!-- Expand/Collapse Button for Focus Employee -->
-                      <button 
-                        class="expand-action-btn" 
-                        *ngIf="member.id === treeData.employee.id && treeData.directReports && treeData.directReports.length > 0"
-                        (click)="toggleEmployeeBranch($event)" 
-                        title="Toggle Team"
-                      >
-                        <ion-icon [name]="isEmployeeBranchExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                      </button>
-
-                      <button class="profile-action-btn" (click)="viewProfile($event, member.id)">
-                        <ion-icon name="arrow-forward-outline"></ion-icon>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- If this is the focus Employee, nest direct reports underneath -->
-                <ng-container *ngIf="member.id === treeData.employee.id && isEmployeeBranchExpanded && treeData.directReports && treeData.directReports.length > 0">
-                  <div class="parent-line-down"></div>
-
-                  <!-- Level -1: Employee's Team (Direct Reports) -->
-                  <div class="children-row">
-                    <div class="child-wrapper" *ngFor="let report of treeData.directReports">
-                      <div class="branch-line"></div>
-                      <div class="employee-card" (click)="reCenter(report.id)">
-                        <div class="card-left">
-                          <div class="avatar-container">
-                            <img [src]="getProfileImage(report)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                          </div>
-                        </div>
-                        <div class="card-right">
-                          <div class="info-block">
-                            <h3 class="emp-name" [title]="report.FirstName + ' ' + report.LastName">
-                              {{ report.FirstName }} {{ report.LastName }}
-                            </h3>
-                            <p class="emp-title" [title]="report.designation_name">
-                              {{ report.designation_name || 'N/A' }}
-                            </p>
-                            <p class="emp-loc" [title]="report.location_name">
-                              {{ report.location_name || 'N/A' }}
-                            </p>
-                            <p class="emp-dept" [title]="report.department_name">
-                              {{ report.department_name || 'N/A' }}
-                            </p>
-                          </div>
-                          <div class="card-actions-row">
-                            <span class="relation-tag report-tag">Direct Report</span>
-                            <button class="profile-action-btn" (click)="viewProfile($event, report.id)">
-                              <ion-icon name="arrow-forward-outline"></ion-icon>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </ng-container>
-              </div>
-            </div>
-          </ng-container>
-        </div>
-      </ng-template>
-
-      <!-- ==================== CASE 3: NO MANAGER (Starts with Focus Employee) ==================== -->
-      <ng-template #noManager>
-        <div class="tree-node-group" *ngIf="treeData.employee">
-          <!-- Level 0 Root Card: Employee -->
-          <div class="employee-card focus-employee-card active-focus" (click)="reCenter(treeData.employee.id)">
-            <div class="card-left">
-              <div class="avatar-container">
-                <img [src]="getProfileImage(treeData.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-              </div>
-            </div>
-            <div class="card-right">
-              <div class="info-block">
-                <h3 class="emp-name" [title]="treeData.employee.FirstName + ' ' + treeData.employee.LastName">
-                  {{ treeData.employee.FirstName }} {{ treeData.employee.LastName }}
-                </h3>
-                <p class="emp-title" [title]="treeData.employee.designation_name">
-                  {{ treeData.employee.designation_name || 'N/A' }}
-                </p>
-                <p class="emp-loc" [title]="treeData.employee.location_name">
-                  {{ treeData.employee.location_name || 'N/A' }}
-                </p>
-                <p class="emp-dept" [title]="treeData.employee.department_name">
-                  {{ treeData.employee.department_name || 'N/A' }}
-                </p>
-              </div>
-              <div class="card-actions-row">
-                <span class="relation-tag focus-tag">Focus</span>
-                
-                <!-- Expand/Collapse Button for Focus Employee -->
-                <button 
-                  class="expand-action-btn" 
-                  *ngIf="treeData.directReports && treeData.directReports.length > 0"
-                  (click)="toggleEmployeeBranch($event)" 
-                  title="Toggle Team"
-                >
-                  <ion-icon [name]="isEmployeeBranchExpanded ? 'chevron-up' : 'chevron-down'"></ion-icon>
-                </button>
-
-                <button class="profile-action-btn" (click)="viewProfile($event, treeData.employee.id)">
-                  <ion-icon name="arrow-forward-outline"></ion-icon>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Employee team connection (only if team is loaded and expanded) -->
-          <ng-container *ngIf="isEmployeeBranchExpanded && treeData.directReports && treeData.directReports.length > 0">
-            <div class="parent-line-down"></div>
-
-            <!-- Level -1: Employee's Team (Direct Reports) -->
-            <div class="children-row">
-              <div class="child-wrapper" *ngFor="let report of treeData.directReports">
-                <div class="branch-line"></div>
-                <div class="employee-card" (click)="reCenter(report.id)">
-                  <div class="card-left">
-                    <div class="avatar-container">
-                      <img [src]="getProfileImage(report)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
-                    </div>
-                  </div>
-                  <div class="card-right">
-                    <div class="info-block">
-                      <h3 class="emp-name" [title]="report.FirstName + ' ' + report.LastName">
-                        {{ report.FirstName }} {{ report.LastName }}
-                      </h3>
-                      <p class="emp-title" [title]="report.designation_name">
-                        {{ report.designation_name || 'N/A' }}
-                      </p>
-                      <p class="emp-loc" [title]="report.location_name">
-                        {{ report.location_name || 'N/A' }}
-                      </p>
-                      <p class="emp-dept" [title]="report.department_name">
-                        {{ report.department_name || 'N/A' }}
-                      </p>
-                    </div>
-                    <div class="card-actions-row">
-                      <span class="relation-tag report-tag">Direct Report</span>
-                      <button class="profile-action-btn" (click)="viewProfile($event, report.id)">
-                        <ion-icon name="arrow-forward-outline"></ion-icon>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ng-container>
-        </div>
-      </ng-template>
-
     </div>
   </div>
+
+  <!-- Recursive Peer List Template -->
+  <ng-template #childrenListTemplate let-nodes="nodes">
+    <div class="children-row-container" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+      <!-- Render the flex row of cards -->
+      <div class="children-row">
+        <div class="child-wrapper" *ngFor="let node of nodes">
+          <div class="branch-line"></div>
+          <div 
+            class="employee-card" 
+            [class.focus-employee-card]="node.isFocusEmployee" 
+            [class.active-focus]="node.isFocusEmployee" 
+            [class.highlight-relation]="node.isPathNode"
+            [class.expanded-manager]="isExpanded(node.employee.id)"
+            (click)="onCardClick($event, node, nodes)"
+          >
+            <div class="card-left">
+              <div class="avatar-container">
+                <img [src]="getProfileImage(node.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+              </div>
+            </div>
+            <div class="card-right">
+              <div class="info-block">
+                <h3 class="emp-name" [title]="node.employee.FirstName + ' ' + node.employee.LastName">
+                  {{ node.employee.FirstName }} {{ node.employee.LastName }}
+                </h3>
+                <p class="emp-title" [title]="node.employee.designation_name">
+                  {{ node.employee.designation_name || 'N/A' }}
+                </p>
+                <p class="emp-loc" [title]="node.employee.location_name">
+                  {{ node.employee.location_name || 'N/A' }}
+                </p>
+                <p class="emp-dept" [title]="node.employee.department_name">
+                  {{ node.employee.department_name || 'N/A' }}
+                </p>
+              </div>
+              <div class="card-actions-row">
+                <span class="relation-tag focus-tag" *ngIf="node.isFocusEmployee">Focus</span>
+                <span class="relation-tag manager-tag" *ngIf="node.isPathNode && !node.isFocusEmployee">Mgr</span>
+                <span class="relation-tag report-tag" *ngIf="!node.isPathNode && !node.isFocusEmployee">Peer</span>
+                <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{ node.employee.reports_count }}</span>
+                
+                <!-- Expand/Collapse Button (Only if node has direct reports) -->
+                <button 
+                  class="expand-action-btn" 
+                  *ngIf="node.employee.reports_count > 0"
+                  (click)="toggleNode($event, node, nodes)" 
+                  title="Toggle Team"
+                >
+                  <ion-icon [name]="isExpanded(node.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                </button>
+
+                <button class="profile-action-btn" (click)="viewProfile($event, node.employee.id)">
+                  <ion-icon name="arrow-forward-outline"></ion-icon>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Find the expanded node in this list of peers -->
+      <ng-container *ngFor="let node of nodes">
+        <ng-container *ngIf="isExpanded(node.employee.id) && node.directReports && node.directReports.length > 0">
+          <!-- Render vertical line down from the peer row -->
+          <div class="parent-line-down"></div>
+          
+          <!-- Render the selected manager individually -->
+          <div class="selected-manager-individual-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+            <div 
+              class="employee-card expanded-manager" 
+              [class.focus-employee-card]="node.isFocusEmployee" 
+              [class.active-focus]="node.isFocusEmployee" 
+              [class.highlight-relation]="node.isPathNode"
+              (click)="onCardClick($event, node, nodes)"
+            >
+              <div class="card-left">
+                <div class="avatar-container">
+                  <img [src]="getProfileImage(node.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+                </div>
+              </div>
+              <div class="card-right">
+                <div class="info-block">
+                  <h3 class="emp-name" [title]="node.employee.FirstName + ' ' + node.employee.LastName">
+                    {{ node.employee.FirstName }} {{ node.employee.LastName }}
+                  </h3>
+                  <p class="emp-title" [title]="node.employee.designation_name">
+                    {{ node.employee.designation_name || 'N/A' }}
+                  </p>
+                  <p class="emp-loc" [title]="node.employee.location_name">
+                    {{ node.employee.location_name || 'N/A' }}
+                  </p>
+                  <p class="emp-dept" [title]="node.employee.department_name">
+                    {{ node.employee.department_name || 'N/A' }}
+                  </p>
+                </div>
+                <div class="card-actions-row">
+                  <span class="relation-tag focus-tag" *ngIf="node.isFocusEmployee">Focus</span>
+                  <span class="relation-tag manager-tag" *ngIf="node.isPathNode && !node.isFocusEmployee">Mgr</span>
+                  <span class="relation-tag report-tag" *ngIf="!node.isPathNode && !node.isFocusEmployee">Peer</span>
+                  <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{ node.employee.reports_count }}</span>
+                  
+                  <!-- Expand/Collapse Button (Only if node has direct reports) -->
+                  <button 
+                    class="expand-action-btn" 
+                    *ngIf="node.employee.reports_count > 0"
+                    (click)="toggleNode($event, node, nodes)" 
+                    title="Toggle Team"
+                  >
+                    <ion-icon [name]="isExpanded(node.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                  </button>
+
+                  <button class="profile-action-btn" (click)="viewProfile($event, node.employee.id)">
+                    <ion-icon name="arrow-forward-outline"></ion-icon>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Render vertical line down from the individual card to their team -->
+          <div class="parent-line-down"></div>
+
+          <!-- Recursively render the expanded node's directReports -->
+          <ng-container *ngTemplateOutlet="childrenListTemplate; context: { nodes: node.directReports }"></ng-container>
+        </ng-container>
+      </ng-container>
+    </div>
+  </ng-template>
 </ion-content>
