@@ -33,6 +33,7 @@ ion-content.login-content {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background: #ffffff;
   overflow: hidden;
+  padding: 20px 20px;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -43,10 +44,10 @@ ion-content.login-content {
   flex: 0 0 50%;
   width: 50%;
   min-height: 100vh;
-  background-image: url('/assets/bg.svg');
+  background-image: url(/assets/Bgnew.png);
   background-repeat: no-repeat;
-  background-size: cover;
-  background-position: left;
+  background-size: 100vh 100vh;
+  background-position: center;
   position: relative;
   overflow: hidden;
   display: flex;
@@ -55,6 +56,7 @@ ion-content.login-content {
   box-sizing: border-box;
   transition: transform 0.55s cubic-bezier(0.25, 1, 0.5, 1);
   will-change: transform;
+  border-radius: 20px;
 }
 
 // ── Tech Tammina logo (top-left) ──
@@ -139,22 +141,35 @@ ion-content.login-content {
 
   .illustration-img {
     width: 100%;
-    max-width: 480px;
+    max-width: 580px;
     height: auto;
     object-fit: contain;
     object-position: bottom;
     display: block;
+    position: absolute;
+    bottom: 0px;
+    right: 0px;
   }
+}
+
+.left-img {
+  position: absolute;
+  right: 0px;
+  top: 80px;
+  transform: rotateX(45deg);
 }
 
 // ─────────────────────────────────────────────────────────────
 // RIGHT PANEL — Pure white background
 // ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// RIGHT PANEL — Soft premium light background
+// ─────────────────────────────────────────────────────────────
 .right-panel {
   flex: 0 0 50%;
   width: 50%;
   min-height: 100vh;
-  background: #ffffff;
+  background: #f8fafc;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -165,17 +180,30 @@ ion-content.login-content {
   will-change: transform;
 }
 
+.right-panel-content {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 28px;
+  box-sizing: border-box;
+}
+
+.mobile-logo-container {
+  display: none;
+}
+
 // ─────────────────────────────────────────────────────────────
-// FORM CARD — Floating white card with subtle border & shadow
+// FORM CARD — Floating white card with rounded corners & shadow
 // ─────────────────────────────────────────────────────────────
 .form-card {
-  width: 100%;
-  max-width: 380px;
+  // width: 100%;
   background: #ffffff;
-  border-radius: 20px;
-  border: 1px solid #E5E7EB;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
-  padding: 40px 36px 32px;
+  border-radius: 24px;
+  border: 1px solid #f1f5f9;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03), 0 1px 3px rgba(0, 0, 0, 0.02);
+  padding: 48px 40px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -184,25 +212,25 @@ ion-content.login-content {
 
 // ── Headings ──
 .form-heading {
-  font-size: 26px;
+  font-size: 28px;
   font-weight: 700;
-  color: #111827;
+  color: #0f172a;
   margin: 0 0 8px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.5px;
   text-align: left;
-  line-height: 1.25;
+  line-height: 1.2;
 
   .heading-wave {
-    font-size: 22px;
+    font-size: 24px;
     vertical-align: middle;
-    margin-left: 2px;
+    margin-left: 4px;
   }
 }
 
 .form-subheading {
-  font-size: 13.5px;
-  color: #6B7280;
-  margin: 0 0 24px;
+  font-size: 14.5px;
+  color: #64748b;
+  margin: 0 0 28px;
   text-align: left;
   line-height: 1.5;
   font-weight: 400;
@@ -218,14 +246,14 @@ ion-content.login-content {
 // ── Field Groups ──
 .field-group {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 
   .field-label {
     display: block;
-    font-size: 13px;
+    font-size: 13.5px;
     font-weight: 600;
-    color: #374151;
-    margin-bottom: 7px;
+    color: #334155;
+    margin-bottom: 8px;
     letter-spacing: 0em;
   }
 }
@@ -233,13 +261,13 @@ ion-content.login-content {
 // ── Inputs ──
 .form-input {
   width: 100%;
-  height: 46px;
+  height: 48px;
   background: #ffffff;
-  border: 1.5px solid #E5E7EB;
-  border-radius: 10px;
-  padding: 0 14px;
-  font-size: 14px;
-  color: #111827;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0 16px;
+  font-size: 14.5px;
+  color: #0f172a;
   font-family: 'Inter', sans-serif;
   outline: none;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
@@ -248,13 +276,13 @@ ion-content.login-content {
   -webkit-appearance: none;
 
   &::placeholder {
-    color: #9CA3AF;
+    color: #94a3b8;
     font-weight: 400;
   }
 
   &:focus {
-    border-color: #2563EB;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.08);
   }
 }
 
@@ -264,16 +292,16 @@ ion-content.login-content {
   width: 100%;
 
   .form-input.has-left-icon {
-    padding-left: 42px;
+    padding-left: 44px;
   }
 
   .left-icon {
     position: absolute;
-    left: 14px;
+    left: 16px;
     top: 50%;
     transform: translateY(-50%);
-    font-size: 17px;
-    color: #9CA3AF;
+    font-size: 18px;
+    color: #94a3b8;
     pointer-events: none;
     z-index: 1;
   }
@@ -302,12 +330,12 @@ ion-content.login-content {
 
     ion-icon {
       font-size: 18px;
-      color: #9CA3AF;
+      color: #94a3b8;
       transition: color 0.2s;
     }
 
     &:hover ion-icon {
-      color: #6B7280;
+      color: #64748b;
     }
   }
 }
@@ -317,14 +345,14 @@ ion-content.login-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 18px;
+  margin-bottom: 20px;
   width: 100%;
 
   .remember-label {
     display: flex;
     align-items: center;
-    font-size: 12.5px;
-    color: #6B7280;
+    font-size: 13px;
+    color: #64748b;
     cursor: pointer;
     position: relative;
     padding-left: 22px;
@@ -347,8 +375,8 @@ ion-content.login-content {
       width: 15px;
       height: 15px;
       background: #ffffff;
-      border: 1.5px solid #D1D5DB;
-      border-radius: 3px;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 4px;
       transition: all 0.2s ease;
 
       &::after {
@@ -366,8 +394,8 @@ ion-content.login-content {
     }
 
     input:checked~.checkmark {
-      background: #2563EB;
-      border-color: #2563EB;
+      background: #3b82f6;
+      border-color: #3b82f6;
 
       &::after {
         display: block;
@@ -376,29 +404,29 @@ ion-content.login-content {
   }
 
   .forgot-link {
-    font-size: 12.5px;
-    color: #2563EB;
+    font-size: 13px;
+    color: #3b82f6;
     font-weight: 500;
     cursor: pointer;
     text-decoration: none;
     transition: color 0.2s;
 
     &:hover {
-      color: #1d4ed8;
+      color: #2563eb;
       text-decoration: underline;
     }
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// PRIMARY BUTTON — Solid royal blue (matches loginnew.png)
+// PRIMARY BUTTON — Vibrant royal blue
 // ─────────────────────────────────────────────────────────────
 .btn-primary {
   width: 100%;
   height: 48px;
-  background: #2563EB;
+  background: #3b82f6;
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   color: #ffffff;
   font-size: 15px;
   font-weight: 600;
@@ -414,12 +442,11 @@ ion-content.login-content {
   margin-bottom: 0;
 
   &:hover:not(:disabled) {
-    background: #1d4ed8;
-    transform: translateY(-1px);
+    background: #2563eb;
   }
 
   &:active:not(:disabled) {
-    transform: scale(0.98);
+    transform: scale(0.99);
   }
 
   &:disabled {
@@ -435,19 +462,19 @@ ion-content.login-content {
   display: flex;
   align-items: center;
   width: 100%;
-  margin: 16px 0;
+  margin: 20px 0;
 
   &::before,
   &::after {
     content: '';
     flex: 1;
     height: 1px;
-    background: #E5E7EB;
+    background: #e2e8f0;
   }
 
   span {
-    font-size: 12px;
-    color: #9CA3AF;
+    font-size: 13px;
+    color: #94a3b8;
     background: #fff;
     margin: 0 12px;
     font-weight: 400;
@@ -455,17 +482,17 @@ ion-content.login-content {
 }
 
 // ─────────────────────────────────────────────────────────────
-// SSO BUTTON — white with border + shield icon
+// SSO BUTTON — white with border + shield/lock icon
 // ─────────────────────────────────────────────────────────────
 .btn-sso {
   width: 100%;
   height: 48px;
   background: #ffffff;
-  border: 1.5px solid #E5E7EB;
-  border-radius: 10px;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  color: #0f172a;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -474,43 +501,43 @@ ion-content.login-content {
   font-family: 'Inter', sans-serif;
   transition: all 0.2s ease;
 
-  .sso-shield-icon {
-    font-size: 17px;
-    color: #2563EB;
+  .sso-lock-icon {
+    font-size: 18px;
+    color: #0f52ba; // sapphire blue icon fill
   }
 
   ion-icon {
-    font-size: 17px;
-    color: #6B7280;
+    font-size: 18px;
+    color: #0f52ba;
   }
 
   &:hover {
-    border-color: #D1D5DB;
-    background: #F9FAFB;
+    border-color: #cbd5e1;
+    background: #f8fafc;
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// SECURE DATA NOTICE — Light blue pill (matches loginnew.png)
+// SECURE DATA NOTICE — Light blue pill
 // ─────────────────────────────────────────────────────────────
 .secure-data-notice {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 7px;
-  margin-top: 20px;
-  background: #EBF5FF;
+  gap: 8px;
+  margin-top: 24px;
+  background: #eff6ff;
   padding: 12px 20px;
-  border-radius: 100px;
+  border-radius: 12px;
   color: #1e40af;
-  font-size: 12.5px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   width: 100%;
   box-sizing: border-box;
 
   .secure-icon {
-    font-size: 15px;
-    color: #2563EB;
+    font-size: 17px;
+    color: #3b82f6;
     flex-shrink: 0;
   }
 }
@@ -519,11 +546,11 @@ ion-content.login-content {
 // FOOTER (copyright + links) — Gray, small, centered
 // ─────────────────────────────────────────────────────────────
 .form-footer {
-  margin-top: 20px;
+  width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .copyright {
@@ -558,38 +585,51 @@ ion-content.login-content {
 }
 
 // ─────────────────────────────────────────────────────────────
-// FORGOT PASSWORD MODE — Panel slide animation
+// FORGOT PASSWORD MODE — Panel slide animation (Desktops only)
 // ─────────────────────────────────────────────────────────────
-.login-page-wrapper.forgot-mode {
-  .left-panel {
-    transform: translateX(calc(100% * 43 / 57));
+@media (min-width: 1025px) {
+  .login-page-wrapper.forgot-mode {
+    .left-panel {
+      transform: translateX(calc(100% * 43 / 57));
+    }
+
+    .right-panel {
+      transform: translateX(calc(-100% * 57 / 43));
+    }
   }
 
-  .right-panel {
-    transform: translateX(calc(-100% * 57 / 43));
+  .form-card {
+    width: 100%;
   }
 }
 
 // ─────────────────────────────────────────────────────────────
 // RESPONSIVE — Tablet & Mobile
 // ─────────────────────────────────────────────────────────────
-@media (max-width: 960px) {
+
+// Tablet View (768px to 1024px)
+@media (min-width: 768px) and (max-width: 1024px) {
   .login-page-wrapper {
-    flex-direction: column;
-    height: auto;
-    min-height: 100vh;
+    padding: 12px;
+    height: 100vh;
+    gap: 12px;
   }
 
   .left-panel {
-    flex: none;
-    width: 100%;
-    min-height: 280px;
-    height: 280px;
-    padding: 28px 24px 0;
-    background-position: center center;
+    flex: 0 0 45%;
+    width: 45%;
+    padding: 24px 24px 0;
+    min-height: auto;
+    height: 100%;
+
+    .left-logo {
+      .left-logo-img {
+        max-height: 38px;
+      }
+    }
 
     .left-caption {
-      margin-top: 24px;
+      margin-top: 28px;
 
       .caption-line1,
       .caption-line2 {
@@ -597,36 +637,61 @@ ion-content.login-content {
       }
 
       .caption-subtitle {
-        display: none;
+        font-size: 12.5px;
+        line-height: 1.5;
+        max-width: 100%;
       }
     }
 
     .left-illustration {
-      padding-bottom: 0;
-
       .illustration-img {
-        max-width: 200px;
+        max-width: 85%;
+        position: absolute;
+        bottom: 0;
+        right: 0;
+      }
+    }
+
+    .left-img {
+      top: 50px;
+
+      .papper-rocket {
+        max-width: 50px;
       }
     }
   }
 
   .right-panel {
-    flex: 1;
-    width: 100%;
+    flex: 0 0 55%;
+    width: 55%;
     min-height: auto;
-    padding: 28px 20px 40px;
-    align-items: flex-start;
-    justify-content: center;
-    background: #F3F4F6;
+    height: 100%;
+    padding: 16px;
+    background: #f8fafc;
+  }
+
+  .right-panel-content {
+    max-width: 100%;
+    gap: 20px;
   }
 
   .form-card {
-    max-width: 100%;
-    padding: 32px 24px 28px;
-    border-radius: 16px;
+    padding: 32px 24px;
+    border-radius: 20px;
   }
 
-  // Reset slide animation on mobile
+  .form-heading {
+    font-size: 24px;
+  }
+
+  .form-subheading {
+    margin-bottom: 16px;
+  }
+
+  .secure-data-notice {
+    margin-top: 16px;
+  }
+
   .login-page-wrapper.forgot-mode {
 
     .left-panel,
@@ -636,26 +701,108 @@ ion-content.login-content {
   }
 }
 
-@media (max-width: 480px) {
-  .left-panel {
-    height: 220px;
-    min-height: 220px;
+// Mobile View (Below 768px)
+@media (max-width: 767px) {
+  .login-page-wrapper {
+    padding: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #3b82f6 100%);
+    overflow-y: auto;
   }
 
-  .left-caption {
-    margin-top: 16px !important;
+  .left-panel {
+    display: none !important;
+  }
 
-    .caption-line1,
-    .caption-line2 {
-      font-size: 26px !important;
+  .right-panel {
+    flex: 0 0 100%;
+    width: 100%;
+    min-height: 100vh;
+    padding: 32px 16px;
+    background: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .right-panel-content {
+    max-width: 100%;
+    width: 100%;
+    padding: 0;
+    gap: 24px;
+  }
+
+  .mobile-logo-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 8px;
+    width: 100%;
+
+    .mobile-logo {
+      max-height: 70px;
+      object-fit: contain;
     }
   }
 
   .form-card {
-    padding: 24px 18px 20px;
+    border-radius: 24px;
+    padding: 36px 24px;
+    border: none;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
   }
 
   .form-heading {
-    font-size: 22px;
+    font-size: 26px;
+  }
+
+  .form-subheading {
+    margin-bottom: 24px;
+  }
+
+  .field-group {
+    margin-bottom: 18px;
+  }
+
+  .form-input {
+    height: 48px;
+  }
+
+  .btn-primary,
+  .btn-sso {
+    height: 48px;
+  }
+
+  .secure-data-notice {
+    margin-top: 18px;
+    padding: 12px 16px;
+  }
+
+  .form-footer {
+    .copyright {
+      color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .footer-links {
+      a {
+        color: rgba(255, 255, 255, 0.7) !important;
+
+        &:hover {
+          color: #ffffff !important;
+        }
+      }
+
+      .dot {
+        color: rgba(255, 255, 255, 0.4) !important;
+      }
+    }
+  }
+
+  .login-page-wrapper.forgot-mode {
+
+    .left-panel,
+    .right-panel {
+      transform: none !important;
+    }
   }
 }
