@@ -507,34 +507,8 @@ async function canViewEmployee(viewerId, targetEmployeeId, viewerRole) {
         const viewerEmployee = await findEmployeeByUserId(viewerId);
         if (!viewerEmployee) return false;
 
-        // Can view self
-        if (viewerEmployee.id === parseInt(targetEmployeeId)) {
-            return true;
-        }
-
-        // Managers can view their direct reports
-        const [reports] = await connection.query(
-            'SELECT COUNT(*) as count FROM employees WHERE id = ? AND reporting_manager_id = ?',
-            [targetEmployeeId, viewerEmployee.id]
-        );
-
-        if (reports[0].count > 0) {
-            return true;
-        }
-
-        // Can view team members (people with same manager)
-        if (viewerEmployee.reporting_manager_id) {
-            const [teammates] = await connection.query(
-                'SELECT COUNT(*) as count FROM employees WHERE id = ? AND reporting_manager_id = ?',
-                [targetEmployeeId, viewerEmployee.reporting_manager_id]
-            );
-
-            if (teammates[0].count > 0) {
-                return true;
-            }
-        }
-
-        return false;
+        // Any authenticated employee is authorized to view other employee details
+        return true;
 
     } catch (error) {
         console.error('[canViewEmployee] Error:', error.message);

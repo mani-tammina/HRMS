@@ -237,10 +237,7 @@
 
   /* Vertical tick line above each card in the group */
   .branch-line {
-    width: 2px;
-    height: 10px;
-    background: vars.$color-border-medium;
-    margin-bottom: 4px;
+    display: none !important;
   }
 }
 
@@ -422,6 +419,12 @@
       color: #d97706;
       border-color: rgba(217, 119, 6, 0.2);
     }
+
+    &.team-size-tag {
+      background: rgba(31, 116, 187, 0.05);
+      color: #1f74bb;
+      border-color: rgba(31, 116, 187, 0.15);
+    }
   }
 
   .expand-action-btn {
@@ -489,8 +492,9 @@
 
 /* Active focus target employee card highlighting */
 .active-focus {
-  border-color: vars.$color-success !important;
-  box-shadow: 0 0 12px rgba(22, 163, 74, 0.15);
+  border: 2px solid vars.$color-success !important;
+  box-shadow: 0 0 16px rgba(22, 163, 74, 0.25), vars.$shadow-md;
+  transform: translateY(-4px);
 
   .card-left {
     background: rgba(22, 163, 74, 0.05);
@@ -499,7 +503,7 @@
 
   &:hover {
     border-color: vars.$color-success-dark !important;
-    box-shadow: 0 0 16px rgba(22, 163, 74, 0.3);
+    box-shadow: 0 0 20px rgba(22, 163, 74, 0.4);
   }
 }
 
@@ -529,5 +533,17 @@
     font-size: 11px;
     margin: 0;
     font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Expanded Manager Card Highlight */
+.employee-card.expanded-manager {
+  border: 2px solid vars.$color-primary !important;
+  box-shadow: 0 0 16px rgba(31, 116, 187, 0.25), vars.$shadow-md;
+  background: rgba(31, 116, 187, 0.04);
+  transform: translateY(-4px);
+
+  &:hover {
+    box-shadow: 0 0 20px rgba(31, 116, 187, 0.45);
   }
 }
