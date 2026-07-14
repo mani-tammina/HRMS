@@ -167,6 +167,12 @@ export class EmployeeService {
     return this.http.get<any>(`${this.ATTENDANCE_API_URL}/report/team`, { params, headers: { Authorization: `Bearer ${token}` } });
   }
 
+  getOrgTree(employeeId?: number): Observable<any> {
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
+    const url = employeeId ? `${this.API_URL}/org-tree/hierarchy/${employeeId}` : `${this.API_URL}/org-tree/hierarchy`;
+    return this.http.get<any>(url, { headers: { Authorization: `Bearer ${token}` } });
+  }
+
   setEmployeeId(id: number) { this.employeeIdSubject.next(id); }
   getEmployeeId(): number | null { return this.employeeIdSubject.value; }
 }

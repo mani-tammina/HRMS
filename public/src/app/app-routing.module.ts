@@ -50,6 +50,12 @@ const routes: Routes = [
     data: { role: ['manager', 'hr', 'employee', 'finance'] }
   },
   {
+    path: 'org-tree',
+    loadChildren: () => import('./modules/org-tree/org-tree.module').then(m => m.OrgTreePageModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['admin', 'manager', 'hr', 'employee', 'finance'] }
+  },
+  {
     path: 'workTrack',
     loadChildren: () => import('./modules/attendance/work-track/work-track.module').then(m => m.WorkTrackPageModule),
     canActivate: [AuthGuard, RoleGuard],

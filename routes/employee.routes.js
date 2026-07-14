@@ -1058,4 +1058,105 @@ router.get("/my-team/co-team/:employeeId", auth, async (req, res) => {
   }
 });
 
+// Shared handler for fetching organizational tree hierarchy
+const handleGetOrgTree = async (req, res) => {
+  try {
+    const requestedEmployeeId = req.params.employeeId ? parseInt(req.params.employeeId) : null;
+    let targetEmployeeId;
+
+    if (requestedEmployeeId) {
+      if (isNaN(requestedEmployeeId)) {
+        return res.status(400).json({ error: "Invalid employee ID" });
+      }
+      targetEmployeeId = requestedEmployeeId;
+    } else {
+      const emp = await findEmployeeByUserId(req.user.id);
+      if (!emp) return res.status(404).json({ error: "Employee not found" });
+      targetEmployeeId = emp.id;
+    }
+
+    const c = await db();
+
+    // Helper function to fetch employee detail with joins
+    const fetchEmployeeDetail = async (empId) => {
+      const [rows] = await c.query(
+        `SELECT 
+            e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+         FROM employees e
+         LEFT JOIN departments d ON e.DepartmentId = d.id
+         LEFT JOIN designations des ON e.DesignationId = des.id
+         LEFT JOIN locations l ON e.LocationId = l.id
+         WHERE e.id = ? AND e.EmploymentStatus = 'Working'`,
+        [empId]
+      );
+      if (rows.length === 0) return null;
+      return maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId);
+    };
+
+    // Helper function to fetch reports (team) for a manager
+    const fetchReports = async (managerId) => {
+      const [rows] = await c.query(
+        `SELECT 
+            e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+         FROM employees e
+         LEFT JOIN departments d ON e.DepartmentId = d.id
+         LEFT JOIN designations des ON e.DesignationId = des.id
+         LEFT JOIN locations l ON e.LocationId = l.id
+         WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
+         ORDER BY e.FirstName, e.LastName`,
+        [managerId]
+      );
+      return rows.map(e => maskSensitiveData(e, req.user.role, e.id === targetEmployeeId));
+    };
+
+    // 1. Fetch current (target) employee
+    const employee = await fetchEmployeeDetail(targetEmployeeId);
+    if (!employee) {
+      c.end();
+      return res.status(404).json({ error: "Target employee not found" });
+    }
+
+    // 2. Fetch current employee's team (Level -1)
+    const directReports = await fetchReports(targetEmployeeId);
+
+    // 3. Fetch manager (Level 1) & manager's team
+    let manager = null;
+    let managerTeam = [];
+    if (employee.reporting_manager_id) {
+      manager = await fetchEmployeeDetail(employee.reporting_manager_id);
+      if (manager) {
+        managerTeam = await fetchReports(employee.reporting_manager_id);
+      }
+    }
+
+    // 4. Fetch manager's manager (Level 2) & grand manager's team
+    let grandManager = null;
+    let grandManagerTeam = [];
+    if (manager && manager.reporting_manager_id) {
+      grandManager = await fetchEmployeeDetail(manager.reporting_manager_id);
+      if (grandManager) {
+        grandManagerTeam = await fetchReports(manager.reporting_manager_id);
+      }
+    }
+
+    c.end();
+
+    res.json({
+      employee,
+      directReports,
+      manager,
+      managerTeam,
+      grandManager,
+      grandManagerTeam
+    });
+
+  } catch (error) {
+    console.error("Error fetching org tree hierarchy:", error);
+    res.status(500).json({ error: error.message || "Failed to fetch org tree hierarchy" });
+  }
+};
+
+router.get("/org-tree/hierarchy", auth, handleGetOrgTree);
+router.get("/org-tree/hierarchy/:employeeId", auth, handleGetOrgTree);
+
 module.exports = router;

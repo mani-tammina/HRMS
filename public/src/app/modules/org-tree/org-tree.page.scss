@@ -1,0 +1,533 @@
+@use '../../../theme/_variables' as vars;
+
+.org-tree-toolbar {
+  --background: #{vars.$color-white};
+  --color: #{vars.$color-text-primary};
+  padding: 8px 16px;
+  border-bottom: 1px solid vars.$color-border-light;
+
+  ion-title {
+    font-size: 1.25rem;
+    font-weight: vars.$fw-bold;
+    color: vars.$color-text-primary;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Custom Search Container in Header */
+.search-container {
+  position: relative;
+  width: 280px;
+  margin-left: auto;
+
+  @media (max-width: 576px) {
+    width: 180px;
+  }
+}
+
+.search-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: vars.$color-bg-subtle;
+  border: 1px solid vars.$color-border-medium;
+  border-radius: 20px;
+  padding: 6px 12px;
+  transition: vars.$transition-base;
+
+  &:focus-within {
+    background: vars.$color-white;
+    border-color: vars.$color-primary;
+  }
+}
+
+.search-icon {
+  color: vars.$color-text-subtle;
+  font-size: 18px;
+  margin-right: 8px;
+}
+
+.custom-search-input {
+  background: transparent;
+  border: none;
+  color: vars.$color-text-primary;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  font-family: 'Inter', sans-serif;
+
+  &::placeholder {
+    color: vars.$color-text-placeholder;
+  }
+}
+
+.clear-btn {
+  background: transparent;
+  border: none;
+  color: rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  font-size: 16px;
+
+  &:hover {
+    color: vars.$color-text-muted;
+  }
+}
+
+.search-dropdown-list {
+  position: absolute;
+  top: 110%;
+  right: 0;
+  width: 320px;
+  background: vars.$color-white;
+  border: 1px solid vars.$color-border;
+  border-radius: 12px;
+  box-shadow: vars.$shadow-lg;
+  z-index: 1000;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.search-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+
+  &:hover {
+    background-color: vars.$color-bg-hover;
+  }
+
+  .search-avatar-wrapper {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    overflow: hidden;
+    margin-right: 12px;
+    border: 1px solid vars.$color-border-light;
+
+    .search-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  .search-info {
+    flex: 1;
+    min-width: 0;
+
+    .search-name {
+      font-size: 14px;
+      font-weight: vars.$fw-semibold;
+      color: vars.$color-text-primary;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .search-meta {
+      font-size: 11px;
+      color: vars.$color-text-subtle;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+  }
+}
+
+/* Page Content Styling */
+.org-tree-content {
+  --background: #{vars.$color-bg-page};
+}
+
+/* Loading Overlay */
+.loading-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: vars.$color-bg-page;
+
+  .spinner-container {
+    text-align: center;
+    color: vars.$color-text-muted;
+
+    ion-spinner {
+      width: 48px;
+      height: 48px;
+      margin-bottom: 12px;
+    }
+
+    p {
+      font-size: 14px;
+      font-family: 'Inter', sans-serif;
+    }
+  }
+}
+
+/* ═══════════════ WRAPPED TREE LAYOUT ENGINE ═══════════════ */
+
+/* Page layout - scrollable vertically, hidden horizontally */
+.org-tree-chart {
+  padding: 24px 16px;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: block;
+}
+
+.org-tree-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding-bottom: 60px;
+}
+
+/* Parent container group */
+.tree-node-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  position: relative;
+}
+
+/* Vertical line dropping straight down from parent card */
+.parent-line-down {
+  width: 2px;
+  height: 24px;
+  background: vars.$color-border-medium;
+  margin: 0 auto;
+  position: relative;
+  z-index: 5;
+}
+
+/* Sibling child rows that wrap dynamically (no horizontal scrollbar!) */
+.children-row {
+  display: flex;
+  flex-wrap: wrap; /* Wrap cards onto new lines */
+  justify-content: center;
+  align-items: flex-start;
+  gap: 16px; /* Group cards closely together */
+  max-width: 960px; /* Fits about 3 cards per row */
+  width: 100%;
+  margin: 0 auto;
+  padding: 16px;
+  background: rgba(31, 116, 187, 0.015); /* Soft primary tint background */
+  border: 1px dashed vars.$color-border-medium;
+  border-radius: 12px;
+  position: relative;
+}
+
+/* Wrapper for child cards inside the grid */
+.child-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+
+  /* Vertical tick line above each card in the group */
+  .branch-line {
+    width: 2px;
+    height: 10px;
+    background: vars.$color-border-medium;
+    margin-bottom: 4px;
+  }
+}
+
+/* ═══════════════ CARD STYLES ═══════════════ */
+
+.level-badge {
+  font-size: 9px;
+  text-transform: uppercase;
+  font-weight: vars.$fw-bold;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-family: 'Inter', sans-serif;
+
+  &.grand-manager-badge {
+    background: rgba(139, 92, 246, 0.1);
+    color: #6d28d9;
+    border: 1px solid rgba(139, 92, 246, 0.2);
+  }
+
+  &.manager-badge {
+    background: rgba(59, 130, 246, 0.1);
+    color: #1d4ed8;
+    border: 1px solid rgba(59, 130, 246, 0.2);
+  }
+
+  &.focus-employee-badge {
+    background: rgba(22, 163, 74, 0.1);
+    color: #15803d;
+    border: 1px solid rgba(22, 163, 74, 0.2);
+  }
+}
+
+/* Card base structure: Horizontal layout */
+.employee-card {
+  display: flex;
+  width: 280px;
+  height: 112px;
+  background: vars.$color-bg-card;
+  border: 1px solid vars.$color-border-medium;
+  border-radius: 8px;
+  box-shadow: vars.$shadow-sm;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.25, 0.8, 0.25, 1);
+  position: relative;
+  z-index: 10;
+  overflow: hidden;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: vars.$shadow-lg;
+    border-color: vars.$color-primary;
+  }
+
+  /* Left column for Profile Avatar */
+  .card-left {
+    width: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: vars.$color-white;
+    padding-left: 8px;
+  }
+
+  /* Rounded profile picture / fallback avatar */
+  .avatar-container {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    overflow: hidden;
+    box-shadow: vars.$shadow-xs;
+    border: 1px solid vars.$color-border-light;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    .emp-avatar {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+  }
+
+  /* Right column for Details and Actions */
+  .card-right {
+    flex: 1;
+    padding: 10px 14px 10px 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-width: 0; /* Prevents text clipping / allows text-overflow: ellipsis */
+    text-align: left;
+  }
+
+  .info-block {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .emp-name {
+    font-size: 13px;
+    font-weight: 700;
+    color: vars.$color-text-primary;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .emp-title {
+    font-size: 11px;
+    color: vars.$color-text-secondary;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .emp-loc {
+    font-size: 10px;
+    color: vars.$color-text-muted;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .emp-dept {
+    font-size: 9px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: vars.$color-text-muted;
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: 0.5px;
+    font-family: 'Inter', sans-serif;
+  }
+  /* Relationship Indicator Tags and View Actions */
+  .card-actions-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin-top: 4px;
+    height: 20px;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .relation-tag {
+    font-size: 8px;
+    font-weight: vars.$fw-bold;
+    text-transform: uppercase;
+    padding: 1px 5px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+
+    &.focus-tag {
+      background: rgba(22, 163, 74, 0.08);
+      color: #16a34a;
+      border-color: rgba(22, 163, 74, 0.2);
+    }
+
+    &.manager-tag {
+      background: rgba(31, 116, 187, 0.08);
+      color: #1f74bb;
+      border-color: rgba(31, 116, 187, 0.2);
+    }
+
+    &.report-tag {
+      background: rgba(217, 119, 6, 0.08);
+      color: #d97706;
+      border-color: rgba(217, 119, 6, 0.2);
+    }
+  }
+
+  .expand-action-btn {
+    background: transparent;
+    border: none;
+    padding: 2px;
+    color: vars.$color-text-placeholder;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: vars.$transition-base;
+    margin-left: auto; /* Push buttons to the right */
+
+    &:hover {
+      color: vars.$color-primary;
+      transform: scale(1.15);
+    }
+
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+
+  .profile-action-btn {
+    background: transparent;
+    border: none;
+    padding: 2px;
+    color: vars.$color-text-placeholder;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: vars.$transition-base;
+    margin-left: auto; /* Fallback for if expand-action-btn is not present */
+
+    &:hover {
+      color: vars.$color-primary;
+      transform: translateX(2px);
+    }
+
+    ion-icon {
+      font-size: 16px;
+    }
+  }
+
+  .expand-action-btn + .profile-action-btn {
+    margin-left: 0;
+  }
+}
+
+/* Highlight manager / active relation cards */
+.highlight-relation {
+  border-color: vars.$color-primary !important;
+  box-shadow: 0 0 10px rgba(var(--ion-color-primary-rgb, 31, 116, 187), 0.15);
+
+  .card-left {
+    background: rgba(var(--ion-color-primary-rgb, 31, 116, 187), 0.05);
+    border-right-color: rgba(var(--ion-color-primary-rgb, 31, 116, 187), 0.15);
+  }
+
+  &:hover {
+    border-color: vars.$color-primary-hover !important;
+    box-shadow: 0 0 14px rgba(var(--ion-color-primary-rgb, 31, 116, 187), 0.35);
+  }
+}
+
+/* Active focus target employee card highlighting */
+.active-focus {
+  border-color: vars.$color-success !important;
+  box-shadow: 0 0 12px rgba(22, 163, 74, 0.15);
+
+  .card-left {
+    background: rgba(22, 163, 74, 0.05);
+    border-right-color: rgba(22, 163, 74, 0.15);
+  }
+
+  &:hover {
+    border-color: vars.$color-success-dark !important;
+    box-shadow: 0 0 16px rgba(22, 163, 74, 0.3);
+  }
+}
+
+/* Empty Direct Reports Card */
+.empty-reports-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: vars.$color-bg-subtle;
+  border: 1px dashed vars.$color-border-medium;
+  border-radius: 12px;
+  padding: 16px 32px;
+  color: vars.$color-text-muted;
+  width: 280px;
+  height: 112px;
+  text-align: center;
+  box-shadow: none;
+
+  .empty-icon {
+    font-size: 24px;
+    margin-bottom: 4px;
+    color: vars.$color-text-placeholder;
+  }
+
+  p {
+    font-size: 11px;
+    margin: 0;
+    font-family: 'Inter', sans-serif;
+  }
+}

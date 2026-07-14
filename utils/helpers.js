@@ -22,7 +22,8 @@ const { db } = require("../config/database");
 const EMPLOYEE_PUBLIC_FIELDS = [
     'id', 'EmployeeNumber', 'FirstName', 'LastName', 'FullName',
     'WorkEmail', 'Gender', 'DateJoined', 'profile_image',
-    'DepartmentId', 'DesignationId', 'LocationId', 'EmploymentStatus'
+    'DepartmentId', 'DesignationId', 'LocationId', 'EmploymentStatus',
+    'department_name', 'designation_name', 'location_name'
 ];
 
 /**

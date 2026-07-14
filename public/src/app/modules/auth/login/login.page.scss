@@ -43,7 +43,7 @@ ion-content.login-content {
 .left-panel {
   flex: 0 0 50%;
   width: 50%;
-  min-height: 100vh;
+  height: 100%;
   background-image: url(/assets/Bgnew.png);
   background-repeat: no-repeat;
   background-size: 100vh 100vh;
@@ -97,12 +97,12 @@ ion-content.login-content {
 
 // ── Caption text ──
 .left-caption {
-  margin-top: 52px;
+  margin-top: clamp(20px, 5vh, 52px);
   z-index: 2;
   flex-shrink: 0;
 
   .caption-line1 {
-    font-size: 48px;
+    font-size: clamp(32px, 4.5vh, 48px);
     font-weight: 700;
     color: #ffffff;
     margin: 0;
@@ -111,16 +111,16 @@ ion-content.login-content {
   }
 
   .caption-line2 {
-    font-size: 48px;
+    font-size: clamp(32px, 4.5vh, 48px);
     font-weight: 700;
     color: #00D4FF; // bright cyan-blue accent from mockup
-    margin: 0 0 20px;
+    margin: 0 0 clamp(10px, 2vh, 20px);
     line-height: 1.15;
     letter-spacing: -0.5px;
   }
 
   .caption-subtitle {
-    font-size: 14px;
+    font-size: clamp(12px, 1.4vh, 14px);
     color: rgba(255, 255, 255, 0.75);
     line-height: 1.65;
     margin: 0;
@@ -134,21 +134,23 @@ ion-content.login-content {
   flex: 1;
   display: flex;
   align-items: flex-end;
-  justify-content: center;
+  justify-content: flex-end;
   position: relative;
   z-index: 2;
   padding-bottom: 0;
+  min-height: 0;
 
   .illustration-img {
-    width: 100%;
+    width: auto;
     max-width: 580px;
     height: auto;
+    max-height: 100%;
     object-fit: contain;
-    object-position: bottom;
     display: block;
-    position: absolute;
-    bottom: 0px;
-    right: 0px;
+
+    @media(max-width:1400px) {
+      max-width: 390px;
+    }
   }
 }
 
@@ -168,7 +170,7 @@ ion-content.login-content {
 .right-panel {
   flex: 0 0 50%;
   width: 50%;
-  min-height: 100vh;
+  height: 100%;
   background: #f8fafc;
   display: flex;
   align-items: center;
@@ -644,11 +646,10 @@ ion-content.login-content {
     }
 
     .left-illustration {
+      justify-content: flex-end;
+
       .illustration-img {
         max-width: 85%;
-        position: absolute;
-        bottom: 0;
-        right: 0;
       }
     }
 
