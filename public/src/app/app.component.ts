@@ -32,9 +32,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
     { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['admin', 'employee', 'manager', 'hr', 'finance'] },
-    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'admin', 'approver'] },
-    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['admin', 'hr'] },
+    { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
+    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
     { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
     { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
@@ -162,6 +162,10 @@ export class AppComponent implements OnInit, OnDestroy {
     }
 
     if (page.title === 'Work Track' && (this.userDesignation?.includes('management'))) {
+      return false;
+    }
+
+    if (role === 'admin' && ['Onboarding', 'Org Tree', 'Inbox'].includes(page.title)) {
       return false;
     }
 

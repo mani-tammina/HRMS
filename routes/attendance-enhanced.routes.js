@@ -680,6 +680,24 @@ router.get("/my-report", auth, async (req, res) => {
     res.json({
       summary,
       attendance,
+      shift_policy: employee ? {
+        id: employee.shift_policy_id,
+        start_time: employee.start_time,
+        end_time: employee.end_time,
+        name: employee.shift_name
+      } : null,
+      weekly_off_policy: employee ? {
+        id: employee.weekly_off_policy_id,
+        sunday_off: employee.sunday_off,
+        monday_off: employee.monday_off,
+        tuesday_off: employee.tuesday_off,
+        wednesday_off: employee.wednesday_off,
+        thursday_off: employee.thursday_off,
+        friday_off: employee.friday_off,
+        saturday_off: employee.saturday_off,
+        name: employee.name,
+        policy_code: employee.policy_code
+      } : null
     });
   } catch (error) {
     console.error("Error fetching my attendance report:", error);
@@ -825,6 +843,17 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
           : 0,
     };
 
+    // Get detailed shift and weekend policies for the employee
+    const [empDetails] = await c.query(`
+      SELECT e.id, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      WHERE e.id = ?
+    `, [req.params.employeeId]);
+    const employee = empDetails[0];
+
     c.end();
 
     res.json({
@@ -838,6 +867,24 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
         : null,
       summary,
       attendance,
+      shift_policy: employee ? {
+        id: employee.shift_policy_id,
+        start_time: employee.start_time,
+        end_time: employee.end_time,
+        name: employee.shift_name
+      } : null,
+      weekly_off_policy: employee ? {
+        id: employee.weekly_off_policy_id,
+        sunday_off: employee.sunday_off,
+        monday_off: employee.monday_off,
+        tuesday_off: employee.tuesday_off,
+        wednesday_off: employee.wednesday_off,
+        thursday_off: employee.thursday_off,
+        friday_off: employee.friday_off,
+        saturday_off: employee.saturday_off,
+        name: employee.name,
+        policy_code: employee.policy_code
+      } : null
     });
   } catch (error) {
     console.error("Error fetching employee attendance report:", error);

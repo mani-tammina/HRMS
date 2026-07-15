@@ -53,7 +53,7 @@ const routes: Routes = [
     path: 'org-tree',
     loadChildren: () => import('./modules/org-tree/org-tree.module').then(m => m.OrgTreePageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['admin', 'manager', 'hr', 'employee', 'finance'] }
+    data: { role: ['manager', 'hr', 'employee', 'finance'] }
   },
   {
     path: 'workTrack',
@@ -70,7 +70,7 @@ const routes: Routes = [
     path: 'inbox',
     loadComponent: () => import('./modules/inbox/pages/inbox/inbox.page').then(m => m.InboxPage),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['manager', 'hr', 'admin', 'approver'] }
+    data: { role: ['manager', 'hr', 'approver'] }
   },
   {
     path: 'Me',

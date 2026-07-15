@@ -310,47 +310,58 @@ router.post("/", auth, admin, async (req, res) => {
 
 // Get single employee
 router.get("/:id", auth, async (req, res) => {
-  const c = await db();
-  const [r] = await c.query(
-    `SELECT e.*,
-            d.name  AS department_name,
-            des.name AS designation_name,
-            l.name  AS location_name,
-            bu.name as business_unit_name,
-            mgr.FirstName as manager_first_name,
-            mgr.LastName as manager_last_name,
-            COALESCE(
-              (SELECT CASE 
-                        WHEN ap.punch_type = 'in' THEN 'In'
-                        WHEN ap.punch_type = 'out' THEN 'Out'
-                      END
-               FROM attendance_punches ap 
-               WHERE ap.employee_id = e.id AND ap.punch_date = CURDATE() 
-               ORDER BY ap.punch_time DESC LIMIT 1),
-              (SELECT 'On Leave'
-               FROM leaves l
-               WHERE l.employee_id = e.id AND l.status = 'approved' AND CURDATE() BETWEEN l.start_date AND l.end_date
-               LIMIT 1),
-              'Not In Yet'
-            ) AS attendance_status,
-            COALESCE(
-              (SELECT att.work_mode 
-               FROM attendance att 
-               WHERE att.employee_id = e.id AND att.attendance_date = CURDATE() 
-               LIMIT 1),
-              'N/A'
-            ) AS work_mode
-     FROM employees e
-     LEFT JOIN departments  d   ON e.DepartmentId  = d.id
-     LEFT JOIN designations des ON e.DesignationId = des.id
-     LEFT JOIN locations    l   ON e.LocationId    = l.id
-     LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
-     LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
-     WHERE e.id = ?`,
-    [req.params.id]
-  );
-  c.end();
-  res.json(r[0] ? formatEmployeeDates(r[0]) : null);
+  let c = null;
+  try {
+    const employeeId = parseInt(req.params.id);
+    if (isNaN(employeeId)) {
+      return res.status(400).json({ error: "Invalid employee ID" });
+    }
+    c = await db();
+    const [r] = await c.query(
+      `SELECT e.*,
+              d.name  AS department_name,
+              des.name AS designation_name,
+              l.name  AS location_name,
+              bu.name as business_unit_name,
+              mgr.FirstName as manager_first_name,
+              mgr.LastName as manager_last_name,
+              COALESCE(
+                (SELECT CASE 
+                          WHEN ap.punch_type = 'in' THEN 'In'
+                          WHEN ap.punch_type = 'out' THEN 'Out'
+                        END
+                 FROM attendance_punches ap 
+                 WHERE ap.employee_id = e.id AND ap.punch_date = CURDATE() 
+                 ORDER BY ap.punch_time DESC LIMIT 1),
+                (SELECT 'On Leave'
+                 FROM leaves lv
+                 WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                 LIMIT 1),
+                'Not In Yet'
+              ) AS attendance_status,
+              COALESCE(
+                (SELECT att.work_mode 
+                 FROM attendance att 
+                 WHERE att.employee_id = e.id AND att.attendance_date = CURDATE() 
+                 LIMIT 1),
+                'N/A'
+              ) AS work_mode
+       FROM employees e
+       LEFT JOIN departments  d   ON e.DepartmentId  = d.id
+       LEFT JOIN designations des ON e.DesignationId = des.id
+       LEFT JOIN locations    l   ON e.LocationId    = l.id
+       LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+       LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+       WHERE e.id = ?`,
+      [employeeId]
+    );
+    res.json(r[0] ? formatEmployeeDates(r[0]) : null);
+  } catch (error) {
+    console.error("Error fetching employee by ID:", error.message);
+    res.status(500).json({ error: error.message || "Failed to fetch employee" });
+  } finally {
+    if (c) await c.end();
+  }
 });
 
 

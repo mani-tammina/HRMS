@@ -76,6 +76,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   days: Date[] = [];
   today: Date = new Date();
+  displayDate: Date = new Date();
+  viewingCurrentPeriod: boolean = true;
   currentMonthName: string = '';
 
   monthlySummary: any = {
@@ -441,9 +443,25 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     if (period === '30DAYS') {
       this.currentMonthName = 'Last 30 Days';
+      this.displayDate = new Date();
+      this.viewingCurrentPeriod = true;
     } else {
       const tempDate = new Date(currentYear, currentMonth - 1, 1);
       this.currentMonthName = tempDate.toLocaleString('default', { month: 'long' });
+
+      const todayVal = new Date();
+      if (currentYear === todayVal.getFullYear() && currentMonth === (todayVal.getMonth() + 1)) {
+        this.displayDate = todayVal;
+        this.viewingCurrentPeriod = true;
+      } else {
+        this.displayDate = new Date(currentYear, currentMonth - 1, 15);
+        this.viewingCurrentPeriod = false;
+
+        this.progressValue = 0;
+        this.shiftTimeLeft = '';
+        this.workTimeTimer = '00:00:00';
+        this.gaugeDashOffset = '251.3';
+      }
     }
 
     const request = this.viewEmployeeId
@@ -456,6 +474,20 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.monthlySummary = res.summary;
           this.lastAttendance = res?.attendance || [];
           this.calculatePreviousDayHours();
+
+          if (res.shift_policy) {
+            this.shift_policy = res.shift_policy;
+          }
+          if (res.weekly_off_policy) {
+            const policy = res.weekly_off_policy;
+            const weekMap = [
+              { key: 'sunday_off', label: 'sunday' }, { key: 'monday_off', label: 'monday' },
+              { key: 'tuesday_off', label: 'tuesday' }, { key: 'wednesday_off', label: 'wednesday' },
+              { key: 'thursday_off', label: 'thursday' }, { key: 'friday_off', label: 'friday' },
+              { key: 'saturday_off', label: 'saturday' },
+            ];
+            this.serverWeekOff = weekMap.filter(day => policy[day.key] === 1).map(day => day.label);
+          }
 
           if (period === '30DAYS' || !period) {
             this.generateDays();
@@ -531,6 +563,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.timerInterval) clearInterval(this.timerInterval);
 
     const updateTimer = () => {
+      if (!this.viewingCurrentPeriod) {
+        this.progressValue = 0;
+        this.shiftTimeLeft = '';
+        this.workTimeTimer = '00:00:00';
+        this.gaugeDashOffset = '251.3';
+        return;
+      }
       let isPunchedIn = lastPunchType === 'in';
       let totalEffectiveMs = 0;
 
