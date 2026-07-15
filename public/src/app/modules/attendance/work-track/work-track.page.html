@@ -181,15 +181,11 @@
                 </div>
               </div>
               <div class="ts-row-body">
-                <div class="ts-row-top">
-                  <span class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</span>
-                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
-                    }}</span>
-                </div>
+                <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div>
                 <div class="ts-row-meta">
                   <span class="meta-item">
                     <ion-icon name="time-outline"></ion-icon>
-                    {{ t.total_hours }} hrs
+                    {{ t.total_hours | number:'1.2-2' }} hrs
                   </span>
                   <span class="meta-item">
                     <ion-icon name="calendar-outline"></ion-icon>
@@ -197,18 +193,21 @@
                   </span>
                 </div>
               </div>
-              <div class="ts-row-actions">
-                <button class="icon-btn edit"
-                  *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                  (click)="editTimesheet(t)" title="Edit">
-                  <ion-icon name="create-outline"></ion-icon>
-                </button>
-                <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
-                  <ion-icon name="eye-outline"></ion-icon>
-                </button>
-                <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
-                  <ion-icon name="download-outline"></ion-icon>
-                </button>
+              <div class="ts-row-right">
+                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                <div class="ts-row-actions">
+                  <button class="icon-btn edit"
+                    *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                    (click)="editTimesheet(t)" title="Edit">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </button>
+                  <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </button>
+                  <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
+                    <ion-icon name="download-outline"></ion-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -321,7 +320,7 @@
 
                 <div class="card-field col-hrs">
                   <label class="mobile-label">Hours</label>
-                  <input type="number" formControlName="hours" (input)="onHoursChange(i)" class="glass-input center">
+                  <input type="number" formControlName="hours" (input)="onHoursChange(i, $event)" (change)="onHoursChange(i, $event)" class="glass-input center">
                 </div>
 
                 <div class="card-field col-action">
@@ -438,33 +437,33 @@
                 </div>
               </div>
               <div class="ts-row-body">
-                <div class="ts-row-top">
-                  <span class="ts-hours-pill">
-                    <ion-icon name="time-outline"></ion-icon>
-                    {{ t.total_hours }} hrs
-                  </span>
-                  <span class="status-pill" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
-                    }}</span>
-                </div>
+                <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div>
                 <div class="ts-row-meta">
+                  <span class="meta-item">
+                    <ion-icon name="time-outline"></ion-icon>
+                    {{ t.total_hours | number:'1.2-2' }} hrs
+                  </span>
                   <span class="meta-item">
                     <ion-icon name="calendar-outline"></ion-icon>
                     {{ t.date | date:'EEEE, MMM d yyyy' }}
                   </span>
                 </div>
               </div>
-              <div class="ts-row-actions">
-                <button class="icon-btn edit"
-                  *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
-                  (click)="editTimesheet(t)" title="Edit">
-                  <ion-icon name="create-outline"></ion-icon>
-                </button>
-                <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
-                  <ion-icon name="eye-outline"></ion-icon>
-                </button>
-                <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
-                  <ion-icon name="download-outline"></ion-icon>
-                </button>
+              <div class="ts-row-right">
+                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                <div class="ts-row-actions">
+                  <button class="icon-btn edit"
+                    *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                    (click)="editTimesheet(t)" title="Edit">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </button>
+                  <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
+                    <ion-icon name="eye-outline"></ion-icon>
+                  </button>
+                  <button class="icon-btn download" (click)="downloadExcel(t)" title="Download">
+                    <ion-icon name="download-outline"></ion-icon>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

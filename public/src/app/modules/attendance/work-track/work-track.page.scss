@@ -1069,39 +1069,15 @@
       flex: 1;
       min-width: 0;
 
-      .ts-row-top {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        margin-bottom: 8px;
-
-        .ts-desc {
-          font-weight: vars.$fw-semibold;
-          color: vars.$color-text-primary;
-          font-size: vars.$fs-body;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          flex: 1;
-        }
-
-        .ts-hours-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          background: vars.$color-primary-light;
-          color: vars.$color-primary;
-          font-weight: vars.$fw-bold;
-          font-size: vars.$fs-small;
-          padding: 4px 12px;
-          border-radius: vars.$radius-pill;
-          flex-shrink: 0;
-
-          ion-icon {
-            font-size: 14px;
-          }
-        }
+      .ts-desc {
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        font-size: vars.$fs-body;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: block;
+        margin-bottom: 6px;
       }
 
       .ts-row-meta {
@@ -1125,17 +1101,65 @@
       }
     }
 
-    /* Action buttons on the right */
-    .ts-row-actions {
+    /* Right column: status and flat action icons */
+    .ts-row-right {
       display: flex;
+      flex-direction: column;
+      align-items: flex-end;
       gap: 6px;
       flex-shrink: 0;
 
       @media (max-width: 768px) {
         width: 100%;
-        justify-content: flex-end;
-        padding-top: 12px;
+        align-items: flex-start;
         border-top: 1px dashed vars.$color-border-light;
+        padding-top: 12px;
+        margin-top: 4px;
+      }
+
+      .status-text {
+        font-size: vars.$fs-small;
+        font-weight: vars.$fw-medium;
+        color: vars.$color-text-muted;
+
+        &.success {
+          color: vars.$color-success;
+        }
+        &.warning, &.primary {
+          color: vars.$color-warning;
+        }
+        &.danger {
+          color: vars.$color-danger;
+        }
+      }
+    }
+
+    .ts-row-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+
+      @media (max-width: 768px) {
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .icon-btn {
+        background: transparent;
+        border: none;
+        padding: 4px;
+        color: vars.$color-text-muted;
+        font-size: 18px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: vars.$transition-fast;
+
+        &:hover {
+          color: vars.$color-primary;
+          transform: scale(1.15);
+        }
       }
     }
   }
