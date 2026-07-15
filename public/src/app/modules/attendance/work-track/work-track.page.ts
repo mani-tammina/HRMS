@@ -16,7 +16,6 @@ import { TimesheetPreviewComponent } from './timesheet-preview.component';
 import { LeaverequestService, MyLeave } from 'src/app/core/services/leaverequest.service';
 import { EmployeeService } from 'src/app/core/services/employee.service';
 import { WeeklyOffPolicyService, WeeklyOffPolicy } from 'src/app/core/services/weekly-off-policy.service';
-import { AdminService } from 'src/app/core/services/admin.service';
 
 @Component({
   selector: 'app-work-track',
@@ -115,7 +114,6 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   leaveTooltipMap: Map<string, string> = new Map();
   weekOffsMap: Set<string> = new Set();
   selectedDateStatus: string = '';
-  shiftPolicy: any = null;
 
   constructor(
     private fb: FormBuilder,
@@ -125,7 +123,6 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     private leaveService: LeaverequestService,
     private employeeService: EmployeeService,
     private weeklyOffService: WeeklyOffPolicyService,
-    private adminService: AdminService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -176,12 +173,6 @@ export class WorkTrackPage implements OnInit, OnDestroy {
           console.error('❌ [WorkTrack] getWeeklyOffPolicies error:', err);
           return of([]);
         })
-      ),
-      shiftPolicies: this.adminService.getShiftPolicies().pipe(
-        catchError(err => {
-          console.error('❌ [WorkTrack] getShiftPolicies error:', err);
-          return of([]);
-        })
       )
     }).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
@@ -207,11 +198,6 @@ export class WorkTrackPage implements OnInit, OnDestroy {
           this.timesheetType = assignmentData.timesheet_type || 'regular';
           this.assignments = assignmentData.assignments || [];
           this.loadingStatus = false;
-
-          // Shift policy logic
-          const sId = res.profile?.shift_policy_id || res.profile?.ShiftPolicyId;
-          const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
-          this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
           console.log('✅ [WorkTrack] State Updated:');
           console.log('  • hasProject:', this.hasProject);
@@ -319,9 +305,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
     let firstTimeSlot = '';
 
-    if (this.shiftPolicy && this.shiftPolicy.start_time) {
-      firstTimeSlot = this.generateTimeSlot(this.shiftPolicy.start_time);
-    } else if (this.hasProject && (this.assignments?.length || 0) > 0) {
+    if (this.hasProject && (this.assignments?.length || 0) > 0) {
       // For project-based employees, use project shift timing
       const assignment = this.assignments[0];
       if (assignment.start_time) {
@@ -329,7 +313,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       }
     } else {
       // For regular employees, use default 09:00 or fetch from attendance shift
-      firstTimeSlot = this.generateTimeSlot('09:00');
+      firstTimeSlot = '09:00-10:00';
     }
 
     // Add first row with calculated time slot
@@ -434,34 +418,13 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     this.modalCtrl.dismiss();
   }
 
-  /* Parse time string to hours and minutes, supporting both 24-hour and 12-hour AM/PM formats */
-  parseTimeToHoursMinutes(timeStr: string): { hours: number, minutes: number } {
-    if (!timeStr) return { hours: 9, minutes: 0 };
-
-    const cleanStr = timeStr.trim().toUpperCase();
-    const isPM = cleanStr.includes('PM');
-    const isAM = cleanStr.includes('AM');
-    const timeOnly = cleanStr.replace(/[A-Z\s]/g, '');
-    const parts = timeOnly.split(':').map(Number);
-
-    let hours = parts[0] || 0;
-    const minutes = parts[1] || 0;
-
-    if (isPM && hours < 12) {
-      hours += 12;
-    } else if (isAM && hours === 12) {
-      hours = 0;
-    }
-
-    return { hours, minutes };
-  }
-
-  /* Generate time slot from start time (e.g., "09:00" -> "09:00 AM - 10:00 AM") */
+  /* Generate time slot from start time (e.g., "09:00" -> "09:00-10:00") */
   generateTimeSlot(startTime: string): string {
     if (!startTime) return '';
 
     try {
-      const { hours, minutes } = this.parseTimeToHoursMinutes(startTime);
+      // Parse start time (format: "HH:mm" or "HH:mm:ss")
+      const [hours, minutes] = startTime.split(':').map(Number);
 
       // Calculate end time (1 hour later)
       const startDate = new Date();
@@ -470,26 +433,22 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       const endDate = new Date(startDate);
       endDate.setHours(hours + 1, minutes, 0, 0);
 
-      // Format as "hh:mm AM/PM - hh:mm AM/PM"
+      // Format as "HH:mm-HH:mm"
       const startStr = this.formatTime(startDate);
       const endStr = this.formatTime(endDate);
 
-      return `${startStr} - ${endStr}`;
+      return `${startStr}-${endStr}`;
     } catch (error) {
       console.error('Error generating time slot:', error);
       return '';
     }
   }
 
-  /* Format time as hh:mm AM/PM */
+  /* Format time as HH:mm */
   formatTime(date: Date): string {
-    let hours = date.getHours();
+    const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    hours = hours % 12;
-    hours = hours ? hours : 12;
-    const hoursStr = hours.toString().padStart(2, '0');
-    return `${hoursStr}:${minutes} ${ampm}`;
+    return `${hours}:${minutes}`;
   }
 
   addRow() {
@@ -502,7 +461,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
       if (lastTimeSlot && lastTimeSlot.includes('-')) {
         // Extract END time from last slot as the START time for the new slot
-        const endTime = lastTimeSlot.split('-')[1].trim();
+        const endTime = lastTimeSlot.split('-')[1];
         // Calculate next slot with 1 hour duration
         nextTimeSlot = this.generateTimeSlotWithDuration(endTime, 1);
       }
@@ -525,7 +484,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
     if (currentTimeSlot && currentTimeSlot.includes('-')) {
       // Extract start time and recalculate end time based on hours
-      const startTime = currentTimeSlot.split('-')[0].trim();
+      const startTime = currentTimeSlot.split('-')[0];
       const newTimeSlot = this.generateTimeSlotWithDuration(startTime, hours);
       currentRow.patchValue({ hour: newTimeSlot }, { emitEvent: false });
 
@@ -544,7 +503,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
       if (prevTimeSlot && prevTimeSlot.includes('-')) {
         // Get end time from previous slot as start time for current
-        const prevEndTime = prevTimeSlot.split('-')[1].trim();
+        const prevEndTime = prevTimeSlot.split('-')[1];
         const currentHours = Number(currentRow.get('hours')?.value || 1);
         const newTimeSlot = this.generateTimeSlotWithDuration(prevEndTime, currentHours);
 
@@ -558,7 +517,10 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     if (!startTime) return '';
 
     try {
-      const { hours: startHours, minutes: startMinutes } = this.parseTimeToHoursMinutes(startTime);
+      // Parse start time (format: "HH:mm" or "HH:mm:ss")
+      const timeParts = startTime.split(':').map(Number);
+      const startHours = timeParts[0];
+      const startMinutes = timeParts[1] || 0;
 
       // Calculate end time based on duration
       const startDate = new Date();
@@ -568,11 +530,11 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       // Add hours (convert to minutes for precision)
       endDate.setMinutes(startDate.getMinutes() + (hours * 60));
 
-      // Format as "hh:mm AM/PM - hh:mm AM/PM"
+      // Format as "HH:mm-HH:mm"
       const startStr = this.formatTime(startDate);
       const endStr = this.formatTime(endDate);
 
-      return `${startStr} - ${endStr}`;
+      return `${startStr}-${endStr}`;
     } catch (error) {
       console.error('Error generating time slot:', error);
       return '';
