@@ -420,19 +420,35 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.chart = new Chart(ctx, config);
   }
 
-  loadMonthlySummary() {
-    const d = new Date();
-    const year = d.getFullYear();
-    const month = d.getMonth() + 1;
-    const startDate = `${year}-${month.toString().padStart(2, '0')}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const endDate = `${year}-${month.toString().padStart(2, '0')}-${lastDay}`;
+  formatDateOnly(date: string | Date): string {
+    const d = new Date(date);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
 
-    this.currentMonthName = d.toLocaleString('default', { month: 'long' });
+  loadMonthlySummary(month?: number, year?: number, startDateStr?: string, endDateStr?: string, period?: string) {
+    const d = new Date();
+    const currentYear = year || d.getFullYear();
+    const currentMonth = month || (d.getMonth() + 1);
+
+    let startDate = startDateStr;
+    let endDate = endDateStr;
+
+    if (!startDate || !endDate) {
+      startDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`;
+      const lastDay = new Date(currentYear, currentMonth, 0).getDate();
+      endDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${lastDay}`;
+    }
+
+    if (period === '30DAYS') {
+      this.currentMonthName = 'Last 30 Days';
+    } else {
+      const tempDate = new Date(currentYear, currentMonth - 1, 1);
+      this.currentMonthName = tempDate.toLocaleString('default', { month: 'long' });
+    }
 
     const request = this.viewEmployeeId
-      ? this.attendanceApi.getEmployeeReport(this.viewEmployeeId, { startDate, endDate, month, year })
-      : this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year });
+      ? this.attendanceApi.getEmployeeReport(this.viewEmployeeId, { startDate, endDate, month: currentMonth, year: currentYear })
+      : this.attendanceApi.getMonthlyReport({ startDate, endDate, month: currentMonth, year: currentYear });
 
     request.subscribe({
       next: (res: any) => {
@@ -440,6 +456,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.monthlySummary = res.summary;
           this.lastAttendance = res?.attendance || [];
           this.calculatePreviousDayHours();
+
+          if (period === '30DAYS' || !period) {
+            this.generateDays();
+          } else {
+            const refDate = new Date(currentYear, currentMonth - 1, 15);
+            this.generateDays(refDate);
+          }
         }
       },
       error: (err) => console.error('Error loading monthly summary:', err)
@@ -451,8 +474,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.previousDayHours = '9h 20m 30s';
       return;
     }
-    const todayStr = new Date().toISOString().split('T')[0];
-    const prevRecord = this.lastAttendance.find(r => r.date && r.date !== todayStr);
+    const todayStr = this.formatDateOnly(new Date());
+    const prevRecord = this.lastAttendance.find(r => {
+      const rDate = r.date || r.attendance_date;
+      return rDate && this.formatDateOnly(rDate) !== todayStr;
+    });
 
     if (prevRecord && prevRecord.total_work_hours) {
       const hours = parseFloat(prevRecord.total_work_hours);
@@ -472,14 +498,19 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.isWeekOffDay(day)) {
       return 'is-weekoff';
     }
-    // Check if there was attendance for this past day
-    const dayStr = day.toISOString().split('T')[0];
-    const record = this.lastAttendance.find(r => r.date === dayStr);
-    if (record && record.status === 'Present') {
+    const dayStr = this.formatDateOnly(day);
+    const record = this.lastAttendance.find(r => {
+      const rDate = r.date || r.attendance_date;
+      return rDate && this.formatDateOnly(rDate) === dayStr;
+    });
+    if (record && (record.status === 'Present' || record.status === 'present')) {
       return 'is-present';
     }
-    // Default blue capsule as seen in reference image
     return 'is-present';
+  }
+
+  onPeriodChanged(event: { period: string; startDate: string; endDate: string; month: number; year: number }) {
+    this.loadMonthlySummary(event.month, event.year, event.startDate, event.endDate, event.period);
   }
 
   isClockedIn(): boolean {
@@ -751,14 +782,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   // ================= HELPERS =================
 
-  generateDays() {
-    const today = new Date();
-    const dayOfWeek = today.getDay();
-    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
-    const start = new Date(today.setDate(diff));
+  generateDays(referenceDate?: Date) {
+    const ref = referenceDate ? new Date(referenceDate) : new Date();
+    const dayOfWeek = ref.getDay();
+    const diff = ref.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+    const start = new Date(ref.getTime());
+    start.setDate(diff);
     this.days = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(start);
+      const d = new Date(start.getTime());
       d.setDate(start.getDate() + i);
       this.days.push(d);
     }

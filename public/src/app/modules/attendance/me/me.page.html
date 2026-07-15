@@ -253,7 +253,7 @@
     <!-- Attendance Log Tab -->
     <div *ngIf="activeTab === 'log'">
       <app-attendance-log [refreshTrigger]="attendanceRefresh" [employeeId]="viewEmployeeId"
-        [isHRView]="isHRView"></app-attendance-log>
+        [isHRView]="isHRView" (periodChanged)="onPeriodChanged($event)"></app-attendance-log>
     </div>
 
     <!-- Calendar Tab -->

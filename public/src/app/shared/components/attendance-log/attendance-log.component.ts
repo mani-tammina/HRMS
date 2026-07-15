@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, Input, SimpleChanges, OnChanges } from '@angular/core';
+import { Component, OnInit, OnDestroy, Input, SimpleChanges, OnChanges, Output, EventEmitter } from '@angular/core';
 import { Subject, forkJoin, of } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
@@ -35,6 +35,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   @Input() refreshTrigger: any;
   @Input() employeeId: number | null = null;
   @Input() isHRView: boolean = false;
+  @Output() periodChanged = new EventEmitter<{
+    period: string;
+    startDate: string;
+    endDate: string;
+    month: number;
+    year: number;
+  }>();
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
@@ -314,6 +321,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       }
     }
     this.loadMonthlyReport();
+    this.periodChanged.emit({
+      period: this.selectedPeriod,
+      startDate: this.startDate,
+      endDate: this.endDate,
+      month: this.currentMonth,
+      year: this.currentYear
+    });
   }
 
   getSelectedPeriodLabel(): string {
