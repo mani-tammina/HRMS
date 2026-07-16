@@ -1,4 +1,4 @@
-﻿@use '../../../../theme/_variables' as vars;
+@use '../../../../theme/_variables' as vars;
 
 .dashboard {
   background: vars.$color-bg-page;
@@ -2250,6 +2250,9 @@ app-clock-button {
 
 /* ── Date picker wrapper ── */
 .sp-picker-wrap {
+  position: relative;
+  z-index: 999;
+  flex-shrink: 0;
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
