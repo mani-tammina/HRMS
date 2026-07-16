@@ -528,7 +528,7 @@ router.get("/my-report", auth, async (req, res) => {
 
     // Get detailed shift and weekend policies
     const [empDetails] = await c.query(`
-      SELECT e.id, sp.id as shift_policy_id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
+      SELECT e.id, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
