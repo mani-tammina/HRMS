@@ -256,6 +256,9 @@ CREATE TABLE IF NOT EXISTS employees (
   -- =========================
   WorkEmail VARCHAR(150),
   PersonalEmail VARCHAR(150),
+  mobile_number VARCHAR(20),
+  residence_number VARCHAR(20),
+  PhoneNumber VARCHAR(20),
 
   -- =========================
   -- Personal
