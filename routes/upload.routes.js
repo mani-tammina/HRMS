@@ -178,6 +178,9 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                         FullName = ?,
                         WorkEmail = ?,
                         PersonalEmail = ?,
+                        mobile_number = ?,
+                        residence_number = ?,
+                        PhoneNumber = ?,
                         Gender = ?,
                         MaritalStatus = ?,
                         BloodGroup = ?,
@@ -251,6 +254,9 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                         r.FullName || r.DisplayName || r.Name || null,
                         r.WorkEmail || null,
                         r.PersonalEmail || r['Personal Email'] || null,
+                        r.mobile_number || r.MobileNumber || r['Mobile Number'] || r.MobilePhone || r['Mobile Phone'] || r.mobile_phone || r.PhoneNumber || r['Phone Number'] || r.phone_number || null,
+                        r.residence_number || r.ResidenceNumber || r['Residence Number'] || r.residence_phone || r['Residence Phone'] || null,
+                        r.mobile_number || r.MobileNumber || r['Mobile Number'] || r.MobilePhone || r['Mobile Phone'] || r.mobile_phone || r.PhoneNumber || r['Phone Number'] || r.phone_number || null,
                         r.Gender || null,
                         r.MaritalStatus || null,
                         r.BloodGroup || null,
@@ -338,7 +344,8 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                 await c.query(
                     `INSERT INTO employees
                      (EmployeeNumber, attendance_number, FirstName, MiddleName, LastName, FullName, 
-                      WorkEmail, PersonalEmail, Gender, MaritalStatus, BloodGroup, PhysicallyHandicapped, 
+                      WorkEmail, PersonalEmail, mobile_number, residence_number, PhoneNumber,
+                      Gender, MaritalStatus, BloodGroup, PhysicallyHandicapped, 
                       Nationality, DateOfBirth,
                       current_address_line1, current_address_line2, current_city, current_state, current_zip, current_country,
                       permanent_address_line1, permanent_address_line2, permanent_city, permanent_state, permanent_zip, permanent_country,
@@ -352,7 +359,7 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                       lpa, basic_pct, hra_pct, medical_allowance, transport_allowance, special_allowance,
                       paid_basic_monthly, working_days, loss_of_days,
                       exit_date, exit_status, termination_type, termination_reason, resignation_note, comments)
-                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
                     [
                         empNo,
                         r.attendance_number || r.AttendanceNumber || null,
@@ -362,6 +369,9 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                         r.FullName || r.DisplayName || r.Name || null,
                         r.WorkEmail || null,
                         r.PersonalEmail || r['Personal Email'] || null,
+                        r.mobile_number || r.MobileNumber || r['Mobile Number'] || r.MobilePhone || r['Mobile Phone'] || r.mobile_phone || r.PhoneNumber || r['Phone Number'] || r.phone_number || null,
+                        r.residence_number || r.ResidenceNumber || r['Residence Number'] || r.residence_phone || r['Residence Phone'] || null,
+                        r.mobile_number || r.MobileNumber || r['Mobile Number'] || r.MobilePhone || r['Mobile Phone'] || r.mobile_phone || r.PhoneNumber || r['Phone Number'] || r.phone_number || null,
                         r.Gender || null,
                         r.MaritalStatus || null,
                         r.BloodGroup || null,

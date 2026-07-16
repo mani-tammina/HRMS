@@ -33,6 +33,12 @@
               <ion-input type="date" [(ngModel)]="currentEmployee.DateOfBirth" *ngIf="IsDetails" name="DateOfBirth"
                 class="custom-input"></ion-input>
             </div>
+            <div class="info-group">
+              <p>Phone Number</p>
+              <h6 *ngIf="!IsDetails">{{currentEmployee?.mobile_number || currentEmployee?.PhoneNumber || '-'}}</h6>
+              <ion-input [(ngModel)]="currentEmployee.mobile_number" *ngIf="IsDetails" name="mobile_number"
+                class="custom-input" type="tel" placeholder="Enter phone number"></ion-input>
+            </div>
           </ion-col>
           <ion-col size="6">
             <div class="info-group">
@@ -84,15 +90,15 @@
             </div>
             <div class="info-group">
               <p>Residence Number</p>
-              <h6 *ngIf="!Isedit">-</h6>
-              <ion-input [value]="currentEmployee?.ResidenceNumber" *ngIf="Isedit" class="custom-input"></ion-input>
+              <h6 *ngIf="!Isedit">{{currentEmployee?.residence_number || '-'}}</h6>
+              <ion-input [value]="currentEmployee?.residence_number" *ngIf="Isedit" class="custom-input"></ion-input>
             </div>
           </ion-col>
           <ion-col size="6">
             <div class="info-group">
               <p>Personal Email</p>
-              <h6 *ngIf="!Isedit">{{currentEmployee?.Email || '-'}}</h6>
-              <ion-input [value]="currentEmployee?.Email" *ngIf="Isedit" class="custom-input"></ion-input>
+              <h6 *ngIf="!Isedit">{{currentEmployee?.PersonalEmail || '-'}}</h6>
+              <ion-input [value]="currentEmployee?.PersonalEmail" *ngIf="Isedit" class="custom-input"></ion-input>
             </div>
             <div class="info-group">
               <p>PF Number</p>

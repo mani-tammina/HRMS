@@ -31,7 +31,7 @@ const EMPLOYEE_PUBLIC_FIELDS = [
  */
 const EMPLOYEE_PRIVATE_FIELDS = [
     ...EMPLOYEE_PUBLIC_FIELDS,
-    'MiddleName', 'PersonalEmail', 'PhoneNumber', 'DateOfBirth',
+    'MiddleName', 'PersonalEmail', 'PhoneNumber', 'mobile_number', 'residence_number', 'DateOfBirth',
     'MaritalStatus', 'BloodGroup', 'Nationality',
     'current_city', 'current_state', 'current_country',
     'reporting_manager_id', 'time_type', 'worker_type'
@@ -54,7 +54,7 @@ const EMPLOYEE_SENSITIVE_FIELDS = [
  * Fields employees can update themselves
  */
 const EMPLOYEE_UPDATE_FIELDS_SELF = [
-    'PersonalEmail', 'PhoneNumber',
+    'PersonalEmail', 'PhoneNumber', 'mobile_number', 'residence_number',
     'current_address_line1', 'current_address_line2',
     'current_city', 'current_state', 'current_zip', 'current_country',
     'permanent_address_line1', 'permanent_address_line2',

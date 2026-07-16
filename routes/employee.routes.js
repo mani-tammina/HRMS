@@ -715,7 +715,16 @@ router.get("/profile/me", auth, async (req, res) => {
 
   if (rows.length === 0)
     return res.status(404).json({ error: "Profile not found" });
-  res.json(formatEmployeeDates(rows[0]));
+
+  const profile = formatEmployeeDates(rows[0]);
+  const phoneVal = profile.mobile_number || profile.PhoneNumber || null;
+  profile.mobile_number = phoneVal;
+  profile.PhoneNumber = phoneVal;
+  profile['mobile_phone'] = phoneVal;
+  profile['Mobile Phone'] = phoneVal;
+  profile['MobilePhone'] = phoneVal;
+
+  res.json(profile);
 });
 
 // Update my profile
@@ -728,7 +737,7 @@ router.put("/profile/me", auth, async (req, res) => {
 
     // Manually define allowed fields for self-update
     const allowedFields = [
-      'PersonalEmail', 'PhoneNumber',
+      'PersonalEmail', 'PhoneNumber', 'mobile_number', 'residence_number',
       'current_address_line1', 'current_address_line2',
       'current_city', 'current_state', 'current_zip', 'current_country',
       'permanent_address_line1', 'permanent_address_line2',
@@ -753,6 +762,17 @@ router.put("/profile/me", auth, async (req, res) => {
         }
         updateData[field] = value;
       }
+    }
+
+    // Keep mobile_number and PhoneNumber in sync
+    const mobileVal = req.body.mobile_number || req.body.PhoneNumber || req.body['Mobile Phone'] || req.body.mobile_phone || req.body.MobilePhone;
+    if (mobileVal !== undefined) {
+      let sanitizedVal = mobileVal;
+      if (typeof sanitizedVal === 'string') {
+        sanitizedVal = sanitizedVal.replace(/<[^>]*>/g, '').trim();
+      }
+      updateData.mobile_number = sanitizedVal;
+      updateData.PhoneNumber = sanitizedVal;
     }
 
     // If no valid fields to update, return error
