@@ -262,6 +262,29 @@ async function initializeDatabase() {
             console.log(`✅ Database initialization complete: ${successCount} executed, ${skipCount} skipped`);
         }
 
+        // Ensure phone columns exist in employees table
+        try {
+            console.log("📋 Checking employees table columns for phone fields...");
+            const [columns] = await conn.query('DESCRIBE employees');
+            const columnNames = columns.map(col => col.Field);
+            
+            const columnsToAdd = [
+                { name: 'mobile_number', type: 'VARCHAR(20) NULL' },
+                { name: 'residence_number', type: 'VARCHAR(20) NULL' },
+                { name: 'PhoneNumber', type: 'VARCHAR(20) NULL' }
+            ];
+
+            for (const col of columnsToAdd) {
+                if (!columnNames.includes(col.name)) {
+                    console.log(`   ⚡ Adding missing column "${col.name}" to employees table...`);
+                    await conn.query(`ALTER TABLE employees ADD COLUMN ${col.name} ${col.type}`);
+                    console.log(`   ✓ Column "${col.name}" added successfully.`);
+                }
+            }
+        } catch (colErr) {
+            console.warn("⚠️ Warning: could not verify/add phone columns:", colErr.message);
+        }
+
         // Ensure comp_off_requests table exists
         try {
             await conn.query(`
