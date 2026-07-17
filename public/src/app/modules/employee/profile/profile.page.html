@@ -14,16 +14,16 @@
       <ion-segment-button value="about">
         <ion-label>ABOUT</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="profile">
+      <ion-segment-button value="profile" *ngIf="canViewPrivateTabs">
         <ion-label>PROFILE</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="job">
+      <ion-segment-button value="job" *ngIf="canViewPrivateTabs">
         <ion-label>JOB</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="documents">
+      <ion-segment-button value="documents" *ngIf="canViewPrivateTabs">
         <ion-label>Documents</ion-label>
       </ion-segment-button>
-      <ion-segment-button value="assets">
+      <ion-segment-button value="assets" *ngIf="canViewPrivateTabs">
         <ion-label>Assets</ion-label>
       </ion-segment-button>
     </ion-segment>
@@ -136,11 +136,13 @@
     <div [ngSwitch]="selectedSegment">
       <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"
         [isOwnProfile]="isOwnProfile"></app-about-tab>
-      <app-profile-tab *ngSwitchCase="'profile'" [currentEmployee]="currentEmployee"
-        [isOwnProfile]="isOwnProfile"></app-profile-tab>
-      <app-job-tab *ngSwitchCase="'job'" [currentEmployee]="currentEmployee"></app-job-tab>
-      <app-document-tab *ngSwitchCase="'documents'" [currentEmployee]="currentEmployee"></app-document-tab>
-      <app-assets-tab *ngSwitchCase="'assets'" [currentEmployee]="currentEmployee"></app-assets-tab>
+      <ng-container *ngIf="canViewPrivateTabs">
+        <app-profile-tab *ngSwitchCase="'profile'" [currentEmployee]="currentEmployee"
+          [isOwnProfile]="isOwnProfile"></app-profile-tab>
+        <app-job-tab *ngSwitchCase="'job'" [currentEmployee]="currentEmployee"></app-job-tab>
+        <app-document-tab *ngSwitchCase="'documents'" [currentEmployee]="currentEmployee"></app-document-tab>
+        <app-assets-tab *ngSwitchCase="'assets'" [currentEmployee]="currentEmployee"></app-assets-tab>
+      </ng-container>
     </div>
   </div>
 </ion-content>

@@ -8,6 +8,7 @@ import { environment } from '../../../../environments/environment';
 import { SeparationService } from '../../../core/services/separation.service';
 import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
 import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
+import { RouteGuardService } from '../../../core/services/route-guard.service';
 
 @Component({
   selector: 'app-profile',
@@ -24,12 +25,39 @@ export class ProfilePage implements OnInit, OnDestroy {
   myResignation: any = null;
   resSettings: any = null;
   isOwnProfile: boolean = true;
-  
+
   // Image Upload States
   selectedFile: File | null = null;
   uploadedImageUrl: string | null = null;
   previewImageUrl: string | null = null;
   isUploading: boolean = false;
+
+  /** The logged-in user's own employee ID (not user ID) — used for manager check */
+  private myEmployeeId: number | null = null;
+
+  /**
+   * Returns true if the current logged-in user can see the restricted tabs
+   * (PROFILE, JOB, DOCUMENTS, ASSETS).
+   * Allowed when:
+   *   1. Viewing own profile
+   *   2. Logged-in user is the direct reporting manager of the viewed employee
+   *   3. Logged-in user has the 'hr' or 'admin' role
+   */
+  get canViewPrivateTabs(): boolean {
+    if (this.isOwnProfile) return true;
+
+    const userRole = this.routeGuardService.userRole?.toLowerCase() || '';
+    if (userRole === 'hr' || userRole === 'admin') return true;
+
+    // Manager check: only allow if this user is the direct reporting manager of the viewed employee
+    const reportingManagerId = this.currentEmployee?.reporting_manager_id;
+    if (this.myEmployeeId && reportingManagerId &&
+        Number(this.myEmployeeId) === Number(reportingManagerId)) {
+      return true;
+    }
+
+    return false;
+  }
 
   constructor(
     private route: ActivatedRoute,
@@ -39,7 +67,8 @@ export class ProfilePage implements OnInit, OnDestroy {
     private loadingController: LoadingController,
     private cdr: ChangeDetectorRef,
     private separationService: SeparationService,
-    private modalController: ModalController
+    private modalController: ModalController,
+    private routeGuardService: RouteGuardService
   ) {}
 
   ngOnInit() {
@@ -99,6 +128,7 @@ export class ProfilePage implements OnInit, OnDestroy {
     this.employeeService.getMyProfile().subscribe({
       next: (myProfile: any) => {
         const myId = myProfile?.id || myProfile?.data?.id || (Array.isArray(myProfile?.data) ? myProfile?.data[0]?.id : null);
+        this.myEmployeeId = myId ? Number(myId) : null;
         this.isOwnProfile = !targetId || Number(targetId) === Number(myId);
 
         const profileObservable = this.isOwnProfile
@@ -128,6 +158,10 @@ export class ProfilePage implements OnInit, OnDestroy {
               this.currentEmployee = employeeData;
             }
             loading.dismiss();
+            // If the current segment is a private tab and user has no access, reset to 'about'
+            if (!this.canViewPrivateTabs && ['profile', 'job', 'documents', 'assets'].includes(this.selectedSegment)) {
+              this.selectedSegment = 'about';
+            }
             this.cdr.detectChanges();
           },
           error: () => {
@@ -164,6 +198,10 @@ export class ProfilePage implements OnInit, OnDestroy {
               this.currentEmployee = employeeData;
             }
             loading.dismiss();
+            // If the current segment is a private tab and user has no access, reset to 'about'
+            if (!this.canViewPrivateTabs && ['profile', 'job', 'documents', 'assets'].includes(this.selectedSegment)) {
+              this.selectedSegment = 'about';
+            }
             this.cdr.detectChanges();
           },
           error: () => {
