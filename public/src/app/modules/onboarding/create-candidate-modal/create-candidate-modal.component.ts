@@ -114,18 +114,14 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (response) => {
                     const employees = Array.isArray(response) ? response : response.data || [];
-                    // Filter: Working employees in the Management department only
-                    const mgmtEmployees = employees.filter((emp: any) => {
-                        const dept = (emp.department_name || '').toLowerCase();
-                        return dept === 'management';
-                    });
-                    this.reportingManagers = mgmtEmployees.map((emp: any) => ({
+                    this.reportingManagers = employees.map((emp: any) => ({
                         id: emp.id,
                         employee_number: emp.EmployeeNumber,
                         first_name: emp.FirstName,
                         last_name: emp.LastName,
                         full_name: `${emp.FirstName} ${emp.LastName}`,
-                        designation: emp.designation_name || ''
+                        designation: emp.designation_name || '',
+                        department: emp.department_name || ''
                     }));
                     this.filteredManagers = [...this.reportingManagers];
                     this.isLoadingMasterData = false;
@@ -148,8 +144,22 @@ export class CreateCandidateModalComponent implements OnInit, OnDestroy {
             this.filteredManagers = this.reportingManagers.filter(m =>
                 m.full_name.toLowerCase().includes(q) ||
                 (m.employee_number || '').toLowerCase().includes(q) ||
-                (m.designation || '').toLowerCase().includes(q)
+                (m.designation || '').toLowerCase().includes(q) ||
+                (m.department || '').toLowerCase().includes(q)
             );
+        }
+    }
+
+    /** Sync the search input text to show the selected manager's name */
+    onManagerSelected(event: Event): void {
+        const selectEl = event.target as HTMLSelectElement;
+        const selectedId = Number(selectEl.value);
+        const selected = this.reportingManagers.find(m => m.id === selectedId);
+        if (selected) {
+            this.managerSearchQuery = selected.full_name;
+            this.filteredManagers = [...this.reportingManagers];
+        } else {
+            this.managerSearchQuery = '';
         }
     }
 

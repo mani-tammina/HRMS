@@ -197,7 +197,7 @@
         <div class="form-group-lux">
           <label>
             Reporting Manager
-            <span class="dept-badge">Management Dept.</span>
+            <span class="dept-badge">All Working Employees</span>
           </label>
           <!-- Searchable Manager Dropdown -->
           <div class="manager-search-wrapper">
@@ -222,15 +222,15 @@
 
             <!-- Native Select (drives formControlName) -->
             <div class="select-wrapper">
-              <select formControlName="reporting_manager_id" class="lux-input">
+              <select formControlName="reporting_manager_id" class="lux-input" (change)="onManagerSelected($event)">
                 <option value="">No Manager Assigned</option>
-                <option *ngIf="isLoadingMasterData" disabled>Loading Management staff...</option>
+                <option *ngIf="isLoadingMasterData" disabled>Loading employees...</option>
                 <ng-container *ngIf="!isLoadingMasterData">
                   <option *ngIf="filteredManagers.length === 0 && managerSearchQuery" disabled>
                     No results for "{{ managerSearchQuery }}"
                   </option>
                   <option *ngFor="let manager of filteredManagers" [value]="manager.id">
-                    {{ manager.full_name }} — {{ manager.designation || 'Manager' }} ({{ manager.employee_number }})
+                    {{ manager.full_name }} — {{ manager.designation || 'Employee' }} ({{ manager.employee_number }})
                   </option>
                 </ng-container>
               </select>
