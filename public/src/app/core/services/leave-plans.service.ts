@@ -17,7 +17,7 @@ export interface LeavePlan {
 @Injectable({ providedIn: 'root' })
 export class LeavePlanService {
   private env = environment;
-  private baseUrl = `http://${this.env.apiURL}/api`;
+  private baseUrl = `${this.env.apiURL}/api`;
 
   constructor(private http: HttpClient) { }
 

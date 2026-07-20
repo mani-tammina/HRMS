@@ -8,7 +8,7 @@ import { environment } from 'src/environments/environment';
 })
 export class SeparationService {
   private env = environment;
-  private readonly API_URL = `http://${this.env.apiURL}/api/separation`;
+  private readonly API_URL = `${this.env.apiURL}/api/separation`;
 
   constructor(private http: HttpClient) {}
 

@@ -32,7 +32,7 @@ export interface DashboardStats {
 })
 export class FinanceAdminService {
   private env = environment;
-  private baseUrl = `http://${this.env.apiURL}/api`;
+  private baseUrl = `${this.env.apiURL}/api`;
 
   private workingEmployeesSubject = new BehaviorSubject<EmployeeInfo[]>([]);
   public workingEmployees$ = this.workingEmployeesSubject.asObservable();

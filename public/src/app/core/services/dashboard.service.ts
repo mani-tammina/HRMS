@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
 @Injectable({ providedIn: 'root' })
 export class AttendanceService {
   private env = environment;
-  private readonly API_URL = `http://${this.env.apiURL}/api/attendance`;
+  private readonly API_URL = `${this.env.apiURL}/api/attendance`;
   
   private clockStateSubject = new BehaviorSubject<boolean>(false);
   clockState$ = this.clockStateSubject.asObservable();
@@ -53,7 +53,7 @@ export class AttendanceService {
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   private env = environment;
-  private readonly API_URL = `http://${this.env.apiURL}/api/admin`;
+  private readonly API_URL = `${this.env.apiURL}/api/admin`;
 
   constructor(private http: HttpClient) {}
 

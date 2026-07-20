@@ -8,7 +8,7 @@ import { environment } from 'src/environments/environment';
 })
 export class PayrollService {
   private env = environment;
-  private payrollUrl = `http://${this.env.apiURL}/api/payroll-master/`;
+  private payrollUrl = `${this.env.apiURL}/api/payroll-master/`;
 
   constructor(private http: HttpClient) { }
 

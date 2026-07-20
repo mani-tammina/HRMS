@@ -6,7 +6,7 @@ import { environment } from 'src/environments/environment';
 @Injectable({ providedIn: 'root' })
 export class TimesheetService {
   private env = environment;
-  private baseUrl = `http://${this.env.apiURL}/api/timesheets`;
+  private baseUrl = `${this.env.apiURL}/api/timesheets`;
 
   constructor(private http: HttpClient) {}
 

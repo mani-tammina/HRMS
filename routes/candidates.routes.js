@@ -215,7 +215,7 @@ router.post("/:id/send-offer", auth, hr, async (req, res) => {
         const subject = req.body.subject || `Job Offer Confirmation - ${candidate.full_name}`;
         
         // Construct offer link for candidate to accept/decline
-        const offerLink = `http://hrms.tamminahub.com/view-offer/${candidate.id}/${candidate.candidate_id}`;
+        const offerLink = `https://hrms.tamminahub.com/view-offer/${candidate.id}/${candidate.candidate_id}`;
 
         const defaultHtml = `
 <div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 30px; background-color: #f8fafc; color: #1e293b;">

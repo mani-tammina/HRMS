@@ -48,7 +48,7 @@ export interface AnnouncementPayload {
 @Injectable({ providedIn: 'root' })
 export class AdminService {
   private env = environment;
-  private baseUrl = `http://${this.env.apiURL}/api`;
+  private baseUrl = `${this.env.apiURL}/api`;
 
   constructor(private http: HttpClient) {}
 

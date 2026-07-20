@@ -8,7 +8,7 @@ import { environment } from 'src/environments/environment';
 })
 export class WorkTrackService {
   private env = environment;
-  private apiUrl = `http://${this.env.apiURL}/api/worktrack`;
+  private apiUrl = `${this.env.apiURL}/api/worktrack`;
 
   constructor(private http: HttpClient) { }
 

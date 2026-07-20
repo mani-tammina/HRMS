@@ -22,7 +22,7 @@ export interface MyLeave {
 @Injectable({ providedIn: 'root' })
 export class LeaverequestService {
   private env = environment;
-  private readonly API_URL = `http://${this.env.apiURL}/api/leaves`;
+  private readonly API_URL = `${this.env.apiURL}/api/leaves`;
 
   private myLeavesSubject = new BehaviorSubject<MyLeave[]>([]);
   myLeaves$ = this.myLeavesSubject.asObservable();

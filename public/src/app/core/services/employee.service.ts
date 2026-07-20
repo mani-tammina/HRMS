@@ -6,12 +6,12 @@ import { environment } from 'src/environments/environment';
 @Injectable({ providedIn: 'root' })
 export class EmployeeService {
   private env = environment;
-  private readonly API_URL = `http://${this.env.apiURL}/api/employees`;
+  private readonly API_URL = `${this.env.apiURL}/api/employees`;
   private readonly profileEndpoint = `${this.API_URL}/profile/me`;
   private readonly reportingEndpoint = `${this.API_URL}/reporting`;
   private readonly uploadProfileImageUrl = `${this.API_URL}/profile/image`;
   private readonly myTeamEndpoint = `${this.API_URL}/my-team/list`;
-  private readonly ATTENDANCE_API_URL = `http://${this.env.apiURL}/api/attendance`;
+  private readonly ATTENDANCE_API_URL = `${this.env.apiURL}/api/attendance`;
 
   private currentEmployee: any | null = null;
   private currentEmployeeSubject = new BehaviorSubject<any>(null);
@@ -138,24 +138,24 @@ export class EmployeeService {
 
   getBirthdays(period = 'today'): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    return this.http.get(`http://${this.env.apiURL}/api/birthdays?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
+    return this.http.get(`${this.env.apiURL}/api/birthdays?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
   getAnniversaries(period = 'today'): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    return this.http.get(`http://${this.env.apiURL}/api/anniversaries?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
+    return this.http.get(`${this.env.apiURL}/api/anniversaries?period=${period}`, { headers: { Authorization: `Bearer ${token}` } });
   }
 
   sendBirthdayWish(employeeId: number, message: string): Observable<any> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    return this.http.post(`http://${this.env.apiURL}/api/birthdays/wishes`, {
+    return this.http.post(`${this.env.apiURL}/api/birthdays/wishes`, {
       birthday_employee_id: employeeId, message
     }, { headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' } });
   }
 
   getBirthdayWishes(employeeId: number): Observable<any[]> {
     const token = localStorage.getItem('token') || localStorage.getItem('access_token');
-    return this.http.get<any[]>(`http://${this.env.apiURL}/api/birthdays/wishes/${employeeId}`, {
+    return this.http.get<any[]>(`${this.env.apiURL}/api/birthdays/wishes/${employeeId}`, {
       headers: { Authorization: `Bearer ${token}` }
     });
   }

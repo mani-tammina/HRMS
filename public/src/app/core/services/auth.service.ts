@@ -9,15 +9,15 @@ import { RouteGuardService } from './route-guard.service';
 })
 export class AuthService {
   private env = environment;
-  private LOGIN_URL = `http://${this.env.apiURL}/api/auth/login`;
-  private CHECK_EMAIL_URL = `http://${this.env.apiURL}/api/auth/employee/check`;
-  private CREATE_USER_URL = `http://${this.env.apiURL}/api/auth/user/create`;
-  private CREATE_AUTO_USER_URL = `http://${this.env.apiURL}/api/auth/user/create-auto`;
-  private CREATE_PASSWORD_URL = `http://${this.env.apiURL}/api/auth/password/create`;
-  private SEND_OTP_URL = `http://${this.env.apiURL}/api/auth/password/send-otp`;
-  private VERIFY_OTP_URL = `http://${this.env.apiURL}/api/auth/password/verify-otp`;
-  private PREVIEW_ROLE_URL = `http://${this.env.apiURL}/api/auth/user/preview-role`;
-  private LOGOUT_URL = `http://${this.env.apiURL}/api/auth/logout`;
+  private LOGIN_URL = `${this.env.apiURL}/api/auth/login`;
+  private CHECK_EMAIL_URL = `${this.env.apiURL}/api/auth/employee/check`;
+  private CREATE_USER_URL = `${this.env.apiURL}/api/auth/user/create`;
+  private CREATE_AUTO_USER_URL = `${this.env.apiURL}/api/auth/user/create-auto`;
+  private CREATE_PASSWORD_URL = `${this.env.apiURL}/api/auth/password/create`;
+  private SEND_OTP_URL = `${this.env.apiURL}/api/auth/password/send-otp`;
+  private VERIFY_OTP_URL = `${this.env.apiURL}/api/auth/password/verify-otp`;
+  private PREVIEW_ROLE_URL = `${this.env.apiURL}/api/auth/user/preview-role`;
+  private LOGOUT_URL = `${this.env.apiURL}/api/auth/logout`;
 
   constructor(
     private http: HttpClient,

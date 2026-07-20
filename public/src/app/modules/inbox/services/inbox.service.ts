@@ -9,7 +9,7 @@ import { InboxNotification } from '../models/notification.model';
 })
 export class InboxService {
   private env = environment;
-  private readonly BASE_URL = `http://${this.env.apiURL}/api/inbox`;
+  private readonly BASE_URL = `${this.env.apiURL}/api/inbox`;
 
   constructor(private http: HttpClient) {}
 

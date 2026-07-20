@@ -6,8 +6,8 @@ import { environment } from 'src/environments/environment';
 @Injectable({ providedIn: 'root' })
 export class AttendanceApiService {
   private env = environment;
-  private readonly BASE_URL = `http://${this.env.apiURL}/api/attendance`;
-  private readonly leaves_BASE_URL = `http://${this.env.apiURL}/api/leaves`;
+  private readonly BASE_URL = `${this.env.apiURL}/api/attendance`;
+  private readonly leaves_BASE_URL = `${this.env.apiURL}/api/leaves`;
 
 
   private clockStateSubject = new BehaviorSubject<boolean>(false);
