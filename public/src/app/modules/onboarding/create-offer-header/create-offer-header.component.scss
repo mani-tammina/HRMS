@@ -1,0 +1,205 @@
+.create-offer-header {
+  background: white;
+  border-radius: 20px;
+  padding: 18px 28px;
+  border: 1px solid #edf2f7;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-row {
+
+  align-items: center;
+}
+
+.title-section {
+
+  h2 {
+
+    margin: 0;
+
+    font-size: 26px;
+
+    font-weight: 700;
+
+    color: #0f172a;
+  }
+
+  p {
+
+    margin-top: 4px;
+
+    color: #64748b;
+
+    font-size: 13px;
+  }
+}
+
+.stepper {
+
+  display: flex;
+
+  align-items: center;
+
+  // justify-content: center;
+
+  gap: 0;
+}
+
+.line {
+
+  width: 70px;
+
+  height: 2px;
+
+  background: #dbe4ee;
+}
+
+.step-btn {
+
+  border: none;
+
+  background: transparent;
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 12px;
+
+  cursor: pointer;
+
+  transition: .3s;
+
+  padding: 10px 14px;
+
+  border-radius: 14px;
+
+  color: #64748b;
+}
+
+.step-btn:hover {
+
+  background: #f8fafc;
+}
+
+.circle {
+
+  width: 38px;
+
+  height: 38px;
+
+  border-radius: 50%;
+
+  display: flex;
+
+  align-items: center;
+
+  justify-content: center;
+
+  background: #f1f5f9;
+
+  border: 2px solid #d6dde6;
+
+  font-weight: 700;
+
+  transition: .3s;
+}
+
+.step-text {
+
+  display: flex;
+
+  flex-direction: column;
+
+  text-align: left;
+}
+
+.step-title {
+
+  font-size: 14px;
+
+  font-weight: 700;
+}
+
+.step-text small {
+
+  color: #94a3b8;
+
+  font-size: 11px;
+}
+
+.step-btn.active {
+
+  color: #4f46e5;
+}
+
+.step-btn.active .circle {
+
+  background: linear-gradient(135deg, #4f46e5, #6366f1);
+
+  color: white;
+
+  border-color: transparent;
+
+  box-shadow: 0 8px 18px rgba(79, 70, 229, .3);
+}
+
+.button-container {
+
+  display: flex;
+
+  flex-direction: row;
+
+  gap: 10px;
+}
+
+.continue-btn {
+
+  --background: #4f46e5;
+
+  --border-radius: 12px;
+
+  height: 46px;
+
+  font-weight: 600;
+}
+
+.offer-btn {
+
+  --background: #16a34a;
+
+  --border-radius: 12px;
+
+  height: 46px;
+
+  font-weight: 600;
+}
+
+@media(max-width:1200px) {
+
+  .line {
+
+    display: none;
+
+  }
+
+  .step-btn {
+
+    flex-direction: column;
+
+  }
+
+  .step-text {
+
+    display: none;
+
+  }
+
+  .button-container {
+
+    margin-top: 20px;
+
+  }
+}

@@ -1,0 +1,188 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Candidate Form</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="close()">Close</ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+
+  <!-- Candidate Form -->
+  <form [formGroup]="candidateForm" (ngSubmit)="submitForm()">
+
+    <!-- PERSONAL DETAILS -->
+    <div formGroupName="personalDetails">
+      <ion-item>
+        <ion-label position="floating">First Name</ion-label>
+        <ion-input formControlName="firstName"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.FirstName')?.touched && candidateForm.get('personalDetails.FirstName')?.invalid">
+        First Name is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Middle Name</ion-label>
+        <ion-input formControlName="MiddleName"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.MiddleName')?.touched && candidateForm.get('personalDetails.MiddleName')?.invalid">
+        Middle Name is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Last Name</ion-label>
+        <ion-input formControlName="lastName"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.LastName')?.touched && candidateForm.get('personalDetails.LastName')?.invalid">
+        Last Name is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Phone Number</ion-label>
+        <ion-input formControlName="PhoneNumber" type="tel"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.PhoneNumber')?.touched && candidateForm.get('personalDetails.PhoneNumber')?.invalid">
+        Phone number is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Email</ion-label>
+        <ion-input formControlName="email"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.email')?.touched && candidateForm.get('personalDetails.email')?.invalid">
+        Please enter a valid email
+      </ion-note>
+
+      <ion-item>
+        <ion-select formControlName="gender" placeholder="Gender">
+          <ion-select-option value="male">Male</ion-select-option>
+          <ion-select-option value="female">Female</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('personalDetails.gender')?.touched && candidateForm.get('personalDetails.gender')?.invalid">
+        Gender is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Alternate Phone</ion-label>
+        <ion-input formControlName="alternatePhone" type="tel"></ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="stacked">Date of Birth</ion-label>
+        <ion-input id="dob-input" formControlName="dateOfBirth" [placeholder]="selectedDOB || 'Select Date'" readonly></ion-input>
+      </ion-item>
+      <ion-popover #dobPopover trigger="dob-input" show-backdrop="true">
+        <ng-template>
+          <ion-datetime presentation="date" (ionChange)="onDOBChange($event, dobPopover)"></ion-datetime>
+        </ng-template>
+      </ion-popover>
+    </div>
+
+    <!-- JOB DETAILS -->
+    <h5>Job Details</h5>
+    <div formGroupName="jobDetailsForm">
+      <ion-item>
+        <ion-select formControlName="JobTitle" placeholder="Job Title">
+          <ion-select-option *ngFor="let des of designations" [value]="des.name">{{des.name}}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.JobTitle')?.touched && candidateForm.get('jobDetailsForm.JobTitle')?.invalid">
+        Job Title is required
+      </ion-note>
+
+      <ion-item>
+        <ion-select formControlName="Department" placeholder="Department">
+          <ion-select-option *ngFor="let dept of departments" [value]="dept.name">{{dept.name}}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.Department')?.touched && candidateForm.get('jobDetailsForm.Department')?.invalid">
+        Department is required
+      </ion-note>
+
+      <ion-item>
+        <ion-select formControlName="JobLocation" placeholder="JobLocation">
+          <ion-select-option *ngFor="let loc of locations" [value]="loc.name">{{loc.name}}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.JobLocation')?.touched && candidateForm.get('jobDetailsForm.JobLocation')?.invalid">
+        Job Location is required
+      </ion-note>
+
+      <ion-item>
+        <ion-select formControlName="WorkType" placeholder="WorkType">
+          <ion-select-option value="Permanent">Permanent</ion-select-option>
+          <ion-select-option value="Contract">Contract</ion-select-option>
+          <ion-select-option value="Part Time">Part Time</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.WorkType')?.touched && candidateForm.get('jobDetailsForm.WorkType')?.invalid">
+        Work Type is required
+      </ion-note>
+
+      <ion-item>
+        <ion-select formControlName="BussinessUnit" placeholder="BussinessUnit">
+          <ion-select-option *ngFor="let bu of businessUnits" [value]="bu.name">{{bu.name}}</ion-select-option>
+        </ion-select>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.BussinessUnit')?.touched && candidateForm.get('jobDetailsForm.BussinessUnit')?.invalid">
+        Business Unit is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="stacked">Date of Joining</ion-label>
+        <ion-input id="joining-date-input" formControlName="joiningDate" [placeholder]="selectedDate || 'Select Date'" readonly></ion-input>
+      </ion-item>
+      <ion-popover #joiningDatePopover trigger="joining-date-input" show-backdrop="true">
+        <ng-template>
+          <ion-datetime presentation="date" (ionChange)="onDateChange($event, joiningDatePopover)"></ion-datetime>
+        </ng-template>
+      </ion-popover>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.joiningDate')?.touched && candidateForm.get('jobDetailsForm.joiningDate')?.invalid">
+        Date of Joining is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Offered CTC (Annual)</ion-label>
+        <ion-input formControlName="offeredCTC" type="number"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.offeredCTC')?.touched && candidateForm.get('jobDetailsForm.offeredCTC')?.invalid">
+        Offered CTC is required
+      </ion-note>
+
+      <!-- Hidden for now, but candidate should be created without reporting manager -->
+      <!-- <ion-item>
+        <ion-select formControlName="reportingManagerId" placeholder="Reporting Manager">
+          <ion-select-option *ngFor="let manager of managers" [value]="manager.id">{{manager.FirstName}} {{manager.LastName}}</ion-select-option>
+        </ion-select>
+      </ion-item> -->
+
+      <ion-item>
+        <ion-label position="floating">Recruiter Name</ion-label>
+        <ion-input formControlName="recruiterName"></ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Recruitment Source</ion-label>
+        <ion-input formControlName="recruitmentSource"></ion-input>
+      </ion-item>
+    </div>
+
+    <ion-button expand="full" type="submit">Submit</ion-button>
+  </form>
+
+</ion-content>

@@ -1,36 +1,72 @@
-import { NgModule, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { CommonModule, DatePipe, UpperCasePipe, TitleCasePipe, DecimalPipe } from '@angular/common';
-import { FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { IonicModule } from '@ionic/angular';
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
 
-import { OnboardingRoutingModule } from './onboarding-routing.module';
-import { OnboardingDashboardComponent } from './onboarding-dashboard/onboarding-dashboard.component';
-import { PreonboardingListComponent } from './preonboarding-list/preonboarding-list.component';
-import { PreonboardingDetailComponent } from './preonboarding-detail/preonboarding-detail.component';
-import { CreateCandidateModalComponent } from './create-candidate-modal/create-candidate-modal.component';
-import { ReplaceCharacterPipe } from '../../shared/pipes/replace-character.pipe';
+import { SetupComponent } from './setup/setup.component';
+import { PreonboardingComponent } from './preonboarding/preonboarding.component';
+import { NewJoinerComponent } from './new-joiner/new-joiner.component';
+import { PastOffersComponent } from './past-offers/past-offers.component';
+import { OnboardingTasksComponent } from './onboarding-tasks/onboarding-tasks.component';
+import { TaskTemplatesComponent } from './task-templates/task-templates.component';
+import { PostPage } from './pre.page';
+import { CreateOfferComponent } from './create-offer/create-offer.component';
+import { CompensationComponent } from './compensation/compensation.component';
+import { OfferDetailsComponent } from './offer-details/offer-details.component';
+import { PreviewSendComponent } from './preview-send/preview-send.component';
+
+const routes: Routes = [
+  {
+    path: '',
+    redirectTo: 'setup',
+    pathMatch: 'full'
+  },
+  {
+    path: 'setup',
+    component: SetupComponent
+  },
+  {
+    path: 'preOnboarding',
+    component: PreonboardingComponent
+  },
+  {
+    path: 'NewJoiner',
+    component: NewJoinerComponent
+  },
+  {
+    path: 'pastOffers',
+    component: PastOffersComponent
+  },
+  {
+    path: 'onboarding_Tasks',
+    component: OnboardingTasksComponent
+  },
+  {
+    path: 'Task_Template',
+    component: TaskTemplatesComponent
+  },
+  {
+    path: 'pre',
+    component: PostPage
+  },
+  {
+    path: 'CreateOffer/:id/:name',
+    component: CreateOfferComponent
+  },
+  {
+    path: 'salaryStaructure/:id/:name',
+    component: CompensationComponent
+  },
+  {
+    path: 'OfferDetailsComponent/:id/:name',
+    component: OfferDetailsComponent
+  },
+  {
+    path: 'preview_send/:id/:name',
+    component: PreviewSendComponent
+  }
+];
 
 @NgModule({
-    declarations: [
-        OnboardingDashboardComponent,
-        PreonboardingListComponent,
-        PreonboardingDetailComponent,
-        CreateCandidateModalComponent
-    ],
-    imports: [
-        CommonModule,
-        FormsModule,
-        ReactiveFormsModule,
-        IonicModule,
-        OnboardingRoutingModule,
-        ReplaceCharacterPipe
-    ],
-    providers: [
-        DatePipe,
-        UpperCasePipe,
-        TitleCasePipe,
-        DecimalPipe
-    ],
-    schemas: [CUSTOM_ELEMENTS_SCHEMA]
+  imports: [RouterModule.forChild(routes)],
+  exports: [RouterModule]
 })
 export class OnboardingModule { }

@@ -1,0 +1,403 @@
+:host {
+  --primary: #1e40af;
+  --primary-light: #eff6ff;
+  --border: #e5e7eb;
+  --text: #1f2937;
+  --text-light: #6b7280;
+  --bg: #f5f7fb;
+  --success: #16a34a;
+}
+
+.salary-page {
+  --background: var(--bg);
+}
+
+.salary-container {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  padding: 24px;
+  align-items: flex-start;
+}
+
+/* ===========================
+   Cards
+=========================== */
+
+.compensation-card,
+.salary-preview-card {
+
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 20px rgba(15, 23, 42, .06);
+  overflow: hidden;
+}
+
+.card-header {
+
+  padding: 20px 24px;
+  border-bottom: 1px solid #eef2f7;
+
+  h2 {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  p {
+    margin-top: 6px;
+    color: var(--text-light);
+    font-size: 14px;
+  }
+}
+
+/* ===========================
+   Checkbox
+=========================== */
+
+.checkbox-row {
+
+  display: flex;
+  gap: 24px;
+  padding: 20px 24px;
+
+  ion-item {
+    --background: transparent;
+    --padding-start: 0;
+    --inner-padding-end: 0;
+    flex: 1;
+  }
+
+  ion-label {
+    font-size: 15px;
+    font-weight: 500;
+  }
+}
+
+/* ===========================
+   Form
+=========================== */
+
+.form-grid {
+
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 22px;
+  padding: 0 24px 24px;
+}
+
+.form-group {
+
+  display: flex;
+  flex-direction: column;
+
+  label {
+
+    font-size: 14px;
+    font-weight: 600;
+    color: #374151;
+    margin-bottom: 8px;
+  }
+}
+
+ion-select,
+ion-input {
+
+  --background: #fff;
+  --padding-start: 14px;
+  --padding-end: 14px;
+
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  min-height: 48px;
+
+  font-size: 15px;
+}
+
+/* ===========================
+   Salary Structure Link
+=========================== */
+
+.salary-link {
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  margin-left: 24px;
+  margin-bottom: 24px;
+
+  color: var(--primary);
+  font-weight: 600;
+  cursor: pointer;
+
+  ion-icon {
+    font-size: 20px;
+  }
+}
+
+/* ===========================
+   Bonus Card
+=========================== */
+
+.bonus-card {
+
+  margin: 0 24px 24px;
+
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+
+  padding: 20px;
+
+  background: #fafcff;
+
+  h3 {
+
+    margin: 0;
+
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  p {
+
+    margin: 8px 0 18px;
+
+    color: var(--text-light);
+    line-height: 1.6;
+  }
+
+  ion-item {
+
+    --background: transparent;
+    --padding-start: 0;
+  }
+}
+
+.bonus-btn {
+
+  margin-top: 12px;
+
+  --color: var(--primary);
+
+  font-weight: 600;
+}
+
+/* ===========================
+   Salary Table
+=========================== */
+
+.salary-table {
+
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.salary-table thead {
+
+  background: #f8fafc;
+}
+
+.salary-table th {
+
+  padding: 16px;
+
+  text-align: left;
+
+  font-size: 13px;
+
+  color: #64748b;
+
+  text-transform: uppercase;
+
+  letter-spacing: .4px;
+
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.salary-table td {
+
+  padding: 16px;
+
+  border-bottom: 1px solid #edf2f7;
+
+  font-size: 15px;
+
+  color: #1e293b;
+}
+
+.salary-table tbody tr:hover {
+
+  background: #f9fbff;
+}
+
+.salary-table .subtotal {
+
+  background: #f8fafc;
+
+  font-weight: 700;
+}
+
+.salary-table .total {
+
+  background: #eef6ff;
+
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* ===========================
+   Deductions
+=========================== */
+
+.deduction-card {
+
+  margin: 24px;
+
+  border: 1px solid #e5e7eb;
+
+  border-radius: 12px;
+
+  overflow: hidden;
+
+  h3 {
+
+    margin: 0;
+
+    padding: 16px;
+
+    background: #f8fafc;
+
+    font-size: 17px;
+
+    font-weight: 700;
+  }
+
+  table {
+
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  th {
+
+    background: #f8fafc;
+
+    padding: 14px;
+
+    text-align: left;
+
+    font-size: 13px;
+
+    color: #64748b;
+
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  td {
+
+    padding: 14px;
+
+    border-bottom: 1px solid #edf2f7;
+  }
+
+  tbody tr:last-child {
+
+    background: #f3f8ff;
+
+    font-weight: 700;
+  }
+}
+
+/* ===========================
+   Footer
+=========================== */
+
+.page-footer {
+
+  position: sticky;
+
+  bottom: 0;
+
+  display: flex;
+
+  justify-content: flex-end;
+
+  gap: 14px;
+
+  padding: 18px 24px;
+
+  background: #fff;
+
+  border-top: 1px solid #e5e7eb;
+
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, .05);
+}
+
+.page-footer ion-button {
+
+  min-width: 140px;
+
+  height: 46px;
+
+  font-weight: 600;
+
+  --border-radius: 10px;
+}
+
+/* ===========================
+   Responsive
+=========================== */
+
+@media (max-width: 1024px) {
+
+  .salary-container {
+
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+
+    grid-template-columns: 1fr;
+  }
+
+  .checkbox-row {
+
+    flex-direction: column;
+    gap: 10px;
+  }
+}
+
+@media (max-width: 768px) {
+
+  .salary-container {
+
+    padding: 16px;
+  }
+
+  .page-footer {
+
+    flex-direction: column;
+  }
+
+  .page-footer ion-button {
+
+    width: 100%;
+  }
+
+  .salary-table {
+
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .deduction-card table {
+
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+}

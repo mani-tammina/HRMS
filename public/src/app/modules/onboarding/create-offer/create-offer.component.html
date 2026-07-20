@@ -1,0 +1,112 @@
+<ion-header>
+  <!-- <app-header></app-header> -->
+  <app-create-offer-header [candidate]="candidate" (continueClick)="submitOfferForm()"></app-create-offer-header>
+</ion-header>
+
+<ion-content *ngIf="candidate">
+  <div class="page-container">
+    <!-- LEFT: Job Details -->
+    <div class="left-section">
+      <form [formGroup]="offerForm">
+        <h6>Job Details</h6>
+        <ion-list lines="none">
+          <ion-grid>
+            <ion-row>
+              <ion-col size="6">
+                <ion-item>
+                  <ion-label position="stacked">Legal Entity</ion-label>
+                  <ion-select formControlName="BussinessUnit" placeholder="Select Legal Entity">
+                    <ion-select-option *ngFor="let bu of businessUnits" [value]="bu.name">{{bu.name}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </ion-col>
+              <ion-col size="6" style="position: relative;">
+                <ion-item lines="none">
+                  <ion-label position="stacked">Reporting Manager (optional)</ion-label>
+                  <ion-searchbar [value]="selectedManagerName" placeholder="Search employee..." show-cancel-button="never" [debounce]="100" (ionInput)="onManagerSearch($event)" style="padding-left: 0; padding-right: 0; --box-shadow: none; --background: transparent; margin-top: 4px;"></ion-searchbar>
+                </ion-item>
+                <ion-input type="hidden" formControlName="reportingManagerId"></ion-input>
+
+                <!-- Floating Suggestions List -->
+                <ion-list *ngIf="showManagerSuggestions && filteredManagers.length > 0" class="suggestions-list" style="position: absolute; z-index: 1000; left: 16px; right: 16px; top: 70px; max-height: 200px; overflow-y: auto; border: 1px solid var(--ion-color-light); box-shadow: 0 4px 10px rgba(0,0,0,0.15); border-radius: 4px; background: white; margin: 0;">
+                  <ion-item button *ngFor="let manager of filteredManagers" (click)="selectManager(manager)" style="--background: white; --color: black;">
+                    <ion-label>
+                      <h3 style="font-weight: 500; color: #333; margin: 0;">{{manager.FirstName}} {{manager.LastName}}</h3>
+                      <p style="color: #666; font-size: 12px; margin: 2px 0 0 0;">{{manager.WorkEmail}} • {{manager.EmploymentStatus}}</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+              </ion-col>
+            </ion-row>
+
+            <ion-row>
+              <ion-col size="6">
+                <ion-item>
+                  <ion-label position="stacked">Job Title</ion-label>
+                  <ion-select formControlName="JobTitle" placeholder="Select Job Title">
+                    <ion-select-option *ngFor="let des of designations" [value]="des.name">{{des.name}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </ion-col>
+
+              <ion-col size="6">
+                <ion-item>
+                  <ion-label position="stacked">Worker Type</ion-label>
+                  <ion-select formControlName="WorkType" placeholder="Select Worker Type">
+                    <ion-select-option value="Permanent">Permanent</ion-select-option>
+                    <ion-select-option value="Contract">Contract</ion-select-option>
+                    <ion-select-option value="Part Time">Part Time</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </ion-col>
+            </ion-row>
+
+            <ion-row>
+              <ion-col size="6">
+                <ion-item>
+                  <ion-label position="stacked">Department</ion-label>
+                  <ion-select formControlName="Department" placeholder="Select Department">
+                    <ion-select-option *ngFor="let dept of departments" [value]="dept.name">{{dept.name}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </ion-col>
+
+              <ion-col size="6">
+                <ion-item>
+                  <ion-label position="stacked">Location</ion-label>
+                  <ion-select formControlName="JobLocation" placeholder="Select Location">
+                    <ion-select-option *ngFor="let loc of locations" [value]="loc.name">{{loc.name}}</ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </ion-list>
+
+      </form>
+    </div>
+
+    <!-- RIGHT: Candidate Details -->
+    <div class="right-section">
+      <h6>Candidate Details</h6>
+      <ion-card>
+        <ion-card-content>
+          <div class="candidate-header">
+            <div class="avatar">{{candidate?.personalDetails?.initials}}</div>
+            <div>
+              <h2>{{candidate?.personalDetails?.FirstName}}</h2>
+              <p>Applied for {{candidate?.jobDetailsForm?.JobTitle}}</p>
+            </div>
+          </div>
+
+          <div class="candidate-info">
+            <p><strong>Email ID:</strong> {{candidate?.personalDetails?.email}}</p>
+            <p><strong>Phone Number:</strong> {{candidate?.personalDetails?.PhoneNumber}}</p>
+            <p><strong>Joining Date:</strong> {{candidate?.offerDetails?.JoiningDate}}</p>
+            <p><strong>Source:</strong> Direct Offer</p>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</ion-content>

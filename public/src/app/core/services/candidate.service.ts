@@ -21,6 +21,16 @@ export class CandidateService {
     return this.http.get<any>(`${this.apiUrl}/${id}`);
   }
 
+  // Get candidate by ID (Public verification endpoint)
+  getCandidateByIdPublic(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/public/${id}`);
+  }
+
+  // Update candidate status (Public acceptance/rejection)
+  updateCandidateStatusPublic(id: number, status: string): Observable<any> {
+    return this.http.put<any>(`${this.apiUrl}/public/${id}/status`, { status });
+  }
+
   // Create a new candidate
   createCandidate(candidateData: any): Observable<any> {
     return this.http.post<any>(this.apiUrl, candidateData);
@@ -140,6 +150,11 @@ export class CandidateService {
   // Get all designations
   getDesignations(): Observable<any> {
     return this.http.get<any>(`http://${environment.apiURL}/api/designations`);
+  }
+
+  // Get all business units
+  getBusinessUnits(): Observable<any> {
+    return this.http.get<any>(`http://${environment.apiURL}/api/business-units`);
   }
 
   // Get working employees for reporting managers (with optional department filter)

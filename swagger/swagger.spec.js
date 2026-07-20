@@ -10902,3 +10902,187 @@ Object.assign(swaggerSpec.paths, {
   }
 });
 
+// ============================================================
+// CANDIDATE PORTAL — Public Endpoints (No Authentication)
+// ============================================================
+Object.assign(swaggerSpec.paths, {
+
+  "/api/candidates/public/{id}": {
+    get: {
+      summary: "🔓 Get Candidate by ID (Public — no auth)",
+      description: `Public endpoint used by the candidate portal login page to verify a candidate's email and load their basic details.
+No JWT token is required. The candidate navigates here directly from their offer email link.`,
+      tags: ["🧑‍💼 Candidate Portal (Public)"],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "Candidate database ID (from email link)",
+          schema: { type: "integer", example: 4 }
+        }
+      ],
+      responses: {
+        200: {
+          description: "Candidate details returned successfully",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  candidate: {
+                    type: "object",
+                    properties: {
+                      id: { type: "integer" },
+                      candidate_id: { type: "string", example: "CAN1721234567890" },
+                      first_name: { type: "string", example: "Siva" },
+                      last_name: { type: "string", example: "Kumar" },
+                      full_name: { type: "string", example: "Siva Kumar" },
+                      email: { type: "string", example: "siva@example.com" },
+                      phone: { type: "string", example: "9876543210" },
+                      position: { type: "string", example: "Software Engineer" },
+                      status: {
+                        type: "string",
+                        enum: ["offered", "offer_accepted", "offer_declined", "documents_pending", "bgv_initiated", "bgv_completed", "ready_to_join", "joined", "dropped_out"],
+                        example: "offered"
+                      },
+                      offered_ctc: { type: "number", example: 600000 },
+                      joining_date: { type: "string", format: "date", example: "2025-08-01" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        404: { description: "Candidate not found" },
+        500: { description: "Internal server error" }
+      }
+    }
+  },
+
+  "/api/candidates/public/{id}/status": {
+    put: {
+      summary: "🔓 Accept or Reject Offer (Public — no auth)",
+      description: `Public endpoint that allows a candidate to accept or reject their job offer directly from the candidate portal.
+No JWT token is required — candidates access this via the link in their offer email.
+
+**On Accept:** Sets \`status = 'offer_accepted'\`, \`offer_accepted = 1\`, \`offer_accepted_date = today\`
+
+**On Reject:** Sets \`status = 'offer_declined'\`, \`offer_declined = 1\`, \`offer_declined_date = today\`
+
+Send \`"accepted"\` or \`"rejected"\` in the request body — the backend maps these to the correct DB ENUM values.`,
+      tags: ["🧑‍💼 Candidate Portal (Public)"],
+      parameters: [
+        {
+          name: "id",
+          in: "path",
+          required: true,
+          description: "Candidate database ID",
+          schema: { type: "integer", example: 4 }
+        }
+      ],
+      requestBody: {
+        required: true,
+        content: {
+          "application/json": {
+            schema: {
+              type: "object",
+              required: ["status"],
+              properties: {
+                status: {
+                  type: "string",
+                  enum: ["accepted", "rejected"],
+                  description: "Send 'accepted' to accept the offer, 'rejected' to decline it",
+                  example: "accepted"
+                }
+              }
+            },
+            examples: {
+              acceptOffer: {
+                summary: "Candidate accepts the offer",
+                value: { status: "accepted" }
+              },
+              rejectOffer: {
+                summary: "Candidate declines the offer",
+                value: { status: "rejected" }
+              }
+            }
+          }
+        }
+      },
+      responses: {
+        200: {
+          description: "Offer status updated successfully",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  success: { type: "boolean", example: true },
+                  status: {
+                    type: "string",
+                    enum: ["offer_accepted", "offer_declined"],
+                    description: "The DB ENUM value that was stored",
+                    example: "offer_accepted"
+                  },
+                  message: {
+                    type: "string",
+                    example: "Offer accepted successfully. Welcome aboard!"
+                  }
+                }
+              },
+              examples: {
+                accepted: {
+                  summary: "Offer Accepted",
+                  value: {
+                    success: true,
+                    status: "offer_accepted",
+                    message: "Offer accepted successfully. Welcome aboard!"
+                  }
+                },
+                declined: {
+                  summary: "Offer Declined",
+                  value: {
+                    success: true,
+                    status: "offer_declined",
+                    message: "Offer declined. We appreciate your time."
+                  }
+                }
+              }
+            }
+          }
+        },
+        400: {
+          description: "Invalid status value",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  error: {
+                    type: "string",
+                    example: "Invalid status value. Must be 'accepted' or 'rejected'."
+                  }
+                }
+              }
+            }
+          }
+        },
+        404: {
+          description: "Candidate not found",
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { error: { type: "string", example: "Candidate not found." } }
+              }
+            }
+          }
+        },
+        500: { description: "Internal server error" }
+      }
+    }
+  }
+
+});

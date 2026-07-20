@@ -11,34 +11,83 @@ const { auth, admin, hr } = require("../middleware/auth");
 
 const upload = multer({ dest: "uploads/candidate_docs/" });
 
+// Helper to parse dates in DD/MM/YYYY format to YYYY-MM-DD
+function parseDate(val) {
+    if (!val) return null;
+    if (typeof val === 'string' && val.includes('/')) {
+        const parts = val.split('/');
+        if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            const date = new Date(year, month, day);
+            if (!isNaN(date.getTime())) {
+                const yyyy = date.getFullYear();
+                const mm = String(date.getMonth() + 1).padStart(2, '0');
+                const dd = String(date.getDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+    }
+    const date = new Date(val);
+    if (!isNaN(date.getTime())) {
+        const yyyy = date.getFullYear();
+        const mm = String(date.getMonth() + 1).padStart(2, '0');
+        const dd = String(date.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    return null;
+}
+
 /* ============ CANDIDATE MANAGEMENT ============ */
 
 // Create new candidate (after interview rounds)
 router.post("/", auth, hr, async (req, res) => {
     const c = await db();
     try {
+        const personal = req.body.personalDetails || {};
+        const job = req.body.jobDetailsForm || {};
+
+        let designation_id = req.body.designation_id;
+        let department_id = req.body.department_id;
+        let location_id = req.body.location_id;
+
+        // If names are passed in the job details form, resolve them to database IDs
+        if (job.JobTitle) {
+            const [designations] = await c.query("SELECT id FROM designations WHERE name = ?", [job.JobTitle]);
+            if (designations.length > 0) designation_id = designations[0].id;
+        }
+        if (job.Department) {
+            const [departments] = await c.query("SELECT id FROM departments WHERE name = ?", [job.Department]);
+            if (departments.length > 0) department_id = departments[0].id;
+        }
+        if (job.JobLocation) {
+            const [locations] = await c.query("SELECT id FROM locations WHERE name = ?", [job.JobLocation]);
+            if (locations.length > 0) location_id = locations[0].id;
+        }
+
         const candidateData = {
             candidate_id: req.body.candidate_id || `CAN${Date.now()}`,
-            first_name: req.body.first_name,
-            middle_name: req.body.middle_name,
-            last_name: req.body.last_name,
-            full_name: req.body.full_name || `${req.body.first_name} ${req.body.last_name || ''}`.trim(),
-            email: req.body.email,
-            phone: req.body.phone,
-            alternate_phone: req.body.alternate_phone,
-            date_of_birth: req.body.date_of_birth,
-            gender: req.body.gender,
-            position: req.body.position,
-            designation_id: req.body.designation_id,
-            department_id: req.body.department_id,
-            location_id: req.body.location_id,
-            offered_ctc: req.body.offered_ctc,
-            joining_date: req.body.joining_date,
-            reporting_manager_id: req.body.reporting_manager_id,
-            hr_coordinator_id: req.body.hr_coordinator_id || req.user.employee_id,
-            recruiter_name: req.body.recruiter_name,
-            recruitment_source: req.body.recruitment_source,
-            created_by: req.user.id,
+            first_name: req.body.first_name || personal.firstName || personal.FirstName,
+            middle_name: (req.body.middle_name || personal.MiddleName || personal.middleName) || null,
+            last_name: (req.body.last_name || personal.LastName || personal.lastName) || null,
+            full_name: req.body.full_name || `${req.body.first_name || personal.firstName || personal.FirstName || ''} ${req.body.last_name || personal.LastName || personal.lastName || ''}`.trim(),
+            email: req.body.email || personal.email,
+            phone: (req.body.phone || personal.PhoneNumber || personal.phone) || null,
+            alternate_phone: (req.body.alternate_phone || personal.alternatePhone || personal.alternate_phone) || null,
+            date_of_birth: parseDate(req.body.date_of_birth || personal.dob || personal.date_of_birth || personal.dateOfBirth),
+            gender: (req.body.gender || personal.gender) || null,
+            position: (req.body.position || job.JobTitle || job.position) || null,
+            designation_id: designation_id || null,
+            department_id: department_id || null,
+            location_id: location_id || null,
+            offered_ctc: (req.body.offered_ctc || job.offered_ctc || job.offeredCtc || job.offeredCTC || job.package || job.Package) || null,
+            joining_date: parseDate(req.body.joining_date || job.joining_date || job.joiningDate || job.DOJ),
+            reporting_manager_id: (req.body.reporting_manager_id || job.reporting_manager_id || job.reportingManagerId) || null,
+            hr_coordinator_id: req.body.hr_coordinator_id || req.user.employee_id || null,
+            recruiter_name: (req.body.recruiter_name || job.recruiter_name || job.recruiterName) || null,
+            recruitment_source: (req.body.recruitment_source || job.recruitment_source || job.recruitmentSource) || null,
+            created_by: req.user.id || null,
             status: 'offered'
         };
 
@@ -99,9 +148,185 @@ router.get("/", auth, hr, async (req, res) => {
         const [candidates] = await c.query(query, params);
         c.end();
 
-        res.json(candidates);
+        // Helper to format flat db model to nested frontend structure
+        const mapCandidateToFrontend = (cand) => {
+            if (!cand) return null;
+            return {
+                id: cand.id,
+                candidate_id: cand.candidate_id,
+                status: cand.status,
+                personalDetails: {
+                    FirstName: cand.first_name,
+                    MiddleName: cand.middle_name,
+                    LastName: cand.last_name,
+                    email: cand.email,
+                    PhoneNumber: cand.phone,
+                    alternatePhone: cand.alternate_phone,
+                    dateOfBirth: cand.date_of_birth,
+                    gender: cand.gender,
+                    initials: (cand.first_name ? cand.first_name[0] : '') + (cand.last_name ? cand.last_name[0] : '')
+                },
+                jobDetailsForm: {
+                    JobTitle: cand.position || cand.designation_name,
+                    Department: cand.department_name,
+                    JobLocation: cand.location_name,
+                    WorkType: cand.work_type || 'Permanent',
+                    BussinessUnit: cand.business_unit || 'Tech Tammina',
+                    offeredCTC: cand.offered_ctc,
+                    reportingManagerId: cand.reporting_manager_id,
+                    recruiterName: cand.recruiter_name,
+                    recruitmentSource: cand.recruitment_source
+                },
+                offerDetails: {
+                    DOJ: cand.joining_date,
+                    offerValidity: cand.offer_validity || '7',
+                    JoiningDate: cand.joining_date
+                }
+            };
+        };
+
+        res.json(candidates.map(mapCandidateToFrontend));
     } catch (error) {
         c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get candidate by ID (Public verification endpoint)
+router.get("/public/:id", async (req, res) => {
+    const c = await db();
+    try {
+        const [candidates] = await c.query(`
+            SELECT c.*, 
+                   d.name as department_name, 
+                   des.name as designation_name,
+                   l.name as location_name,
+                   CONCAT(m.FirstName, ' ', m.LastName) as manager_name,
+                   CONCAT(hr.FirstName, ' ', hr.LastName) as hr_coordinator_name
+            FROM candidates c
+            LEFT JOIN departments d ON c.department_id = d.id
+            LEFT JOIN designations des ON c.designation_id = des.id
+            LEFT JOIN locations l ON c.location_id = l.id
+            LEFT JOIN employees m ON c.reporting_manager_id = m.id
+            LEFT JOIN employees hr ON c.hr_coordinator_id = hr.id
+            WHERE c.id = ?
+        `, [req.params.id]);
+
+        if (candidates.length === 0) {
+            c.end();
+            return res.status(404).json({ error: "Candidate not found" });
+        }
+
+        c.end();
+
+        // Helper to format flat db model to nested frontend structure
+        const mapCandidateToFrontend = (cand) => {
+            if (!cand) return null;
+            return {
+                id: cand.id,
+                candidate_id: cand.candidate_id,
+                status: cand.status,
+                personalDetails: {
+                    FirstName: cand.first_name,
+                    MiddleName: cand.middle_name,
+                    LastName: cand.last_name,
+                    email: cand.email,
+                    PhoneNumber: cand.phone,
+                    alternatePhone: cand.alternate_phone,
+                    dateOfBirth: cand.date_of_birth,
+                    gender: cand.gender,
+                    initials: (cand.first_name ? cand.first_name[0] : '') + (cand.last_name ? cand.last_name[0] : '')
+                },
+                jobDetailsForm: {
+                    JobTitle: cand.position || cand.designation_name,
+                    Department: cand.department_name,
+                    JobLocation: cand.location_name,
+                    WorkType: cand.work_type || 'Permanent',
+                    BussinessUnit: cand.business_unit || 'Tech Tammina',
+                    offeredCTC: cand.offered_ctc,
+                    reportingManagerId: cand.reporting_manager_id,
+                    recruiterName: cand.recruiter_name,
+                    recruitmentSource: cand.recruitment_source
+                },
+                offerDetails: {
+                    DOJ: cand.joining_date,
+                    offerValidity: cand.offer_validity || '7',
+                    JoiningDate: cand.joining_date
+                }
+            };
+        };
+
+        res.json({
+            candidate: mapCandidateToFrontend(candidates[0])
+        });
+    } catch (error) {
+        c.end();
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Public endpoint — candidate accepts or rejects their offer (no auth required)
+router.put("/public/:id/status", async (req, res) => {
+    const c = await db();
+    try {
+        const { status } = req.body;
+
+        // Accept 'accepted'/'rejected' from frontend, map to DB ENUM values
+        const dbStatusMap = {
+            'accepted': 'offer_accepted',
+            'rejected': 'offer_declined'
+        };
+
+        if (!dbStatusMap[status]) {
+            c.end();
+            return res.status(400).json({
+                error: "Invalid status value. Must be 'accepted' or 'rejected'."
+            });
+        }
+
+        const dbStatus = dbStatusMap[status];
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        let sql, params;
+        if (dbStatus === 'offer_accepted') {
+            sql = `UPDATE candidates
+                   SET status = ?,
+                       offer_accepted = 1,
+                       offer_accepted_date = ?,
+                       offer_declined = 0,
+                       offer_declined_date = NULL,
+                       updated_at = NOW()
+                   WHERE id = ?`;
+            params = [dbStatus, today, req.params.id];
+        } else {
+            sql = `UPDATE candidates
+                   SET status = ?,
+                       offer_declined = 1,
+                       offer_declined_date = ?,
+                       offer_accepted = 0,
+                       offer_accepted_date = NULL,
+                       updated_at = NOW()
+                   WHERE id = ?`;
+            params = [dbStatus, today, req.params.id];
+        }
+
+        const [result] = await c.query(sql, params);
+        c.end();
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ error: "Candidate not found." });
+        }
+
+        res.json({
+            success: true,
+            status: dbStatus,
+            message: dbStatus === 'offer_accepted'
+                ? "Offer accepted successfully. Welcome aboard!"
+                : "Offer declined. We appreciate your time."
+        });
+    } catch (error) {
+        c.end();
+        console.error("[CANDIDATE STATUS] Error updating status:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
@@ -148,8 +373,45 @@ router.get("/:id", auth, async (req, res) => {
 
         c.end();
 
+        // Helper to format flat db model to nested frontend structure
+        const mapCandidateToFrontend = (cand) => {
+            if (!cand) return null;
+            return {
+                id: cand.id,
+                candidate_id: cand.candidate_id,
+                status: cand.status,
+                personalDetails: {
+                    FirstName: cand.first_name,
+                    MiddleName: cand.middle_name,
+                    LastName: cand.last_name,
+                    email: cand.email,
+                    PhoneNumber: cand.phone,
+                    alternatePhone: cand.alternate_phone,
+                    dateOfBirth: cand.date_of_birth,
+                    gender: cand.gender,
+                    initials: (cand.first_name ? cand.first_name[0] : '') + (cand.last_name ? cand.last_name[0] : '')
+                },
+                jobDetailsForm: {
+                    JobTitle: cand.position || cand.designation_name,
+                    Department: cand.department_name,
+                    JobLocation: cand.location_name,
+                    WorkType: cand.work_type || 'Permanent',
+                    BussinessUnit: cand.business_unit || 'Tech Tammina',
+                    offeredCTC: cand.offered_ctc,
+                    reportingManagerId: cand.reporting_manager_id,
+                    recruiterName: cand.recruiter_name,
+                    recruitmentSource: cand.recruitment_source
+                },
+                offerDetails: {
+                    DOJ: cand.joining_date,
+                    offerValidity: cand.offer_validity || '7',
+                    JoiningDate: cand.joining_date
+                }
+            };
+        };
+
         res.json({
-            candidate: candidates[0],
+            candidate: mapCandidateToFrontend(candidates[0]),
             documents,
             tasks,
             completion_percentage: tasks.length > 0
@@ -166,12 +428,72 @@ router.get("/:id", auth, async (req, res) => {
 router.put("/:id", auth, hr, async (req, res) => {
     const c = await db();
     try {
-        const updates = { ...req.body };
-        delete updates.id;
-        delete updates.created_at;
-        delete updates.created_by;
+        const personal = req.body.personalDetails || {};
+        const job = req.body.jobDetailsForm || {};
+        const offer = req.body.offerDetails || {};
 
-        await c.query("UPDATE candidates SET ? WHERE id = ?", [updates, req.params.id]);
+        let designation_id = req.body.designation_id;
+        let department_id = req.body.department_id;
+        let location_id = req.body.location_id;
+
+        // If names are passed in the job details form, resolve them to database IDs
+        if (job.JobTitle) {
+            const [designations] = await c.query("SELECT id FROM designations WHERE name = ?", [job.JobTitle]);
+            if (designations.length > 0) designation_id = designations[0].id;
+        }
+        if (job.Department) {
+            const [departments] = await c.query("SELECT id FROM departments WHERE name = ?", [job.Department]);
+            if (departments.length > 0) department_id = departments[0].id;
+        }
+        if (job.JobLocation) {
+            const [locations] = await c.query("SELECT id FROM locations WHERE name = ?", [job.JobLocation]);
+            if (locations.length > 0) location_id = locations[0].id;
+        }
+
+        const updates = {};
+        if (req.body.candidate_id) updates.candidate_id = req.body.candidate_id;
+        
+        // Map personalDetails
+        const first = req.body.first_name || personal.firstName || personal.FirstName;
+        const middle = req.body.middle_name || personal.MiddleName || personal.middleName;
+        const last = req.body.last_name || personal.LastName || personal.lastName;
+        
+        if (first !== undefined) updates.first_name = first || null;
+        if (middle !== undefined) updates.middle_name = middle || null;
+        if (last !== undefined) updates.last_name = last || null;
+        if (first || last) {
+            updates.full_name = `${first || ''} ${last || ''}`.trim();
+        }
+        
+        if (req.body.email || personal.email) updates.email = req.body.email || personal.email;
+        if (req.body.phone || personal.PhoneNumber || personal.phone) updates.phone = (req.body.phone || personal.PhoneNumber || personal.phone) || null;
+        if (req.body.alternate_phone || personal.alternatePhone || personal.alternate_phone) {
+            updates.alternate_phone = (req.body.alternate_phone || personal.alternatePhone || personal.alternate_phone) || null;
+        }
+        if (req.body.date_of_birth || personal.dob || personal.date_of_birth || personal.dateOfBirth) {
+            updates.date_of_birth = parseDate(req.body.date_of_birth || personal.dob || personal.date_of_birth || personal.dateOfBirth);
+        }
+        if (req.body.gender || personal.gender) updates.gender = (req.body.gender || personal.gender) || null;
+        
+        // Map jobDetailsForm & offerDetails
+        if (req.body.position || job.JobTitle || job.position) updates.position = (req.body.position || job.JobTitle || job.position) || null;
+        if (designation_id !== undefined) updates.designation_id = designation_id || null;
+        if (department_id !== undefined) updates.department_id = department_id || null;
+        if (location_id !== undefined) updates.location_id = location_id || null;
+        if (req.body.offered_ctc !== undefined || job.offered_ctc !== undefined || job.offeredCtc !== undefined || job.offeredCTC !== undefined || job.package !== undefined || job.Package !== undefined) {
+            updates.offered_ctc = (req.body.offered_ctc || job.offered_ctc || job.offeredCtc || job.offeredCTC || job.package || job.Package) || null;
+        }
+        if (req.body.joining_date || offer.DOJ || offer.JoiningDate || job.joining_date || job.joiningDate || job.DOJ) {
+            updates.joining_date = parseDate(req.body.joining_date || offer.DOJ || offer.JoiningDate || job.joining_date || job.joiningDate || job.DOJ);
+        }
+        if (req.body.reporting_manager_id !== undefined || job.reporting_manager_id !== undefined || job.reportingManagerId !== undefined) {
+            updates.reporting_manager_id = (req.body.reporting_manager_id || job.reporting_manager_id || job.reportingManagerId) || null;
+        }
+        if (req.body.status) updates.status = req.body.status;
+
+        if (Object.keys(updates).length > 0) {
+            await c.query("UPDATE candidates SET ? WHERE id = ?", [updates, req.params.id]);
+        }
         c.end();
 
         res.json({ success: true, message: "Candidate updated successfully" });

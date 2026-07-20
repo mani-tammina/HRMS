@@ -38,6 +38,16 @@ const routes: Routes = [
     data: { role: ['admin', 'hr'] }
   },
   {
+    // Public candidate verification page
+    path: 'candidate-portal/login/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    // Public candidate portal
+    path: 'candidate-portal/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-portal/candiate-portal.component').then(m => m.CandiatePortalComponent)
+  },
+  {
     path: 'leaves',
     loadChildren: () => import('./modules/attendance/leaves/leaves.module').then(m => m.LeavesPageModule),
     canActivate: [AuthGuard, RoleGuard],

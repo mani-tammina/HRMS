@@ -1,0 +1,192 @@
+<ion-content class="portal-content">
+
+  <!-- ── Loading state ──────────────────────────────────── -->
+  <div *ngIf="isLoading" class="loading-wrapper">
+    <ion-spinner name="crescent" class="big-spinner"></ion-spinner>
+    <p>Loading your offer details...</p>
+  </div>
+
+  <!-- ── Error state ────────────────────────────────────── -->
+  <div *ngIf="!isLoading && errorMessage" class="error-wrapper">
+    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+    <p>{{ errorMessage }}</p>
+  </div>
+
+  <!-- ── Main portal ────────────────────────────────────── -->
+  <div *ngIf="!isLoading && !errorMessage" class="portal-wrapper">
+
+    <!-- Header bar -->
+    <div class="portal-header">
+      <img src="assets/techtammina.webp" alt="Tech Tammina Logo" class="company-logo"
+           onerror="this.style.display='none'" />
+      <div class="candidate-chip">
+        <div class="avatar">{{ avatarLetter }}</div>
+        <span class="candidate-name-label">{{ candidateName }}</span>
+      </div>
+    </div>
+
+    <!-- Tab navigation -->
+    <ion-segment [value]="currentTab" (ionChange)="onTabChange($event)" class="portal-tabs">
+      <ion-segment-button value="home">
+        <ion-label>Home</ion-label>
+      </ion-segment-button>
+      <ion-segment-button value="offer">
+        <ion-label>Offer</ion-label>
+      </ion-segment-button>
+    </ion-segment>
+
+    <!-- Home tab -->
+    <div *ngIf="currentTab === 'home'">
+      <div class="portal-grid">
+        <!-- Left: Greeting Card & Summary -->
+        <div class="grid-left">
+          <ion-card class="welcome-card">
+            <ion-card-content>
+              <h1 class="welcome-title">
+                Welcome, <span class="highlight">{{ candidateName }}!</span>
+              </h1>
+              <p class="message-text">
+                It was great interacting with you as part of our hiring process. We are excited to bring you onboard. Please review your details and click the <b>Offer</b> tab to view your official offer letter.
+              </p>
+
+              <!-- Offer summary chips -->
+              <div class="info-chips" *ngIf="designation || offerExpiryDate || dateOfJoining">
+                <div class="info-chip" *ngIf="designation">
+                  <ion-icon name="briefcase-outline"></ion-icon>
+                  <span>{{ designation }}</span>
+                </div>
+                <div class="info-chip" *ngIf="dateOfJoining">
+                  <ion-icon name="calendar-outline"></ion-icon>
+                  <span>Joining: {{ dateOfJoining }}</span>
+                </div>
+                <div class="info-chip accent" *ngIf="offerExpiryDate">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span>Accept by: {{ offerExpiryDate }}</span>
+                </div>
+              </div>
+
+              <p class="regards-text">
+                Regards,<br />
+                <b>Sree Tammina Software Solutions Pvt. Ltd. HR Team</b>
+              </p>
+            </ion-card-content>
+          </ion-card>
+        </div>
+
+        <!-- Right: Candidate & Job Profile details -->
+        <div class="grid-right">
+          <!-- Personal Details Card -->
+          <ion-card class="detail-card">
+            <ion-card-header>
+              <div class="card-title-row">
+                <ion-icon name="person-outline"></ion-icon>
+                <ion-card-title>Personal Details</ion-card-title>
+              </div>
+            </ion-card-header>
+            <ion-card-content>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="label">Candidate ID</span>
+                  <span class="value">{{ candidateId || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Full Name</span>
+                  <span class="value">{{ candidateFullName || candidateName }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Email Address</span>
+                  <span class="value">{{ email || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Phone Number</span>
+                  <span class="value">{{ phone || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Date of Birth</span>
+                  <span class="value">{{ dob || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Gender</span>
+                  <span class="value">{{ gender || 'N/A' }}</span>
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Job Details Card -->
+          <ion-card class="detail-card">
+            <ion-card-header>
+              <div class="card-title-row">
+                <ion-icon name="business-outline"></ion-icon>
+                <ion-card-title>Employment Details</ion-card-title>
+              </div>
+            </ion-card-header>
+            <ion-card-content>
+              <div class="detail-grid">
+                <div class="detail-item">
+                  <span class="label">Designation / Role</span>
+                  <span class="valueHighlight">{{ designation || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Department</span>
+                  <span class="value">{{ department || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Work Location</span>
+                  <span class="value">{{ location || 'N/A' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Work Type</span>
+                  <span class="value">{{ workType || 'Permanent' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Offered CTC (Annual)</span>
+                  <span class="valueHighlight">₹{{ ctc || 'As per offer letter' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="label">Business Unit</span>
+                  <span class="value">{{ businessUnit || 'N/A' }}</span>
+                </div>
+                <div class="detail-item" *ngIf="recruiterName">
+                  <span class="label">Recruiter Name</span>
+                  <span class="value">{{ recruiterName }}</span>
+                </div>
+                <div class="detail-item" *ngIf="recruitmentSource">
+                  <span class="label">Recruitment Source</span>
+                  <span class="value">{{ recruitmentSource }}</span>
+                </div>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+      </div>
+    </div>
+
+    <!-- Offer tab -->
+    <div *ngIf="currentTab === 'offer'">
+      <!-- Shared offer letter – same template used in PreviewSendComponent (HR view) -->
+      <app-offer-letter-view
+        [candidate]="candidate"
+        [showControls]="false">
+      </app-offer-letter-view>
+
+      <!-- Status banner if already accepted/declined -->
+      <div *ngIf="isOfferProcessed" class="status-banner" [ngClass]="offerStatusClass">
+        <ion-icon [name]="offerStatusClass === 'accepted' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
+        <h2>{{ offerStatusLabel }}</h2>
+      </div>
+
+      <!-- Action buttons -->
+      <div *ngIf="!isOfferProcessed" class="offer-actions-panel">
+        <ion-button color="success" class="accept-btn" (click)="acceptOffer()" [disabled]="isProcessing">
+          <ion-spinner *ngIf="isProcessing" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
+          Accept Offer
+        </ion-button>
+        <ion-button fill="outline" color="danger" class="decline-btn" (click)="declineOffer()" [disabled]="isProcessing">
+          Decline Offer
+        </ion-button>
+      </div>
+    </div>
+  </div>
+
+</ion-content>
