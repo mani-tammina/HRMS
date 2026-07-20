@@ -1,68 +1,95 @@
 <ion-grid class="create-offer-header">
-  <ion-row style="align-items: center;">
+  <ion-row class="header-row">
+
     <!-- Title -->
-    <ion-col size="2">
-      <ion-toolbar>
-        <ion-title>Create Offer</ion-title>
-      </ion-toolbar>
+    <ion-col size="2" class="title-section">
+      <h2>Create Offer</h2>
+      <p>Offer Management</p>
     </ion-col>
 
-    <!-- Navigation Tabs -->
+    <!-- Stepper -->
     <ion-col size="8">
-      <ion-button fill="clear" (click)="navigate('CreateOffer')" [class.active-btn]="activeTab === 'salaryStaructure'">
-        JOB DETAILS
-      </ion-button>
 
-      <ion-button fill="clear" (click)="navigate('salaryStaructure')"
-        [class.active-btn]="activeTab === 'salaryStaructure'">
-        COMPENSATION
-      </ion-button>
+      <div class="stepper">
 
-      <ion-button fill="clear" (click)="navigate('OfferDetailsComponent')"
-        [class.active-btn]="activeTab === 'salaryStaructure'">
-        OFFER DETAILS
-      </ion-button>
+        <button class="step-btn" (click)="navigate('CreateOffer')" [class.active]="activeTab === 'CreateOffer'">
 
-      <ion-button fill="clear" (click)="navigate('preview_send')" [class.active-btn]="activeTab === 'preview_send'">
-        PREVIEW & SEND
-      </ion-button>
+          <span class="circle">1</span>
+
+          <div class="step-text">
+            <span class="step-title">Job Details</span>
+            <small>Basic Information</small>
+          </div>
+
+        </button>
+
+        <div class="line"></div>
+
+        <button class="step-btn" (click)="navigate('salaryStaructure')"
+          [class.active]="activeTab === 'salaryStaructure'">
+
+          <span class="circle">2</span>
+
+          <div class="step-text">
+            <span class="step-title">Compensation</span>
+            <small>Salary Structure</small>
+          </div>
+
+        </button>
+
+        <div class="line"></div>
+
+        <button class="step-btn" (click)="navigate('OfferDetailsComponent')"
+          [class.active]="activeTab === 'OfferDetailsComponent'">
+
+          <span class="circle">3</span>
+
+          <div class="step-text">
+            <span class="step-title">Offer Details</span>
+            <small>Terms & Conditions</small>
+          </div>
+
+        </button>
+
+        <div class="line"></div>
+
+        <button class="step-btn" (click)="navigate('preview_send')" [class.active]="activeTab === 'preview_send'">
+
+          <span class="circle">4</span>
+
+          <div class="step-text">
+            <span class="step-title">Preview</span>
+            <small>Review & Send</small>
+          </div>
+
+        </button>
+
+      </div>
+
     </ion-col>
 
-    <!-- Continue Button -->
+    <!-- Buttons -->
+
     <ion-col size="2">
+
       <div class="button-container">
-        <ion-button expand="block" (click)="onContinue()" color="primary">
+
+        <ion-button class="continue-btn" (click)="onContinue()">
+
           Continue
+
         </ion-button>
-        <ion-button expand="block" (click)="onCreateOfferemail()" color="primary">
-          Create Offer
+
+        <ion-button class="offer-btn" (click)="onCreateOfferemail()" [disabled]="isSending">
+
+          <ion-spinner *ngIf="isSending" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
+          {{ isSending ? 'Sending...' : 'Create Offer' }}
+
         </ion-button>
+
       </div>
+
     </ion-col>
-
-
-
-    <!-- <ion-col size="2">
-      <div class="button-container">
-    
-        <ion-button
-          *ngIf="!isPreviewSend"
-          expand="block"
-          (click)="onContinue()"
-          color="primary">
-          Continue
-        </ion-button>
-
- 
-        <ion-button
-          *ngIf="isPreviewSend"
-          expand="block"
-          color="primary"
-          (click)="onCreateOffer()">
-          Create Offer
-        </ion-button>
-      </div>
-    </ion-col> -->
 
   </ion-row>
 </ion-grid>

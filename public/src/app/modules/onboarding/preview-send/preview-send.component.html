@@ -1,15 +1,17 @@
 <ion-header translucent="true">
   <!-- <app-header></app-header> -->
-  <app-create-offer-header (createOfferClick)="createOffer()"></app-create-offer-header>
+  <app-create-offer-header [candidate]="candidate" (createOfferClick)="createOffer()"></app-create-offer-header>
 </ion-header>
 
 <ion-content [fullscreen]="true" class="ion-padding">
   <div class="offer-container">
 
-    <!-- Left: Preview -->
-    <div class="template-preview card">
-      <h2 class="company-logo">Tech Tammina</h2>
-      <div class="template-text" [innerHTML]="previewText"></div>
+    <!-- Left: Offer Letter Preview (shared with candidate portal) -->
+    <div class="template-preview">
+      <app-offer-letter-view
+        [candidate]="candidate"
+        [showControls]="true">
+      </app-offer-letter-view>
     </div>
 
     <!-- Right: Options -->

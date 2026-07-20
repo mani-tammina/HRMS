@@ -3,9 +3,10 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { CreateOfferHeaderComponent } from '../create-offer-header/create-offer-header.component';
-import { HeaderComponent } from 'src/app/shared/header/header.component';
-import {ActivatedRoute, Router } from '@angular/router';
-import { CandidateService } from 'src/app/services/pre-onboarding.service';
+import { ActivatedRoute, Router } from '@angular/router';
+import { CandidateService } from 'src/app/core/services/candidate.service';
+import { OfferLetterViewComponent } from '../offer-letter-view/offer-letter-view.component';
+
 @Component({
   selector: 'app-preview-send',
   templateUrl: './preview-send.component.html',
@@ -15,7 +16,7 @@ import { CandidateService } from 'src/app/services/pre-onboarding.service';
     FormsModule,
     IonicModule,
     CreateOfferHeaderComponent,
-    HeaderComponent]
+    OfferLetterViewComponent]
 })
 export class PreviewSendComponent  implements OnInit {
   @Input() candidate: any = {};
@@ -32,20 +33,28 @@ export class PreviewSendComponent  implements OnInit {
   ) { }
 
   ngOnInit() {
-        const nav = this.router.getCurrentNavigation();
-    this.candidate = nav?.extras?.state?.['candidate'] || {};
+    const id = this.route.snapshot.paramMap.get('id');
 
-      this.route.queryParams.subscribe(params => {
-      if (!this.candidate && params['candidate']) {
-        try {
-          this.candidate = JSON.parse(params['candidate']);
-        } catch (e) {
-          console.warn('Failed to parse candidate', e);
+    const nav = this.router.getCurrentNavigation();
+    this.candidate = nav?.extras?.state?.['candidate'] || null;
+
+    if (this.candidate && this.candidate.id) {
+      this.updatePreview();
+    } else if (id) {
+      this.candidateService.getCandidateById(Number(id)).subscribe({
+        next: (data: any) => {
+          this.candidate = data.candidate || data;
+          this.updatePreview();
+        },
+        error: (err: any) => {
+          console.error('Failed to load candidate by ID:', err);
+          this.updatePreview();
         }
-      }
-    });
-
-    this.updatePreview();
+      });
+    } else {
+      this.candidate = {};
+      this.updatePreview();
+    }
   }
  updatePreview() {
     if (this.selectedTemplate === 'SVS') {

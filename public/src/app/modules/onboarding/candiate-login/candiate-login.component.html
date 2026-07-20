@@ -1,0 +1,54 @@
+<ion-content class="login-content" [fullscreen]="true">
+  <div class="login-container">
+    
+    <!-- Loading state -->
+    <div *ngIf="isLoading" class="loading-wrapper">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Verifying invitation link...</p>
+    </div>
+
+    <!-- Error state -->
+    <div *ngIf="!isLoading && errorMessage" class="error-wrapper">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <p class="error-msg">{{ errorMessage }}</p>
+    </div>
+
+    <!-- Login card -->
+    <div *ngIf="!isLoading && !errorMessage" class="login-card">
+      <div class="card-header">
+        <img src="assets/techtammina.webp" alt="Tech Tammina Logo" class="company-logo" onerror="this.style.display='none'" />
+        <h2>Verify Your Email</h2>
+        <p>Please enter the email address where you received the offer letter link to access your candidate portal.</p>
+      </div>
+
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+        <!-- EMAIL FIELD -->
+        <div class="field-group">
+          <label class="field-label" for="candidate-email">Email Address</label>
+          <div class="input-wrapper">
+            <ion-icon name="mail-outline" class="input-icon"></ion-icon>
+            <input 
+              id="candidate-email" 
+              type="email" 
+              formControlName="email" 
+              placeholder="e.g. name@example.com" 
+              class="form-input" 
+              [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
+            />
+          </div>
+          <div *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" class="validation-error">
+            <span *ngIf="loginForm.get('email')?.errors?.['required']">Email address is required.</span>
+            <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email address.</span>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <ion-button expand="block" type="submit" class="verify-btn" [disabled]="isVerifying">
+          <ion-spinner *ngIf="isVerifying" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
+          {{ isVerifying ? 'Verifying...' : 'Verify & Access Offer' }}
+        </ion-button>
+      </form>
+    </div>
+
+  </div>
+</ion-content>

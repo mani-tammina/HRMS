@@ -1,0 +1,38 @@
+<div class="offer-letter-wrapper">
+
+  <!-- Template selector (shown only on HR side) -->
+  <div *ngIf="showControls" class="template-selector">
+    <ion-label class="selector-label">Select Offer Template</ion-label>
+    <ion-select [value]="selectedTemplate" (ionChange)="onTemplateChange($event)" interface="popover">
+      <ion-select-option value="SVS">SVS Towers</ion-select-option>
+      <ion-select-option value="TechTammina">Tech Tammina</ion-select-option>
+    </ion-select>
+  </div>
+
+  <!-- A4 Offer Letter -->
+  <div class="a4-letter">
+
+    <!-- Letterhead -->
+    <div class="letter-header">
+      <img
+        src="assets/techtammina.webp"
+        alt="Tech Tammina Logo"
+        class="letterhead-logo"
+        onerror="this.style.display='none'"
+      />
+      <div class="company-address">
+        <h3>Sree Tammina Software Solutions Pvt. Ltd.</h3>
+        <p class="tagline">IT/ITES Services | Web &amp; App Development</p>
+        <p>www.techtammina.com</p>
+      </div>
+    </div>
+
+    <!-- Divider line -->
+    <div class="letter-divider"></div>
+
+    <!-- Letter content -->
+    <div class="letter-body" [innerHTML]="previewText"></div>
+
+  </div>
+
+</div>

@@ -15,6 +15,11 @@ import { IonPopover } from '@ionic/angular';
 export class CandiateCreateComponent implements OnInit {
   candidateForm!: FormGroup;
   selectedDate: string | null = null;
+  departments: any[] = [];
+  designations: any[] = [];
+  locations: any[] = [];
+  businessUnits: any[] = [];
+  managers: any[] = [];
 
   constructor(
     private modalCtrl: ModalController,
@@ -26,11 +31,13 @@ export class CandiateCreateComponent implements OnInit {
     this.candidateForm = this.fb.group({
       personalDetails: this.fb.group({
         firstName: ['', Validators.required],
-        MiddleName: ['', Validators.required],
+        MiddleName: [''], // Optional
         lastName: ['', Validators.required],
         PhoneNumber: ['', Validators.required],
         email: ['', [Validators.required, Validators.email]],
         gender: ['', Validators.required],
+        alternatePhone: [''],
+        dateOfBirth: [''],
         initials: ['']
       }),
       jobDetailsForm: this.fb.group({
@@ -39,9 +46,39 @@ export class CandiateCreateComponent implements OnInit {
         JobLocation: ['', Validators.required],
         WorkType: ['', Validators.required],
         BussinessUnit: ['', Validators.required],
+        offeredCTC: ['', Validators.required],
+        joiningDate: ['', Validators.required],
+        reportingManagerId: [''],
+        recruiterName: [''],
+        recruitmentSource: ['']
       })
     });
 
+    // Load master data from backend APIs
+    this.candidateService.getLocations().subscribe({
+      next: (data: any) => this.locations = data || [],
+      error: (err: any) => console.error('Failed to load locations:', err)
+    });
+
+    this.candidateService.getDepartments().subscribe({
+      next: (data: any) => this.departments = data || [],
+      error: (err: any) => console.error('Failed to load departments:', err)
+    });
+
+    this.candidateService.getDesignations().subscribe({
+      next: (data: any) => this.designations = data || [],
+      error: (err: any) => console.error('Failed to load designations:', err)
+    });
+
+    this.candidateService.getBusinessUnits().subscribe({
+      next: (data: any) => this.businessUnits = data || [],
+      error: (err: any) => console.error('Failed to load business units:', err)
+    });
+
+    this.candidateService.getEmployees().subscribe({
+      next: (data: any) => this.managers = (data && data.data) ? data.data : (data || []),
+      error: (err: any) => console.error('Failed to load employees:', err)
+    });
 
     const personal = this.candidateForm.get('personalDetails');
 
@@ -74,12 +111,25 @@ export class CandiateCreateComponent implements OnInit {
     this.modalCtrl.dismiss();
   }
 
+  selectedDOB: string | null = null;
+
+  onDOBChange(event: any, popover: IonPopover) {
+    const value = event.detail.value;
+    if (value) {
+      const date = new Date(value);
+      const formatted = date.toLocaleDateString('en-GB'); // dd/MM/yyyy
+      this.candidateForm.get('personalDetails.dateOfBirth')?.setValue(formatted);
+      this.selectedDOB = formatted;
+    }
+    popover.dismiss();
+  }
+
   onDateChange(event: any, popover: IonPopover) {
     const value = event.detail.value;
     if (value) {
       const date = new Date(value);
       const formatted = date.toLocaleDateString('en-GB'); // dd/MM/yyyy
-      this.candidateForm.get('jobDetailsForm.DOJ')?.setValue(formatted);
+      this.candidateForm.get('jobDetailsForm.joiningDate')?.setValue(formatted);
       this.selectedDate = formatted;
     }
     popover.dismiss();

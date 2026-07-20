@@ -1,82 +1,85 @@
-<ion-header>
-  <ion-toolbar>
+<ion-header class="ion-no-border">
+  <ion-toolbar class="modal-toolbar">
     <ion-title>Start Preboarding</ion-title>
     <ion-buttons slot="end">
-      <ion-button (click)="close()">Close</ion-button>
+      <ion-button class="close-btn" (click)="close()">
+        <ion-icon slot="icon-only" name="close-outline"></ion-icon>
+      </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
+<ion-content class="start-onboarding-content">
+  <div class="content-wrapper">
+    <!-- Candidate Info Card -->
+    <div class="candidate-profile-card">
+      <div class="profile-header">
+        <div class="avatar-circle-large">{{ candidate.personalDetails.initials }}</div>
+        <div class="profile-info">
+          <h2>{{ candidate.personalDetails.FirstName }}</h2>
+          <span class="designation-badge">{{ candidate.jobDetailsForm.JobTitle }}</span>
+        </div>
+      </div>
 
-<div class="candidate-card">
-    <div class="avatar">
- <div class="avatar">{{ candidate.personalDetails.initials }}</div>
+      <div class="profile-grid">
+        <div class="grid-item">
+          <span class="item-label">Department</span>
+          <span class="item-value">{{ candidate.jobDetailsForm.Department }}</span>
+        </div>
+        <div class="grid-item">
+          <span class="item-label">Location</span>
+          <span class="item-value">
+            <ion-icon name="location-outline"></ion-icon>
+            {{ candidate.jobDetailsForm.JobLocation }}
+          </span>
+        </div>
+        <div class="grid-item">
+          <span class="item-label">Status</span>
+          <span class="item-value status-pill pending">Pre-Onboarding</span>
+        </div>
+      </div>
     </div>
-    <div class="info">
-   <h6 style="font-size: 16px;">{{ candidate.personalDetails.FirstName}}</h6>
-    <p class="designation">{{ candidate.jobDetailsForm.JobTitle}}</p>
-    </div>
-    <div class="info">
-      <p class="meta">Pending since</p>
-      <p class="meta">20 Aug 2025</p>
-    </div>
-    <div class="info">
-            <p class="meta">Department</p>
-            <p class="meta">{{ candidate.jobDetailsForm.Department}}</p>
-    </div>
-       <div class="info">
-            <p class="meta">Location</p>
-            <p class="meta">{{ candidate.jobDetailsForm.JobLocation}}</p>
+
+    <!-- Contact & Confirm Section -->
+    <div class="details-section">
+      <h3 class="section-title">Confirm Contact Details</h3>
+      <p class="section-subtitle">Please verify candidate information before proceeding to offer creation.</p>
+
+      <div class="fields-grid">
+        <div class="input-field-group">
+          <label>Personal Email</label>
+          <div class="input-wrapper disabled">
+            <ion-icon name="mail-outline"></ion-icon>
+            <input type="email" [value]="candidate.personalDetails.email" readonly disabled>
+          </div>
+        </div>
+
+        <div class="input-field-group">
+          <label>Mobile Number</label>
+          <div class="input-wrapper disabled">
+            <ion-icon name="call-outline"></ion-icon>
+            <input type="text" [value]="candidate.personalDetails.PhoneNumber" readonly disabled>
+          </div>
+        </div>
+      </div>
+
+      <div class="notice-card">
+        <div class="notice-checkbox-wrapper">
+          <ion-checkbox [checked]="true" disabled class="custom-checkbox"></ion-checkbox>
+          <div class="notice-text">
+            <h4>Send Automated Invite</h4>
+            <p>Candidate will receive an email and SMS invitation to onboard and log in to complete tasks.</p>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
-
-  <!-- Contact Details -->
-  <div class="section">
-    <h3>Confirm contact details:</h3>
-
-    <ion-grid>
-  <ion-row>
-    <ion-col>
-          <ion-item class="input-item">
-      <ion-label position="stacked">Personal email</ion-label>
-      <ion-input value="{{candidate.personalDetails.email}}" disabled></ion-input>
-    </ion-item>
-    </ion-col>
-    <ion-col>
-    <ion-item class="input-item">
-      <ion-label position="stacked">Mobile number</ion-label>
-      <ion-input value="{{candidate.personalDetails.PhoneNumber}}" disabled></ion-input>
-    </ion-item>
-    </ion-col>
-  </ion-row>
-</ion-grid>
-
-
-
-
-    <ion-item lines="none" class="checkbox-item">
-      <ion-checkbox slot="start" checked="true"></ion-checkbox>
-      <ion-label>
-        Candidate will receive email / SMS invite to onboard and receive details to complete tasks
-      </ion-label>
-    </ion-item>
-  </div>
-
-  <!-- Task Section -->
-  <!-- <div class="section">
-    <h3>Tasks available to assign (0)</h3>
-    <ion-button expand="block" fill="outline" color="primary">
-      Go to Task Templates
-    </ion-button>
-    <p class="note">Tasks can be created for candidates either before or after onboarding</p>
-  </div> -->
-
-  <!-- Bottom Button -->
-  <div class="footer">
-    <ion-button expand="block" color="primary" (click)="createOffer()">Move to create offer</ion-button>
-  </div>
-
-
-
 </ion-content>
+
+<div class="modal-footer">
+  <ion-button class="cancel-modal-btn" fill="clear" (click)="close()">Cancel</ion-button>
+  <ion-button class="action-modal-btn" expand="block" (click)="createOffer()">
+    Move to Create Offer
+    <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
+  </ion-button>
+</div>

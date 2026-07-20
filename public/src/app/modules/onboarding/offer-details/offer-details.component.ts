@@ -3,9 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormBuilder, FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { CreateOfferHeaderComponent } from '../create-offer-header/create-offer-header.component';
-import { HeaderComponent } from 'src/app/shared/header/header.component';
 import { Router, ActivatedRoute } from '@angular/router';
-import { CandidateService } from 'src/app/services/pre-onboarding.service';
+import { CandidateService } from 'src/app/core/services/candidate.service';
 
 @Component({
   selector: 'app-offer-letter',
@@ -16,8 +15,7 @@ import { CandidateService } from 'src/app/services/pre-onboarding.service';
     CommonModule,
     FormsModule,
     IonicModule,
-    CreateOfferHeaderComponent,
-    HeaderComponent
+    CreateOfferHeaderComponent
   ]
 })
 export class OfferDetailsComponent implements OnInit {
@@ -37,24 +35,29 @@ export class OfferDetailsComponent implements OnInit {
   ) { }
 
   ngOnInit() {
+    const id = this.route.snapshot.paramMap.get('id');
+
     // Get candidate from router state if available
     const nav = this.router.getCurrentNavigation();
-    this.candidate = nav?.extras?.state?.['candidate'] || {};
+    this.candidate = nav?.extras?.state?.['candidate'] || null;
 
-    // Fallback: check query params if candidate info might be passed that way
-    this.route.queryParams.subscribe(params => {
-      if (!this.candidate && params['candidate']) {
-        try {
-          this.candidate = JSON.parse(params['candidate']);
-        } catch (e) {
-          console.warn('Failed to parse candidate from query params', e);
+    if (this.candidate && this.candidate.id) {
+      this.updatePreview();
+    } else if (id) {
+      this.candidateService.getCandidateById(Number(id)).subscribe({
+        next: (data: any) => {
+          this.candidate = data.candidate || data;
+          this.updatePreview();
+        },
+        error: (err: any) => {
+          console.error('Failed to load candidate by ID:', err);
+          this.updatePreview();
         }
-      }
-    });
-
-    console.log('Candidate:', this.candidate);
-
-    this.updatePreview();
+      });
+    } else {
+      this.candidate = {};
+      this.updatePreview();
+    }
   }
 
   // Switch preview content based on selected template
@@ -98,6 +101,6 @@ export class OfferDetailsComponent implements OnInit {
     }
   }
   sendpreview(){
-  this.router.navigate(['/preview_send', this.candidate.id, encodeURIComponent(this.candidate.personalDetails.FirstName)], { state: { candidate: this.candidate } });
-}
+    this.router.navigate(['/onboarding/preview_send', this.candidate.id, encodeURIComponent(this.candidate.personalDetails.FirstName)], { state: { candidate: this.candidate } });
+  }
   }

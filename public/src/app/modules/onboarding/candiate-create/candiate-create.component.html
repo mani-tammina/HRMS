@@ -69,6 +69,21 @@
         *ngIf="candidateForm.get('personalDetails.gender')?.touched && candidateForm.get('personalDetails.gender')?.invalid">
         Gender is required
       </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Alternate Phone</ion-label>
+        <ion-input formControlName="alternatePhone" type="tel"></ion-input>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="stacked">Date of Birth</ion-label>
+        <ion-input id="dob-input" formControlName="dateOfBirth" [placeholder]="selectedDOB || 'Select Date'" readonly></ion-input>
+      </ion-item>
+      <ion-popover #dobPopover trigger="dob-input" show-backdrop="true">
+        <ng-template>
+          <ion-datetime presentation="date" (ionChange)="onDOBChange($event, dobPopover)"></ion-datetime>
+        </ng-template>
+      </ion-popover>
     </div>
 
     <!-- JOB DETAILS -->
@@ -76,9 +91,7 @@
     <div formGroupName="jobDetailsForm">
       <ion-item>
         <ion-select formControlName="JobTitle" placeholder="Job Title">
-          <ion-select-option value="UI/UX Designer">UI/UX Designer</ion-select-option>
-          <ion-select-option value="UI Developer">UI Developer</ion-select-option>
-          <ion-select-option value="Software Engineer">Software Engineer</ion-select-option>
+          <ion-select-option *ngFor="let des of designations" [value]="des.name">{{des.name}}</ion-select-option>
         </ion-select>
       </ion-item>
       <ion-note color="danger"
@@ -88,9 +101,7 @@
 
       <ion-item>
         <ion-select formControlName="Department" placeholder="Department">
-          <ion-select-option value="HR">HR</ion-select-option>
-          <ion-select-option value="Finance">Finance</ion-select-option>
-          <ion-select-option value="IT Development">IT Development</ion-select-option>
+          <ion-select-option *ngFor="let dept of departments" [value]="dept.name">{{dept.name}}</ion-select-option>
         </ion-select>
       </ion-item>
       <ion-note color="danger"
@@ -100,12 +111,7 @@
 
       <ion-item>
         <ion-select formControlName="JobLocation" placeholder="JobLocation">
-          <ion-select-option value="Site 2 - Visakhapatnam - Day Shift">Site 2 - Visakhapatnam - Day
-            Shift</ion-select-option>
-          <ion-select-option value="Site 1 - Hyderabad - Night Shift">Site 1 - Hyderabad - Night
-            Shift</ion-select-option>
-          <ion-select-option value="Site 3 - Visakhapatnam - Day Shift">Site 3 - Visakhapatnam - Day
-            Shift"></ion-select-option>
+          <ion-select-option *ngFor="let loc of locations" [value]="loc.name">{{loc.name}}</ion-select-option>
         </ion-select>
       </ion-item>
       <ion-note color="danger"
@@ -115,8 +121,9 @@
 
       <ion-item>
         <ion-select formControlName="WorkType" placeholder="WorkType">
-          <ion-select-option value="Perminent">Perminent</ion-select-option>
-          <ion-select-option value="IT Development">Part Time</ion-select-option>
+          <ion-select-option value="Permanent">Permanent</ion-select-option>
+          <ion-select-option value="Contract">Contract</ion-select-option>
+          <ion-select-option value="Part Time">Part Time</ion-select-option>
         </ion-select>
       </ion-item>
       <ion-note color="danger"
@@ -126,8 +133,7 @@
 
       <ion-item>
         <ion-select formControlName="BussinessUnit" placeholder="BussinessUnit">
-          <ion-select-option value="Tech Tammina Visakhapatnam">Tech Tammina Visakhapatnam</ion-select-option>
-          <ion-select-option value="Sri Tech Tammina Visakhapatnam">Sri Tech Tammina Visakhapatnam</ion-select-option>
+          <ion-select-option *ngFor="let bu of businessUnits" [value]="bu.name">{{bu.name}}</ion-select-option>
         </ion-select>
       </ion-item>
       <ion-note color="danger"
@@ -135,35 +141,45 @@
         Business Unit is required
       </ion-note>
 
+      <ion-item>
+        <ion-label position="stacked">Date of Joining</ion-label>
+        <ion-input id="joining-date-input" formControlName="joiningDate" [placeholder]="selectedDate || 'Select Date'" readonly></ion-input>
+      </ion-item>
+      <ion-popover #joiningDatePopover trigger="joining-date-input" show-backdrop="true">
+        <ng-template>
+          <ion-datetime presentation="date" (ionChange)="onDateChange($event, joiningDatePopover)"></ion-datetime>
+        </ng-template>
+      </ion-popover>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.joiningDate')?.touched && candidateForm.get('jobDetailsForm.joiningDate')?.invalid">
+        Date of Joining is required
+      </ion-note>
+
+      <ion-item>
+        <ion-label position="floating">Offered CTC (Annual)</ion-label>
+        <ion-input formControlName="offeredCTC" type="number"></ion-input>
+      </ion-item>
+      <ion-note color="danger"
+        *ngIf="candidateForm.get('jobDetailsForm.offeredCTC')?.touched && candidateForm.get('jobDetailsForm.offeredCTC')?.invalid">
+        Offered CTC is required
+      </ion-note>
+
+      <!-- Hidden for now, but candidate should be created without reporting manager -->
       <!-- <ion-item>
-    <ion-label position="stacked">Select Date</ion-label>
-    <ion-input
-      id="date-input"
-      formControlName="DOJ"
-      [placeholder]="selectedDate"
-      readonly>
-    </ion-input>
-  </ion-item>
+        <ion-select formControlName="reportingManagerId" placeholder="Reporting Manager">
+          <ion-select-option *ngFor="let manager of managers" [value]="manager.id">{{manager.FirstName}} {{manager.LastName}}</ion-select-option>
+        </ion-select>
+      </ion-item> -->
 
-  <ion-popover #datePopover trigger="date-input" show-backdrop="true">
-    <ng-template>
-      <ion-datetime
-        presentation="date"
-        (ionChange)="onDateChange($event, datePopover)">
-      </ion-datetime>
-    </ng-template>
-  </ion-popover>
+      <ion-item>
+        <ion-label position="floating">Recruiter Name</ion-label>
+        <ion-input formControlName="recruiterName"></ion-input>
+      </ion-item>
 
-    <ion-note color="danger" *ngIf="candidateForm.get('jobDetailsForm.DOJ')?.touched && candidateForm.get('jobDetailsForm.DOJ')?.invalid">
-      DOJ is required
-    </ion-note>
-        <ion-item>
-      <ion-label position="floating">Package</ion-label>
-      <ion-input formControlName="Package"></ion-input>
-    </ion-item>
-    <ion-note color="danger" *ngIf="candidateForm.get('jobDetailsForm.Package')?.touched && candidateForm.get('jobDetailsForm.Package')?.invalid">
-      Package is required
-    </ion-note> -->
+      <ion-item>
+        <ion-label position="floating">Recruitment Source</ion-label>
+        <ion-input formControlName="recruitmentSource"></ion-input>
+      </ion-item>
     </div>
 
     <ion-button expand="full" type="submit">Submit</ion-button>

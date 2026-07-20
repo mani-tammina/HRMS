@@ -1,118 +1,434 @@
-.header-container {
+// ── Candidate Portal Styles ───────────────────────────────────────────────
+
+.portal-content {
+  --background: #f0f4f8;
+}
+
+// ── Loading / Error states ───────────────────────────────────────────────
+
+.loading-wrapper,
+.error-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 60vh;
+  gap: 16px;
+  color: #666;
+
+  p {
+    font-size: 15px;
+    margin: 0;
+  }
+}
+
+.big-spinner {
+  width: 48px;
+  height: 48px;
+  color: #1976d2;
+}
+
+.error-icon {
+  font-size: 48px;
+  color: #e53935;
+}
+
+// ── Main portal wrapper ──────────────────────────────────────────────────
+
+.portal-wrapper {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: 32px;
+}
+
+// ── Header bar ──────────────────────────────────────────────────────────
+
+.portal-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: rgba(100, 100, 111, 0.2) 0px 7px 29px 0px;;
-  padding: 10px 15px;
-      border: 1px solid;
-    margin-top: 15px;
-  .company-logo {
-    height: 80px;
-    object-fit: contain;
-  }
+  background: #ffffff;
+  padding: 12px 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-bottom: 3px solid #1976d2;
+  margin-bottom: 8px;
 }
 
-
-.page-container {
-  background-color: #ffffff;
-  font-family: Arial, sans-serif;
+.company-logo {
+  height: 56px;
+  object-fit: contain;
 }
 
-/* Header */
-.header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.1);
-  margin: 10px 0px;
-  padding: 0px 15px;
-}
-
-.logo-section {
+.candidate-chip {
   display: flex;
   align-items: center;
-
-  .logo {
-    object-fit: contain;
-  }
-
-  .company-name {
-    font-weight: bold;
-    font-size: 14px;
-    color: #003366;
-
-    .highlight {
-      font-weight: normal;
-      font-size: 12px;
-      color: #0055aa;
-    }
-  }
-}
-
-.candidate-info {
-  display: flex;
-  align-items: center;
+  gap: 10px;
 
   .avatar {
-    background-color: #ffa726;
-    color: white;
-    font-weight: bold;
+    background: linear-gradient(135deg, #ff9800, #f44336);
+    color: #fff;
+    font-weight: 700;
     font-size: 18px;
-    width: 35px;
-    height: 35px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     display: flex;
-    justify-content: center;
     align-items: center;
-    margin-right: 8px;
+    justify-content: center;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
   }
 
-  .candidate-name {
+  .candidate-name-label {
     font-size: 14px;
+    font-weight: 600;
     color: #333;
   }
 }
 
-/* Card */
-.welcome-card {
-  position: relative;
-  margin-top: 16px;
-  border-radius: 10px;
-  box-shadow: 0px 3px 6px rgba(0, 0, 0, 0.1);
-  overflow: hidden;
-}
+// ── Tabs ──────────────────────────────────────────────────────────────
 
-.welcome-text {
-  font-size: 16px;
-  font-weight: bold;
-  color: #333 !important;
+.portal-tabs {
+  background: #fff;
+  border-bottom: 1px solid #e0e0e0;
+  margin-bottom: 16px;
 
-  .candidate {
-    color: #1a73e8;
+  ion-segment-button {
+    --color: #666;
+    --color-checked: #1976d2;
+    --indicator-color: #1976d2;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: none;
   }
 }
 
-.message {
-  font-size: 14px;
-  color: #555;
-  margin-top: 8px;
+// ── Welcome card ─────────────────────────────────────────────────────
+
+.welcome-card {
+  margin: 16px;
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  border-left: 5px solid #1976d2;
+  overflow: visible;
+
+  .welcome-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #1a1a2e;
+    margin-bottom: 12px;
+
+    .highlight {
+      color: #1976d2;
+    }
+  }
+
+  .message-text {
+    font-size: 15px;
+    color: #555;
+    line-height: 1.65;
+    margin-bottom: 20px;
+  }
+
+  .regards-text {
+    font-size: 14px;
+    color: #777;
+    margin-top: 16px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+  }
 }
 
-.regards {
-  font-size: 14px;
-  margin-top: 16px;
+// ── Info chips ───────────────────────────────────────────────────────
+
+.info-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-/* Background shape */
-.bg-shape {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 140px;
-  height: 140px;
-  background: radial-gradient(circle at top right, #cce4ff, transparent);
-  border-bottom-left-radius: 100%;
+.info-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e3f2fd;
+  color: #1565c0;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 500;
+
+  ion-icon {
+    font-size: 15px;
+  }
+
+  &.accent {
+    background: #fff3e0;
+    color: #e65100;
+  }
 }
-.welcome-title{
-    color: #000;
+
+// ── Layout Grid for details ──────────────────────────────────────────
+
+.portal-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding: 0 16px;
+
+  @media (min-width: 768px) {
+    grid-template-columns: 350px 1fr;
+  }
+}
+
+.detail-card {
+  border-radius: 14px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+  margin: 0 0 16px 0;
+
+  ion-card-header {
+    border-bottom: 1px solid #f0f0f0;
+    padding-bottom: 12px;
+  }
+
+  .card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #1976d2;
+
+    ion-icon {
+      font-size: 20px;
+    }
+
+    ion-card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+  }
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+  padding: 8px 0;
+
+  @media (min-width: 480px) {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  .label {
+    font-size: 11px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+  }
+
+  .value {
+    font-size: 14px;
+    color: #333;
+    font-weight: 500;
+  }
+
+  .valueHighlight {
+    font-size: 14px;
+    color: #1976d2;
+    font-weight: 700;
+  }
+}
+
+// ── Offer Letter (A4 layout styling) ───────────────────────────────────
+
+.offer-letter-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 16px 32px;
+}
+
+.a4-letter {
+  background: #ffffff;
+  width: 100%;
+  max-width: 800px;
+  min-height: 900px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  padding: 60px 48px;
+  color: #333;
+  font-family: 'Times New Roman', Times, serif;
+  line-height: 1.5;
+  box-sizing: border-box;
+
+  @media (max-width: 600px) {
+    padding: 30px 20px;
+  }
+}
+
+.letter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 2px solid #1976d2;
+  padding-bottom: 20px;
+  margin-bottom: 30px;
+
+  @media (max-width: 500px) {
+    flex-direction: column;
+    text-align: center;
+    gap: 12px;
+  }
+
+  .letterhead-logo {
+    height: 48px;
+    object-fit: contain;
+  }
+
+  .company-address {
+    text-align: right;
+
+    @media (max-width: 500px) {
+      text-align: center;
+    }
+
+    h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111;
+      margin: 0 0 4px;
+    }
+
+    p {
+      font-size: 12px;
+      color: #666;
+      margin: 0;
+    }
+  }
+}
+
+.letter-body {
+  font-size: 15px;
+
+  p {
+    margin: 0 0 18px;
+    text-align: justify;
+  }
+}
+
+.letter-date-row {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  font-size: 14px;
+}
+
+.recipient-address {
+  margin-bottom: 24px;
+
+  p {
+    margin: 0 0 2px;
+  }
+
+  .candidate-name-bold {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 4px 0;
+  }
+}
+
+.letter-subject {
+  margin-bottom: 24px;
+  font-size: 16px;
+  text-decoration: underline;
+  color: #111;
+}
+
+.letter-footer-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 40px;
+}
+
+.signature-block {
+  p {
+    margin: 0 0 4px;
+  }
+
+  .hr-sig-placeholder {
+    height: 60px;
+    width: 150px;
+    border-bottom: 1px dashed #ccc;
+    margin-bottom: 8px;
+  }
+}
+
+// action buttons below the offer letter shared component
+
+.offer-actions-panel {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 720px;
+  margin: 16px auto 32px;
+  padding: 16px;
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+
+  ion-button {
+    --border-radius: 8px;
+    font-weight: 700;
+    min-width: 140px;
+  }
+}
+
+// status banner styles
+.status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  max-width: 720px;
+  margin: 16px auto 32px;
+  padding: 16px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  text-align: center;
+
+  ion-icon {
+    font-size: 28px;
+  }
+
+  h2 {
+    font-size: 18px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  &.accepted {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+    border: 1.5px solid #a5d6a7;
+    ion-icon {
+      color: #2e7d32;
+    }
+  }
+
+  &.rejected {
+    background-color: #ffebee;
+    color: #c62828;
+    border: 1.5px solid #ef9a9a;
+    ion-icon {
+      color: #c62828;
+    }
+  }
 }

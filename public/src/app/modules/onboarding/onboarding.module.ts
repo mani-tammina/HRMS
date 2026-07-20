@@ -9,6 +9,9 @@ import { OnboardingTasksComponent } from './onboarding-tasks/onboarding-tasks.co
 import { TaskTemplatesComponent } from './task-templates/task-templates.component';
 import { PostPage } from './pre.page';
 import { CreateOfferComponent } from './create-offer/create-offer.component';
+import { CompensationComponent } from './compensation/compensation.component';
+import { OfferDetailsComponent } from './offer-details/offer-details.component';
+import { PreviewSendComponent } from './preview-send/preview-send.component';
 
 const routes: Routes = [
   {
@@ -47,6 +50,18 @@ const routes: Routes = [
   {
     path: 'CreateOffer/:id/:name',
     component: CreateOfferComponent
+  },
+  {
+    path: 'salaryStaructure/:id/:name',
+    component: CompensationComponent
+  },
+  {
+    path: 'OfferDetailsComponent/:id/:name',
+    component: OfferDetailsComponent
+  },
+  {
+    path: 'preview_send/:id/:name',
+    component: PreviewSendComponent
   }
 ];
 

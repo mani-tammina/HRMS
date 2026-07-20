@@ -1,33 +1,246 @@
 <ion-header>
   <!-- <app-header></app-header> -->
-  <app-create-offer-header></app-create-offer-header>
+  <app-create-offer-header [candidate]="candidate"
+    (continueClick)="saveCompensation()"></app-create-offer-header>
 </ion-header>
 
-<ion-content>
-  <div class="container" *ngIf="candidate">
-    <h2>Create Employee Credentials for {{ candidate.personalDetails.FirstName }}</h2>
+<ion-content class="salary-page">
 
-    <form [formGroup]="credentialsForm" (ngSubmit)="saveEmployeeCredentials()">
-      <div>
-        <label>Company Email:</label>
-        <input type="email" formControlName="companyEmail" />
-        <div *ngIf="credentialsForm.get('companyEmail')?.invalid && credentialsForm.get('companyEmail')?.touched"
-          style="color:red">
-          Valid email is required.
-        </div>
+  <div class="salary-container">
+
+    <!-- ========================================= -->
+    <!-- LEFT PANEL -->
+    <!-- ========================================= -->
+
+    <div class="compensation-card">
+
+      <div class="card-header">
+        <h2>Compensation</h2>
+        <p>Configure the employee compensation package</p>
       </div>
 
-      <div>
-        <label>Password:</label>
-        <input type="password" formControlName="password" />
-        <div *ngIf="credentialsForm.get('password')?.invalid && credentialsForm.get('password')?.touched"
-          style="color:red">
-          Password is required (min 6 characters).
-        </div>
+      <!-- Eligibility -->
+
+      <div class="checkbox-row">
+
+        <ion-item lines="none">
+          <ion-checkbox slot="start" [checked]="eligiblePF" (ionChange)="onPFChange($event)"></ion-checkbox>
+          <ion-label>Eligible for Provident Fund (PF)</ion-label>
+        </ion-item>
+
+        <ion-item lines="none">
+          <ion-checkbox slot="start" [checked]="eligibleESI" (ionChange)="onESIChange($event)"></ion-checkbox>
+          <ion-label>Eligible for ESI</ion-label>
+        </ion-item>
+
       </div>
 
-      <button type="submit" [disabled]="credentialsForm.invalid">Save Credentials</button>
-    </form>
-  </div>
+      <!-- Form -->
+
+      <div class="form-grid">
+
+        <!-- Pay Group -->
+
+        <div class="form-group">
+
+          <label>Pay Group</label>
+
+          <ion-select interface="popover" placeholder="Select Pay Group" [(ngModel)]="selectedPayGroup">
+
+            <ion-select-option value="default">
+              Default Pay Group
+            </ion-select-option>
+
+          </ion-select>
+
+        </div>
+
+        <!-- Remuneration -->
+
+        <div class="form-group">
+
+          <label>Remuneration Type</label>
+
+          <ion-select interface="popover" placeholder="Annual" [(ngModel)]="selectedRemunerationType">
+
+            <ion-select-option value="annual">
+              Annual
+            </ion-select-option>
+
+            <ion-select-option value="monthly">
+              Monthly
+            </ion-select-option>
+
+          </ion-select>
+
+        </div>
+
+        <!-- Salary -->
+
+        <div class="form-group">
+
+          <label>Annual Salary</label>
+
+          <ion-input type="number" [value]="annualSalary" (ionInput)="onAnnualSalaryChange($event)" placeholder="600000">
+          </ion-input>
+
+        </div>
+
+        <!-- Template -->
+
+        <div class="form-group">
+
+          <label>Salary Template</label>
+
+          <ion-select interface="popover" placeholder="Select Template" [value]="selectedTemplateId" (ionChange)="onTemplateChange($event)">
+
+            <ion-select-option *ngFor="let temp of templates" [value]="temp.template_id || temp.id">
+              {{ temp.template_name || temp.name }}
+            </ion-select-option>
+
+          </ion-select>
+
+        </div>
+
+      </div>
+
+      <!-- View Structure -->
+
+      <div class="salary-link">
+
+        <ion-icon name="eye-outline"></ion-icon>
+
+        <span>
+          View Salary Structure
+        </span>
+
+      </div>
+
+      <!-- Bonus -->
+
+      <div class="bonus-card">
+
+        <h3>Variable / Bonus Components</h3>
+
+        <p>
+          Add variable bonus components included in the salary package.
+        </p>
+
+        <ion-item lines="none">
+
+          <ion-checkbox slot="start"></ion-checkbox>
+
+          <ion-label>
+            Bonus amount included in new salary
+          </ion-label>
+
+        </ion-item>
+
+        <ion-button fill="clear" class="bonus-btn">
+
+          <ion-icon slot="start" name="add-outline">
+          </ion-icon>
+
+          Add Bonus
+
+        </ion-button>
+
+      </div>
+
+    </div>
+
+
+
+    <!-- ========================================= -->
+    <!-- RIGHT PANEL -->
+    <!-- ========================================= -->
+
+    <div class="salary-preview-card">
+
+      <div class="card-header">
+        <h2>Salary Structure</h2>
+        <p>Monthly &amp; Annual Breakdown</p>
+      </div>
+
+      <!-- Earnings table -->
+      <table class="salary-table">
+        <thead>
+          <tr>
+            <th>Details</th>
+            <th>Monthly</th>
+            <th>Annual</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- Empty state -->
+          <tr *ngIf="compositionData.length === 0">
+            <td colspan="3" style="text-align:center; color:#94a3b8; padding:24px;">
+              Select a salary template to preview the structure
+            </td>
+          </tr>
+
+          <!-- Earnings rows -->
+          <tr *ngFor="let comp of getEarnings()">
+            <td>{{ comp.component_name }}</td>
+            <td>₹{{ (getCalculatedAmount(comp) / 12) | number:'1.0-0' }}</td>
+            <td>₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</td>
+          </tr>
+
+          <!-- Sub Total -->
+          <tr class="subtotal" *ngIf="compositionData.length > 0">
+            <td>Sub Total</td>
+            <td>₹{{ (totalEarnings / 12) | number:'1.0-0' }}</td>
+            <td>₹{{ totalEarnings | number:'1.0-0' }}</td>
+          </tr>
+
+          <!-- Employer contributions -->
+          <tr *ngFor="let comp of getEmployerContributions()">
+            <td>{{ comp.component_name }}</td>
+            <td>₹{{ (getCalculatedAmount(comp) / 12) | number:'1.0-0' }}</td>
+            <td>₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</td>
+          </tr>
+
+          <!-- Total CTC -->
+          <tr class="total" *ngIf="compositionData.length > 0">
+            <td>Total CTC</td>
+            <td>₹{{ (annualSalary / 12) | number:'1.0-0' }}</td>
+            <td>₹{{ annualSalary | number:'1.0-0' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Deductions -->
+      <div class="deduction-card" *ngIf="getDeductions().length > 0">
+        <h3>Deductions</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Details</th>
+              <th>Monthly</th>
+              <th>Annual</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let comp of getDeductions()">
+              <td>{{ comp.component_name }}</td>
+              <td>₹{{ (getCalculatedAmount(comp) / 12) | number:'1.0-0' }}</td>
+              <td>₹{{ getCalculatedAmount(comp) | number:'1.0-0' }}</td>
+            </tr>
+            <tr class="total">
+              <td>Total Deduction</td>
+              <td>₹{{ (totalDeductions / 12) | number:'1.0-0' }}</td>
+              <td>₹{{ totalDeductions | number:'1.0-0' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div><!-- /salary-preview-card -->
+
+  </div><!-- /salary-container -->
+
+
+
+
 
 </ion-content>
