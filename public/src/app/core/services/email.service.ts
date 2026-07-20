@@ -8,9 +8,9 @@ import { environment } from 'src/environments/environment';
 })
 export class EmailService {
 
-  private apiBase = `http://${environment.apiURL}`;
+  private apiBase = `${environment.apiURL}`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   /**
    * Send offer email to a candidate.
@@ -27,8 +27,8 @@ export class EmailService {
    */
   sendEmail(candidate: any): Observable<any> {
     const email = candidate?.email || candidate?.personalDetails?.email || '';
-    const name  = candidate?.first_name || candidate?.personalDetails?.FirstName || 'Candidate';
-    const html  = `<p>Hello ${name},</p><p>Your offer has been sent.</p>`;
+    const name = candidate?.first_name || candidate?.personalDetails?.FirstName || 'Candidate';
+    const html = `<p>Hello ${name},</p><p>Your offer has been sent.</p>`;
     return this.sendOfferEmail(email, 'Your Offer Letter – Sree Tammina Software Solutions', html);
   }
 }

@@ -6,6 +6,7 @@ import { filter } from 'rxjs/operators';
 import { EmailService } from 'src/app/core/services/email.service';
 import { CandidateService } from 'src/app/core/services/candidate.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
+import { environment } from 'src/environments/environment';
 
 @Component({
   selector: 'app-create-offer-header',
@@ -50,7 +51,7 @@ export class CreateOfferHeaderComponent implements OnInit {
 
     // Get id & firstName from parent route
     this.candidateId = this.route.snapshot.paramMap.get('id');
-    this.firstName   = this.route.snapshot.paramMap.get('FirstName');
+    this.firstName = this.route.snapshot.paramMap.get('FirstName');
   }
 
   onContinue() {
@@ -73,16 +74,16 @@ export class CreateOfferHeaderComponent implements OnInit {
 
   // ─── Build the email HTML (matching provided template image) ──────────────
   private buildOfferEmailHtml(candidate: any, portalUrl: string): string {
-    const firstName       = candidate?.first_name
-                          || candidate?.personalDetails?.FirstName
-                          || 'Candidate';
-    const designation     = candidate?.position
-                          || candidate?.jobDetailsForm?.JobTitle
-                          || candidate?.designation
-                          || 'the offered role';
-    const offerValidity   = candidate?.offer_expiry_date
-                          || candidate?.offerDetails?.offerValidity
-                          || '';
+    const firstName = candidate?.first_name
+      || candidate?.personalDetails?.FirstName
+      || 'Candidate';
+    const designation = candidate?.position
+      || candidate?.jobDetailsForm?.JobTitle
+      || candidate?.designation
+      || 'the offered role';
+    const offerValidity = candidate?.offer_expiry_date
+      || candidate?.offerDetails?.offerValidity
+      || '';
 
     const validityLine = offerValidity
       ? `signing/acknowledging on or before &nbsp;<strong>${offerValidity}</strong>`
@@ -147,8 +148,8 @@ export class CreateOfferHeaderComponent implements OnInit {
 
     // Resolve candidate email
     const toEmail = this.candidate?.email
-                 || this.candidate?.personalDetails?.email
-                 || '';
+      || this.candidate?.personalDetails?.email
+      || '';
 
     if (!toEmail) {
       this.toaster.showError('Candidate email address not found. Please fill in the candidate details first.');
@@ -156,15 +157,15 @@ export class CreateOfferHeaderComponent implements OnInit {
     }
 
     // Build the "View Offer" URL pointing to the candidate portal login
-    const origin     = window.location.origin;          // e.g. http://localhost:8100
+    const origin = environment.apiURL        // e.g. http://localhost:8100
     const candidateId = this.candidateId || this.candidate?.id || '';
-    const portalUrl  = `${origin}/candidate-portal/login/${candidateId}`;
+    const portalUrl = `${origin}/candidate-portal/login/${candidateId}`;
 
     const htmlBody = this.buildOfferEmailHtml(this.candidate, portalUrl);
     const firstName = this.candidate?.first_name
-                    || this.candidate?.personalDetails?.FirstName
-                    || 'Candidate';
-    const subject   = `Offer Letter – Welcome to Sree Tammina Software Solutions, ${firstName}!`;
+      || this.candidate?.personalDetails?.FirstName
+      || 'Candidate';
+    const subject = `Offer Letter – Welcome to Sree Tammina Software Solutions, ${firstName}!`;
 
     this.isSending = true;
 

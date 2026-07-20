@@ -380,7 +380,7 @@ export interface ConfigWindowPayload {
   providedIn: 'root'
 })
 export class PayrollApiService {
-  private baseUrl = `http://${environment.apiURL}/api`;
+  private baseUrl = `${environment.apiURL}/api`;
 
   constructor(private http: HttpClient) { }
 

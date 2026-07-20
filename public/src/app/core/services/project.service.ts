@@ -38,9 +38,9 @@ export interface ProjectAssignment {
 
 @Injectable({ providedIn: 'root' })
 export class ProjectService {
-  private readonly BASE_URL = `http://${environment.apiURL}/api/projects`;
+  private readonly BASE_URL = `${environment.apiURL}/api/projects`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   getProjects(): Observable<Project[]> {
     return this.http.get<Project[]>(this.BASE_URL);
@@ -63,7 +63,7 @@ export class ProjectService {
   }
 
   /* ================= SHIFTS ================= */
-  
+
   getProjectShifts(projectId: number): Observable<ProjectShift[]> {
     return this.http.get<ProjectShift[]>(`${this.BASE_URL}/${projectId}/shifts`);
   }

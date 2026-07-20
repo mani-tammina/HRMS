@@ -27,7 +27,7 @@ export interface WeeklyOffPolicy {
     providedIn: 'root',
 })
 export class WeeklyOffPolicyService {
-    private apiUrl = `http://${environment.apiURL}/api/weekly-off-policies`;
+    private apiUrl = `${environment.apiURL}/api/weekly-off-policies`;
 
     constructor(private http: HttpClient) { }
 

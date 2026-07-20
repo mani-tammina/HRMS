@@ -18,7 +18,7 @@ import { RouteGuardService } from '../../../core/services/route-guard.service';
 })
 export class ProfilePage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  
+
   currentEmployee: any;
   selectedSegment = 'about';
   env: string = '';
@@ -52,7 +52,7 @@ export class ProfilePage implements OnInit, OnDestroy {
     // Manager check: only allow if this user is the direct reporting manager of the viewed employee
     const reportingManagerId = this.currentEmployee?.reporting_manager_id;
     if (this.myEmployeeId && reportingManagerId &&
-        Number(this.myEmployeeId) === Number(reportingManagerId)) {
+      Number(this.myEmployeeId) === Number(reportingManagerId)) {
       return true;
     }
 
@@ -69,11 +69,11 @@ export class ProfilePage implements OnInit, OnDestroy {
     private separationService: SeparationService,
     private modalController: ModalController,
     private routeGuardService: RouteGuardService
-  ) {}
+  ) { }
 
   ngOnInit() {
-    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
-    
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
+
     this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
       this.loadProfile(params['id']);
     });
@@ -134,19 +134,19 @@ export class ProfilePage implements OnInit, OnDestroy {
         const profileObservable = this.isOwnProfile
           ? this.employeeService.getMyProfile()
           : forkJoin({
-              basic: this.employeeService.getEmployeeById(+targetId),
-              details: this.employeeService.getEmployeeDetails(+targetId)
-            }).pipe(
-              map(({ basic, details }) => {
-                const employeeDetails = details?.employee || details;
-                return {
-                  ...basic,
-                  ...employeeDetails,
-                  attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
-                  AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
-                };
-              })
-            );
+            basic: this.employeeService.getEmployeeById(+targetId),
+            details: this.employeeService.getEmployeeDetails(+targetId)
+          }).pipe(
+            map(({ basic, details }) => {
+              const employeeDetails = details?.employee || details;
+              return {
+                ...basic,
+                ...employeeDetails,
+                attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
+                AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
+              };
+            })
+          );
 
         profileObservable.pipe(takeUntil(this.destroy$)).subscribe({
           next: (res: any) => {
@@ -174,19 +174,19 @@ export class ProfilePage implements OnInit, OnDestroy {
         this.isOwnProfile = !targetId;
         const profileObservable = targetId
           ? forkJoin({
-              basic: this.employeeService.getEmployeeById(+targetId),
-              details: this.employeeService.getEmployeeDetails(+targetId)
-            }).pipe(
-              map(({ basic, details }) => {
-                const employeeDetails = details?.employee || details;
-                return {
-                  ...basic,
-                  ...employeeDetails,
-                  attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
-                  AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
-                };
-              })
-            )
+            basic: this.employeeService.getEmployeeById(+targetId),
+            details: this.employeeService.getEmployeeDetails(+targetId)
+          }).pipe(
+            map(({ basic, details }) => {
+              const employeeDetails = details?.employee || details;
+              return {
+                ...basic,
+                ...employeeDetails,
+                attendance_status: basic?.attendance_status || employeeDetails?.attendance_status || 'Not In Yet',
+                AttendanceStatus: basic?.AttendanceStatus || employeeDetails?.AttendanceStatus
+              };
+            })
+          )
           : this.employeeService.getMyProfile();
 
         profileObservable.pipe(takeUntil(this.destroy$)).subscribe({
@@ -244,7 +244,7 @@ export class ProfilePage implements OnInit, OnDestroy {
           this.isUploading = false;
           this.previewImageUrl = null;
           this.selectedFile = null;
-          
+
           // Close popover if triggered from one
           await this.popoverController.dismiss();
           this.showToast('Profile picture updated successfully', 'success');

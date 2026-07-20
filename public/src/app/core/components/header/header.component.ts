@@ -91,7 +91,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
-    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
     this.isAdmin = this.routeGuardService.userRole?.toLowerCase() === 'admin';
     this.filteredQuickActions = this.quickActions;
 

@@ -402,7 +402,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   private setupEnvironment() {
-    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
   }
 
   private loadEmployeeProfile() {

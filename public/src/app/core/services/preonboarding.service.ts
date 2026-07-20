@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
   providedIn: 'root'
 })
 export class PreonboardingService {
-  private apiUrl = `http://${environment.apiURL}/api/preonboarding`;
+  private apiUrl = `${environment.apiURL}/api/preonboarding`;
 
   constructor(private http: HttpClient) { }
 

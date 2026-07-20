@@ -20,7 +20,7 @@ export class LeaveTypesPage implements OnInit {
   isEditMode = false;
   selectedLeaveTypeId: number | null = null;
 
-  env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
+  env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
   selectedFile: File | null = null;
   selectedFileName = '';
   currentIconUrl = '';
@@ -142,7 +142,7 @@ export class LeaveTypesPage implements OnInit {
       formData.append('remove_icon', 'true');
     }
 
-    const action = this.isEditMode 
+    const action = this.isEditMode
       ? this.leaveTypesService.updateLeaveType(this.selectedLeaveTypeId!, formData)
       : this.leaveTypesService.createLeaveType(formData);
 

@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
   providedIn: 'root'
 })
 export class CandidateService {
-  private apiUrl = `http://${environment.apiURL}/api/candidates`;
+  private apiUrl = `${environment.apiURL}/api/candidates`;
 
   constructor(private http: HttpClient) { }
 
@@ -139,26 +139,26 @@ export class CandidateService {
 
   // Get all departments
   getDepartments(): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/departments`);
+    return this.http.get<any>(`${environment.apiURL}/api/departments`);
   }
 
   // Get all locations
   getLocations(): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/locations`);
+    return this.http.get<any>(`${environment.apiURL}/api/locations`);
   }
 
   // Get all designations
   getDesignations(): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/designations`);
+    return this.http.get<any>(`${environment.apiURL}/api/designations`);
   }
 
   // Get all business units
   getBusinessUnits(): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/business-units`);
+    return this.http.get<any>(`${environment.apiURL}/api/business-units`);
   }
 
   // Get working employees for reporting managers (with optional department filter)
   getEmployees(limit: number = 1000, status: string = 'Working'): Observable<any> {
-    return this.http.get<any>(`http://${environment.apiURL}/api/employees?limit=${limit}&status=${status}`);
+    return this.http.get<any>(`${environment.apiURL}/api/employees?limit=${limit}&status=${status}`);
   }
 }

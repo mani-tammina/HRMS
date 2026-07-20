@@ -34,7 +34,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   isHR = false;
   globalSearchQuery = '';
   originalTeam: any[] = [];
-  env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}/`;
+  env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}/`;
 
   selectedDate: string = new Date().toISOString();
   maxDate: string = new Date().toISOString();
@@ -243,7 +243,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
   getProfileImage(member: any): string {
     if (member?.profile_image) {
       if (member.profile_image.startsWith('http')) return member.profile_image;
-      return `http://${environment.apiURL}${member.profile_image}?t=${Date.now()}`;
+      return `${environment.apiURL}${member.profile_image}?t=${Date.now()}`;
     }
     return '../../assets/Profile_Picture.png';
   }

@@ -188,7 +188,7 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
 
   getProfileImage(timesheet: any): string {
     if (timesheet?.profile_image) {
-      return `http://${environment.apiURL}${timesheet.profile_image}?t=${Date.now()}`;
+      return `${environment.apiURL}${timesheet.profile_image}?t=${Date.now()}`;
     }
     return '../../assets/Profile_Picture.png';
   }

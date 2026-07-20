@@ -59,7 +59,7 @@ export class LeavesPage implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
-    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
     this.updateRole();
     this.loadLeaveBalance();
     this.getAllLeaves();

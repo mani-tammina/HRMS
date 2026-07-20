@@ -7,7 +7,7 @@ import { environment } from 'src/environments/environment';
   providedIn: 'root'
 })
 export class PayrollService {
-  private payrollUrl = `http://${environment.apiURL}/api/payroll-master/`;
+  private payrollUrl = `${environment.apiURL}/api/payroll-master/`;
 
   constructor(private http: HttpClient) { }
 

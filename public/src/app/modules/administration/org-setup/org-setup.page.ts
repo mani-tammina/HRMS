@@ -161,7 +161,7 @@ export class OrgSetupPage implements OnInit {
 
   ngOnInit() {
     this.userRole = (localStorage.getItem('role') || '').toLowerCase();
-    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `http://${environment.apiURL}`;
+    this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
     this.loadData();
   }
 
@@ -442,7 +442,7 @@ export class OrgSetupPage implements OnInit {
     if (this.announcementForm.ends_at) {
       formData.append('ends_at', this.announcementForm.ends_at);
     }
-    
+
     if (this.selectedImageFile) {
       formData.append('image', this.selectedImageFile);
     } else if (this.editingAnnouncementId && !this.announcementForm.image_url) {
@@ -562,8 +562,8 @@ export class OrgSetupPage implements OnInit {
     const action = this.penaltyType === 'missingLogs'
       ? this.adminService.deleteMissingLogTime(id)
       : this.penaltyType === 'lateArrivals'
-      ? this.adminService.deleteLateArrival(id)
-      : this.adminService.deleteBreakTime(id);
+        ? this.adminService.deleteLateArrival(id)
+        : this.adminService.deleteBreakTime(id);
 
     action.subscribe(() => {
       this.showToast('Penalty configuration deleted', 'success');
@@ -890,15 +890,15 @@ export class OrgSetupPage implements OnInit {
       case 'announcements': return !!this.announcementForm.title && !!this.announcementForm.body;
       case 'penalties':
         return !!this.penaltyForm.leave_plan_id &&
-          (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours : 
-           this.penaltyType === 'lateArrivals' ? !!this.penaltyForm.threshold_minutes : 
-           !!this.penaltyForm.break_time);
+          (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours :
+            this.penaltyType === 'lateArrivals' ? !!this.penaltyForm.threshold_minutes :
+              !!this.penaltyForm.break_time);
       default: return false;
     }
   }
   getShiftName(id: number) {
-    return this.leavePlans.find(s => s.id === id)?.name || 
-           'Unknown Plan';
+    return this.leavePlans.find(s => s.id === id)?.name ||
+      'Unknown Plan';
   }
 
   async showToast(message: string, color: 'success' | 'danger' | 'warning' | 'primary') {

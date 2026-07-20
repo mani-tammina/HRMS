@@ -14,7 +14,7 @@ import { environment } from 'src/environments/environment';
 })
 export class OrgTreePage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
-  
+
   isLoading = false;
   treeData: any = null;
   currentUserEmployee: any = null;
@@ -24,7 +24,7 @@ export class OrgTreePage implements OnInit, OnDestroy {
   searchResults: any[] = [];
   showSearchDropdown = false;
 
-    // Expand / collapse states
+  // Expand / collapse states
   expandedNodes = new Set<number>();
 
   constructor(
@@ -34,7 +34,7 @@ export class OrgTreePage implements OnInit, OnDestroy {
     private toastCtrl: ToastController,
     private loadingCtrl: LoadingController,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) { }
 
   ngOnInit() {
     this.loadInitialTree();
@@ -87,14 +87,14 @@ export class OrgTreePage implements OnInit, OnDestroy {
 
   initializeExpandedStates(node: any) {
     if (!node) return;
-    
+
     // Expand nodes on the path, including the focus employee if they have reports
     if (node.isPathNode) {
       if (!node.isFocusEmployee || (node.employee.reports_count > 0)) {
         this.expandedNodes.add(node.employee.id);
       }
     }
-    
+
     if (node.directReports) {
       for (const child of node.directReports) {
         this.initializeExpandedStates(child);
@@ -122,7 +122,7 @@ export class OrgTreePage implements OnInit, OnDestroy {
           }
         }
       }
-      
+
       if (node.employee.has_reports && (!node.directReports || node.directReports.length === 0) && !node.loading) {
         node.loading = true;
         this.cdr.detectChanges();
@@ -218,7 +218,7 @@ export class OrgTreePage implements OnInit, OnDestroy {
   getProfileImage(emp: any): string {
     if (emp?.profile_image) {
       if (emp.profile_image.startsWith('http')) return emp.profile_image;
-      return `http://${environment.apiURL}${emp.profile_image}?t=${Date.now()}`;
+      return `${environment.apiURL}${emp.profile_image}?t=${Date.now()}`;
     }
     return 'assets/Profile_Picture.png';
   }

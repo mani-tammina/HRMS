@@ -137,7 +137,7 @@ export class ManagerWfhApprovalsComponent implements OnInit {
 
   getProfileImage(request: any): string {
     if (request?.profile_image) {
-      return `http://${environment.apiURL}${request.profile_image}?t=${Date.now()}`;
+      return `${environment.apiURL}${request.profile_image}?t=${Date.now()}`;
     }
     return '../../assets/Profile_Picture.png';
   }
