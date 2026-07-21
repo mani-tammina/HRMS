@@ -5,6 +5,7 @@ import { IonicModule } from '@ionic/angular';
 import { MyTeamPage } from './my-team.page';
 import { RouterModule, Routes } from '@angular/router';
 import { TeamReportComponent } from './team-report/team-report.component';
+import { AiOverviewComponent } from './ai-overview/ai-overview.component';
 
 const routes: Routes = [
   {
@@ -20,6 +21,6 @@ const routes: Routes = [
     IonicModule,
     RouterModule.forChild(routes)
   ],
-  declarations: [MyTeamPage, TeamReportComponent]
+  declarations: [MyTeamPage, TeamReportComponent, AiOverviewComponent]
 })
 export class MyTeamPageModule {}

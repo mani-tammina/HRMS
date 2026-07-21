@@ -576,6 +576,17 @@ ion-modal {
       --width: 500px;
     }
 
+    &.ai-popup {
+      --width: 500px;
+      
+      &::part(backdrop) {
+        background: rgba(10, 25, 47, 0.6) !important;
+        backdrop-filter: blur(8px) !important;
+        -webkit-backdrop-filter: blur(8px) !important;
+        opacity: 1 !important;
+      }
+    }
+
     &.timesheet-popup {
       --width: 560px;
     }

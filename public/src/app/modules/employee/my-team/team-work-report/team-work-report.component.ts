@@ -6,6 +6,7 @@ import { catchError } from 'rxjs';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
 import { EmployeeService } from '../../../../core/services/employee.service';
 import { TimesheetPreviewComponent } from '../../../attendance/work-track/timesheet-preview.component';
+import { AiOverviewComponent } from '../ai-overview/ai-overview.component';
 
 @Component({
   selector: 'app-team-work-report',
@@ -183,6 +184,33 @@ export class TeamWorkReportComponent implements OnInit {
       component: TimesheetPreviewComponent,
       cssClass: 'side-custom-popup view-work-log',
       componentProps: { data: row },
+    });
+    await modal.present();
+  }
+
+  async openAiOverview() {
+    const modal = await this.modalCtrl.create({
+      component: AiOverviewComponent,
+      cssClass: 'side-custom-popup team-popup ai-popup',
+      componentProps: {
+        employeeId: this.selectedEmployeeId || this.employeeId,
+        hideEmployeeSelect: true
+      },
+      backdropDismiss: false,
+    });
+    await modal.present();
+  }
+
+  async openAiForDate(row: any) {
+    const modal = await this.modalCtrl.create({
+      component: AiOverviewComponent,
+      cssClass: 'side-custom-popup team-popup ai-popup',
+      componentProps: {
+        employeeId: this.selectedEmployeeId || this.employeeId,
+        hideEmployeeSelect: true,
+        reportDate: row.date
+      },
+      backdropDismiss: false,
     });
     await modal.present();
   }

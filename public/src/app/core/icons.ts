@@ -68,6 +68,9 @@ import {
   gitNetworkOutline,
   playCircleOutline,
   receiptOutline,
+  sparkles,
+  send,
+  chatbubbleEllipsesOutline,
 } from 'ionicons/icons';
 
 // Register all used icons to enable tree shaking
@@ -137,4 +140,7 @@ addIcons({
   'git-network-outline': gitNetworkOutline,
   'play-circle-outline': playCircleOutline,
   'receipt-outline': receiptOutline,
+  'sparkles': sparkles,
+  'send': send,
+  'chatbubble-ellipses-outline': chatbubbleEllipsesOutline,
 });

@@ -4,5 +4,5 @@ const local =
 
 export const environment = {
   production: true,
-  apiURL: 'https://hrms.tamminahub.com',
+  apiURL: 'localhost:4203',
 };

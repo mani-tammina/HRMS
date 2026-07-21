@@ -1,0 +1,107 @@
+<div class="ai-chat-container">
+  <!-- HEADER -->
+  <div class="chat-header">
+    <div class="header-left">
+      <div class="ai-logo-badge">
+        <ion-icon name="sparkles"></ion-icon>
+      </div>
+      <div class="header-title-block">
+        <h3>AI Team Assistant</h3>
+        <div class="status-indicator">
+          <span class="pulse-dot"></span>
+          <span class="status-text">Online</span>
+        </div>
+      </div>
+    </div>
+    <button class="close-btn" (click)="dismiss()">
+      <ion-icon name="close-outline"></ion-icon>
+    </button>
+  </div>
+
+  <!-- CONTEXT BAR (for Managers/HR) -->
+  <div class="context-bar" *ngIf="isManager && !hideEmployeeSelect">
+    <div class="selector-item">
+      <ion-icon name="people-outline"></ion-icon>
+      <ion-select *ngIf="teamMembers && teamMembers.length > 0; else noUser" interface="popover" [value]="selectedEmployeeId" (ionChange)="onEmployeeChange($event)" class="custom-select">
+        <ion-select-option *ngFor="let member of teamMembers" [value]="member.id.toString()">
+          {{ member.FirstName }} {{ member.LastName }}
+        </ion-select-option>
+      </ion-select>
+      <ng-template #noUser>
+        <span class="selector-label">No user found</span>
+      </ng-template>
+    </div>
+    
+    <div class="selector-item disabled">
+      <ion-icon name="document-text-outline"></ion-icon>
+      <span class="selector-label">Verified Timesheets</span>
+    </div>
+  </div>
+
+  <!-- CHAT AREA -->
+  <div class="chat-body" #scrollContainer>
+    <div class="messages-list">
+      <div *ngFor="let msg of messages" class="message-row" [ngClass]="msg.sender">
+        <!-- AI Avatar -->
+        <div class="avatar" *ngIf="msg.sender === 'ai'">
+          <ion-icon name="sparkles"></ion-icon>
+        </div>
+        
+        <!-- Bubble & Timestamp -->
+        <div class="message-bubble-wrapper">
+          <div class="message-bubble" [innerHTML]="msg.htmlContent || msg.text"></div>
+          <span class="message-time">{{ msg.timestamp | date:'shortTime' }}</span>
+        </div>
+
+        <!-- User Avatar -->
+        <div class="avatar user-avatar" *ngIf="msg.sender === 'user'">
+          <ion-icon name="person-outline"></ion-icon>
+        </div>
+      </div>
+
+      <!-- TYPING INDICATOR -->
+      <div class="message-row ai" *ngIf="isLoading">
+        <div class="avatar">
+          <ion-icon name="sparkles"></ion-icon>
+        </div>
+        <div class="message-bubble-wrapper">
+          <div class="message-bubble typing-indicator-bubble">
+            <div class="typing-dots">
+              <span class="dot"></span>
+              <span class="dot"></span>
+              <span class="dot"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- QUICK PROMPTS -->
+  <div class="quick-prompts-container" *ngIf="messages.length <= 1 && !isLoading">
+    <p class="section-title">Suggested Queries</p>
+    <div class="prompts-scroll">
+      <button *ngFor="let prompt of prompts" class="prompt-chip" (click)="selectPrompt(prompt.text)">
+        <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+        <span>{{ prompt.label }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- INPUT FOOTER -->
+  <div class="chat-footer">
+    <div class="input-wrapper">
+      <input 
+        type="text" 
+        [(ngModel)]="userInput" 
+        (keyup.enter)="sendMessage()" 
+        placeholder="Ask AI about timesheets or attendance..."
+        [disabled]="isLoading"
+        class="chat-input"
+      />
+      <button class="send-btn" (click)="sendMessage()" [disabled]="!userInput.trim() || isLoading">
+        <ion-icon name="send"></ion-icon>
+      </button>
+    </div>
+  </div>
+</div>

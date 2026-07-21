@@ -1068,6 +1068,7 @@ router.get("/manager/pending-timesheets", auth, async (req, res) => {
     if (!manager) return res.status(404).json({ error: "Manager not found" });
 
     const { start_date, end_date, timesheet_type } = req.query;
+    console.log(start_date, end_date, timesheet_type)
     const c = await db();
 
     // Get timesheets from employees reporting to this manager

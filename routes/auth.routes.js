@@ -196,17 +196,18 @@ router.post("/logout", auth, async (req, res) => {
       .query(
         `INSERT INTO notifications (user_id, message, created_at) 
              VALUES (?, 'User logged out successfully', NOW())`,
-        [req.user.id]
+        [req.user.id],
       )
       .catch((err) =>
-        console.log("Failed to log logout activity:", err.message)
+        console.log("Failed to log logout activity:", err.message),
       );
 
     await clearAuthTokenByAccessToken(c, accessToken);
 
     console.log(
-      `User ${req.user.id} (${req.user.role
-      }) logged out at ${new Date().toISOString()}`
+      `User ${req.user.id} (${
+        req.user.role
+      }) logged out at ${new Date().toISOString()}`,
     );
 
     // Note: Since we're using JWT (stateless), the token can't be invalidated server-side
@@ -323,9 +324,10 @@ router.post("/password/setup/send/:empId", auth, async (req, res) => {
     c = await db();
     const [emp] = await c.query(
       "SELECT id, WorkEmail FROM employees WHERE id = ?",
-      [req.params.empId]
+      [req.params.empId],
     );
-    if (!emp.length) return res.status(404).json({ error: "Employee not found" });
+    if (!emp.length)
+      return res.status(404).json({ error: "Employee not found" });
     const token = jwt.sign(
       { empId: req.params.empId, type: "setup" },
       JWT_SECRET,
@@ -362,13 +364,13 @@ router.post("/password/create", async (req, res) => {
     if (/^\d+$/.test(String(employee_id))) {
       const [rows] = await c.query(
         "SELECT WorkEmail, FullName FROM employees WHERE id = ?",
-        [employee_id]
+        [employee_id],
       );
       emp = rows;
     } else {
       const [rows] = await c.query(
         "SELECT WorkEmail, FullName FROM employees WHERE WorkEmail = ?",
-        [employee_id]
+        [employee_id],
       );
       emp = rows;
     }
@@ -554,7 +556,7 @@ router.get("/employee/check", async (req, res) => {
     c = await db();
     const [emp] = await c.query(
       "SELECT e.id, e.EmployeeNumber, e.FullName, e.WorkEmail, d.name as Designation, dept.name as Department, l.name as Location, e.EmploymentStatus FROM employees e LEFT JOIN designations d ON e.DesignationId = d.id LEFT JOIN departments dept ON e.DepartmentId = dept.id LEFT JOIN locations l ON e.LocationId = l.id WHERE e.WorkEmail = ?",
-      [email]
+      [email],
     );
 
     if (!emp.length) {
@@ -567,7 +569,7 @@ router.get("/employee/check", async (req, res) => {
     // Check if user account exists
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE username = ?",
-      [email]
+      [email],
     );
 
     res.json({
@@ -607,7 +609,7 @@ async function checkManagerRole(email) {
          LEFT JOIN departments dept ON e.DepartmentId = dept.id
          LEFT JOIN locations l ON e.LocationId = l.id
          WHERE e.WorkEmail = ?`,
-    [email]
+    [email],
   );
 
   if (!emp.length) {
@@ -631,7 +633,7 @@ async function checkManagerRole(email) {
          LEFT JOIN departments dept ON e.DepartmentId = dept.id
          WHERE e.reporting_manager_id = ?
          AND e.EmploymentStatus = 'Active'`,
-    [employeeId]
+    [employeeId],
   );
 
   const isManager = controlledEmployees.length > 0;
@@ -640,7 +642,7 @@ async function checkManagerRole(email) {
   // Check if user account already exists
   const [user] = await c.query(
     "SELECT id, username, role, full_name FROM users WHERE username = ?",
-    [email]
+    [email],
   );
 
   c.end();
@@ -673,15 +675,15 @@ async function checkManagerRole(email) {
     currentUserAccount:
       user.length > 0
         ? {
-          exists: true,
-          username: user[0].username,
-          role: user[0].role,
-          fullName: user[0].full_name,
-          roleMatch: user[0].role === suggestedRole,
-        }
+            exists: true,
+            username: user[0].username,
+            role: user[0].role,
+            fullName: user[0].full_name,
+            roleMatch: user[0].role === suggestedRole,
+          }
         : {
-          exists: false,
-        },
+            exists: false,
+          },
   };
 }
 
@@ -698,7 +700,7 @@ router.get("/user/check-reporting/:email", async (req, res) => {
              FROM employees e
              LEFT JOIN employees rm ON e.reporting_manager_id = rm.id
              WHERE e.WorkEmail = ?`,
-      [email]
+      [email],
     );
 
     if (!emp.length) {
@@ -712,7 +714,7 @@ router.get("/user/check-reporting/:email", async (req, res) => {
              FROM employees
              WHERE reporting_manager_id = ?
              AND EmploymentStatus = 'Working'`,
-      [emp[0].id]
+      [emp[0].id],
     );
 
     c.end();
@@ -813,7 +815,7 @@ router.post("/user/create", async (req, res) => {
     // Check if employee exists
     const [emp] = await c.query(
       "SELECT id, EmployeeNumber, FullName, WorkEmail FROM employees WHERE WorkEmail = ?",
-      [email]
+      [email],
     );
 
     if (!emp.length) {
@@ -826,7 +828,7 @@ router.post("/user/create", async (req, res) => {
     // Check if user already exists
     const [existingUser] = await c.query(
       "SELECT id FROM users WHERE username = ?",
-      [email]
+      [email],
     );
     if (existingUser.length > 0) {
       c.end();
@@ -842,7 +844,7 @@ router.post("/user/create", async (req, res) => {
 
     await c.query(
       "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
-      [email, hash, userRole, fullName]
+      [email, hash, userRole, fullName],
     );
 
     c.end();
@@ -941,7 +943,7 @@ router.post("/user/create-auto", async (req, res) => {
     // Check if user already exists
     const [existingUser] = await c.query(
       "SELECT id FROM users WHERE username = ?",
-      [employee.WorkEmail]
+      [employee.WorkEmail],
     );
     if (existingUser.length > 0) {
       c.end();
@@ -968,7 +970,7 @@ router.post("/user/create-auto", async (req, res) => {
         `SELECT COUNT(*) as count 
                  FROM employees 
                  WHERE reporting_manager_id = ?`,
-        [employee.id]
+        [employee.id],
       );
 
       if (reportCount[0].count > 4) {
@@ -980,7 +982,7 @@ router.post("/user/create-auto", async (req, res) => {
     const hash = await bcrypt.hash(password, 10);
     await c.query(
       "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
-      [employee.WorkEmail, hash, assignedRole, employee.FullName]
+      [employee.WorkEmail, hash, assignedRole, employee.FullName],
     );
 
     c.end();
@@ -1091,7 +1093,7 @@ router.get("/user/preview-role/:employee_id", async (req, res) => {
     // Check if user already exists
     const [existingUser] = await c.query(
       "SELECT id, role FROM users WHERE username = ?",
-      [employee.WorkEmail]
+      [employee.WorkEmail],
     );
 
     c.end();
@@ -1163,7 +1165,7 @@ router.post("/user/create-bulk", auth, async (req, res) => {
                      FROM employees e
                      LEFT JOIN departments dept ON e.DepartmentId = dept.id
                      WHERE e.id = ?`,
-          [employee_id]
+          [employee_id],
         );
 
         if (!emp.length) {
@@ -1188,7 +1190,7 @@ router.post("/user/create-bulk", auth, async (req, res) => {
         // Check if user already exists
         const [existingUser] = await c.query(
           "SELECT id FROM users WHERE username = ?",
-          [employee.WorkEmail]
+          [employee.WorkEmail],
         );
 
         if (existingUser.length > 0) {
@@ -1214,7 +1216,7 @@ router.post("/user/create-bulk", auth, async (req, res) => {
         } else {
           const [reportCount] = await c.query(
             `SELECT COUNT(*) as count FROM employees WHERE reporting_manager_id = ?`,
-            [employee_id]
+            [employee_id],
           );
 
           if (reportCount[0].count > 4) {
@@ -1228,7 +1230,7 @@ router.post("/user/create-bulk", auth, async (req, res) => {
         // Create user
         await c.query(
           "INSERT INTO users (username, password_hash, role, full_name) VALUES (?, ?, ?, ?)",
-          [employee.WorkEmail, hash, assignedRole, employee.FullName]
+          [employee.WorkEmail, hash, assignedRole, employee.FullName],
         );
 
         results.success.push({
@@ -1277,7 +1279,7 @@ router.get("/users", auth, async (req, res) => {
   const c = await db();
   try {
     const [users] = await c.query(
-      "SELECT u.id, u.username, u.role, u.full_name, u.created_at, e.id as employee_id, e.EmployeeNumber, e.EmploymentStatus FROM users u LEFT JOIN employees e ON u.username = e.WorkEmail ORDER BY u.created_at DESC"
+      "SELECT u.id, u.username, u.role, u.full_name, u.created_at, e.id as employee_id, e.EmployeeNumber, e.EmploymentStatus FROM users u LEFT JOIN employees e ON u.username = e.WorkEmail ORDER BY u.created_at DESC",
     );
     c.end();
     res.json({ users });
@@ -1302,7 +1304,7 @@ router.get("/users/:id", auth, async (req, res) => {
   try {
     const [users] = await c.query(
       "SELECT u.id, u.username, u.role, u.full_name, u.created_at, u.updated_at, e.id as employee_id, e.EmployeeNumber, e.FullName as emp_full_name, e.EmploymentStatus FROM users u LEFT JOIN employees e ON u.username = e.WorkEmail WHERE u.id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     c.end();
 
@@ -1327,10 +1329,13 @@ router.put("/users/:id/role", auth, hr, async (req, res) => {
   }
 
   const { role } = req.body;
-  if (!role || !["admin", "employee", "hr", "manager", "finance"].includes(role)) {
-    return res
-      .status(400)
-      .json({ error: "Valid role required (admin, employee, hr, manager, finance)" });
+  if (
+    !role ||
+    !["admin", "employee", "hr", "manager", "finance"].includes(role)
+  ) {
+    return res.status(400).json({
+      error: "Valid role required (admin, employee, hr, manager, finance)",
+    });
   }
 
   const c = await db();
@@ -1380,7 +1385,7 @@ router.post("/users/:id/make-hr", auth, async (req, res) => {
   try {
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     if (!user.length) {
       c.end();
@@ -1417,7 +1422,7 @@ router.post("/users/:id/make-manager", auth, async (req, res) => {
   try {
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     if (!user.length) {
       c.end();
@@ -1456,7 +1461,7 @@ router.post("/users/:id/make-admin", auth, async (req, res) => {
   try {
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     if (!user.length) {
       c.end();
@@ -1495,7 +1500,7 @@ router.post("/users/:id/make-finance", auth, async (req, res) => {
   try {
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     if (!user.length) {
       c.end();
@@ -1534,7 +1539,7 @@ router.post("/users/:id/make-employee", auth, async (req, res) => {
   try {
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [req.params.id]
+      [req.params.id],
     );
     if (!user.length) {
       c.end();
@@ -1571,12 +1576,10 @@ router.post("/users/bulk-role-update", auth, async (req, res) => {
 
   const { updates } = req.body;
   if (!updates || !Array.isArray(updates) || updates.length === 0) {
-    return res
-      .status(400)
-      .json({
-        error:
-          "Updates array required with format: [{userId: 1, role: 'hr'}, ...]",
-      });
+    return res.status(400).json({
+      error:
+        "Updates array required with format: [{userId: 1, role: 'hr'}, ...]",
+    });
   }
 
   const c = await db();
@@ -1628,7 +1631,7 @@ router.post("/auto-assign-role", auth, async (req, res) => {
     // Get current user info
     const [user] = await c.query(
       "SELECT id, username, role FROM users WHERE id = ?",
-      [userId]
+      [userId],
     );
 
     if (!user.length) {
@@ -1643,7 +1646,7 @@ router.post("/auto-assign-role", auth, async (req, res) => {
     if (user[0].role !== "employee") {
       c.end();
       console.log(
-        `ℹ️ User already has role: ${user[0].role}, skipping auto-assign`
+        `ℹ️ User already has role: ${user[0].role}, skipping auto-assign`,
       );
       return res.json({
         message: "User already has assigned role",
@@ -1657,7 +1660,7 @@ router.post("/auto-assign-role", auth, async (req, res) => {
       `SELECT e.id, e.WorkEmail, d.name as DepartmentName FROM employees e
        LEFT JOIN departments d ON e.DepartmentId = d.id
        WHERE e.WorkEmail = ?`,
-      [user[0].username]
+      [user[0].username],
     );
 
     if (!employee.length) {
@@ -1687,7 +1690,7 @@ router.post("/auto-assign-role", auth, async (req, res) => {
       // Check if employee has reporting members (is a manager)
       const [reportingMembers] = await c.query(
         "SELECT COUNT(*) as count FROM employees WHERE reporting_manager_id = ?",
-        [empId]
+        [empId],
       );
 
       const teamCount = reportingMembers[0].count;
@@ -1708,7 +1711,7 @@ router.post("/auto-assign-role", auth, async (req, res) => {
       ]);
 
       console.log(
-        `✅ Role updated: ${user[0].role} → ${newRole} for user ${userId} (${user[0].username})`
+        `✅ Role updated: ${user[0].role} → ${newRole} for user ${userId} (${user[0].username})`,
       );
 
       c.end();

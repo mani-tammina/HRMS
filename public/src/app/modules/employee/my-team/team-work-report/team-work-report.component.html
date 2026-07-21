@@ -74,6 +74,12 @@
       <span class="label">Avg Hours/Day</span>
       <span class="value">{{ summary.avg_hours }}</span>
     </div>
+    
+    <div class="summary-card ai-overview-card" (click)="openAiOverview()">
+      <div class="card-header-icon"><ion-icon name="sparkles"></ion-icon></div>
+      <span class="label">AI Insights</span>
+      <span class="value action-text">Ask AI</span>
+    </div>
   </div>
 
   <div class="loading-state" *ngIf="isLoading">
@@ -95,7 +101,7 @@
       <div class="col col-status">Status</div>
       <div class="col col-hours">Hours</div>
       <div class="col col-desc">Description</div>
-      <div class="col col-action">View</div>
+      <div class="col col-action">Action</div>
     </div>
 
     <div class="table-body">
@@ -119,8 +125,11 @@
           {{ row.work_description || row.notes || '---' }}
         </div>
         <div class="col col-action">
-          <ion-button fill="clear" color="primary" class="row-view-btn">
+          <ion-button fill="clear" color="primary" class="row-view-btn" (click)="openPreview(row); $event.stopPropagation()">
             <ion-icon name="eye-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" class="row-ai-btn" (click)="openAiForDate(row); $event.stopPropagation()">
+            <ion-icon name="sparkles" slot="icon-only" style="color: #3182ce;"></ion-icon>
           </ion-button>
         </div>
       </div>

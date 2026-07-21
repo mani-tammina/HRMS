@@ -139,6 +139,43 @@
     &.absent { border-left: 4px solid vars.$color-danger; .value { color: vars.$color-danger; } }
     &.leave { border-left: 4px solid vars.$color-warning; .value { color: vars.$color-warning; } }
     &.total-hours { border-left: 4px solid vars.$color-info; .value { color: vars.$color-info; } }
+
+    &.ai-overview-card {
+      border-left: 4px solid #3b82f6;
+      cursor: pointer;
+      background: linear-gradient(145deg, #ffffff 0%, #ebf8ff 100%);
+      
+      &:hover {
+        background: linear-gradient(145deg, #ebf8ff 0%, #bee3f8 100%);
+        border-color: #3182ce;
+        transform: translateY(-4px);
+        box-shadow: 0 10px 15px -3px rgba(49, 130, 206, 0.2);
+        
+        .card-header-icon {
+          color: #3182ce;
+          transform: scale(1.1);
+        }
+      }
+      
+      .card-header-icon {
+        color: #4299e1;
+        transition: all 0.2s ease;
+      }
+      
+      .action-text {
+        color: #2b6cb0;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-top: 4px;
+        font-weight: 700;
+        
+        &::after {
+          content: ' →';
+        }
+      }
+    }
   }
 }
 
@@ -200,7 +237,31 @@
     &.col-status { flex: 1; }
     &.col-hours { flex: 0.8; font-weight: 600; color: #1e3a8a; }
     &.col-desc { flex: 2; font-size: 0.85rem; color: #64748b; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    &.col-action { flex: 0.5; text-align: right; .row-view-btn { --padding-start: 0; --padding-end: 0; margin: 0; } }
+    &.col-action { 
+      flex: 0.8; 
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 4px;
+
+      .row-view-btn, .row-ai-btn { 
+        --padding-start: 0; 
+        --padding-end: 0; 
+        margin: 0; 
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s ease;
+      }
+
+      .row-ai-btn {
+        &:hover {
+          transform: scale(1.15);
+        }
+      }
+    }
   }
 }
 
