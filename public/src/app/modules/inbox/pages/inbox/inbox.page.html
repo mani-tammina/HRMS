@@ -41,6 +41,34 @@
           Mark all as read
         </button>
 
+        <!-- Monthly Attendance Upload & Export Buttons (Admin/HR only) -->
+        <ng-container *ngIf="showViewAll">
+          <button class="btn btn-outline" (click)="triggerUpload()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="btn-icon-left"
+              style="width: 14px; height: 14px; margin-right: 6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload Attendance
+          </button>
+          
+          <button class="btn btn-outline" (click)="triggerExport()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round" class="btn-icon-left"
+              style="width: 14px; height: 14px; margin-right: 6px;">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Export Attendance
+          </button>
+
+          <!-- Hidden File Input for uploading -->
+          <input type="file" id="attendanceFileInput" style="display: none;" accept=".xlsx, .xls" (change)="onFileSelected($event)">
+        </ng-container>
+
         <button class="btn btn-primary" (click)="loadNotifications(null, true)">
           Refresh
         </button>

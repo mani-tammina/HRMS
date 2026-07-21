@@ -590,6 +590,8 @@ router.get("/my-report", auth, async (req, res) => {
 
     let curr = new Date(start);
     let lop_from_leaves = 0;
+    let lop_from_attendance = 0;
+    let standard_absent_days = 0;
 
     while (curr <= end) {
       if (curr > now && curr.toDateString() !== todayStr) {
@@ -626,11 +628,31 @@ router.get("/my-report", auth, async (req, res) => {
       } else if (attMap.has(dStr)) {
         const record = attMap.get(dStr);
         if (record.status === 'present') present_days++;
-        else if (record.status === 'half-day') {
+        else if (record.status === 'absent') {
+          absent_days++;
+          if (record.notes === 'LOP') {
+            lop_from_attendance++;
+          } else {
+            standard_absent_days++;
+          }
+        } else if (record.status === 'half-day') {
           present_days += 0.5;
           half_day_count++;
+          // Check if it is a half-day leave
+          if (record.notes && record.notes.startsWith('HD')) {
+            leave_days += 0.5;
+            if (record.notes.includes('LOP')) {
+              lop_from_attendance += 0.5;
+            }
+          }
+        } else if (record.status === 'on-leave') {
+          leave_days++;
+          if (record.notes === 'LOP' || record.notes === 'UL') {
+            lop_from_attendance++;
+          }
         } else if (record.status === 'penalty') {
           penalty_count++;
+          standard_absent_days++;
           absent_days++;
         }
       } else if (!isToday) {
@@ -646,6 +668,7 @@ router.get("/my-report", auth, async (req, res) => {
 
         if (now > penaltyThreshold) {
           penalty_count++;
+          standard_absent_days++;
           absent_days++;
         }
       }
@@ -660,7 +683,7 @@ router.get("/my-report", auth, async (req, res) => {
       half_days: half_day_count,
       leave_days: leave_days,
       weekend_days: weekend_days,
-      lop_days: (absent_days * 0.5) + lop_from_leaves,
+      lop_days: (standard_absent_days * 0.5) + lop_from_leaves + lop_from_attendance,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),

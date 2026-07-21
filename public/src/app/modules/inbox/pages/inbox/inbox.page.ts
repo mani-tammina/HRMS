@@ -81,7 +81,7 @@ export class InboxPage implements OnInit {
 
   ngOnInit() {
     const role = this.auth.userRole?.toLowerCase() || '';
-    this.showViewAll = ['admin', 'hr'].includes(role);
+    this.showViewAll = ['admin', 'hr', 'manager'].includes(role);
     this.loadNotifications();
   }
 
@@ -657,6 +657,98 @@ export class InboxPage implements OnInit {
       error: (err: any) => {
         console.error('Failed to mark all as read', err);
         this.toaster.showError('Failed to mark all notifications as read');
+      }
+    });
+  }
+
+  triggerUpload() {
+    const fileInput = document.getElementById('attendanceFileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  async onFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Uploading and processing monthly attendance...',
+    });
+    await loading.present();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.inboxService.uploadMonthlyAttendance(formData).subscribe({
+      next: (res: any) => {
+        loading.dismiss();
+        if (res.success) {
+          this.toaster.showSuccess(res.message || 'Monthly attendance uploaded successfully');
+          this.loadNotifications(null, true);
+        } else {
+          this.toaster.showError(res.message || 'Failed to upload attendance');
+        }
+        event.target.value = '';
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Attendance upload failed', err);
+        const errMsg = err.error?.message || err.error?.error || 'Failed to upload monthly attendance';
+        this.toaster.showError(errMsg);
+        event.target.value = '';
+      }
+    });
+  }
+
+  async triggerExport() {
+    const alert = await this.alertCtrl.create({
+      header: 'Export Attendance',
+      message: 'Enter target month (YYYY-MM) or leave blank for all:',
+      inputs: [
+        {
+          name: 'month',
+          type: 'text',
+          placeholder: 'e.g. 2026-06',
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Export',
+          handler: (data) => {
+            this.executeExport(data.month);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async executeExport(month: string) {
+    const loading = await this.loadingCtrl.create({
+      message: 'Generating attendance report...',
+    });
+    await loading.present();
+
+    this.inboxService.exportMonthlyAttendance(month).subscribe({
+      next: (blob: Blob) => {
+        loading.dismiss();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Monthly_Attendance_${month || 'All'}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toaster.showSuccess('Attendance exported successfully');
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Attendance export failed', err);
+        this.toaster.showError('Failed to export monthly attendance');
       }
     });
   }

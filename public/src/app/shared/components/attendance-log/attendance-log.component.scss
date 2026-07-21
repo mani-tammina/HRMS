@@ -181,6 +181,30 @@
   letter-spacing: 0.5px;
 }
 
+.badge-absent {
+  background: vars.$color-danger;
+  color: #fff;
+  font-size: 10px;
+  font-weight: vars.$fw-bold;
+  padding: 4px 10px;
+  border-radius: vars.$radius-sm;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-lop {
+  background: #B91C1C;
+  color: #fff;
+  font-size: 10px;
+  font-weight: vars.$fw-bold;
+  padding: 4px 10px;
+  border-radius: vars.$radius-sm;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .no-log {
   display: flex;
   align-items: center;

@@ -87,4 +87,29 @@ export class InboxService {
   }): Observable<any> {
     return this.http.post(`${this.BASE_URL}/attendance/action`, payload, { headers: this.getHeaders() });
   }
+
+  uploadMonthlyAttendance(formData: FormData): Observable<any> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    });
+    return this.http.post(`${this.env.apiURL}/api/upload/monthly-attendance`, formData, { headers });
+  }
+
+  exportMonthlyAttendance(month?: string): Observable<Blob> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+    let params = new HttpParams();
+    if (month) {
+      params = params.set('month', month);
+    }
+    return this.http.get(`${this.env.apiURL}/api/upload/monthly-attendance/export`, {
+      headers,
+      params,
+      responseType: 'blob'
+    });
+  }
 }

@@ -241,6 +241,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
+            if (existing.status === 'on-leave') {
+              updatedExisting.noLogs = true;
+              updatedExisting.leaveType = existing.notes || 'Leave';
+            }
             const isToday = this.islogToday(date);
             if (isToday && this.todayPunches && this.todayPunches.length > 0) {
               const lastPunch = this.todayPunches[this.todayPunches.length - 1];

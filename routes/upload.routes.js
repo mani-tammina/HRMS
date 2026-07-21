@@ -775,7 +775,7 @@ router.post("/payroll", auth, roleAuth(["admin", "hr"]), upload.single("file"), 
 
 /* ============ BULK MONTHLY ATTENDANCE UPLOAD ============ */
 
-router.post("/monthly-attendance", auth, roleAuth(["admin", "hr"]), upload.single("file"), async (req, res) => {
+router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), upload.single("file"), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, message: "No file uploaded" });
     }
@@ -912,6 +912,96 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr"]), upload.singl
                     // Affected rows is 0 if nothing changed
                     updated++;
                 }
+
+                // --- Inject into standard attendance table ---
+                const [emp] = await c.query("SELECT id FROM employees WHERE EmployeeNumber = ?", [empNo]);
+                if (emp.length > 0) {
+                    const employeeId = emp[0].id;
+                    
+                    // Iterate through all columns in the row to find dates like DD-MMM-YYYY
+                    for (const key of Object.keys(r)) {
+                        const dateMatch = key.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+                        if (dateMatch) {
+                            const dayStr = dateMatch[1];
+                            const monthStr = dateMatch[2];
+                            const yearStr = dateMatch[3];
+                            const months = {
+                                Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+                                Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+                            };
+                            const mNum = months[monthStr];
+                            if (mNum) {
+                                const formattedDate = `${yearStr}-${mNum}-${dayStr}`;
+                                
+                                // Determine status, work mode, and notes based on cell value
+                                const val = String(r[key] || '').trim();
+                                if (val) {
+                                    let status = null;
+                                    let workMode = 'Office';
+                                    let notes = null;
+                                    let totalWorkHours = 0.00;
+                                    let grossHours = 0.00;
+                                    
+                                    const valUpper = val.toUpperCase().replace(/\s+/g, '');
+                                    if (['P', 'P(MS)', 'WFH', 'A(R)'].includes(valUpper)) {
+                                        status = 'present';
+                                        totalWorkHours = 8.00;
+                                        grossHours = 8.00;
+                                        if (valUpper === 'WFH') {
+                                            workMode = 'WFH';
+                                        }
+                                    } else if (valUpper === 'A') {
+                                        status = 'absent';
+                                    } else if (valUpper === 'UL' || valUpper === 'LOP') {
+                                        status = 'absent';
+                                        notes = 'LOP';
+                                    } else if (
+                                        valUpper.includes('HD') || 
+                                        valUpper.includes('/2') || 
+                                        valUpper.includes('0.5') || 
+                                        valUpper.includes('HALF')
+                                    ) {
+                                        status = 'half-day';
+                                        totalWorkHours = 4.00;
+                                        grossHours = 4.00;
+                                        if (valUpper.includes('UL') || valUpper.includes('LOP')) {
+                                            notes = 'HD LOP';
+                                        } else {
+                                            let leaveCode = 'Leave';
+                                            if (valUpper.includes('SL')) leaveCode = 'SL';
+                                            else if (valUpper.includes('CL')) leaveCode = 'CL';
+                                            else if (valUpper.includes('ML')) leaveCode = 'ML';
+                                            notes = `HD ${leaveCode}`;
+                                        }
+                                    } else if (
+                                        ['SL', 'CL', 'ML', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
+                                    ) {
+                                        status = 'on-leave';
+                                        if (valUpper.includes('SL')) notes = 'SL';
+                                        else if (valUpper.includes('CL')) notes = 'CL';
+                                        else if (valUpper.includes('ML')) notes = 'ML';
+                                        else if (valUpper.includes('PL')) notes = 'PL';
+                                        else if (valUpper.includes('EL')) notes = 'EL';
+                                        else notes = 'Leave';
+                                    }
+                                    
+                                    if (status) {
+                                        await c.query(`
+                                            INSERT INTO attendance (employee_id, attendance_date, punch_date, work_mode, status, notes, total_work_hours, gross_hours)
+                                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                                            ON DUPLICATE KEY UPDATE
+                                                work_mode = VALUES(work_mode),
+                                                status = VALUES(status),
+                                                notes = VALUES(notes),
+                                                total_work_hours = VALUES(total_work_hours),
+                                                gross_hours = VALUES(gross_hours)
+                                        `, [employeeId, formattedDate, formattedDate, workMode, status, notes, totalWorkHours, grossHours]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             } catch (rowErr) {
                 skipped++;
                 errors.push(`Employee ${r.EmployeeNumber || 'Unknown'}: ${rowErr.message}`);
@@ -932,6 +1022,55 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr"]), upload.singl
 
     } catch (error) {
         console.error("❌ Monthly attendance upload failed:", error);
+        res.status(500).json({ success: false, error: error.message });
+    } finally {
+        c.end();
+    }
+});
+
+
+/* ============ EXPORT MONTHLY ATTENDANCE ============ */
+
+router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
+    const c = await db();
+    try {
+        const month = req.query.month;
+        let query = "SELECT * FROM monthly_attendance";
+        let params = [];
+        
+        if (month) {
+            query += " WHERE attendance_month = ?";
+            params.push(month);
+        }
+        
+        const [rows] = await c.query(query, params);
+        
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: "No attendance data found" });
+        }
+        
+        // Clean rows
+        const cleanedRows = rows.map(r => {
+            const cleaned = { ...r };
+            delete cleaned.id;
+            delete cleaned.created_at;
+            delete cleaned.updated_at;
+            delete cleaned.attendance_month;
+            return cleaned;
+        });
+        
+        const XLSX = require('xlsx');
+        const workbook = XLSX.utils.book_new();
+        const worksheet = XLSX.utils.json_to_sheet(cleanedRows);
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Monthly Attendance');
+        
+        const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+        
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename=Monthly_Attendance_${month || 'All'}.xlsx`);
+        res.send(buffer);
+    } catch (error) {
+        console.error("❌ Export monthly attendance failed:", error);
         res.status(500).json({ success: false, error: error.message });
     } finally {
         c.end();
