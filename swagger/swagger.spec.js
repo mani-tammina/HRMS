@@ -6,7 +6,7 @@
 const baseUrl =
   process.env.NODE_ENV === "production"
     ? process.env.API_BASE_URL
-    : "http://localhost:4203";
+    : "http://localhost:4201";
 
 const swaggerSpec = {
   openapi: "3.0.0",
@@ -287,6 +287,56 @@ const swaggerSpec = {
               },
             },
           },
+        },
+      },
+    },
+    "/api/upload/monthly-attendance": {
+      post: {
+        summary: "Upload Previous Monthly Attendance (Admin/HR)",
+        description:
+          "Upload Excel file with monthly attendance data. Automatically creates the monthly_attendance table if it does not exist, updates column definitions dynamically to match the Excel file columns, and saves or updates the attendance records.",
+        tags: ["📤 Upload"],
+        requestBody: {
+          content: {
+            "multipart/form-data": {
+              schema: {
+                type: "object",
+                required: ["file"],
+                properties: {
+                  file: {
+                    type: "string",
+                    format: "binary",
+                    description: "Excel file with monthly attendance data",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Monthly attendance uploaded and processed successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean", example: true },
+                    message: { type: "string" },
+                    processed: { type: "integer" },
+                    inserted: { type: "integer" },
+                    updated: { type: "integer" },
+                    skipped: { type: "integer" },
+                    attendanceMonth: { type: "string", example: "2026-06" },
+                    errors: { type: "array", items: { type: "string" } },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Unauthorized" },
+          403: { description: "Forbidden - Admin or HR required" },
+          500: { description: "Internal Server Error" },
         },
       },
     },

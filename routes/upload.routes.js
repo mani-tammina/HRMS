@@ -773,6 +773,172 @@ router.post("/payroll", auth, roleAuth(["admin", "hr"]), upload.single("file"), 
 });
 
 
+/* ============ BULK MONTHLY ATTENDANCE UPLOAD ============ */
+
+router.post("/monthly-attendance", auth, roleAuth(["admin", "hr"]), upload.single("file"), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const rows = excel(req.file.path);
+    if (!rows || rows.length === 0) {
+        return res.status(400).json({ success: false, message: "No rows found in Excel sheet" });
+    }
+
+    const c = await db();
+    let inserted = 0;
+    let updated = 0;
+    let skipped = 0;
+    let errors = [];
+
+    try {
+        // 1. Create table if not exists
+        await c.query(`
+            CREATE TABLE IF NOT EXISTS monthly_attendance (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                EmployeeNumber VARCHAR(50) NOT NULL,
+                EmployeeName VARCHAR(150),
+                JobTitle VARCHAR(100),
+                BusinessUnit VARCHAR(100),
+                Department VARCHAR(100),
+                SubDepartment VARCHAR(100),
+                Location VARCHAR(100),
+                CostCenter VARCHAR(100),
+                ReportingManager VARCHAR(100),
+                attendance_month VARCHAR(7) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
+            )
+        `);
+
+        // 2. Extract keys to add missing columns dynamically
+        const firstRow = rows[0];
+        const allKeys = Object.keys(firstRow);
+
+        // Infer attendance_month from dates present in column names
+        // Dates are named like "01-Jun-2026", "02-Jun-2026", etc.
+        let attendanceMonth = null;
+        for (const key of allKeys) {
+            const match = key.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+            if (match) {
+                const monthStr = match[2];
+                const year = match[3];
+                const months = {
+                    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+                    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+                };
+                const mNum = months[monthStr];
+                if (mNum) {
+                    attendanceMonth = `${year}-${mNum}`;
+                    break;
+                }
+            }
+        }
+
+        if (!attendanceMonth) {
+            const now = new Date();
+            attendanceMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        // Get existing columns in monthly_attendance table
+        const [columns] = await c.query("DESCRIBE monthly_attendance");
+        const existingColNames = columns.map(col => col.Field);
+
+        // Dynamically add missing columns
+        for (const key of allKeys) {
+            if (key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'attendance_month') {
+                continue;
+            }
+
+            if (!existingColNames.includes(key)) {
+                let colType = 'VARCHAR(100) NULL';
+                if (key.match(/^\d{2}-[A-Za-z]{3}-\d{4}$/)) {
+                    colType = 'VARCHAR(20) NULL';
+                } else {
+                    // Check if value is number
+                    const sampleVal = firstRow[key];
+                    if (typeof sampleVal === 'number') {
+                        colType = 'DECIMAL(10, 2) NULL';
+                    }
+                }
+                
+                await c.query("ALTER TABLE monthly_attendance ADD COLUMN " + c.escapeId(key) + " " + colType);
+                console.log(`[DB] Dynamically added column: ${key} (${colType})`);
+            }
+        }
+
+        // 3. Upsert rows
+        for (const r of rows) {
+            try {
+                const empNo = r.EmployeeNumber || r.employee_number || null;
+                if (!empNo) {
+                    skipped++;
+                    errors.push("Missing EmployeeNumber in row");
+                    continue;
+                }
+
+                // Filter out keys we shouldn't insert directly or that might conflict
+                const keysToInsert = Object.keys(r).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at');
+                
+                if (!keysToInsert.includes('attendance_month')) {
+                    keysToInsert.push('attendance_month');
+                }
+
+                const insertColumns = keysToInsert.map(k => c.escapeId(k)).join(', ');
+                const insertPlaceholders = keysToInsert.map(() => '?').join(', ');
+                const updateClause = keysToInsert
+                    .filter(k => k !== 'EmployeeNumber' && k !== 'attendance_month')
+                    .map(k => `${c.escapeId(k)} = VALUES(${c.escapeId(k)})`)
+                    .join(', ');
+
+                const values = keysToInsert.map(k => {
+                    if (k === 'attendance_month') return attendanceMonth;
+                    return r[k] !== undefined ? r[k] : null;
+                });
+
+                const sql = `
+                    INSERT INTO monthly_attendance (${insertColumns})
+                    VALUES (${insertPlaceholders})
+                    ON DUPLICATE KEY UPDATE ${updateClause}
+                `;
+
+                const [result] = await c.query(sql, values);
+                if (result.affectedRows === 1) {
+                    inserted++;
+                } else if (result.affectedRows === 2) {
+                    updated++;
+                } else {
+                    // Affected rows is 0 if nothing changed
+                    updated++;
+                }
+            } catch (rowErr) {
+                skipped++;
+                errors.push(`Employee ${r.EmployeeNumber || 'Unknown'}: ${rowErr.message}`);
+                console.error("❌ Error upserting monthly attendance row:", rowErr);
+            }
+        }
+
+        res.json({
+            success: true,
+            message: "Monthly attendance processed successfully",
+            processed: rows.length,
+            inserted,
+            updated,
+            skipped,
+            attendanceMonth,
+            errors: errors.slice(0, 20)
+        });
+
+    } catch (error) {
+        console.error("❌ Monthly attendance upload failed:", error);
+        res.status(500).json({ success: false, error: error.message });
+    } finally {
+        c.end();
+    }
+});
+
+
 /* ============ BULK PAYROLL CONTRACT UPLOAD ============ */
 
 router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single("file"), async (req, res) => {
