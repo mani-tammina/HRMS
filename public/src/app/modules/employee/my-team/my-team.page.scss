@@ -17,9 +17,9 @@
 
   .approval-pills-container {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 2px;
-    min-width: max-content;
   }
 
   .approval-pill {
@@ -39,6 +39,8 @@
     box-shadow: vars.$shadow-xs;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex: 1 1 auto;
+    min-width: 170px;
 
     ion-icon {
       font-size: 18px;
@@ -113,6 +115,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-wrap: wrap;
 
     .reset-btn {
       --padding-start: 16px;
@@ -348,6 +351,7 @@
     display: flex;
     align-items: center;
     gap: 14px;
+    flex-wrap: wrap;
   }
 
   /* Avatar with a coloured ring */
@@ -382,7 +386,7 @@
 
   /* Name / number / dept */
   .emp-info {
-    flex: 1;
+    flex: 1 1 220px;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -423,7 +427,7 @@
 
   /* Status badge — pushed to far right */
   .status-badge {
-    flex-shrink: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -505,6 +509,7 @@
       color: #5a6f85;
       font-weight: 500;
       min-width: 0;
+      flex-wrap: wrap;
 
       ion-icon {
         font-size: 14px;
@@ -599,9 +604,10 @@
 }
 
 .global-search-wrapper {
-  flex: 1;
+  flex: 1 1 100%;
   max-width: 450px;
   margin: 0 40px;
+  min-width: 220px;
 }
 
 .premium-global-search {
@@ -618,6 +624,7 @@
 
 .date-selector .team-search {
   width: 240px;
+  min-width: 160px;
 }
 
 .compact-team-search {
@@ -625,6 +632,30 @@
   --border-radius: 10px;
   // border: 1px solid #e2e8f0;
   height: 40px;
+}
+
+@media (max-width: 1024px) {
+  .global-search-wrapper {
+    margin: 0;
+    max-width: 100%;
+  }
+
+  .date-selector {
+    width: 100%;
+    gap: 12px;
+  }
+
+  .date-selector .team-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .premium-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    min-width: unset;
+  }
 }
 
 @media (max-width:767px) {
@@ -636,5 +667,65 @@
 
   .reports-header-card .date-selector {
     display: block;
+  }
+
+  .reports-header-card .header-main {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .premium-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-approval-bar .approval-pills-container {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .manager-approval-bar .approval-pill {
+    min-width: 140px;
+    padding: 10px 18px;
+  }
+
+  .global-search-wrapper {
+    margin: 0;
+  }
+
+  .date-selector {
+    width: 100%;
+  }
+
+  .date-selector .team-search {
+    width: 100%;
+  }
+
+  .card-header-row {
+    align-items: flex-start;
+  }
+
+  .status-badge {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 520px) {
+  .card-header-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .status-badge {
+    align-self: stretch;
+  }
+
+  .emp-info {
+    flex: 1 1 100%;
+  }
+
+  .meta-item span {
+    white-space: normal;
   }
 }
