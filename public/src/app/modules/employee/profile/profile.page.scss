@@ -166,8 +166,47 @@
   .tab-content-container {
     margin: 0 24px 40px;
     background: transparent;
+
+    // Cards inside any tab get a base style so JS animation works cleanly
+    ::ng-deep {
+      .details-card,
+      .ion-card,
+      ion-card,
+      .content-detail-block {
+        will-change: transform, opacity;
+      }
+    }
   }
 }
+
+// ─────────────────────────────────────────────────────────────
+// TAB SWITCH CARD ANIMATIONS (keyframes used as fallback)
+// ─────────────────────────────────────────────────────────────
+
+@keyframes cardFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tab-content-enter .details-card,
+.tab-content-enter .ion-card,
+.tab-content-enter ion-card,
+.tab-content-enter .content-detail-block {
+  animation: cardFadeSlideIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+
+  @for $i from 1 through 10 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{($i - 1) * 80}ms;
+    }
+  }
+}
+
 
 .profile-segment {
   max-width: 600px;
