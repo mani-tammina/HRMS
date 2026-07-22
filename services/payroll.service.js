@@ -312,7 +312,8 @@ async function runPayroll(year, month, runBy = null) {
 
     for (const emp of employees) {
       let present_days = 0;
-      let absent_days = 0;
+      let penalty_absent_days = 0;
+      let regular_absent_days = 0;
       let leave_days = 0;
       let weekend_days = 0;
       let lop_from_leaves = 0;
@@ -352,7 +353,7 @@ async function runPayroll(year, month, runBy = null) {
           todaysLeaves.forEach(l => {
             const weight = l.is_half_day ? 0.5 : 1.0;
             leave_days += weight;
-            if (l.type_code === 'LOP') lop_from_leaves += weight;
+            if (l.type_code === 'LOP' || l.type_code === 'UL') lop_from_leaves += weight;
           });
         } else if (weekOffDays.includes(weekday)) {
           weekend_days++;
@@ -360,16 +361,18 @@ async function runPayroll(year, month, runBy = null) {
           const record = empAtt[dStr];
           if (record.status === 'present') present_days++;
           else if (record.status === 'half-day') present_days += 0.5;
-          else if (record.status === 'penalty') absent_days++;
+          else if (record.status === 'penalty') penalty_absent_days++;
+          else if (record.status === 'absent') regular_absent_days++;
         } else if (!isFuture && dStr !== todayStr) {
           // No log penalty rule
-          absent_days++;
+          penalty_absent_days++;
         }
         curr.setDate(curr.getDate() + 1);
       }
 
-      const lop_days = (absent_days * 0.5) + lop_from_leaves;
-      const total_working = present_days + absent_days + leave_days; // Days where work was expected or leave taken
+      const lop_days = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves;
+      const total_absent = penalty_absent_days + regular_absent_days;
+      const total_working = present_days + total_absent + leave_days; // Days where work was expected or leave taken
       const paid_days = (new Date(year, month, 0).getDate()) - lop_days;
 
       snapshots.push({
@@ -378,7 +381,7 @@ async function runPayroll(year, month, runBy = null) {
         paid_days: paid_days,
         lop_days: lop_days,
         total_present: present_days,
-        total_absent: absent_days,
+        total_absent: total_absent,
         total_leave: leave_days
       });
     }

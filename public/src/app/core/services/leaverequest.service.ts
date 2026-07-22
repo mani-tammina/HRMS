@@ -61,6 +61,11 @@ export class LeaverequestService {
     );
   }
 
+  getEmployeeLeaves(employeeId: number, leaveYear: number): Observable<MyLeave[]> {
+    const params = new HttpParams().set('leave_year', leaveYear.toString());
+    return this.http.get<MyLeave[]>(`${this.API_URL}/employee/${employeeId}`, { params });
+  }
+
   getCurrentLeaves(): MyLeave[] { return this.myLeavesSubject.value; }
 
   private leaveRequestsSource = new BehaviorSubject<any[]>([]);

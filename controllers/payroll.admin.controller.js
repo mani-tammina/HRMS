@@ -149,7 +149,7 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
     if (!leavesMap[l.employee_id]) leavesMap[l.employee_id] = [];
     leavesMap[l.employee_id].push(l);
 
-    if (l.type_code === 'LOP') {
+    if (l.type_code === 'LOP' || l.type_code === 'UL') {
       if (!lopLeavesByDay[l.employee_id]) lopLeavesByDay[l.employee_id] = {};
       let currL = new Date(l.start_date);
       const endL = new Date(l.end_date);
@@ -179,7 +179,8 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
     if (emp.friday_off) weekOffDays.push('friday');
     if (emp.saturday_off) weekOffDays.push('saturday');
 
-    let absent_days = 0;
+    let penalty_absent_days = 0;
+    let regular_absent_days = 0;
     let lop_leave_days = 0;
 
     let curr = new Date(sd);
@@ -195,25 +196,27 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
       if (empLopDaysMap[dStr]) {
         lop_leave_days += empLopDaysMap[dStr];
       } 
-      // 2. Otherwise check attendance for penalties
+      // 2. Otherwise check attendance for penalties or regular absences
       else if (empAtt[dStr]) {
         const record = empAtt[dStr];
         if (record.status === 'penalty') {
-          absent_days++; // Penalty days from attendance
+          penalty_absent_days++; // Penalty days from attendance
+        } else if (record.status === 'absent') {
+          regular_absent_days++; // Regular absent days from attendance
         }
       } 
       // 3. No log and not weekend/future? 
       else if (!isFuture && dStr !== todayStr && !weekOffDays.includes(weekday)) {
          // This matches the "No Attendance Logs" penalty logic from my-report
          // But only if it's past the threshold. For simplicity in preview, we treat it as penalty
-         absent_days++;
+         penalty_absent_days++;
       }
       
       curr.setDate(curr.getDate() + 1);
     }
 
-    // Following my-report's lop_days: absent_days * 0.5 rule
-    const lopDays = (absent_days * 0.5) + lop_leave_days;
+    // Following my-report's lop_days logic
+    const lopDays = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_leave_days;
     
     result[emp.id] = {
       calendar_days: daysInMonth,

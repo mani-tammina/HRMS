@@ -44,13 +44,15 @@
         <span class="badge-leave">LEAVE</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'half-day'">
-        <span class="badge-leave" style="background: #e2e8f0; color: #475569;">HALF-DAY</span>
+        <span class="badge-leave" style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+          {{ getHalfDayNotation(log) }}
+        </span>
       </ng-container>
       <ng-container *ngIf="log.status === 'weekend'">
         <span class="badge-woff">W-OFF</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'penalty'">
-        <span class="badge-penalty">NO ATTENDANCE LOGS</span>
+        <span class="badge-penalty">PENALTY</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'absent'">
         <span *ngIf="log.notes === 'LOP'; else stdAbsent" class="badge-lop">LOP</span>

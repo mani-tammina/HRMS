@@ -704,12 +704,19 @@ export class InboxPage implements OnInit {
   async triggerExport() {
     const alert = await this.alertCtrl.create({
       header: 'Export Attendance',
-      message: 'Enter target month (YYYY-MM) or leave blank for all:',
+      message: 'Enter the target year and month to export:',
       inputs: [
         {
+          name: 'year',
+          type: 'number',
+          placeholder: 'Year (e.g. 2026)',
+          value: new Date().getFullYear().toString()
+        },
+        {
           name: 'month',
-          type: 'text',
-          placeholder: 'e.g. 2026-06',
+          type: 'number',
+          placeholder: 'Month (1-12, e.g. 6)',
+          value: (new Date().getMonth() + 1).toString()
         }
       ],
       buttons: [
@@ -717,7 +724,17 @@ export class InboxPage implements OnInit {
         {
           text: 'Export',
           handler: (data) => {
-            this.executeExport(data.month);
+            if (!data.year || !data.month) {
+              this.toaster.showError('Both year and month are required');
+              return false;
+            }
+            const y = parseInt(data.year, 10);
+            const m = parseInt(data.month, 10);
+            if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
+              this.toaster.showError('Please enter a valid year and month');
+              return false;
+            }
+            this.executeExport(y, m);
             return true;
           }
         }
@@ -726,19 +743,24 @@ export class InboxPage implements OnInit {
     await alert.present();
   }
 
-  private async executeExport(month: string) {
+  private async executeExport(year: number, month: number) {
     const loading = await this.loadingCtrl.create({
       message: 'Generating attendance report...',
     });
     await loading.present();
 
-    this.inboxService.exportMonthlyAttendance(month).subscribe({
+    const monthStr = month.toString().padStart(2, '0');
+    const startDate = `${year}-${monthStr}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
+
+    this.inboxService.exportMonthlyAttendance({ startDate, endDate, month, year }).subscribe({
       next: (blob: Blob) => {
         loading.dismiss();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Monthly_Attendance_${month || 'All'}.xlsx`;
+        a.download = `Monthly_Attendance_${year}_${monthStr}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);

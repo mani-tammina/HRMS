@@ -3,7 +3,7 @@ import { IonicModule, ToastController, NavController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
-import { Subject } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { Chart, registerables } from 'chart.js';
 Chart.register(...registerables);
 
@@ -147,6 +147,34 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         this.openWFHModal();
       }
     });
+
+    this.attendanceService.monthlyReport$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(report => {
+        if (report && report.length > 0) {
+          // Fallback client summary calculation only if monthlySummary was not loaded from API summary
+          if (!this.monthlySummary || (!this.monthlySummary.total_days && !this.monthlySummary.absent_days)) {
+            const present_days = report.filter(log => log.status === 'present').length;
+            const half_days_count = report.filter(log => log.status === 'half-day').length;
+            const std_absent_days = report.filter(log => log.status === 'absent' && log.notes !== 'LOP').length;
+            const leave_days = report.filter(log => log.status === 'on-leave').length;
+            const explicit_lop = report.filter(log => log.status === 'absent' && log.notes === 'LOP').length;
+            const penalty_days = report.filter(log => log.status === 'penalty').length;
+
+            const lop_days = explicit_lop + (penalty_days * 0.5);
+            const absent_days = std_absent_days + (penalty_days * 0.5);
+
+            this.monthlySummary = {
+              ...this.monthlySummary,
+              present_days,
+              absent_days,
+              leave_days,
+              lop_days,
+              half_days: half_days_count
+            };
+          }
+        }
+      });
   }
 
   loadAllData() {
@@ -216,11 +244,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadTodayAttendance() {
-    this.attendanceApi.getTodayAttendance(true).subscribe({
+    const todayStr = this.formatDateOnly(new Date());
+    const request$ = this.viewEmployeeId
+      ? this.attendanceApi.getAttendanceDetailsByDate(todayStr, this.viewEmployeeId)
+      : this.attendanceApi.getTodayAttendance(true);
+
+    request$.subscribe({
       next: (res: any) => {
         this.status = res?.attendance?.status || 'NOT In Yet';
         const punches = res?.punches || [];
-        const pipe = new TimeFormatPipe();
 
         if (res?.attendance) {
           let gross = parseFloat(res.attendance.gross_hours || 0);
@@ -442,8 +474,9 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     }
 
     if (period === '30DAYS') {
-      this.currentMonthName = 'Last 30 Days';
-      this.displayDate = new Date();
+      const today = new Date();
+      this.currentMonthName = today.toLocaleString('default', { month: 'long' });
+      this.displayDate = today;
       this.viewingCurrentPeriod = true;
     } else {
       const tempDate = new Date(currentYear, currentMonth - 1, 1);
@@ -471,7 +504,14 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     request.subscribe({
       next: (res: any) => {
         if (res?.summary) {
-          this.monthlySummary = res.summary;
+          this.monthlySummary = {
+            ...res.summary,
+            present_days: Number(res.summary.present_days) || 0,
+            absent_days: Number(res.summary.absent_days) || 0,
+            leave_days: Number(res.summary.leave_days) || 0,
+            lop_days: Number(res.summary.lop_days) || 0,
+            half_days: Number(res.summary.half_days) || 0
+          };
           this.lastAttendance = res?.attendance || [];
           this.calculatePreviousDayHours();
 

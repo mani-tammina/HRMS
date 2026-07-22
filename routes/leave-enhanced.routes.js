@@ -6,7 +6,7 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
-const { auth, admin, hr, manager } = require("../middleware/auth");
+const { auth, admin, hr, manager, roleAuth } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
 const { createInboxNotification, updateNotificationStatus } = require("../utils/inbox-helper");
 const multer = require("multer");
@@ -1088,6 +1088,20 @@ router.post("/apply", auth, async (req, res) => {
     if (is_half_day) {
       end_date = start_date;
       total_days = 0.5;
+
+      // Normalize half_day_session to match DB ENUM ('first_half', 'second_half')
+      // Frontend may send "First Half", "Second Half", "first_half", "second_half", etc.
+      if (half_day_session) {
+        const normalized = half_day_session.toString().toLowerCase().trim();
+        if (normalized === "first half" || normalized === "first_half") {
+          half_day_session = "first_half";
+        } else if (normalized === "second half" || normalized === "second_half") {
+          half_day_session = "second_half";
+        } else {
+          // Fallback: convert "First Half" style to "first_half" style
+          half_day_session = normalized.replace(/\s+/g, "_");
+        }
+      }
     }
 
     // Calculate total_days if not provided
@@ -1802,6 +1816,34 @@ router.get("/team-report", auth, async (req, res) => {
   }
 });
 
+// Get Employee Leaves (HR/Manager/Admin)
+router.get("/employee/:employeeId", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const c = await db();
+    const [leaves] = await c.query(
+      `
+            SELECT 
+                l.*,
+                lt.type_name,
+                lt.type_code,
+                u.full_name as approver_name
+            FROM leaves l
+            INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+            LEFT JOIN users u ON l.approver_id = u.id
+            WHERE l.employee_id = ?
+            ORDER BY l.applied_at DESC
+        `,
+      [employeeId],
+    );
+    c.end();
+    res.json(leaves);
+  } catch (error) {
+    console.error("Error fetching employee leaves:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* ============================================
    WFH/REMOTE WORK REQUEST ENDPOINTS
    ============================================ */
@@ -1809,8 +1851,16 @@ router.get("/team-report", auth, async (req, res) => {
 // Get all WFH/Remote requests
 router.get("/wfh-requests", auth, async (req, res) => {
   try {
-    const emp = await findEmployeeByUserId(req.user.id);
-    if (!emp) return res.status(404).json({ error: "Employee not found" });
+    const { employeeId } = req.query;
+    let targetEmpId;
+
+    if (employeeId && ["admin", "hr", "manager"].includes(req.user.role)) {
+      targetEmpId = employeeId;
+    } else {
+      const emp = await findEmployeeByUserId(req.user.id);
+      if (!emp) return res.status(404).json({ error: "Employee not found" });
+      targetEmpId = emp.id;
+    }
 
     const c = await db();
     const [r] = await c.query(
@@ -1819,7 +1869,7 @@ router.get("/wfh-requests", auth, async (req, res) => {
              LEFT JOIN employees e ON l.employee_id = e.id 
              WHERE l.employee_id = ? AND l.leave_type IN ('WFH', 'Remote') 
              ORDER BY l.applied_at DESC`,
-      [emp.id],
+      [targetEmpId],
     );
     c.end();
     res.json(r);

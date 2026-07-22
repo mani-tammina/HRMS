@@ -591,7 +591,8 @@ router.get("/my-report", auth, async (req, res) => {
     let curr = new Date(start);
     let lop_from_leaves = 0;
     let lop_from_attendance = 0;
-    let standard_absent_days = 0;
+    let penalty_absent_days = 0;
+    let regular_absent_days = 0;
 
     while (curr <= end) {
       if (curr > now && curr.toDateString() !== todayStr) {
@@ -619,7 +620,7 @@ router.get("/my-report", auth, async (req, res) => {
         todaysLeaves.forEach(l => {
           const weight = l.is_half_day ? 0.5 : 1.0;
           leave_days += weight;
-          if (l.type_code === 'LOP') {
+          if (l.type_code === 'LOP' || l.type_code === 'UL') {
             lop_from_leaves += weight;
           }
         });
@@ -630,29 +631,36 @@ router.get("/my-report", auth, async (req, res) => {
         if (record.status === 'present') present_days++;
         else if (record.status === 'absent') {
           absent_days++;
-          if (record.notes === 'LOP') {
+          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
             lop_from_attendance++;
           } else {
-            standard_absent_days++;
+            regular_absent_days++;
           }
         } else if (record.status === 'half-day') {
           present_days += 0.5;
           half_day_count++;
           // Check if it is a half-day leave
-          if (record.notes && record.notes.startsWith('HD')) {
+          if (record.notes && (
+            record.notes.includes('Half') || 
+            record.notes.startsWith('HD') || 
+            record.notes.includes('Leave') || 
+            record.notes.includes('Loss of Pay') ||
+            record.notes.includes('LOP') ||
+            record.notes.includes('UL')
+          )) {
             leave_days += 0.5;
-            if (record.notes.includes('LOP')) {
+            if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
               lop_from_attendance += 0.5;
             }
           }
         } else if (record.status === 'on-leave') {
           leave_days++;
-          if (record.notes === 'LOP' || record.notes === 'UL') {
+          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
             lop_from_attendance++;
           }
         } else if (record.status === 'penalty') {
           penalty_count++;
-          standard_absent_days++;
+          penalty_absent_days++;
           absent_days++;
         }
       } else if (!isToday) {
@@ -668,7 +676,7 @@ router.get("/my-report", auth, async (req, res) => {
 
         if (now > penaltyThreshold) {
           penalty_count++;
-          standard_absent_days++;
+          penalty_absent_days++;
           absent_days++;
         }
       }
@@ -683,7 +691,7 @@ router.get("/my-report", auth, async (req, res) => {
       half_days: half_day_count,
       leave_days: leave_days,
       weekend_days: weekend_days,
-      lop_days: (standard_absent_days * 0.5) + lop_from_leaves + lop_from_attendance,
+      lop_days: (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),
@@ -847,11 +855,56 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
 
     const [attendance] = await c.query(query, params);
 
+    // Get LOP leaves count for the period
+    let lopQuery = `
+      SELECT SUM(l.total_days) as lop_days
+      FROM leaves l
+      INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+      WHERE l.employee_id = ? AND l.status = 'approved' AND lt.type_code = 'LOP'
+    `;
+    const lopParams = [req.params.employeeId];
+
+    if (startDate && endDate) {
+      lopQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
+      lopParams.push(startDate, endDate, startDate, endDate);
+    } else if (month && year) {
+      lopQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
+      lopParams.push(month, year, month, year);
+    }
+
+    const [lopData] = await c.query(lopQuery, lopParams);
+    const lopDays = Number(lopData[0]?.lop_days) || 0;
+
+    // Get approved leaves count
+    let leaveQuery = `
+      SELECT COUNT(*) as leave_days
+      FROM leaves l
+      WHERE l.employee_id = ? AND l.status = 'approved'
+    `;
+    const leaveParams = [req.params.employeeId];
+
+    if (startDate && endDate) {
+      leaveQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
+      leaveParams.push(startDate, endDate, startDate, endDate);
+    } else if (month && year) {
+      leaveQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
+      leaveParams.push(month, year, month, year);
+    }
+
+    const [leaveData] = await c.query(leaveQuery, leaveParams);
+    const leaveDays = Number(leaveData[0]?.leave_days) || 0;
+
+    const penaltyCount = attendance.filter((a) => a.status === "penalty").length;
+    const stdAbsentCount = attendance.filter((a) => a.status === "absent" && a.notes !== "LOP" && a.notes !== "Loss of Pay").length;
+    const explicitLopCount = attendance.filter((a) => a.status === "absent" && (a.notes === "LOP" || a.notes === "Loss of Pay")).length;
+
     const summary = {
       total_days: attendance.length,
       present_days: attendance.filter((a) => a.status === "present").length,
-      absent_days: attendance.filter((a) => a.status === "absent").length,
+      absent_days: stdAbsentCount,
       half_days: attendance.filter((a) => a.status === "half-day").length,
+      leave_days: leaveDays,
+      lop_days: lopDays + explicitLopCount + (penaltyCount * 0.5),
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),

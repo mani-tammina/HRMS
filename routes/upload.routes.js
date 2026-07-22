@@ -941,9 +941,32 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                                     let notes = null;
                                     let totalWorkHours = 0.00;
                                     let grossHours = 0.00;
-                                    
+
+                                    const getLeaveName = (code) => {
+                                        const c = String(code || '').toUpperCase();
+                                        if (c === 'SL') return 'Sick Leave';
+                                        if (c === 'CL') return 'Casual Leave';
+                                        if (c === 'ML') return 'Maternity Leave';
+                                        if (c === 'PL') return 'Privilege Leave';
+                                        if (c === 'EL') return 'Earned Leave';
+                                        if (c === 'UL' || c === 'LOP') return 'Loss of Pay';
+                                        return code;
+                                    };
+
                                     const valUpper = val.toUpperCase().replace(/\s+/g, '');
-                                    if (['P', 'P(MS)', 'WFH', 'A(R)'].includes(valUpper)) {
+                                    if (valUpper.includes(':') && valUpper.split(':').includes('P')) {
+                                         const parts = valUpper.split(':');
+                                         const firstPart = parts[0];
+                                         const secondPart = parts[1];
+                                         status = 'half-day';
+                                         totalWorkHours = 4.00;
+                                         grossHours = 4.00;
+                                         if (secondPart === 'P') {
+                                             notes = `First Half ${getLeaveName(firstPart)}`;
+                                         } else {
+                                             notes = `Second Half ${getLeaveName(secondPart)}`;
+                                         }
+                                     } else if (['P', 'P(MS)', 'WFH', 'A(R)'].includes(valUpper)) {
                                         status = 'present';
                                         totalWorkHours = 8.00;
                                         grossHours = 8.00;
@@ -954,7 +977,7 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                                         status = 'absent';
                                     } else if (valUpper === 'UL' || valUpper === 'LOP') {
                                         status = 'absent';
-                                        notes = 'LOP';
+                                        notes = 'Loss of Pay';
                                     } else if (
                                         valUpper.includes('HD') || 
                                         valUpper.includes('/2') || 
@@ -965,23 +988,23 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                                         totalWorkHours = 4.00;
                                         grossHours = 4.00;
                                         if (valUpper.includes('UL') || valUpper.includes('LOP')) {
-                                            notes = 'HD LOP';
+                                            notes = 'Half Day Loss of Pay';
                                         } else {
                                             let leaveCode = 'Leave';
                                             if (valUpper.includes('SL')) leaveCode = 'SL';
                                             else if (valUpper.includes('CL')) leaveCode = 'CL';
                                             else if (valUpper.includes('ML')) leaveCode = 'ML';
-                                            notes = `HD ${leaveCode}`;
+                                            notes = `Half Day ${getLeaveName(leaveCode)}`;
                                         }
                                     } else if (
                                         ['SL', 'CL', 'ML', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
                                     ) {
                                         status = 'on-leave';
-                                        if (valUpper.includes('SL')) notes = 'SL';
-                                        else if (valUpper.includes('CL')) notes = 'CL';
-                                        else if (valUpper.includes('ML')) notes = 'ML';
-                                        else if (valUpper.includes('PL')) notes = 'PL';
-                                        else if (valUpper.includes('EL')) notes = 'EL';
+                                        if (valUpper.includes('SL')) notes = 'Sick Leave';
+                                        else if (valUpper.includes('CL')) notes = 'Casual Leave';
+                                        else if (valUpper.includes('ML')) notes = 'Maternity Leave';
+                                        else if (valUpper.includes('PL')) notes = 'Privilege Leave';
+                                        else if (valUpper.includes('EL')) notes = 'Earned Leave';
                                         else notes = 'Leave';
                                     }
                                     
@@ -1034,40 +1057,328 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
 router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
     const c = await db();
     try {
-        const month = req.query.month;
-        let query = "SELECT * FROM monthly_attendance";
-        let params = [];
-        
-        if (month) {
-            query += " WHERE attendance_month = ?";
-            params.push(month);
+        let month = req.query.month;
+        let year = req.query.year;
+        let startDateStr = req.query.startDate;
+        let endDateStr = req.query.endDate;
+
+        let attendanceMonth = month;
+        if (month && year) {
+            const paddedMonth = month.toString().padStart(2, '0');
+            attendanceMonth = `${year}-${paddedMonth}`;
+        } else if (month && month.toString().includes('-')) {
+            attendanceMonth = month;
+        } else if (startDateStr) {
+            attendanceMonth = startDateStr.substring(0, 7);
+        } else {
+            const today = new Date();
+            attendanceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
         }
-        
-        const [rows] = await c.query(query, params);
-        
-        if (rows.length === 0) {
-            return res.status(404).json({ success: false, message: "No attendance data found" });
+
+        let query = "SELECT * FROM monthly_attendance WHERE attendance_month = ?";
+        const [rows] = await c.query(query, [attendanceMonth]);
+
+        let rowsToExport = [];
+        if (rows.length > 0) {
+            // Clean rows from saved database table
+            rowsToExport = rows.map(r => {
+                const cleaned = { ...r };
+                delete cleaned.id;
+                delete cleaned.created_at;
+                delete cleaned.updated_at;
+                delete cleaned.attendance_month;
+                return cleaned;
+            });
+        } else {
+            // Generate dynamically in exact upload sheet format
+            const [yearStr, monthStr] = attendanceMonth.split('-');
+            const yNum = parseInt(yearStr, 10);
+            const mNum = parseInt(monthStr, 10);
+            const lastDay = new Date(yNum, mNum, 0).getDate();
+
+            const dates = [];
+            const dateHeaders = [];
+            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+            const monthName = monthNames[mNum - 1];
+
+            for (let d = 1; d <= lastDay; d++) {
+                const dayStr = String(d).padStart(2, '0');
+                dates.push(`${yNum}-${monthStr}-${dayStr}`);
+                dateHeaders.push(`${dayStr}-${monthName}-${yNum}`);
+            }
+
+            const [employees] = await c.query(`
+                SELECT 
+                    e.id,
+                    e.EmployeeNumber,
+                    CONCAT(e.FirstName, ' ', IFNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                    ds.name AS JobTitle,
+                    bu.name AS BusinessUnit,
+                    dept.name AS Department,
+                    sdept.name AS SubDepartment,
+                    loc.name AS Location,
+                    cc.code AS CostCenter,
+                    CONCAT(m.FirstName, ' ', m.LastName) AS ReportingManager,
+                    e.weekly_off_policy_id,
+                    e.leave_plan_id
+                FROM employees e
+                LEFT JOIN designations ds ON e.DesignationId = ds.id
+                LEFT JOIN departments dept ON e.DepartmentId = dept.id
+                LEFT JOIN sub_departments sdept ON e.SubDepartmentId = sdept.id
+                LEFT JOIN locations loc ON e.LocationId = loc.id
+                LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+                LEFT JOIN cost_centers cc ON e.CostCenterId = cc.id
+                LEFT JOIN employees m ON e.reporting_manager_id = m.id
+                WHERE e.exit_status IS NULL OR e.exit_status <> 'separated'
+                ORDER BY e.EmployeeNumber ASC
+            `);
+
+            // Clean EmployeeName spacing
+            employees.forEach(emp => {
+                if (emp.EmployeeName) {
+                    emp.EmployeeName = emp.EmployeeName.replace(/\s+/g, ' ').trim();
+                }
+            });
+
+            const [weekOffs] = await c.query("SELECT * FROM weekly_off_policies");
+            const weekOffMap = new Map(weekOffs.map(w => [w.id, w]));
+
+            // Fetch public holidays
+            let holidayDates = new Set();
+            try {
+                const [hList] = await c.query(
+                    "SELECT holiday_date FROM holidays WHERE holiday_date BETWEEN ? AND ?",
+                    [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]
+                );
+                hList.forEach(h => {
+                    if (h.holiday_date) {
+                        const hStr = new Date(h.holiday_date).toISOString().split('T')[0];
+                        holidayDates.add(hStr);
+                    }
+                });
+            } catch (hErr) {
+                console.warn("[EXPORT] No holidays table found or query failed:", hErr.message);
+            }
+
+            // Fetch approved leaves
+            const [leavesList] = await c.query(`
+                SELECT l.employee_id, l.start_date, l.end_date, l.leave_type, l.is_half_day, l.half_day_session, lt.type_code
+                FROM leaves l
+                LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+                WHERE l.status = 'approved' AND NOT (l.end_date < ? OR l.start_date > ?)
+            `, [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]);
+
+            const leaveMap = new Map();
+            leavesList.forEach(l => {
+                const from = new Date(l.start_date);
+                const to = new Date(l.end_date);
+                let d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+                const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+                
+                let lCode = (l.type_code || l.leave_type || 'CL').toUpperCase();
+                const lType = String(l.leave_type || '').toUpperCase();
+                if (lType.includes('SICK') || lType === 'SL') lCode = 'SL';
+                else if (lType.includes('CASUAL') || lType === 'CL') lCode = 'CL';
+                else if (lType.includes('MATERNITY') || lType === 'ML') lCode = 'ML';
+                else if (lType.includes('PRIVILEGE') || lType === 'PL') lCode = 'PL';
+                else if (lType.includes('EARNED') || lType === 'EL') lCode = 'EL';
+                else if (lType.includes('UNPAID') || lType.includes('LOSS OF PAY') || lType === 'LOP') lCode = 'LOP';
+
+                const isHalf = Number(l.is_half_day) === 1 || String(l.is_half_day) === 'true';
+                const sess = String(l.half_day_session || '').toLowerCase();
+
+                let finalCode = lCode;
+                if (isHalf) {
+                    if (sess.includes('first') || sess.includes('1st')) {
+                        finalCode = `${lCode}:P`;
+                    } else {
+                        finalCode = `P:${lCode}`;
+                    }
+                }
+
+                while (d <= end) {
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    leaveMap.set(`${l.employee_id}_${dateStr}`, finalCode);
+                    d.setDate(d.getDate() + 1);
+                }
+            });
+
+            // Fetch actual attendance logs
+            const [attendanceList] = await c.query(`
+                SELECT employee_id, attendance_date, status, work_mode, notes
+                FROM attendance
+                WHERE attendance_date BETWEEN ? AND ?
+            `, [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]);
+
+            const attMap = new Map();
+            attendanceList.forEach(a => {
+                const d = new Date(a.attendance_date);
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                attMap.set(`${a.employee_id}_${dateStr}`, { status: a.status, work_mode: a.work_mode, notes: a.notes });
+            });
+
+            rowsToExport = employees.map(e => {
+                const row = {
+                    EmployeeNumber: e.EmployeeNumber || '',
+                    EmployeeName: e.EmployeeName || '',
+                    JobTitle: e.JobTitle || '',
+                    BusinessUnit: e.BusinessUnit || '',
+                    Department: e.Department || '',
+                    SubDepartment: e.SubDepartment || '',
+                    Location: e.Location || '',
+                    CostCenter: e.CostCenter || '',
+                    ReportingManager: e.ReportingManager || ''
+                };
+
+                const wop = weekOffMap.get(e.weekly_off_policy_id);
+                const weekOffDays = [];
+                if (wop) {
+                    if (Number(wop.sunday_off) === 1) weekOffDays.push(0);
+                    if (Number(wop.monday_off) === 1) weekOffDays.push(1);
+                    if (Number(wop.tuesday_off) === 1) weekOffDays.push(2);
+                    if (Number(wop.wednesday_off) === 1) weekOffDays.push(3);
+                    if (Number(wop.thursday_off) === 1) weekOffDays.push(4);
+                    if (Number(wop.friday_off) === 1) weekOffDays.push(5);
+                    if (Number(wop.saturday_off) === 1) weekOffDays.push(6);
+                } else {
+                    weekOffDays.push(0, 6);
+                }
+
+                // Summary Counters
+                let presentCount = 0;
+                let absentCount = 0;
+                let woCount = 0;
+                let holidayCount = 0;
+                let wfhCount = 0;
+                let onDutyCount = 0;
+                let wowCount = 0;
+                let wohCount = 0;
+                let missingSwipeCount = 0;
+                let lateArrivalCount = 0;
+                let paidLeaveCount = 0;
+                let unpaidLeaveCount = 0;
+
+                for (let i = 0; i < dates.length; i++) {
+                    const dateStr = dates[i];
+                    const header = dateHeaders[i];
+                    const key = `${e.id}_${dateStr}`;
+                    
+                    const att = attMap.get(key);
+                    const leaveCode = leaveMap.get(key);
+                    const dayOfWeek = new Date(dateStr).getDay();
+                    const isWeekOff = weekOffDays.includes(dayOfWeek);
+                    const isHoliday = holidayDates.has(dateStr);
+
+                    let code = 'A'; // Default
+
+                    if (att) {
+                        if (att.notes === 'LOP' || att.notes === 'Loss of Pay') {
+                            code = 'LOP';
+                            unpaidLeaveCount++;
+                        } else if (att.status === 'present') {
+                            if (att.work_mode === 'WFH') {
+                                code = 'WFH';
+                                wfhCount++;
+                                presentCount++;
+                            } else if (att.work_mode === 'Remote') {
+                                code = 'OD';
+                                onDutyCount++;
+                                presentCount++;
+                            } else {
+                                code = 'P';
+                                presentCount++;
+                            }
+                            if (isWeekOff) wowCount++;
+                            if (isHoliday) wohCount++;
+                        } else if (att.status === 'half-day') {
+                            let halfCode = leaveCode;
+                            if (!halfCode || (!halfCode.includes(':P') && !halfCode.includes('P:'))) {
+                                if (att.notes && (att.notes.includes(':P') || att.notes.includes('P:'))) {
+                                    halfCode = att.notes.trim();
+                                } else if (att.notes && (att.notes.toLowerCase().includes('first') || att.notes.toLowerCase().includes('1st'))) {
+                                    halfCode = `${leaveCode || 'CL'}:P`;
+                                } else if (att.notes && (att.notes.toLowerCase().includes('second') || att.notes.toLowerCase().includes('2nd'))) {
+                                    halfCode = `P:${leaveCode || 'CL'}`;
+                                } else {
+                                    halfCode = leaveCode ? `${leaveCode}:P` : 'CL:P';
+                                }
+                            }
+                            code = halfCode;
+                            presentCount += 0.5;
+                            paidLeaveCount += 0.5;
+                        } else if (att.status === 'on-leave') {
+                            code = leaveCode || 'CL';
+                            if (code.includes(':P') || code.includes('P:')) {
+                                presentCount += 0.5;
+                                paidLeaveCount += 0.5;
+                            } else {
+                                paidLeaveCount++;
+                            }
+                        } else if (att.status === 'absent') {
+                            code = 'A';
+                            absentCount++;
+                        } else {
+                            code = 'P';
+                            presentCount++;
+                        }
+                    } else if (leaveCode) {
+                        code = leaveCode;
+                        if (code.includes(':P') || code.includes('P:')) {
+                            presentCount += 0.5;
+                            paidLeaveCount += 0.5;
+                        } else if (code === 'LOP') {
+                            unpaidLeaveCount++;
+                        } else {
+                            paidLeaveCount++;
+                        }
+                    } else if (isHoliday) {
+                        code = 'H';
+                        holidayCount++;
+                    } else if (isWeekOff) {
+                        code = 'WO';
+                        woCount++;
+                    } else {
+                        const dDate = new Date(dateStr);
+                        const todayNoon = new Date();
+                        todayNoon.setHours(12, 0, 0, 0);
+                        if (dDate > todayNoon) {
+                            code = '-';
+                        } else {
+                            code = 'A';
+                            absentCount++;
+                        }
+                    }
+                    row[header] = code;
+                }
+
+                // Summary columns matching upload sheet format
+                row['Total Days'] = lastDay;
+                row['Present'] = presentCount;
+                row['Absent'] = absentCount;
+                row['WO'] = woCount;
+                row['Holidays'] = holidayCount;
+                row['WFH'] = wfhCount;
+                row['On Duty'] = onDutyCount;
+                row['WOW'] = wowCount;
+                row['WOH'] = wohCount;
+                row['Missing Swipe'] = missingSwipeCount;
+                row['Late Arrivals'] = lateArrivalCount;
+                row['Paid Leaves'] = paidLeaveCount;
+                row['Unpaid Leaves'] = unpaidLeaveCount;
+
+                return row;
+            });
         }
-        
-        // Clean rows
-        const cleanedRows = rows.map(r => {
-            const cleaned = { ...r };
-            delete cleaned.id;
-            delete cleaned.created_at;
-            delete cleaned.updated_at;
-            delete cleaned.attendance_month;
-            return cleaned;
-        });
-        
+
         const XLSX = require('xlsx');
         const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(cleanedRows);
+        const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Monthly Attendance');
         
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
         
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Monthly_Attendance_${month || 'All'}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=Monthly_Attendance_${attendanceMonth}.xlsx`);
         res.send(buffer);
     } catch (error) {
         console.error("❌ Export monthly attendance failed:", error);
