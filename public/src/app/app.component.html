@@ -61,7 +61,7 @@
 
                 <!-- Popover Submenu -->
                 <ion-popover [trigger]="'menu-trigger-' + p.icon" side="end" alignment="start" triggerAction="hover"
-                  class="custom-submenu-popover" [showBackdrop]="false" keyboardClose="false">
+                  class="custom-submenu-popover" [showBackdrop]="false" keyboardClose="false" [dismissOnSelect]="true">
                   <ng-template>
                     <ion-list lines="none" class="submenu-popover-list">
                       <ng-container *ngFor="let sub of p.children">

@@ -3471,6 +3471,11 @@
 
 @media screen and (max-width: 768px) {
   // General layout adjustments
+  ion-content.dashboard-content {
+    // Keep the final dashboard card above the iPhone home indicator.
+    --padding-bottom: max(16px, env(safe-area-inset-bottom));
+  }
+
   .main-block {
     margin: 20px 8px 8px !important;
   }
@@ -3712,61 +3717,79 @@
   }
 
   // Leave Balance Card
-  .leave-balance-card-flat {
+  .main-block .leave-balance-card-flat {
     .leave-balance-body {
-      padding: 12px 10px 10px;
+      padding: 12px 0 10px;
     }
 
     .leave-columns-row {
       display: grid;
-      grid-template-columns: 1fr 1fr; // Nice 2x2 grid
-      gap: 10px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      align-items: stretch;
       margin-bottom: 16px;
     }
 
     .leave-column {
       display: flex;
-      flex-direction: row;
+      flex-direction: column;
       align-items: center;
-      text-align: left;
-      gap: 10px;
+      justify-content: flex-start;
+      text-align: center;
+      gap: 3px;
       background: #f8fafc;
-      padding: 10px 12px;
+      padding: 8px 6px;
       border-radius: 12px;
       border: 1px solid #eef1f5;
       min-width: unset;
+      height: 104px;
+      box-sizing: border-box;
+      overflow: hidden;
 
       .leave-icon-circle {
-        width: 40px;
-        height: 40px;
-        font-size: 18px;
-        margin-bottom: 0;
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+        margin: 0;
         flex-shrink: 0;
         
         ion-icon {
-          font-size: 20px;
+          font-size: 17px;
         }
 
         .uploaded-icon-small {
-          width: 22px;
-          height: 22px;
+          width: 18px;
+          height: 18px;
         }
       }
 
       .leave-type-title {
-        font-size: 11px;
+        font-size: 10px;
         margin: 0;
         font-weight: 700;
         color: #1a2b3c;
+        line-height: 1.08;
+        max-width: 100%;
+        overflow-wrap: anywhere;
       }
 
       .leave-days-left {
-        font-size: 11px;
-        margin-top: 2px;
+        font-size: 10px;
+        line-height: 1.05;
+        margin: 0;
+        max-width: 100%;
+        white-space: normal;
         
         .days-bold {
-          font-size: 12px;
+          display: block;
+          font-size: 11px;
         }
+      }
+    }
+
+    @media screen and (max-width: 340px) {
+      .leave-columns-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 

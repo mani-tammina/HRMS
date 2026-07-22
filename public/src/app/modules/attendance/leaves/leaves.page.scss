@@ -700,7 +700,8 @@
     }
 
     .content-wrapper {
-      padding: 96px 16px 40px !important;
+      // The app shell already reserves fixed-header and safe-area space.
+      padding: 16px 16px 40px !important;
       max-width: 100%;
       overflow-x: hidden;
       box-sizing: border-box;

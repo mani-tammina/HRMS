@@ -250,8 +250,11 @@ ion-router-outlet {
 }
 
 ion-split-pane.is-authenticated {
-  margin-top: 80px;
-  // height: calc(100vh - 10px);
+  // The header is fixed. Reserve its toolbar height and the iOS status-bar
+  // inset so routed pages never begin beneath it.
+  --app-header-offset: calc(80px + var(--ion-safe-area-top, env(safe-area-inset-top, 0px)));
+  margin-top: var(--app-header-offset);
+  height: calc(100% - var(--app-header-offset));
 }
 
 /* ── Mobile ── */
