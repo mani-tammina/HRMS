@@ -160,8 +160,9 @@ export class EmployeeListPage implements OnInit {
 
     const payload: any = {};
     Object.keys(this.updateData).forEach(key => {
-      if (this.updateData[key] !== null && this.updateData[key] !== undefined) {
-        payload[key] = this.updateData[key];
+      const val = this.updateData[key];
+      if (val !== undefined) {
+        payload[key] = val;
       }
     });
 

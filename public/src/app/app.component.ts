@@ -28,22 +28,24 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
-
-
-    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
-    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
-    { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
-    { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
+    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
+
+    { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+
+    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
+
+    { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
+
     {
       title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager', 'finance'], isExpanded: false, children: [
         { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['hr', 'employee', 'manager', 'finance'] },
         { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'finance'] }
       ]
     },
+    { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
   ];
 
   unreadInboxCount = 0;
