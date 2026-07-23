@@ -774,8 +774,9 @@ router.post("/payroll", auth, roleAuth(["admin", "hr"]), upload.single("file"), 
 
 
 /* ============ BULK MONTHLY ATTENDANCE UPLOAD ============ */
+// Access: HR and Manager only (not admin)
 
-router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), upload.single("file"), async (req, res) => {
+router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.single("file"), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ success: false, message: "No file uploaded" });
     }
@@ -792,9 +793,49 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
     let errors = [];
 
     try {
-        // 1. Create table if not exists
+        // 1. Extract column keys from the first row
+        const firstRow = rows[0];
+        const allKeys = Object.keys(firstRow);
+
+        // 2. Infer attendance_month from date column names like "01-Jun-2026"
+        let attendanceMonth = null;
+        let tableYear = null;
+        let tableMonthNum = null;
+        const MONTH_MAP = {
+            Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+            Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
+        };
+
+        for (const key of allKeys) {
+            const match = key.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
+            if (match) {
+                const monthStr = match[2];
+                const year = match[3];
+                const mNum = MONTH_MAP[monthStr];
+                if (mNum) {
+                    attendanceMonth = `${year}-${mNum}`;
+                    tableYear = year;
+                    tableMonthNum = mNum;
+                    break;
+                }
+            }
+        }
+
+        if (!attendanceMonth) {
+            const now = new Date();
+            tableYear = String(now.getFullYear());
+            tableMonthNum = String(now.getMonth() + 1).padStart(2, '0');
+            attendanceMonth = `${tableYear}-${tableMonthNum}`;
+        }
+
+        // 3. Per-month isolated table name: monthly_attendance_YYYY_MM
+        //    e.g. monthly_attendance_2026_07
+        const perMonthTable = `monthly_attendance_${tableYear}_${tableMonthNum}`;
+        console.log(`[MONTHLY ATTENDANCE] Using table: ${perMonthTable} for month: ${attendanceMonth}`);
+
+        // 4. Create per-month table if it does not exist (base columns only)
         await c.query(`
-            CREATE TABLE IF NOT EXISTS monthly_attendance (
+            CREATE TABLE IF NOT EXISTS \`${perMonthTable}\` (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 EmployeeNumber VARCHAR(50) NOT NULL,
                 EmployeeName VARCHAR(150),
@@ -808,67 +849,35 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                 attendance_month VARCHAR(7) NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
+                UNIQUE KEY uq_emp (EmployeeNumber)
             )
         `);
 
-        // 2. Extract keys to add missing columns dynamically
-        const firstRow = rows[0];
-        const allKeys = Object.keys(firstRow);
+        // 5. Get existing columns in this per-month table
+        const [existingCols] = await c.query(`DESCRIBE \`${perMonthTable}\``);
+        const existingColNames = existingCols.map(col => col.Field);
 
-        // Infer attendance_month from dates present in column names
-        // Dates are named like "01-Jun-2026", "02-Jun-2026", etc.
-        let attendanceMonth = null;
+        // 6. Dynamically add any columns from the file that don't exist yet
         for (const key of allKeys) {
-            const match = key.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
-            if (match) {
-                const monthStr = match[2];
-                const year = match[3];
-                const months = {
-                    Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-                    Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
-                };
-                const mNum = months[monthStr];
-                if (mNum) {
-                    attendanceMonth = `${year}-${mNum}`;
-                    break;
+            if (['id', 'created_at', 'updated_at', 'attendance_month'].includes(key)) continue;
+            if (existingColNames.includes(key)) continue;
+
+            let colType = 'VARCHAR(100) NULL';
+            if (key.match(/^\d{2}-[A-Za-z]{3}-\d{4}$/)) {
+                // Day columns: e.g. 01-Jul-2026
+                colType = 'VARCHAR(20) NULL';
+            } else {
+                const sampleVal = firstRow[key];
+                if (typeof sampleVal === 'number') {
+                    colType = 'DECIMAL(10, 2) NULL';
                 }
             }
+
+            await c.query(`ALTER TABLE \`${perMonthTable}\` ADD COLUMN ` + c.escapeId(key) + ` ` + colType);
+            console.log(`[DB] Added column to ${perMonthTable}: ${key} (${colType})`);
         }
 
-        if (!attendanceMonth) {
-            const now = new Date();
-            attendanceMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        // Get existing columns in monthly_attendance table
-        const [columns] = await c.query("DESCRIBE monthly_attendance");
-        const existingColNames = columns.map(col => col.Field);
-
-        // Dynamically add missing columns
-        for (const key of allKeys) {
-            if (key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'attendance_month') {
-                continue;
-            }
-
-            if (!existingColNames.includes(key)) {
-                let colType = 'VARCHAR(100) NULL';
-                if (key.match(/^\d{2}-[A-Za-z]{3}-\d{4}$/)) {
-                    colType = 'VARCHAR(20) NULL';
-                } else {
-                    // Check if value is number
-                    const sampleVal = firstRow[key];
-                    if (typeof sampleVal === 'number') {
-                        colType = 'DECIMAL(10, 2) NULL';
-                    }
-                }
-                
-                await c.query("ALTER TABLE monthly_attendance ADD COLUMN " + c.escapeId(key) + " " + colType);
-                console.log(`[DB] Dynamically added column: ${key} (${colType})`);
-            }
-        }
-
-        // 3. Upsert rows
+        // 7. Upsert rows into the per-month table
         for (const r of rows) {
             try {
                 const empNo = r.EmployeeNumber || r.employee_number || null;
@@ -878,9 +887,8 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                     continue;
                 }
 
-                // Filter out keys we shouldn't insert directly or that might conflict
-                const keysToInsert = Object.keys(r).filter(k => k !== 'id' && k !== 'created_at' && k !== 'updated_at');
-                
+                // Build insert column list — all keys from the row except internal ones
+                const keysToInsert = Object.keys(r).filter(k => !['id', 'created_at', 'updated_at'].includes(k));
                 if (!keysToInsert.includes('attendance_month')) {
                     keysToInsert.push('attendance_month');
                 }
@@ -898,7 +906,7 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                 });
 
                 const sql = `
-                    INSERT INTO monthly_attendance (${insertColumns})
+                    INSERT INTO \`${perMonthTable}\` (${insertColumns})
                     VALUES (${insertPlaceholders})
                     ON DUPLICATE KEY UPDATE ${updateClause}
                 `;
@@ -906,34 +914,24 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                 const [result] = await c.query(sql, values);
                 if (result.affectedRows === 1) {
                     inserted++;
-                } else if (result.affectedRows === 2) {
-                    updated++;
                 } else {
-                    // Affected rows is 0 if nothing changed
                     updated++;
                 }
 
-                // --- Inject into standard attendance table ---
+                // --- Also inject into standard attendance table for real-time tracking ---
                 const [emp] = await c.query("SELECT id FROM employees WHERE EmployeeNumber = ?", [empNo]);
                 if (emp.length > 0) {
                     const employeeId = emp[0].id;
-                    
-                    // Iterate through all columns in the row to find dates like DD-MMM-YYYY
+
                     for (const key of Object.keys(r)) {
                         const dateMatch = key.match(/^(\d{2})-([A-Za-z]{3})-(\d{4})$/);
                         if (dateMatch) {
                             const dayStr = dateMatch[1];
                             const monthStr = dateMatch[2];
                             const yearStr = dateMatch[3];
-                            const months = {
-                                Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
-                                Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12'
-                            };
-                            const mNum = months[monthStr];
+                            const mNum = MONTH_MAP[monthStr];
                             if (mNum) {
                                 const formattedDate = `${yearStr}-${mNum}-${dayStr}`;
-                                
-                                // Determine status, work mode, and notes based on cell value
                                 const val = String(r[key] || '').trim();
                                 if (val) {
                                     let status = null;
@@ -954,60 +952,79 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
                                     };
 
                                     const valUpper = val.toUpperCase().replace(/\s+/g, '');
-                                    if (valUpper.includes(':') && valUpper.split(':').includes('P')) {
-                                         const parts = valUpper.split(':');
-                                         const firstPart = parts[0];
-                                         const secondPart = parts[1];
-                                         status = 'half-day';
-                                         totalWorkHours = 4.00;
-                                         grossHours = 4.00;
-                                         if (secondPart === 'P') {
-                                             notes = `First Half ${getLeaveName(firstPart)}`;
-                                         } else {
-                                             notes = `Second Half ${getLeaveName(secondPart)}`;
-                                         }
-                                     } else if (['P', 'P(MS)', 'WFH', 'A(R)'].includes(valUpper)) {
-                                        status = 'present';
-                                        totalWorkHours = 8.00;
-                                        grossHours = 8.00;
-                                        if (valUpper === 'WFH') {
-                                            workMode = 'WFH';
+                                    const isPresentCode = (codeStr) => {
+                                        const s = String(codeStr || '').toUpperCase().trim();
+                                        return s === 'P' || s.startsWith('P(') || s === 'WFH' || s === 'OD' || s.startsWith('A(');
+                                    };
+
+                                    if (valUpper.includes(':')) {
+                                        const parts = valUpper.split(':');
+                                        if (parts.length === 2) {
+                                            const firstPart = parts[0].trim();
+                                            const secondPart = parts[1].trim();
+
+                                            if (isPresentCode(secondPart)) {
+                                                status = 'half-day';
+                                                totalWorkHours = 4.00;
+                                                grossHours = 4.00;
+                                                const leaveName = getLeaveName(firstPart);
+                                                notes = (firstPart === 'UL' || firstPart === 'LOP')
+                                                    ? 'Half Day Loss of Pay'
+                                                    : `First Half ${leaveName}`;
+                                            } else if (isPresentCode(firstPart)) {
+                                                status = 'half-day';
+                                                totalWorkHours = 4.00;
+                                                grossHours = 4.00;
+                                                const leaveName = getLeaveName(secondPart);
+                                                notes = (secondPart === 'UL' || secondPart === 'LOP')
+                                                    ? 'Half Day Loss of Pay'
+                                                    : `Second Half ${leaveName}`;
+                                            }
                                         }
-                                    } else if (valUpper === 'A') {
-                                        status = 'absent';
-                                    } else if (valUpper === 'UL' || valUpper === 'LOP') {
-                                        status = 'absent';
-                                        notes = 'Loss of Pay';
-                                    } else if (
-                                        valUpper.includes('HD') || 
-                                        valUpper.includes('/2') || 
-                                        valUpper.includes('0.5') || 
-                                        valUpper.includes('HALF')
-                                    ) {
-                                        status = 'half-day';
-                                        totalWorkHours = 4.00;
-                                        grossHours = 4.00;
-                                        if (valUpper.includes('UL') || valUpper.includes('LOP')) {
-                                            notes = 'Half Day Loss of Pay';
-                                        } else {
-                                            let leaveCode = 'Leave';
-                                            if (valUpper.includes('SL')) leaveCode = 'SL';
-                                            else if (valUpper.includes('CL')) leaveCode = 'CL';
-                                            else if (valUpper.includes('ML')) leaveCode = 'ML';
-                                            notes = `Half Day ${getLeaveName(leaveCode)}`;
-                                        }
-                                    } else if (
-                                        ['SL', 'CL', 'ML', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
-                                    ) {
-                                        status = 'on-leave';
-                                        if (valUpper.includes('SL')) notes = 'Sick Leave';
-                                        else if (valUpper.includes('CL')) notes = 'Casual Leave';
-                                        else if (valUpper.includes('ML')) notes = 'Maternity Leave';
-                                        else if (valUpper.includes('PL')) notes = 'Privilege Leave';
-                                        else if (valUpper.includes('EL')) notes = 'Earned Leave';
-                                        else notes = 'Leave';
                                     }
-                                    
+
+                                    if (!status) {
+                                        if (['P', 'P(MS)', 'WFH', 'A(R)'].includes(valUpper) || valUpper.startsWith('P(')) {
+                                            status = 'present';
+                                            totalWorkHours = 8.00;
+                                            grossHours = 8.00;
+                                            if (valUpper === 'WFH') workMode = 'WFH';
+                                        } else if (valUpper === 'A') {
+                                            status = 'absent';
+                                        } else if (valUpper === 'UL' || valUpper === 'LOP') {
+                                            status = 'absent';
+                                            notes = 'Loss of Pay';
+                                        } else if (
+                                            valUpper.includes('HD') ||
+                                            valUpper.includes('/2') ||
+                                            valUpper.includes('0.5') ||
+                                            valUpper.includes('HALF')
+                                        ) {
+                                            status = 'half-day';
+                                            totalWorkHours = 4.00;
+                                            grossHours = 4.00;
+                                            if (valUpper.includes('UL') || valUpper.includes('LOP')) {
+                                                notes = 'Half Day Loss of Pay';
+                                            } else {
+                                                let leaveCode = 'Leave';
+                                                if (valUpper.includes('SL')) leaveCode = 'SL';
+                                                else if (valUpper.includes('CL')) leaveCode = 'CL';
+                                                else if (valUpper.includes('ML')) leaveCode = 'ML';
+                                                notes = `Half Day ${getLeaveName(leaveCode)}`;
+                                            }
+                                        } else if (
+                                            ['SL', 'CL', 'ML', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
+                                        ) {
+                                            status = 'on-leave';
+                                            if (valUpper.includes('SL')) notes = 'Sick Leave';
+                                            else if (valUpper.includes('CL')) notes = 'Casual Leave';
+                                            else if (valUpper.includes('ML')) notes = 'Maternity Leave';
+                                            else if (valUpper.includes('PL')) notes = 'Privilege Leave';
+                                            else if (valUpper.includes('EL')) notes = 'Earned Leave';
+                                            else notes = 'Leave';
+                                        }
+                                    }
+
                                     if (status) {
                                         await c.query(`
                                             INSERT INTO attendance (employee_id, attendance_date, punch_date, work_mode, status, notes, total_work_hours, gross_hours)
@@ -1034,12 +1051,13 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
 
         res.json({
             success: true,
-            message: "Monthly attendance processed successfully",
+            message: `Monthly attendance for ${attendanceMonth} saved to table '${perMonthTable}'`,
             processed: rows.length,
             inserted,
             updated,
             skipped,
             attendanceMonth,
+            table: perMonthTable,
             errors: errors.slice(0, 20)
         });
 
@@ -1053,8 +1071,9 @@ router.post("/monthly-attendance", auth, roleAuth(["admin", "hr", "manager"]), u
 
 
 /* ============ EXPORT MONTHLY ATTENDANCE ============ */
+// Access: HR and Manager only (not admin)
 
-router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
+router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), async (req, res) => {
     const c = await db();
     try {
         let month = req.query.month;
@@ -1075,21 +1094,83 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
             attendanceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
         }
 
-        let query = "SELECT * FROM monthly_attendance WHERE attendance_month = ?";
-        const [rows] = await c.query(query, [attendanceMonth]);
+        // Derive per-month table name: monthly_attendance_YYYY_MM
+        const [amYear, amMonth] = attendanceMonth.split('-');
+        const perMonthTable = `monthly_attendance_${amYear}_${amMonth}`;
+
+        // Check if the per-month isolated table exists (created on upload)
+        const [tableCheck] = await c.query(
+            `SELECT TABLE_NAME FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+            [perMonthTable]
+        );
+        const perMonthTableExists = tableCheck.length > 0;
 
         let rowsToExport = [];
-        if (rows.length > 0) {
-            // Clean rows from saved database table
-            rowsToExport = rows.map(r => {
-                const cleaned = { ...r };
-                delete cleaned.id;
-                delete cleaned.created_at;
-                delete cleaned.updated_at;
-                delete cleaned.attendance_month;
-                return cleaned;
-            });
-        } else {
+
+        if (perMonthTableExists) {
+            console.log(`[EXPORT] Checking per-month table: ${perMonthTable}`);
+            const [rows] = await c.query(`SELECT * FROM \`${perMonthTable}\``);
+            const hasDateCols = rows.length > 0 && Object.keys(rows[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k));
+            if (hasDateCols) {
+                console.log(`[EXPORT] Exporting from per-month table: ${perMonthTable}`);
+                rowsToExport = rows.map(r => {
+                    const cleaned = { ...r };
+                    delete cleaned.id;
+                    delete cleaned.created_at;
+                    delete cleaned.updated_at;
+                    delete cleaned.attendance_month;
+
+                    // Convert UL → LOP in all day-column cells (date columns like "01-Jun-2026")
+                    for (const key of Object.keys(cleaned)) {
+                        if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
+                            const cellVal = String(cleaned[key] || '').trim().toUpperCase();
+                            if (cellVal === 'UL') cleaned[key] = 'LOP';
+                            if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
+                            if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
+                        }
+                    }
+
+                    return cleaned;
+                });
+            }
+        }
+
+        if (rowsToExport.length === 0) {
+            // Fallback: check legacy shared monthly_attendance table
+            const [legacyRows] = await c.query(
+                "SELECT * FROM monthly_attendance WHERE attendance_month = ?",
+                [attendanceMonth]
+            );
+
+            const hasLegacyDateCols = legacyRows.length > 0 && Object.keys(legacyRows[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k));
+
+            if (hasLegacyDateCols) {
+                console.log(`[EXPORT] Reading from legacy shared table for month: ${attendanceMonth}`);
+                rowsToExport = legacyRows.map(r => {
+                    const cleaned = { ...r };
+                    delete cleaned.id;
+                    delete cleaned.created_at;
+                    delete cleaned.updated_at;
+                    delete cleaned.attendance_month;
+
+                    // Convert UL → LOP in all day-column cells
+                    for (const key of Object.keys(cleaned)) {
+                        if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
+                            const cellVal = String(cleaned[key] || '').trim().toUpperCase();
+                            if (cellVal === 'UL') cleaned[key] = 'LOP';
+                            if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
+                            if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
+                        }
+                    }
+
+                    return cleaned;
+                });
+            }
+        }
+
+        if (rowsToExport.length === 0) {
+            console.log(`[EXPORT] Generating dynamic daily attendance for month: ${attendanceMonth}`);
             // Generate dynamically in exact upload sheet format
             const [yearStr, monthStr] = attendanceMonth.split('-');
             const yNum = parseInt(yearStr, 10);
@@ -1295,6 +1376,12 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                             if (!halfCode || (!halfCode.includes(':P') && !halfCode.includes('P:'))) {
                                 if (att.notes && (att.notes.includes(':P') || att.notes.includes('P:'))) {
                                     halfCode = att.notes.trim();
+                                } else if (att.notes && (att.notes.toLowerCase().includes('loss of pay') || att.notes.toLowerCase().includes('lop') || att.notes.toLowerCase().includes('ul'))) {
+                                    if (att.notes.toLowerCase().includes('second') || att.notes.toLowerCase().includes('2nd')) {
+                                        halfCode = 'P:LOP';
+                                    } else {
+                                        halfCode = 'LOP:P';
+                                    }
                                 } else if (att.notes && (att.notes.toLowerCase().includes('first') || att.notes.toLowerCase().includes('1st'))) {
                                     halfCode = `${leaveCode || 'CL'}:P`;
                                 } else if (att.notes && (att.notes.toLowerCase().includes('second') || att.notes.toLowerCase().includes('2nd'))) {

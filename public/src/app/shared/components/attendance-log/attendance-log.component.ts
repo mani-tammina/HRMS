@@ -191,7 +191,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       else if (code.includes('MATERNITY') || code === 'ML') code = 'ML';
       else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
       else if (code.includes('EARNED') || code === 'EL') code = 'EL';
-      else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP') code = 'LOP';
+      else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
       else if (code.length > 4) code = code.substring(0, 3);
 
       const leaveType = (leave as any).type_name || leave.leave_type || code;
@@ -234,13 +234,26 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (log.notes && (log.notes.includes(':P') || log.notes.includes('P:'))) {
       return log.notes.trim();
     }
-    if (log.notes && (log.notes.toLowerCase().includes('first') || log.notes.toLowerCase().includes('1st'))) {
-      return 'CL:P';
+    const notesLower = String(log.notes || '').toLowerCase();
+    let leaveCode = 'CL';
+    if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul') || notesLower.includes('unpaid')) {
+      leaveCode = 'LOP';
+    } else if (notesLower.includes('sick') || notesLower.includes('sl')) {
+      leaveCode = 'SL';
+    } else if (notesLower.includes('casual') || notesLower.includes('cl')) {
+      leaveCode = 'CL';
+    } else if (notesLower.includes('maternity') || notesLower.includes('ml')) {
+      leaveCode = 'ML';
+    } else if (notesLower.includes('earned') || notesLower.includes('el')) {
+      leaveCode = 'EL';
+    } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
+      leaveCode = 'PL';
     }
-    if (log.notes && (log.notes.toLowerCase().includes('second') || log.notes.toLowerCase().includes('2nd'))) {
-      return 'P:CL';
+
+    if (notesLower.includes('second') || notesLower.includes('2nd')) {
+      return `P:${leaveCode}`;
     }
-    return 'CL:P';
+    return `${leaveCode}:P`;
   }
 
   loadMonthlyReport(): void {
