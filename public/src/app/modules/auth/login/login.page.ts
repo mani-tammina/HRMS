@@ -37,6 +37,15 @@ export class LoginPage implements OnInit {
   forgotPasswordOtpSent = false;
   forgotPasswordOtpVerified = false;
 
+  // Live password strength checks
+  showPwStrength = false;
+  pwChecks = {
+    minLength: false,
+    hasUpper: false,
+    hasSpecial: false,
+    hasNumber: false
+  };
+
   constructor(
     private fb: FormBuilder,
     private authService: AuthService,
@@ -65,10 +74,20 @@ export class LoginPage implements OnInit {
       }
     });
 
+    // Live password strength for Create Password
+    this.loginForm.get('password')?.valueChanges.subscribe(val => {
+      this.updatePwChecks(val || '');
+    });
+
     this.forgotPasswordForm = this.fb.group({
       employee_id: ['', Validators.required],
       otp: [''],
       password: ['']
+    });
+
+    // Live password strength for Reset Password
+    this.forgotPasswordForm.get('password')?.valueChanges.subscribe(val => {
+      this.updatePwChecks(val || '');
     });
   }
 
@@ -192,9 +211,13 @@ export class LoginPage implements OnInit {
         loader.dismiss();
         this.presentToast('OTP verified successfully! Please set your new password.', 'success');
         this.otpVerified = true;
-        
-        // Now that OTP is verified, make password required
-        this.loginForm.get('password')?.setValidators(Validators.required);
+
+        // Now that OTP is verified, make password required with strong validators
+        this.loginForm.get('password')?.setValidators([
+          Validators.required,
+          Validators.minLength(8),
+          Validators.pattern(/^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/)
+        ]);
         this.loginForm.get('password')?.updateValueAndValidity();
       },
       error: (err) => {
@@ -245,6 +268,12 @@ export class LoginPage implements OnInit {
     if (this.loginForm.invalid) {
       this.presentToast('Please fill all fields', 'warning');
       return;
+    }
+
+    // Validate password strength only for the Create Password step
+    if (this.showCreatePassword && this.otpVerified) {
+      const pwValid = this.validatePassword(this.loginForm.get('password')?.value);
+      if (!pwValid) return;
     }
 
     const { email, password, otp } = this.loginForm.value;
@@ -380,7 +409,11 @@ export class LoginPage implements OnInit {
         loader.dismiss();
         this.presentToast('OTP verified successfully! Please enter your new password.', 'success');
         this.forgotPasswordOtpVerified = true;
-        this.forgotPasswordForm.get('password')?.setValidators(Validators.required);
+        this.forgotPasswordForm.get('password')?.setValidators([
+          Validators.required,
+          Validators.minLength(8),
+          Validators.pattern(/^(?=.*[A-Z])(?=.*[^A-Za-z0-9]).*$/)
+        ]);
         this.forgotPasswordForm.get('password')?.updateValueAndValidity();
       },
       error: (err) => {
@@ -397,6 +430,11 @@ export class LoginPage implements OnInit {
 
   async onForgotPasswordSubmit() {
     if (this.forgotPasswordForm.invalid) return;
+
+    // Validate password strength before resetting
+    const pwValid = this.validatePassword(this.forgotPasswordForm.get('password')?.value);
+    if (!pwValid) return;
+
     const loader = await this.loadingController.create({ message: 'Resetting password...' });
     await loader.present();
     
@@ -432,6 +470,33 @@ export class LoginPage implements OnInit {
     const role = this.routeGuardService.userRole?.toLowerCase();
     const destination = role === 'admin' ? '/administration' : '/Home';
     this.router.navigate([destination], { replaceUrl: true });
+  }
+
+  /** Updates the live pw check flags. */
+  updatePwChecks(pw: string) {
+    this.pwChecks.minLength = pw.length >= 8;
+    this.pwChecks.hasUpper  = /[A-Z]/.test(pw);
+    this.pwChecks.hasSpecial = /[^A-Za-z0-9]/.test(pw);
+    this.pwChecks.hasNumber  = /[0-9]/.test(pw);
+  }
+
+  /**
+   * Validates password strength.
+   * Rules: min 8 chars, at least one uppercase, one special char, one number.
+   * If any rule fails, shows ONE toast listing ALL failed rules.
+   * Returns true if all rules pass, false otherwise.
+   */
+  validatePassword(password: string): boolean {
+    const failures: string[] = [];
+    if (!password || password.length < 8)    failures.push('Min 8 characters');
+    if (!/[A-Z]/.test(password))             failures.push('1 uppercase letter');
+    if (!/[0-9]/.test(password))             failures.push('1 number');
+    if (!/[^A-Za-z0-9]/.test(password))      failures.push('1 special character');
+    if (failures.length > 0) {
+      this.presentToast('Password must have: ' + failures.join(' · '), 'warning');
+      return false;
+    }
+    return true;
   }
 
   async presentToast(message: string, color: string = 'primary') {
