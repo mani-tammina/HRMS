@@ -744,7 +744,8 @@ router.get("/details/:date", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-    const { date } = req.params;
+    let { date } = req.params;
+    if (date && date.endsWith("/")) date = date.slice(0, -1);
     const c = await db();
 
     const [attendance] = await c.query(
@@ -752,11 +753,24 @@ router.get("/details/:date", auth, async (req, res) => {
       [emp.id, date]
     );
 
+    const [leaves] = await c.query(
+      `SELECT l.*, lt.type_name, lt.type_code 
+       FROM leaves l 
+       JOIN leave_types lt ON l.leave_type_id = lt.id 
+       WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
+      [emp.id, date]
+    );
+
     if (attendance.length === 0) {
       c.end();
-      return res
-        .status(404)
-        .json({ error: "No attendance record found for this date" });
+      return res.json({
+        has_attendance: false,
+        attendance: null,
+        punches: [],
+        punch_pairs: [],
+        on_leave: leaves.length > 0,
+        leave: leaves[0] || null
+      });
     }
 
     const [punches] = await c.query(
@@ -767,9 +781,12 @@ router.get("/details/:date", auth, async (req, res) => {
     c.end();
 
     res.json({
+      has_attendance: true,
       attendance: attendance[0],
       punches,
       punch_pairs: calculatePunchPairs(punches),
+      on_leave: leaves.length > 0,
+      leave: leaves[0] || null
     });
   } catch (error) {
     console.error("Error fetching attendance details:", error);
@@ -782,7 +799,8 @@ router.get("/details/:date", auth, async (req, res) => {
  */
 router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
   try {
-    const { employeeId, date } = req.params;
+    let { employeeId, date } = req.params;
+    if (date && date.endsWith("/")) date = date.slice(0, -1);
     const c = await db();
 
     const [attendance] = await c.query(
@@ -790,11 +808,24 @@ router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
       [employeeId, date]
     );
 
+    const [leaves] = await c.query(
+      `SELECT l.*, lt.type_name, lt.type_code 
+       FROM leaves l 
+       JOIN leave_types lt ON l.leave_type_id = lt.id 
+       WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
+      [employeeId, date]
+    );
+
     if (attendance.length === 0) {
       c.end();
-      return res
-        .status(404)
-        .json({ error: "No attendance record found for this date" });
+      return res.json({
+        has_attendance: false,
+        attendance: null,
+        punches: [],
+        punch_pairs: [],
+        on_leave: leaves.length > 0,
+        leave: leaves[0] || null
+      });
     }
 
     const [punches] = await c.query(
@@ -805,9 +836,12 @@ router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
     c.end();
 
     res.json({
+      has_attendance: true,
       attendance: attendance[0],
       punches,
       punch_pairs: calculatePunchPairs(punches),
+      on_leave: leaves.length > 0,
+      leave: leaves[0] || null
     });
   } catch (error) {
     console.error("Error fetching employee attendance details:", error);
@@ -825,6 +859,7 @@ router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
 router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
   try {
     const { startDate, endDate, month, year } = req.query;
+    const targetEmpId = req.params.employeeId;
     const c = await db();
 
     let query = `
@@ -841,7 +876,7 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
             WHERE a.employee_id = ?
         `;
 
-    const params = [req.params.employeeId];
+    const params = [targetEmpId];
 
     if (startDate && endDate) {
       query += ` AND a.attendance_date BETWEEN ? AND ?`;
@@ -855,56 +890,170 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
 
     const [attendance] = await c.query(query, params);
 
-    // Get LOP leaves count for the period
-    let lopQuery = `
-      SELECT SUM(l.total_days) as lop_days
-      FROM leaves l
-      INNER JOIN leave_types lt ON l.leave_type_id = lt.id
-      WHERE l.employee_id = ? AND l.status = 'approved' AND lt.type_code = 'LOP'
-    `;
-    const lopParams = [req.params.employeeId];
+    // Get detailed shift and weekend policies for the employee
+    const [empDetails] = await c.query(`
+      SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      WHERE e.id = ?
+    `, [targetEmpId]);
+    const employee = empDetails[0];
 
-    if (startDate && endDate) {
-      lopQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
-      lopParams.push(startDate, endDate, startDate, endDate);
-    } else if (month && year) {
-      lopQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
-      lopParams.push(month, year, month, year);
-    }
-
-    const [lopData] = await c.query(lopQuery, lopParams);
-    const lopDays = Number(lopData[0]?.lop_days) || 0;
-
-    // Get approved leaves count
-    let leaveQuery = `
-      SELECT COUNT(*) as leave_days
-      FROM leaves l
+    // Get all approved leaves for the period for summary calculation
+    let allLeavesQuery = `
+      SELECT l.*, lt.type_code, lt.is_paid 
+      FROM leaves l 
+      INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
       WHERE l.employee_id = ? AND l.status = 'approved'
     `;
-    const leaveParams = [req.params.employeeId];
+    const [allLeaves] = await c.query(allLeavesQuery, [targetEmpId]);
 
+    // Map existing attendance for fast lookup
+    const attMap = new Map();
+    attendance.forEach(a => {
+      const dStr = new Date(a.attendance_date).toDateString();
+      attMap.set(dStr, a);
+    });
+
+    const now = new Date();
+    const todayStr = now.toDateString();
+
+    // Determine range
+    let start, end;
     if (startDate && endDate) {
-      leaveQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
-      leaveParams.push(startDate, endDate, startDate, endDate);
-    } else if (month && year) {
-      leaveQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
-      leaveParams.push(month, year, month, year);
+      start = new Date(startDate);
+      end = new Date(endDate);
+    } else {
+      const rMonth = parseInt(month) || (now.getMonth() + 1);
+      const rYear = parseInt(year) || now.getFullYear();
+      start = new Date(rYear, rMonth - 1, 1);
+      end = new Date(rYear, rMonth, 0);
     }
 
-    const [leaveData] = await c.query(leaveQuery, leaveParams);
-    const leaveDays = Number(leaveData[0]?.leave_days) || 0;
+    // Iterate through range for accurate summary
+    let present_days = 0;
+    let absent_days = 0;
+    let leave_days = 0;
+    let penalty_count = 0;
+    let half_day_count = 0;
+    let weekend_days = 0;
 
-    const penaltyCount = attendance.filter((a) => a.status === "penalty").length;
-    const stdAbsentCount = attendance.filter((a) => a.status === "absent" && a.notes !== "LOP" && a.notes !== "Loss of Pay").length;
-    const explicitLopCount = attendance.filter((a) => a.status === "absent" && (a.notes === "LOP" || a.notes === "Loss of Pay")).length;
+    const weekOffDays = [];
+    if (employee) {
+      if (employee.sunday_off) weekOffDays.push('sunday');
+      if (employee.monday_off) weekOffDays.push('monday');
+      if (employee.tuesday_off) weekOffDays.push('tuesday');
+      if (employee.wednesday_off) weekOffDays.push('wednesday');
+      if (employee.thursday_off) weekOffDays.push('thursday');
+      if (employee.friday_off) weekOffDays.push('friday');
+      if (employee.saturday_off) weekOffDays.push('saturday');
+    }
+
+    let curr = new Date(start);
+    let lop_from_leaves = 0;
+    let lop_from_attendance = 0;
+    let penalty_absent_days = 0;
+    let regular_absent_days = 0;
+
+    while (curr <= end) {
+      if (curr > now && curr.toDateString() !== todayStr) {
+        curr.setDate(curr.getDate() + 1);
+        continue;
+      }
+
+      const dStr = curr.toDateString();
+      const isToday = dStr === todayStr;
+      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+      // Check if on leave
+      const todaysLeaves = allLeaves.filter(l => {
+        const lStart = new Date(l.start_date);
+        const lEnd = new Date(l.end_date);
+        const check = new Date(curr);
+        check.setHours(0, 0, 0, 0);
+        lStart.setHours(0, 0, 0, 0);
+        lEnd.setHours(0, 0, 0, 0);
+        return check >= lStart && check <= lEnd;
+      });
+
+      if (todaysLeaves.length > 0) {
+        todaysLeaves.forEach(l => {
+          const weight = l.is_half_day ? 0.5 : 1.0;
+          leave_days += weight;
+          if (l.type_code === 'LOP' || l.type_code === 'UL' || !l.is_paid) {
+            lop_from_leaves += weight;
+          }
+        });
+      } else if (weekOffDays.includes(weekday)) {
+        weekend_days++;
+      } else if (attMap.has(dStr)) {
+        const record = attMap.get(dStr);
+        if (record.status === 'present') present_days++;
+        else if (record.status === 'absent') {
+          absent_days++;
+          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+            lop_from_attendance++;
+          } else {
+            regular_absent_days++;
+          }
+        } else if (record.status === 'half-day') {
+          present_days += 0.5;
+          half_day_count++;
+          if (record.notes && (
+            record.notes.includes('Half') || 
+            record.notes.startsWith('HD') || 
+            record.notes.includes('Leave') || 
+            record.notes.includes('Loss of Pay') ||
+            record.notes.includes('LOP') ||
+            record.notes.includes('UL')
+          )) {
+            leave_days += 0.5;
+            if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
+              lop_from_attendance += 0.5;
+            }
+          }
+        } else if (record.status === 'on-leave') {
+          leave_days++;
+          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+            lop_from_attendance++;
+          }
+        } else if (record.status === 'penalty') {
+          penalty_count++;
+          penalty_absent_days++;
+          absent_days++;
+        }
+      } else if (!isToday) {
+        // No log and not today - apply penalty rule
+        const shiftStartStr = employee?.start_time || '09:00:00';
+        const [sh, sm] = shiftStartStr.split(':').map(Number);
+        const shiftStart = new Date(curr);
+        shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+        const penaltyThreshold = new Date(shiftStart);
+        const thresholdHours = employee?.missing_log_threshold || 48;
+        penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
+
+        if (now > penaltyThreshold) {
+          penalty_count++;
+          penalty_absent_days++;
+          absent_days++;
+        }
+      }
+
+      curr.setDate(curr.getDate() + 1);
+    }
+
+    const totalLopDays = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance;
 
     const summary = {
       total_days: attendance.length,
-      present_days: attendance.filter((a) => a.status === "present").length,
-      absent_days: stdAbsentCount,
-      half_days: attendance.filter((a) => a.status === "half-day").length,
-      leave_days: leaveDays,
-      lop_days: lopDays + explicitLopCount + (penaltyCount * 0.5),
+      present_days,
+      absent_days,
+      half_days: half_day_count,
+      leave_days,
+      lop_days: totalLopDays,
       total_work_hours: attendance
         .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
         .toFixed(2),
@@ -919,26 +1068,15 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
           : 0,
     };
 
-    // Get detailed shift and weekend policies for the employee
-    const [empDetails] = await c.query(`
-      SELECT e.id, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
-      FROM employees e
-      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
-      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-      WHERE e.id = ?
-    `, [req.params.employeeId]);
-    const employee = empDetails[0];
-
     c.end();
 
     res.json({
-      employee: attendance[0]
+      employee: employee
         ? {
-          id: attendance[0].employee_id,
-          employee_number: attendance[0].EmployeeNumber,
-          name: `${attendance[0].FirstName} ${attendance[0].LastName}`,
-          email: attendance[0].WorkEmail,
+          id: employee.id,
+          employee_number: employee.EmployeeNumber,
+          name: `${employee.FirstName || ''} ${employee.LastName || ''}`.trim(),
+          email: employee.WorkEmail,
         }
         : null,
       summary,

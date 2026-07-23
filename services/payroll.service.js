@@ -294,7 +294,7 @@ async function runPayroll(year, month, runBy = null) {
 
     // 3. Fetch all approved leaves for the period
     const [allLeaves] = await conn.query(`
-      SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, l.is_half_day
+      SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, lt.is_paid, l.is_half_day
       FROM leaves l
       INNER JOIN leave_types lt ON l.leave_type_id = lt.id
       WHERE l.status = 'approved' AND (l.start_date <= ? AND l.end_date >= ?)
@@ -353,7 +353,9 @@ async function runPayroll(year, month, runBy = null) {
           todaysLeaves.forEach(l => {
             const weight = l.is_half_day ? 0.5 : 1.0;
             leave_days += weight;
-            if (l.type_code === 'LOP' || l.type_code === 'UL') lop_from_leaves += weight;
+            // Treat as LOP if: explicit LOP/UL type code OR the leave type is marked as unpaid (is_paid = 0)
+            const isUnpaid = l.type_code === 'LOP' || l.type_code === 'UL' || !l.is_paid;
+            if (isUnpaid) lop_from_leaves += weight;
           });
         } else if (weekOffDays.includes(weekday)) {
           weekend_days++;

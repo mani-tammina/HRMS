@@ -251,7 +251,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request$.subscribe({
       next: (res: any) => {
-        this.status = res?.attendance?.status || 'NOT In Yet';
+        if (res?.attendance) {
+          this.status = res.attendance.status || 'NOT In Yet';
+        } else if (res?.on_leave) {
+          this.status = res.leave?.type_name ? `On Leave (${res.leave.type_name})` : 'On Leave';
+        } else {
+          this.status = 'NOT In Yet';
+        }
         const punches = res?.punches || [];
 
         if (res?.attendance) {
