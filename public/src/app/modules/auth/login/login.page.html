@@ -63,7 +63,7 @@
                   placeholder="Enter your password" class="form-input" (focus)="passwordFocused = true"
                   (blur)="passwordFocused = false" />
                 <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
             </div>
@@ -96,8 +96,8 @@
                   formControlName="password" placeholder="Create a new password" class="form-input"
                   (focus)="createPwFocused = true; showPwStrength = true"
                   (blur)="createPwFocused = false; showPwStrength = false" />
-                <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
               <!-- Live password strength popup -->
@@ -221,8 +221,8 @@
                   class="form-input"
                   (focus)="showPwStrength = true"
                   (blur)="showPwStrength = false" />
-                <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
               <!-- Live password strength popup -->
