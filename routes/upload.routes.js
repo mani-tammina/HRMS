@@ -920,6 +920,48 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
 
                 // --- Also inject into standard attendance table for real-time tracking ---
                 const [emp] = await c.query("SELECT id FROM employees WHERE EmployeeNumber = ?", [empNo]);
+                const [dbLeaveTypes] = await c.query("SELECT type_code, type_name FROM leave_types");
+                const leaveCodeToName = new Map();
+                const leaveNameToCode = new Map();
+
+                // Standard default fallbacks
+                leaveCodeToName.set('SL', 'Sick Leave');
+                leaveCodeToName.set('CL', 'Casual Leave');
+                leaveCodeToName.set('ML', 'Maternity Leave');
+                leaveCodeToName.set('MRL', 'Marriage Leave');
+                leaveCodeToName.set('MARRIAGE', 'Marriage Leave');
+                leaveCodeToName.set('PL', 'Privilege Leave');
+                leaveCodeToName.set('EL', 'Earned Leave');
+                leaveCodeToName.set('UL', 'Loss of Pay');
+                leaveCodeToName.set('LOP', 'Loss of Pay');
+
+                dbLeaveTypes.forEach(lt => {
+                    if (lt.type_code && lt.type_name) {
+                        const codeUpper = String(lt.type_code).toUpperCase().trim();
+                        const nameClean = String(lt.type_name).trim();
+                        leaveCodeToName.set(codeUpper, nameClean);
+                        leaveNameToCode.set(nameClean.toUpperCase(), codeUpper);
+                    }
+                });
+
+                const getLeaveName = (code) => {
+                    const cStr = String(code || '').toUpperCase().trim();
+                    if (leaveCodeToName.has(cStr)) return leaveCodeToName.get(cStr);
+                    return code;
+                };
+
+                const getLeaveCode = (valStr) => {
+                    const upper = String(valStr || '').toUpperCase().trim();
+                    if (leaveCodeToName.has(upper)) return upper;
+                    for (const [nameUpper, code] of leaveNameToCode.entries()) {
+                        if (upper.includes(nameUpper)) return code;
+                    }
+                    for (const [code] of leaveCodeToName.entries()) {
+                        if (upper.includes(code)) return code;
+                    }
+                    return null;
+                };
+
                 if (emp.length > 0) {
                     const employeeId = emp[0].id;
 
@@ -939,18 +981,6 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
                                     let notes = null;
                                     let totalWorkHours = 0.00;
                                     let grossHours = 0.00;
-
-                                    const getLeaveName = (code) => {
-                                        const c = String(code || '').toUpperCase().trim();
-                                        if (c === 'SL') return 'Sick Leave';
-                                        if (c === 'CL') return 'Casual Leave';
-                                        if (c === 'ML') return 'Maternity Leave';
-                                        if (c === 'MRL' || c === 'MARRIAGE') return 'Marriage Leave';
-                                        if (c === 'PL') return 'Privilege Leave';
-                                        if (c === 'EL') return 'Earned Leave';
-                                        if (c === 'UL' || c === 'LOP') return 'Loss of Pay';
-                                        return code;
-                                    };
 
                                     const valUpper = val.toUpperCase().replace(/\s+/g, '');
                                     const isPresentCode = (codeStr) => {
@@ -1007,24 +1037,15 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
                                             if (valUpper.includes('UL') || valUpper.includes('LOP')) {
                                                 notes = 'Half Day Loss of Pay';
                                             } else {
-                                                let leaveCode = 'Leave';
-                                                if (valUpper.includes('SL')) leaveCode = 'SL';
-                                                else if (valUpper.includes('CL')) leaveCode = 'CL';
-                                                else if (valUpper.includes('ML')) leaveCode = 'ML';
-                                                else if (valUpper.includes('MRL') || valUpper.includes('MARRIAGE')) leaveCode = 'MRL';
+                                                const leaveCode = getLeaveCode(valUpper) || 'Leave';
                                                 notes = `Half Day ${getLeaveName(leaveCode)}`;
                                             }
-                                        } else if (
-                                            ['SL', 'CL', 'ML', 'MRL', 'MARRIAGE', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
-                                        ) {
-                                            status = 'on-leave';
-                                            if (valUpper.includes('SL')) notes = 'Sick Leave';
-                                            else if (valUpper.includes('CL')) notes = 'Casual Leave';
-                                            else if (valUpper.includes('ML')) notes = 'Maternity Leave';
-                                            else if (valUpper.includes('MRL') || valUpper.includes('MARRIAGE')) notes = 'Marriage Leave';
-                                            else if (valUpper.includes('PL')) notes = 'Privilege Leave';
-                                            else if (valUpper.includes('EL')) notes = 'Earned Leave';
-                                            else notes = 'Leave';
+                                        } else {
+                                            const detectedCode = getLeaveCode(valUpper);
+                                            if (detectedCode || valUpper.includes('LEAVE')) {
+                                                status = 'on-leave';
+                                                notes = detectedCode ? getLeaveName(detectedCode) : 'Leave';
+                                            }
                                         }
                                     }
 

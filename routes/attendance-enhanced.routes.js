@@ -588,6 +588,15 @@ router.get("/my-report", auth, async (req, res) => {
       if (employee.saturday_off) weekOffDays.push('saturday');
     }
 
+    // Fetch all leave types dynamically from database
+    const [dbLeaveTypesList] = await c.query("SELECT type_code, type_name FROM leave_types");
+    const dynamicLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
+    dbLeaveTypesList.forEach(lt => {
+      if (lt.type_code) dynamicLeaveTokens.add(String(lt.type_code).toLowerCase().trim());
+      if (lt.type_name) dynamicLeaveTokens.add(String(lt.type_name).toLowerCase().trim());
+    });
+    const leaveTokenArray = Array.from(dynamicLeaveTokens);
+
     let curr = new Date(start);
     let lop_from_leaves = 0;
     let lop_from_attendance = 0;
@@ -628,10 +637,11 @@ router.get("/my-report", auth, async (req, res) => {
         weekend_days++;
       } else if (attMap.has(dStr)) {
         const record = attMap.get(dStr);
+        const nLower = String(record.notes || '').toLowerCase();
         if (record.status === 'present') present_days++;
         else if (record.status === 'absent') {
           absent_days++;
-          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
             lop_from_attendance++;
           } else {
             regular_absent_days++;
@@ -639,25 +649,15 @@ router.get("/my-report", auth, async (req, res) => {
         } else if (record.status === 'half-day') {
           present_days += 0.5;
           half_day_count++;
-          // Check if it is a half-day leave
-          if (record.notes && (
-            record.notes.includes('Half') || 
-            record.notes.startsWith('HD') || 
-            record.notes.includes('Leave') || 
-            record.notes.includes('Loss of Pay') ||
-            record.notes.includes('LOP') ||
-            record.notes.includes('UL') ||
-            record.notes.includes('Marriage') ||
-            record.notes.includes('MRL')
-          )) {
+          if (leaveTokenArray.some(token => nLower.includes(token))) {
             leave_days += 0.5;
-            if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
+            if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
               lop_from_attendance += 0.5;
             }
           }
         } else if (record.status === 'on-leave') {
           leave_days++;
-          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
             lop_from_attendance++;
           }
         } else if (record.status === 'penalty') {
@@ -953,6 +953,15 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
       if (employee.saturday_off) weekOffDays.push('saturday');
     }
 
+    // Fetch all leave types dynamically from database
+    const [empReportLeaveTypes] = await c.query("SELECT type_code, type_name FROM leave_types");
+    const empLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
+    empReportLeaveTypes.forEach(lt => {
+      if (lt.type_code) empLeaveTokens.add(String(lt.type_code).toLowerCase().trim());
+      if (lt.type_name) empLeaveTokens.add(String(lt.type_name).toLowerCase().trim());
+    });
+    const empLeaveTokenArray = Array.from(empLeaveTokens);
+
     let curr = new Date(start);
     let lop_from_leaves = 0;
     let lop_from_attendance = 0;
@@ -992,10 +1001,11 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
         weekend_days++;
       } else if (attMap.has(dStr)) {
         const record = attMap.get(dStr);
+        const nLower = String(record.notes || '').toLowerCase();
         if (record.status === 'present') present_days++;
         else if (record.status === 'absent') {
           absent_days++;
-          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
             lop_from_attendance++;
           } else {
             regular_absent_days++;
@@ -1003,24 +1013,15 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
         } else if (record.status === 'half-day') {
           present_days += 0.5;
           half_day_count++;
-          if (record.notes && (
-            record.notes.includes('Half') || 
-            record.notes.startsWith('HD') || 
-            record.notes.includes('Leave') || 
-            record.notes.includes('Loss of Pay') ||
-            record.notes.includes('LOP') ||
-            record.notes.includes('UL') ||
-            record.notes.includes('Marriage') ||
-            record.notes.includes('MRL')
-          )) {
+          if (empLeaveTokenArray.some(token => nLower.includes(token))) {
             leave_days += 0.5;
-            if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
+            if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
               lop_from_attendance += 0.5;
             }
           }
         } else if (record.status === 'on-leave') {
           leave_days++;
-          if (record.notes === 'LOP' || record.notes === 'UL' || record.notes === 'Loss of Pay' || (record.notes && (record.notes.includes('LOP') || record.notes.includes('UL') || record.notes.includes('Loss of Pay')))) {
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
             lop_from_attendance++;
           }
         } else if (record.status === 'penalty') {

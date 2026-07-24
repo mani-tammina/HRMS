@@ -185,7 +185,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const approvedLeaves = leaves.filter(l => (l.status || '').toUpperCase() === 'APPROVED');
     approvedLeaves.forEach(leave => {
       let rawType = (leave as any).type_code || (leave as any).type_name || leave.leave_type || 'Leave';
-      let code = String(rawType).toUpperCase();
+      let code = String(rawType).trim().toUpperCase();
       if (code.includes('SICK') || code === 'SL') code = 'SL';
       else if (code.includes('CASUAL') || code === 'CL') code = 'CL';
       else if (code.includes('MATERNITY') || code === 'ML') code = 'ML';
@@ -193,7 +193,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
       else if (code.includes('EARNED') || code === 'EL') code = 'EL';
       else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
-      else if (code.length > 4) code = code.substring(0, 3);
+      else if (code.length > 5) {
+        const words = code.split(/[\s_]+/);
+        if (words.length > 1) {
+          code = words.map(w => w[0]).join('');
+        } else {
+          code = code.substring(0, 4);
+        }
+      }
 
       const leaveType = (leave as any).type_name || leave.leave_type || code;
       const isHalfDay = !!(leave.is_half_day || (leave as any).is_half_day);
@@ -235,7 +242,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (log.notes && (log.notes.includes(':P') || log.notes.includes('P:'))) {
       return log.notes.trim();
     }
-    const notesLower = String(log.notes || '').toLowerCase();
+    const notesStr = String(log.notes || '').trim();
+    const notesLower = notesStr.toLowerCase();
     let leaveCode = 'CL';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul') || notesLower.includes('unpaid')) {
       leaveCode = 'LOP';
@@ -251,6 +259,16 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       leaveCode = 'EL';
     } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
       leaveCode = 'PL';
+    } else if (notesStr) {
+      const cleanName = notesStr.replace(/^(first|second|1st|2nd)\s+half\s+/i, '').trim();
+      if (cleanName) {
+        const words = cleanName.split(/\s+/);
+        if (words.length > 1) {
+          leaveCode = words.map(w => w[0].toUpperCase()).join('');
+        } else {
+          leaveCode = cleanName.substring(0, 4).toUpperCase();
+        }
+      }
     }
 
     if (notesLower.includes('second') || notesLower.includes('2nd')) {
@@ -267,7 +285,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (leaveDetail && leaveDetail.typeCode) {
       return leaveDetail.typeCode;
     }
-    const notesLower = String(log.notes || log.leaveType || '').toLowerCase();
+    const notesStr = String(log.notes || log.leaveType || '').trim();
+    const notesLower = notesStr.toLowerCase();
     if (notesLower.includes('sick') || notesLower.includes('sl')) return 'SL';
     if (notesLower.includes('casual') || notesLower.includes('cl')) return 'CL';
     if (notesLower.includes('maternity') || notesLower.includes('ml')) return 'ML';
@@ -275,6 +294,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (notesLower.includes('privilege') || notesLower.includes('pl')) return 'PL';
     if (notesLower.includes('earned') || notesLower.includes('el')) return 'EL';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul')) return 'LOP';
+
+    if (notesStr) {
+      const words = notesStr.split(/\s+/);
+      if (words.length > 1) {
+        return words.map(w => w[0].toUpperCase()).join('');
+      }
+      return notesStr.substring(0, 4).toUpperCase();
+    }
     return 'LEAVE';
   }
 
