@@ -189,6 +189,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       if (code.includes('SICK') || code === 'SL') code = 'SL';
       else if (code.includes('CASUAL') || code === 'CL') code = 'CL';
       else if (code.includes('MATERNITY') || code === 'ML') code = 'ML';
+      else if (code.includes('MARRIAGE') || code === 'MRL') code = 'MRL';
       else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
       else if (code.includes('EARNED') || code === 'EL') code = 'EL';
       else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
@@ -244,6 +245,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       leaveCode = 'CL';
     } else if (notesLower.includes('maternity') || notesLower.includes('ml')) {
       leaveCode = 'ML';
+    } else if (notesLower.includes('marriage') || notesLower.includes('mrl')) {
+      leaveCode = 'MRL';
     } else if (notesLower.includes('earned') || notesLower.includes('el')) {
       leaveCode = 'EL';
     } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
@@ -254,6 +257,25 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return `P:${leaveCode}`;
     }
     return `${leaveCode}:P`;
+  }
+
+  getLeaveBadgeText(log: any): string {
+    if (!log) return 'LEAVE';
+    if (log.leaveCode) return log.leaveCode;
+    const dateStr = this.formatDateOnly(log.attendance_date);
+    const leaveDetail = this.leaveDetailsMap.get(dateStr);
+    if (leaveDetail && leaveDetail.typeCode) {
+      return leaveDetail.typeCode;
+    }
+    const notesLower = String(log.notes || log.leaveType || '').toLowerCase();
+    if (notesLower.includes('sick') || notesLower.includes('sl')) return 'SL';
+    if (notesLower.includes('casual') || notesLower.includes('cl')) return 'CL';
+    if (notesLower.includes('maternity') || notesLower.includes('ml')) return 'ML';
+    if (notesLower.includes('marriage') || notesLower.includes('mrl')) return 'MRL';
+    if (notesLower.includes('privilege') || notesLower.includes('pl')) return 'PL';
+    if (notesLower.includes('earned') || notesLower.includes('el')) return 'EL';
+    if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul')) return 'LOP';
+    return 'LEAVE';
   }
 
   loadMonthlyReport(): void {

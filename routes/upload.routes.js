@@ -941,10 +941,11 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
                                     let grossHours = 0.00;
 
                                     const getLeaveName = (code) => {
-                                        const c = String(code || '').toUpperCase();
+                                        const c = String(code || '').toUpperCase().trim();
                                         if (c === 'SL') return 'Sick Leave';
                                         if (c === 'CL') return 'Casual Leave';
                                         if (c === 'ML') return 'Maternity Leave';
+                                        if (c === 'MRL' || c === 'MARRIAGE') return 'Marriage Leave';
                                         if (c === 'PL') return 'Privilege Leave';
                                         if (c === 'EL') return 'Earned Leave';
                                         if (c === 'UL' || c === 'LOP') return 'Loss of Pay';
@@ -1010,15 +1011,17 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
                                                 if (valUpper.includes('SL')) leaveCode = 'SL';
                                                 else if (valUpper.includes('CL')) leaveCode = 'CL';
                                                 else if (valUpper.includes('ML')) leaveCode = 'ML';
+                                                else if (valUpper.includes('MRL') || valUpper.includes('MARRIAGE')) leaveCode = 'MRL';
                                                 notes = `Half Day ${getLeaveName(leaveCode)}`;
                                             }
                                         } else if (
-                                            ['SL', 'CL', 'ML', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
+                                            ['SL', 'CL', 'ML', 'MRL', 'MARRIAGE', 'PL', 'EL', 'LEAVE'].some(l => valUpper.includes(l))
                                         ) {
                                             status = 'on-leave';
                                             if (valUpper.includes('SL')) notes = 'Sick Leave';
                                             else if (valUpper.includes('CL')) notes = 'Casual Leave';
                                             else if (valUpper.includes('ML')) notes = 'Maternity Leave';
+                                            else if (valUpper.includes('MRL') || valUpper.includes('MARRIAGE')) notes = 'Marriage Leave';
                                             else if (valUpper.includes('PL')) notes = 'Privilege Leave';
                                             else if (valUpper.includes('EL')) notes = 'Earned Leave';
                                             else notes = 'Leave';
@@ -1255,12 +1258,13 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                 const to = new Date(l.end_date);
                 let d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
                 const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-                
+
                 let lCode = (l.type_code || l.leave_type || 'CL').toUpperCase();
                 const lType = String(l.leave_type || '').toUpperCase();
                 if (lType.includes('SICK') || lType === 'SL') lCode = 'SL';
                 else if (lType.includes('CASUAL') || lType === 'CL') lCode = 'CL';
                 else if (lType.includes('MATERNITY') || lType === 'ML') lCode = 'ML';
+                else if (lType.includes('MARRIAGE') || lType === 'MRL') lCode = 'MRL';
                 else if (lType.includes('PRIVILEGE') || lType === 'PL') lCode = 'PL';
                 else if (lType.includes('EARNED') || lType === 'EL') lCode = 'EL';
                 else if (lType.includes('UNPAID') || lType.includes('LOSS OF PAY') || lType === 'LOP') lCode = 'LOP';
@@ -1343,7 +1347,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                     const dateStr = dates[i];
                     const header = dateHeaders[i];
                     const key = `${e.id}_${dateStr}`;
-                    
+
                     const att = attMap.get(key);
                     const leaveCode = leaveMap.get(key);
                     const dayOfWeek = new Date(dateStr).getDay();
@@ -1383,9 +1387,31 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                                         halfCode = 'LOP:P';
                                     }
                                 } else if (att.notes && (att.notes.toLowerCase().includes('first') || att.notes.toLowerCase().includes('1st'))) {
-                                    halfCode = `${leaveCode || 'CL'}:P`;
+                                    let codePrefix = leaveCode;
+                                    if (!codePrefix || codePrefix === 'P') {
+                                        const nLower = att.notes.toLowerCase();
+                                        if (nLower.includes('sick')) codePrefix = 'SL';
+                                        else if (nLower.includes('casual')) codePrefix = 'CL';
+                                        else if (nLower.includes('maternity')) codePrefix = 'ML';
+                                        else if (nLower.includes('marriage') || nLower.includes('mrl')) codePrefix = 'MRL';
+                                        else if (nLower.includes('privilege')) codePrefix = 'PL';
+                                        else if (nLower.includes('earned')) codePrefix = 'EL';
+                                        else codePrefix = 'CL';
+                                    }
+                                    halfCode = `${codePrefix}:P`;
                                 } else if (att.notes && (att.notes.toLowerCase().includes('second') || att.notes.toLowerCase().includes('2nd'))) {
-                                    halfCode = `P:${leaveCode || 'CL'}`;
+                                    let codePrefix = leaveCode;
+                                    if (!codePrefix || codePrefix === 'P') {
+                                        const nLower = att.notes.toLowerCase();
+                                        if (nLower.includes('sick')) codePrefix = 'SL';
+                                        else if (nLower.includes('casual')) codePrefix = 'CL';
+                                        else if (nLower.includes('maternity')) codePrefix = 'ML';
+                                        else if (nLower.includes('marriage') || nLower.includes('mrl')) codePrefix = 'MRL';
+                                        else if (nLower.includes('privilege')) codePrefix = 'PL';
+                                        else if (nLower.includes('earned')) codePrefix = 'EL';
+                                        else codePrefix = 'CL';
+                                    }
+                                    halfCode = `P:${codePrefix}`;
                                 } else {
                                     halfCode = leaveCode ? `${leaveCode}:P` : 'CL:P';
                                 }
@@ -1461,9 +1487,9 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Monthly Attendance');
-        
+
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-        
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
         res.setHeader('Content-Disposition', `attachment; filename=Monthly_Attendance_${attendanceMonth}.xlsx`);
         res.send(buffer);

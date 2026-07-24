@@ -41,7 +41,7 @@
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
       <ng-container *ngIf="log.status === 'on-leave'">
-        <span class="badge-leave">LEAVE</span>
+        <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'half-day'">
         <span class="badge-leave" style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
@@ -65,8 +65,7 @@
     <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave') && log.noLogs" class="no-log">
       <p *ngIf="log.status === 'weekend'" style="color:#333;font-size:11px;font-weight:550;margin:0;">Full day week off
       </p>
-      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
-        }}</p>
+      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType || log.notes || 'Leave' }}</p>
     </ion-col>
 
     <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">

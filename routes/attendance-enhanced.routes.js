@@ -646,7 +646,9 @@ router.get("/my-report", auth, async (req, res) => {
             record.notes.includes('Leave') || 
             record.notes.includes('Loss of Pay') ||
             record.notes.includes('LOP') ||
-            record.notes.includes('UL')
+            record.notes.includes('UL') ||
+            record.notes.includes('Marriage') ||
+            record.notes.includes('MRL')
           )) {
             leave_days += 0.5;
             if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
@@ -1007,7 +1009,9 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
             record.notes.includes('Leave') || 
             record.notes.includes('Loss of Pay') ||
             record.notes.includes('LOP') ||
-            record.notes.includes('UL')
+            record.notes.includes('UL') ||
+            record.notes.includes('Marriage') ||
+            record.notes.includes('MRL')
           )) {
             leave_days += 0.5;
             if (record.notes.includes('LOP') || record.notes.includes('Loss of Pay') || record.notes.includes('UL')) {
