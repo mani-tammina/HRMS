@@ -545,9 +545,19 @@
 
               <!-- Section: Upcoming Birthdays -->
               <div class="upcoming-birthdays-section" *ngIf="upcomingBirthdays.length > 0">
-                <h3 class="milestone-section-title">Upcoming Birthdays</h3>
+                <div class="upcoming-header-row">
+                  <h3 class="milestone-section-title">Upcoming Birthdays</h3>
+                  <div class="scroll-nav-btns" *ngIf="upcomingBirthdays.length > 3">
+                    <button class="scroll-nav-btn" (click)="scrollUpcoming(bdaysScroll, 'left')" aria-label="Scroll left">
+                      <ion-icon name="chevron-back-outline"></ion-icon>
+                    </button>
+                    <button class="scroll-nav-btn" (click)="scrollUpcoming(bdaysScroll, 'right')" aria-label="Scroll right">
+                      <ion-icon name="chevron-forward-outline"></ion-icon>
+                    </button>
+                  </div>
+                </div>
 
-                <div class="upcoming-scroll-container">
+                <div class="upcoming-scroll-container" #bdaysScroll>
                   <div class="upcoming-item-card" *ngFor="let milestone of upcomingBirthdays; trackBy: trackById">
                     <div class="upcoming-avatar-wrapper">
                       <img *ngIf="milestone.fullImageUrl" [src]="milestone.fullImageUrl" [alt]="milestone.FirstName"
@@ -674,9 +684,19 @@
 
               <!-- Section: Upcoming Anniversaries -->
               <div class="upcoming-birthdays-section" *ngIf="upcomingAnniversaries.length > 0">
-                <h3 class="milestone-section-title">Upcoming Work Anniversaries</h3>
+                <div class="upcoming-header-row">
+                  <h3 class="milestone-section-title">Upcoming Work Anniversaries</h3>
+                  <div class="scroll-nav-btns" *ngIf="upcomingAnniversaries.length > 3">
+                    <button class="scroll-nav-btn" (click)="scrollUpcoming(annivsScroll, 'left')" aria-label="Scroll left">
+                      <ion-icon name="chevron-back-outline"></ion-icon>
+                    </button>
+                    <button class="scroll-nav-btn" (click)="scrollUpcoming(annivsScroll, 'right')" aria-label="Scroll right">
+                      <ion-icon name="chevron-forward-outline"></ion-icon>
+                    </button>
+                  </div>
+                </div>
 
-                <div class="upcoming-scroll-container">
+                <div class="upcoming-scroll-container" #annivsScroll>
                   <div class="upcoming-item-card" *ngFor="let milestone of upcomingAnniversaries; trackBy: trackById">
                     <div class="upcoming-avatar-wrapper">
                       <img *ngIf="milestone.fullImageUrl" [src]="milestone.fullImageUrl" [alt]="milestone.FirstName"
