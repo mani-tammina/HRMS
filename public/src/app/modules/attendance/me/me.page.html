@@ -263,7 +263,7 @@
 
     <!-- Attendance Requests Tab -->
     <div *ngIf="activeTab === 'requests'">
-      <app-attendance-request></app-attendance-request>
+      <app-attendance-request [employeeId]="viewEmployeeId" [isHRView]="isHRView"></app-attendance-request>
     </div>
   </div>
 </ion-content>

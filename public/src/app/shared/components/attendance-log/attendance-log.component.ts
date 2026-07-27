@@ -144,11 +144,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const weekOffPolicies$ = this.adminService.getWeeklyOffPolicies().pipe(catchError(() => of([])));
 
     const leaves$ = this.employeeId
-      ? of([]) // Optionally fetch for others if needed
+      ? this.leaveService.getEmployeeLeaves(this.employeeId, this.currentYear).pipe(catchError(() => of([])))
       : this.leaveService.getMyLeaves(this.currentYear).pipe(catchError(() => of([])));
 
     const todayPunches$ = this.employeeId
-      ? of({ punches: [] })
+      ? this.attendanceApi.getAttendanceDetailsByDate(this.formatDateOnly(new Date()), this.employeeId).pipe(catchError(() => of({ punches: [] })))
       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
     const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
@@ -177,11 +177,35 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       });
   }
 
+  private leaveDetailsMap: Map<string, { leaveType: string; isHalfDay: boolean; halfDaySession: string; typeCode: string; halfCode: string }> = new Map();
+
   private processLeavesIntoMap(leaves: MyLeave[]) {
     this.leaveDaysMap = new Map();
+    this.leaveDetailsMap = new Map();
     const approvedLeaves = leaves.filter(l => (l.status || '').toUpperCase() === 'APPROVED');
     approvedLeaves.forEach(leave => {
-      const leaveType = (leave as any).type_name || (leave as any).type_code || leave.leave_type || 'Leave';
+      let rawType = (leave as any).type_code || (leave as any).type_name || leave.leave_type || 'Leave';
+      let code = String(rawType).trim().toUpperCase();
+      if (code.includes('SICK') || code === 'SL') code = 'SL';
+      else if (code.includes('CASUAL') || code === 'CL') code = 'CL';
+      else if (code.includes('MATERNITY') || code === 'ML') code = 'ML';
+      else if (code.includes('MARRIAGE') || code === 'MRL') code = 'MRL';
+      else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
+      else if (code.includes('EARNED') || code === 'EL') code = 'EL';
+      else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
+      else if (code.length > 5) {
+        const words = code.split(/[\s_]+/);
+        if (words.length > 1) {
+          code = words.map(w => w[0]).join('');
+        } else {
+          code = code.substring(0, 4);
+        }
+      }
+
+      const leaveType = (leave as any).type_name || leave.leave_type || code;
+      const isHalfDay = !!(leave.is_half_day || (leave as any).is_half_day);
+      const halfDaySession = leave.half_day_session || (leave as any).half_day_session || '';
+
       const fromRaw = leave.start_date || leave.from_date;
       const toRaw = leave.end_date || leave.to_date || fromRaw;
       if (!fromRaw) return;
@@ -190,10 +214,95 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       let d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
       const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
       while (d <= end) {
-        this.leaveDaysMap.set(this.formatDateOnly(d), leaveType);
+        const dStr = this.formatDateOnly(d);
+        let halfCode = code;
+        if (isHalfDay) {
+          const sess = String(halfDaySession).toLowerCase();
+          if (sess.includes('first') || sess.includes('1st')) {
+            halfCode = `${code}:P`;
+          } else {
+            halfCode = `P:${code}`;
+          }
+        }
+        this.leaveDaysMap.set(dStr, leaveType);
+        this.leaveDetailsMap.set(dStr, { leaveType, isHalfDay, halfDaySession, typeCode: code, halfCode });
         d.setDate(d.getDate() + 1);
       }
     });
+  }
+
+  getHalfDayNotation(log: any): string {
+    if (!log) return 'HD';
+    if (log.halfCode) return log.halfCode;
+    const dateStr = this.formatDateOnly(log.attendance_date);
+    const leaveDetail = this.leaveDetailsMap.get(dateStr);
+    if (leaveDetail && leaveDetail.halfCode) {
+      return leaveDetail.halfCode;
+    }
+    if (log.notes && (log.notes.includes(':P') || log.notes.includes('P:'))) {
+      return log.notes.trim();
+    }
+    const notesStr = String(log.notes || '').trim();
+    const notesLower = notesStr.toLowerCase();
+    let leaveCode = 'CL';
+    if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul') || notesLower.includes('unpaid')) {
+      leaveCode = 'LOP';
+    } else if (notesLower.includes('sick') || notesLower.includes('sl')) {
+      leaveCode = 'SL';
+    } else if (notesLower.includes('casual') || notesLower.includes('cl')) {
+      leaveCode = 'CL';
+    } else if (notesLower.includes('maternity') || notesLower.includes('ml')) {
+      leaveCode = 'ML';
+    } else if (notesLower.includes('marriage') || notesLower.includes('mrl')) {
+      leaveCode = 'MRL';
+    } else if (notesLower.includes('earned') || notesLower.includes('el')) {
+      leaveCode = 'EL';
+    } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
+      leaveCode = 'PL';
+    } else if (notesStr) {
+      const cleanName = notesStr.replace(/^(first|second|1st|2nd)\s+half\s+/i, '').trim();
+      if (cleanName) {
+        const words = cleanName.split(/\s+/);
+        if (words.length > 1) {
+          leaveCode = words.map(w => w[0].toUpperCase()).join('');
+        } else {
+          leaveCode = cleanName.substring(0, 4).toUpperCase();
+        }
+      }
+    }
+
+    if (notesLower.includes('second') || notesLower.includes('2nd')) {
+      return `P:${leaveCode}`;
+    }
+    return `${leaveCode}:P`;
+  }
+
+  getLeaveBadgeText(log: any): string {
+    if (!log) return 'LEAVE';
+    if (log.leaveCode) return log.leaveCode;
+    const dateStr = this.formatDateOnly(log.attendance_date);
+    const leaveDetail = this.leaveDetailsMap.get(dateStr);
+    if (leaveDetail && leaveDetail.typeCode) {
+      return leaveDetail.typeCode;
+    }
+    const notesStr = String(log.notes || log.leaveType || '').trim();
+    const notesLower = notesStr.toLowerCase();
+    if (notesLower.includes('sick') || notesLower.includes('sl')) return 'SL';
+    if (notesLower.includes('casual') || notesLower.includes('cl')) return 'CL';
+    if (notesLower.includes('maternity') || notesLower.includes('ml')) return 'ML';
+    if (notesLower.includes('marriage') || notesLower.includes('mrl')) return 'MRL';
+    if (notesLower.includes('privilege') || notesLower.includes('pl')) return 'PL';
+    if (notesLower.includes('earned') || notesLower.includes('el')) return 'EL';
+    if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul')) return 'LOP';
+
+    if (notesStr) {
+      const words = notesStr.split(/\s+/);
+      if (words.length > 1) {
+        return words.map(w => w[0].toUpperCase()).join('');
+      }
+      return notesStr.substring(0, 4).toUpperCase();
+    }
+    return 'LEAVE';
   }
 
   loadMonthlyReport(): void {
@@ -235,12 +344,28 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const existing = attendanceMap.get(date);
           const day = new Date(date).getDay();
           const leaveType = this.leaveDaysMap.get(date);
+          const leaveDetail = this.leaveDetailsMap.get(date);
           const isWeekOff = weekOffDays.includes(day);
+
+          if (leaveDetail && leaveDetail.isHalfDay) {
+            return {
+              ...(existing || {}),
+              attendance_date: date,
+              status: 'half-day',
+              leaveType: leaveDetail.leaveType,
+              halfCode: leaveDetail.halfCode,
+              noLogs: !existing
+            };
+          }
 
           if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
+            if (existing.status === 'on-leave') {
+              updatedExisting.noLogs = true;
+              updatedExisting.leaveType = existing.notes || 'Leave';
+            }
             const isToday = this.islogToday(date);
             if (isToday && this.todayPunches && this.todayPunches.length > 0) {
               const lastPunch = this.todayPunches[this.todayPunches.length - 1];
@@ -304,10 +429,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.selectedPeriod = period;
     const now = new Date();
     if (period === '30DAYS') {
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(now.getDate() - 30);
-      this.startDate = this.formatDateOnly(thirtyDaysAgo);
-      this.endDate = this.formatDateOnly(now);
+      this.currentMonth = now.getMonth() + 1;
+      this.currentYear = now.getFullYear();
+      this.startDate = `${this.currentYear}-${String(this.currentMonth).padStart(2, '0')}-01`;
+      this.endDate = this.formatDateOnly(new Date(this.currentYear, this.currentMonth, 0));
     } else {
       const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
       const monthIndex = months.indexOf(period);
@@ -331,7 +456,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   getSelectedPeriodLabel(): string {
-    if (this.selectedPeriod === '30DAYS') return 'Last 30 Days';
+    if (this.selectedPeriod === '30DAYS') {
+      const months: { [key: number]: string } = {
+        1: 'January', 2: 'February', 3: 'March', 4: 'April',
+        5: 'May', 6: 'June', 7: 'July', 8: 'August',
+        9: 'September', 10: 'October', 11: 'November', 12: 'December'
+      };
+      return `${months[this.currentMonth] || 'Last 30 Days'} ${this.currentYear}`;
+    }
     const months: { [key: string]: string } = {
       JAN: 'January', FEB: 'February', MAR: 'March', APR: 'April',
       MAY: 'May', JUN: 'June', JUL: 'July', AUG: 'August',
@@ -479,10 +611,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return 'regularlise';
     }
 
+    if (log.notes && (log.notes.includes('Half') || log.notes.includes('Leave') || log.notes.includes('Loss of Pay'))) {
+      return log.notes;
+    }
+
     const statusMap: { [key: string]: string } = {
       present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
-      penalty: 'No Attendance Logs'
+      penalty: 'Penalty'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {

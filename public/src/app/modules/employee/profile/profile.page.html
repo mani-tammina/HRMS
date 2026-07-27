@@ -30,7 +30,7 @@
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="profile-page-content">
+<ion-content class="profile-page-content" #ionContentRef>
   <div class="header-banner"></div>
 
   <div class="profile-top-section ion-padding animate__animated animate__fadeIn">
@@ -40,7 +40,7 @@
         <ion-col size="12" size-md="4" class="ion-text-center">
           <div class="avatar-block">
             <img class="profile-pic"
-              [src]="currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : '../../assets/Profile_Picture.png'"
+              [src]="currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : '../../assets/user.png'"
               alt="Profile Picture" />
           </div>
         </ion-col>
@@ -132,7 +132,7 @@
   </div>
 
   <!-- TAB CONTENT -->
-  <div class="tab-content-container ion-padding animate__animated animate__fadeIn">
+  <div class="tab-content-container ion-padding animate__animated animate__fadeIn" #tabContentRef>
     <div [ngSwitch]="selectedSegment">
       <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"
         [isOwnProfile]="isOwnProfile"></app-about-tab>

@@ -5,7 +5,6 @@ import { Router } from '@angular/router';
 import { CandidateService } from 'src/app/core/services/candidate.service';
 import { CommonModule } from '@angular/common';
 import { CoreModule } from 'src/app/core/core.module';
-import { OnboardingMainheaderComponent } from '../onboarding-mainheader/onboarding-mainheader.component';
 import { CreateOfferHeaderComponent } from '../create-offer-header/create-offer-header.component';
 
 import { ActivatedRoute } from '@angular/router';
@@ -20,7 +19,6 @@ import { ActivatedRoute } from '@angular/router';
     IonicModule,
     ReactiveFormsModule,
     CoreModule,
-    OnboardingMainheaderComponent,
     CreateOfferHeaderComponent
   ]
 })

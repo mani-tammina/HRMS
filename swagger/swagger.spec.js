@@ -292,7 +292,7 @@ const swaggerSpec = {
     },
     "/api/upload/monthly-attendance": {
       post: {
-        summary: "Upload Previous Monthly Attendance (Admin/HR)",
+        summary: "Upload Previous Monthly Attendance (Admin/HR/Manager)",
         description:
           "Upload Excel file with monthly attendance data. Automatically creates the monthly_attendance table if it does not exist, updates column definitions dynamically to match the Excel file columns, and saves or updates the attendance records.",
         tags: ["📤 Upload"],
@@ -335,10 +335,46 @@ const swaggerSpec = {
             },
           },
           401: { description: "Unauthorized" },
-          403: { description: "Forbidden - Admin or HR required" },
+          403: { description: "Forbidden - Admin, HR or Manager required" },
           500: { description: "Internal Server Error" },
         },
       },
+    },
+    "/api/upload/monthly-attendance/export": {
+      get: {
+        summary: "Export Monthly Attendance Data (Admin/HR/Manager)",
+        description: "Export saved monthly attendance data as an Excel file, optionally filtered by a specific month.",
+        tags: ["📤 Upload"],
+        parameters: [
+          {
+            name: "month",
+            in: "query",
+            required: false,
+            schema: {
+              type: "string",
+              example: "2026-06"
+            },
+            description: "Format YYYY-MM. Filters the exported records by month."
+          }
+        ],
+        responses: {
+          200: {
+            description: "Excel spreadsheet stream",
+            content: {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {
+                schema: {
+                  type: "string",
+                  format: "binary"
+                }
+              }
+            }
+          },
+          401: { description: "Unauthorized" },
+          403: { description: "Forbidden - Admin or HR required" },
+          404: { description: "No attendance data found" },
+          500: { description: "Internal Server Error" }
+        }
+      }
     },
     // ============ AUTHENTICATION ============
     "/api/auth/login": {

@@ -1,8 +1,8 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { Subject, forkJoin } from 'rxjs';
 import { ActivatedRoute } from '@angular/router';
 import { takeUntil, map } from 'rxjs/operators';
-import { PopoverController, ToastController, LoadingController, ModalController } from '@ionic/angular';
+import { IonContent, PopoverController, ToastController, LoadingController, ModalController } from '@ionic/angular';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { environment } from '../../../../environments/environment';
 import { SeparationService } from '../../../core/services/separation.service';
@@ -17,6 +17,8 @@ import { RouteGuardService } from '../../../core/services/route-guard.service';
   standalone: false,
 })
 export class ProfilePage implements OnInit, OnDestroy {
+  @ViewChild(IonContent, { static: false }) ionContent!: IonContent;
+  @ViewChild('tabContentRef', { static: false }) tabContentRef!: ElementRef;
   private destroy$ = new Subject<void>();
 
   currentEmployee: any;
@@ -215,6 +217,34 @@ export class ProfilePage implements OnInit, OnDestroy {
 
   segmentChanged(ev: any) {
     this.selectedSegment = ev.detail.value;
+    this.cdr.detectChanges();
+
+    // Scroll to tab content and animate cards
+    setTimeout(() => {
+      if (this.tabContentRef?.nativeElement) {
+        const el = this.tabContentRef.nativeElement as HTMLElement;
+        const offsetTop = el.offsetTop;
+
+        if (this.ionContent) {
+          this.ionContent.scrollToPoint(0, Math.max(0, offsetTop - 16), 450);
+        }
+
+        // Trigger staggered card animation
+        const cards = el.querySelectorAll<HTMLElement>('.details-card, .ion-card, ion-card, .content-detail-block');
+        cards.forEach((card, i) => {
+          card.style.opacity = '0';
+          card.style.transform = 'translateY(24px)';
+          card.style.transition = 'none';
+          requestAnimationFrame(() => {
+            setTimeout(() => {
+              card.style.transition = `opacity 0.45s ease ${i * 80}ms, transform 0.45s cubic-bezier(0.34,1.56,0.64,1) ${i * 80}ms`;
+              card.style.opacity = '1';
+              card.style.transform = 'translateY(0)';
+            }, 30);
+          });
+        });
+      }
+    }, 60);
   }
 
   onFileSelected(event: any) {

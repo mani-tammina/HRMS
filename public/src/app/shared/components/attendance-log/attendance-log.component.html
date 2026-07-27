@@ -37,25 +37,35 @@
 
   <!-- Rows -->
   <ion-row *ngFor="let log of currentMonthreport" class="table-row"
-    [ngClass]="{'weekoff-row': log.status === 'weekend', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty'}">
+    [ngClass]="{'weekoff-row': log.status === 'weekend', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
       <ng-container *ngIf="log.status === 'on-leave'">
-        <span class="badge-leave">LEAVE</span>
+        <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
+      </ng-container>
+      <ng-container *ngIf="log.status === 'half-day'">
+        <span class="badge-leave" style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+          {{ getHalfDayNotation(log) }}
+        </span>
       </ng-container>
       <ng-container *ngIf="log.status === 'weekend'">
         <span class="badge-woff">W-OFF</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'penalty'">
-        <span class="badge-penalty">NO ATTENDANCE LOGS</span>
+        <span class="badge-penalty">PENALTY</span>
+      </ng-container>
+      <ng-container *ngIf="log.status === 'absent'">
+        <span *ngIf="log.notes === 'LOP'; else stdAbsent" class="badge-lop">LOP</span>
+        <ng-template #stdAbsent>
+          <span class="badge-absent">ABSENT</span>
+        </ng-template>
       </ng-container>
     </ion-col>
 
     <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave') && log.noLogs" class="no-log">
       <p *ngIf="log.status === 'weekend'" style="color:#333;font-size:11px;font-weight:550;margin:0;">Full day week off
       </p>
-      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
-        }}</p>
+      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType || log.notes || 'Leave' }}</p>
     </ion-col>
 
     <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">

@@ -1,4 +1,4 @@
-<ion-content [fullscreen]="true">
+<ion-content [fullscreen]="true" class="dashboard-content">
   <ion-grid class="ion-margin main-block">
     <ion-row>
       <ion-col size="12" class="welcome-block">
@@ -69,16 +69,16 @@
     </ion-row>
 
     <ion-row class="dashboard-row">
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <ion-card class="overview-block modern-overview-card">
           <div class="card-header-row">
             <div class="header-text">
               <h3 class="overview-title">Today's Overview</h3>
               <p class="overview-subtitle">Your attendance, progress, and status at a glance</p>
             </div>
-            <div class="header-badge">
+            <!-- <div class="header-badge">
               <span class="badge-pill">Attendance Rate • {{ attendanceRate }}% this month</span>
-            </div>
+            </div> -->
           </div>
 
           <div class="divider-line"></div>
@@ -170,7 +170,7 @@
         </ion-card>
       </ion-col>
 
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Quick Links card -->
         <ion-card class="overview-block modern-overview-card quick-links-card">
           <div class="card-header-row">
@@ -179,7 +179,7 @@
               <p class="overview-subtitle">Jump into the tools you use the most</p>
             </div>
             <div class="header-badge">
-              <span class="badge-pill">Shortcusts</span>
+              <span class="badge-pill">Shortcuts</span>
             </div>
           </div>
 
@@ -201,7 +201,7 @@
               </div>
             </div>
 
-            <div class="quick-link-tile">
+            <div class="quick-link-tile" (click)="showWorkInProgressToast('Documents')">
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
@@ -218,7 +218,7 @@
               </div>
             </div>
 
-            <div class="quick-link-tile">
+            <div class="quick-link-tile" (click)="showWorkInProgressToast('Policies')">
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
@@ -231,7 +231,7 @@
               </div>
             </div>
 
-            <div class="quick-link-tile">
+            <div class="quick-link-tile" (click)="showWorkInProgressToast('Helpdesk')">
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
@@ -245,7 +245,7 @@
               </div>
             </div>
 
-            <div class="quick-link-tile">
+            <div class="quick-link-tile" (click)="showWorkInProgressToast('Assets')">
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
@@ -265,7 +265,7 @@
     </ion-row>
 
     <ion-row class="dashboard-row">
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Leave balance card -->
         <ion-card class="overview-block modern-overview-card leave-balance-card-flat">
           <div class="card-header-row">
@@ -274,7 +274,7 @@
               <p class="overview-subtitle">Quick view of your available time off</p>
             </div>
             <div class="header-badge">
-              <span class="badge-pill">Cycle : Mar - Feb</span>
+              <span class="badge-pill">Cycle : {{ leaveCycleLabel }}</span>
             </div>
           </div>
 
@@ -282,8 +282,8 @@
 
           <div class="card-content leave-balance-body">
             <div class="leave-columns-row">
-              <div class="leave-column" *ngFor="let leave of leaveCards; trackBy: trackById">
-                <ng-container *ngIf="leave.code !== 'LOP'">
+              <ng-container *ngFor="let leave of leaveCards; trackBy: trackById">
+                <div class="leave-column" *ngIf="leave.code !== 'LOP'">
                   <div class="leave-icon-circle" [class.leave-casual]="leave.code === 'CL' || leave.code === 'PL'"
                     [class.leave-sick]="leave.code === 'SL'" [class.leave-compoff]="leave.code === 'CO'"
                     [style.backgroundColor]="leave.bg_color || ''" [style.color]="leave.bg_color ? '#ffffff' : ''">
@@ -296,15 +296,15 @@
                     <span class="days-bold">{{ leave.available | number:'2.0-0' }}/{{ leave.allocated_days |
                       number:'2.0-0' }}</span> days left
                   </p>
-                </ng-container>
-              </div>
+                </div>
+              </ng-container>
             </div>
             <p class="leave-footer-note">Plan ahead: peak leave usage is expected during upcoming festival weeks.</p>
           </div>
         </ion-card>
       </ion-col>
 
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Announcements card -->
         <ion-card class="overview-block modern-overview-card announcements-card-flat">
           <div class="card-header-row">
@@ -385,7 +385,7 @@
     </ion-row>
 
     <ion-row class="dashboard-row">
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Upcoming holidays card -->
         <ion-card class="overview-block modern-overview-card holidays-card">
           <div class="card-header-row">
@@ -414,7 +414,7 @@
         </ion-card>
       </ion-col>
 
-      <ion-col size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <!-- Birthdays & Work Anniversaries card -->
         <ion-card class="overview-block modern-overview-card milestone-card">
           <div class="card-header-row">

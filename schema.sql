@@ -1829,7 +1829,11 @@ CREATE TABLE IF NOT EXISTS inbox_notifications (
 );
 
 -- ============================================
--- Monthly Attendance Table
+-- Monthly Attendance Table (Legacy / Shared Fallback)
+-- NOTE: New uploads create per-month isolated tables: monthly_attendance_YYYY_MM
+--       e.g. monthly_attendance_2026_07, monthly_attendance_2026_08
+--       Day columns are added dynamically to match the uploaded Excel file exactly.
+--       This shared table is kept for backward compatibility only.
 -- ============================================
 CREATE TABLE IF NOT EXISTS monthly_attendance (
   id INT PRIMARY KEY AUTO_INCREMENT,
@@ -1842,59 +1846,9 @@ CREATE TABLE IF NOT EXISTS monthly_attendance (
   Location VARCHAR(100) NULL,
   CostCenter VARCHAR(100) NULL,
   ReportingManager VARCHAR(100) NULL,
-  `01-Jun-2026` VARCHAR(20) NULL,
-  `02-Jun-2026` VARCHAR(20) NULL,
-  `03-Jun-2026` VARCHAR(20) NULL,
-  `04-Jun-2026` VARCHAR(20) NULL,
-  `05-Jun-2026` VARCHAR(20) NULL,
-  `06-Jun-2026` VARCHAR(20) NULL,
-  `07-Jun-2026` VARCHAR(20) NULL,
-  `08-Jun-2026` VARCHAR(20) NULL,
-  `09-Jun-2026` VARCHAR(20) NULL,
-  `10-Jun-2026` VARCHAR(20) NULL,
-  `11-Jun-2026` VARCHAR(20) NULL,
-  `12-Jun-2026` VARCHAR(20) NULL,
-  `13-Jun-2026` VARCHAR(20) NULL,
-  `14-Jun-2026` VARCHAR(20) NULL,
-  `15-Jun-2026` VARCHAR(20) NULL,
-  `16-Jun-2026` VARCHAR(20) NULL,
-  `17-Jun-2026` VARCHAR(20) NULL,
-  `18-Jun-2026` VARCHAR(20) NULL,
-  `19-Jun-2026` VARCHAR(20) NULL,
-  `20-Jun-2026` VARCHAR(20) NULL,
-  `21-Jun-2026` VARCHAR(20) NULL,
-  `22-Jun-2026` VARCHAR(20) NULL,
-  `23-Jun-2026` VARCHAR(20) NULL,
-  `24-Jun-2026` VARCHAR(20) NULL,
-  `25-Jun-2026` VARCHAR(20) NULL,
-  `26-Jun-2026` VARCHAR(20) NULL,
-  `27-Jun-2026` VARCHAR(20) NULL,
-  `28-Jun-2026` VARCHAR(20) NULL,
-  `29-Jun-2026` VARCHAR(20) NULL,
-  `30-Jun-2026` VARCHAR(20) NULL,
-  TotalDays DECIMAL(10,2) NULL,
-  WFH DECIMAL(10,2) NULL,
-  PendingWFH DECIMAL(10,2) NULL,
-  OnDuty DECIMAL(10,2) NULL,
-  PendingOnDuty DECIMAL(10,2) NULL,
-  WOH DECIMAL(10,2) NULL,
-  WOW DECIMAL(10,2) NULL,
-  WeeklyOffs DECIMAL(10,2) NULL,
-  Holidays DECIMAL(10,2) NULL,
-  AbsentDays DECIMAL(10,2) NULL,
-  PresentDays DECIMAL(10,2) NULL,
-  MissingSwipeDays DECIMAL(10,2) NULL,
-  LateArrivalDays DECIMAL(10,2) NULL,
-  PenalizedPaidLeave DECIMAL(10,2) NULL,
-  PaidLeaveTaken DECIMAL(10,2) NULL,
-  PendingPaidLeaveTaken DECIMAL(10,2) NULL,
-  TotalPaidLeave DECIMAL(10,2) NULL,
-  PenalizedUnpaidLeave DECIMAL(10,2) NULL,
-  UnpaidLeaveTaken DECIMAL(10,2) NULL,
-  PendingUnpaidLeaveTaken DECIMAL(10,2) NULL,
-  TotalUnpaidLeave DECIMAL(10,2) NULL,
   attendance_month VARCHAR(7) NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
 );
+

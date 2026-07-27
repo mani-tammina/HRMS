@@ -63,7 +63,7 @@
                   placeholder="Enter your password" class="form-input" (focus)="passwordFocused = true"
                   (blur)="passwordFocused = false" />
                 <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
             </div>
@@ -89,15 +89,35 @@
             </div>
 
             <!-- CREATE PASSWORD FIELD -->
-            <div class="field-group" *ngIf="showCreatePassword && otpVerified">
+            <div class="field-group pw-field-group" *ngIf="showCreatePassword && otpVerified">
               <label class="field-label" for="login-create-password">Create Password</label>
               <div class="input-with-toggle">
                 <input id="login-create-password" [type]="showPasswordText ? 'text' : 'password'"
                   formControlName="password" placeholder="Create a new password" class="form-input"
-                  (focus)="createPwFocused = true" (blur)="createPwFocused = false" />
-                <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-outline' : 'eye-off-outline'"></ion-icon>
+                  (focus)="createPwFocused = true; showPwStrength = true"
+                  (blur)="createPwFocused = false; showPwStrength = false" />
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
+              </div>
+              <!-- Live password strength popup -->
+              <div class="pw-strength-popup" *ngIf="showPwStrength">
+                <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
+                  <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
+                  <span>Min 8 characters</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
+                  <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
+                  <span>At least 1 uppercase letter</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
+                  <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
+                  <span>At least 1 number</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
+                  <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
+                  <span>At least 1 special character</span>
+                </div>
               </div>
             </div>
 
@@ -193,10 +213,37 @@
             </div>
 
             <!-- New Password Field -->
-            <div class="field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
+            <div class="field-group pw-field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
               <label class="field-label" for="reset-password">New Password</label>
-              <input id="reset-password" type="password" formControlName="password" placeholder="Enter new password"
-                class="form-input" />
+              <div class="input-with-toggle">
+                <input id="reset-password" [type]="showPasswordText ? 'text' : 'password'"
+                  formControlName="password" placeholder="Enter new password"
+                  class="form-input"
+                  (focus)="showPwStrength = true"
+                  (blur)="showPwStrength = false" />
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                </button>
+              </div>
+              <!-- Live password strength popup -->
+              <div class="pw-strength-popup" *ngIf="showPwStrength">
+                <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
+                  <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
+                  <span>Min 8 characters</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
+                  <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
+                  <span>At least 1 uppercase letter</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
+                  <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
+                  <span>At least 1 number</span>
+                </div>
+                <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
+                  <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
+                  <span>At least 1 special character</span>
+                </div>
+              </div>
             </div>
 
             <!-- SEND OTP BUTTON -->

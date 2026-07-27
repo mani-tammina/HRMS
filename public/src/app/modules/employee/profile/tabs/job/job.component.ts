@@ -17,7 +17,6 @@ import { IonicModule } from '@ionic/angular';
 })
 export class JobTabComponent implements OnChanges {
   @Input() currentEmployee: any | null = null;
-  IseditJob = false;
 
   constructor() { }
 
@@ -26,6 +25,4 @@ export class JobTabComponent implements OnChanges {
       console.log('✅ JobTabComponent received employee:', this.currentEmployee);
     }
   }
-
-  isEditJob() { this.IseditJob = !this.IseditJob; }
 }

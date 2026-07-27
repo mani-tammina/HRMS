@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { Component, Input, OnInit } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
 import { HttpClient } from '@angular/common/http';
 import { WorkFromHomeService } from '../../../core/services/work-from-home.service';
@@ -26,6 +26,9 @@ interface AttendanceRequestHistory {
   styleUrls: ['./attendance-request.component.scss'],
 })
 export class AttendanceRequestComponent implements OnInit {
+  @Input() employeeId: number | null = null;
+  @Input() isHRView: boolean = false;
+
   attendanceRequestsHistory: { type: string; dateRange: string; records: AttendanceRequestHistory[] }[] = [];
 
   constructor(
@@ -49,13 +52,12 @@ export class AttendanceRequestComponent implements OnInit {
   }
 
   private loadWFHRequests() {
-    this.wfhService.getAllWFHRequests().subscribe({
+    const empId = this.employeeId ? this.employeeId : undefined;
+    this.wfhService.getAllWFHRequests(empId).subscribe({
       next: (res: any) => {
-        console.log(res)
         const resData = Array.isArray(res) ? res : (res.data || res.requests || []);
         const wfhRecords = resData.filter((item: any) => item.leave_type === 'WFH').map((item: any) => this.mapWFHRecord(item, 'WFH'));
         const regularizationRecords = resData.filter((item: any) => item.leave_type === 'Remote').map((item: any) => this.mapWFHRecord(item, 'Regularization'));
-        console.log(wfhRecords)
         this.assignGroup('Work From Home / On Duty Requests', wfhRecords);
         this.assignGroup('Remote Clock In Requests', regularizationRecords);
       },

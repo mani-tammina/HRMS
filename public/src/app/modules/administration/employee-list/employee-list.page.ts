@@ -22,7 +22,8 @@ export class EmployeeListPage implements OnInit {
     attendance_policy_id: null,
     weekly_off_policy_id: null,
     PayGradeId: null,
-    DepartmentId: null
+    DepartmentId: null,
+    LocationId: null
   };
 
   shiftPolicies: any[] = [];
@@ -30,6 +31,7 @@ export class EmployeeListPage implements OnInit {
   leavePlans: any[] = [];
   weeklyOffPolicies: any[] = [];
   departments: any[] = [];
+  locations: any[] = [];
   allEmployees: any[] = []; // For reporting manager selection
   filteredManagers: any[] = []; // Filtered list for searchable dropdown
   managerSearchTerm: string = '';
@@ -63,11 +65,18 @@ export class EmployeeListPage implements OnInit {
     this.loadLeavePlans();
     this.loadWeeklyOffPolicies();
     this.loadDepartments();
+    this.loadLocations();
   }
 
   loadDepartments() {
     this.adminService.getDepartments().subscribe(deps => {
       this.departments = deps || [];
+    });
+  }
+
+  loadLocations() {
+    this.adminService.getLocations().subscribe(locs => {
+      this.locations = locs || [];
     });
   }
 
@@ -141,7 +150,8 @@ export class EmployeeListPage implements OnInit {
       attendance_policy_id: emp.attendance_policy_id || null,
       weekly_off_policy_id: emp.weekly_off_policy_id || null,
       PayGradeId: emp.PayGradeId || null,
-      DepartmentId: emp.DepartmentId || null
+      DepartmentId: emp.DepartmentId || null,
+      LocationId: emp.LocationId || null
     };
   }
 
@@ -150,8 +160,9 @@ export class EmployeeListPage implements OnInit {
 
     const payload: any = {};
     Object.keys(this.updateData).forEach(key => {
-      if (this.updateData[key] !== null && this.updateData[key] !== undefined) {
-        payload[key] = this.updateData[key];
+      const val = this.updateData[key];
+      if (val !== undefined) {
+        payload[key] = val;
       }
     });
 

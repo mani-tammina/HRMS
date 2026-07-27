@@ -242,11 +242,14 @@ export class MyTeamPage implements OnInit, OnDestroy {
   }
 
   getProfileImage(member: any): string {
-    if (member?.profile_image) {
-      if (member.profile_image.startsWith('http')) return member.profile_image;
-      return `${environment.apiURL}${member.profile_image}?t=${Date.now()}`;
+    const image = member?.profile_image || member?.ProfileImage;
+    if (image) {
+      if (image.startsWith('http')) return image;
+      const baseUrl = environment.apiURL.endsWith('/') ? environment.apiURL.slice(0, -1) : environment.apiURL;
+      const imagePath = image.startsWith('/') ? image : `/${image}`;
+      return `${baseUrl}${imagePath}`;
     }
-    return '../../assets/Profile_Picture.png';
+    return 'assets/Profile_Picture.png';
   }
 
   handleRefresh(event: any) {
@@ -424,6 +427,9 @@ export class MyTeamPage implements OnInit, OnDestroy {
   }
 
   viewEmployeeAttendance(member: any) {
+    if (!this.isManager) {
+      return;
+    }
     const id = member.id || member.employee_id || member.EmployeeId;
     if (id) {
       this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);

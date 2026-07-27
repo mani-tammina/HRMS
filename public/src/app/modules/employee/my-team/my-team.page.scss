@@ -17,9 +17,9 @@
 
   .approval-pills-container {
     display: flex;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 2px;
-    min-width: max-content;
   }
 
   .approval-pill {
@@ -39,6 +39,8 @@
     box-shadow: vars.$shadow-xs;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex: 1 1 auto;
+    min-width: 170px;
 
     ion-icon {
       font-size: 18px;
@@ -113,6 +115,7 @@
     display: flex;
     align-items: center;
     gap: 16px;
+    flex-wrap: wrap;
 
     .reset-btn {
       --padding-start: 16px;
@@ -194,6 +197,7 @@
   transition: vars.$transition-smooth;
   border: 1px solid transparent;
   background: #122E44;
+  cursor: pointer;
 
   &:hover {
     box-shadow: vars.$shadow-md;
@@ -347,14 +351,16 @@
   .card-header-row {
     display: flex;
     align-items: center;
-    gap: 14px;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: nowrap;
   }
 
   /* Avatar with a coloured ring */
   .avatar-wrap {
     flex-shrink: 0;
-    width: 56px;
-    height: 56px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
     border: 2.5px solid transparent;
     padding: 2px;
@@ -423,7 +429,7 @@
 
   /* Status badge — pushed to far right */
   .status-badge {
-    flex-shrink: 0;
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 5px;
@@ -434,7 +440,7 @@
     text-transform: uppercase;
     letter-spacing: 0.4px;
     white-space: nowrap;
-    align-self: flex-start;
+    margin-left: auto;
 
     .dot {
       width: 5px;
@@ -505,6 +511,7 @@
       color: #5a6f85;
       font-weight: 500;
       min-width: 0;
+      flex-wrap: wrap;
 
       ion-icon {
         font-size: 14px;
@@ -595,13 +602,25 @@
 }
 
 .employee-card-wrapper {
-  cursor: pointer;
+  &.clickable {
+    cursor: pointer;
+  }
+
+  &:not(.clickable) {
+    cursor: default;
+
+    .premium-emp-card:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    }
+  }
 }
 
 .global-search-wrapper {
-  flex: 1;
+  flex: 1 1 100%;
   max-width: 450px;
   margin: 0 40px;
+  min-width: 220px;
 }
 
 .premium-global-search {
@@ -618,6 +637,7 @@
 
 .date-selector .team-search {
   width: 240px;
+  min-width: 160px;
 }
 
 .compact-team-search {
@@ -625,6 +645,30 @@
   --border-radius: 10px;
   // border: 1px solid #e2e8f0;
   height: 40px;
+}
+
+@media (max-width: 1024px) {
+  .global-search-wrapper {
+    margin: 0;
+    max-width: 100%;
+  }
+
+  .date-selector {
+    width: 100%;
+    gap: 12px;
+  }
+
+  .date-selector .team-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .premium-summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 18px;
+    min-width: unset;
+  }
 }
 
 @media (max-width:767px) {
@@ -637,4 +681,65 @@
   .reports-header-card .date-selector {
     display: block;
   }
+
+  .reports-header-card .header-main {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .reports-container {
+    padding: 16px 12px;
+  }
+
+  .reports-header-card {
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+  }
+
+  .premium-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .manager-approval-bar .approval-pills-container {
+    justify-content: flex-start;
+    gap: 10px;
+  }
+
+  .manager-approval-bar .approval-pill {
+    min-width: 140px;
+    padding: 10px 18px;
+  }
+
+  .global-search-wrapper {
+    margin: 0;
+  }
+
+  .date-selector {
+    width: 100%;
+  }
+
+  .date-selector .team-search {
+    width: 100%;
+  }
+}
+
+@media (max-width: 520px) {
+  .premium-emp-card .card-body {
+    padding: 14px 14px 12px 14px;
+  }
+
+  .avatar-wrap {
+    width: 46px;
+    height: 46px;
+  }
+
+  .emp-name {
+    font-size: 13px;
+  }
+}
+
+.premium-card {
+  cursor: pointer;
 }

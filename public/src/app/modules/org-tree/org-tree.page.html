@@ -4,10 +4,10 @@
       <ion-menu-button></ion-menu-button>
     </ion-buttons>
     <ion-title>Organization Structure</ion-title>
-    
+
     <!-- Search Bar in Header -->
     <div class="search-container" slot="end">
-      <div class="search-input-wrapper">
+      <!-- <div class="search-input-wrapper">
         <ion-icon name="search-outline" class="search-icon"></ion-icon>
         <input 
           type="text" 
@@ -19,7 +19,7 @@
         <button class="clear-btn" *ngIf="searchQuery" (click)="searchQuery = ''; showSearchDropdown = false;">
           <ion-icon name="close-circle"></ion-icon>
         </button>
-      </div>
+      </div> -->
 
       <!-- Search Results Dropdown -->
       <div class="search-dropdown-list" *ngIf="showSearchDropdown">
@@ -49,20 +49,16 @@
   <!-- Main Organization Chart (Recursive Canvas) -->
   <div class="org-tree-chart" *ngIf="!isLoading && treeData?.root">
     <div class="org-tree-wrapper">
-      
+
       <!-- Top Level: CEO / Root Card -->
       <div class="tree-node-group">
-        <div 
-          class="employee-card" 
-          [class.focus-employee-card]="treeData.root.isFocusEmployee" 
-          [class.active-focus]="treeData.root.isFocusEmployee" 
-          [class.highlight-relation]="treeData.root.isPathNode"
-          [class.expanded-manager]="isExpanded(treeData.root.employee.id)"
-          (click)="onCardClick($event, treeData.root)"
-        >
+        <div class="employee-card" [class.focus-employee-card]="treeData.root.isFocusEmployee"
+          [class.active-focus]="treeData.root.isFocusEmployee" [class.highlight-relation]="treeData.root.isPathNode"
+          [class.expanded-manager]="isExpanded(treeData.root.employee.id)" (click)="onCardClick($event, treeData.root)">
           <div class="card-left">
             <div class="avatar-container">
-              <img [src]="getProfileImage(treeData.root.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+              <img [src]="getProfileImage(treeData.root.employee)" class="emp-avatar"
+                onerror="this.src='assets/Profile_Picture.png'">
             </div>
           </div>
           <div class="card-right">
@@ -82,17 +78,16 @@
             </div>
             <div class="card-actions-row">
               <span class="relation-tag focus-tag" *ngIf="treeData.root.isFocusEmployee">Focus</span>
-              <span class="relation-tag manager-tag" *ngIf="treeData.root.isPathNode && !treeData.root.isFocusEmployee">Mgr</span>
-              <span class="relation-tag report-tag" *ngIf="!treeData.root.isPathNode && !treeData.root.isFocusEmployee">Peer</span>
-              <span class="relation-tag team-size-tag" *ngIf="treeData.root.employee.reports_count > 0">Team: {{ treeData.root.employee.reports_count }}</span>
-              
+              <span class="relation-tag manager-tag"
+                *ngIf="treeData.root.isPathNode && !treeData.root.isFocusEmployee">Mgr</span>
+              <span class="relation-tag report-tag"
+                *ngIf="!treeData.root.isPathNode && !treeData.root.isFocusEmployee">Peer</span>
+              <span class="relation-tag team-size-tag" *ngIf="treeData.root.employee.reports_count > 0">Team: {{
+                treeData.root.employee.reports_count }}</span>
+
               <!-- Expand/Collapse Button -->
-              <button 
-                class="expand-action-btn" 
-                *ngIf="treeData.root.employee.reports_count > 0"
-                (click)="toggleNode($event, treeData.root)" 
-                title="Toggle Team"
-              >
+              <button class="expand-action-btn" *ngIf="treeData.root.employee.reports_count > 0"
+                (click)="toggleNode($event, treeData.root)" title="Toggle Team">
                 <ion-icon [name]="isExpanded(treeData.root.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
               </button>
 
@@ -104,9 +99,11 @@
         </div>
 
         <!-- Render the team rows below CEO -->
-        <ng-container *ngIf="isExpanded(treeData.root.employee.id) && treeData.root.directReports && treeData.root.directReports.length > 0">
+        <ng-container
+          *ngIf="isExpanded(treeData.root.employee.id) && treeData.root.directReports && treeData.root.directReports.length > 0">
           <div class="parent-line-down"></div>
-          <ng-container *ngTemplateOutlet="childrenListTemplate; context: { nodes: treeData.root.directReports }"></ng-container>
+          <ng-container
+            *ngTemplateOutlet="childrenListTemplate; context: { nodes: treeData.root.directReports }"></ng-container>
         </ng-container>
       </div>
 
@@ -115,22 +112,19 @@
 
   <!-- Recursive Peer List Template -->
   <ng-template #childrenListTemplate let-nodes="nodes">
-    <div class="children-row-container" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+    <div class="children-row-container"
+      style="display: flex; flex-direction: column; align-items: center; width: 100%;">
       <!-- Render the flex row of cards -->
       <div class="children-row">
         <div class="child-wrapper" *ngFor="let node of nodes">
           <div class="branch-line"></div>
-          <div 
-            class="employee-card" 
-            [class.focus-employee-card]="node.isFocusEmployee" 
-            [class.active-focus]="node.isFocusEmployee" 
-            [class.highlight-relation]="node.isPathNode"
-            [class.expanded-manager]="isExpanded(node.employee.id)"
-            (click)="onCardClick($event, node, nodes)"
-          >
+          <div class="employee-card" [class.focus-employee-card]="node.isFocusEmployee"
+            [class.active-focus]="node.isFocusEmployee" [class.highlight-relation]="node.isPathNode"
+            [class.expanded-manager]="isExpanded(node.employee.id)" (click)="onCardClick($event, node, nodes)">
             <div class="card-left">
               <div class="avatar-container">
-                <img [src]="getProfileImage(node.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+                <img [src]="getProfileImage(node.employee)" class="emp-avatar"
+                  onerror="this.src='assets/Profile_Picture.png'">
               </div>
             </div>
             <div class="card-right">
@@ -152,15 +146,12 @@
                 <span class="relation-tag focus-tag" *ngIf="node.isFocusEmployee">Focus</span>
                 <span class="relation-tag manager-tag" *ngIf="node.isPathNode && !node.isFocusEmployee">Mgr</span>
                 <span class="relation-tag report-tag" *ngIf="!node.isPathNode && !node.isFocusEmployee">Peer</span>
-                <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{ node.employee.reports_count }}</span>
-                
+                <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{
+                  node.employee.reports_count }}</span>
+
                 <!-- Expand/Collapse Button (Only if node has direct reports) -->
-                <button 
-                  class="expand-action-btn" 
-                  *ngIf="node.employee.reports_count > 0"
-                  (click)="toggleNode($event, node, nodes)" 
-                  title="Toggle Team"
-                >
+                <button class="expand-action-btn" *ngIf="node.employee.reports_count > 0"
+                  (click)="toggleNode($event, node, nodes)" title="Toggle Team">
                   <ion-icon [name]="isExpanded(node.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
                 </button>
 
@@ -178,19 +169,17 @@
         <ng-container *ngIf="isExpanded(node.employee.id) && node.directReports && node.directReports.length > 0">
           <!-- Render vertical line down from the peer row -->
           <div class="parent-line-down"></div>
-          
+
           <!-- Render the selected manager individually -->
-          <div class="selected-manager-individual-wrapper" style="display: flex; flex-direction: column; align-items: center; width: 100%;">
-            <div 
-              class="employee-card expanded-manager" 
-              [class.focus-employee-card]="node.isFocusEmployee" 
-              [class.active-focus]="node.isFocusEmployee" 
-              [class.highlight-relation]="node.isPathNode"
-              (click)="onCardClick($event, node, nodes)"
-            >
+          <div class="selected-manager-individual-wrapper"
+            style="display: flex; flex-direction: column; align-items: center; width: 100%;">
+            <div class="employee-card expanded-manager" [class.focus-employee-card]="node.isFocusEmployee"
+              [class.active-focus]="node.isFocusEmployee" [class.highlight-relation]="node.isPathNode"
+              (click)="onCardClick($event, node, nodes)">
               <div class="card-left">
                 <div class="avatar-container">
-                  <img [src]="getProfileImage(node.employee)" class="emp-avatar" onerror="this.src='assets/Profile_Picture.png'">
+                  <img [src]="getProfileImage(node.employee)" class="emp-avatar"
+                    onerror="this.src='assets/Profile_Picture.png'">
                 </div>
               </div>
               <div class="card-right">
@@ -212,15 +201,12 @@
                   <span class="relation-tag focus-tag" *ngIf="node.isFocusEmployee">Focus</span>
                   <span class="relation-tag manager-tag" *ngIf="node.isPathNode && !node.isFocusEmployee">Mgr</span>
                   <span class="relation-tag report-tag" *ngIf="!node.isPathNode && !node.isFocusEmployee">Peer</span>
-                  <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{ node.employee.reports_count }}</span>
-                  
+                  <span class="relation-tag team-size-tag" *ngIf="node.employee.reports_count > 0">Team: {{
+                    node.employee.reports_count }}</span>
+
                   <!-- Expand/Collapse Button (Only if node has direct reports) -->
-                  <button 
-                    class="expand-action-btn" 
-                    *ngIf="node.employee.reports_count > 0"
-                    (click)="toggleNode($event, node, nodes)" 
-                    title="Toggle Team"
-                  >
+                  <button class="expand-action-btn" *ngIf="node.employee.reports_count > 0"
+                    (click)="toggleNode($event, node, nodes)" title="Toggle Team">
                     <ion-icon [name]="isExpanded(node.employee.id) ? 'chevron-up' : 'chevron-down'"></ion-icon>
                   </button>
 

@@ -25,11 +25,14 @@
   .card-content {
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
     padding: 14px;
 
     .card-info {
-      max-width: 70%;
+      flex: 1 1 60%;
+      min-width: 0;
 
       h2 {
         font-size: 16px;
@@ -54,7 +57,10 @@
     .card-status {
       display: flex;
       align-items: center;
+      justify-content: flex-end;
+      flex-wrap: wrap;
       gap: 8px;
+      width: auto;
 
       .status {
         font-size: 12px;
@@ -112,5 +118,37 @@
     width: 70%;
 }
 .right-cards{
-    width: 30%;
+    flex: 1 1 300px;
+    min-width: 260px;
+}
+
+.d-flex{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px;
+}
+
+.left-cards{
+    flex: 2 1 680px;
+    min-width: 280px;
+}
+
+@media (max-width: 900px) {
+  .d-flex {
+    flex-direction: column;
+  }
+
+  .left-cards,
+  .right-cards {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .custom-card .card-content {
+    align-items: flex-start;
+  }
+
+  .card-status {
+    justify-content: flex-start;
+  }
 }

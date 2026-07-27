@@ -60,10 +60,17 @@
             <div class="days-display">
               <span class="available">{{ leave.isLOP ? combinedLopDays : leave.available }}</span>
               <span class="separator">/</span>
-              <span class="total">{{ leave.allocated_days }}</span>
+              <span class="total" *ngIf="!leave.isLOP">{{ leave.allocated_days }}</span>
+              <img *ngIf="leave.isLOP" src="assets/unpaidleaves.png" class="unpaid-infinity-icon" alt="∞" />
             </div>
 
-            <p class="label">days available</p>
+            <p class="label">{{ leave.isLOP ? 'days taken' : 'days available' }}</p>
+
+            <div class="consumed-badge">
+              <span class="consumed-label">Consumed: </span>
+              <span class="consumed-value">{{ leave.isLOP ? combinedLopDays : leave.used }} {{ (leave.isLOP ?
+                combinedLopDays : leave.used) === 1 ? 'day' : 'days' }}</span>
+            </div>
           </div>
         </div>
       </section>
@@ -244,7 +251,7 @@
       </ion-header>
       <ion-content class="ion-padding">
         <div class="detail-card-premium-v2">
-          
+
           <!-- Hero Section with status banner -->
           <div class="modal-hero-banner" [ngClass]="selectedLeave?.status?.toLowerCase()">
             <div class="hero-top">
@@ -258,7 +265,8 @@
             </div>
             <div class="hero-bottom">
               <h3>{{ selectedLeave?.leave_type }}</h3>
-              <p class="applied-date" *ngIf="selectedLeave?.applied_on">Applied on {{ selectedLeave?.applied_on | date:'MMM d, y, h:mm a' }}</p>
+              <p class="applied-date" *ngIf="selectedLeave?.applied_on">Applied on {{ selectedLeave?.applied_on |
+                date:'MMM d, y, h:mm a' }}</p>
             </div>
           </div>
 
@@ -266,10 +274,12 @@
           <div class="details-grid-v2">
             <div class="grid-card duration-card">
               <span class="card-label">Duration</span>
-              <span class="card-value highlight">{{ selectedLeave?.days }} {{ selectedLeave?.days === 0.5 ? 'Half Day' : 'Days' }}</span>
-              <span *ngIf="selectedLeave?.is_half_day" class="card-sub-value">({{ selectedLeave?.half_day_session }})</span>
+              <span class="card-value highlight">{{ selectedLeave?.days }} {{ selectedLeave?.days === 0.5 ? 'Half Day' :
+                'Days' }}</span>
+              <span *ngIf="selectedLeave?.is_half_day" class="card-sub-value">({{ selectedLeave?.half_day_session
+                }})</span>
             </div>
-            
+
             <div class="grid-card date-card">
               <span class="card-label">From Date</span>
               <span class="card-value">{{ selectedLeave?.from_date | date:'mediumDate' }}</span>
@@ -290,9 +300,10 @@
           </div>
 
           <!-- Processed Info -->
-          <div class="processed-section-v2" *ngIf="selectedLeave?.approver_name || (selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason)">
+          <div class="processed-section-v2"
+            *ngIf="selectedLeave?.approver_name || (selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason)">
             <h4 class="section-title">Approval Details</h4>
-            
+
             <div class="processed-info-box" *ngIf="selectedLeave?.approver_name">
               <ion-icon name="checkbox-outline" class="success-icon"></ion-icon>
               <div class="processed-text">
@@ -301,7 +312,8 @@
               </div>
             </div>
 
-            <div class="processed-info-box reject-box" *ngIf="selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason">
+            <div class="processed-info-box reject-box"
+              *ngIf="selectedLeave?.status === 'REJECTED' && selectedLeave?.rejection_reason">
               <ion-icon name="alert-circle-outline" class="danger-icon"></ion-icon>
               <div class="processed-text">
                 <span class="label">Rejection Reason</span>
@@ -311,8 +323,10 @@
           </div>
 
           <!-- Premium Action Footer (Cancel Request) -->
-          <div class="action-footer-premium-v2" *ngIf="selectedLeave && selectedLeave.id && selectedLeave.id !== -1 && selectedLeave.id !== 'lop-current' && selectedLeave.status !== 'CANCELLED' && selectedLeave.status !== 'REJECTED'">
-            <ion-button expand="block" class="cancel-request-btn-v2" (click)="cancelLeaveRequest(selectedLeave)" [disabled]="cancellingLeave">
+          <div class="action-footer-premium-v2"
+            *ngIf="selectedLeave && selectedLeave.id && selectedLeave.id !== -1 && selectedLeave.id !== 'lop-current' && selectedLeave.status !== 'CANCELLED' && selectedLeave.status !== 'REJECTED'">
+            <ion-button expand="block" class="cancel-request-btn-v2" (click)="cancelLeaveRequest(selectedLeave)"
+              [disabled]="cancellingLeave">
               <ion-spinner name="crescent" *ngIf="cancellingLeave" slot="start"></ion-spinner>
               <ion-icon name="trash-sharp" slot="start" *ngIf="!cancellingLeave"></ion-icon>
               {{ selectedLeave?.isCompOffGrant ? 'Cancel Comp Off Request' : 'Cancel Leave Request' }}

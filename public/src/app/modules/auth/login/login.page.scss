@@ -807,3 +807,91 @@ ion-content.login-content {
     }
   }
 }
+
+/* ── Password Requirements Hint (legacy static) ── */
+.pw-hint {
+  margin: 6px 0 0;
+  font-size: 11.5px;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+}
+
+/* ── Live Password Strength Popup ── */
+.pw-field-group {
+  position: relative;
+}
+
+.pw-strength-popup {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  animation: pwPopupIn 0.15s ease;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 20px;
+    width: 10px;
+    height: 10px;
+    background: #ffffff;
+    border-left: 1.5px solid #e2e8f0;
+    border-top: 1.5px solid #e2e8f0;
+    transform: rotate(45deg);
+  }
+}
+
+@keyframes pwPopupIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.pw-rule {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12.5px;
+  font-weight: 500;
+  transition: color 0.2s ease;
+
+  .pw-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    flex-shrink: 0;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+
+  &.pass {
+    color: #16a34a;
+    .pw-icon {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+  }
+
+  &.fail {
+    color: #94a3b8;
+    .pw-icon {
+      background: #f1f5f9;
+      color: #ef4444;
+    }
+  }
+}

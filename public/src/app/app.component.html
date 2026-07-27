@@ -7,7 +7,7 @@
       <div class="cloud cloud-3"></div>
       <div class="cloud cloud-4"></div>
     </div>
-    
+
     <div class="logo-box animate__animated animate__zoomIn">
       <img src="assets/tt_blue_logo.png" alt="Tech Tammina Logo" class="intro-logo" />
       <div class="loading-bar">
@@ -35,14 +35,14 @@
               <!-- Standard Item -->
               <ion-menu-toggle auto-hide="false" *ngIf="!p.children">
                 <ion-item routerDirection="root" [routerLink]="[p.url]" routerLinkActive="selected"
-                  [routerLinkActiveOptions]="{ exact: !!p.exactMatch }"
-                  class="menu-nav-item">
+                  [routerLinkActiveOptions]="{ exact: !!p.exactMatch }" class="menu-nav-item">
                   <div class="row-left">
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon inactive-icon" />
                     <img [src]="getCustomIconPath(p.icon)" alt="{{ p.title }}" class="custom-menu-icon active-icon" />
                     <ion-label>{{ p.title }}</ion-label>
                   </div>
-                  <div class="menu-badge animate__animated animate__pulse animate__infinite" *ngIf="p.title === 'Inbox' && unreadInboxCount > 0">
+                  <div class="menu-badge animate__animated animate__pulse animate__infinite"
+                    *ngIf="p.title === 'Inbox' && unreadInboxCount > 0">
                     {{ unreadInboxCount }}
                   </div>
                 </ion-item>
@@ -61,7 +61,7 @@
 
                 <!-- Popover Submenu -->
                 <ion-popover [trigger]="'menu-trigger-' + p.icon" side="end" alignment="start" triggerAction="hover"
-                  class="custom-submenu-popover" [showBackdrop]="false" keyboardClose="false">
+                  class="custom-submenu-popover" [showBackdrop]="false" keyboardClose="false" [dismissOnSelect]="true">
                   <ng-template>
                     <ion-list lines="none" class="submenu-popover-list">
                       <ng-container *ngFor="let sub of p.children">

@@ -19,9 +19,14 @@ export class WorkFromHomeService {
     });
   }
 
-  getAllWFHRequests(): Observable<any> {
-    return this.http.get<any>(`${this.API_URL}/wfh-requests`, { headers: this.getHeaders() });
-    
+  getAllWFHRequests(employeeId?: number): Observable<any> {
+    let params = {};
+    if (employeeId) {
+      params = { params: { employeeId: employeeId.toString() }, headers: this.getHeaders() };
+    } else {
+      params = { headers: this.getHeaders() };
+    }
+    return this.http.get<any>(`${this.API_URL}/wfh-requests`, params);
   }
 
   wfh(payload: { start_date?: string; end_date?: string; date?: string; total_days?: number; work_mode: 'WFH' | 'WFO' | 'Remote'; reason: string }): Observable<any> {

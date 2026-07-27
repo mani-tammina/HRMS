@@ -337,7 +337,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       this.fb.group({
         hour: [firstTimeSlot, Validators.required],
         task: ['', Validators.required],
-        hours: [1, [Validators.required, Validators.min(0.5)]],
+        hours: [1, [Validators.required, Validators.min(0.1)]],
       })
     );
   }
@@ -509,7 +509,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       this.fb.group({
         hour: [nextTimeSlot, Validators.required],
         task: ['', Validators.required],
-        hours: [1, [Validators.required, Validators.min(0.5)]],
+        hours: [1, [Validators.required, Validators.min(0.1)]],
       })
     );
   }
@@ -517,13 +517,21 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   /* Update time slots when hours change */
   onHoursChange(index: number, event?: any) {
     const currentRow = this.breakdowns.at(index);
-    let hours = 1;
-    if (event && event.target) {
-      hours = Number(event.target.value || 1);
-      currentRow.get('hours')?.setValue(hours, { emitEvent: false });
-    } else {
-      hours = Number(currentRow.get('hours')?.value || 1);
+    const targetVal = event?.target?.value;
+
+    if (targetVal !== undefined && targetVal !== null) {
+      const strVal = String(targetVal).trim();
+      // If user is currently typing a decimal (e.g. "1." or empty string while editing), don't force-override value
+      if (strVal === '' || strVal.endsWith('.')) {
+        return;
+      }
     }
+
+    const hours = Number(currentRow.get('hours')?.value || 0);
+    if (isNaN(hours) || hours <= 0) {
+      return;
+    }
+
     const currentTimeSlot = currentRow.get('hour')?.value;
 
     if (currentTimeSlot && currentTimeSlot.includes('-')) {
@@ -568,7 +576,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
       const endDate = new Date(startDate);
       // Add hours (convert to minutes for precision)
-      endDate.setMinutes(startDate.getMinutes() + (hours * 60));
+      endDate.setMinutes(startDate.getMinutes() + Math.round(hours * 60));
 
       const startStr = this.formatTime(startDate);
       const endStr = this.formatTime(endDate);
@@ -587,10 +595,11 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   }
 
   calculateTotalHours(): number {
-    return this.breakdowns.controls.reduce(
+    const total = this.breakdowns.controls.reduce(
       (sum, row) => sum + Number(row.get('hours')?.value || 0),
       0
     );
+    return Math.round(total * 100) / 100;
   }
 
   /* ================= SUBMIT ================= */
@@ -687,7 +696,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
           this.fb.group({
             hour: [b.hour, Validators.required],
             task: [b.task, Validators.required],
-            hours: [Number(b.hours), [Validators.required, Validators.min(0.5)]],
+            hours: [Number(b.hours), [Validators.required, Validators.min(0.1)]],
           })
         );
       });
