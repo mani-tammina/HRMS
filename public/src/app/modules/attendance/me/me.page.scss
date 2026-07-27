@@ -1155,7 +1155,7 @@ app-clock-button {
     }
 
     .gauge-fill {
-      stroke: #3b82f6;
+      stroke: #16a34a;
       stroke-width: 9;
       fill: none;
       stroke-linecap: round;
@@ -1426,6 +1426,152 @@ app-clock-button {
 
     .toggle-btn-container {
       display: none !important; /* Hide toggle button since it is always expanded */
+    }
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   DESKTOP RESOLUTIONS (1200px to 1600px) — NO TEXT WRAP & PREMIUM OPTIMIZATION
+   ───────────────────────────────────────────────────────────── */
+@media screen and (min-width: 1200px) and (max-width: 1600px) {
+  .attendance-status,
+  .timings-card-new,
+  .today-actions-card {
+    min-height: 380px !important;
+    height: 380px !important;
+    padding: 16px 18px !important;
+
+    .timings-header-row {
+      margin-bottom: 14px;
+
+      .timings-title {
+        font-size: 16px !important;
+        white-space: nowrap !important;
+      }
+
+      .date-badge {
+        font-size: 11.5px !important;
+        padding: 4px 10px !important;
+        white-space: nowrap !important;
+      }
+    }
+
+    .shift-row-new {
+      padding: 10px 12px;
+
+      .shift-text-label {
+        font-size: 12.5px !important;
+        white-space: nowrap !important;
+      }
+    }
+
+    .today-progress-section {
+      .today-progress-label {
+        font-size: 12px !important;
+        white-space: nowrap !important;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .progress-footer-new {
+        font-size: 11.5px !important;
+
+        .duration-text,
+        .break-text {
+          white-space: nowrap !important;
+        }
+      }
+    }
+
+    .status-msg-box {
+      .status-main {
+        font-size: 14px !important;
+        white-space: nowrap !important;
+      }
+
+      .status-sub {
+        font-size: 11.5px !important;
+        white-space: nowrap !important;
+      }
+    }
+
+    .time-left-box {
+      white-space: nowrap !important;
+
+      .tl-label {
+        font-size: 11.5px !important;
+        white-space: nowrap !important;
+      }
+
+      .tl-value {
+        font-size: 12.5px !important;
+        white-space: nowrap !important;
+      }
+    }
+
+    .pills-row {
+      max-width: 250px !important;
+      gap: 5px !important;
+
+      .pill-btn {
+        height: 28px !important;
+        font-size: 9.5px !important;
+        padding: 0 6px !important;
+        white-space: nowrap !important;
+
+        span {
+          white-space: nowrap !important;
+        }
+      }
+    }
+
+    .today-card-stack {
+      grid-template-columns: 1fr minmax(105px, 135px) !important;
+      gap: 12px !important;
+    }
+
+    .gauge-wrapper {
+      max-width: 125px !important;
+    }
+  }
+
+  .attendance-status {
+    ion-card-title {
+      font-size: 13px !important;
+      white-space: nowrap !important;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .today-status {
+      white-space: nowrap !important;
+      font-size: 12.5px !important;
+
+      ion-badge {
+        white-space: nowrap !important;
+      }
+    }
+
+    .stat-label {
+      font-size: 10.5px !important;
+      white-space: nowrap !important;
+    }
+
+    .stat-value {
+      font-size: 13.5px !important;
+      white-space: nowrap !important;
+    }
+
+    .today-summary {
+      .label-box {
+        white-space: nowrap !important;
+
+        .l-l,
+        .l-v {
+          white-space: nowrap !important;
+          font-size: 12px !important;
+        }
+      }
     }
   }
 }

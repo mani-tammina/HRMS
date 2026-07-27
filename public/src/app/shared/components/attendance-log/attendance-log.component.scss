@@ -575,13 +575,14 @@ ion-modal.side-custom-popup {
 // ─────────────────────────────────────────────────────────────
 
 @media screen and (max-width: 768px) {
+
   // Filter Header
   .row-space-between {
     flex-direction: column;
     align-items: flex-start;
     padding: 12px;
     gap: 12px;
-    
+
     .filters {
       width: 100%;
       justify-content: space-between;
@@ -593,17 +594,17 @@ ion-modal.side-custom-popup {
       white-space: nowrap;
       flex: 1;
       scrollbar-width: none; // Firefox
-      
+
       &::-webkit-scrollbar {
         display: none; // Chrome/Safari
       }
-      
+
       .btn-secondry {
         padding: 6px 10px;
         font-size: 10px;
         height: 36px;
         flex: 0 0 auto;
-        
+
         &.active {
           height: 36px;
           border-radius: 18px 0px 0px 18px;
@@ -613,7 +614,7 @@ ion-modal.side-custom-popup {
 
     .outline-btns {
       flex-shrink: 0;
-      
+
       .btn-secondry {
         padding: 6px;
         height: 36px;
@@ -644,7 +645,7 @@ ion-modal.side-custom-popup {
       box-shadow: vars.$shadow-sm !important;
       background: #fff !important;
       border-left-width: 5px !important; // Maintain status color indicator
-      
+
       ion-col {
         padding: 0 !important;
         display: flex !important;
@@ -665,8 +666,10 @@ ion-modal.side-custom-popup {
         color: #1e293b !important;
         display: flex !important;
         justify-content: space-between !important;
-        
-        .badge-leave, .badge-woff, .badge-penalty {
+
+        .badge-leave,
+        .badge-woff,
+        .badge-penalty {
           margin-left: auto;
           font-size: 9px;
           padding: 3px 8px;
@@ -686,7 +689,7 @@ ion-modal.side-custom-popup {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 4px !important;
-        
+
         &::before {
           content: 'Effective';
           font-size: 9px;
@@ -694,10 +697,10 @@ ion-modal.side-custom-popup {
           text-transform: uppercase;
           font-weight: 700;
         }
-        
+
         div {
           font-size: 12px !important;
-          
+
           ion-icon {
             font-size: 10px !important;
           }
@@ -711,7 +714,7 @@ ion-modal.side-custom-popup {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 4px !important;
-        
+
         &::before {
           content: 'Gross';
           font-size: 9px;
@@ -719,10 +722,10 @@ ion-modal.side-custom-popup {
           text-transform: uppercase;
           font-weight: 700;
         }
-        
+
         div {
           font-size: 12px !important;
-          
+
           ion-icon {
             font-size: 10px !important;
           }
@@ -736,7 +739,7 @@ ion-modal.side-custom-popup {
         flex-direction: column !important;
         align-items: flex-start !important;
         gap: 4px !important;
-        
+
         &::before {
           content: 'Arrival';
           font-size: 9px;
@@ -744,10 +747,10 @@ ion-modal.side-custom-popup {
           text-transform: uppercase;
           font-weight: 700;
         }
-        
+
         div {
           font-size: 12px !important;
-          
+
           ion-icon {
             font-size: 14px !important;
           }
@@ -760,19 +763,19 @@ ion-modal.side-custom-popup {
         display: flex !important;
         justify-content: flex-end !important;
         align-items: flex-end !important;
-        
+
         .log-btn {
           width: 100% !important;
           max-width: 120px !important;
           height: 32px !important;
-          
+
           &::after {
             content: 'View Logs';
             font-size: 11px;
             font-weight: 600;
             margin-left: 6px;
           }
-          
+
           img {
             width: 14px;
             height: 14px;
@@ -786,7 +789,7 @@ ion-modal.side-custom-popup {
         padding: 8px 0 !important;
         display: flex !important;
         justify-content: center !important;
-        
+
         p {
           font-size: 11px !important;
         }
@@ -796,10 +799,11 @@ ion-modal.side-custom-popup {
 }
 
 @media screen and (max-width: 576px) {
+
   // Slide Activity log modal
   ion-modal.side-custom-popup {
     --width: 100% !important; // Fill screen on mobile
-    
+
     .modal-content-wrapper {
       padding: 16px;
     }
@@ -811,7 +815,7 @@ ion-modal.side-custom-popup {
 
     .timeline-container {
       padding-left: 0;
-      
+
       &::before {
         left: 10px;
       }
@@ -819,7 +823,7 @@ ion-modal.side-custom-popup {
 
     .timeline-item {
       padding: 0 0 24px 28px;
-      
+
       .timeline-dot {
         left: 6px;
       }
@@ -830,7 +834,7 @@ ion-modal.side-custom-popup {
           align-items: flex-start;
           gap: 6px;
           margin-bottom: 8px;
-          
+
           .mode-badge {
             align-self: flex-start;
           }
