@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
-import { AlertController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
 
 import { environment } from 'src/environments/environment';
@@ -82,6 +82,7 @@ export class HomePage implements OnInit, OnDestroy {
   constructor(
     private employeeService: EmployeeService,
     private alertController: AlertController,
+    private toastController: ToastController,
     private router: Router,
     private attendanceService: AttendanceService,
     private attendanceApi: AttendanceApiService,
@@ -454,6 +455,16 @@ export class HomePage implements OnInit, OnDestroy {
   leaves() { this.router.navigate(['/leaves']); }
   myteam() { this.router.navigate(['/MyTeam']); }
   viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }
+
+  async showWorkInProgressToast(featureName?: string) {
+    const toast = await this.toastController.create({
+      message: 'Work in Progress',
+      duration: 2000,
+      position: 'top',
+      cssClass: 'wip-custom-toast'
+    });
+    await toast.present();
+  }
 
   loadLeaveBalance() {
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({

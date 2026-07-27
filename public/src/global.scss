@@ -1508,3 +1508,30 @@ ion-content {
     line-height: 28px !important;
   }
 }
+
+/* Custom Work In Progress Toast */
+ion-toast.wip-custom-toast {
+  --background: linear-gradient(135deg, #1870B9 0%, #0e4fa3 100%);
+  --color: #ffffff;
+  --border-radius: 12px;
+  --box-shadow: 0 8px 24px rgba(24, 112, 185, 0.35);
+  transform: translateY(calc(88px + var(--ion-safe-area-top, 0px))) !important;
+
+  &::part(container) {
+    justify-content: center;
+    border-radius: 12px;
+    padding: 6px 20px;
+    max-width: 320px;
+    margin: 0 auto;
+  }
+
+  &::part(message) {
+    text-align: center;
+    color: #ffffff !important;
+    font-weight: 600;
+    font-size: 14px;
+    width: 100%;
+    display: block;
+
+  }
+}
