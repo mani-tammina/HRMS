@@ -5,7 +5,6 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { CreateOfferHeaderComponent } from '../create-offer-header/create-offer-header.component';
-import { OnboardingMainheaderComponent } from '../onboarding-mainheader/onboarding-mainheader.component';
 import { CoreModule } from 'src/app/core/core.module';
 import { PayrollService } from 'src/app/core/services/payroll-service.service';
 import { forkJoin, of } from 'rxjs';
@@ -17,7 +16,6 @@ import { catchError } from 'rxjs/operators';
   styleUrls: ['./compensation.component.scss'],
   standalone: true,
   imports: [CommonModule, IonicModule, CoreModule,
-    OnboardingMainheaderComponent,
     CreateOfferHeaderComponent, FormsModule]
 })
 export class CompensationComponent implements OnInit {

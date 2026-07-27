@@ -2,9 +2,8 @@ import { Component, OnInit, } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
 import {
-  IonContent, IonHeader, IonTitle, IonModal, IonCardTitle, IonCardHeader, IonCard, IonCardContent,
-  IonInput, IonCheckbox, IonButton, IonButtons, IonList, IonIcon, IonToggle,
-  IonToolbar, IonLabel, IonItem, IonSelectOption, IonSelect,
+  IonContent, IonHeader, IonCardTitle, IonCardHeader, IonCard, IonCardContent,
+  IonButton, IonList, IonIcon, IonToggle, IonLabel, IonItem,
 } from '@ionic/angular/standalone';
 import { CoreModule } from 'src/app/core/core.module';
 import { HttpClientModule, HttpClient } from '@angular/common/http';
@@ -24,13 +23,10 @@ import { ModalController } from '@ionic/angular';
   imports: [
     CandiatePortalComponent, OnboardingMainheaderComponent,
     IonContent, CoreModule, IonIcon, IonLabel, IonToggle, DeclineResonsComponent,
-    IonInput, IonCheckbox, IonButton, IonSelectOption, IonModal, IonSelect, IonLabel, IonItem,
-    IonHeader, IonTitle, IonToolbar, HttpClientModule, IonButtons,
+    IonButton, IonItem, IonHeader, HttpClientModule,
     CommonModule, FormsModule, ReactiveFormsModule, OfferTemplateComponent,
     IonCardTitle, IonCardHeader, IonCard, IonCardContent, IonList
   ],
-
-
 })
 export class PostPage implements OnInit {
   personalForm!: FormGroup;
