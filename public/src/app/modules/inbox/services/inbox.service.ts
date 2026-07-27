@@ -113,4 +113,24 @@ export class InboxService {
       responseType: 'blob'
     });
   }
+
+  uploadYearlyLeaveBalances(formData: FormData): Observable<any> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    });
+    return this.http.post(`${this.env.apiURL}/api/yearly-leave-balances/import`, formData, { headers });
+  }
+
+  exportYearlyLeaveBalances(): Observable<Blob> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+    return this.http.get(`${this.env.apiURL}/api/yearly-leave-balances/export/excel`, {
+      headers,
+      responseType: 'blob'
+    });
+  }
 }

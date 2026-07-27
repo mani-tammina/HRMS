@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
@@ -43,6 +43,7 @@ export class InboxPage implements OnInit {
   showViewAll = false;
   viewAll = false;
   loading = false;
+  showReportsDropdown = false;
 
   filterRequestType = '';
   filterStatus = '';
@@ -78,6 +79,23 @@ export class InboxPage implements OnInit {
   ) {}
 
   showFilters = false;
+
+  toggleReportsDropdown(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showReportsDropdown = !this.showReportsDropdown;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    if (this.showReportsDropdown) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.reports-dropdown-wrapper')) {
+        this.showReportsDropdown = false;
+      }
+    }
+  }
 
   ngOnInit() {
     const role = this.auth.userRole?.toLowerCase() || '';
@@ -771,6 +789,73 @@ export class InboxPage implements OnInit {
         loading.dismiss();
         console.error('Attendance export failed', err);
         this.toaster.showError('Failed to export monthly attendance');
+      }
+    });
+  }
+
+  triggerUploadLeaveBalance() {
+    const fileInput = document.getElementById('leaveBalanceFileInput') as HTMLInputElement;
+    if (fileInput) {
+      fileInput.click();
+    }
+  }
+
+  async onLeaveBalanceFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Uploading and processing yearly leave balances...',
+    });
+    await loading.present();
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    this.inboxService.uploadYearlyLeaveBalances(formData).subscribe({
+      next: (res: any) => {
+        loading.dismiss();
+        if (res.success) {
+          this.toaster.showSuccess(res.message || 'Yearly leave balances imported successfully');
+          this.loadNotifications(null, true);
+        } else {
+          this.toaster.showError(res.message || 'Failed to import leave balances');
+        }
+        event.target.value = '';
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Leave balance upload failed', err);
+        const errMsg = err.error?.message || err.error?.error || 'Failed to upload yearly leave balances';
+        this.toaster.showError(errMsg);
+        event.target.value = '';
+      }
+    });
+  }
+
+  async exportLeaves() {
+    const loading = await this.loadingCtrl.create({
+      message: 'Generating yearly leave balances report...',
+    });
+    await loading.present();
+
+    this.inboxService.exportYearlyLeaveBalances().subscribe({
+      next: (blob: Blob) => {
+        loading.dismiss();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Yearly_Leave_Balances_${Date.now()}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toaster.showSuccess('Leave balances report exported successfully');
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Leave balances export failed', err);
+        this.toaster.showError('Failed to export yearly leave balances report');
       }
     });
   }
