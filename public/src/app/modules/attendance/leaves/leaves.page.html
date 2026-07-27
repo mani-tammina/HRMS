@@ -43,14 +43,14 @@
         </div>
 
         <div class="balances-grid">
-          <div class="leave-card" *ngFor="let leave of leaveCards; let i = index">
+          <div class="leave-card" *ngFor="let leave of leaveCards; let i = index" [ngClass]="getLeaveTypeClass(leave.title)">
             <h3 class="card-title">{{ leave.title }}</h3>
 
             <div class="icon-container">
               <div class="icon-background" [style.backgroundColor]="leave.bg_color || ''"
                 [style.borderColor]="leave.bg_color || ''" [class.has-custom-bg]="!!leave.bg_color">
                 <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon" alt="icon" />
-                <ion-icon *ngIf="!leave.icon_path" [name]="leave.title?.toLowerCase().includes('sick') ? 'medkit-outline' :
+                <ion-icon *ngIf="!leave.icon_path" [name]="leave.title?.toLowerCase().includes('sick') ? 'bed-outline' :
                          (leave.title?.toLowerCase().includes('vacation') || leave.title?.toLowerCase().includes('earned') ? 'airplane-outline' :
                          (leave.title?.toLowerCase().includes('casual') ? 'umbrella-outline' : 'calendar-outline'))">
                 </ion-icon>
@@ -59,7 +59,7 @@
 
             <div class="days-display">
               <span class="available">{{ leave.isLOP ? combinedLopDays : leave.available }}</span>
-              <span class="separator">/</span>
+              <span class="separator" *ngIf="!leave.isLOP"> / </span>
               <span class="total" *ngIf="!leave.isLOP">{{ leave.allocated_days }}</span>
               <img *ngIf="leave.isLOP" src="assets/unpaidleaves.png" class="unpaid-infinity-icon" alt="∞" />
             </div>
@@ -70,6 +70,26 @@
               <span class="consumed-label">Consumed: </span>
               <span class="consumed-value">{{ leave.isLOP ? combinedLopDays : leave.used }} {{ (leave.isLOP ?
                 combinedLopDays : leave.used) === 1 ? 'day' : 'days' }}</span>
+            </div>
+
+            <!-- Structured Table Breakdown (Image 2) -->
+            <div class="leave-details-table">
+              <div class="table-row top-row">
+                <div class="table-cell left-cell">
+                  <span class="cell-label">AVAILABLE</span>
+                  <span class="cell-value avail-text">{{ leave.isLOP ? '0 days' : leave.available + (leave.available === 1 ? ' day' : ' days') }}</span>
+                </div>
+                <div class="table-cell right-cell">
+                  <span class="cell-label">CONSUMED</span>
+                  <span class="cell-value">{{ (leave.isLOP ? combinedLopDays : leave.used) + ((leave.isLOP ? combinedLopDays : leave.used) === 1 ? ' day' : ' days') }}</span>
+                </div>
+              </div>
+              <div class="table-row bottom-row">
+                <div class="table-cell full-cell">
+                  <span class="cell-label">ANNUAL QUOTA</span>
+                  <span class="cell-value">{{ leave.isLOP ? 'Unlimited' : leave.allocated_days + (leave.allocated_days === 1 ? ' day' : ' days') }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
