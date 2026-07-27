@@ -10,6 +10,7 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 import { AdminService } from '../../../core/services/admin.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
+import { LeavePlanService } from '../../../core/services/leave-plans.service';
 
 @Component({
   selector: 'app-home',
@@ -42,6 +43,7 @@ export class HomePage implements OnInit, OnDestroy {
   currentYear = new Date().getFullYear();
   monthlyAttendanceReport: any[] = [];
   attendanceRate = 0;
+  leaveCycleLabel: string = 'Jan - Dec';
 
   /* ================= EMPLOYEE ================= */
   currentEmployee: any = null;
@@ -88,6 +90,7 @@ export class HomePage implements OnInit, OnDestroy {
     private attendanceApi: AttendanceApiService,
     private employeeLeaves: EmployeeLeavesService,
     private leaveRequestService: LeaverequestService,
+    private leavePlanService: LeavePlanService,
     private adminService: AdminService,
     private cdr: ChangeDetectorRef
   ) { }
@@ -466,9 +469,33 @@ export class HomePage implements OnInit, OnDestroy {
     await toast.present();
   }
 
+  getMonthCycleLabel(startMonthNumber: number = 1): string {
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const startIdx = (Number(startMonthNumber) - 1 + 12) % 12;
+    const endIdx = (startIdx + 11) % 12;
+    return `${months[startIdx]} - ${months[endIdx]}`;
+  }
+
   loadLeaveBalance() {
+    // Fetch leave plans to get configured start month of active leave plan
+    this.leavePlanService.getLeavePlans().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (plans: any[]) => {
+        if (plans && plans.length > 0) {
+          const activePlan = plans.find((p: any) => p.is_active || p.is_active === 1) || plans[0];
+          if (activePlan && activePlan.leave_year_start_month) {
+            this.leaveCycleLabel = this.getMonthCycleLabel(activePlan.leave_year_start_month);
+          }
+        }
+      },
+      error: () => {}
+    });
+
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
+        const startMonth = res.leave_year_start_month || res.start_month || res.leave_plan?.leave_year_start_month || res.plan?.leave_year_start_month;
+        if (startMonth) {
+          this.leaveCycleLabel = this.getMonthCycleLabel(startMonth);
+        }
         const balances = res.balances || [];
         this.leaveCodeIdMap = {};
         balances.forEach((item: any) => { this.leaveCodeIdMap[item.type_code] = item.leave_type_id || item.id; });
