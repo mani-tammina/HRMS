@@ -19,9 +19,6 @@ import { EmployeeService } from '../../../../../core/services/employee.service';
 export class ProfileTabComponent implements OnChanges {
   @Input() currentEmployee: any;
   @Input() isOwnProfile: boolean = true;
-  IsDetails = false;
-  Isedit = false;
-  isAdress = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -44,24 +41,6 @@ export class ProfileTabComponent implements OnChanges {
         }
       }
     }
-  }
-
-  isEditDetails() { this.IsDetails = !this.IsDetails; }
-  isEditForm() { this.Isedit = !this.Isedit; }
-  isEditAddress() { this.isAdress = !this.isAdress; }
-
-  onSubmitDetails() {
-    if (!this.currentEmployee) return;
-    this.employeeService.updateMyProfile(this.currentEmployee).subscribe({
-      next: () => {
-        this.presentToast('Profile updated successfully!', 'success');
-        this.IsDetails = false;
-      },
-      error: (err: any) => {
-        this.presentToast('Failed to update profile.', 'danger');
-        console.error('Failed to update profile:', err);
-      }
-    });
   }
 
   async presentToast(message: string, color: 'success' | 'danger') {
