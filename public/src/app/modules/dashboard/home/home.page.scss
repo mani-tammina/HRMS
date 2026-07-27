@@ -1102,30 +1102,6 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
-      max-height: 380px;
-      overflow-y: auto;
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-      padding-right: 4px;
-      scrollbar-width: thin;
-      scrollbar-color: #cbd5e1 transparent;
-
-      &::-webkit-scrollbar {
-        width: 6px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: transparent;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 10px;
-
-        &:hover {
-          background: #94a3b8;
-        }
-      }
     }
 
     .fallback-initials-avatar {
@@ -1143,86 +1119,22 @@
       display: flex;
       flex-direction: column;
       border-top: 1px solid #f1f5f9;
-      padding-top: 20px;
-      margin-top: 16px;
-
-      .upcoming-header-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 12px;
-
-        .milestone-section-title {
-          margin: 0;
-        }
-
-        .scroll-nav-btns {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-
-          .scroll-nav-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            border: 1px solid #cbd5e1;
-            background: #ffffff;
-            color: #1E73BB;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-
-            ion-icon {
-              font-size: 15px;
-            }
-
-            &:hover {
-              background: #1E73BB;
-              color: #ffffff;
-              border-color: #1E73BB;
-              transform: scale(1.08);
-            }
-
-            &:active {
-              transform: scale(0.95);
-            }
-          }
-        }
-      }
+      padding-top: 24px;
     }
 
     .upcoming-scroll-container {
       display: flex;
-      gap: 20px;
+      gap: 24px;
       overflow-x: auto;
-      overflow-y: hidden;
-      padding: 8px 4px 14px 4px;
-      scroll-behavior: smooth;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: thin;
-      scrollbar-color: #1E73BB #f1f5f9;
+      padding: 8px 4px;
+      scrollbar-width: none;
+      /* Firefox */
+      -ms-overflow-style: none;
+      /* IE 10+ */
 
       &::-webkit-scrollbar {
-        height: 6px;
-        display: block !important;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 10px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: #1E73BB;
-        border-radius: 10px;
-        transition: background 0.2s ease;
-
-        &:hover {
-          background: #165993;
-        }
+        display: none;
+        /* Safari and Chrome */
       }
     }
 

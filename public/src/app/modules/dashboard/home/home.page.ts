@@ -363,16 +363,6 @@ export class HomePage implements OnInit, OnDestroy {
     }
   }
 
-  scrollUpcoming(container: HTMLElement, direction: 'left' | 'right') {
-    if (!container) return;
-    const scrollAmount = direction === 'left' ? -220 : 220;
-    container.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-  }
-
-  trackById(index: number, item: any): any {
-    return item?.uid || item?.id || index;
-  }
-
   showWishInput(employeeId: number) {
     this.activeWishEmployeeId = employeeId;
     if (!this.wishMessages[employeeId]) this.wishMessages[employeeId] = '';
