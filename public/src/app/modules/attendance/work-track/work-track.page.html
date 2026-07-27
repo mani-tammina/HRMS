@@ -181,7 +181,7 @@
                 </div>
               </div>
               <div class="ts-row-body">
-                <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div>
+                <div class="ts-desc">{{ t.work_description || t.notes || '' }}</div>
                 <div class="ts-row-meta">
                   <span class="meta-item">
                     <ion-icon name="time-outline"></ion-icon>
@@ -194,7 +194,8 @@
                 </div>
               </div>
               <div class="ts-row-right">
-                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
+                  }}</span>
                 <div class="ts-row-actions">
                   <button class="icon-btn edit"
                     *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
@@ -320,7 +321,8 @@
 
                 <div class="card-field col-hrs">
                   <label class="mobile-label">Hours</label>
-                  <input type="number" formControlName="hours" (input)="onHoursChange(i, $event)" (change)="onHoursChange(i, $event)" class="glass-input center">
+                  <input type="number" step="any" min="0.1" formControlName="hours" (input)="onHoursChange(i, $event)"
+                    (change)="onHoursChange(i, $event)" class="glass-input center">
                 </div>
 
                 <div class="card-field col-action">
@@ -437,7 +439,7 @@
                 </div>
               </div>
               <div class="ts-row-body">
-                <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div>
+                <!-- <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div> -->
                 <div class="ts-row-meta">
                   <span class="meta-item">
                     <ion-icon name="time-outline"></ion-icon>
@@ -450,7 +452,8 @@
                 </div>
               </div>
               <div class="ts-row-right">
-                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase }}</span>
+                <span class="status-text" [ngClass]="getStatusColor(t.status)">{{ t.status || 'pending' | titlecase
+                  }}</span>
                 <div class="ts-row-actions">
                   <button class="icon-btn edit"
                     *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"

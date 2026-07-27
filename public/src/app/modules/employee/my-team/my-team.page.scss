@@ -197,6 +197,7 @@
   transition: vars.$transition-smooth;
   border: 1px solid transparent;
   background: #122E44;
+  cursor: pointer;
 
   &:hover {
     box-shadow: vars.$shadow-md;
@@ -737,4 +738,8 @@
   .emp-name {
     font-size: 13px;
   }
+}
+
+.premium-card {
+  cursor: pointer;
 }
