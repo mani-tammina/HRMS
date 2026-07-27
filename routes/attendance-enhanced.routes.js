@@ -1192,7 +1192,7 @@ router.get("/report/team", auth, async (req, res) => {
     if (req.user.role === "hr") {
       // HR sees ALL employees INCLUDING themselves
       const [allEmployees] = await c.query(
-        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, e.profile_image, loc.name AS LocationName,
                 CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
          FROM employees e
          LEFT JOIN locations loc ON e.LocationId = loc.id
@@ -1205,7 +1205,7 @@ router.get("/report/team", auth, async (req, res) => {
     } else if (["manager", "admin"].includes(req.user.role)) {
       // Manager/admin: show direct reports PLUS themselves
       const [reportingTeam] = await c.query(
-        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, e.profile_image, loc.name AS LocationName,
                 CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
                  FROM employees e
                  LEFT JOIN locations loc ON e.LocationId = loc.id
@@ -1219,7 +1219,7 @@ router.get("/report/team", auth, async (req, res) => {
       // For employee role, show co-team (people reporting to same manager) PLUS themselves
       if (emp.reporting_manager_id) {
         const [coTeam] = await c.query(
-          `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, loc.name AS LocationName,
+          `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, e.profile_image, loc.name AS LocationName,
                   CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
                      FROM employees e
                      LEFT JOIN locations loc ON e.LocationId = loc.id
@@ -1240,6 +1240,7 @@ router.get("/report/team", auth, async (req, res) => {
           EmploymentStatus: emp.EmploymentStatus,
           LocationId: emp.LocationId,
           LocationName: null,
+          profile_image: emp.profile_image,
           is_current_user: 1
         }];
         console.log(`Employee has no reporting manager, showing only self`);
