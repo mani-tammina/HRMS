@@ -417,6 +417,9 @@ export class MyTeamPage implements OnInit, OnDestroy {
   }
 
   viewEmployeeAttendance(member: any) {
+    if (!this.isManager) {
+      return;
+    }
     const id = member.id || member.employee_id || member.EmployeeId;
     if (id) {
       this.navCtrl.navigateForward([`/Attendance/employee/${id}`]);

@@ -601,7 +601,18 @@
 }
 
 .employee-card-wrapper {
-  cursor: pointer;
+  &.clickable {
+    cursor: pointer;
+  }
+
+  &:not(.clickable) {
+    cursor: default;
+
+    .premium-emp-card:hover {
+      transform: none;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+    }
+  }
 }
 
 .global-search-wrapper {

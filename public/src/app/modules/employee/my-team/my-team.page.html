@@ -147,7 +147,7 @@
 
 
       <div class="premium-team-grid" *ngIf="!isLoading; else loadingState">
-        <div class="employee-card-wrapper" *ngFor="let member of filteredTeam" (click)="viewEmployeeAttendance(member)">
+        <div class="employee-card-wrapper" [class.clickable]="isManager" *ngFor="let member of filteredTeam" (click)="viewEmployeeAttendance(member)">
           <div class="premium-emp-card" [class.current-user-card]="isCurrentUser(member)">
 
             <!-- Left colour strip based on attendance status -->
