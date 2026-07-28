@@ -450,6 +450,11 @@
   width: 50px;
   transition: vars.$transition-base;
 
+  img {
+    width: 26px;
+    height: 26px;
+  }
+
   &:hover {
     --background: #{vars.$color-bg-hover};
 

@@ -107,7 +107,16 @@
     .section-header {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+
+      .header-title-group {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
 
       .icon-box {
         width: 36px;
@@ -129,6 +138,42 @@
         color: #212529;
         font-size: 18px;
         font-weight: vars.$fw-bold;
+        margin: 0;
+      }
+    }
+
+    .year-selector-wrapper {
+      position: relative;
+
+      .custom-year-dropdown {
+        display: inline-flex;
+        align-items: center;
+          padding: 6px 14px;
+        background: #ffffff;
+        border: 1.5px solid #1870B9;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        box-shadow: 0 1px 3px rgba(24, 112, 185, 0.08);
+        margin: 10px 0px;
+        margin-bottom: 0;
+
+        &:hover {
+          background: #f0f9ff;
+          box-shadow: 0 3px 8px rgba(24, 112, 185, 0.15);
+        }
+
+        .year-label {
+          font-size: 14px;
+          font-weight: 600;
+          color: #1870B9;
+        }
+
+        .dropdown-arrow {
+          font-size: 12px;
+          color: #1870B9;
+          transition: transform 0.2s ease;
+        }
       }
     }
 
@@ -965,4 +1010,49 @@
 
 .history-card {
   width: 100%;
+}
+
+/* Year Select Dropdown Popover */
+.year-select-popover {
+  --width: 220px;
+  --border-radius: 8px;
+  --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+
+  &::part(content) {
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+    background: #ffffff;
+  }
+
+  .year-options-list {
+    display: flex;
+    flex-direction: column;
+    padding: 4px 0;
+    background: #ffffff;
+
+    .year-option-item {
+      width: 100%;
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+      color: #334155;
+      transition: background 0.15s ease, color 0.15s ease;
+
+      &:hover {
+        background: #f0f9ff;
+        color: #1870B9;
+      }
+
+      &.selected {
+        font-weight: 700;
+        color: #1870B9;
+        background: #e0f2fe;
+      }
+    }
+  }
 }

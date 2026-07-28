@@ -58,8 +58,12 @@ export class LeavesPage implements OnInit, OnDestroy {
     private router: Router,
   ) { }
 
+  availableYears: number[] = [];
+  planStartMonth: number = 4;
+
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
+    this.initYears();
     this.updateRole();
     this.loadLeaveBalance();
     this.getAllLeaves();
@@ -68,6 +72,31 @@ export class LeavesPage implements OnInit, OnDestroy {
     if (this.isManager) {
       this.loadTeamAttendanceSummary();
     }
+  }
+
+  initYears() {
+    const todayYear = new Date().getFullYear();
+    this.availableYears = [todayYear, todayYear - 1, todayYear - 2];
+  }
+
+  getCycleLabelForYear(year: number, startMonth: number = 4): string {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sMonth = Number(startMonth) || 4;
+    if (sMonth === 1) {
+      return `Jan ${year} - Dec ${year}`;
+    }
+    const startName = monthNames[sMonth - 1] || 'Apr';
+    const endMonthIdx = (sMonth - 2 + 12) % 12;
+    const endName = monthNames[endMonthIdx] || 'Mar';
+    const endYear = sMonth > 1 ? year + 1 : year;
+    return `${startName} ${year} - ${endName} ${endYear}`;
+  }
+
+  onYearChange(year: number) {
+    if (this.currentYear === year) return;
+    this.currentYear = year;
+    this.loadLeaveBalance();
+    this.getAllLeaves();
   }
 
   /* ===================== ROLE ===================== */
@@ -82,6 +111,9 @@ export class LeavesPage implements OnInit, OnDestroy {
       next: (res: any) => {
         const balances = res.balances || [];
         this.needsInitialization = res.needs_initialization || false;
+        if (balances.length > 0 && balances[0].plan_start_month) {
+          this.planStartMonth = balances[0].plan_start_month;
+        }
 
         this.leaveCards = balances.map((item: any) => {
           const code = (item.type_code || '').toUpperCase();

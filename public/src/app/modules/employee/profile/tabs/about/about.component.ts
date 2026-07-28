@@ -4,6 +4,8 @@ import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { ReportingTeamComponent } from '../reporting-team/reporting-team.component';
 
+import { RouteGuardService } from '../../../../../core/services/route-guard.service';
+
 @Component({
   selector: 'app-about-tab',
   templateUrl: './about.component.html',
@@ -21,7 +23,17 @@ export class AboutTabComponent implements OnChanges {
   @Input() currentEmployee: any | null = null;
   @Input() isOwnProfile: boolean = true;
 
-  constructor() {}
+  constructor(private routeGuardService: RouteGuardService) {}
+
+  get canViewDOB(): boolean {
+    if (this.isOwnProfile) return true;
+    const myId = this.routeGuardService.employeeID;
+    if (myId && this.currentEmployee && Number(myId) === Number(this.currentEmployee.id)) {
+      return true;
+    }
+    const role = (this.routeGuardService.userRole || '').toLowerCase();
+    return role === 'manager' || role === 'hr' || role === 'admin';
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentEmployee']?.currentValue) {
