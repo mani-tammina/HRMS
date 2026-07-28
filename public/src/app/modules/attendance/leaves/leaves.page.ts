@@ -86,9 +86,14 @@ export class LeavesPage implements OnInit, OnDestroy {
         this.leaveCards = balances.map((item: any) => {
           const code = (item.type_code || '').toUpperCase();
           const isLOP = code === 'LOP';
+          const isCasual = code === 'CL' || (item.type_name || '').toLowerCase().includes('casual');
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
           const available = (Number(item.available_days) || 0) - (Number(item.pending_days) || 0);
+
+          let accruedSoFar = (item.accrued_so_far !== undefined && item.accrued_so_far !== null)
+            ? Number(item.accrued_so_far)
+            : this.calculateAccruedSoFar(allocated, item.plan_start_month || 1);
 
           return {
             title: item.type_name,
@@ -97,6 +102,8 @@ export class LeavesPage implements OnInit, OnDestroy {
             used,
             available: isLOP ? '0' : available,
             isLOP: isLOP,
+            isCasual: isCasual,
+            accrued_so_far: accruedSoFar,
             usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
             bg_color: item.bg_color,
             icon_path: item.icon_path,
@@ -105,6 +112,27 @@ export class LeavesPage implements OnInit, OnDestroy {
       },
       error: err => console.error(err),
     });
+  }
+
+  calculateAccruedSoFar(allocatedDays: number, planStartMonth: number = 1): number {
+    if (!allocatedDays || allocatedDays <= 0) return 0;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1 to 12
+    let monthsElapsed = 0;
+    if (currentMonth >= planStartMonth) {
+      monthsElapsed = currentMonth - planStartMonth + 1;
+    } else {
+      monthsElapsed = 12 - planStartMonth + currentMonth + 1;
+    }
+    monthsElapsed = Math.max(1, Math.min(12, monthsElapsed));
+
+    const base = Math.floor(allocatedDays / 12);
+    const remainder = allocatedDays - (base * 12);
+    let sum = 0;
+    for (let i = 0; i < monthsElapsed; i++) {
+      sum += base + (i < remainder ? 1 : 0);
+    }
+    return sum;
   }
 
   /* ===================== TEAM ATTENDANCE ===================== */

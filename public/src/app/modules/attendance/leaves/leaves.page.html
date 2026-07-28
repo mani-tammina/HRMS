@@ -85,9 +85,13 @@
                 </div>
               </div>
               <div class="table-row bottom-row">
-                <div class="table-cell full-cell">
+                <div class="table-cell" [class.left-cell]="leave.isCasual" [class.full-cell]="!leave.isCasual">
                   <span class="cell-label">ANNUAL QUOTA</span>
                   <span class="cell-value">{{ leave.isLOP ? 'Unlimited' : leave.allocated_days + (leave.allocated_days === 1 ? ' day' : ' days') }}</span>
+                </div>
+                <div class="table-cell right-cell" *ngIf="leave.isCasual">
+                  <span class="cell-label">ACCRUED SO FAR</span>
+                  <span class="cell-value">{{ leave.accrued_so_far }} {{ leave.accrued_so_far === 1 ? 'day' : 'days' }}</span>
                 </div>
               </div>
             </div>

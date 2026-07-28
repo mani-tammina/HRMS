@@ -169,6 +169,7 @@
       }
 
       .days-display {
+
         .available,
         .separator,
         .total {
@@ -186,7 +187,9 @@
 
       .consumed-badge {
         color: #ffffff;
-        .consumed-label, .consumed-value {
+
+        .consumed-label,
+        .consumed-value {
           color: #ffffff;
         }
       }
@@ -219,6 +222,7 @@
 
         .cell-value {
           color: #ffffff;
+
           &.avail-text {
             color: #ffffff;
           }
@@ -265,23 +269,42 @@
     /* Specific Icon Theme Colors matching leave types */
     &.sick .icon-background {
       background: #dcfce7;
-      ion-icon { color: #059669; }
+
+      ion-icon {
+        color: #059669;
+      }
     }
+
     &.casual .icon-background {
       background: #f3e8ff;
-      ion-icon { color: #7e22ce; }
+
+      ion-icon {
+        color: #7e22ce;
+      }
     }
+
     &.marriage .icon-background {
       background: #ffedd5;
-      ion-icon { color: #c2410c; }
+
+      ion-icon {
+        color: #c2410c;
+      }
     }
+
     &.comp-offs .icon-background {
       background: #dbeafe;
-      ion-icon { color: #1d4ed8; }
+
+      ion-icon {
+        color: #1d4ed8;
+      }
     }
+
     &.unpaid .icon-background {
       background: #ffe4e6;
-      ion-icon { color: #e11d48; }
+
+      ion-icon {
+        color: #e11d48;
+      }
     }
 
     .days-display {
@@ -383,7 +406,7 @@
 
         .cell-label {
           display: block;
-          font-size: 11px;
+          font-size: 9px;
           font-weight: 600;
           color: #64748b;
           letter-spacing: 0.5px;
