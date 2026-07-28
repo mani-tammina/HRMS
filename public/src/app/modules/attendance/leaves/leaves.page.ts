@@ -60,6 +60,187 @@ export class LeavesPage implements OnInit, OnDestroy {
 
   availableYears: number[] = [];
   planStartMonth: number = 4;
+  hoveredSegment: any = null;
+
+  getLeaveTypeColor(nameOrCode: string): string {
+    const text = (nameOrCode || '').toLowerCase();
+    if (text.includes('sick') || text === 'sl') return '#059669'; // Emerald
+    if (text.includes('casual') || text === 'cl') return '#7e22ce'; // Purple
+    if (text.includes('marriage') || text === 'ml') return '#c2410c'; // Amber/Orange
+    if (text.includes('comp') || text === 'comp_off') return '#1d4ed8'; // Royal Blue
+    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return '#e11d48'; // Rose/Red
+    if (text.includes('bereavement') || text === 'bl') return '#475569'; // Slate
+    return '#1870B9';
+  }
+
+  get consumedLeaveTypesData() {
+    const consumedList: any[] = [];
+
+    for (const card of this.leaveCards) {
+      const usedVal = card.isLOP ? (Number(this.combinedLopDays) || 0) : (Number(card.used) || 0);
+      if (usedVal > 0) {
+        const color = this.getLeaveTypeColor(card.title || card.code);
+        consumedList.push({
+          title: card.title,
+          used: usedVal,
+          color: color,
+          code: card.code,
+        });
+      }
+    }
+
+    const totalUsed = consumedList.reduce((acc, curr) => acc + curr.used, 0);
+    const R = 40;
+    const C = 2 * Math.PI * R;
+
+    let accumulatedOffset = 0;
+    const segments = consumedList.map((item) => {
+      const ratio = totalUsed > 0 ? item.used / totalUsed : 0;
+      const strokeDasharray = `${ratio * C} ${C}`;
+      const strokeDashoffset = -accumulatedOffset;
+      accumulatedOffset += ratio * C;
+
+      return {
+        ...item,
+        ratio,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+
+    return {
+      totalUsed,
+      consumedList,
+      segments,
+      hasData: consumedList.length > 0,
+    };
+  }
+
+  hoveredMonthlyBar: any = null;
+  monthlyStatsData: { [key: string]: number } = {};
+
+  loadMonthlyAttendanceStats() {
+    const sMonth = Number(this.planStartMonth) || 4;
+    const baseYear = this.currentYear;
+
+    for (let i = 0; i < 12; i++) {
+      const monthIdx = (sMonth - 1 + i) % 12;
+      const mNum = monthIdx + 1;
+      const year = (mNum < sMonth) ? baseYear + 1 : baseYear;
+
+      const startDate = `${year}-${String(mNum).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, mNum, 0).getDate();
+      const endDate = `${year}-${String(mNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      this.attendanceApi.getMonthlyReport({ startDate, endDate, month: mNum, year }).subscribe({
+        next: (res: any) => {
+          const summary = res?.summary || res || {};
+          const leaveDays = Number(summary.leave_days || 0);
+          const lopDays = Number(summary.lop_days || 0);
+          const absentDays = Number(summary.absent_days || 0);
+          const halfDays = Number(summary.half_days || 0) * 0.5;
+
+          const totalAttLeaves = leaveDays + lopDays;
+          const key = `${year}-${mNum}`;
+          const currentVal = this.monthlyStatsData[key] || 0;
+
+          if (totalAttLeaves > currentVal) {
+            this.monthlyStatsData = {
+              ...this.monthlyStatsData,
+              [key]: totalAttLeaves,
+            };
+          }
+        },
+        error: () => { }
+      });
+    }
+  }
+
+  calculateMonthlyConsumedLeaves() {
+    const monthlyMap: { [key: string]: number } = {};
+
+    const leaves = this.leaveRequestsDetails || [];
+    for (const req of leaves) {
+      const status = (req.status || '').toUpperCase();
+      if (status === 'APPROVED' || status === 'RELIEVED' || status === 'SUCCESS') {
+        const start = new Date(req.from_date || req.start_date);
+        const end = new Date(req.to_date || req.end_date);
+
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          let curr = new Date(start);
+          const last = new Date(end);
+          curr.setHours(0, 0, 0, 0);
+          last.setHours(0, 0, 0, 0);
+
+          const daysCount = Number(req.days) || 1;
+          const totalCalendarDays = Math.max(1, Math.round((last.getTime() - curr.getTime()) / (1000 * 3600 * 24)) + 1);
+          const perDayWeight = daysCount / totalCalendarDays;
+
+          while (curr <= last) {
+            const key = `${curr.getFullYear()}-${curr.getMonth() + 1}`;
+            monthlyMap[key] = (monthlyMap[key] || 0) + perDayWeight;
+            curr.setDate(curr.getDate() + 1);
+          }
+        }
+      }
+    }
+
+    if (this.combinedLopDays > 0) {
+      const today = new Date();
+      const key = `${today.getFullYear()}-${today.getMonth() + 1}`;
+      if (!monthlyMap[key]) {
+        monthlyMap[key] = this.combinedLopDays;
+      }
+    }
+
+    this.monthlyStatsData = monthlyMap;
+    this.loadMonthlyAttendanceStats();
+  }
+
+  get monthlyLeaveStats() {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sMonth = Number(this.planStartMonth) || 4;
+
+    const cycleMonths: any[] = [];
+    const baseYear = this.currentYear;
+
+    for (let i = 0; i < 12; i++) {
+      const monthIdx = (sMonth - 1 + i) % 12;
+      const mNum = monthIdx + 1;
+      const year = (mNum < sMonth) ? baseYear + 1 : baseYear;
+      const key = `${year}-${mNum}`;
+
+      const daysVal = Math.round(((this.monthlyStatsData && this.monthlyStatsData[key]) || 0) * 10) / 10;
+
+      cycleMonths.push({
+        label: monthNames[monthIdx],
+        monthNum: mNum,
+        year: year,
+        days: daysVal,
+      });
+    }
+
+    const maxDays = Math.max(...cycleMonths.map(m => m.days), 4);
+
+    const stats = cycleMonths.map(m => {
+      let barHeight = 4;
+      if (m.days > 0) {
+        barHeight = Math.min(75, Math.max(14, Math.round((m.days / maxDays) * 65 + 10)));
+      }
+      return {
+        ...m,
+        barHeight,
+      };
+    });
+
+    const totalCycleDays = cycleMonths.reduce((sum, m) => sum + m.days, 0);
+
+    return {
+      stats,
+      maxDays,
+      totalCycleDays,
+    };
+  }
 
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
@@ -454,6 +635,7 @@ export class LeavesPage implements OnInit, OnDestroy {
     );
 
     this.historyLeaves = combinedLopEntry ? [combinedLopEntry, ...processed] : processed;
+    this.calculateMonthlyConsumedLeaves();
   }
 
   async presentToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {

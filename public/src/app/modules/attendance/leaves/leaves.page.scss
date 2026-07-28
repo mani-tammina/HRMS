@@ -1056,3 +1056,395 @@
     }
   }
 }
+
+/* ═══════════════ ANALYTICS CHARTS SECTION ═══════════════ */
+.analytics-charts-section {
+  margin-bottom: 32px;
+
+  .analytics-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+
+    @media (max-width: 1024px) {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .analytics-card {
+    background: vars.$color-bg-card;
+    border-radius: 16px;
+    padding: 22px 24px;
+    border: 1.5px solid vars.$color-primary;
+    box-shadow: vars.$shadow-sm;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+
+    &:hover {
+      box-shadow: vars.$shadow-lg;
+    }
+  }
+
+  .card-header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .header-icon-box {
+        width: 32px;
+        height: 32px;
+        border-radius: vars.$radius-md;
+        background: vars.$color-primary-light;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        ion-icon {
+          font-size: 16px;
+          color: vars.$color-primary;
+        }
+
+        &.purple-box {
+          background: #f3e8ff;
+          ion-icon { color: #7e22ce; }
+        }
+      }
+
+      .card-title {
+        font-size: 15px;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        margin: 0;
+        letter-spacing: -0.2px;
+      }
+    }
+
+    .info-icon-btn {
+      background: transparent;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: vars.$color-text-placeholder;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: vars.$color-primary;
+        background: vars.$color-primary-light;
+      }
+    }
+  }
+
+  /* ─── Consumed Leave Types Donut ─── */
+  .consumed-types-card {
+    .chart-container-body {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      position: relative;
+      padding: 4px 0;
+
+      @media (max-width: 640px) {
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .donut-chart-wrapper {
+        position: relative;
+        width: 155px;
+        height: 155px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+
+        .donut-svg {
+          width: 100%;
+          height: 100%;
+          overflow: visible;
+
+          .donut-bg-ring {
+            stroke: vars.$color-border-light;
+          }
+
+          .donut-segment {
+            transition: stroke-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+                        filter 0.25s ease;
+            cursor: pointer;
+            stroke-linecap: round;
+
+            &:hover,
+            &.active {
+              stroke-width: 15;
+              filter: drop-shadow(0 3px 8px rgba(0, 0, 0, 0.18));
+            }
+          }
+        }
+
+        .donut-center-label {
+          position: absolute;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          line-height: 1.15;
+
+          .center-value {
+            font-size: 22px;
+            font-weight: vars.$fw-extrabold;
+            color: vars.$color-text-primary;
+            letter-spacing: -0.5px;
+            transition: color 0.2s ease;
+          }
+
+          .center-subtext {
+            font-size: 9px;
+            font-weight: vars.$fw-bold;
+            color: vars.$color-text-muted;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
+          }
+        }
+
+        .chart-tooltip-popover {
+          position: absolute;
+          top: 15%;
+          left: 50%;
+          transform: translate(-50%, -100%);
+          background: vars.$color-sidebar;
+          color: vars.$color-white;
+          padding: 5px 12px;
+          border-radius: 6px;
+          font-size: 11px;
+          font-weight: vars.$fw-bold;
+          white-space: nowrap;
+          box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
+          z-index: 25;
+          pointer-events: none;
+          animation: popoverSlideIn 0.18s ease-out;
+
+          .tt-arrow {
+            position: absolute;
+            bottom: -4px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 4px solid vars.$color-sidebar;
+          }
+        }
+      }
+
+      .chart-legend {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 1;
+        padding-left: 16px;
+        border-left: 1.5px solid vars.$color-border-light;
+
+        @media (max-width: 640px) {
+          border-left: none;
+          padding-left: 0;
+          width: 100%;
+        }
+
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 7px 10px;
+          border-radius: vars.$radius-md;
+          background: vars.$color-bg-subtle;
+          border: 1px solid transparent;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover,
+          &.active-highlight {
+            background: vars.$color-white;
+            border-color: vars.$color-primary;
+            box-shadow: 0 2px 8px rgba(31, 116, 187, 0.1);
+            transform: translateX(3px);
+          }
+
+          .legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+          }
+
+          .legend-name {
+            font-size: 12px;
+            font-weight: vars.$fw-semibold;
+            color: vars.$color-text-secondary;
+          }
+
+          .legend-val {
+            font-size: 12px;
+            font-weight: vars.$fw-bold;
+            margin-left: auto;
+          }
+        }
+      }
+
+      .empty-chart-msg {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        color: vars.$color-text-placeholder;
+        font-size: 12px;
+        font-weight: vars.$fw-semibold;
+        padding: 28px 0;
+        width: 100%;
+        text-align: center;
+
+        ion-icon {
+          font-size: 26px;
+          color: vars.$color-border-medium;
+        }
+      }
+    }
+  }
+
+  /* ─── Monthly Stats Bar Chart ─── */
+  .monthly-stats-card {
+    .chart-container-body {
+      padding: 8px 0 0 0;
+    }
+
+    .bar-chart-wrapper {
+      position: relative;
+      width: 100%;
+      padding-top: 12px;
+
+      .chart-grid-line {
+        position: absolute;
+        top: 12px;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: vars.$color-border-light;
+      }
+
+      .bars-container {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 3px;
+        height: 110px;
+        padding-bottom: 22px;
+        border-bottom: 1.5px solid vars.$color-slate-200;
+
+        .bar-col {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          height: 100%;
+          justify-content: flex-end;
+          cursor: pointer;
+          position: relative;
+
+          .bar-track {
+            width: 100%;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            height: 85px;
+          }
+
+          .bar-fill {
+            width: 80%;
+            max-width: 26px;
+            background: vars.$color-slate-300;
+            border-radius: 3px 3px 0 0;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+            &.has-leaves {
+              background: vars.$color-primary;
+            }
+
+            &:hover,
+            &.active {
+              background: vars.$color-primary-hover;
+              box-shadow: 0 4px 12px rgba(31, 116, 187, 0.35);
+              transform: scaleY(1.05);
+            }
+          }
+
+          .month-label {
+            position: absolute;
+            bottom: -20px;
+            font-size: 10px;
+            font-weight: vars.$fw-semibold;
+            color: vars.$color-text-subtle;
+            text-transform: capitalize;
+            white-space: nowrap;
+          }
+
+          &:hover .month-label {
+            color: vars.$color-primary;
+            font-weight: vars.$fw-bold;
+          }
+        }
+      }
+
+      .bar-tooltip-popover {
+        position: absolute;
+        top: -12px;
+        left: 50%;
+        transform: translate(-50%, -100%);
+        background: vars.$color-sidebar;
+        color: vars.$color-white;
+        padding: 5px 12px;
+        border-radius: 6px;
+        font-size: 11px;
+        font-weight: vars.$fw-bold;
+        white-space: nowrap;
+        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
+        z-index: 25;
+        pointer-events: none;
+        animation: popoverSlideIn 0.18s ease-out;
+
+        .tt-arrow {
+          position: absolute;
+          bottom: -4px;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 4px solid transparent;
+          border-right: 4px solid transparent;
+          border-top: 4px solid vars.$color-sidebar;
+        }
+      }
+    }
+  }
+}
+
+@keyframes popoverSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -85%) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
