@@ -1511,27 +1511,38 @@ ion-content {
 
 /* Custom Work In Progress Toast */
 ion-toast.wip-custom-toast {
-  --background: linear-gradient(135deg, #1870B9 0%, #0e4fa3 100%);
+  --background: linear-gradient(135deg, #e67e22 0%, #d35400 100%);
   --color: #ffffff;
-  --border-radius: 12px;
-  --box-shadow: 0 8px 24px rgba(24, 112, 185, 0.35);
+  --border-radius: 16px;
+  --box-shadow: 0 8px 24px rgba(211, 84, 0, 0.35);
+  --width: max-content;
+  --max-width: 90vw;
+  --min-width: auto;
+  margin: 0 auto !important;
+  left: 0 !important;
+  right: 0 !important;
   transform: translateY(calc(88px + var(--ion-safe-area-top, 0px))) !important;
 
   &::part(container) {
+    width: max-content !important;
+    max-width: max-content !important;
+    min-width: auto !important;
     justify-content: center;
-    border-radius: 12px;
-    padding: 6px 20px;
-    max-width: 320px;
+    align-items: center;
+    border-radius: 16px;
     margin: 0 auto;
   }
 
   &::part(message) {
     text-align: center;
     color: #ffffff !important;
-    font-weight: 600;
+    font-weight: 700;
     font-size: 14px;
-    width: 100%;
-    display: block;
-
+    white-space: nowrap;
   }
+}
+
+.toast-wrapper {
+  margin: 0 auto;
+  max-width: max-content !important;
 }

@@ -460,10 +460,13 @@ export class HomePage implements OnInit, OnDestroy {
   viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }
 
   async showWorkInProgressToast(featureName?: string) {
+    const msg = featureName ? `${featureName} - Work in progress` : 'Work in progress';
     const toast = await this.toastController.create({
-      message: 'Work in Progress',
-      duration: 2000,
+      message: msg,
+      duration: 1500,
       position: 'top',
+      color: 'warning',
+      icon: 'alert-circle',
       cssClass: 'wip-custom-toast'
     });
     await toast.present();
@@ -487,7 +490,7 @@ export class HomePage implements OnInit, OnDestroy {
           }
         }
       },
-      error: () => {}
+      error: () => { }
     });
 
     this.employeeLeaves.getLeaveBalance(this.currentYear).pipe(takeUntil(this.destroy$)).subscribe({

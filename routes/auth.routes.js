@@ -1370,10 +1370,11 @@ router.delete("/users/:id", auth, async (req, res) => {
 
 // Make user HR
 router.post("/users/:id/make-hr", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();
@@ -1407,10 +1408,11 @@ router.post("/users/:id/make-hr", auth, async (req, res) => {
 
 // Make user Manager
 router.post("/users/:id/make-manager", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();
@@ -1524,10 +1526,11 @@ router.post("/users/:id/make-finance", auth, async (req, res) => {
 
 // Demote user to Employee
 router.post("/users/:id/make-employee", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();

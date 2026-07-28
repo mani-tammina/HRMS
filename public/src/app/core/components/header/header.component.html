@@ -12,6 +12,7 @@
 
     <!-- Center: Search Bar -->
     <div class="search-container" *ngIf="isAuthenticated">
+      <img src="assets/search.png" alt="rewards" class="searchbar" />
       <ion-searchbar id="header-searchbar" placeholder="Search employee by name" [(ngModel)]="searchQuery"
         (ionFocus)="onSearchFocus()" (ionInput)="onSearch()" (ionClear)="closePopover()" (keydown)="onKeyDown($event)"
         showCancelButton="never" class="custom-searchbar">

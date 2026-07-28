@@ -300,6 +300,38 @@ export class ProfilePage implements OnInit, OnDestroy {
     await toast.present();
   }
 
+  async onInitiateExit() {
+    try {
+      await this.popoverController.dismiss();
+    } catch (e) {}
+
+    if (this.myResignation && this.myResignation.status !== 'Rejected' && this.myResignation.status !== 'Relieved') {
+      this.openTrackingModal();
+    } else {
+      this.openResignationModal();
+    }
+  }
+
+  async onMenuAction(actionKey: string) {
+    try {
+      await this.popoverController.dismiss();
+    } catch (e) {}
+
+    const actionNames: { [key: string]: string } = {
+      'id_card': 'ID Card',
+      'write_note': 'Write Internal Note',
+      'request_feedback': 'Request Feedback',
+      'disable_login': 'Disable Login',
+      'disable_mobile_login': 'Disable Mobile App Login',
+      'reset_password': 'Reset Password',
+      'pip': 'Add Employee to PIP',
+      'badges': 'Rewards & Badges'
+    };
+
+    const label = actionNames[actionKey] || actionKey;
+    this.showToast(`${label} - Work in progress`, 'warning');
+  }
+
   async openResignationModal() {
     if (!this.currentEmployee) return;
 
