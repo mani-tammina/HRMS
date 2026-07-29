@@ -35,6 +35,93 @@
 
     <!-- Main Dashboard Container -->
     <div class="glass-dashboard">
+      <section class="balances-section">
+        <div class="section-header">
+          <div class="header-title-group">
+            <div class="icon-box"><ion-icon name="bar-chart"></ion-icon></div>
+            <h2>Leave Balances</h2>
+          </div>
+
+          <!-- Yearly Leave Cycle Selector Dropdown (Image Style) -->
+          <div class="year-selector-wrapper">
+            <div class="custom-year-dropdown" id="year-select-trigger">
+              <span class="year-label">{{ getCycleLabelForYear(currentYear, planStartMonth) }}</span>
+            </div>
+
+            <ion-popover trigger="year-select-trigger" class="year-select-popover" [dismissOnSelect]="true">
+              <ng-template>
+                <div class="year-options-list">
+                  <button class="year-option-item" *ngFor="let y of availableYears" [class.selected]="y === currentYear"
+                    (click)="onYearChange(y)">
+                    <span>{{ getCycleLabelForYear(y, planStartMonth) }}</span>
+                  </button>
+                </div>
+              </ng-template>
+            </ion-popover>
+          </div>
+        </div>
+
+        <div class="balances-grid">
+          <div class="leave-card" *ngFor="let leave of leaveCards; let i = index"
+            [ngClass]="getLeaveTypeClass(leave.title)">
+            <h3 class="card-title">{{ leave.title }}</h3>
+
+            <div class="icon-container">
+              <div class="icon-background" [style.backgroundColor]="leave.bg_color || ''"
+                [style.borderColor]="leave.bg_color || ''" [class.has-custom-bg]="!!leave.bg_color">
+                <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon" alt="icon" />
+                <ion-icon *ngIf="!leave.icon_path" [name]="leave.title?.toLowerCase().includes('sick') ? 'bed-outline' :
+                         (leave.title?.toLowerCase().includes('vacation') || leave.title?.toLowerCase().includes('earned') ? 'airplane-outline' :
+                         (leave.title?.toLowerCase().includes('casual') ? 'umbrella-outline' : 'calendar-outline'))">
+                </ion-icon>
+              </div>
+            </div>
+
+            <div class="days-display">
+              <span class="available">{{ leave.isLOP ? combinedLopDays : leave.available }}</span>
+              <span class="separator" *ngIf="!leave.isLOP"> / </span>
+              <span class="total" *ngIf="!leave.isLOP">{{ leave.allocated_days }}</span>
+              <img *ngIf="leave.isLOP" src="assets/unpaidleaves.png" class="unpaid-infinity-icon" alt="∞" />
+            </div>
+
+            <p class="label">{{ leave.isLOP ? 'days taken' : 'days available' }}</p>
+
+            <div class="consumed-badge">
+              <span class="consumed-label">Consumed: </span>
+              <span class="consumed-value">{{ leave.isLOP ? combinedLopDays : leave.used }} {{ (leave.isLOP ?
+                combinedLopDays : leave.used) === 1 ? 'day' : 'days' }}</span>
+            </div>
+
+            <!-- Structured Table Breakdown (Image 2) -->
+            <div class="leave-details-table">
+              <div class="table-row top-row">
+                <div class="table-cell left-cell">
+                  <span class="cell-label">AVAILABLE</span>
+                  <span class="cell-value avail-text">{{ leave.isLOP ? '0 days' : leave.available + (leave.available ===
+                    1 ? ' day' : ' days') }}</span>
+                </div>
+                <div class="table-cell right-cell">
+                  <span class="cell-label">CONSUMED</span>
+                  <span class="cell-value">{{ (leave.isLOP ? combinedLopDays : leave.used) + ((leave.isLOP ?
+                    combinedLopDays : leave.used) === 1 ? ' day' : ' days') }}</span>
+                </div>
+              </div>
+              <div class="table-row bottom-row">
+                <div class="table-cell" [class.left-cell]="leave.isCasual" [class.full-cell]="!leave.isCasual">
+                  <span class="cell-label">ANNUAL QUOTA</span>
+                  <span class="cell-value">{{ leave.isLOP ? 'Unlimited' : leave.allocated_days + (leave.allocated_days
+                    === 1 ? ' day' : ' days') }}</span>
+                </div>
+                <div class="table-cell right-cell" *ngIf="leave.isCasual">
+                  <span class="cell-label">ACCRUED SO FAR</span>
+                  <span class="cell-value">{{ leave.accrued_so_far }} {{ leave.accrued_so_far === 1 ? 'day' : 'days'
+                    }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
       <!-- Analytics Charts Section: Consumed Leave Types & Monthly Stats Side-by-Side -->
       <section class="analytics-charts-section">
         <div class="analytics-grid">
@@ -125,8 +212,8 @@
 
                 <!-- 3D Monthly Bars Container -->
                 <div class="bars-container-3d">
-                  <div class="bar-col-3d" *ngFor="let m of monthlyLeaveStats.stats" (mouseenter)="hoveredMonthlyBar = m.label"
-                    (mouseleave)="hoveredMonthlyBar = null">
+                  <div class="bar-col-3d" *ngFor="let m of monthlyLeaveStats.stats"
+                    (mouseenter)="hoveredMonthlyBar = m.label" (mouseleave)="hoveredMonthlyBar = null">
 
                     <!-- Floating Tooltip on Hover (Matches Image: Duration of Leave: Xd) -->
                     <div class="bar-tooltip-popover" *ngIf="hoveredMonthlyBar === m.label">
@@ -164,93 +251,7 @@
 
 
       <!-- Balance Section (Full Width) -->
-      <section class="balances-section">
-        <div class="section-header">
-          <div class="header-title-group">
-            <div class="icon-box"><ion-icon name="bar-chart"></ion-icon></div>
-            <h2>Leave Balances</h2>
-          </div>
 
-          <!-- Yearly Leave Cycle Selector Dropdown (Image Style) -->
-          <div class="year-selector-wrapper">
-            <div class="custom-year-dropdown" id="year-select-trigger">
-              <span class="year-label">{{ getCycleLabelForYear(currentYear, planStartMonth) }}</span>
-            </div>
-
-            <ion-popover trigger="year-select-trigger" class="year-select-popover" [dismissOnSelect]="true">
-              <ng-template>
-                <div class="year-options-list">
-                  <button class="year-option-item" *ngFor="let y of availableYears" [class.selected]="y === currentYear"
-                    (click)="onYearChange(y)">
-                    <span>{{ getCycleLabelForYear(y, planStartMonth) }}</span>
-                  </button>
-                </div>
-              </ng-template>
-            </ion-popover>
-          </div>
-        </div>
-
-        <div class="balances-grid">
-          <div class="leave-card" *ngFor="let leave of leaveCards; let i = index"
-            [ngClass]="getLeaveTypeClass(leave.title)">
-            <h3 class="card-title">{{ leave.title }}</h3>
-
-            <div class="icon-container">
-              <div class="icon-background" [style.backgroundColor]="leave.bg_color || ''"
-                [style.borderColor]="leave.bg_color || ''" [class.has-custom-bg]="!!leave.bg_color">
-                <img *ngIf="leave.icon_path" [src]="env + leave.icon_path" class="uploaded-icon" alt="icon" />
-                <ion-icon *ngIf="!leave.icon_path" [name]="leave.title?.toLowerCase().includes('sick') ? 'bed-outline' :
-                         (leave.title?.toLowerCase().includes('vacation') || leave.title?.toLowerCase().includes('earned') ? 'airplane-outline' :
-                         (leave.title?.toLowerCase().includes('casual') ? 'umbrella-outline' : 'calendar-outline'))">
-                </ion-icon>
-              </div>
-            </div>
-
-            <div class="days-display">
-              <span class="available">{{ leave.isLOP ? combinedLopDays : leave.available }}</span>
-              <span class="separator" *ngIf="!leave.isLOP"> / </span>
-              <span class="total" *ngIf="!leave.isLOP">{{ leave.allocated_days }}</span>
-              <img *ngIf="leave.isLOP" src="assets/unpaidleaves.png" class="unpaid-infinity-icon" alt="∞" />
-            </div>
-
-            <p class="label">{{ leave.isLOP ? 'days taken' : 'days available' }}</p>
-
-            <div class="consumed-badge">
-              <span class="consumed-label">Consumed: </span>
-              <span class="consumed-value">{{ leave.isLOP ? combinedLopDays : leave.used }} {{ (leave.isLOP ?
-                combinedLopDays : leave.used) === 1 ? 'day' : 'days' }}</span>
-            </div>
-
-            <!-- Structured Table Breakdown (Image 2) -->
-            <div class="leave-details-table">
-              <div class="table-row top-row">
-                <div class="table-cell left-cell">
-                  <span class="cell-label">AVAILABLE</span>
-                  <span class="cell-value avail-text">{{ leave.isLOP ? '0 days' : leave.available + (leave.available ===
-                    1 ? ' day' : ' days') }}</span>
-                </div>
-                <div class="table-cell right-cell">
-                  <span class="cell-label">CONSUMED</span>
-                  <span class="cell-value">{{ (leave.isLOP ? combinedLopDays : leave.used) + ((leave.isLOP ?
-                    combinedLopDays : leave.used) === 1 ? ' day' : ' days') }}</span>
-                </div>
-              </div>
-              <div class="table-row bottom-row">
-                <div class="table-cell" [class.left-cell]="leave.isCasual" [class.full-cell]="!leave.isCasual">
-                  <span class="cell-label">ANNUAL QUOTA</span>
-                  <span class="cell-value">{{ leave.isLOP ? 'Unlimited' : leave.allocated_days + (leave.allocated_days
-                    === 1 ? ' day' : ' days') }}</span>
-                </div>
-                <div class="table-cell right-cell" *ngIf="leave.isCasual">
-                  <span class="cell-label">ACCRUED SO FAR</span>
-                  <span class="cell-value">{{ leave.accrued_so_far }} {{ leave.accrued_so_far === 1 ? 'day' : 'days'
-                    }}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
       <div class="dashboard-grid">
         <!-- Pending Section (75% width) -->
         <section class="pending-section">

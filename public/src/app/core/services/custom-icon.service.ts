@@ -14,7 +14,8 @@ export class CustomIconService {
         'attendance': 'assets/icons/menu/attendance.svg',
         'logout': 'assets/icons/menu/logout.svg',
         'notifications-outline': 'assets/icons/menu/notifications-outline.svg',
-        'inbox-outline': 'assets/icons/menu/inbox-outline.svg'
+        'inbox-outline': 'assets/icons/menu/inbox-outline.svg',
+        'job': 'assets/icons/menu/job.svg'
     };
 
     constructor() { }
