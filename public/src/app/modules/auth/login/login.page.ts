@@ -140,8 +140,8 @@ export class LoginPage implements OnInit {
 
     this.authService.checkEmployee(emailValue).subscribe({
       next: (res) => {
-        loader.dismiss();
         if (!res.found) {
+          loader.dismiss();
           this.presentToast('Employee not found', 'warning');
           return;
         }
@@ -150,12 +150,13 @@ export class LoginPage implements OnInit {
         this.fetchRolePreview(emailValue);
 
         if (res.hasUserAccount) {
+          loader.dismiss();
           this.emailChecked = true;
           this.showPassword = true;
           this.loginForm.get('password')?.setValidators(Validators.required);
           this.loginForm.get('password')?.updateValueAndValidity();
         } else {
-          this.sendCreatePasswordOtp(emailValue);
+          this.sendCreatePasswordOtp(emailValue, loader);
         }
       },
       error: (err) => {
@@ -166,9 +167,11 @@ export class LoginPage implements OnInit {
     });
   }
 
-  async sendCreatePasswordOtp(email: string) {
-    const loader = await this.loadingController.create({ message: 'Sending OTP to email...' });
-    await loader.present();
+  async sendCreatePasswordOtp(email: string, existingLoader?: HTMLIonLoadingElement) {
+    const loader = existingLoader || await this.loadingController.create({ message: 'Sending OTP...' });
+    if (!existingLoader) {
+      await loader.present();
+    }
     
     this.authService.sendOtp(email).subscribe({
       next: (res) => {
