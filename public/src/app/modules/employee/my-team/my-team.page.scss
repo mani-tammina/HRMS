@@ -135,22 +135,41 @@
     }
 
     .date-picker-wrapper {
-      background: vars.$color-white;
-      // border: 1px solid vars.$color-border;
-      border-radius: vars.$radius-md;
-      padding: 4px 16px;
-      transition: vars.$transition-base;
-      box-shadow: vars.$shadow-xs;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: #f1f5f9;
+      border: 1.5px solid #cbd5e1;
+      border-radius: 12px;
+      padding: 4px 14px;
+      transition: all 0.2s ease-in-out;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+
+      .picker-filter-icon {
+        font-size: 18px;
+        color: #1870B9;
+        flex-shrink: 0;
+        transition: transform 0.2s ease;
+      }
 
       &:hover {
-        border-color: vars.$color-primary;
-        box-shadow: 0 0 0 3px rgba(vars.$color-primary, 0.08);
+        background: #f0f9ff;
+        border-color: #1870B9;
+        box-shadow: 0 4px 12px rgba(24, 112, 185, 0.12);
+
+        .picker-filter-icon {
+          transform: scale(1.1);
+        }
       }
 
       ion-datetime-button {
         --background: transparent;
-        --color: #{vars.$color-text-primary};
-        font-weight: vars.$fw-bold;
+        --color: #0f172a;
+        --padding-start: 0;
+        --padding-end: 0;
+        font-weight: 700;
+        font-size: 14px;
       }
     }
   }

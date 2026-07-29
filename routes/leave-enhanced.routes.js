@@ -136,6 +136,59 @@ function computeCLAvailable(
   return Math.max(0, avail);
 }
 
+function computeCLAccruedSoFar(
+  allocatedDays,
+  joiningDateStr,
+  leaveYear,
+  refDate = new Date(),
+  planStartMonth = 1,
+) {
+  const base = Math.floor((allocatedDays || 0) / 12);
+  const remainder = (allocatedDays || 0) - base * 12;
+
+  const monthly = new Array(12).fill(base);
+  for (let i = 0; i < remainder; i++) monthly[i] = monthly[i] + 1;
+
+  const planStartIndex = Math.max(
+    0,
+    Math.min(11, (Number(planStartMonth) || 1) - 1),
+  );
+
+  let effectiveStart = planStartIndex;
+  if (joiningDateStr) {
+    try {
+      const jd = new Date(joiningDateStr);
+      if (!isNaN(jd) && jd.getFullYear() === Number(leaveYear)) {
+        const joinMonth = jd.getMonth();
+        if (joinMonth > planStartIndex) effectiveStart = joinMonth;
+      }
+    } catch (e) {}
+  }
+
+  let monthsAllocated = 0;
+  const refYear = refDate.getFullYear();
+
+  if (leaveYear < refYear) {
+    monthsAllocated = 12 - (effectiveStart - planStartIndex);
+  } else if (leaveYear > refYear) {
+    monthsAllocated = 0;
+  } else {
+    const refMonth = refDate.getMonth();
+    if (refMonth >= effectiveStart) {
+      monthsAllocated = refMonth - effectiveStart + 1;
+    } else {
+      monthsAllocated = 0;
+    }
+  }
+
+  let sum = 0;
+  for (let m = 0; m < monthsAllocated; m++) {
+    const idx = effectiveStart + m;
+    if (idx >= 0 && idx < 12) sum += monthly[idx];
+  }
+  return sum;
+}
+
 // Create Leave Plan
 router.post("/plans", auth, hr, async (req, res) => {
   try {
@@ -934,6 +987,13 @@ router.get("/balance", auth, async (req, res) => {
         } catch (e) {
           planStartMonth = 1;
         }
+        const accruedSoFar = computeCLAccruedSoFar(
+          allocated,
+          emp.DateJoined,
+          Number(b.leave_year) || new Date().getFullYear(),
+          new Date(),
+          planStartMonth,
+        );
         const available = computeCLAvailable(
           allocated,
           carry,
@@ -943,7 +1003,12 @@ router.get("/balance", auth, async (req, res) => {
           new Date(),
           planStartMonth,
         );
-        updatedBalances.push({ ...b, available_days: available });
+        updatedBalances.push({
+          ...b,
+          available_days: available,
+          accrued_so_far: accruedSoFar,
+          plan_start_month: planStartMonth,
+        });
         continue;
       }
 

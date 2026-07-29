@@ -865,6 +865,73 @@ CREATE TABLE IF NOT EXISTS employee_leave_balances (
   INDEX idx_employee_year (employee_id, leave_year)
 );
 
+-- Yearly Leave Balances (YTD report table per policy & period matching Excel format)
+CREATE TABLE IF NOT EXISTS yearly_leave_balances (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NULL,
+  employee_number VARCHAR(50) NOT NULL,
+  employee_name VARCHAR(150) NOT NULL,
+  job_title VARCHAR(100) NULL,
+  business_unit VARCHAR(150) NULL,
+  department VARCHAR(100) NULL,
+  sub_department VARCHAR(100) NULL,
+  location VARCHAR(100) NULL,
+  cost_center VARCHAR(100) NULL,
+  reporting_manager VARCHAR(150) NULL,
+  policy_name VARCHAR(100) DEFAULT 'Dayshift Leave Policy',
+  year_period VARCHAR(100) DEFAULT '01-Apr-2026 - 31-Mar-2027',
+  
+  -- Sick Leave Metrics
+  sick_leave_accrued DECIMAL(5,2) DEFAULT 0.00,
+  sick_leave_consumed DECIMAL(5,2) DEFAULT 0.00,
+  sick_leave_balance VARCHAR(20) DEFAULT '0',
+  sick_leave_annual_quota VARCHAR(20) DEFAULT '6',
+  sick_leave_unit VARCHAR(20) DEFAULT 'Days',
+  
+  -- Casual Leave Metrics
+  casual_leave_accrued DECIMAL(5,2) DEFAULT 0.00,
+  casual_leave_consumed DECIMAL(5,2) DEFAULT 0.00,
+  casual_leave_balance VARCHAR(20) DEFAULT '0',
+  casual_leave_annual_quota VARCHAR(20) DEFAULT '12',
+  casual_leave_unit VARCHAR(20) DEFAULT 'Days',
+  
+  -- Comp Offs Metrics
+  comp_offs_accrued DECIMAL(5,2) DEFAULT 0.00,
+  comp_offs_consumed DECIMAL(5,2) DEFAULT 0.00,
+  comp_offs_balance VARCHAR(20) DEFAULT '0',
+  comp_offs_annual_quota VARCHAR(20) DEFAULT '0',
+  comp_offs_unit VARCHAR(20) DEFAULT 'Days',
+  
+  -- Marriage Leaves Metrics
+  marriage_leaves_accrued DECIMAL(5,2) DEFAULT 0.00,
+  marriage_leaves_consumed DECIMAL(5,2) DEFAULT 0.00,
+  marriage_leaves_balance VARCHAR(20) DEFAULT '2',
+  marriage_leaves_annual_quota VARCHAR(20) DEFAULT '2',
+  marriage_leaves_unit VARCHAR(20) DEFAULT 'Days',
+  
+  -- Unpaid Leave Metrics
+  unpaid_leave_accrued DECIMAL(5,2) DEFAULT 0.00,
+  unpaid_leave_consumed DECIMAL(5,2) DEFAULT 0.00,
+  unpaid_leave_balance VARCHAR(20) DEFAULT 'No Limit',
+  unpaid_leave_annual_quota VARCHAR(20) DEFAULT 'No Limit',
+  unpaid_leave_unit VARCHAR(20) DEFAULT 'Days',
+  
+  -- Bereavement Leave Metrics
+  bereavement_leave_accrued DECIMAL(5,2) DEFAULT 0.00,
+  bereavement_leave_consumed DECIMAL(5,2) DEFAULT 0.00,
+  bereavement_leave_balance VARCHAR(20) DEFAULT '2',
+  bereavement_leave_annual_quota VARCHAR(20) DEFAULT '2',
+  bereavement_leave_unit VARCHAR(20) DEFAULT 'Days',
+  
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL,
+  UNIQUE KEY unique_emp_year_policy (employee_number, year_period, policy_name),
+  INDEX idx_emp_num (employee_number),
+  INDEX idx_year_policy (year_period, policy_name)
+);
+
+
 -- Leaves Table
 CREATE TABLE IF NOT EXISTS leaves (
   id INT PRIMARY KEY AUTO_INCREMENT,

@@ -34,6 +34,66 @@
   <div class="header-banner"></div>
 
   <div class="profile-top-section ion-padding animate__animated animate__fadeIn">
+    <!-- Top Right Action Icons -->
+    <div class="card-top-actions">
+      <button class="top-action-btn" title="Rewards & Badges" (click)="onMenuAction('badges')">
+        <img src="assets/reward.png" alt="rewards" />
+      </button>
+      <button class="top-action-btn" title="Internal Note" (click)="onMenuAction('write_note')">
+        <ion-icon name="create-outline"></ion-icon>
+      </button>
+      <button class="top-action-btn more-btn" id="profile-more-actions-trigger" title="More Actions">
+        <img src="assets/three-dots.png" alt="rewards" />
+      </button>
+    </div>
+
+    <!-- Profile Actions Popover (3-Dots Dropdown) -->
+    <ion-popover trigger="profile-more-actions-trigger" class="profile-actions-popover" dismissOnSelect="true">
+      <ng-template>
+        <div class="actions-menu-list">
+          <button class="menu-item" (click)="onMenuAction('id_card')">
+            <ion-icon name="id-card-outline" class="item-icon"></ion-icon>
+            <span>ID Card</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('write_note')">
+            <ion-icon name="document-text-outline" class="item-icon"></ion-icon>
+            <span>Write Internal Note</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('request_feedback')">
+            <ion-icon name="chatbox-ellipses-outline" class="item-icon"></ion-icon>
+            <span>Request Feedback</span>
+          </button>
+
+          <button class="menu-item exit-item" (click)="onInitiateExit()">
+            <ion-icon name="exit-outline" class="item-icon"></ion-icon>
+            <span>Initiate Exit</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('disable_login')">
+            <ion-icon name="person-remove-outline" class="item-icon"></ion-icon>
+            <span>Disable Login</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('disable_mobile_login')">
+            <ion-icon name="lock-closed-outline" class="item-icon"></ion-icon>
+            <span>Disable Mobile App Login</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('reset_password')">
+            <ion-icon name="key-outline" class="item-icon"></ion-icon>
+            <span>Reset Password</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('pip')">
+            <ion-icon name="flag-outline" class="item-icon"></ion-icon>
+            <span>Add Employee to PIP</span>
+          </button>
+        </div>
+      </ng-template>
+    </ion-popover>
+
     <ion-grid class="ion-no-padding">
       <ion-row class="ion-align-items-center">
         <!-- LEFT: Profile Picture -->
@@ -84,13 +144,6 @@
               <ion-button fill="outline" color="primary" id="image-upload-trigger" class="upload-btn">
                 <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
                 Upload Image
-              </ion-button>
-
-              <ion-button
-                *ngIf="resSettings?.allow_employee_resign !== false && currentEmployee?.EmploymentStatus === 'Working' && (!myResignation || myResignation.status === 'Rejected')"
-                fill="solid" color="danger" (click)="openResignationModal()" class="upload-btn">
-                <ion-icon slot="start" name="exit-outline"></ion-icon>
-                Apply Resignation
               </ion-button>
 
               <ion-button

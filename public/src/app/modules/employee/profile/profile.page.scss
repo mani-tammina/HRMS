@@ -32,7 +32,50 @@
     border-radius: vars.$radius-xl;
     box-shadow: vars.$shadow-md;
     border: 1px solid vars.$color-border;
-    overflow: hidden;
+    overflow: visible;
+
+    .card-top-actions {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 10;
+
+      .top-action-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        // background: vars.$color-bg-subtle;
+        // border: 1px solid vars.$color-border-light;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: vars.$color-text-secondary;
+        cursor: pointer;
+        transition: vars.$transition-base;
+
+        &:hover {
+          background: vars.$color-border-light;
+          color: vars.$color-text-primary;
+        }
+
+        &.more-btn {
+          color: vars.$color-primary;
+          background: vars.$color-primary-light;
+          border-color: transparent;
+
+          &:hover {
+            background: rgba(vars.$color-primary, 0.15);
+          }
+        }
+
+        ion-icon {
+          font-size: 18px;
+        }
+      }
+    }
 
     .avatar-block {
       display: flex;
@@ -127,14 +170,17 @@
               background: #DCFCE7;
               color: #15803D;
             }
+
             &.status-out {
               background: #FEE2E2;
               color: #B91C1C;
             }
+
             &.status-leave {
               background: #DBEAFE;
               color: #1D4ED8;
             }
+
             &.status-not-in {
               background: #F3F4F6;
               color: #4B5563;
@@ -169,6 +215,7 @@
 
     // Cards inside any tab get a base style so JS animation works cleanly
     ::ng-deep {
+
       .details-card,
       .ion-card,
       ion-card,
@@ -188,6 +235,7 @@
     opacity: 0;
     transform: translateY(24px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -522,6 +570,69 @@
 
           ion-icon {
             font-size: 16px !important;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Profile Actions Dropdown Popover (3-Dots Menu) */
+.profile-actions-popover {
+  --width: 250px;
+  --border-radius: #{vars.$radius-lg};
+  --box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  &::part(content) {
+    border-radius: 12px;
+    border: 1px solid vars.$color-border-light;
+    overflow: hidden;
+    background: vars.$color-white;
+  }
+
+  .actions-menu-list {
+    display: flex;
+    flex-direction: column;
+    padding: 6px 0;
+    background: vars.$color-white;
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      width: 100%;
+      padding: 11px 18px;
+      background: transparent;
+      border: none;
+      text-align: left;
+      cursor: pointer;
+      color: vars.$color-text-primary;
+      font-size: 14px;
+      font-weight: 500;
+      transition: vars.$transition-base;
+
+      .item-icon {
+        font-size: 19px;
+        color: vars.$color-text-muted;
+        transition: color 0.15s ease;
+      }
+
+      &:hover {
+        background: vars.$color-bg-subtle;
+        color: vars.$color-primary;
+
+        .item-icon {
+          color: vars.$color-primary;
+        }
+      }
+
+      &.exit-item {
+        &:hover {
+          background: #FEF2F2;
+          color: #DC2626;
+
+          .item-icon {
+            color: #DC2626;
           }
         }
       }

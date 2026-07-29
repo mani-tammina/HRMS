@@ -19,7 +19,7 @@
             <p>Marital Status</p>
             <h6>{{currentEmployee?.MaritalStatus || '-'}}</h6>
           </div>
-          <div class="info-group">
+          <div class="info-group" *ngIf="canViewDOB">
             <p>Date of Birth</p>
             <h6>{{(currentEmployee?.DateOfBirth | date:'dd-MM-yyyy') || '-'}}</h6>
           </div>

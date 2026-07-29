@@ -58,8 +58,224 @@ export class LeavesPage implements OnInit, OnDestroy {
     private router: Router,
   ) { }
 
+  availableYears: number[] = [];
+  planStartMonth: number = 4;
+  hoveredSegment: any = null;
+
+  getLeaveTypeColor(nameOrCode: string): string {
+    const text = (nameOrCode || '').toLowerCase();
+    if (text.includes('sick') || text === 'sl') return '#10b981'; // Emerald Green
+    if (text.includes('casual') || text === 'cl') return '#8b5cf6'; // Vivid Purple
+    if (text.includes('marriage') || text === 'ml') return '#f59e0b'; // Warm Amber/Orange
+    if (text.includes('comp') || text === 'comp_off') return '#0284c7'; // Sky Blue
+    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return '#f43f5e'; // Coral Red
+    if (text.includes('bereavement') || text === 'bl') return '#6366f1'; // Indigo
+    return '#1F74BB';
+  }
+
+  getLeaveShortcut(nameOrCode: string): string {
+    const text = (nameOrCode || '').toLowerCase();
+    if (text.includes('casual') || text === 'cl') return 'CL';
+    if (text.includes('sick') || text === 'sl') return 'SL';
+    if (text.includes('marriage') || text === 'ml') return 'ML';
+    if (text.includes('comp') || text === 'comp_off') return 'COMP';
+    if (text.includes('earned') || text === 'el') return 'EL';
+    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return 'LOP';
+    if (text.includes('bereavement') || text === 'bl') return 'BL';
+    if (text.includes('maternity')) return 'MAT';
+    if (text.includes('paternity')) return 'PAT';
+    return (nameOrCode || 'LV').substring(0, 3).toUpperCase();
+  }
+
+  get consumedLeaveTypesData() {
+    const consumedList: any[] = [];
+
+    for (const card of this.leaveCards) {
+      const usedVal = card.isLOP ? (Number(this.combinedLopDays) || 0) : (Number(card.used) || 0);
+      if (usedVal > 0) {
+        const color = this.getLeaveTypeColor(card.title || card.code);
+        const shortcut = this.getLeaveShortcut(card.title || card.code);
+        consumedList.push({
+          title: card.title,
+          shortcut: shortcut,
+          used: usedVal,
+          color: color,
+          code: card.code,
+        });
+      }
+    }
+
+    const totalUsed = consumedList.reduce((acc, curr) => acc + curr.used, 0);
+    const R = 40;
+    const C = 2 * Math.PI * R;
+
+    let accumulatedOffset = 0;
+    const segments = consumedList.map((item) => {
+      const ratio = totalUsed > 0 ? item.used / totalUsed : 0;
+      const strokeDasharray = `${ratio * C} ${C}`;
+      const strokeDashoffset = -accumulatedOffset;
+      accumulatedOffset += ratio * C;
+
+      return {
+        ...item,
+        ratio,
+        strokeDasharray,
+        strokeDashoffset,
+      };
+    });
+
+    return {
+      totalUsed,
+      consumedList,
+      segments,
+      hasData: consumedList.length > 0,
+    };
+  }
+
+  hoveredMonthlyBar: any = null;
+  monthlyStatsData: { [key: string]: number } = {};
+
+  loadMonthlyAttendanceStats() {
+    const sMonth = Number(this.planStartMonth) || 4;
+    const baseYear = this.currentYear;
+
+    for (let i = 0; i < 12; i++) {
+      const monthIdx = (sMonth - 1 + i) % 12;
+      const mNum = monthIdx + 1;
+      const year = (mNum < sMonth) ? baseYear + 1 : baseYear;
+
+      const startDate = `${year}-${String(mNum).padStart(2, '0')}-01`;
+      const lastDay = new Date(year, mNum, 0).getDate();
+      const endDate = `${year}-${String(mNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      this.attendanceApi.getMonthlyReport({ startDate, endDate, month: mNum, year }).subscribe({
+        next: (res: any) => {
+          const summary = res?.summary || res || {};
+          const leaveDays = Number(summary.leave_days || 0);
+          const lopDays = Number(summary.lop_days || 0);
+          const absentDays = Number(summary.absent_days || 0);
+          const halfDays = Number(summary.half_days || 0) * 0.5;
+
+          const totalAttLeaves = leaveDays + lopDays;
+          const key = `${year}-${mNum}`;
+          const currentVal = this.monthlyStatsData[key] || 0;
+
+          if (totalAttLeaves > currentVal) {
+            this.monthlyStatsData = {
+              ...this.monthlyStatsData,
+              [key]: totalAttLeaves,
+            };
+            this.updateMonthlyLeaveStats();
+          }
+        },
+        error: () => { }
+      });
+    }
+  }
+
+  calculateMonthlyConsumedLeaves() {
+    const monthlyMap: { [key: string]: number } = {};
+
+    const leaves = this.leaveRequestsDetails || [];
+    for (const req of leaves) {
+      const status = (req.status || '').toUpperCase();
+      if (status === 'APPROVED' || status === 'RELIEVED' || status === 'SUCCESS') {
+        const start = new Date(req.from_date || req.start_date);
+        const end = new Date(req.to_date || req.end_date);
+
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+          let curr = new Date(start);
+          const last = new Date(end);
+          curr.setHours(0, 0, 0, 0);
+          last.setHours(0, 0, 0, 0);
+
+          const daysCount = Number(req.days) || 1;
+          const totalCalendarDays = Math.max(1, Math.round((last.getTime() - curr.getTime()) / (1000 * 3600 * 24)) + 1);
+          const perDayWeight = daysCount / totalCalendarDays;
+
+          while (curr <= last) {
+            const key = `${curr.getFullYear()}-${curr.getMonth() + 1}`;
+            monthlyMap[key] = (monthlyMap[key] || 0) + perDayWeight;
+            curr.setDate(curr.getDate() + 1);
+          }
+        }
+      }
+    }
+
+    if (this.combinedLopDays > 0) {
+      const today = new Date();
+      const key = `${today.getFullYear()}-${today.getMonth() + 1}`;
+      if (!monthlyMap[key]) {
+        monthlyMap[key] = this.combinedLopDays;
+      }
+    }
+
+    this.monthlyStatsData = monthlyMap;
+    this.updateMonthlyLeaveStats();
+    this.loadMonthlyAttendanceStats();
+  }
+
+  computedMonthlyStats: { stats: any[], maxDays: number, totalCycleDays: number } = { stats: [], maxDays: 4, totalCycleDays: 0 };
+
+  updateMonthlyLeaveStats() {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sMonth = Number(this.planStartMonth) || 4;
+
+    const cycleMonths: any[] = [];
+    const baseYear = this.currentYear;
+
+    for (let i = 0; i < 12; i++) {
+      const monthIdx = (sMonth - 1 + i) % 12;
+      const mNum = monthIdx + 1;
+      const year = (mNum < sMonth) ? baseYear + 1 : baseYear;
+      const key = `${year}-${mNum}`;
+
+      const daysVal = Math.round(((this.monthlyStatsData && this.monthlyStatsData[key]) || 0) * 10) / 10;
+
+      cycleMonths.push({
+        label: monthNames[monthIdx],
+        monthNum: mNum,
+        year: year,
+        days: daysVal,
+      });
+    }
+
+    const maxDays = Math.max(...cycleMonths.map(m => m.days), 4);
+
+    const stats = cycleMonths.map(m => {
+      let barHeight = 4;
+      if (m.days > 0) {
+        barHeight = Math.min(75, Math.max(14, Math.round((m.days / maxDays) * 65 + 10)));
+      }
+      return {
+        ...m,
+        barHeight,
+      };
+    });
+
+    const totalCycleDays = cycleMonths.reduce((sum, m) => sum + m.days, 0);
+
+    this.computedMonthlyStats = {
+      stats,
+      maxDays,
+      totalCycleDays,
+    };
+  }
+
+  get monthlyLeaveStats() {
+    if (!this.computedMonthlyStats.stats || this.computedMonthlyStats.stats.length === 0) {
+      this.updateMonthlyLeaveStats();
+    }
+    return this.computedMonthlyStats;
+  }
+
+  trackByMonthLabel(index: number, item: any): string {
+    return item.label;
+  }
+
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
+    this.initYears();
     this.updateRole();
     this.loadLeaveBalance();
     this.getAllLeaves();
@@ -68,6 +284,31 @@ export class LeavesPage implements OnInit, OnDestroy {
     if (this.isManager) {
       this.loadTeamAttendanceSummary();
     }
+  }
+
+  initYears() {
+    const todayYear = new Date().getFullYear();
+    this.availableYears = [todayYear, todayYear - 1, todayYear - 2];
+  }
+
+  getCycleLabelForYear(year: number, startMonth: number = 4): string {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const sMonth = Number(startMonth) || 4;
+    if (sMonth === 1) {
+      return `Jan ${year} - Dec ${year}`;
+    }
+    const startName = monthNames[sMonth - 1] || 'Apr';
+    const endMonthIdx = (sMonth - 2 + 12) % 12;
+    const endName = monthNames[endMonthIdx] || 'Mar';
+    const endYear = sMonth > 1 ? year + 1 : year;
+    return `${startName} ${year} - ${endName} ${endYear}`;
+  }
+
+  onYearChange(year: number) {
+    if (this.currentYear === year) return;
+    this.currentYear = year;
+    this.loadLeaveBalance();
+    this.getAllLeaves();
   }
 
   /* ===================== ROLE ===================== */
@@ -82,13 +323,21 @@ export class LeavesPage implements OnInit, OnDestroy {
       next: (res: any) => {
         const balances = res.balances || [];
         this.needsInitialization = res.needs_initialization || false;
+        if (balances.length > 0 && balances[0].plan_start_month) {
+          this.planStartMonth = balances[0].plan_start_month;
+        }
 
         this.leaveCards = balances.map((item: any) => {
           const code = (item.type_code || '').toUpperCase();
           const isLOP = code === 'LOP';
+          const isCasual = code === 'CL' || (item.type_name || '').toLowerCase().includes('casual');
           const allocated = Number(item.allocated_days) || 0;
           const used = Number(item.used_days) || 0;
           const available = (Number(item.available_days) || 0) - (Number(item.pending_days) || 0);
+
+          let accruedSoFar = (item.accrued_so_far !== undefined && item.accrued_so_far !== null)
+            ? Number(item.accrued_so_far)
+            : this.calculateAccruedSoFar(allocated, item.plan_start_month || 1);
 
           return {
             title: item.type_name,
@@ -97,6 +346,8 @@ export class LeavesPage implements OnInit, OnDestroy {
             used,
             available: isLOP ? '0' : available,
             isLOP: isLOP,
+            isCasual: isCasual,
+            accrued_so_far: accruedSoFar,
             usedPercent: isLOP ? 0 : (allocated > 0 ? Math.round((used / allocated) * 100) : 0),
             bg_color: item.bg_color,
             icon_path: item.icon_path,
@@ -105,6 +356,27 @@ export class LeavesPage implements OnInit, OnDestroy {
       },
       error: err => console.error(err),
     });
+  }
+
+  calculateAccruedSoFar(allocatedDays: number, planStartMonth: number = 1): number {
+    if (!allocatedDays || allocatedDays <= 0) return 0;
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // 1 to 12
+    let monthsElapsed = 0;
+    if (currentMonth >= planStartMonth) {
+      monthsElapsed = currentMonth - planStartMonth + 1;
+    } else {
+      monthsElapsed = 12 - planStartMonth + currentMonth + 1;
+    }
+    monthsElapsed = Math.max(1, Math.min(12, monthsElapsed));
+
+    const base = Math.floor(allocatedDays / 12);
+    const remainder = allocatedDays - (base * 12);
+    let sum = 0;
+    for (let i = 0; i < monthsElapsed; i++) {
+      sum += base + (i < remainder ? 1 : 0);
+    }
+    return sum;
   }
 
   /* ===================== TEAM ATTENDANCE ===================== */
@@ -394,6 +666,7 @@ export class LeavesPage implements OnInit, OnDestroy {
     );
 
     this.historyLeaves = combinedLopEntry ? [combinedLopEntry, ...processed] : processed;
+    this.calculateMonthlyConsumedLeaves();
   }
 
   async presentToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {

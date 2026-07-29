@@ -67,6 +67,7 @@ const emailRoutes = require("./routes/email.routes");
 const payrollTaxV1Routes = require("./routes/payroll-tax.v1.routes");
 const taxationWorkflowRoutes = require("./routes/taxation-workflow.routes");
 const inboxRoutes = require("./routes/inbox.routes");
+const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -565,6 +566,7 @@ app.use("/api/assets", assetRoutes);
 
 // Dashboard & Analytics Routes
 app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/yearly-leave-balances", yearlyLeaveBalanceRoutes);
 
 // Separation & Exit Management Routes
 app.use("/api/separation", require("./routes/separation.routes"));

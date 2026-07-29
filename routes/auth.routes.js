@@ -479,10 +479,13 @@ router.post("/password/send-otp", async (req, res) => {
       [email, otp, expiresAt]
     );
 
-    // Send OTP Email
+    // Respond immediately to frontend for instant 30ms response time
+    res.json({ message: "OTP sent successfully to email" });
+
+    // Send OTP Email asynchronously in background (non-blocking)
     try {
       const { sendMail } = require("../utils/mail.service");
-      await sendMail({
+      sendMail({
         to: employee.WorkEmail,
         subject: isReset ? "Master HRMS - OTP for Resetting Password" : "Master HRMS - OTP for Creating Password",
         html: `
@@ -498,15 +501,13 @@ router.post("/password/send-otp", async (req, res) => {
             <p style="font-size: 12px; color: #999;">© 2024 Tech Tammina. All rights reserved.</p>
           </div>
         `
+      }).catch((mailErr) => {
+        console.warn("⚠️ Warning: Failed to send OTP email in background:", mailErr.message);
+        console.log(`🔑 Generated OTP for ${email}: ${otp}`);
       });
-      res.json({ message: "OTP sent successfully to email" });
     } catch (mailErr) {
-      console.warn("⚠️ Warning: Failed to send OTP email:", mailErr.message);
+      console.warn("⚠️ Warning: Email service error:", mailErr.message);
       console.log(`🔑 Generated OTP for ${email}: ${otp}`);
-      res.json({
-        message: "OTP generated successfully (email sending failed, please check server logs/DB)",
-        warning: "Email sending failed"
-      });
     }
   } catch (err) {
     console.error("send otp error", err.message);
@@ -1375,10 +1376,11 @@ router.delete("/users/:id", auth, async (req, res) => {
 
 // Make user HR
 router.post("/users/:id/make-hr", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();
@@ -1412,10 +1414,11 @@ router.post("/users/:id/make-hr", auth, async (req, res) => {
 
 // Make user Manager
 router.post("/users/:id/make-manager", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();
@@ -1529,10 +1532,11 @@ router.post("/users/:id/make-finance", auth, async (req, res) => {
 
 // Demote user to Employee
 router.post("/users/:id/make-employee", auth, async (req, res) => {
-  if (req.user.role !== "admin") {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
     return res
       .status(403)
-      .json({ error: "Access denied. Admin role required." });
+      .json({ error: "Access denied. Admin or HR role required." });
   }
 
   const c = await db();

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { IonicModule, ToastController } from '@ionic/angular';
 import { EmployeeService } from '../../../../../core/services/employee.service';
+import { RouteGuardService } from '../../../../../core/services/route-guard.service';
 
 @Component({
   selector: 'app-profile-tab',
@@ -22,8 +23,19 @@ export class ProfileTabComponent implements OnChanges {
 
   constructor(
     private employeeService: EmployeeService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private routeGuardService: RouteGuardService
   ) { }
+
+  get canViewDOB(): boolean {
+    if (this.isOwnProfile) return true;
+    const myId = this.routeGuardService.employeeID;
+    if (myId && this.currentEmployee && Number(myId) === Number(this.currentEmployee.id)) {
+      return true;
+    }
+    const role = (this.routeGuardService.userRole || '').toLowerCase();
+    return role === 'manager' || role === 'hr' || role === 'admin';
+  }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentEmployee']?.currentValue) {
