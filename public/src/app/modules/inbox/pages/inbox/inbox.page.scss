@@ -839,6 +839,11 @@
           box-shadow: 0 0 8px rgba(24, 112, 185, 0.6);
         }
 
+        &.compoff-req::before {
+          background: #7367f0;
+          box-shadow: 0 0 8px rgba(115, 103, 240, 0.6);
+        }
+
         &.attendance-req::before {
           background: #ff9f43;
           box-shadow: 0 0 8px rgba(255, 159, 67, 0.6);
@@ -884,6 +889,11 @@
           &.leave {
             background: rgba(24, 112, 185, 0.08);
             color: #1870B9;
+          }
+
+          &.compoff {
+            background: rgba(115, 103, 240, 0.08);
+            color: #7367f0;
           }
 
           &.attendance {
@@ -934,6 +944,10 @@
 
             &.leave {
               color: #1870B9;
+            }
+
+            &.compoff {
+              color: #7367f0;
             }
 
             &.attendance {
@@ -1194,6 +1208,11 @@
         &.leave {
           background: rgba(24, 112, 185, 0.08);
           color: #1870B9;
+        }
+
+        &.compoff {
+          background: rgba(115, 103, 240, 0.08);
+          color: #7367f0;
         }
 
         &.attendance {
