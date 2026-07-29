@@ -35,6 +35,134 @@
 
     <!-- Main Dashboard Container -->
     <div class="glass-dashboard">
+      <!-- Analytics Charts Section: Consumed Leave Types & Monthly Stats Side-by-Side -->
+      <section class="analytics-charts-section">
+        <div class="analytics-grid">
+          <!-- Card 1: Consumed Leave Types (Exact Match for Reference Screenshot) -->
+          <div class="analytics-card consumed-types-card">
+            <div class="card-header-row">
+              <div class="card-title-group">
+                <h3 class="card-title">Consumed Leave Types</h3>
+              </div>
+              <button class="info-icon-btn" title="Breakdown of consumed leaves by type">
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </button>
+            </div>
+
+            <div class="chart-container-body centered-donut-body" (mouseleave)="hoveredSegment = null">
+              <div class="donut-chart-wrapper" (mouseleave)="hoveredSegment = null">
+                <svg class="donut-svg" viewBox="0 0 100 100" (mouseleave)="hoveredSegment = null">
+                  <!-- Outer Base Circle -->
+                  <circle class="donut-bg-ring" cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9"
+                    stroke-width="12" />
+
+                  <!-- Dynamic Colored Segments -->
+                  <g class="donut-segments-group" transform="rotate(-90 50 50)" *ngIf="consumedLeaveTypesData.hasData">
+                    <circle *ngFor="let seg of consumedLeaveTypesData.segments" cx="50" cy="50" r="40"
+                      fill="transparent" [attr.stroke]="seg.color" stroke-width="12"
+                      [attr.stroke-dasharray]="seg.strokeDasharray" [attr.stroke-dashoffset]="seg.strokeDashoffset"
+                      class="donut-segment" [class.active]="hoveredSegment === seg" (mouseenter)="hoveredSegment = seg"
+                      (mouseleave)="hoveredSegment = null" />
+                  </g>
+                </svg>
+
+                <!-- Center Text inside Donut Ring (Leave / Types) -->
+                <div class="donut-center-label">
+                  <ng-container *ngIf="hoveredSegment; else defaultCenterText">
+                    <span class="center-hover-val" [style.color]="hoveredSegment.color">{{ hoveredSegment.used
+                      }}d</span>
+                    <span class="center-hover-title">{{ hoveredSegment.title }}</span>
+                  </ng-container>
+                  <ng-template #defaultCenterText>
+                    <span class="center-line1">Leave</span>
+                    <span class="center-line2">Types</span>
+                  </ng-template>
+                </div>
+
+                <!-- Floating Tooltip Popover -->
+                <div class="chart-tooltip-popover" *ngIf="hoveredSegment">
+                  <span class="tt-text">{{ hoveredSegment.title }} ({{ hoveredSegment.shortcut }}): {{
+                    hoveredSegment.used }}d</span>
+                  <div class="tt-arrow"></div>
+                </div>
+              </div>
+
+              <!-- Shortcut Notations Legend Chips -->
+              <div class="shortcut-notations-bar" *ngIf="consumedLeaveTypesData.hasData">
+                <div class="shortcut-chip" *ngFor="let item of consumedLeaveTypesData.consumedList"
+                  [class.active-highlight]="hoveredSegment?.code === item.code" (mouseenter)="hoveredSegment = item"
+                  (mouseleave)="hoveredSegment = null" [style.borderColor]="item.color + '40'">
+                  <span class="chip-dot" [style.background]="item.color"></span>
+                  <span class="chip-code" [style.color]="item.color">{{ item.shortcut }}</span>
+                  <span class="chip-count" [style.color]="item.color">: {{ item.used }}d</span>
+                </div>
+              </div>
+
+              <!-- Empty State if no leaves consumed -->
+              <div class="empty-chart-msg" *ngIf="!consumedLeaveTypesData.hasData">
+                <ion-icon name="sparkles-outline"></ion-icon>
+                <span>No leaves consumed yet</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Card 2: 3D Monthly Stats Card -->
+          <div class="analytics-card monthly-stats-card">
+            <div class="card-header-row">
+              <div class="card-title-group">
+                <h3 class="card-title">Monthly Stats</h3>
+              </div>
+              <button class="info-icon-btn" title="Monthly breakdown of leaves taken in current leave year">
+                <ion-icon name="information-circle-outline"></ion-icon>
+              </button>
+            </div>
+
+            <div class="chart-container-body" (mouseleave)="hoveredMonthlyBar = null">
+              <div class="bar-chart-wrapper-3d" (mouseleave)="hoveredMonthlyBar = null">
+                <!-- 3D Perspective Background Grid -->
+                <div class="chart-grid-line-3d line-top"></div>
+                <div class="chart-grid-line-3d line-mid"></div>
+
+                <!-- 3D Monthly Bars Container -->
+                <div class="bars-container-3d">
+                  <div class="bar-col-3d" *ngFor="let m of monthlyLeaveStats.stats" (mouseenter)="hoveredMonthlyBar = m.label"
+                    (mouseleave)="hoveredMonthlyBar = null">
+
+                    <!-- Floating Tooltip on Hover (Matches Image: Duration of Leave: Xd) -->
+                    <div class="bar-tooltip-popover" *ngIf="hoveredMonthlyBar === m.label">
+                      <span class="tt-text">Duration of Leave: {{ m.days }}d</span>
+                      <div class="tt-arrow"></div>
+                    </div>
+
+                    <!-- Top Value Badge for 3D Bar -->
+                    <div class="val-badge-3d" *ngIf="m.days > 0" [class.active]="hoveredMonthlyBar === m.label">
+                      {{ m.days }}d
+                    </div>
+
+                    <!-- 3D Pillar Cuboid -->
+                    <div class="cube-3d-track">
+                      <div class="cube-3d-pillar" [style.height.px]="m.barHeight" [class.has-leaves]="m.days > 0"
+                        [class.active]="hoveredMonthlyBar === m.label">
+                        <div class="cube-face cube-front"></div>
+                        <div class="cube-face cube-side"></div>
+                        <div class="cube-face cube-top"></div>
+                      </div>
+                    </div>
+
+                    <!-- Base Floor Shadow -->
+                    <div class="floor-shadow-3d" [class.has-leaves]="m.days > 0"></div>
+
+                    <!-- Month Label -->
+                    <span class="month-label-3d" [class.active]="hoveredMonthlyBar === m.label">{{ m.label }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
       <!-- Balance Section (Full Width) -->
       <section class="balances-section">
         <div class="section-header">
@@ -123,133 +251,6 @@
           </div>
         </div>
       </section>
-
-      <!-- Analytics Charts Section: Consumed Leave Types & Monthly Stats Side-by-Side -->
-      <section class="analytics-charts-section">
-        <div class="analytics-grid">
-          <!-- Card 1: Consumed Leave Types -->
-          <div class="analytics-card consumed-types-card">
-            <div class="card-header-row">
-              <div class="card-title-group">
-                <div class="header-icon-box">
-                  <ion-icon name="pie-chart-outline"></ion-icon>
-                </div>
-                <h3 class="card-title">Consumed Leave Types</h3>
-              </div>
-              <button class="info-icon-btn" title="Breakdown of consumed leaves by type">
-                <ion-icon name="information-circle-outline"></ion-icon>
-              </button>
-            </div>
-
-            <div class="chart-container-body" (mouseleave)="hoveredSegment = null">
-              <div class="donut-chart-wrapper" (mouseleave)="hoveredSegment = null">
-                <svg class="donut-svg" viewBox="0 0 100 100" (mouseleave)="hoveredSegment = null">
-                  <!-- Outer Base Circle -->
-                  <circle class="donut-bg-ring" cx="50" cy="50" r="40" fill="transparent" stroke="#f1f5f9" stroke-width="12" />
-
-                  <!-- Dynamic Colored Segments with smooth animations -->
-                  <g class="donut-segments-group" transform="rotate(-90 50 50)" *ngIf="consumedLeaveTypesData.hasData">
-                    <circle *ngFor="let seg of consumedLeaveTypesData.segments"
-                      cx="50" cy="50" r="40"
-                      fill="transparent"
-                      [attr.stroke]="seg.color"
-                      stroke-width="12"
-                      [attr.stroke-dasharray]="seg.strokeDasharray"
-                      [attr.stroke-dashoffset]="seg.strokeDashoffset"
-                      class="donut-segment"
-                      [class.active]="hoveredSegment === seg"
-                      (mouseenter)="hoveredSegment = seg"
-                      (mouseleave)="hoveredSegment = null"
-                    />
-                  </g>
-                </svg>
-
-                <!-- Center Text inside Donut Ring -->
-                <div class="donut-center-label">
-                  <ng-container *ngIf="hoveredSegment; else defaultCenterText">
-                    <span class="center-value" [style.color]="hoveredSegment.color">{{ hoveredSegment.used }}d</span>
-                    <span class="center-subtext">{{ hoveredSegment.title }}</span>
-                  </ng-container>
-                  <ng-template #defaultCenterText>
-                    <span class="center-value">{{ consumedLeaveTypesData.totalUsed }}d</span>
-                    <span class="center-subtext">Consumed</span>
-                  </ng-template>
-                </div>
-
-                <!-- Floating Tooltip Popover -->
-                <div class="chart-tooltip-popover" *ngIf="hoveredSegment">
-                  <span class="tt-text">{{ hoveredSegment.title }}: {{ hoveredSegment.used }}d</span>
-                  <div class="tt-arrow"></div>
-                </div>
-              </div>
-
-              <!-- Legend for Consumed Leave Types -->
-              <div class="chart-legend" *ngIf="consumedLeaveTypesData.hasData">
-                <div class="legend-item" *ngFor="let item of consumedLeaveTypesData.consumedList"
-                  [class.active-highlight]="hoveredSegment?.code === item.code"
-                  (mouseenter)="hoveredSegment = item"
-                  (mouseleave)="hoveredSegment = null">
-                  <span class="legend-dot" [style.background]="item.color"></span>
-                  <span class="legend-name">{{ item.title }}</span>
-                  <span class="legend-val" [style.color]="item.color">{{ item.used }} {{ item.used === 1 ? 'day' : 'days' }}</span>
-                </div>
-              </div>
-
-              <!-- Empty State if no leaves consumed -->
-              <div class="empty-chart-msg" *ngIf="!consumedLeaveTypesData.hasData">
-                <ion-icon name="sparkles-outline"></ion-icon>
-                <span>No leaves consumed yet for this leave cycle</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Card 2: Monthly Stats Card (Exact Match for Reference Screenshot) -->
-          <div class="analytics-card monthly-stats-card">
-            <div class="card-header-row">
-              <div class="card-title-group">
-                <div class="header-icon-box purple-box">
-                  <ion-icon name="bar-chart-outline"></ion-icon>
-                </div>
-                <h3 class="card-title">Monthly Stats</h3>
-              </div>
-              <button class="info-icon-btn" title="Monthly breakdown of leaves taken in current leave year">
-                <ion-icon name="information-circle-outline"></ion-icon>
-              </button>
-            </div>
-
-            <div class="chart-container-body" (mouseleave)="hoveredMonthlyBar = null">
-              <div class="bar-chart-wrapper" (mouseleave)="hoveredMonthlyBar = null">
-                <!-- Top Baseline Grid Line -->
-                <div class="chart-grid-line"></div>
-
-                <!-- Monthly Bars Container -->
-                <div class="bars-container">
-                  <div class="bar-col" *ngFor="let m of monthlyLeaveStats.stats"
-                    (mouseenter)="hoveredMonthlyBar = m"
-                    (mouseleave)="hoveredMonthlyBar = null">
-
-                    <div class="bar-track">
-                      <div class="bar-fill" [style.height.px]="m.barHeight"
-                        [class.has-leaves]="m.days > 0"
-                        [class.active]="hoveredMonthlyBar === m">
-                      </div>
-                    </div>
-
-                    <span class="month-label">{{ m.label }}</span>
-                  </div>
-                </div>
-
-                <!-- Floating Tooltip on Hover (Matches screenshot popover) -->
-                <div class="bar-tooltip-popover" *ngIf="hoveredMonthlyBar">
-                  <span class="tt-text">{{ hoveredMonthlyBar.label }} {{ hoveredMonthlyBar.year }}: {{ hoveredMonthlyBar.days }} {{ hoveredMonthlyBar.days === 1 ? 'day' : 'days' }}</span>
-                  <div class="tt-arrow"></div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <div class="dashboard-grid">
         <!-- Pending Section (75% width) -->
         <section class="pending-section">
@@ -360,6 +361,7 @@
           </div>
         </div>
       </div>
+
     </div>
   </div>
 

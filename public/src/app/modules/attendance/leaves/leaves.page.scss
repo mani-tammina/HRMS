@@ -148,7 +148,7 @@
       .custom-year-dropdown {
         display: inline-flex;
         align-items: center;
-          padding: 6px 14px;
+        padding: 6px 14px;
         background: #ffffff;
         border: 1.5px solid #1870B9;
         border-radius: 8px;
@@ -1063,10 +1063,10 @@
 
   .analytics-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
+    grid-template-columns: 25% 74%;
+    gap: 1%;
 
-    @media (max-width: 1024px) {
+    @media (max-width: 1200px) {
       grid-template-columns: 1fr;
     }
   }
@@ -1111,7 +1111,10 @@
 
         &.purple-box {
           background: #f3e8ff;
-          ion-icon { color: #7e22ce; }
+
+          ion-icon {
+            color: #7e22ce;
+          }
         }
       }
 
@@ -1146,26 +1149,22 @@
 
   /* ─── Consumed Leave Types Donut ─── */
   .consumed-types-card {
-    .chart-container-body {
+    .chart-container-body.centered-donut-body {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 20px;
+      justify-content: center;
       position: relative;
-      padding: 4px 0;
-
-      @media (max-width: 640px) {
-        flex-direction: column;
-        gap: 18px;
-      }
+      padding: 12px 0 4px 0;
 
       .donut-chart-wrapper {
         position: relative;
-        width: 155px;
-        height: 155px;
+        width: 135px;
+        height: 135px;
         display: flex;
         align-items: center;
         justify-content: center;
-        flex-shrink: 0;
+        margin: 0 auto;
 
         .donut-svg {
           width: 100%;
@@ -1173,14 +1172,13 @@
           overflow: visible;
 
           .donut-bg-ring {
-            stroke: vars.$color-border-light;
+            stroke: #f1f5f9;
           }
 
           .donut-segment {
             transition: stroke-width 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-                        filter 0.25s ease;
+              filter 0.25s ease;
             cursor: pointer;
-            stroke-linecap: round;
 
             &:hover,
             &.active {
@@ -1197,29 +1195,40 @@
           align-items: center;
           justify-content: center;
           pointer-events: none;
-          line-height: 1.15;
+          line-height: 1.25;
 
-          .center-value {
-            font-size: 22px;
-            font-weight: vars.$fw-extrabold;
-            color: vars.$color-text-primary;
-            letter-spacing: -0.5px;
-            transition: color 0.2s ease;
+          .center-line1,
+          .center-line2 {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e1b4b;
+            text-align: center;
+            letter-spacing: -0.2px;
           }
 
-          .center-subtext {
-            font-size: 9px;
-            font-weight: vars.$fw-bold;
-            color: vars.$color-text-muted;
+          .center-hover-val {
+            font-size: 20px;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+          }
+
+          .center-hover-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.5px;
             margin-top: 1px;
+            max-width: 90px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
           }
         }
 
         .chart-tooltip-popover {
           position: absolute;
-          top: 15%;
+          top: 10%;
           left: 50%;
           transform: translate(-50%, -100%);
           background: vars.$color-sidebar;
@@ -1248,56 +1257,47 @@
         }
       }
 
-      .chart-legend {
+      .shortcut-notations-bar {
         display: flex;
-        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
         gap: 6px;
-        flex: 1;
-        padding-left: 16px;
-        border-left: 1.5px solid vars.$color-border-light;
+        margin-top: 14px;
+        width: 100%;
 
-        @media (max-width: 640px) {
-          border-left: none;
-          padding-left: 0;
-          width: 100%;
-        }
-
-        .legend-item {
-          display: flex;
+        .shortcut-chip {
+          display: inline-flex;
           align-items: center;
-          gap: 8px;
-          padding: 7px 10px;
-          border-radius: vars.$radius-md;
-          background: vars.$color-bg-subtle;
-          border: 1px solid transparent;
+          gap: 4px;
+          padding: 3px 9px;
+          border-radius: 12px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
           cursor: pointer;
+          font-size: 11px;
           transition: all 0.2s ease;
 
           &:hover,
           &.active-highlight {
-            background: vars.$color-white;
-            border-color: vars.$color-primary;
-            box-shadow: 0 2px 8px rgba(31, 116, 187, 0.1);
-            transform: translateX(3px);
+            background: #ffffff;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
           }
 
-          .legend-dot {
-            width: 9px;
-            height: 9px;
+          .chip-dot {
+            width: 7px;
+            height: 7px;
             border-radius: 50%;
             flex-shrink: 0;
           }
 
-          .legend-name {
-            font-size: 12px;
-            font-weight: vars.$fw-semibold;
-            color: vars.$color-text-secondary;
+          .chip-code {
+            font-weight: 700;
           }
 
-          .legend-val {
-            font-size: 12px;
-            font-weight: vars.$fw-bold;
-            margin-left: auto;
+          .chip-count {
+            font-weight: 700;
           }
         }
       }
@@ -1310,7 +1310,7 @@
         color: vars.$color-text-placeholder;
         font-size: 12px;
         font-weight: vars.$fw-semibold;
-        padding: 28px 0;
+        padding: 20px 0;
         width: 100%;
         text-align: center;
 
@@ -1322,36 +1322,46 @@
     }
   }
 
-  /* ─── Monthly Stats Bar Chart ─── */
+  /* ─── 3D Monthly Stats Bar Chart ─── */
   .monthly-stats-card {
     .chart-container-body {
-      padding: 8px 0 0 0;
+      padding: 10px 0 0 0;
     }
 
-    .bar-chart-wrapper {
+    .bar-chart-wrapper-3d {
       position: relative;
       width: 100%;
-      padding-top: 12px;
+      padding-top: 36px;
+      perspective: 800px;
 
-      .chart-grid-line {
+      .chart-grid-line-3d {
         position: absolute;
-        top: 12px;
         left: 0;
         right: 0;
         height: 1px;
         background: vars.$color-border-light;
+        border-bottom: 1px dashed #e2e8f0;
+
+        &.line-top {
+          top: 36px;
+        }
+
+        &.line-mid {
+          top: 75px;
+        }
       }
 
-      .bars-container {
+      .bars-container-3d {
         display: flex;
         align-items: flex-end;
         justify-content: space-between;
-        gap: 3px;
-        height: 110px;
-        padding-bottom: 22px;
-        border-bottom: 1.5px solid vars.$color-slate-200;
+        gap: 4px;
+        height: 125px;
+        padding-bottom: 26px;
+        border-bottom: 2px solid #cbd5e1;
+        position: relative;
 
-        .bar-col {
+        .bar-col-3d {
           flex: 1;
           display: flex;
           flex-direction: column;
@@ -1361,77 +1371,181 @@
           cursor: pointer;
           position: relative;
 
-          .bar-track {
+          .val-badge-3d {
+            position: absolute;
+            top: -24px;
+            font-size: 10px;
+            font-weight: vars.$fw-extrabold;
+            color: #1F74BB;
+            background: #e0f2fe;
+            padding: 1px 6px;
+            border-radius: 10px;
+            border: 1px solid #bae6fd;
+            box-shadow: 0 2px 5px rgba(31, 116, 187, 0.15);
+            transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 10;
+            white-space: nowrap;
+
+            &.active {
+              transform: translateY(-4px) scale(1.1);
+              background: #1F74BB;
+              color: #ffffff;
+              border-color: #1F74BB;
+              box-shadow: 0 4px 10px rgba(31, 116, 187, 0.35);
+            }
+          }
+
+          .cube-3d-track {
             width: 100%;
             display: flex;
             align-items: flex-end;
             justify-content: center;
-            height: 85px;
+            height: 90px;
+            position: relative;
           }
 
-          .bar-fill {
-            width: 80%;
-            max-width: 26px;
-            background: vars.$color-slate-300;
-            border-radius: 3px 3px 0 0;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          .cube-3d-pillar {
+            position: relative;
+            width: 18px;
+            transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.25s ease;
+            transform-style: preserve-3d;
+
+            .cube-face {
+              position: absolute;
+              box-sizing: border-box;
+            }
+
+            .cube-front {
+              width: 100%;
+              height: 100%;
+              left: 0;
+              bottom: 0;
+              background: linear-gradient(180deg, #cbd5e1 0%, #94a3b8 100%);
+              border-radius: 2px 0 0 2px;
+              transition: background 0.3s ease;
+            }
+
+            .cube-side {
+              width: 8px;
+              height: 100%;
+              top: -4px;
+              right: -8px;
+              background: #64748b;
+              transform: skewY(-45deg);
+              transform-origin: top left;
+              border-radius: 0 2px 2px 0;
+              transition: background 0.3s ease;
+            }
+
+            .cube-top {
+              width: 100%;
+              height: 8px;
+              top: -8px;
+              left: 4px;
+              background: #e2e8f0;
+              transform: skewX(-45deg);
+              transform-origin: bottom left;
+              border-radius: 2px 2px 0 0;
+              transition: background 0.3s ease;
+            }
 
             &.has-leaves {
-              background: vars.$color-primary;
+              .cube-front {
+                background: linear-gradient(180deg, #38bdf8 0%, #1F74BB 100%);
+              }
+
+              .cube-side {
+                background: linear-gradient(180deg, #175191 0%, #0f2b4a 100%);
+              }
+
+              .cube-top {
+                background: #7dd3fc;
+              }
             }
 
             &:hover,
             &.active {
-              background: vars.$color-primary-hover;
-              box-shadow: 0 4px 12px rgba(31, 116, 187, 0.35);
-              transform: scaleY(1.05);
+              transform: translateY(-6px) scale(1.08);
+
+              .cube-front {
+                background: linear-gradient(180deg, #60a5fa 0%, #1d4ed8 100%);
+              }
+
+              .cube-side {
+                background: #175191;
+              }
+
+              .cube-top {
+                background: #93c5fd;
+              }
             }
           }
 
-          .month-label {
+          .floor-shadow-3d {
+            width: 24px;
+            height: 6px;
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 50%;
+            margin-top: 4px;
+            transition: all 0.3s ease;
+
+            &.has-leaves {
+              background: rgba(31, 116, 187, 0.25);
+              box-shadow: 0 3px 8px rgba(31, 116, 187, 0.3);
+            }
+          }
+
+          .bar-tooltip-popover {
             position: absolute;
-            bottom: -20px;
-            font-size: 10px;
+            top: -6px;
+            left: 50%;
+            transform: translate(-50%, -100%);
+            background: #525862;
+            color: #ffffff;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            white-space: nowrap;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+            z-index: 50;
+            pointer-events: none;
+            animation: popoverSlideIn 0.18s ease-out;
+
+            .tt-arrow {
+              position: absolute;
+              bottom: -4px;
+              left: 50%;
+              transform: translateX(-50%);
+              width: 0;
+              height: 0;
+              border-left: 4px solid transparent;
+              border-right: 4px solid transparent;
+              border-top: 4px solid #525862;
+            }
+          }
+
+          .month-label-3d {
+            position: absolute;
+            bottom: -22px;
+            font-size: 11px;
             font-weight: vars.$fw-semibold;
             color: vars.$color-text-subtle;
             text-transform: capitalize;
             white-space: nowrap;
+            transition: all 0.2s ease;
+
+            &.active {
+              color: #1F74BB;
+              font-weight: vars.$fw-extrabold;
+              transform: translateY(-1px);
+            }
           }
 
-          &:hover .month-label {
-            color: vars.$color-primary;
-            font-weight: vars.$fw-bold;
+          &:hover .month-label-3d {
+            color: #1F74BB;
+            font-weight: vars.$fw-extrabold;
           }
-        }
-      }
-
-      .bar-tooltip-popover {
-        position: absolute;
-        top: -12px;
-        left: 50%;
-        transform: translate(-50%, -100%);
-        background: vars.$color-sidebar;
-        color: vars.$color-white;
-        padding: 5px 12px;
-        border-radius: 6px;
-        font-size: 11px;
-        font-weight: vars.$fw-bold;
-        white-space: nowrap;
-        box-shadow: 0 6px 16px rgba(15, 23, 42, 0.3);
-        z-index: 25;
-        pointer-events: none;
-        animation: popoverSlideIn 0.18s ease-out;
-
-        .tt-arrow {
-          position: absolute;
-          bottom: -4px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 0;
-          height: 0;
-          border-left: 4px solid transparent;
-          border-right: 4px solid transparent;
-          border-top: 4px solid vars.$color-sidebar;
         }
       }
     }
@@ -1443,6 +1557,7 @@
     opacity: 0;
     transform: translate(-50%, -85%) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translate(-50%, -100%) scale(1);

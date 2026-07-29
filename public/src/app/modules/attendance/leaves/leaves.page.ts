@@ -64,13 +64,27 @@ export class LeavesPage implements OnInit, OnDestroy {
 
   getLeaveTypeColor(nameOrCode: string): string {
     const text = (nameOrCode || '').toLowerCase();
-    if (text.includes('sick') || text === 'sl') return '#059669'; // Emerald
-    if (text.includes('casual') || text === 'cl') return '#7e22ce'; // Purple
-    if (text.includes('marriage') || text === 'ml') return '#c2410c'; // Amber/Orange
-    if (text.includes('comp') || text === 'comp_off') return '#1d4ed8'; // Royal Blue
-    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return '#e11d48'; // Rose/Red
-    if (text.includes('bereavement') || text === 'bl') return '#475569'; // Slate
-    return '#1870B9';
+    if (text.includes('sick') || text === 'sl') return '#10b981'; // Emerald Green
+    if (text.includes('casual') || text === 'cl') return '#8b5cf6'; // Vivid Purple
+    if (text.includes('marriage') || text === 'ml') return '#f59e0b'; // Warm Amber/Orange
+    if (text.includes('comp') || text === 'comp_off') return '#0284c7'; // Sky Blue
+    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return '#f43f5e'; // Coral Red
+    if (text.includes('bereavement') || text === 'bl') return '#6366f1'; // Indigo
+    return '#1F74BB';
+  }
+
+  getLeaveShortcut(nameOrCode: string): string {
+    const text = (nameOrCode || '').toLowerCase();
+    if (text.includes('casual') || text === 'cl') return 'CL';
+    if (text.includes('sick') || text === 'sl') return 'SL';
+    if (text.includes('marriage') || text === 'ml') return 'ML';
+    if (text.includes('comp') || text === 'comp_off') return 'COMP';
+    if (text.includes('earned') || text === 'el') return 'EL';
+    if (text.includes('unpaid') || text.includes('loss') || text === 'lop') return 'LOP';
+    if (text.includes('bereavement') || text === 'bl') return 'BL';
+    if (text.includes('maternity')) return 'MAT';
+    if (text.includes('paternity')) return 'PAT';
+    return (nameOrCode || 'LV').substring(0, 3).toUpperCase();
   }
 
   get consumedLeaveTypesData() {
@@ -80,8 +94,10 @@ export class LeavesPage implements OnInit, OnDestroy {
       const usedVal = card.isLOP ? (Number(this.combinedLopDays) || 0) : (Number(card.used) || 0);
       if (usedVal > 0) {
         const color = this.getLeaveTypeColor(card.title || card.code);
+        const shortcut = this.getLeaveShortcut(card.title || card.code);
         consumedList.push({
           title: card.title,
+          shortcut: shortcut,
           used: usedVal,
           color: color,
           code: card.code,
@@ -149,6 +165,7 @@ export class LeavesPage implements OnInit, OnDestroy {
               ...this.monthlyStatsData,
               [key]: totalAttLeaves,
             };
+            this.updateMonthlyLeaveStats();
           }
         },
         error: () => { }
@@ -194,10 +211,13 @@ export class LeavesPage implements OnInit, OnDestroy {
     }
 
     this.monthlyStatsData = monthlyMap;
+    this.updateMonthlyLeaveStats();
     this.loadMonthlyAttendanceStats();
   }
 
-  get monthlyLeaveStats() {
+  computedMonthlyStats: { stats: any[], maxDays: number, totalCycleDays: number } = { stats: [], maxDays: 4, totalCycleDays: 0 };
+
+  updateMonthlyLeaveStats() {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const sMonth = Number(this.planStartMonth) || 4;
 
@@ -235,11 +255,22 @@ export class LeavesPage implements OnInit, OnDestroy {
 
     const totalCycleDays = cycleMonths.reduce((sum, m) => sum + m.days, 0);
 
-    return {
+    this.computedMonthlyStats = {
       stats,
       maxDays,
       totalCycleDays,
     };
+  }
+
+  get monthlyLeaveStats() {
+    if (!this.computedMonthlyStats.stats || this.computedMonthlyStats.stats.length === 0) {
+      this.updateMonthlyLeaveStats();
+    }
+    return this.computedMonthlyStats;
+  }
+
+  trackByMonthLabel(index: number, item: any): string {
+    return item.label;
   }
 
   ngOnInit() {
