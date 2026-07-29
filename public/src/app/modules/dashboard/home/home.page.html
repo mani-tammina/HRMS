@@ -13,7 +13,7 @@
                 <div class="premium-avatar-wrapper">
                   <div class="avatar-glow"></div>
                   <img *ngIf="currentEmployee" [src]="profileImageUrl" class="premium-avatar-img" alt="Profile"
-                    onerror="this.style.display='none'">
+                    fetchpriority="high" loading="eager" onerror="this.src='assets/Profile_Picture.png'">
                   <div class="premium-avatar-placeholder" *ngIf="!currentEmployee || !profileImageUrl">
                     <ion-icon name="person"></ion-icon>
                   </div>

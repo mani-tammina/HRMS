@@ -5,9 +5,9 @@
     <div slot="start" class="header-left">
       <ion-menu-button *ngIf="isAuthenticated" color="light"></ion-menu-button>
       <img width="165px" height="70px" src="https://techtammina.com/wp-content/uploads/2025/05/techlogo.png"
-        alt="Tech Tammina" class="brand-logo" *ngIf="!isAdmin" />
+        alt="Tech Tammina" class="brand-logo" *ngIf="!isAdmin" fetchpriority="high" loading="eager" />
       <img src="https://techtammina.com/wp-content/uploads/2025/05/techlogo.png" alt="Admin Logo" class="brand-logo"
-        *ngIf="isAdmin" />
+        *ngIf="isAdmin" fetchpriority="high" loading="eager" />
     </div>
 
     <!-- Center: Search Bar -->
