@@ -1,0 +1,178 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 3</div>
+    <h3>Remote Punches</h3>
+    <p>Configure mobile-based punching, GPS location enforcement, selfie verification, and IP access restrictions.</p>
+  </div>
+
+  <!-- ─── Mobile Punch ───────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="5" y="2" width="14" height="20" rx="2"></rect>
+        <line x1="12" y1="18" x2="12.01" y2="18"></line>
+      </svg>
+      Mobile Punch Settings
+    </div>
+
+    <div class="toggle-list">
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            Allow Mobile Punch
+          </div>
+          <p>Employees can clock in/out from the mobile application.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="mobile_punch_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- GPS — conditional on mobile punch -->
+      <div class="toggle-row" [class.disabled-row]="!mobilePunchEnabled">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>
+            Require GPS Location
+          </div>
+          <p>Mobile punch must be within approved GPS radius of the work site.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="gps_required" [attr.disabled]="!mobilePunchEnabled ? true : null" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Selfie for Mobile -->
+      <div class="toggle-row" [class.disabled-row]="!mobilePunchEnabled">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Require Selfie for Mobile Punch
+          </div>
+          <p>Mandatory selfie verification for each remote clock-in event.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="mobile_selfie_required" [attr.disabled]="!mobilePunchEnabled ? true : null" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- GPS Radius — conditional -->
+    <div class="conditional-block" *ngIf="mobilePunchEnabled && gpsRequired">
+      <div class="conditional-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        GPS is enabled — configure the allowed radius:
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="gps-radius">GPS Radius (meters) <span class="required">*</span></label>
+          <input id="gps-radius" type="number" formControlName="gps_radius_meters" class="form-input" placeholder="e.g. 200" min="50" max="5000" />
+          <span class="field-hint">Employees must be within this distance from the site coordinate</span>
+        </div>
+        <div class="form-group">
+          <label for="gps-tolerance">GPS Accuracy Tolerance (meters)</label>
+          <input id="gps-tolerance" type="number" formControlName="gps_accuracy_tolerance" class="form-input" placeholder="e.g. 50" min="10" />
+          <span class="field-hint">Acceptable device GPS accuracy margin</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Field Force ────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      Field Force &amp; Roaming
+    </div>
+
+    <div class="toggle-list">
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Enable Field Force Mode
+          </div>
+          <p>Employees operating outside office premises can punch from any location with manager approval.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="field_force_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── IP Whitelist ───────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="2" width="20" height="8" rx="2"></rect>
+        <rect x="2" y="14" width="20" height="8" rx="2"></rect>
+        <line x1="6" y1="6" x2="6.01" y2="6"></line>
+        <line x1="6" y1="18" x2="6.01" y2="18"></line>
+      </svg>
+      IP Restrictions
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          </svg>
+          Enable IP Whitelist Mode
+        </div>
+        <p>Restrict clock-in to connections from approved IP addresses only.</p>
+      </div>
+      <label class="ios-toggle">
+        <input type="checkbox" formControlName="ip_whitelist_enabled" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="conditional-block" *ngIf="ipWhitelistEnabled">
+      <div class="conditional-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        IP whitelisting is enabled — enter the allowed IP addresses:
+      </div>
+      <div class="form-group">
+        <label for="allowed-ips">Allowed IP Addresses</label>
+        <textarea id="allowed-ips" formControlName="allowed_ips" rows="4" class="form-textarea" placeholder="Enter one IP or CIDR range per line&#10;e.g.&#10;192.168.1.0/24&#10;10.0.0.1"></textarea>
+        <span class="field-hint">One IP address or CIDR range per line</span>
+      </div>
+    </div>
+  </div>
+
+</div>

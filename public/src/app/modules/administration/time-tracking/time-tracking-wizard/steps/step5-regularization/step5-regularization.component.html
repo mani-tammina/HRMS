@@ -1,0 +1,153 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 5</div>
+    <h3>Regularization</h3>
+    <p>Define how employees can correct missed or incorrect punches, and the approval flow for such requests.</p>
+  </div>
+
+  <!-- ─── Enable Regularization ─────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+      Regularization Access
+    </div>
+
+    <div class="toggle-list">
+
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            Allow Attendance Regularization
+          </div>
+          <p>Employees can submit requests to correct missed or wrong punches.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="regularization_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-row" [class.disabled-row]="!regularizationEnabled">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Allow Employee Self-Regularization
+          </div>
+          <p>Employees can raise their own regularization requests (vs. only manager-initiated).</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="employee_self_regularization" [attr.disabled]="!regularizationEnabled ? true : null" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── Regularization Rules — conditional ─────────────────── -->
+  <div class="form-section" *ngIf="regularizationEnabled">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="4" y1="21" x2="4" y2="14"></line>
+        <line x1="4" y1="10" x2="4" y2="3"></line>
+        <line x1="12" y1="21" x2="12" y2="12"></line>
+        <line x1="12" y1="8" x2="12" y2="3"></line>
+        <line x1="20" y1="21" x2="20" y2="16"></line>
+        <line x1="20" y1="12" x2="20" y2="3"></line>
+        <line x1="1" y1="14" x2="7" y2="14"></line>
+        <line x1="9" y1="8" x2="15" y2="8"></line>
+        <line x1="17" y1="16" x2="23" y2="16"></line>
+      </svg>
+      Regularization Rules
+    </div>
+
+    <div class="form-grid-3">
+      <div class="form-group" [class.invalid]="isFieldInvalid('regularization_window_days')">
+        <label for="reg-window">Regularization Window (days) <span class="required">*</span></label>
+        <input id="reg-window" type="number" formControlName="regularization_window_days" class="form-input" placeholder="e.g. 7" min="1" max="90" />
+        <span class="field-hint">How many days in the past can be regularized</span>
+        <span class="field-error" *ngIf="isFieldInvalid('regularization_window_days')">Required when regularization is enabled</span>
+      </div>
+
+      <div class="form-group">
+        <label for="max-reg-per-month">Max Regularizations Per Month</label>
+        <input id="max-reg-per-month" type="number" formControlName="max_regularizations_per_month" class="form-input" placeholder="e.g. 5" min="1" />
+        <span class="field-hint">Maximum allowed regularization requests per employee per month</span>
+      </div>
+
+      <div class="form-group">
+        <label for="approval-level">Approval Level <span class="required">*</span></label>
+        <select id="approval-level" formControlName="regularization_approval_level" class="form-select">
+          <option value="">— Select approver —</option>
+          <option *ngFor="let a of approvalLevels" [value]="a.value">{{ a.label }}</option>
+        </select>
+        <span class="field-hint">Who must approve regularization requests</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Auto-Approve — conditional ────────────────────────── -->
+  <div class="form-section" *ngIf="regularizationEnabled">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="9 11 12 14 22 4"></polyline>
+        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+      </svg>
+      Auto-Approval Rules
+    </div>
+
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <div class="toggle-label">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+          Enable Auto-Approval
+        </div>
+        <p>Regularization requests within a defined time threshold are approved automatically.</p>
+      </div>
+      <label class="ios-toggle">
+        <input type="checkbox" formControlName="auto_approve_enabled" />
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <div class="conditional-block" *ngIf="autoApproveEnabled">
+      <div class="conditional-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        Auto-approval is enabled — set the threshold:
+      </div>
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="auto-approve-minutes">Auto-Approve if Difference ≤ (minutes)</label>
+          <input id="auto-approve-minutes" type="number" formControlName="auto_approve_threshold_minutes" class="form-input" placeholder="e.g. 15" min="1" max="120" />
+          <span class="field-hint">Requests where actual vs logged time differs by this amount or less are auto-approved</span>
+        </div>
+        <div class="form-group">
+          <label for="auto-approve-per-month">Auto-Approve Limit Per Month</label>
+          <input id="auto-approve-per-month" type="number" formControlName="auto_approve_per_month_limit" class="form-input" placeholder="e.g. 2" min="1" />
+          <span class="field-hint">Max number of auto-approved regularizations per month per employee</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

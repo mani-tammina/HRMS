@@ -30,6 +30,7 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
     {
       title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance'], isExpanded: false, children: [
         { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },

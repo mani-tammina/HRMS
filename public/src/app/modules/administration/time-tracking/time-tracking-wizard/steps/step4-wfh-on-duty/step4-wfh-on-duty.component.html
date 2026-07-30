@@ -1,0 +1,160 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 4</div>
+    <h3>Work From Home / On Duty</h3>
+    <p>Define policies for remote work eligibility, manager approvals, and on-duty travel attendance rules.</p>
+  </div>
+
+  <!-- ─── Work From Home ────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+        <polyline points="9 22 9 12 15 12 15 22"></polyline>
+      </svg>
+      Work From Home (WFH)
+    </div>
+
+    <div class="toggle-list">
+
+      <!-- Enable WFH -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            Allow Work From Home
+          </div>
+          <p>Employees can apply for WFH days under this policy.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="wfh_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Manager Approval for WFH -->
+      <div class="toggle-row" [class.disabled-row]="!wfhEnabled">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Require Manager Approval for WFH
+          </div>
+          <p>WFH requests must be approved by the reporting manager before attendance is marked.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="wfh_approval_required" [attr.disabled]="!wfhEnabled ? true : null" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- WFH Config — conditional -->
+    <div class="conditional-block" *ngIf="wfhEnabled">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="max-wfh-days">Max WFH Days Per Month</label>
+          <input id="max-wfh-days" type="number" formControlName="max_wfh_days_per_month" class="form-input" placeholder="e.g. 8" min="1" max="31" />
+          <span class="field-hint">Maximum WFH days allowed in a calendar month</span>
+        </div>
+
+        <div class="form-group">
+          <label for="wfh-punch-method">Allowed WFH Punch Method <span class="required">*</span></label>
+          <select id="wfh-punch-method" formControlName="wfh_punch_method" class="form-select">
+            <option value="">— Select method —</option>
+            <option *ngFor="let m of punchMethods" [value]="m.value">{{ m.label }}</option>
+          </select>
+          <span class="field-hint">How employees record attendance while WFH</span>
+        </div>
+
+        <div class="form-group">
+          <label for="wfh-consecutive-limit">Max Consecutive WFH Days</label>
+          <input id="wfh-consecutive-limit" type="number" formControlName="max_consecutive_wfh_days" class="form-input" placeholder="e.g. 3" min="1" />
+          <span class="field-hint">Limit on back-to-back WFH days without office visit</span>
+        </div>
+
+        <div class="form-group">
+          <label for="wfh-advance-days">Minimum Advance Notice (days)</label>
+          <input id="wfh-advance-days" type="number" formControlName="wfh_advance_notice_days" class="form-input" placeholder="e.g. 1" min="0" />
+          <span class="field-hint">Days in advance a WFH request must be submitted</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── On Duty ─────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+      </svg>
+      On Duty (Travel / Field Work)
+    </div>
+
+    <div class="toggle-list">
+
+      <!-- Enable On Duty -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+              <circle cx="12" cy="12" r="10"></circle>
+            </svg>
+            Allow On Duty Attendance
+          </div>
+          <p>Employees on travel or client visits can have their attendance marked as "On Duty".</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="on_duty_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- On Duty Approval -->
+      <div class="toggle-row" [class.disabled-row]="!onDutyEnabled">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            Require Manager Approval for On Duty
+          </div>
+          <p>On-duty requests must be approved before attendance is marked as such.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="on_duty_approval_required" [attr.disabled]="!onDutyEnabled ? true : null" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+
+    <!-- On Duty Config — conditional -->
+    <div class="conditional-block" *ngIf="onDutyEnabled">
+      <div class="form-grid-2">
+        <div class="form-group">
+          <label for="on-duty-max-radius">On Duty Max Travel Radius (km)</label>
+          <input id="on-duty-max-radius" type="number" formControlName="on_duty_max_radius_km" class="form-input" placeholder="e.g. 500" min="0" />
+          <span class="field-hint">Maximum allowed travel distance for on-duty marking (0 = no limit)</span>
+        </div>
+
+        <div class="form-group">
+          <label for="on-duty-advance">Minimum Advance Notice (days)</label>
+          <input id="on-duty-advance" type="number" formControlName="on_duty_advance_notice_days" class="form-input" placeholder="e.g. 1" min="0" />
+          <span class="field-hint">Days in advance an on-duty request must be submitted</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

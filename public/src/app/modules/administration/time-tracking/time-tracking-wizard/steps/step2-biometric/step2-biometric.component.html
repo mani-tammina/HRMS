@@ -1,0 +1,146 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 2</div>
+    <h3>Biometric &amp; Web Clock-In</h3>
+    <p>Configure allowed clock-in methods — biometric devices, web-based punching, and device-level controls.</p>
+  </div>
+
+  <!-- ─── Clock-In Methods ──────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2"></rect>
+        <line x1="8" y1="21" x2="16" y2="21"></line>
+        <line x1="12" y1="17" x2="12" y2="21"></line>
+      </svg>
+      Clock-In Methods
+    </div>
+
+    <div class="toggle-list">
+
+      <!-- Biometric -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+            Enable Biometric Device Punch
+          </div>
+          <p>Allow employees to clock in/out via registered fingerprint or face recognition devices.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="biometric_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Web Clock-In -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path>
+            </svg>
+            Enable Web Clock-In
+          </div>
+          <p>Allow employees to punch in/out from the browser-based portal.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="web_clockin_enabled" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Selfie Capture -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+              <circle cx="12" cy="13" r="4"></circle>
+            </svg>
+            Require Selfie Capture on Punch
+          </div>
+          <p>Mandatory selfie photo at each clock-in event for verification purposes.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="selfie_required" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <!-- Device Whitelist -->
+      <div class="toggle-row">
+        <div class="toggle-info">
+          <div class="toggle-label">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2"></rect>
+              <line x1="12" y1="18" x2="12.01" y2="18"></line>
+            </svg>
+            Restrict to Whitelisted Devices
+          </div>
+          <p>Only allow clock-in from pre-approved devices registered in the system.</p>
+        </div>
+        <label class="ios-toggle">
+          <input type="checkbox" formControlName="device_whitelist_mode" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─── Clock-In Settings ─────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"></circle>
+        <polyline points="12 6 12 12 16 14"></polyline>
+      </svg>
+      Timing &amp; Attempt Controls
+    </div>
+
+    <div class="form-grid-3">
+      <div class="form-group">
+        <label for="grace-period">Clock-In Grace Period (minutes)</label>
+        <input id="grace-period" type="number" formControlName="clockin_grace_minutes" class="form-input" placeholder="e.g. 15" min="0" max="120" />
+        <span class="field-hint">Minutes after shift start before late-mark applies</span>
+      </div>
+
+      <div class="form-group">
+        <label for="max-attempts">Max Clock-In Attempts</label>
+        <input id="max-attempts" type="number" formControlName="max_clockin_attempts" class="form-input" placeholder="e.g. 3" min="1" max="10" />
+        <span class="field-hint">Maximum failed attempts before lockout</span>
+      </div>
+
+      <div class="form-group">
+        <label for="clockout-reminder">Clock-Out Reminder (minutes before)</label>
+        <input id="clockout-reminder" type="number" formControlName="clockout_reminder_minutes" class="form-input" placeholder="e.g. 30" min="0" />
+        <span class="field-hint">Send reminder N minutes before shift end</span>
+      </div>
+    </div>
+
+    <!-- Clock-Out Reminder Toggle -->
+    <div class="toggle-row compact">
+      <div class="toggle-info">
+        <div class="toggle-label">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+            <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+          </svg>
+          Enable Clock-Out Reminder Notifications
+        </div>
+        <p>Push notification reminder to clock out before shift ends.</p>
+      </div>
+      <label class="ios-toggle">
+        <input type="checkbox" formControlName="clockout_reminder_enabled" />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+</div>
