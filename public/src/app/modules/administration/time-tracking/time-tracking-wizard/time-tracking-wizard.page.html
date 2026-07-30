@@ -17,13 +17,14 @@
     <aside class="wizard-sidebar">
       <div class="sidebar-header">
         <a class="back-link" (click)="goBack()">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <line x1="19" y1="12" x2="5" y2="12"></line>
             <polyline points="12 19 5 12 12 5"></polyline>
           </svg>
           Back to Policies
         </a>
-        <h2>{{ isEditMode ? 'Edit Policy' : 'New Time Tracking Policy' }}</h2>
+        <h2>{{ isEditMode ? 'Edit Policy' : 'Attendance Capture Scheme' }}</h2>
         <p>Complete all 5 steps to configure your policy</p>
       </div>
 
@@ -37,17 +38,12 @@
 
       <!-- Step List -->
       <nav class="step-list">
-        <button
-          *ngFor="let step of steps"
-          class="step-item"
-          [class.active]="isStepActive(step.index)"
-          [class.completed]="isStepCompleted(step.index)"
-          [class.clickable]="canGoToStep(step.index)"
-          (click)="goToStep(step.index)"
-          [attr.id]="'step-nav-' + step.index"
-        >
+        <button *ngFor="let step of steps" class="step-item" [class.active]="isStepActive(step.index)"
+          [class.completed]="isStepCompleted(step.index)" [class.clickable]="canGoToStep(step.index)"
+          (click)="goToStep(step.index)" [attr.id]="'step-nav-' + step.index">
           <div class="step-indicator">
-            <svg *ngIf="isStepCompleted(step.index)" class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+            <svg *ngIf="isStepCompleted(step.index)" class="check-icon" width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             <span *ngIf="!isStepCompleted(step.index)">{{ step.index }}</span>
@@ -60,7 +56,8 @@
       </nav>
 
       <div class="sidebar-tip">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <line x1="12" y1="8" x2="12" y2="12"></line>
           <line x1="12" y1="16" x2="12.01" y2="16"></line>
@@ -75,36 +72,21 @@
     <main class="wizard-main">
 
       <!-- Step 1: Basic Information -->
-      <app-step1-basic-info
-        *ngIf="currentStep === 1"
-        [formGroup]="step1Form"
-        [allLocations]="allLocations"
-        [selectedSiteIds]="selectedSiteIds"
-      ></app-step1-basic-info>
+      <app-step1-basic-info *ngIf="currentStep === 1" [formGroup]="step1Form" [allLocations]="allLocations"
+        [selectedSiteIds]="selectedSiteIds"></app-step1-basic-info>
 
       <!-- Step 2: Biometric & Web Clock-In -->
-      <app-step2-biometric
-        *ngIf="currentStep === 2"
-        [formGroup]="step2Form"
-      ></app-step2-biometric>
+      <app-step2-biometric *ngIf="currentStep === 2" [formGroup]="step2Form"
+        [allLocations]="allLocations"></app-step2-biometric>
 
       <!-- Step 3: Remote Punches -->
-      <app-step3-remote-punches
-        *ngIf="currentStep === 3"
-        [formGroup]="step3Form"
-      ></app-step3-remote-punches>
+      <app-step3-remote-punches *ngIf="currentStep === 3" [formGroup]="step3Form"></app-step3-remote-punches>
 
       <!-- Step 4: WFH / On Duty -->
-      <app-step4-wfh-on-duty
-        *ngIf="currentStep === 4"
-        [formGroup]="step4Form"
-      ></app-step4-wfh-on-duty>
+      <app-step4-wfh-on-duty *ngIf="currentStep === 4" [formGroup]="step4Form"></app-step4-wfh-on-duty>
 
       <!-- Step 5: Regularization -->
-      <app-step5-regularization
-        *ngIf="currentStep === 5"
-        [formGroup]="step5Form"
-      ></app-step5-regularization>
+      <app-step5-regularization *ngIf="currentStep === 5" [formGroup]="step5Form"></app-step5-regularization>
 
       <!-- ─── Wizard Footer ──────────────────────────── -->
       <div class="wizard-footer">
@@ -113,43 +95,30 @@
         </button>
 
         <div class="nav-btns">
-          <button
-            type="button"
-            class="footer-btn back-btn"
-            (click)="prevStep()"
-            *ngIf="!isFirstStep"
-            id="wizard-back-btn"
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <button type="button" class="footer-btn back-btn" (click)="prevStep()" *ngIf="!isFirstStep"
+            id="wizard-back-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
             Back
           </button>
 
-          <button
-            type="button"
-            class="footer-btn next-btn"
-            (click)="nextStep()"
-            *ngIf="!isLastStep"
-            id="wizard-next-btn"
-          >
+          <button type="button" class="footer-btn next-btn" (click)="nextStep()" *ngIf="!isLastStep"
+            id="wizard-next-btn">
             Next Step
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>
             </svg>
           </button>
 
-          <button
-            type="button"
-            class="footer-btn submit-btn"
-            (click)="submit()"
-            *ngIf="isLastStep"
-            [disabled]="loading"
-            id="wizard-submit-btn"
-          >
-            <svg *ngIf="!loading" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <button type="button" class="footer-btn submit-btn" (click)="submit()" *ngIf="isLastStep" [disabled]="loading"
+            id="wizard-submit-btn">
+            <svg *ngIf="!loading" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
               <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
             {{ loading ? 'Saving...' : (isEditMode ? 'Update Policy' : 'Create Policy') }}

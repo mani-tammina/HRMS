@@ -89,14 +89,18 @@ export class TimeTrackingWizardPage implements OnInit {
 
     // Step 2: Biometric & Web Clock-In
     this.step2Form = this.fb.group({
-      biometric_enabled:          [false],
-      web_clockin_enabled:        [true],
-      selfie_required:            [false],
-      device_whitelist_mode:      [false],
-      clockin_grace_minutes:      [15],
-      max_clockin_attempts:       [3],
-      clockout_reminder_enabled:  [false],
-      clockout_reminder_minutes:  [30]
+      biometric_enabled:           [true],
+      allow_web_clockin_fallback:  ['yes'],
+      web_clockin_enabled:         [true],
+      web_clockin_comment_required:[false],
+      ip_restriction_enabled:      [true],
+      ip_networks:                 [[]],
+      selfie_required:             [false],
+      device_whitelist_mode:       [false],
+      clockin_grace_minutes:       [15],
+      max_clockin_attempts:        [3],
+      clockout_reminder_enabled:   [false],
+      clockout_reminder_minutes:   [30]
     });
 
     // Step 3: Remote Punches
