@@ -82,11 +82,17 @@ createMasterRoutes("pay-grades", "pay_grades", "name");
 createMasterRoutes("leave-plans", "leave_plans", "name");
 // Shift policies and weekly-off policies handled separately due to enhanced fields
 createMasterRoutes("attendance-policies", "attendance_policies", "name");
-createMasterRoutes(
-  "attendance-capture-schemes",
-  "attendance_capture_schemes",
-  "name"
-);
+// attendance-capture-schemes: GET only here (full CRUD via /api/time-tracking-policies)
+router.get("/attendance-capture-schemes", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [r] = await c.query("SELECT id, name, status, created_at FROM attendance_capture_schemes ORDER BY id ASC");
+    c.end();
+    res.json(r);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 createMasterRoutes("holiday-lists", "holiday_lists", "name");
 createMasterRoutes("expense-policies", "expense_policies", "name");
 
