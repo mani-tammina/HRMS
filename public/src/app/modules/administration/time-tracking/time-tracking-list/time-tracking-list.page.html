@@ -182,13 +182,13 @@
                 <div class="info-row">
                   <span class="info-label">APPROVAL REQUIRED</span>
                   <span class="info-value">
-                    {{ selectedPolicy.wfh_settings?.wfh_approval_required ? 'Yes' : 'No' }}
+                    {{ selectedPolicy.wfh_settings?.wfh_requires_approval_exceed_enabled ? (selectedPolicy.wfh_settings?.wfh_requires_approval_exceed_value > 0 ? 'Yes, if requests exceed ' + selectedPolicy.wfh_settings?.wfh_requires_approval_exceed_value + ' times in a ' + selectedPolicy.wfh_settings?.wfh_requires_approval_exceed_period : 'Yes') : 'No' }}
                   </span>
                 </div>
                 <div class="info-row" *ngIf="selectedPolicy.wfh_settings?.wfh_enabled">
-                  <span class="info-label">MAX DAYS PER MONTH</span>
+                  <span class="info-label">MAX DAYS LIMIT</span>
                   <span class="info-value">
-                    {{ selectedPolicy.wfh_settings?.max_wfh_days_per_month || 8 }} days
+                    {{ selectedPolicy.wfh_settings?.wfh_limit_days_enabled ? (selectedPolicy.wfh_settings?.wfh_limit_days_value + ' days per ' + selectedPolicy.wfh_settings?.wfh_limit_days_period) : 'No limit' }}
                   </span>
                 </div>
               </div>
@@ -199,21 +199,33 @@
               <h3>Attendance Regularization</h3>
               <div class="info-grid">
                 <div class="info-row">
-                  <span class="info-label">REGULARIZATION</span>
+                  <span class="info-label">ADJUST ATTENDANCE LOGS</span>
                   <span class="info-value text-highlight">
-                    {{ selectedPolicy.regularization_settings?.regularization_enabled ? 'Enabled' : 'Disabled' }}
+                    {{ selectedPolicy.regularization_settings?.allow_adjust_logs === 'yes' ? 'Allowed (' + (selectedPolicy.regularization_settings?.adjust_logs_type || 'All Logs') + ')' : 'Not Allowed' }}
                   </span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">SUBMISSION WINDOW</span>
-                  <span class="info-value">
-                    Within {{ selectedPolicy.regularization_settings?.regularization_window_days || 7 }} days
+                  <span class="info-label">REGULARISE MISSING PUNCHES</span>
+                  <span class="info-value text-highlight">
+                    {{ selectedPolicy.regularization_settings?.allow_regularise_logs === 'yes' ? 'Allowed' : 'Not Allowed' }}
                   </span>
                 </div>
                 <div class="info-row">
-                  <span class="info-label">MAX REQUESTS PER MONTH</span>
+                  <span class="info-label">PARTIAL WORK DAYS</span>
+                  <span class="info-value text-highlight">
+                    {{ selectedPolicy.regularization_settings?.allow_partial_days === 'yes' ? 'Allowed' : 'Not Allowed' }}
+                  </span>
+                </div>
+                <div class="info-row" *ngIf="selectedPolicy.regularization_settings?.allow_partial_days === 'yes'">
+                  <span class="info-label">PARTIAL DAYS WINDOW</span>
                   <span class="info-value">
-                    {{ selectedPolicy.regularization_settings?.max_regularizations_per_month || 5 }} requests
+                    Within {{ selectedPolicy.regularization_settings?.partial_days_how_soon_days || 0 }} days
+                  </span>
+                </div>
+                <div class="info-row" *ngIf="selectedPolicy.regularization_settings?.allow_partial_days === 'yes' && selectedPolicy.regularization_settings?.partial_days_past_dated_limit_days_enabled">
+                  <span class="info-label">PAST DATED LIMIT</span>
+                  <span class="info-value">
+                    {{ selectedPolicy.regularization_settings?.partial_days_past_dated_limit_days_value || 5 }} calendar days back
                   </span>
                 </div>
               </div>
