@@ -20,6 +20,7 @@ export class EmployeeListPage implements OnInit {
     leave_plan_id: null,
     shift_policy_id: null,
     attendance_policy_id: null,
+    attendance_capture_scheme_id: null,
     weekly_off_policy_id: null,
     PayGradeId: null,
     DepartmentId: null,
@@ -28,6 +29,7 @@ export class EmployeeListPage implements OnInit {
 
   shiftPolicies: any[] = [];
   attendancePolicies: any[] = [];
+  attendanceCaptureSchemes: any[] = [];
   leavePlans: any[] = [];
   weeklyOffPolicies: any[] = [];
   departments: any[] = [];
@@ -62,6 +64,7 @@ export class EmployeeListPage implements OnInit {
     this.loadEmployees();
     this.loadShiftPolicies();
     this.loadAttendancePolicies();
+    this.loadAttendanceCaptureSchemes();
     this.loadLeavePlans();
     this.loadWeeklyOffPolicies();
     this.loadDepartments();
@@ -95,6 +98,12 @@ export class EmployeeListPage implements OnInit {
   loadAttendancePolicies() {
     this.adminService.getAttendancePolicies().subscribe(policies => {
       this.attendancePolicies = policies || [];
+    });
+  }
+
+  loadAttendanceCaptureSchemes() {
+    this.adminService.getAttendanceCaptureSchemes().subscribe(schemes => {
+      this.attendanceCaptureSchemes = schemes || [];
     });
   }
 
@@ -148,6 +157,7 @@ export class EmployeeListPage implements OnInit {
       leave_plan_id: emp.leave_plan_id || null,
       shift_policy_id: emp.shift_policy_id || null,
       attendance_policy_id: emp.attendance_policy_id || null,
+      attendance_capture_scheme_id: emp.attendance_capture_scheme_id || null,
       weekly_off_policy_id: emp.weekly_off_policy_id || null,
       PayGradeId: emp.PayGradeId || null,
       DepartmentId: emp.DepartmentId || null,

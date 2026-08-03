@@ -498,6 +498,7 @@ router.put("/:id", auth, hr, async (req, res) => {
        "leave_plan_id",
        "shift_policy_id",
        "attendance_policy_id",
+       "attendance_capture_scheme_id",
        "weekly_off_policy_id",
        "PayGradeId",
        "DepartmentId",

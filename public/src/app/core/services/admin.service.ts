@@ -164,6 +164,11 @@ export class AdminService {
     return this.http.delete(`${this.baseUrl}/attendance-policies/${id}`);
   }
 
+  /* ===================== ATTENDANCE CAPTURE SCHEMES ===================== */
+  getAttendanceCaptureSchemes(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/attendance-capture-schemes`);
+  }
+
   /* ===================== ANNOUNCEMENTS ===================== */
   getAnnouncements(): Observable<any[]> {
     return this.http.get<any[]>(`${this.baseUrl}/announcements`);
