@@ -105,14 +105,18 @@ export class TimeTrackingWizardPage implements OnInit {
 
     // Step 3: Remote Punches
     this.step3Form = this.fb.group({
-      mobile_punch_enabled:   [false],
-      gps_required:           [false],
-      gps_radius_meters:      [200],
-      gps_accuracy_tolerance: [50],
-      mobile_selfie_required: [false],
-      field_force_enabled:    [false],
-      ip_whitelist_enabled:   [false],
-      allowed_ips:            ['']
+      remote_clockin_mobile_enabled:    [false],
+      remote_clockin_web_enabled:       [true],
+      remote_clockin_comment_required:  ['yes'],
+      remote_clockin_approval_required: ['yes'],
+      remote_clockin_approval_chain:    [[
+        {
+          level: 1,
+          members: [
+            { type: 'role', value: 'RM', label: 'Reporting Manager' }
+          ]
+        }
+      ]]
     });
 
     // Step 4: WFH / On Duty
