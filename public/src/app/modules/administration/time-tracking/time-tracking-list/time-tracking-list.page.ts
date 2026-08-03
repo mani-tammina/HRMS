@@ -16,6 +16,7 @@ export class TimeTrackingListPage implements OnInit {
   policies: TimeTrackingPolicy[] = [];
   loading = false;
   selectedPolicy: TimeTrackingPolicy | null = null;
+  selectedPolicyEmployees: any[] = [];
   searchTerm = '';
   activeDetailTab: 'summary' | 'employees' = 'summary';
   activeTopTab = 'time-tracking-policy';
@@ -50,6 +51,9 @@ export class TimeTrackingListPage implements OnInit {
           } else {
             this.selectedPolicy = this.policies[0];
           }
+          if (this.selectedPolicy) {
+            this.loadEmployeesForPolicy(this.selectedPolicy.id);
+          }
         } else {
           this.selectedPolicy = null;
         }
@@ -63,6 +67,19 @@ export class TimeTrackingListPage implements OnInit {
   selectPolicy(policy: TimeTrackingPolicy) {
     this.selectedPolicy = policy;
     this.activeDetailTab = 'summary';
+    this.loadEmployeesForPolicy(policy.id);
+  }
+
+  loadEmployeesForPolicy(id: number) {
+    this.selectedPolicyEmployees = [];
+    this.policyService.getPolicyEmployees(id).subscribe({
+      next: (res) => {
+        this.selectedPolicyEmployees = res || [];
+      },
+      error: (err) => {
+        console.error('Failed to load employees for policy:', err);
+      }
+    });
   }
 
   get filteredPolicies(): TimeTrackingPolicy[] {
@@ -143,7 +160,6 @@ export class TimeTrackingListPage implements OnInit {
 
   // Get dynamic employee count
   getEmployeeCount(policy: TimeTrackingPolicy): number {
-    // Generate a consistent count based on policy id for presentation purposes
-    return ((policy.id * 17) % 180) + 12;
+    return policy.employee_count || 0;
   }
 }

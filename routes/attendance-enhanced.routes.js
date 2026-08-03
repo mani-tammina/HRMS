@@ -37,6 +37,100 @@ async function releaseAttendanceLock(connection, lockName) {
   }
 }
 
+async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAddress, notes) {
+  // 1. Get employee's attendance_capture_scheme_id
+  const [empRows] = await connection.query(
+    "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
+    [employeeId]
+  );
+  
+  if (!empRows || empRows.length === 0) {
+    return; // No employee found, normal flow handles error
+  }
+  
+  const schemeId = empRows[0].attendance_capture_scheme_id;
+  if (!schemeId) {
+    return; // No policy assigned
+  }
+
+  // 2. Fetch the policy
+  const [policyRows] = await connection.query(
+    "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
+    [schemeId]
+  );
+  
+  if (!policyRows || policyRows.length === 0) {
+    return; // Policy not found or inactive
+  }
+
+  const policy = policyRows[0];
+  
+  const parseJSON = (str) => {
+    if (!str) return {};
+    if (typeof str === 'object') return str;
+    try { return JSON.parse(str); } catch (e) { return {}; }
+  };
+
+  const biometric = parseJSON(policy.biometric_settings);
+  const remote = parseJSON(policy.remote_punch_settings);
+  const wfh = parseJSON(policy.wfh_settings);
+
+  // Normalize IPv6 localhost to IPv4 for simpler checks
+  const incomingIp = (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') ? '127.0.0.1' : (ipAddress || '').replace(/^.*:/, '');
+
+  if (workMode === 'Office') {
+    if (biometric.web_clockin_enabled === false) {
+      const err = new Error("Web clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (biometric.web_clockin_comment_required === true) {
+      if (!notes || notes.trim() === '' || notes === 'Office Clock-In' || notes === 'Going for lunch') {
+        // Exclude default auto-generated notes to enforce genuine user comment
+        const err = new Error("A comment is mandatory for web clock-in/out according to your policy.");
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+    
+    if (biometric.ip_restriction_enabled && biometric.ip_networks && biometric.ip_networks.length > 0) {
+      // Allow localhost to prevent lockout during dev/testing
+      if (incomingIp !== '127.0.0.1' && incomingIp !== 'localhost') {
+        let isAllowed = false;
+        for (const net of biometric.ip_networks) {
+          const allowed = (net.ip_address || '').trim();
+          if (!allowed) continue;
+          
+          // Basic exact match or subnet string check
+          if (allowed === incomingIp || allowed.includes(incomingIp) || incomingIp.includes(allowed.split('-')[0].trim())) {
+            isAllowed = true;
+            break;
+          }
+        }
+        
+        if (!isAllowed) {
+          const err = new Error("Clock-in denied: Your IP address is not authorized.");
+          err.statusCode = 403;
+          throw err;
+        }
+      }
+    }
+  } else if (workMode === 'Remote') {
+    if (remote.remote_clockin_web_enabled === false) {
+      const err = new Error("Remote web clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+  } else if (workMode === 'WFH') {
+    if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) {
+      const err = new Error("WFH clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+}
+
 /* ============================================
    PUNCH IN/OUT (Employee)
    ============================================ */
@@ -63,6 +157,10 @@ router.post("/punch-in", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
+    
+    // Validate Time Tracking Policy before proceeding
+    await validateTimeTrackingPolicy(c, emp.id, work_mode || "Office", ip_address, notes);
+
     await c.beginTransaction();
     transactionStarted = true;
 
@@ -191,12 +289,13 @@ router.post("/punch-out", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
+    
     await c.beginTransaction();
     transactionStarted = true;
 
     // Lock the daily record while we validate and append the next punch.
     const [attendance] = await c.query(
-      `SELECT id FROM attendance
+      `SELECT id, work_mode FROM attendance
              WHERE employee_id = ? AND attendance_date = ?
              FOR UPDATE`,
       [emp.id, today]
@@ -209,6 +308,11 @@ router.post("/punch-out", auth, async (req, res) => {
     }
 
     const attendanceId = attendance[0].id;
+    const workMode = attendance[0].work_mode;
+
+    // Validate Time Tracking Policy before proceeding
+    // We use the workMode from the attendance record since punch-out doesn't send it.
+    await validateTimeTrackingPolicy(c, emp.id, workMode || "Office", ip_address, notes);
 
     // Check last punch
     const [lastPunch] = await c.query(
@@ -290,12 +394,44 @@ router.get("/today", auth, async (req, res) => {
       [emp.id, today]
     );
 
+    // Fetch policy permissions
+    let policyPermissions = {
+      web_clockin_enabled: true,
+      remote_clockin_enabled: true,
+      wfh_clockin_enabled: true,
+      web_clockin_comment_required: false
+    };
+    
+    if (emp.attendance_capture_scheme_id) {
+      const [policyRows] = await c.query(
+        "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
+        [emp.attendance_capture_scheme_id]
+      );
+      if (policyRows.length > 0) {
+        const policy = policyRows[0];
+        const parseJSON = (str) => {
+          if (!str) return {};
+          if (typeof str === 'object') return str;
+          try { return JSON.parse(str); } catch (e) { return {}; }
+        };
+        const biometric = parseJSON(policy.biometric_settings);
+        const remote = parseJSON(policy.remote_punch_settings);
+        const wfh = parseJSON(policy.wfh_settings);
+        
+        if (biometric.web_clockin_enabled === false) policyPermissions.web_clockin_enabled = false;
+        if (biometric.web_clockin_comment_required === true) policyPermissions.web_clockin_comment_required = true;
+        if (remote.remote_clockin_web_enabled === false) policyPermissions.remote_clockin_enabled = false;
+        if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) policyPermissions.wfh_clockin_enabled = false;
+      }
+    }
+
     if (attendance.length === 0) {
       c.end();
       return res.json({
         has_attendance: false,
         message: "No attendance record for today",
         punches: [],
+        policyPermissions
       });
     }
 
@@ -323,6 +459,7 @@ router.get("/today", auth, async (req, res) => {
         punches[punches.length - 1].punch_type === "out",
       can_punch_out:
         punches.length > 0 && punches[punches.length - 1].punch_type === "in",
+      policyPermissions
     });
   } catch (error) {
     console.error("Error fetching today's attendance:", error);

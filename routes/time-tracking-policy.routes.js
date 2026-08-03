@@ -94,11 +94,13 @@ router.get("/", auth, roleAuth(["admin", "hr", "manager", "employee"]), async (r
     const c = await db();
     const [rows] = await c.query(`
       SELECT s.*,
-             GROUP_CONCAT(ss.site_id)  AS site_ids,
-             GROUP_CONCAT(l.name)      AS site_names
+             GROUP_CONCAT(DISTINCT ss.site_id)  AS site_ids,
+             GROUP_CONCAT(DISTINCT l.name)      AS site_names,
+             COUNT(DISTINCT e.id)               AS employee_count
       FROM attendance_capture_schemes s
       LEFT JOIN attendance_capture_scheme_sites ss ON s.id = ss.scheme_id
       LEFT JOIN locations l ON ss.site_id = l.id
+      LEFT JOIN employees e ON s.id = e.attendance_capture_scheme_id
       GROUP BY s.id
       ORDER BY s.id DESC
     `);
@@ -132,6 +134,31 @@ router.get("/:id", auth, roleAuth(["admin", "hr", "manager", "employee"]), async
       return res.status(404).json({ error: "Scheme not found" });
     }
     res.json(formatRow(rows[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── GET mapped employees ──────────────────────────────────────────────────
+/**
+ * GET /api/time-tracking-policies/:id/employees
+ */
+router.get("/:id/employees", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
+  try {
+    const c = await db();
+    const [rows] = await c.query(`
+      SELECT e.EmployeeNumber as id,
+             CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as name,
+             d.name as department,
+             desig.name as designation
+      FROM employees e
+      LEFT JOIN departments d ON e.DepartmentId = d.id
+      LEFT JOIN designations desig ON e.DesignationId = desig.id
+      WHERE e.attendance_capture_scheme_id = ?
+      ORDER BY e.FirstName, e.LastName
+    `, [req.params.id]);
+    c.end();
+    res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

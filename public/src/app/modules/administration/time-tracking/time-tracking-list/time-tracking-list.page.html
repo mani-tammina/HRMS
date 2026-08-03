@@ -75,7 +75,7 @@
               <span class="policy-item-employees">{{ getEmployeeCount(policy) }} employees</span>
             </div>
             <!-- DEFAULT badge for the first policy (Active default) -->
-            <div class="policy-item-badge" *ngIf="i === 0">
+            <div class="policy-item-badge" *ngIf="i === 1">
               DEFAULT
             </div>
           </div>
@@ -277,16 +277,16 @@
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let emp of [
-                  { id: 'EMP-0104', name: 'Azeez Ahamed Shaik', dept: 'Development', desig: 'Senior Engineer' },
-                  { id: 'EMP-0211', name: 'Mani Tammina', dept: 'HR & Operations', desig: 'HR Manager' },
-                  { id: 'EMP-0348', name: 'Karthik Raja', dept: 'Infrastructure', desig: 'SysAdmin' },
-                  { id: 'EMP-0492', name: 'Srinivas Rao', dept: 'Quality Assurance', desig: 'QA Lead' }
-                ]">
+                <tr *ngFor="let emp of selectedPolicyEmployees">
                   <td><span class="emp-code">{{ emp.id }}</span></td>
                   <td class="emp-name">{{ emp.name }}</td>
-                  <td>{{ emp.dept }}</td>
-                  <td>{{ emp.desig }}</td>
+                  <td>{{ emp.department || '—' }}</td>
+                  <td>{{ emp.designation || '—' }}</td>
+                </tr>
+                <tr *ngIf="selectedPolicyEmployees.length === 0">
+                  <td colspan="4" style="text-align: center; padding: 20px; color: #666;">
+                    No employees are currently mapped to this scheme.
+                  </td>
                 </tr>
               </tbody>
             </table>

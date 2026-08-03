@@ -17,6 +17,7 @@ export interface TimeTrackingPolicy {
   regularization_settings?: any;
   created_at?: string;
   updated_at?: string;
+  employee_count?: number;
 }
 
 export interface TimeTrackingPolicyPayload {
@@ -43,6 +44,10 @@ export class TimeTrackingPolicyService {
 
   getPolicyById(id: number): Observable<TimeTrackingPolicy> {
     return this.http.get<TimeTrackingPolicy>(`${this.baseUrl}/time-tracking-policies/${id}`);
+  }
+
+  getPolicyEmployees(id: number): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/time-tracking-policies/${id}/employees`);
   }
 
   createPolicy(payload: TimeTrackingPolicyPayload): Observable<any> {
