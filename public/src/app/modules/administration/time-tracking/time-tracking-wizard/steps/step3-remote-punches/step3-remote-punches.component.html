@@ -106,7 +106,7 @@
             <!-- Member Pills -->
             <div class="member-pill" *ngFor="let member of lvl.members; let mIdx = index">
               <!-- Avatar or Icon -->
-              <span class="pill-avatar role" [class.hr-role]="member.value === 'HR'" *ngIf="member.type === 'role'">
+              <span class="pill-avatar role" [class.hr-role]="member.value === 'HR'" [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
                 {{ member.value }}
               </span>
               <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar" alt="Avatar" />
@@ -135,6 +135,9 @@
                 <div class="role-options">
                   <button type="button" class="btn-role-opt" (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdown = false">
                     + Add Reporting Manager (RM)
+                  </button>
+                  <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdown = false">
+                    + Add HR Manager
                   </button>
                   <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdown = false">
                     + Add HR of that Location
