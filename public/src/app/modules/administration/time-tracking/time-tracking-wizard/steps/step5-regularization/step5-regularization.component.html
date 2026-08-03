@@ -3,151 +3,339 @@
   <div class="step-header">
     <div class="step-badge">Step 5</div>
     <h3>Regularization</h3>
-    <p>Define how employees can correct missed or incorrect punches, and the approval flow for such requests.</p>
+    <p>Define policies for adjusting log times, missed punches, and partial work day requests.</p>
   </div>
 
-  <!-- ─── Enable Regularization ─────────────────────────────────── -->
   <div class="form-section">
-    <div class="section-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-      </svg>
-      Regularization Access
+    
+    <!-- ─── Question 1: Adjust Attendance Logs ────────────────────────── -->
+    <div class="question-block">
+      <h5 class="question-title">
+        Do you allow employees to adjust attendance logs, in case of discrepancies, on Keka?
+        <span class="info-icon" title="Allows employees to edit and modify their punch times directly on the portal.">i</span>
+      </h5>
+      
+      <div class="radio-options-vertical">
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="allow_adjust_logs"
+            value="no"
+            [checked]="allowAdjustLogs === 'no'"
+            (change)="setAllowAdjustLogs('no')"
+          />
+          <span>No</span>
+        </label>
+        
+        <label class="radio-label inline-form-row">
+          <input
+            type="radio"
+            name="allow_adjust_logs"
+            value="yes"
+            [checked]="allowAdjustLogs === 'yes'"
+            (change)="setAllowAdjustLogs('yes')"
+          />
+          <span>Yes. Employees can adjust/edit</span>
+          <select formControlName="adjust_logs_type" class="inline-select" [attr.disabled]="allowAdjustLogs !== 'yes' ? true : null">
+            <option *ngFor="let opt of adjustLogsOptions" [value]="opt">{{ opt }}</option>
+          </select>
+          <span>based on the criteria defined below</span>
+        </label>
+      </div>
     </div>
 
-    <div class="toggle-list">
+    <!-- ─── Question 2: Regularise Attendance Logs ────────────────────── -->
+    <div class="question-block mt-4 border-top-divider">
+      <h5 class="question-title">
+        Do you allow employees to regularise attendance logs, in case of discrepancies, on Keka?
+        <span class="info-icon" title="Allows employees to submit regularisation requests for approvals for missing punches.">i</span>
+      </h5>
 
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            Allow Attendance Regularization
-          </div>
-          <p>Employees can submit requests to correct missed or wrong punches.</p>
-        </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="regularization_enabled" />
-          <span class="slider"></span>
+      <div class="radio-options-vertical">
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="allow_regularise_logs"
+            value="no"
+            [checked]="allowRegulariseLogs === 'no'"
+            (change)="setAllowRegulariseLogs('no')"
+          />
+          <span>No</span>
+        </label>
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="allow_regularise_logs"
+            value="yes"
+            [checked]="allowRegulariseLogs === 'yes'"
+            (change)="setAllowRegulariseLogs('yes')"
+          />
+          <span>Yes</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ─── Question 3: Partial Work Day Requests ─────────────────────── -->
+    <div class="question-block mt-4 border-top-divider">
+      <h5 class="question-title">
+        Do you allow employees to raise partial work day (late arrival & early leaving) requests?
+        <span class="info-icon" title="Handles requests when employees arrive late, leave early, or take short leaves.">i</span>
+      </h5>
+
+      <div class="radio-options-vertical">
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="allow_partial_days"
+            value="no"
+            [checked]="allowPartialDays === 'no'"
+            (change)="setAllowPartialDays('no')"
+          />
+          <span>No</span>
+        </label>
+        
+        <label class="radio-label inline-form-row">
+          <input
+            type="radio"
+            name="allow_partial_days"
+            value="yes"
+            [checked]="allowPartialDays === 'yes'"
+            (change)="setAllowPartialDays('yes')"
+          />
+          <span>Yes. Employees can request for partial work day (late arrival & early leaving), based on</span>
+          <select formControlName="partial_days_basis" class="inline-select" [attr.disabled]="allowPartialDays !== 'yes' ? true : null">
+            <option *ngFor="let opt of partialBasisOptions" [value]="opt">{{ opt }}</option>
+          </select>
         </label>
       </div>
 
-      <div class="toggle-row" [class.disabled-row]="!regularizationEnabled">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-              <circle cx="9" cy="7" r="4"></circle>
-              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-            </svg>
-            Allow Employee Self-Regularization
+      <!-- Conditional Partial Days Config -->
+      <div class="partial-config-box animate__animated animate__fadeIn mt-3" *ngIf="allowPartialDays === 'yes'">
+        
+        <!-- Total Allowed Minutes -->
+        <div class="sub-option-row inline-form-row mb-3">
+          <span class="checkbox-text">Partial day is allowed for</span>
+          <input type="number" formControlName="partial_days_allowed_minutes" class="inline-input" />
+          <span class="checkbox-text">minutes in a</span>
+          <select formControlName="partial_days_allowed_period" class="inline-select">
+            <option *ngFor="let p of periods" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+
+        <!-- Late Arrival Checkbox -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="late_arrival_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Late Arrival: Employee is allowed to request for a maximum of</span>
+          </label>
+          <input type="number" formControlName="late_arrival_max_minutes" class="inline-input" [attr.disabled]="!lateArrivalEnabled ? true : null" />
+          <span class="checkbox-text">minutes (each instance) of late arrival (after shift start time)</span>
+        </div>
+
+        <!-- Early Leaving Checkbox -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="early_leaving_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Early Leaving: Employee is allowed to request for a maximum of</span>
+          </label>
+          <input type="number" formControlName="early_leaving_max_minutes" class="inline-input" [attr.disabled]="!earlyLeavingEnabled ? true : null" />
+          <span class="checkbox-text">minutes (each instance) of early leaving (before shift end time)</span>
+        </div>
+
+        <!-- Anytime Shift Checkbox -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="anytime_leave_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Anytime during the shift: Employee is allowed to request for a maximum of</span>
+          </label>
+          <input type="number" formControlName="anytime_leave_max_minutes" class="inline-input" [attr.disabled]="!anytimeLeaveEnabled ? true : null" />
+          <span class="checkbox-text">minutes (each instance) of partial day leave (during the shift)</span>
+        </div>
+
+        <!-- 1. Comment Required (From Image) -->
+        <div class="sub-option-row mt-4 border-top-divider pt-3">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="partial_days_comment_required" class="checkbox-input" />
+            <span class="checkbox-text">Comment is required when placing partial work day request.</span>
+          </label>
+        </div>
+
+        <!-- 2. How soon can request be made (From Image) -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <span class="checkbox-text bold">How soon can partial work day request be made?</span>
+          <span class="info-icon" title="Restricts how early/late a request can be submitted.">i</span>
+        </div>
+        <div class="sub-option-row mt-1 inline-form-row pl-3">
+          <input type="number" formControlName="partial_days_how_soon_days" class="inline-input" />
+          <span class="checkbox-text">days</span>
+        </div>
+
+        <!-- 3. Can employee make past dated partial day request (From Image) -->
+        <div class="sub-option-row mt-4 inline-form-row">
+          <span class="checkbox-text bold">Can employee make past dated partial day request?</span>
+        </div>
+        
+        <div class="radio-options-vertical mt-2 pl-3">
+          <!-- Radio Yes -->
+          <label class="radio-label">
+            <input
+              type="radio"
+              name="partial_days_past_dated_allowed"
+              value="yes"
+              [checked]="pastDatedAllowed === 'yes'"
+              (change)="setPastDatedAllowed('yes')"
+            />
+            <span>Yes. Employees can make past dated partial day request</span>
+          </label>
+
+          <!-- Yes Sub-Options -->
+          <div class="pl-4 mt-2 mb-2" *ngIf="pastDatedAllowed === 'yes'">
+            <!-- Sub checkbox 1 -->
+            <div class="sub-option-row inline-form-row">
+              <label class="custom-checkbox-label">
+                <input type="checkbox" formControlName="partial_days_past_dated_limit_days_enabled" class="checkbox-input" />
+                <span class="checkbox-text">Employee can request for past partial work day, but no beyond than</span>
+              </label>
+              <input type="number" formControlName="partial_days_past_dated_limit_days_value" class="inline-input" [attr.disabled]="!pastDatedLimitDaysEnabled ? true : null" />
+              <span class="checkbox-text">calendar days back.</span>
+            </div>
+
+            <!-- Sub checkbox 2 -->
+            <div class="sub-option-row inline-form-row mt-3">
+              <label class="custom-checkbox-label">
+                <input type="checkbox" formControlName="partial_days_restrict_after_enabled" class="checkbox-input" />
+                <span class="checkbox-text">Restrict employees from raising past dated partial work day requests after</span>
+              </label>
+              <select formControlName="partial_days_restrict_after_day" class="inline-select" [attr.disabled]="!restrictAfterEnabled ? true : null">
+                <option value="">Select</option>
+                <option *ngFor="let opt of endingDaysOptions" [value]="opt">{{ opt }}</option>
+              </select>
+              <span class="checkbox-text">of every month.</span>
+            </div>
           </div>
-          <p>Employees can raise their own regularization requests (vs. only manager-initiated).</p>
+
+          <!-- Radio No -->
+          <label class="radio-label">
+            <input
+              type="radio"
+              name="partial_days_past_dated_allowed"
+              value="no"
+              [checked]="pastDatedAllowed === 'no'"
+              (change)="setPastDatedAllowed('no')"
+            />
+            <span>No. Employees can't make past dated partial day request.</span>
+          </label>
         </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="employee_self_regularization" [attr.disabled]="!regularizationEnabled ? true : null" />
-          <span class="slider"></span>
-        </label>
-      </div>
 
-    </div>
-  </div>
-
-  <!-- ─── Regularization Rules — conditional ─────────────────── -->
-  <div class="form-section" *ngIf="regularizationEnabled">
-    <div class="section-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="4" y1="21" x2="4" y2="14"></line>
-        <line x1="4" y1="10" x2="4" y2="3"></line>
-        <line x1="12" y1="21" x2="12" y2="12"></line>
-        <line x1="12" y1="8" x2="12" y2="3"></line>
-        <line x1="20" y1="21" x2="20" y2="16"></line>
-        <line x1="20" y1="12" x2="20" y2="3"></line>
-        <line x1="1" y1="14" x2="7" y2="14"></line>
-        <line x1="9" y1="8" x2="15" y2="8"></line>
-        <line x1="17" y1="16" x2="23" y2="16"></line>
-      </svg>
-      Regularization Rules
-    </div>
-
-    <div class="form-grid-3">
-      <div class="form-group" [class.invalid]="isFieldInvalid('regularization_window_days')">
-        <label for="reg-window">Regularization Window (days) <span class="required">*</span></label>
-        <input id="reg-window" type="number" formControlName="regularization_window_days" class="form-input" placeholder="e.g. 7" min="1" max="90" />
-        <span class="field-hint">How many days in the past can be regularized</span>
-        <span class="field-error" *ngIf="isFieldInvalid('regularization_window_days')">Required when regularization is enabled</span>
-      </div>
-
-      <div class="form-group">
-        <label for="max-reg-per-month">Max Regularizations Per Month</label>
-        <input id="max-reg-per-month" type="number" formControlName="max_regularizations_per_month" class="form-input" placeholder="e.g. 5" min="1" />
-        <span class="field-hint">Maximum allowed regularization requests per employee per month</span>
-      </div>
-
-      <div class="form-group">
-        <label for="approval-level">Approval Level <span class="required">*</span></label>
-        <select id="approval-level" formControlName="regularization_approval_level" class="form-select">
-          <option value="">— Select approver —</option>
-          <option *ngFor="let a of approvalLevels" [value]="a.value">{{ a.label }}</option>
-        </select>
-        <span class="field-hint">Who must approve regularization requests</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- ─── Auto-Approve — conditional ────────────────────────── -->
-  <div class="form-section" *ngIf="regularizationEnabled">
-    <div class="section-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="9 11 12 14 22 4"></polyline>
-        <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
-      </svg>
-      Auto-Approval Rules
-    </div>
-
-    <div class="toggle-row">
-      <div class="toggle-info">
-        <div class="toggle-label">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"></circle>
-            <polyline points="12 6 12 12 16 14"></polyline>
-          </svg>
-          Enable Auto-Approval
+        <!-- 4. Requires approval if requests exceed X (From Image) -->
+        <div class="sub-option-row mt-4 border-top-divider pt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="partial_days_requires_approval_exceed_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Requires approval, if requests exceed</span>
+          </label>
+          <input type="number" formControlName="partial_days_requires_approval_exceed_value" class="inline-input" [attr.disabled]="!requiresApprovalExceedEnabled ? true : null" />
+          <span class="checkbox-text">times in a</span>
+          <select formControlName="partial_days_requires_approval_exceed_period" class="inline-select" [attr.disabled]="!requiresApprovalExceedEnabled ? true : null">
+            <option *ngFor="let p of periods" [value]="p">{{ p }}</option>
+          </select>
         </div>
-        <p>Regularization requests within a defined time threshold are approved automatically.</p>
+
+        <!-- ─── Dynamic Approval Chain (From Image) ─── -->
+        <div class="approval-chain-container mt-4 animate__animated animate__fadeIn" *ngIf="requiresApprovalExceedEnabled">
+          <h5 class="chain-title">Approval Chain</h5>
+
+          <div class="chain-box">
+            <div class="level-row mt-2" *ngFor="let lvl of approvalChain; let lIdx = index">
+              <!-- Level Indicator -->
+              <div class="level-indicator">
+                <span class="dot-blue"></span>
+                <span class="level-text">LEVEL {{ lvl.level }}</span>
+              </div>
+
+              <!-- Level Members -->
+              <div class="level-members">
+                <!-- Member Pills -->
+                <div class="member-pill" *ngFor="let member of lvl.members; let mIdx = index">
+                  <span class="pill-avatar role" [class.rm-role]="member.value === 'RM'" [class.hr-role]="member.value === 'HR'" [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
+                    R
+                  </span>
+                  <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar" alt="Avatar" />
+                  <span class="pill-avatar text" *ngIf="member.type === 'employee' && !member.avatar">
+                    {{ member.label.substring(0, 1) }}
+                  </span>
+                  <span class="pill-label">{{ member.label }}</span>
+                  <button type="button" class="btn-remove-member" (click)="removeMember(lIdx, mIdx)">&times;</button>
+                </div>
+
+                <!-- Add Button -->
+                <div class="add-member-wrapper">
+                  <button type="button" class="btn-add-member" (click)="showDropdownForLevelIndex = (showDropdownForLevelIndex === lIdx ? null : lIdx)">
+                    Role / Employee
+                  </button>
+
+                  <!-- Dropdown overlay -->
+                  <div class="add-dropdown-card" *ngIf="showDropdownForLevelIndex === lIdx">
+                    <div class="dropdown-header">Add Approval Node</div>
+                    <div class="role-options">
+                      <button type="button" class="btn-role-opt" (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdownForLevelIndex = null">
+                        + Add Reporting Manager (RM)
+                      </button>
+                      <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdownForLevelIndex = null">
+                        + Add HR Manager
+                      </button>
+                      <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdownForLevelIndex = null">
+                        + Add HR of that Location
+                      </button>
+                    </div>
+
+                    <div class="emp-search-group">
+                      <label class="search-lbl">Search employee:</label>
+                      <input
+                        type="text"
+                        [value]="searchQuery"
+                        (input)="searchEmployees($event)"
+                        placeholder="Search employee..."
+                        class="search-input"
+                      />
+                      <div class="search-results-list" *ngIf="searchResults.length > 0">
+                        <button
+                          type="button"
+                          class="btn-result-item"
+                          *ngFor="let emp of searchResults"
+                          (click)="selectEmployee(lIdx, emp)"
+                        >
+                          <img class="emp-avatar" *ngIf="emp.profile_image" [src]="emp.profile_image" alt="" />
+                          <span class="emp-avatar-text" *ngIf="!emp.profile_image">{{ emp.full_name?.substring(0, 1) }}</span>
+                          <div class="emp-details">
+                            <span class="emp-name">{{ emp.full_name }}</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Delete Level Button -->
+                <button type="button" class="btn-delete-level" *ngIf="approvalChain.length > 1" (click)="removeLevel(lIdx)" title="Remove Level">
+                  &times; Remove Level
+                </button>
+              </div>
+            </div>
+
+            <!-- Add Level Trigger -->
+            <div class="add-level-action-bar mt-3">
+              <button type="button" class="btn-outline-green-small" (click)="addLevel()">
+                +Add New level
+              </button>
+            </div>
+          </div>
+        </div>
+
       </div>
-      <label class="ios-toggle">
-        <input type="checkbox" formControlName="auto_approve_enabled" />
-        <span class="slider"></span>
-      </label>
+
     </div>
 
-    <div class="conditional-block" *ngIf="autoApproveEnabled">
-      <div class="conditional-label">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="12" cy="12" r="10"></circle>
-          <line x1="12" y1="8" x2="12" y2="12"></line>
-          <line x1="12" y1="16" x2="12.01" y2="16"></line>
-        </svg>
-        Auto-approval is enabled — set the threshold:
-      </div>
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="auto-approve-minutes">Auto-Approve if Difference ≤ (minutes)</label>
-          <input id="auto-approve-minutes" type="number" formControlName="auto_approve_threshold_minutes" class="form-input" placeholder="e.g. 15" min="1" max="120" />
-          <span class="field-hint">Requests where actual vs logged time differs by this amount or less are auto-approved</span>
-        </div>
-        <div class="form-group">
-          <label for="auto-approve-per-month">Auto-Approve Limit Per Month</label>
-          <input id="auto-approve-per-month" type="number" formControlName="auto_approve_per_month_limit" class="form-input" placeholder="e.g. 2" min="1" />
-          <span class="field-hint">Max number of auto-approved regularizations per month per employee</span>
-        </div>
-      </div>
-    </div>
   </div>
 
 </div>
+

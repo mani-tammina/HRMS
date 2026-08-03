@@ -11,6 +11,10 @@ export interface TimeTrackingPolicy {
   sites?: any[];
   status: 'active' | 'inactive';
   effective_date: string;
+  biometric_settings?: any;
+  remote_punch_settings?: any;
+  wfh_settings?: any;
+  regularization_settings?: any;
   created_at?: string;
   updated_at?: string;
 }
@@ -21,6 +25,10 @@ export interface TimeTrackingPolicyPayload {
   site_ids?: number[];
   status: 'active' | 'inactive';
   effective_date: string;
+  biometric_settings?: any;
+  remote_punch_settings?: any;
+  wfh_settings?: any;
+  regularization_settings?: any;
 }
 
 @Injectable({ providedIn: 'root' })

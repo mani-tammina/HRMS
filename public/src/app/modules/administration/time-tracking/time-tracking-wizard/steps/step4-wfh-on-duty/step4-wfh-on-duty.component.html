@@ -2,159 +2,298 @@
 
   <div class="step-header">
     <div class="step-badge">Step 4</div>
-    <h3>Work From Home / On Duty</h3>
-    <p>Define policies for remote work eligibility, manager approvals, and on-duty travel attendance rules.</p>
+    <h3>Work From Home</h3>
+    <p>Configure remote work policies, limits, prior notice rules, and approval workflows.</p>
   </div>
 
-  <!-- ─── Work From Home ────────────────────────────────────────── -->
+  <!-- Main Choose Option Section -->
   <div class="form-section">
-    <div class="section-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-        <polyline points="9 22 9 12 15 12 15 22"></polyline>
-      </svg>
-      Work From Home (WFH)
-    </div>
+    <h4 class="question-title">Choose option(s) that applies under this time tracking policy</h4>
 
-    <div class="toggle-list">
+    <!-- ─── Work From Home (WFH) ─────────────────────────────────── -->
+    <div class="option-block">
+      <label class="custom-checkbox-label">
+        <input type="checkbox" formControlName="wfh_enabled" class="checkbox-input" />
+        <span class="checkbox-text bold">
+          Work from Home (WFH)
+        </span>
+      </label>
 
-      <!-- Enable WFH -->
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-              <polyline points="9 22 9 12 15 12 15 22"></polyline>
-            </svg>
-            Allow Work From Home
-          </div>
-          <p>Employees can apply for WFH days under this policy.</p>
-        </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="wfh_enabled" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-      <!-- Manager Approval for WFH -->
-      <div class="toggle-row" [class.disabled-row]="!wfhEnabled">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Require Manager Approval for WFH
-          </div>
-          <p>WFH requests must be approved by the reporting manager before attendance is marked.</p>
-        </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="wfh_approval_required" [attr.disabled]="!wfhEnabled ? true : null" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-    </div>
-
-    <!-- WFH Config — conditional -->
-    <div class="conditional-block" *ngIf="wfhEnabled">
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="max-wfh-days">Max WFH Days Per Month</label>
-          <input id="max-wfh-days" type="number" formControlName="max_wfh_days_per_month" class="form-input" placeholder="e.g. 8" min="1" max="31" />
-          <span class="field-hint">Maximum WFH days allowed in a calendar month</span>
+      <!-- Sub-options list -->
+      <div class="sub-options-list animate__animated animate__fadeIn" *ngIf="wfhEnabled">
+        
+        <!-- 1. Is half-day allowed -->
+        <div class="sub-option-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_halfday_allowed" class="checkbox-input" />
+            <span class="checkbox-text">Is half-day work request allowed?</span>
+          </label>
+          <span class="info-icon" title="Allows employees to request a half-day WFH.">i</span>
         </div>
 
-        <div class="form-group">
-          <label for="wfh-punch-method">Allowed WFH Punch Method <span class="required">*</span></label>
-          <select id="wfh-punch-method" formControlName="wfh_punch_method" class="form-select">
-            <option value="">— Select method —</option>
-            <option *ngFor="let m of punchMethods" [value]="m.value">{{ m.label }}</option>
+        <!-- 2. Hourly WFH -->
+        <div class="sub-option-row mt-3">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_hourly_allowed" class="checkbox-input" />
+            <span class="checkbox-text">Employees are allowed to do hourly Work from Home</span>
+          </label>
+          <span class="info-icon" title="Enables partial/hourly remote work requests.">i</span>
+        </div>
+
+        <!-- 3. Require attachment -->
+        <div class="sub-option-row mt-3">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_attachment_required" class="checkbox-input" />
+            <span class="checkbox-text">Require attachment when Work From Home (WFH) request applied</span>
+          </label>
+        </div>
+
+        <!-- 4. Allow clock-in/out -->
+        <div class="sub-option-row mt-3">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_clockin_allowed" class="checkbox-input" />
+            <span class="checkbox-text">Allow employees to clock-in/out when doing Work from Home (WFH)</span>
+          </label>
+          <span class="info-icon" title="Allows attendance tracking web-punches during WFH days.">i</span>
+        </div>
+
+        <!-- 5. Limit days -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_limit_days_enabled" class="checkbox-input" />
+            <span class="checkbox-text">An employee is allowed to raise</span>
+          </label>
+          <input type="number" formControlName="wfh_limit_days_value" class="inline-input" [attr.disabled]="!limitDaysEnabled ? true : null" />
+          <span class="checkbox-text">days of Work from Home (WFH) requests in a</span>
+          <select formControlName="wfh_limit_days_period" class="inline-select" [attr.disabled]="!limitDaysEnabled ? true : null">
+            <option *ngFor="let p of periods" [value]="p">{{ p }}</option>
           </select>
-          <span class="field-hint">How employees record attendance while WFH</span>
+          <span class="info-icon" title="Sets maximum allowed WFH days in a week, month, or year.">i</span>
         </div>
 
-        <div class="form-group">
-          <label for="wfh-consecutive-limit">Max Consecutive WFH Days</label>
-          <input id="wfh-consecutive-limit" type="number" formControlName="max_consecutive_wfh_days" class="form-input" placeholder="e.g. 3" min="1" />
-          <span class="field-hint">Limit on back-to-back WFH days without office visit</span>
+        <!-- 6. Limit times -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_limit_times_enabled" class="checkbox-input" />
+            <span class="checkbox-text">An employee is allowed to raise</span>
+          </label>
+          <input type="number" formControlName="wfh_limit_times_value" class="inline-input" [attr.disabled]="!limitTimesEnabled ? true : null" />
+          <span class="checkbox-text">times of Work from Home (WFH) requests in a</span>
+          <select formControlName="wfh_limit_times_period" class="inline-select" [attr.disabled]="!limitTimesEnabled ? true : null">
+            <option *ngFor="let p of periods" [value]="p">{{ p }}</option>
+          </select>
         </div>
 
-        <div class="form-group">
-          <label for="wfh-advance-days">Minimum Advance Notice (days)</label>
-          <input id="wfh-advance-days" type="number" formControlName="wfh_advance_notice_days" class="form-input" placeholder="e.g. 1" min="0" />
-          <span class="field-hint">Days in advance a WFH request must be submitted</span>
+        <!-- 7. Past dated limit months -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_past_dated_limit_months_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Employee can raise past dated WFH request, but not beyond</span>
+          </label>
+          <select formControlName="wfh_past_dated_limit_months_value" class="inline-select" [attr.disabled]="!pastDatedLimitMonthsEnabled ? true : null">
+            <option value="">Select</option>
+            <option *ngFor="let opt of monthsOptions" [value]="opt">{{ opt }}</option>
+          </select>
+          <span class="checkbox-text">month(s), ending on</span>
+          <select formControlName="wfh_past_dated_limit_months_day" class="inline-select" [attr.disabled]="!pastDatedLimitMonthsEnabled ? true : null">
+            <option value="">Select</option>
+            <option *ngFor="let opt of endingDaysOptions" [value]="opt">{{ opt }}</option>
+          </select>
+          <span class="checkbox-text">of current month.</span>
         </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- ─── On Duty ─────────────────────────────────────────────── -->
-  <div class="form-section">
-    <div class="section-title">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="12" cy="12" r="10"></circle>
-        <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-      </svg>
-      On Duty (Travel / Field Work)
-    </div>
+        <!-- 8. Restrict past dated days -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_past_dated_limit_days_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Restrict past dated WFH request to</span>
+          </label>
+          <input type="number" formControlName="wfh_past_dated_limit_days_value" class="inline-input" [attr.disabled]="!pastDatedLimitDaysEnabled ? true : null" />
+          <span class="checkbox-text">calendar days back.</span>
+        </div>
 
-    <div class="toggle-list">
+        <!-- 9. Restrict on holidays / offs -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_restrict_on_days_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Restrict employees from raising Work from Home (WFH) request on</span>
+          </label>
+          <select formControlName="wfh_restrict_on_days_type" class="inline-select" [attr.disabled]="!restrictOnDaysEnabled ? true : null">
+            <option *ngFor="let opt of daysRestrictionOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
 
-      <!-- Enable On Duty -->
-      <div class="toggle-row">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
-              <circle cx="12" cy="12" r="10"></circle>
-            </svg>
-            Allow On Duty Attendance
+        <!-- 10. Prior notice requirements -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_prior_notice_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Applying for WFH request requires</span>
+          </label>
+          <input type="number" formControlName="wfh_prior_notice_days" class="inline-input" [attr.disabled]="!priorNoticeEnabled ? true : null" />
+          <span class="checkbox-text">calendar days prior notice, containing at least</span>
+          <input type="number" formControlName="wfh_prior_notice_working_days" class="inline-input" [attr.disabled]="!priorNoticeEnabled ? true : null" />
+          <span class="checkbox-text">working days</span>
+        </div>
+
+        <!-- 11. Requested no sooner than (From Image 2) -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_no_sooner_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Work from Home (WFH) can be requested no sooner than</span>
+          </label>
+          <input type="number" formControlName="wfh_no_sooner_days" class="inline-input" [attr.disabled]="!noSoonerEnabled ? true : null" />
+          <span class="checkbox-text">working days before the starting date</span>
+          <span class="info-icon" title="Restricts how far in advance requests must be logged.">i</span>
+        </div>
+
+        <!-- 12. Request only on specific days (From Image 2) -->
+        <div class="sub-option-row mt-3">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_allowed_days_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Employee can request wfh only on</span>
+          </label>
+          <div class="inline-days-selector ml-3" *ngIf="allowedDaysEnabled">
+            <button
+              type="button"
+              class="btn-day-toggle"
+              *ngFor="let d of allDays"
+              [class.active]="isDaySelected(d)"
+              (click)="toggleDaySelection(d)"
+            >
+              {{ d.substring(0,3) }}
+            </button>
           </div>
-          <p>Employees on travel or client visits can have their attendance marked as "On Duty".</p>
         </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="on_duty_enabled" />
-          <span class="slider"></span>
-        </label>
-      </div>
 
-      <!-- On Duty Approval -->
-      <div class="toggle-row" [class.disabled-row]="!onDutyEnabled">
-        <div class="toggle-info">
-          <div class="toggle-label">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            Require Manager Approval for On Duty
+        <!-- 13. Requires approval if requests exceed X (From Image 2) -->
+        <div class="sub-option-row mt-3 inline-form-row">
+          <label class="custom-checkbox-label">
+            <input type="checkbox" formControlName="wfh_requires_approval_exceed_enabled" class="checkbox-input" />
+            <span class="checkbox-text">Requires approval, if requests exceed</span>
+          </label>
+          <input type="number" formControlName="wfh_requires_approval_exceed_value" class="inline-input" [attr.disabled]="!requiresApprovalExceedEnabled ? true : null" />
+          <span class="checkbox-text">times in a</span>
+          <select formControlName="wfh_requires_approval_exceed_period" class="inline-select" [attr.disabled]="!requiresApprovalExceedEnabled ? true : null">
+            <option *ngFor="let p of periods" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+
+        <!-- ─── Dynamic Approval Chain ─── -->
+        <div class="approval-chain-container mt-4 animate__animated animate__fadeIn" *ngIf="requiresApprovalExceedEnabled">
+          <h5 class="chain-title">Approval Chain</h5>
+
+          <div class="chain-box">
+            <div class="level-row mt-2" *ngFor="let lvl of approvalChain; let lIdx = index">
+              <!-- Level Indicator -->
+              <div class="level-indicator">
+                <span class="dot-blue"></span>
+                <span class="level-text">LEVEL {{ lvl.level }}</span>
+              </div>
+
+              <!-- Level Members -->
+              <div class="level-members">
+                <!-- Member Pills -->
+                <div class="member-pill" *ngFor="let member of lvl.members; let mIdx = index">
+                  <span class="pill-avatar role" [class.rm-role]="member.value === 'RM'" [class.hr-role]="member.value === 'HR'" [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
+                    R
+                  </span>
+                  <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar" alt="Avatar" />
+                  <span class="pill-avatar text" *ngIf="member.type === 'employee' && !member.avatar">
+                    {{ member.label.substring(0, 1) }}
+                  </span>
+                  <span class="pill-label">{{ member.label }}</span>
+                  <button type="button" class="btn-remove-member" (click)="removeMember(lIdx, mIdx)">&times;</button>
+                </div>
+
+                <!-- Add Button -->
+                <div class="add-member-wrapper">
+                  <button type="button" class="btn-add-member" (click)="showDropdownForLevelIndex = (showDropdownForLevelIndex === lIdx ? null : lIdx)">
+                    Role / Employee
+                  </button>
+
+                  <!-- Dropdown overlay -->
+                  <div class="add-dropdown-card" *ngIf="showDropdownForLevelIndex === lIdx">
+                    <div class="dropdown-header">Add Approval Node</div>
+                    <div class="role-options">
+                      <button type="button" class="btn-role-opt" (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdownForLevelIndex = null">
+                        + Add Reporting Manager (RM)
+                      </button>
+                      <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdownForLevelIndex = null">
+                        + Add HR Manager
+                      </button>
+                      <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdownForLevelIndex = null">
+                        + Add HR of that Location
+                      </button>
+                    </div>
+
+                    <div class="emp-search-group">
+                      <label class="search-lbl">Search employee:</label>
+                      <input
+                        type="text"
+                        [value]="searchQuery"
+                        (input)="searchEmployees($event)"
+                        placeholder="Search employee..."
+                        class="search-input"
+                      />
+                      <div class="search-results-list" *ngIf="searchResults.length > 0">
+                        <button
+                          type="button"
+                          class="btn-result-item"
+                          *ngFor="let emp of searchResults"
+                          (click)="selectEmployee(lIdx, emp)"
+                        >
+                          <img class="emp-avatar" *ngIf="emp.profile_image" [src]="emp.profile_image" alt="" />
+                          <span class="emp-avatar-text" *ngIf="!emp.profile_image">{{ emp.full_name?.substring(0, 1) }}</span>
+                          <div class="emp-details">
+                            <span class="emp-name">{{ emp.full_name }}</span>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Delete Level Button -->
+                <button type="button" class="btn-delete-level" *ngIf="approvalChain.length > 1" (click)="removeLevel(lIdx)" title="Remove Level">
+                  &times; Remove Level
+                </button>
+              </div>
+            </div>
+
+            <!-- Add Level Trigger -->
+            <div class="add-level-action-bar mt-3">
+              <button type="button" class="btn-outline-green-small" (click)="addLevel()">
+                +Add New level
+              </button>
+            </div>
           </div>
-          <p>On-duty requests must be approved before attendance is marked as such.</p>
-        </div>
-        <label class="ios-toggle">
-          <input type="checkbox" formControlName="on_duty_approval_required" [attr.disabled]="!onDutyEnabled ? true : null" />
-          <span class="slider"></span>
-        </label>
-      </div>
-
-    </div>
-
-    <!-- On Duty Config — conditional -->
-    <div class="conditional-block" *ngIf="onDutyEnabled">
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="on-duty-max-radius">On Duty Max Travel Radius (km)</label>
-          <input id="on-duty-max-radius" type="number" formControlName="on_duty_max_radius_km" class="form-input" placeholder="e.g. 500" min="0" />
-          <span class="field-hint">Maximum allowed travel distance for on-duty marking (0 = no limit)</span>
         </div>
 
-        <div class="form-group">
-          <label for="on-duty-advance">Minimum Advance Notice (days)</label>
-          <input id="on-duty-advance" type="number" formControlName="on_duty_advance_notice_days" class="form-input" placeholder="e.g. 1" min="0" />
-          <span class="field-hint">Days in advance an on-duty request must be submitted</span>
+        <!-- 14. Auto-approve relief / unregistered (From Image 2) -->
+        <div class="sub-option-row mt-4">
+          <label class="custom-checkbox-label align-start">
+            <input type="checkbox" formControlName="wfh_auto_approve_unregistered" class="checkbox-input mt-05" />
+            <span class="checkbox-text text-secondary line-height-relaxed">
+              Auto-approve (and skip) approver level, in case approver is not yet registered with Keka, not yet assigned respective role (e.g. RM, Project Manager, Department Head/Business unit Head etc.) or has been relieved.
+            </span>
+          </label>
         </div>
+
+        <!-- 15. Pause email notification (From Image 2) -->
+        <div class="sub-option-row mt-3">
+          <label class="custom-checkbox-label align-start">
+            <input type="checkbox" formControlName="wfh_pause_email_notifications" class="checkbox-input mt-05" />
+            <span class="checkbox-text text-secondary line-height-relaxed">
+              Pause sending of email notification (to approvers) for each request that is being raised or approved. Approvers will be able to view these requests as part of the daily email digest.
+            </span>
+          </label>
+        </div>
+
       </div>
     </div>
+
   </div>
 
 </div>
+
+

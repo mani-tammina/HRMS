@@ -1919,3 +1919,29 @@ CREATE TABLE IF NOT EXISTS monthly_attendance (
   UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
 );
 
+-- ============================================
+-- Time Tracking Policies
+-- ============================================
+CREATE TABLE IF NOT EXISTS time_tracking_policies (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  name VARCHAR(255) NOT NULL UNIQUE,
+  description TEXT NULL,
+  status ENUM('active', 'inactive') DEFAULT 'active',
+  effective_date DATE NOT NULL,
+  biometric_settings JSON NULL,
+  remote_punch_settings JSON NULL,
+  wfh_settings JSON NULL,
+  regularization_settings JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS time_tracking_policy_sites (
+  policy_id INT NOT NULL,
+  site_id INT NOT NULL,
+  PRIMARY KEY (policy_id, site_id),
+  FOREIGN KEY (policy_id) REFERENCES time_tracking_policies(id) ON DELETE CASCADE,
+  FOREIGN KEY (site_id) REFERENCES locations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+

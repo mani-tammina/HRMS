@@ -121,28 +121,79 @@ export class TimeTrackingWizardPage implements OnInit {
 
     // Step 4: WFH / On Duty
     this.step4Form = this.fb.group({
-      wfh_enabled:                 [false],
-      wfh_approval_required:       [true],
-      max_wfh_days_per_month:      [8],
-      wfh_punch_method:            ['web'],
-      max_consecutive_wfh_days:    [3],
-      wfh_advance_notice_days:     [1],
-      on_duty_enabled:             [false],
-      on_duty_approval_required:   [true],
-      on_duty_max_radius_km:       [0],
-      on_duty_advance_notice_days: [1]
+      wfh_enabled:                          [true],
+      wfh_halfday_allowed:                  [true],
+      wfh_hourly_allowed:                   [false],
+      wfh_attachment_required:              [false],
+      wfh_clockin_allowed:                  [true],
+      wfh_limit_days_enabled:               [false],
+      wfh_limit_days_value:                 [1],
+      wfh_limit_days_period:                ['Week'],
+      wfh_limit_times_enabled:              [false],
+      wfh_limit_times_value:                [1],
+      wfh_limit_times_period:               ['Week'],
+      wfh_past_dated_limit_months_enabled:  [false],
+      wfh_past_dated_limit_months_value:    [''],
+      wfh_past_dated_limit_months_day:      [''],
+      wfh_past_dated_limit_days_enabled:    [false],
+      wfh_past_dated_limit_days_value:      [1],
+      wfh_restrict_on_days_enabled:         [false],
+      wfh_restrict_on_days_type:            ['Holidays & Weekly Offs'],
+      wfh_prior_notice_enabled:             [false],
+      wfh_prior_notice_days:                [1],
+      wfh_prior_notice_working_days:        [0],
+      wfh_no_sooner_enabled:                [false],
+      wfh_no_sooner_days:                   [1],
+      wfh_allowed_days_enabled:             [false],
+      wfh_allowed_days:                     [['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']],
+      wfh_requires_approval_exceed_enabled: [true],
+      wfh_requires_approval_exceed_value:   [0],
+      wfh_requires_approval_exceed_period:  ['Week'],
+      wfh_approval_chain:                   [[
+        {
+          level: 1,
+          members: [
+            { type: 'role', value: 'RM', label: 'Reporting Manager' }
+          ]
+        }
+      ]],
+      wfh_auto_approve_unregistered:        [false],
+      wfh_pause_email_notifications:        [false]
     });
 
     // Step 5: Regularization
     this.step5Form = this.fb.group({
-      regularization_enabled:           [true],
-      employee_self_regularization:     [true],
-      regularization_window_days:       [7, Validators.required],
-      max_regularizations_per_month:    [5],
-      regularization_approval_level:    ['manager', Validators.required],
-      auto_approve_enabled:             [false],
-      auto_approve_threshold_minutes:   [15],
-      auto_approve_per_month_limit:     [2]
+      allow_adjust_logs:            ['no'],
+      adjust_logs_type:             ['All Attendance Logs'],
+      allow_regularise_logs:        ['no'],
+      allow_partial_days:           ['yes'],
+      partial_days_basis:           ['Cumulative (total) minutes in a period'],
+      partial_days_allowed_minutes: [90],
+      partial_days_allowed_period:  ['Month'],
+      late_arrival_enabled:         [true],
+      late_arrival_max_minutes:     [90],
+      early_leaving_enabled:        [true],
+      early_leaving_max_minutes:    [90],
+      anytime_leave_enabled:        [true],
+      anytime_leave_max_minutes:    [90],
+      partial_days_comment_required:                 [false],
+      partial_days_how_soon_days:                    [2],
+      partial_days_past_dated_allowed:               ['yes'],
+      partial_days_past_dated_limit_days_enabled:    [true],
+      partial_days_past_dated_limit_days_value:      [5],
+      partial_days_restrict_after_enabled:           [false],
+      partial_days_restrict_after_day:               [''],
+      partial_days_requires_approval_exceed_enabled: [true],
+      partial_days_requires_approval_exceed_value:   [0],
+      partial_days_requires_approval_exceed_period:  ['Week'],
+      partial_days_approval_chain:                   [[
+        {
+          level: 1,
+          members: [
+            { type: 'role', value: 'RM', label: 'Reporting Manager' }
+          ]
+        }
+      ]]
     });
   }
 

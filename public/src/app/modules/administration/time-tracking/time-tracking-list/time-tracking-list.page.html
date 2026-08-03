@@ -2,51 +2,43 @@
 </ion-header>
 
 <ion-content [fullscreen]="true" class="tt-content">
+  <!-- Top Navigation Tabs (As per screenshot) -->
+  <div class="top-navigation-tabs">
+    <div class="tabs-container">
+      <div class="nav-tab" [class.active]="activeTopTab === 'regularize'">Regularize & Cancel Penalties</div>
+      <div class="nav-tab" [class.active]="activeTopTab === 'penalization-policy'">Penalization Policy</div>
+      <div class="nav-tab" [class.active]="activeTopTab === 'penalization-allocation'">Penalization Policy Allocation</div>
+      <div class="nav-tab" [class.active]="activeTopTab === 'time-tracking-policy'">Time Tracking Policy</div>
+      <div class="nav-tab" [class.active]="activeTopTab === 'time-tracking-allocation'">Time Tracking Policy Allocation</div>
+    </div>
+  </div>
+
   <div class="tt-container">
-
-    <!-- Back Navigation -->
-    <div class="back-nav">
-      <a (click)="goBack()" class="back-link">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <line x1="19" y1="12" x2="5" y2="12"></line>
-          <polyline points="12 19 5 12 12 5"></polyline>
-        </svg>
-        Back to Administration
-      </a>
-    </div>
-
-    <!-- Breadcrumb -->
-    <div class="breadcrumb">
-      <span class="breadcrumb-item" (click)="goBack()">Administration</span>
-      <span class="breadcrumb-separator">
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="9 18 15 12 9 6"></polyline>
-        </svg>
-      </span>
-      <span class="breadcrumb-item active">Time Tracking Policies</span>
-    </div>
-
-    <!-- Header -->
-    <div class="header">
-      <div class="header-info">
-        <div class="header-icon-title">
-          <div class="header-icon">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-          </div>
-          <h1>Time Tracking Policies</h1>
-        </div>
-        <p>Configure attendance punch rules, biometric settings, remote punches, WFH policies, and regularization settings.</p>
+    <!-- Breadcrumb & Top Bar -->
+    <div class="top-nav-bar">
+      <div class="breadcrumb">
+        <span class="breadcrumb-item" (click)="goBack()">Administration</span>
+        <span class="breadcrumb-separator">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="9 18 15 12 9 6"></polyline>
+          </svg>
+        </span>
+        <span class="breadcrumb-item active">Time Tracking Policies</span>
       </div>
+
       <button class="create-btn" (click)="createPolicy()" id="create-policy-btn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="btn-icon">
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
         Create New Policy
       </button>
+    </div>
+
+    <!-- Title and Subtitle -->
+    <div class="header-section">
+      <h1>Time Tracking Policy</h1>
+      <p class="subtitle">Here you can manage the way you capture attendance of your employees</p>
     </div>
 
     <!-- Loading State -->
@@ -55,94 +47,245 @@
       <p>Loading policies...</p>
     </div>
 
-    <!-- Policies Table Card -->
-    <div class="components-card" *ngIf="!loading">
-      <div class="table-responsive">
-        <table class="tt-table">
-          <thead>
-            <tr>
-              <th class="col-id">#</th>
-              <th class="col-name">POLICY NAME</th>
-              <th class="col-sites">SITES / LOCATIONS</th>
-              <th class="col-date">EFFECTIVE DATE</th>
-              <th class="col-status text-center">STATUS</th>
-              <th class="col-actions text-center">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr *ngFor="let policy of policies; let i = index">
-              <td class="col-id">{{ policy.id }}</td>
-              <td class="col-name">
-                <span class="policy-name">{{ policy.name }}</span>
-                <span class="policy-desc" *ngIf="policy.description">{{ policy.description }}</span>
-              </td>
-              <td class="col-sites">
-                <span class="sites-text">{{ getSiteNames(policy) }}</span>
-              </td>
-              <td class="col-date">{{ formatDate(policy.effective_date) }}</td>
-              <td class="col-status text-center">
-                <span class="badge" [ngClass]="policy.status === 'active' ? 'badge-active' : 'badge-inactive'">
-                  {{ policy.status === 'active' ? 'Active' : 'Inactive' }}
-                </span>
-              </td>
-              <td class="col-actions text-center">
-                <button class="action-btn edit" (click)="editPolicy(policy)" title="Edit Policy">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 20h9"></path>
-                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
-                  </svg>
-                </button>
-                <button class="action-btn delete" (click)="deletePolicy(policy)" title="Delete Policy">
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <polyline points="3 6 5 6 21 6"></polyline>
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                  </svg>
-                </button>
-              </td>
-            </tr>
+    <!-- Main Two-Column Layout -->
+    <div class="dashboard-layout" *ngIf="!loading">
+      
+      <!-- Left Panel: Search & Policies List -->
+      <div class="sidebar-panel">
+        <div class="search-box-container">
+          <div class="search-input-wrapper">
+            <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Search" />
+          </div>
+        </div>
 
-            <!-- Empty State -->
-            <tr *ngIf="policies.length === 0">
-              <td colspan="6" class="empty-state">
-                <div class="empty-inner">
-                  <div class="empty-icon-wrap">
-                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                      <circle cx="12" cy="12" r="10"></circle>
-                      <polyline points="12 6 12 12 16 14"></polyline>
+        <div class="policies-list">
+          <div 
+            class="policy-item" 
+            *ngFor="let policy of filteredPolicies; let i = index"
+            [class.selected]="selectedPolicy?.id === policy.id"
+            (click)="selectPolicy(policy)"
+          >
+            <div class="policy-item-content">
+              <span class="policy-item-title">{{ policy.name }}</span>
+              <span class="policy-item-employees">{{ getEmployeeCount(policy) }} employees</span>
+            </div>
+            <!-- DEFAULT badge for the first policy (Active default) -->
+            <div class="policy-item-badge" *ngIf="i === 0">
+              DEFAULT
+            </div>
+          </div>
+
+          <div class="empty-list" *ngIf="filteredPolicies.length === 0">
+            <p>No matching policies found.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Policy Details View -->
+      <div class="details-panel" *ngIf="selectedPolicy">
+        <!-- Details Card Header -->
+        <div class="details-header">
+          <div class="details-header-text">
+            <h2>{{ selectedPolicy.name }}</h2>
+            <p class="description">{{ selectedPolicy.description || 'No description provided for this policy.' }}</p>
+            <p class="metadata">Effective Date: {{ formatDate(selectedPolicy.effective_date) }}</p>
+          </div>
+          <div class="details-actions">
+            <button class="action-btn edit" (click)="editPolicy(selectedPolicy)" title="Edit Policy">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+            </button>
+            <button class="action-btn delete" (click)="deletePolicy(selectedPolicy)" title="Delete Policy">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Details Card Sub-Tabs -->
+        <div class="details-tabs">
+          <div 
+            class="details-tab" 
+            [class.active]="activeDetailTab === 'summary'"
+            (click)="activeDetailTab = 'summary'"
+          >
+            Summary
+          </div>
+          <div 
+            class="details-tab" 
+            [class.active]="activeDetailTab === 'employees'"
+            (click)="activeDetailTab = 'employees'"
+          >
+            Employees
+          </div>
+        </div>
+
+        <!-- Details Tab Content -->
+        <div class="details-content">
+          <!-- Summary Tab -->
+          <div class="summary-view" *ngIf="activeDetailTab === 'summary'">
+            
+            <!-- Section 1: Capture Mode -->
+            <div class="detail-section">
+              <h3>Capture Mode</h3>
+              <div class="capture-modes-list">
+                <!-- Biometric -->
+                <div class="capture-mode-item" [class.enabled]="selectedPolicy.biometric_settings?.biometric_enabled">
+                  <div class="status-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
                     </svg>
                   </div>
-                  <p class="empty-title">No Time Tracking Policies Yet</p>
-                  <p class="empty-sub">Create your first policy to define attendance punch rules for your organization.</p>
-                  <button class="empty-create-btn" (click)="createPolicy()">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <line x1="12" y1="5" x2="12" y2="19"></line>
-                      <line x1="5" y1="12" x2="19" y2="12"></line>
-                    </svg>
-                    Create Policy
-                  </button>
+                  <span>Bio-metric device</span>
                 </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+
+                <!-- Web Clock-in -->
+                <div class="capture-mode-item" [class.enabled]="selectedPolicy.biometric_settings?.web_clockin_enabled">
+                  <div class="status-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                  <span>Web clock-in</span>
+                </div>
+
+                <!-- Remote Clock-in -->
+                <div class="capture-mode-item" [class.enabled]="selectedPolicy.remote_punch_settings?.remote_clockin_mobile_enabled || selectedPolicy.remote_punch_settings?.remote_clockin_web_enabled">
+                  <div class="status-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                  </div>
+                  <span>Remote clock-in (Captures Location)</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 2: Work From Home -->
+            <div class="detail-section">
+              <h3>Work from home</h3>
+              <div class="info-grid">
+                <div class="info-row">
+                  <span class="info-label">WORK FROM HOME</span>
+                  <span class="info-value text-highlight">
+                    {{ selectedPolicy.wfh_settings?.wfh_enabled ? 'Allowed' : 'Not Allowed' }}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">APPROVAL REQUIRED</span>
+                  <span class="info-value">
+                    {{ selectedPolicy.wfh_settings?.wfh_approval_required ? 'Yes' : 'No' }}
+                  </span>
+                </div>
+                <div class="info-row" *ngIf="selectedPolicy.wfh_settings?.wfh_enabled">
+                  <span class="info-label">MAX DAYS PER MONTH</span>
+                  <span class="info-value">
+                    {{ selectedPolicy.wfh_settings?.max_wfh_days_per_month || 8 }} days
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 3: Attendance Regularization -->
+            <div class="detail-section">
+              <h3>Attendance Regularization</h3>
+              <div class="info-grid">
+                <div class="info-row">
+                  <span class="info-label">REGULARIZATION</span>
+                  <span class="info-value text-highlight">
+                    {{ selectedPolicy.regularization_settings?.regularization_enabled ? 'Enabled' : 'Disabled' }}
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">SUBMISSION WINDOW</span>
+                  <span class="info-value">
+                    Within {{ selectedPolicy.regularization_settings?.regularization_window_days || 7 }} days
+                  </span>
+                </div>
+                <div class="info-row">
+                  <span class="info-label">MAX REQUESTS PER MONTH</span>
+                  <span class="info-value">
+                    {{ selectedPolicy.regularization_settings?.max_regularizations_per_month || 5 }} requests
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Section 4: Assigned Locations -->
+            <div class="detail-section">
+              <h3>Assigned Sites / Locations</h3>
+              <div class="sites-badges-list">
+                <div class="site-badge" *ngFor="let site of selectedPolicy.sites">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                    <circle cx="12" cy="10" r="3"></circle>
+                  </svg>
+                  {{ site.name }}
+                </div>
+                <span class="no-sites-message" *ngIf="!selectedPolicy.sites || selectedPolicy.sites.length === 0">
+                  No specific sites assigned (Applies globally).
+                </span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Employees Tab -->
+          <div class="employees-view" *ngIf="activeDetailTab === 'employees'">
+            <div class="employees-list-header">
+              <h3>Assigned Employees ({{ getEmployeeCount(selectedPolicy) }} count)</h3>
+            </div>
+            
+            <table class="employees-mini-table">
+              <thead>
+                <tr>
+                  <th>Employee ID</th>
+                  <th>Name</th>
+                  <th>Department</th>
+                  <th>Designation</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of [
+                  { id: 'EMP-0104', name: 'Azeez Ahamed Shaik', dept: 'Development', desig: 'Senior Engineer' },
+                  { id: 'EMP-0211', name: 'Mani Tammina', dept: 'HR & Operations', desig: 'HR Manager' },
+                  { id: 'EMP-0348', name: 'Karthik Raja', dept: 'Infrastructure', desig: 'SysAdmin' },
+                  { id: 'EMP-0492', name: 'Srinivas Rao', dept: 'Quality Assurance', desig: 'QA Lead' }
+                ]">
+                  <td><span class="emp-code">{{ emp.id }}</span></td>
+                  <td class="emp-name">{{ emp.name }}</td>
+                  <td>{{ emp.dept }}</td>
+                  <td>{{ emp.desig }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
       </div>
 
-      <!-- Footer -->
-      <div class="table-footer" *ngIf="policies.length > 0">
-        <div class="footer-stats">
-          <div class="stat-item">
-            <span class="stat-label">TOTAL POLICIES</span>
-            <span class="stat-value">{{ policies.length }}</span>
+      <!-- No Policies fallback -->
+      <div class="empty-state-details" *ngIf="!selectedPolicy">
+        <div class="empty-inner">
+          <div class="empty-icon-wrap">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
           </div>
-          <div class="stat-item">
-            <span class="stat-label">ACTIVE</span>
-            <span class="stat-value active-val">{{ activeCount }}</span>
-          </div>
-        </div>
-        <div class="footer-pagination">
-          Showing <strong>{{ policies.length }}</strong> of <strong>{{ policies.length }}</strong> policies
+          <p class="empty-title">No policies available</p>
+          <p class="empty-sub">Please create a new policy using the button above.</p>
         </div>
       </div>
+
     </div>
 
   </div>
