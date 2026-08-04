@@ -1,0 +1,155 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 1</div>
+    <h3>Basic Information</h3>
+    <p>Define the core identity of this time tracking policy — who it applies to and when it takes effect.</p>
+  </div>
+
+  <!-- ─── Policy Details ─────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+        <polyline points="14 2 14 8 20 8"></polyline>
+      </svg>
+      Policy Details
+    </div>
+
+    <div class="form-grid-2">
+      <!-- Policy Name -->
+      <div class="form-group" [class.invalid]="isFieldInvalid('name')">
+        <label for="policy-name">Policy Name <span class="required">*</span></label>
+        <input
+          id="policy-name"
+          type="text"
+          formControlName="name"
+          placeholder="e.g. HQ Standard Attendance Policy"
+          class="form-input"
+        />
+        <span class="field-error" *ngIf="isFieldInvalid('name')">
+          Policy name is required (min 3 characters)
+        </span>
+      </div>
+
+      <!-- Effective Date -->
+      <div class="form-group" [class.invalid]="isFieldInvalid('effective_date')">
+        <label for="effective-date">Effective Date <span class="required">*</span></label>
+        <input
+          id="effective-date"
+          type="date"
+          formControlName="effective_date"
+          class="form-input"
+        />
+        <span class="field-error" *ngIf="isFieldInvalid('effective_date')">
+          Effective date is required
+        </span>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div class="form-group">
+      <label for="policy-description">Description</label>
+      <textarea
+        id="policy-description"
+        formControlName="description"
+        rows="3"
+        placeholder="Briefly describe the purpose of this policy, applicable teams, and any key rules..."
+        class="form-textarea"
+      ></textarea>
+    </div>
+  </div>
+
+  <!-- ─── Status ─────────────────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+        <polyline points="22 4 12 14.01 9 11.01"></polyline>
+      </svg>
+      Policy Status
+    </div>
+
+    <div class="status-toggle-card">
+      <div class="status-info">
+        <div class="status-label">
+          <span class="status-dot" [class.active-dot]="formGroup.get('status')?.value === 'active'"></span>
+          {{ formGroup.get('status')?.value === 'active' ? 'Active' : 'Inactive' }}
+        </div>
+        <p class="status-hint">
+          {{ formGroup.get('status')?.value === 'active'
+            ? 'This policy is live and will be applied to employees from the effective date.'
+            : 'This policy is in draft mode and will not affect any employees until activated.' }}
+        </p>
+      </div>
+      <div class="toggle-group">
+        <button type="button" class="toggle-btn" [class.selected]="formGroup.get('status')?.value === 'active'" (click)="setStatus('active')" id="status-active-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          Active
+        </button>
+        <button type="button" class="toggle-btn inactive" [class.selected]="formGroup.get('status')?.value === 'inactive'" (click)="setStatus('inactive')" id="status-inactive-btn">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+          Inactive
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Sites / Locations ─────────────────────────────────────── -->
+  <div class="form-section">
+    <div class="section-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      Sites / Locations
+      <span class="section-badge">{{ selectedSiteIds.length }} selected</span>
+    </div>
+    <p class="section-sub">Select all locations where this policy applies. Employees at these sites will follow these attendance rules.</p>
+
+    <!-- Select All -->
+    <div class="select-all-row" *ngIf="allLocations.length > 0">
+      <label class="checkbox-label select-all">
+        <input type="checkbox" [checked]="allSitesSelected" [indeterminate]="someSitesSelected" (change)="toggleAllSites($event)" id="select-all-sites" />
+        <span class="checkbox-text">Select All Sites</span>
+      </label>
+      <span class="site-summary" *ngIf="selectedSiteIds.length > 0">{{ selectedSiteNames }}</span>
+    </div>
+
+    <!-- Location Grid -->
+    <div class="locations-grid" *ngIf="allLocations.length > 0">
+      <label *ngFor="let loc of allLocations" class="location-card" [class.selected]="isSiteSelected(loc.id)">
+        <input type="checkbox" [checked]="isSiteSelected(loc.id)" (change)="toggleSite(loc.id, $event)" [id]="'site-' + loc.id" />
+        <div class="location-card-inner">
+          <div class="loc-icon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+              <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+          </div>
+          <div class="loc-info">
+            <span class="loc-name">{{ loc.name }}</span>
+            <span class="loc-code" *ngIf="loc.code">{{ loc.code }}</span>
+          </div>
+          <div class="loc-check">
+            <svg *ngIf="isSiteSelected(loc.id)" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </div>
+        </div>
+      </label>
+    </div>
+
+    <!-- No Locations -->
+    <div class="no-locations" *ngIf="allLocations.length === 0">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+        <circle cx="12" cy="10" r="3"></circle>
+      </svg>
+      <p>No locations configured. Please set up locations in Org Setup first.</p>
+    </div>
+  </div>
+
+</div>

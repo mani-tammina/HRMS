@@ -1,6 +1,6 @@
 import { Component, Output, EventEmitter, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { IonicModule, ToastController } from '@ionic/angular';
+import { IonicModule, ToastController, AlertController } from '@ionic/angular';
 import { Subject, takeUntil } from 'rxjs';
 import { Router } from '@angular/router';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
@@ -22,8 +22,18 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
         </div>
       </button>
 
+      <!-- Remote Clock In -->
+      <button *ngIf="workMode === 'Remote'" class="modern-clock-btn remote" (click)="clockIn('Remote')" [disabled]="loading">
+        <div class="inner-pulse orange"></div>
+        <div class="btn-content">
+          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
+          <ion-icon name="cloud-done-outline"></ion-icon>
+          <span class="text">{{ loading ? 'Please wait' : 'Remote In' }}</span>
+        </div>
+      </button>
+
       <!-- Standard Clock In -->
-      <button *ngIf="workMode !== 'WFH'" class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
+      <button *ngIf="workMode !== 'WFH' && workMode !== 'Remote' && (!policyPermissions || policyPermissions.web_clockin_enabled !== false)" class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
         <div class="inner-pulse"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
@@ -35,7 +45,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     <!-- Clock Out Button Group -->
     <div *ngIf="isClockedIn" class="row-center">
       <!-- Office Out -->
-      <button *ngIf="workMode === 'Office'" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading">
+      <button *ngIf="workMode === 'Office' && (!policyPermissions || policyPermissions.web_clockin_enabled !== false)" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading">
         <div class="inner-pulse red"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
@@ -218,12 +228,14 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   workMode: string = 'Office';
   remoteActive = false;
   loading = false;
+  policyPermissions: any;
   private destroy$ = new Subject<void>();
 
   constructor(
-    private router: Router,
     private attendanceApi: AttendanceApiService,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private alertCtrl: AlertController,
+    private router: Router
   ) { }
 
   ngOnInit(): void {
@@ -247,6 +259,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     console.log("loadLastPunch")
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
+        this.policyPermissions = res?.policyPermissions;
         const punches = res?.punches || [];
         if (!punches.length) {
           this.isClockedIn = false;
@@ -272,23 +285,35 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           });
           return;
         }
+
         const lastPunch = punches[punches.length - 1];
         this.isClockedIn = lastPunch.punch_type === 'in';
 
-        if (res?.attendance?.work_mode === 'WFH' || punches.some((p: any) => p.work_mode === 'WFH')) {
-          this.workMode = 'WFH';
-        } else {
-          this.workMode = lastPunch.work_mode || 'Office';
-        }
+        if (this.isClockedIn) {
+          const lastMode = lastPunch?.work_mode;
+          const lastNotes = (lastPunch?.notes || '').toLowerCase();
 
-        localStorage.setItem('todayPunches', JSON.stringify(punches));
-        if (this.isClockedIn && this.workMode === 'Remote') {
-          this.remoteActive = true;
-          localStorage.setItem('remoteActive', 'true');
+          if (lastMode === 'Remote' || lastNotes.includes('remote')) {
+            this.workMode = 'Remote';
+            this.remoteActive = true;
+            localStorage.setItem('remoteActive', 'true');
+          } else if (lastMode === 'WFH' || lastNotes.includes('wfh')) {
+            this.workMode = 'WFH';
+            this.remoteActive = false;
+            localStorage.removeItem('remoteActive');
+          } else {
+            this.workMode = 'Office';
+            this.remoteActive = false;
+            localStorage.removeItem('remoteActive');
+          }
         } else {
+          // Once employee clocks out (Remote or standard), show standard Clock In button for next punch
+          this.workMode = 'Office';
           this.remoteActive = false;
           localStorage.removeItem('remoteActive');
         }
+
+        localStorage.setItem('todayPunches', JSON.stringify(punches));
       },
       error: () => {
         this.isClockedIn = false;
@@ -298,7 +323,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     });
   }
 
-  clockIn(mode: 'Office' | 'Remote' | 'WFH'): void {
+  async clockIn(mode: 'Office' | 'Remote' | 'WFH'): Promise<void> {
     if (this.isClockedIn || this.loading) return;
     this.loading = true;
     let location = 'Mumbai Office';
@@ -307,10 +332,64 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     else if (mode === 'WFH') { location = 'Home'; notes = 'WFH Clock-In'; this.workMode = 'WFH'; }
     else { this.workMode = 'Office'; }
 
-    this.attendanceApi.apiPunchIn({ work_mode: mode, location, notes }).subscribe({
+    if (mode === 'WFH') {
+      this.attendanceApi.checkTodayWFH().subscribe({
+        next: (wfhRes: any) => {
+          if (!wfhRes?.has_wfh || wfhRes?.work_mode !== 'WFH') {
+            this.showToast('WFH not approved for today.', 'warning');
+            this.loading = false;
+            return;
+          }
+          this.proceedClockIn(mode, location, notes);
+        },
+        error: () => {
+          this.showToast('WFH check failed.', 'danger');
+          this.loading = false;
+        }
+      });
+      return;
+    }
+
+    this.proceedClockIn(mode, location, notes);
+  }
+
+  private async proceedClockIn(mode: 'Office' | 'Remote' | 'WFH', location: string, notes: string): Promise<void> {
+    const requiresOfficeComment = mode === 'Office' && this.policyPermissions?.web_clockin_comment_required;
+
+    if (requiresOfficeComment) {
+      const alert = await this.alertCtrl.create({
+        header: 'Comment Required',
+        message: 'Please provide a comment for your web clock-in as per policy.',
+        inputs: [{ name: 'comment', type: 'text', placeholder: 'Enter your comment here...' }],
+        buttons: [
+          { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; } },
+          { text: 'Clock In', handler: (data) => {
+              if (!data.comment || data.comment.trim() === '') {
+                this.showToast('A comment is mandatory to clock in.', 'warning');
+                return false;
+              }
+              this.executeClockIn(mode, location, data.comment.trim());
+              return true;
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      this.executeClockIn(mode, location, notes);
+    }
+  }
+
+  private executeClockIn(mode: string, location: string, notes: string) {
+    const comment = notes || (mode === 'Remote' ? 'Remote Clock-In' : 'Clock-In');
+    this.attendanceApi.apiPunchIn({ work_mode: mode, location, notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
-          this.showToast(res?.message || 'Clocked in successfully', 'success');
+          if (mode === 'Remote' && this.policyPermissions?.remote_clockin_approval_required === 'yes') {
+            this.showToast('Remote clock-in submitted for approval.', 'success');
+          } else {
+            this.showToast(res?.message || 'Clocked in successfully', 'success');
+          }
           this.isClockedIn = true;
           this.statusChanged.emit({ punch_type: 'in', work_mode: mode });
         }
@@ -329,12 +408,41 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     });
   }
 
-  clockOut(): void {
+  async clockOut(): Promise<void> {
     if (!this.isClockedIn || this.loading) return;
     this.loading = true;
     const wasWFH = this.workMode === 'WFH';
+    let notes = wasWFH ? 'WFH Clock-Out' : 'Going for lunch';
 
-    this.attendanceApi.apiPunchOut({ notes: wasWFH ? 'WFH Clock-Out' : 'Going for lunch' }).subscribe({
+    const requiresOfficeComment = this.workMode === 'Office' && this.policyPermissions?.web_clockin_comment_required;
+
+    if (requiresOfficeComment) {
+      const alert = await this.alertCtrl.create({
+        header: 'Comment Required',
+        message: 'Please provide a comment for your web clock-out as per policy.',
+        inputs: [{ name: 'comment', type: 'text', placeholder: 'Enter your comment here...' }],
+        buttons: [
+          { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; } },
+          { text: 'Clock Out', handler: (data) => {
+              if (!data.comment || data.comment.trim() === '') {
+                this.showToast('A comment is mandatory to clock out.', 'warning');
+                return false;
+              }
+              this.executeClockOut(data.comment.trim());
+              return true;
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      this.executeClockOut(notes);
+    }
+  }
+
+  private executeClockOut(notes: string) {
+    const comment = notes || 'Clock-Out';
+    this.attendanceApi.apiPunchOut({ notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
           this.showToast(res?.message || 'Clocked out successfully', 'success');
@@ -350,10 +458,15 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     });
   }
 
-  remoteClockOut(): void {
+  async remoteClockOut(): Promise<void> {
     if (!this.isClockedIn || this.loading) return;
     this.loading = true;
-    this.attendanceApi.apiPunchOut({ notes: 'Remote Clock-Out' }).subscribe({
+    this.executeRemoteClockOut('Remote Clock-Out');
+  }
+
+  private executeRemoteClockOut(notes: string) {
+    const comment = notes || 'Remote Clock-Out';
+    this.attendanceApi.apiPunchOut({ notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
           this.showToast(res?.message || 'Remote clocked out successfully', 'success');

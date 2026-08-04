@@ -315,6 +315,21 @@
         </div>
       </div>
 
+      <!-- Attendance Capture Scheme -->
+      <div class="form-group">
+        <label class="form-label">Attendance Capture Scheme</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.attendance_capture_scheme_id" class="glass-select">
+            <option [ngValue]="null">Select Capture Scheme</option>
+            <option *ngFor="let s of attendanceCaptureSchemes" [ngValue]="s.id">{{ s.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
       <!-- Weekly Off Policy -->
       <div class="form-group">
         <label class="form-label">Weekly Off Policy</label>

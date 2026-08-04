@@ -1,0 +1,132 @@
+<ion-header [translucent]="true" class="ion-no-border">
+</ion-header>
+
+<ion-content [fullscreen]="true" class="wizard-content">
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="loadingData">
+    <div class="spinner-ring large"></div>
+    <p>Loading policy...</p>
+  </div>
+
+  <div class="wizard-layout" *ngIf="!loadingData">
+
+    <!-- ═══════════════════════════════════════════════
+         SIDEBAR — Step Navigator
+    ════════════════════════════════════════════════ -->
+    <aside class="wizard-sidebar">
+      <div class="sidebar-header">
+        <a class="back-link" (click)="goBack()">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
+            <line x1="19" y1="12" x2="5" y2="12"></line>
+            <polyline points="12 19 5 12 12 5"></polyline>
+          </svg>
+          Back to Policies
+        </a>
+        <h2>{{ isEditMode ? 'Edit Policy' : 'Attendance Capture Scheme' }}</h2>
+        <p>Complete all 5 steps to configure your policy</p>
+      </div>
+
+      <!-- Progress Bar -->
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill" [style.width.%]="progressPercent"></div>
+        </div>
+        <span class="progress-label">Step {{ currentStep }} of {{ totalSteps }}</span>
+      </div>
+
+      <!-- Step List -->
+      <nav class="step-list">
+        <button *ngFor="let step of steps" class="step-item" [class.active]="isStepActive(step.index)"
+          [class.completed]="isStepCompleted(step.index)" [class.clickable]="canGoToStep(step.index)"
+          (click)="goToStep(step.index)" [attr.id]="'step-nav-' + step.index">
+          <div class="step-indicator">
+            <svg *ngIf="isStepCompleted(step.index)" class="check-icon" width="14" height="14" viewBox="0 0 24 24"
+              fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span *ngIf="!isStepCompleted(step.index)">{{ step.index }}</span>
+          </div>
+          <div class="step-text">
+            <span class="step-label">{{ step.label }}</span>
+            <span class="step-desc">{{ step.description }}</span>
+          </div>
+        </button>
+      </nav>
+
+      <div class="sidebar-tip">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        <span>You can navigate back to completed steps using the menu above.</span>
+      </div>
+    </aside>
+
+    <!-- ═══════════════════════════════════════════════
+         MAIN — Step Components
+    ════════════════════════════════════════════════ -->
+    <main class="wizard-main">
+
+      <!-- Step 1: Basic Information -->
+      <app-step1-basic-info *ngIf="currentStep === 1" [formGroup]="step1Form" [allLocations]="allLocations"
+        [selectedSiteIds]="selectedSiteIds"></app-step1-basic-info>
+
+      <!-- Step 2: Biometric & Web Clock-In -->
+      <app-step2-biometric *ngIf="currentStep === 2" [formGroup]="step2Form"
+        [allLocations]="allLocations"></app-step2-biometric>
+
+      <!-- Step 3: Remote Punches -->
+      <app-step3-remote-punches *ngIf="currentStep === 3" [formGroup]="step3Form"></app-step3-remote-punches>
+
+      <!-- Step 4: WFH / On Duty -->
+      <app-step4-wfh-on-duty *ngIf="currentStep === 4" [formGroup]="step4Form"></app-step4-wfh-on-duty>
+
+      <!-- Step 5: Regularization -->
+      <app-step5-regularization *ngIf="currentStep === 5" [formGroup]="step5Form"></app-step5-regularization>
+
+      <!-- ─── Wizard Footer ──────────────────────────── -->
+      <div class="wizard-footer">
+        <button type="button" class="footer-btn cancel-btn" (click)="cancel()" id="wizard-cancel-btn">
+          Cancel
+        </button>
+
+        <div class="nav-btns">
+          <button type="button" class="footer-btn back-btn" (click)="prevStep()" *ngIf="!isFirstStep"
+            id="wizard-back-btn">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="19" y1="12" x2="5" y2="12"></line>
+              <polyline points="12 19 5 12 12 5"></polyline>
+            </svg>
+            Back
+          </button>
+
+          <button type="button" class="footer-btn next-btn" (click)="nextStep()" *ngIf="!isLastStep"
+            id="wizard-next-btn">
+            Next Step
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+              <polyline points="12 5 19 12 12 19"></polyline>
+            </svg>
+          </button>
+
+          <button type="button" class="footer-btn submit-btn" (click)="submit()" *ngIf="isLastStep" [disabled]="loading"
+            id="wizard-submit-btn">
+            <svg *ngIf="!loading" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            {{ loading ? 'Saving...' : (isEditMode ? 'Update Policy' : 'Create Policy') }}
+          </button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+</ion-content>

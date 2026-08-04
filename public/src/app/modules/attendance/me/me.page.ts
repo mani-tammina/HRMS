@@ -97,6 +97,10 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   remoteReason = '';
   remoteLoading = false;
   wfhClockInLoading = false;
+  remoteClockInLoading = false;
+  hasApprovedRemote = false;
+  hasApprovedWFH = false;
+  policyPermissions: any = null;
 
   // ── WFH Request Panel ──
   showWFHPanel = false;
@@ -244,6 +248,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadTodayAttendance() {
+    this.checkApprovedWorkMode();
     const todayStr = this.formatDateOnly(new Date());
     const request$ = this.viewEmployeeId
       ? this.attendanceApi.getAttendanceDetailsByDate(todayStr, this.viewEmployeeId)
@@ -251,6 +256,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request$.subscribe({
       next: (res: any) => {
+        this.policyPermissions = res?.policyPermissions || null;
         if (res?.attendance) {
           this.status = res.attendance.status || 'NOT In Yet';
         } else if (res?.on_leave) {
@@ -709,14 +715,71 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   trackByDate(index: number, day: Date): string { return day.toDateString(); }
 
-  // ================= WFH CLOCK-IN =================
+  checkApprovedWorkMode() {
+    this.attendanceApi.checkTodayWFH().subscribe({
+      next: (res: any) => {
+        if (res?.has_wfh && res?.work_mode === 'Remote') {
+          this.hasApprovedRemote = true;
+          this.hasApprovedWFH = false;
+        } else if (res?.has_wfh && res?.work_mode === 'WFH') {
+          this.hasApprovedWFH = true;
+          this.hasApprovedRemote = false;
+        } else {
+          this.hasApprovedRemote = false;
+          this.hasApprovedWFH = false;
+        }
+      },
+      error: () => {
+        this.hasApprovedRemote = false;
+        this.hasApprovedWFH = false;
+      }
+    });
+  }
+
+  // ================= WFH / REMOTE CLOCK-IN =================
+
+  remoteClockIn() {
+    if (this.remoteClockInLoading || this.clockButton?.loading) return;
+    this.remoteClockInLoading = true;
+    this.attendanceApi.checkTodayWFH().subscribe({
+      next: (res: any) => {
+        if (!res?.has_wfh || res?.work_mode !== 'Remote') {
+          this.showToast('Remote request not approved for today', 'warning');
+          this.remoteClockInLoading = false;
+          return;
+        }
+        this.attendanceApi.apiPunchIn({ work_mode: 'Remote', location: 'Remote', notes: 'Remote Clock-In' }).subscribe({
+          next: () => {
+            this.remoteClockInLoading = false;
+            this.showToast('Remote Clock-In successful', 'success');
+            this.loadTodayAttendance();
+            if (this.clockButton) {
+              this.clockButton.workMode = 'Remote';
+              this.clockButton.isClockedIn = true;
+              this.clockButton.remoteActive = true;
+              localStorage.setItem('remoteActive', 'true');
+            }
+            this.attendanceRefresh = Date.now();
+          },
+          error: err => {
+            this.remoteClockInLoading = false;
+            this.showToast(err?.error?.message || 'Remote Clock-In failed', 'danger');
+          },
+        });
+      },
+      error: () => {
+        this.remoteClockInLoading = false;
+        this.showToast('Remote check failed', 'danger');
+      },
+    });
+  }
 
   wfhClockIn() {
     if (this.wfhClockInLoading || this.clockButton?.loading) return;
     this.wfhClockInLoading = true;
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh) {
+        if (!res?.has_wfh || res?.work_mode !== 'WFH') {
           this.showToast('WFH not approved for today', 'warning');
           this.wfhClockInLoading = false;
           return;
@@ -756,42 +819,49 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitRemoteRequest() {
-    if (!this.remoteReason.trim()) return;
     this.remoteLoading = true;
     const today = new Date().toISOString().split('T')[0];
 
-    this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
-      next: () => {
-        const punchIn = () =>
-          this.attendanceApi.apiPunchIn({
-            work_mode: 'Remote',
-            location: 'Remote',
-            notes: 'Remote Clock-In: ' + this.remoteReason
-          }).subscribe({
-            next: () => this.finalizeRemote(),
-            error: (err) => {
-              this.remoteLoading = false;
-              this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
-            }
-          });
-
-        if (!this.attendanceApi.getClockState()) {
-          punchIn();
-        } else {
-          this.finalizeRemote();
+    const doPunchIn = () => {
+      this.attendanceApi.apiPunchIn({
+        work_mode: 'Remote',
+        location: 'Remote',
+        notes: this.remoteReason ? 'Remote Clock-In: ' + this.remoteReason : 'Remote Clock-In'
+      }).subscribe({
+        next: () => this.finalizeRemote(),
+        error: (err) => {
+          this.remoteLoading = false;
+          if (err?.error?.message?.includes('active punch-in') || err?.error?.message?.includes('Already punched in')) {
+            this.finalizeRemote();
+          } else {
+            this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
+          }
         }
-      },
-      error: (err) => {
-        this.remoteLoading = false;
-        this.showToast(err?.error?.error || 'Failed to submit remote request', 'danger');
-      }
-    });
+      });
+    };
+
+    if (this.policyPermissions?.remote_clockin_approval_required === 'yes') {
+      this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
+        next: () => doPunchIn(),
+        error: () => doPunchIn()
+      });
+    } else {
+      doPunchIn();
+    }
   }
 
   private finalizeRemote() {
     this.remoteLoading = false;
     this.showRemotePanel = false;
-    this.showToast('Remote Clock-In request submitted successfully!', 'success');
+    this.hasApprovedRemote = true;
+    if (this.clockButton) {
+      this.clockButton.workMode = 'Remote';
+      this.clockButton.isClockedIn = true;
+      this.clockButton.remoteActive = true;
+      localStorage.setItem('remoteActive', 'true');
+    }
+    this.attendanceApi.setClockState(true);
+    this.showToast('Remote Clock-In successful!', 'success');
     this.loadTodayAttendance();
     this.attendanceRefresh = Date.now();
   }
