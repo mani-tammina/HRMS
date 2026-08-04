@@ -473,6 +473,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   work_mode ENUM('Office', 'WFH', 'Remote', 'Hybrid') DEFAULT 'Office',
   location VARCHAR(255),
   status ENUM('present', 'absent', 'half-day', 'late', 'on-leave') DEFAULT 'present',
+  approval_status ENUM('approved', 'pending', 'rejected') DEFAULT 'approved',
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
