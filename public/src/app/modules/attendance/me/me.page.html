@@ -416,6 +416,46 @@
   <!-- Body -->
   <div class="sp-body">
 
+    <!-- Request Type Options (Full Day, Half Day, Hourly) dynamically rendered per policy settings -->
+    <div class="sp-field-group" *ngIf="wfhSettings?.wfh_halfday_allowed || wfhSettings?.wfh_hourly_allowed">
+      <label class="sp-field-label">
+        <ion-icon name="options-outline"></ion-icon>
+        Request Type
+      </label>
+      <div class="sp-daytype-toggle">
+        <button type="button" class="sp-toggle-btn" [class.sp-toggle-btn--active]="wfhDayType === 'full'"
+          (click)="wfhSetDayType('full')">
+          Full Day
+        </button>
+        <button type="button" class="sp-toggle-btn" *ngIf="wfhSettings?.wfh_halfday_allowed" [class.sp-toggle-btn--active]="wfhDayType === 'half'"
+          (click)="wfhSetDayType('half')">
+          Half Day
+        </button>
+        <button type="button" class="sp-toggle-btn" *ngIf="wfhSettings?.wfh_hourly_allowed" [class.sp-toggle-btn--active]="wfhDayType === 'hourly'"
+          (click)="wfhSetDayType('hourly')">
+          Hourly WFH
+        </button>
+      </div>
+
+      <!-- Half Day Selection (First Half vs Second Half) -->
+      <div class="sp-halfday-sub" *ngIf="wfhDayType === 'half'">
+        <label class="sp-radio-label">
+          <input type="radio" name="halfDayOption" value="first_half" [(ngModel)]="wfhHalfDayType" />
+          <span>First Half</span>
+        </label>
+        <label class="sp-radio-label">
+          <input type="radio" name="halfDayOption" value="second_half" [(ngModel)]="wfhHalfDayType" />
+          <span>Second Half</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Policy Validation Alert Banner -->
+    <div class="sp-validation-alert" *ngIf="wfhValidationError">
+      <ion-icon name="warning-outline"></ion-icon>
+      <span>{{ wfhValidationError }}</span>
+    </div>
+
     <!-- Date range card -->
     <div class="sp-date-card">
       <div class="sp-date-card-header">
@@ -430,14 +470,14 @@
           <div class="sp-date-selector-year">{{ wfhFromDate | date:'yyyy' }}</div>
         </div>
 
-        <div class="sp-date-connector">
+        <div class="sp-date-connector" *ngIf="wfhDayType !== 'half'">
           <div class="sp-connector-line"></div>
           <div class="sp-connector-badge">
             <ion-icon name="arrow-forward-outline"></ion-icon>
           </div>
         </div>
 
-        <div class="sp-date-selector" (click)="wfhTogglePicker('to')"
+        <div class="sp-date-selector" *ngIf="wfhDayType !== 'half'" (click)="wfhTogglePicker('to')"
           [class.sp-date-selector--active]="wfhActivePicker === 'to'">
           <div class="sp-date-selector-label">TO</div>
           <div class="sp-date-selector-value">{{ wfhToDate | date:'EEE, MMM d' }}</div>
@@ -472,6 +512,23 @@
       </div>
     </div>
 
+    <!-- Attachment Upload Field (if required by policy or optional) -->
+    <div class="sp-field-group" *ngIf="wfhSettings?.wfh_attachment_required">
+      <div class="sp-field-header">
+        <label class="sp-field-label">
+          <ion-icon name="attach-outline"></ion-icon>
+          Attachment <span class="required-asterisk">* (Required by policy)</span>
+        </label>
+      </div>
+      <div class="sp-file-upload-box">
+        <input type="file" #wfhFileInput (change)="onWFHFileSelected($event)" style="display: none;" />
+        <button type="button" class="sp-file-btn" (click)="wfhFileInput.click()">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+          <span>{{ wfhAttachmentFileName ? wfhAttachmentFileName : 'Choose Document / File' }}</span>
+        </button>
+      </div>
+    </div>
+
     <!-- Reason field -->
     <div class="sp-field-group">
       <div class="sp-field-header">
@@ -492,7 +549,7 @@
 
     <!-- Submit -->
     <button class="sp-submit-btn sp-submit--wfh" (click)="submitWFHRequest()"
-      [disabled]="wfhLoading || !wfhReason.trim() || wfhTotalDays < 1">
+      [disabled]="wfhLoading || !wfhReason.trim() || wfhTotalDays <= 0 || !!wfhValidationError || (wfhSettings?.wfh_attachment_required && !wfhAttachmentFileName)">
       <div class="sp-btn-content">
         <ion-spinner *ngIf="wfhLoading" name="crescent" class="sp-spinner"></ion-spinner>
         <svg *ngIf="!wfhLoading" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"

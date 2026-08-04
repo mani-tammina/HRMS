@@ -471,6 +471,7 @@ router.get("/today", auth, async (req, res) => {
         if (remote.remote_clockin_approval_required) policyPermissions.remote_clockin_approval_required = remote.remote_clockin_approval_required;
         
         if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) policyPermissions.wfh_clockin_enabled = false;
+        policyPermissions.wfh_settings = wfh;
       }
     }
 
