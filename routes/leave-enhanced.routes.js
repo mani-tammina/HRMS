@@ -2014,7 +2014,7 @@ router.get("/wfh-check-today", auth, async (req, res) => {
              AND DATE(start_date) <= DATE(?) 
              AND DATE(end_date) >= DATE(?)
              AND leave_type IN ('WFH', 'Remote') 
-             AND status = 'approved' 
+             AND status IN ('approved', 'pending') 
              LIMIT 1`,
       [emp.id, today, today],
     );

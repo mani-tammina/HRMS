@@ -193,14 +193,52 @@ router.post("/punch-in", auth, async (req, res) => {
     let attendanceId;
 
     if (attendance.length === 0) {
+      let approvalStatus = 'approved';
+      if (work_mode === 'Remote') {
+        // check if policy requires approval for remote punch
+        const [empRows] = await c.query(
+          "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
+          [emp.id]
+        );
+        if (empRows.length > 0 && empRows[0].attendance_capture_scheme_id) {
+          const [policyRows] = await c.query(
+            "SELECT remote_punch_settings FROM attendance_capture_schemes WHERE id = ?",
+            [empRows[0].attendance_capture_scheme_id]
+          );
+          if (policyRows.length > 0) {
+            let remote = {};
+            try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) {}
+            if (remote.remote_clockin_approval_required === 'yes') {
+              approvalStatus = 'pending';
+            }
+          }
+        }
+      }
+
       // Create new attendance record
       const [result] = await c.query(
         `INSERT INTO attendance 
-                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status)
-                 VALUES (?, ?, ?, ?, ?, ?, 'present')`,
-        [emp.id, today, today, now, work_mode || "Office", location || "Office"]
+                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status, approval_status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'present', ?)`,
+        [emp.id, today, today, now, work_mode || "Office", location || "Office", approvalStatus]
       );
       attendanceId = result.insertId;
+
+      if (approvalStatus === 'pending') {
+        // Trigger inbox notification for approver (we'll notify RM for simplicity)
+        const [rmRows] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [emp.id]);
+        if (rmRows.length > 0 && rmRows[0].reporting_manager_id) {
+          const approverId = rmRows[0].reporting_manager_id;
+          const [approverUser] = await c.query("SELECT user_id FROM employees WHERE id = ?", [approverId]);
+          if (approverUser.length > 0 && approverUser[0].user_id) {
+            await c.query(
+              `INSERT INTO inbox_notifications (user_id, sender_id, type, title, message, action_url)
+               VALUES (?, ?, 'approval', 'Remote Punch Approval Request', 'An employee requested remote punch approval.', '/inbox/approvals')`,
+              [approverUser[0].user_id, req.user.id]
+            );
+          }
+        }
+      }
     } else {
       attendanceId = attendance[0].id;
 
@@ -214,6 +252,11 @@ router.post("/punch-in", auth, async (req, res) => {
         await c.query(
           `UPDATE attendance SET first_check_in = ?, work_mode = ?, location = ? WHERE id = ?`,
           [now, work_mode || "Office", location || "Office", attendanceId]
+        );
+      } else {
+        await c.query(
+          `UPDATE attendance SET work_mode = ?, location = ? WHERE id = ?`,
+          [work_mode || "Office", location || "Office", attendanceId]
         );
       }
     }
@@ -399,7 +442,9 @@ router.get("/today", auth, async (req, res) => {
       web_clockin_enabled: true,
       remote_clockin_enabled: true,
       wfh_clockin_enabled: true,
-      web_clockin_comment_required: false
+      web_clockin_comment_required: false,
+      remote_clockin_comment_required: 'no',
+      remote_clockin_approval_required: 'no'
     };
     
     if (emp.attendance_capture_scheme_id) {
@@ -420,7 +465,11 @@ router.get("/today", auth, async (req, res) => {
         
         if (biometric.web_clockin_enabled === false) policyPermissions.web_clockin_enabled = false;
         if (biometric.web_clockin_comment_required === true) policyPermissions.web_clockin_comment_required = true;
+        
         if (remote.remote_clockin_web_enabled === false) policyPermissions.remote_clockin_enabled = false;
+        if (remote.remote_clockin_comment_required) policyPermissions.remote_clockin_comment_required = remote.remote_clockin_comment_required;
+        if (remote.remote_clockin_approval_required) policyPermissions.remote_clockin_approval_required = remote.remote_clockin_approval_required;
+        
         if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) policyPermissions.wfh_clockin_enabled = false;
       }
     }
