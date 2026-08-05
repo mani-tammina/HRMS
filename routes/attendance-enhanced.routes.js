@@ -82,6 +82,17 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
   } else if (rawIp.startsWith('::ffff:')) {
     rawIp = rawIp.replace('::ffff:', '');
   }
+
+  // Strip port number if attached to IP (e.g. "202.53.69.35:32340" -> "202.53.69.35")
+  if (rawIp.includes(':') && !rawIp.includes('[')) {
+    const colonIndex = rawIp.lastIndexOf(':');
+    if (colonIndex > -1 && rawIp.indexOf(':') === colonIndex) {
+      rawIp = rawIp.substring(0, colonIndex);
+    }
+  } else if (rawIp.includes(']')) {
+    rawIp = rawIp.replace(/^\[/, '').replace(/\]:.*$/, '');
+  }
+
   const incomingIp = rawIp;
 
   if (workMode === 'Office') {
