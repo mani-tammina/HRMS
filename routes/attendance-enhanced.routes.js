@@ -43,11 +43,11 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
     "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
     [employeeId]
   );
-  
+
   if (!empRows || empRows.length === 0) {
     return; // No employee found, normal flow handles error
   }
-  
+
   const schemeId = empRows[0].attendance_capture_scheme_id;
   if (!schemeId) {
     return; // No policy assigned
@@ -58,13 +58,13 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
     "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
     [schemeId]
   );
-  
+
   if (!policyRows || policyRows.length === 0) {
     return; // Policy not found or inactive
   }
 
   const policy = policyRows[0];
-  
+
   const parseJSON = (str) => {
     if (!str) return {};
     if (typeof str === 'object') return str;
@@ -99,7 +99,7 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
         throw err;
       }
     }
-    
+
     if (biometric.ip_restriction_enabled && biometric.ip_networks && biometric.ip_networks.length > 0) {
       // Allow localhost to prevent lockout during dev/testing
       if (incomingIp !== '127.0.0.1' && incomingIp !== 'localhost') {
@@ -118,7 +118,7 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
         for (const net of biometric.ip_networks) {
           const rawAllowed = (net.ip_address || '').trim();
           if (!rawAllowed) continue;
-          
+
           // Split by comma or semicolon in case multiple IPs/ranges are listed in a single string
           const allowedTokens = rawAllowed.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
 
@@ -178,17 +178,12 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
               isAllowed = true;
               break;
             }
-
-            // 6. Substring fallback
-            if (allowed.includes(incomingIp)) {
-              isAllowed = true;
-              break;
-            }
+          }
           }
 
           if (isAllowed) break;
         }
-        
+
         if (!isAllowed) {
           console.warn(`[IP Restriction] Incoming IP '${incomingIp}' denied. Configured authorized networks:`, biometric.ip_networks);
           const err = new Error(`Clock-in denied: Your IP address (${incomingIp}) is not authorized.`);
@@ -238,7 +233,7 @@ router.post("/punch-in", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
-    
+
     // Validate Time Tracking Policy before proceeding
     await validateTimeTrackingPolicy(c, emp.id, work_mode || "Office", ip_address, notes);
 
@@ -288,7 +283,7 @@ router.post("/punch-in", auth, async (req, res) => {
           );
           if (policyRows.length > 0) {
             let remote = {};
-            try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) {}
+            try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) { }
             if (remote.remote_clockin_approval_required === 'yes') {
               approvalStatus = 'pending';
             }
@@ -413,7 +408,7 @@ router.post("/punch-out", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
-    
+
     await c.beginTransaction();
     transactionStarted = true;
 
@@ -527,7 +522,7 @@ router.get("/today", auth, async (req, res) => {
       remote_clockin_comment_required: 'no',
       remote_clockin_approval_required: 'no'
     };
-    
+
     if (emp.attendance_capture_scheme_id) {
       const [policyRows] = await c.query(
         "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
@@ -543,14 +538,14 @@ router.get("/today", auth, async (req, res) => {
         const biometric = parseJSON(policy.biometric_settings);
         const remote = parseJSON(policy.remote_punch_settings);
         const wfh = parseJSON(policy.wfh_settings);
-        
+
         if (biometric.web_clockin_enabled === false) policyPermissions.web_clockin_enabled = false;
         if (biometric.web_clockin_comment_required === true) policyPermissions.web_clockin_comment_required = true;
-        
+
         if (remote.remote_clockin_web_enabled === false) policyPermissions.remote_clockin_enabled = false;
         if (remote.remote_clockin_comment_required) policyPermissions.remote_clockin_comment_required = remote.remote_clockin_comment_required;
         if (remote.remote_clockin_approval_required) policyPermissions.remote_clockin_approval_required = remote.remote_clockin_approval_required;
-        
+
         if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) policyPermissions.wfh_clockin_enabled = false;
         policyPermissions.wfh_settings = wfh;
       }
