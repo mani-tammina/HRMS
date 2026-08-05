@@ -72,6 +72,7 @@ const timesheetNotificationService = require("./utils/timesheet-notification.ser
 const complianceChecker = require("./utils/compliance-checker.service");
 
 const app = express();
+app.set('trust proxy', true);
 const upload = multer({ dest: "uploads/" });
 
 // CORS Configuration for Production

@@ -229,7 +229,14 @@ router.post("/punch-in", auth, async (req, res) => {
 
     const { work_mode, location, notes } = req.body;
     const ip_address =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      req.headers["cf-connecting-ip"] ||
+      req.headers["x-real-ip"] ||
+      req.headers["x-client-ip"] ||
+      req.headers["x-forwarded-for"] ||
+      req.body?.ip_address ||
+      req.body?.public_ip ||
+      req.ip ||
+      req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
     const today = new Date().toISOString().split("T")[0];
@@ -404,7 +411,14 @@ router.post("/punch-out", auth, async (req, res) => {
 
     const { notes } = req.body;
     const ip_address =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      req.headers["cf-connecting-ip"] ||
+      req.headers["x-real-ip"] ||
+      req.headers["x-client-ip"] ||
+      req.headers["x-forwarded-for"] ||
+      req.body?.ip_address ||
+      req.body?.public_ip ||
+      req.ip ||
+      req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
     const today = new Date().toISOString().split("T")[0];
