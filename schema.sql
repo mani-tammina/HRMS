@@ -1936,4 +1936,41 @@ CREATE TABLE IF NOT EXISTS monthly_attendance (
   UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
 );
 
+-- ============================================
+-- Document Types Master Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS document_types (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  category ENUM('Identity', 'Payroll', 'Employment', 'Other') DEFAULT 'Other',
+  is_system TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ============================================
+-- Employee Documents Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS employee_documents (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  document_type_id INT NOT NULL,
+  financial_year VARCHAR(10) NULL,
+  document_name VARCHAR(255) NOT NULL,
+  original_file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_size INT NOT NULL,
+  mime_type VARCHAR(100) NULL,
+  version INT DEFAULT 1,
+  uploaded_by INT NULL,
+  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  is_active TINYINT(1) DEFAULT 1,
+  remarks TEXT NULL,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (document_type_id) REFERENCES document_types(id),
+  INDEX idx_emp_docs_emp_active (employee_id, is_active),
+  INDEX idx_emp_docs_fy (financial_year)
+);
+
+
 

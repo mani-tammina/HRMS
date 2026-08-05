@@ -45,6 +45,10 @@ const routes: Routes = [
   {
     path: 'time-tracking',
     loadChildren: () => import('./time-tracking/time-tracking.module').then(m => m.TimeTrackingModule)
+  },
+  {
+    path: 'documents',
+    loadChildren: () => import('./employee-documents/employee-documents.module').then(m => m.EmployeeDocumentsPageModule)
   }
 ];
 

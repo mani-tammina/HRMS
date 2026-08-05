@@ -28,4 +28,7 @@ export class AdminPage implements OnInit {
   projectsetup() {
     this.router.navigate(['/administration/projects']);
   }
+  documents() {
+    this.router.navigate(['/administration/documents']);
+  }
 }

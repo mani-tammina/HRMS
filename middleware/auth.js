@@ -7,6 +7,15 @@
  * - Consistent error response format
  * - Connection leak prevention
  * - Enhanced security checks
+/**
+ * AUTHENTICATION MIDDLEWARE - REFACTORED
+ * 
+ * Improvements:
+ * - Better error handling with detailed logging
+ * - Input validation and sanitization
+ * - Consistent error response format
+ * - Connection leak prevention
+ * - Enhanced security checks
  * - Audit trail support
  * - Rate limiting preparation
  * 
@@ -22,22 +31,19 @@ const { JWT_SECRET } = require("../config/constants");
  */
 const auth = (req, res, next) => {
     try {
-        // Extract token from Authorization header
+        // Extract token from Authorization header or query string (for downloads/previews)
         const authHeader = req.headers.authorization;
-        
-        if (!authHeader) {
-            return res.status(401).json({ error: "Missing token" });
+        let token = null;
+
+        if (authHeader) {
+            const parts = authHeader.split(" ");
+            if (parts.length === 2 && parts[0] === "Bearer") {
+                token = parts[1];
+            }
+        } else if (req.query && req.query.token) {
+            token = req.query.token;
         }
 
-        const parts = authHeader.split(" ");
-        
-        // Validate Bearer token format
-        if (parts.length !== 2 || parts[0] !== "Bearer") {
-            return res.status(401).json({ error: "Invalid token format. Expected: Bearer <token>" });
-        }
-
-        const token = parts[1];
-        
         if (!token || token.trim() === "") {
             return res.status(401).json({ error: "Missing token" });
         }

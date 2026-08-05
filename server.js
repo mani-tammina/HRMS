@@ -65,6 +65,7 @@ const taxationWorkflowRoutes = require("./routes/taxation-workflow.routes");
 const inboxRoutes = require("./routes/inbox.routes");
 const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
+const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -348,6 +349,69 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not verify/create inbox_notifications table:", tableErr.message);
         }
 
+        // Ensure document_types and employee_documents tables exist
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS document_types (
+                  id INT PRIMARY KEY AUTO_INCREMENT,
+                  code VARCHAR(50) UNIQUE NOT NULL,
+                  name VARCHAR(100) NOT NULL,
+                  category ENUM('Identity', 'Payroll', 'Employment', 'Other') DEFAULT 'Other',
+                  is_system TINYINT(1) DEFAULT 0,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS employee_documents (
+                  id INT PRIMARY KEY AUTO_INCREMENT,
+                  employee_id INT NOT NULL,
+                  document_type_id INT NOT NULL,
+                  financial_year VARCHAR(10) NULL,
+                  document_name VARCHAR(255) NOT NULL,
+                  original_file_name VARCHAR(255) NOT NULL,
+                  file_path VARCHAR(500) NOT NULL,
+                  file_size INT NOT NULL,
+                  mime_type VARCHAR(100) NULL,
+                  version INT DEFAULT 1,
+                  uploaded_by INT NULL,
+                  uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  is_active TINYINT(1) DEFAULT 1,
+                  remarks TEXT NULL,
+                  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+                  FOREIGN KEY (document_type_id) REFERENCES document_types(id),
+                  INDEX idx_emp_docs_emp_active (employee_id, is_active),
+                  INDEX idx_emp_docs_fy (financial_year)
+                )
+            `);
+
+            // Seed default document types
+            const defaultDocTypes = [
+                ['PAN_CARD', 'PAN Card', 'Identity', 1],
+                ['AADHAAR', 'Aadhaar Card', 'Identity', 1],
+                ['PASSPORT', 'Passport', 'Identity', 1],
+                ['VOTER_ID', 'Voter ID', 'Identity', 1],
+                ['DRIVING_LICENSE', 'Driving License', 'Identity', 1],
+                ['FORM16', 'Form 16', 'Payroll', 1],
+                ['BANK_PASSBOOK', 'Bank Passbook / Cancelled Cheque', 'Payroll', 1],
+                ['OFFER_LETTER', 'Offer Letter', 'Employment', 1],
+                ['APPOINTMENT_LETTER', 'Appointment Letter', 'Employment', 1],
+                ['EDUCATION_CERT', 'Education Certificate', 'Employment', 1],
+                ['OTHER', 'Other Document', 'Other', 1]
+            ];
+
+            for (const [code, name, category, is_system] of defaultDocTypes) {
+                await conn.query(
+                    `INSERT INTO document_types (code, name, category, is_system) 
+                     VALUES (?, ?, ?, ?) 
+                     ON DUPLICATE KEY UPDATE name=VALUES(name), category=VALUES(category)`,
+                    [code, name, category, is_system]
+                );
+            }
+            console.log("✅ Verified and seeded document_types & employee_documents tables");
+        } catch (docErr) {
+            console.warn("⚠️ Warning: could not initialize document tables:", docErr.message);
+        }
+
         // Ensure comp_off_requests status column supports 'cancelled'
         try {
             const [cols] = await conn.query("DESCRIBE comp_off_requests");
@@ -486,6 +550,8 @@ app.use("/api/onboarding", onboardingRoutes);
 
 // Employee Routes
 app.use("/api/employees", employeeRoutes);
+app.use("/api/employee-documents", employeeDocumentsRoutes);
+app.get("/api/document-types", auth, require("./controllers/employee-documents.controller").getDocumentTypes);
 
 // Attendance Routes
 app.use("/api/attendance", attendanceRoutes);

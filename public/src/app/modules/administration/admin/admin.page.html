@@ -75,6 +75,19 @@
             </ion-button>
           </ion-card-header>
         </ion-card>
+
+        <ion-card (click)="documents()" class="clickable-card">
+          <ion-card-header>
+            <div class="card-icon-wrapper">
+              <ion-icon name="document-text-outline" style="font-size: 36px; color: #2563eb;"></ion-icon>
+            </div>
+            <ion-card-title>Employee Documents & Form 16</ion-card-title>
+            <p>Manage employee identity proofs, certificates, and bulk Form 16 uploads with auto PAN matching.</p>
+            <ion-button fill="clear" color="light" class="card-btn">
+              Document Hub <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
+            </ion-button>
+          </ion-card-header>
+        </ion-card>
       </ion-col>
     </ion-row>
   </ion-grid>
