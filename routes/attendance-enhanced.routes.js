@@ -75,8 +75,14 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
   const remote = parseJSON(policy.remote_punch_settings);
   const wfh = parseJSON(policy.wfh_settings);
 
-  // Normalize IPv6 localhost to IPv4 for simpler checks
-  const incomingIp = (ipAddress === '::1' || ipAddress === '::ffff:127.0.0.1') ? '127.0.0.1' : (ipAddress || '').replace(/^.*:/, '');
+  // Extract primary client IP (handles proxy headers like x-forwarded-for with multiple IPs)
+  let rawIp = (ipAddress || '').split(',')[0].trim();
+  if (rawIp === '::1' || rawIp === '::ffff:127.0.0.1' || rawIp === '127.0.0.1') {
+    rawIp = '127.0.0.1';
+  } else if (rawIp.startsWith('::ffff:')) {
+    rawIp = rawIp.replace('::ffff:', '');
+  }
+  const incomingIp = rawIp;
 
   if (workMode === 'Office') {
     if (biometric.web_clockin_enabled === false) {
@@ -97,20 +103,95 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
     if (biometric.ip_restriction_enabled && biometric.ip_networks && biometric.ip_networks.length > 0) {
       // Allow localhost to prevent lockout during dev/testing
       if (incomingIp !== '127.0.0.1' && incomingIp !== 'localhost') {
+        const ipToLong = (ip) => {
+          if (!ip) return null;
+          const parts = ip.trim().split('.');
+          if (parts.length !== 4) return null;
+          const nums = parts.map(p => parseInt(p, 10));
+          if (nums.some(n => isNaN(n) || n < 0 || n > 255)) return null;
+          return ((nums[0] << 24) | (nums[1] << 16) | (nums[2] << 8) | nums[3]) >>> 0;
+        };
+
         let isAllowed = false;
+        const currentLong = ipToLong(incomingIp);
+
         for (const net of biometric.ip_networks) {
-          const allowed = (net.ip_address || '').trim();
-          if (!allowed) continue;
+          const rawAllowed = (net.ip_address || '').trim();
+          if (!rawAllowed) continue;
           
-          // Basic exact match or subnet string check
-          if (allowed === incomingIp || allowed.includes(incomingIp) || incomingIp.includes(allowed.split('-')[0].trim())) {
-            isAllowed = true;
-            break;
+          // Split by comma or semicolon in case multiple IPs/ranges are listed in a single string
+          const allowedTokens = rawAllowed.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+
+          for (const allowed of allowedTokens) {
+            // 1. Exact match
+            if (allowed === incomingIp) {
+              isAllowed = true;
+              break;
+            }
+
+            // 2. CIDR notation match (e.g. "30.0.0.1/23" or "30.0.0.0/23")
+            if (allowed.includes('/')) {
+              const [ipPart, cidrPart] = allowed.split('/');
+              const baseLong = ipToLong(ipPart);
+              const bits = parseInt(cidrPart, 10);
+              if (baseLong !== null && !isNaN(bits) && bits >= 0 && bits <= 32 && currentLong !== null) {
+                const mask = bits === 0 ? 0 : ((0xFFFFFFFF << (32 - bits)) >>> 0);
+                if ((currentLong & mask) === (baseLong & mask)) {
+                  isAllowed = true;
+                  break;
+                }
+              }
+            }
+
+            // 3. Subnet mask match (e.g. "30.0.0.0 255.255.254.0")
+            if (allowed.includes('255.')) {
+              const parts = allowed.split(/[\s\/]+/);
+              if (parts.length === 2) {
+                const baseLong = ipToLong(parts[0]);
+                const maskLong = ipToLong(parts[1]);
+                if (baseLong !== null && maskLong !== null && currentLong !== null) {
+                  if ((currentLong & maskLong) === (baseLong & maskLong)) {
+                    isAllowed = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            // 4. IP Range match (e.g., "30.0.0.2 - 30.0.1.254" or "30.0.0.2-30.0.1.254")
+            if (allowed.includes('-')) {
+              const rangeParts = allowed.split('-');
+              if (rangeParts.length === 2) {
+                const startLong = ipToLong(rangeParts[0]);
+                const endLong = ipToLong(rangeParts[1]);
+                if (startLong !== null && endLong !== null && currentLong !== null) {
+                  if (currentLong >= startLong && currentLong <= endLong) {
+                    isAllowed = true;
+                    break;
+                  }
+                }
+              }
+            }
+
+            // 5. Subnet / prefix match (e.g. "30.0." or "30.0.0.")
+            if (allowed.endsWith('.') && incomingIp.startsWith(allowed)) {
+              isAllowed = true;
+              break;
+            }
+
+            // 6. Substring fallback
+            if (allowed.includes(incomingIp)) {
+              isAllowed = true;
+              break;
+            }
           }
+
+          if (isAllowed) break;
         }
         
         if (!isAllowed) {
-          const err = new Error("Clock-in denied: Your IP address is not authorized.");
+          console.warn(`[IP Restriction] Incoming IP '${incomingIp}' denied. Configured authorized networks:`, biometric.ip_networks);
+          const err = new Error(`Clock-in denied: Your IP address (${incomingIp}) is not authorized.`);
           err.statusCode = 403;
           throw err;
         }
