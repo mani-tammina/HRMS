@@ -179,7 +179,6 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
               break;
             }
           }
-          }
 
           if (isAllowed) break;
         }
