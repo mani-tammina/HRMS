@@ -115,7 +115,7 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
     
     if (isIpRestrictionEnabled) {
       if (!biometric.ip_networks || biometric.ip_networks.length === 0) {
-        const err = new Error("Clock-in denied: IP restriction is enabled, but no authorized IP networks are configured in your policy.");
+        const err = new Error("Access denied. Please connect to an approved network or use Remote Clock In");
         err.statusCode = 403;
         throw err;
       }
@@ -202,7 +202,7 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
 
       if (!isAllowed) {
         console.warn(`[IP Restriction] Incoming IP '${incomingIp}' denied. Configured authorized networks:`, biometric.ip_networks);
-        const err = new Error(`Clock-in denied: Your IP address (${incomingIp}) is not authorized.`);
+        const err = new Error("Access denied. Please connect to an approved network or use Remote Clock In");
         err.statusCode = 403;
         throw err;
       }
