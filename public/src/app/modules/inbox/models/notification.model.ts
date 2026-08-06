@@ -18,6 +18,7 @@ export interface InboxNotification {
 
   // Join fields
   employee_name?: string;
+  sender_name?: string;
   employee_number?: string;
   department_name?: string;
   manager_name?: string;

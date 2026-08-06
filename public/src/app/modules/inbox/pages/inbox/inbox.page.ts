@@ -25,8 +25,7 @@ import { NotificationEmptyComponent } from '../../components/notification-empty/
   imports: [
     CommonModule,
     IonicModule,
-    FormsModule,
-    NotificationEmptyComponent
+    FormsModule
   ]
 })
 export class InboxPage implements OnInit {
@@ -63,6 +62,12 @@ export class InboxPage implements OnInit {
     timesheetCount: 0,
     resignationCount: 0
   };
+
+  // Keka-style Inbox UI States
+  headerTab: 'take_action' | 'notifications' | 'archive' = 'take_action';
+  selectedFolderCategory: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'all' = 'leave';
+  actionComment: string = '';
+  sortOption: string = 'NEWEST';
 
   tabs = ['All', 'Unread', 'Leave', 'Attendance', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
 
@@ -508,13 +513,30 @@ export class InboxPage implements OnInit {
     this.loadNotifications(event);
   }
 
-  isWfhRemoteRequest(notification: InboxNotification): boolean {
+  isWfhRequest(notification: InboxNotification): boolean {
     if (!notification) return false;
     const title = (notification.title || '').toLowerCase();
     const desc = (notification.description || '').toLowerCase();
     const isWfh = title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('wfh');
-    const isRemote = title.includes('remote') || desc.includes('requested remote') || desc.includes('remote');
-    return isWfh || isRemote;
+    return isWfh && !title.includes('remote') && !desc.includes('remote');
+  }
+
+  isRemoteRequest(notification: InboxNotification): boolean {
+    if (!notification) return false;
+    const title = (notification.title || '').toLowerCase();
+    const desc = (notification.description || '').toLowerCase();
+    return title.includes('remote') || desc.includes('requested remote') || desc.includes('remote');
+  }
+
+  isWfhRemoteRequest(notification: InboxNotification): boolean {
+    return this.isWfhRequest(notification) || this.isRemoteRequest(notification);
+  }
+
+  getDisplayRequestType(notification: InboxNotification): string {
+    if (!notification) return 'Leave';
+    if (this.isRemoteRequest(notification)) return 'Remote Login';
+    if (this.isWfhRequest(notification)) return 'Work From Home';
+    return notification.request_type || 'Leave';
   }
 
   async approveRequest(notification: InboxNotification) {
@@ -890,5 +912,181 @@ export class InboxPage implements OnInit {
         this.toaster.showError('Failed to export yearly leave balances report');
       }
     });
+  }
+
+  /* ================= KEKA-STYLE INBOX HELPERS ================= */
+
+  selectHeaderTab(tab: 'take_action' | 'notifications' | 'archive') {
+    this.headerTab = tab;
+    if (tab === 'archive') {
+      this.selectedTab = 'Archived';
+    } else if (tab === 'notifications') {
+      this.selectedTab = 'Unread';
+    } else {
+      this.selectedTab = 'All';
+    }
+    this.loadNotifications(null, true);
+  }
+
+  selectFolderCategory(category: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'all') {
+    this.selectedFolderCategory = category;
+    const filtered = this.filteredNotificationList;
+    if (filtered.length > 0) {
+      this.selectedNotification = filtered[0];
+    } else {
+      this.selectedNotification = null;
+    }
+  }
+
+  getCategoryCount(category: string): number {
+    if (!this.notifications) return 0;
+    return this.notifications.filter(n => {
+      const type = (n.request_type || '').toLowerCase();
+      const isWfh = this.isWfhRequest(n);
+      const isRemote = this.isRemoteRequest(n);
+      const isWfhOrRemote = isWfh || isRemote;
+
+      if (category === 'wfh') {
+        return isWfh;
+      }
+      if (category === 'remote') {
+        return isRemote;
+      }
+      if (category === 'leave') {
+        return (type.includes('leave') || type.includes('comp off')) && !isWfhOrRemote;
+      }
+      if (category === 'attendance') {
+        return (type.includes('attendance') || type.includes('regularization')) && !isWfhOrRemote;
+      }
+      if (category === 'resignation') {
+        return type.includes('resignation') || type.includes('exit') || type.includes('separation');
+      }
+      return true;
+    }).length;
+  }
+
+  getSenderName(item?: InboxNotification | null): string {
+    if (!item) return 'Employee';
+    return item.sender_name || item.employee_name || 'Employee';
+  }
+
+  get filteredNotificationList(): InboxNotification[] {
+    if (!this.notifications) return [];
+    
+    return this.notifications.filter(n => {
+      const type = (n.request_type || '').toLowerCase();
+      const isWfh = this.isWfhRequest(n);
+      const isRemote = this.isRemoteRequest(n);
+      const isWfhOrRemote = isWfh || isRemote;
+
+      // Category check
+      if (this.selectedFolderCategory === 'wfh') {
+        if (!isWfh) return false;
+      } else if (this.selectedFolderCategory === 'remote') {
+        if (!isRemote) return false;
+      } else if (this.selectedFolderCategory === 'leave') {
+        if (isWfhOrRemote || (!type.includes('leave') && !type.includes('comp off'))) {
+          return false;
+        }
+      } else if (this.selectedFolderCategory === 'attendance') {
+        if (isWfhOrRemote || (!type.includes('attendance') && !type.includes('regularization'))) {
+          return false;
+        }
+      } else if (this.selectedFolderCategory === 'resignation') {
+        if (!type.includes('resignation') && !type.includes('exit') && !type.includes('separation')) {
+          return false;
+        }
+      }
+
+      // Search query check
+      if (this.searchQuery && this.searchQuery.trim() !== '') {
+        const query = this.searchQuery.toLowerCase().trim();
+        const title = (n.title || '').toLowerCase();
+        const sender = (n.sender_name || n.employee_name || '').toLowerCase();
+        const desc = (n.description || '').toLowerCase();
+        return title.includes(query) || sender.includes(query) || desc.includes(query);
+      }
+
+      return true;
+    });
+  }
+
+  getDateBox(dateStr: string): { month: string; day: string; dayOfWeek: string } {
+    if (!dateStr) return { month: 'AUG', day: '10', dayOfWeek: 'MON' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { month: 'AUG', day: '10', dayOfWeek: 'MON' };
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const days = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    return {
+      month: months[d.getMonth()],
+      day: d.getDate().toString().padStart(2, '0'),
+      dayOfWeek: days[d.getDay()]
+    };
+  }
+
+  getRelativeDaysText(startDateStr: string): string {
+    if (!startDateStr) return '';
+    const start = new Date(startDateStr);
+    const now = new Date();
+    now.setHours(0,0,0,0);
+    start.setHours(0,0,0,0);
+    const diffDays = Math.round((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) return `Leave starting ${diffDays} day(s) from now`;
+    if (diffDays === 0) return 'Leave starting today';
+    return `Leave started ${Math.abs(diffDays)} day(s) ago`;
+  }
+
+  async approveWithComment() {
+    if (!this.selectedNotification) return;
+    const notification = this.selectedNotification;
+    const remark = this.actionComment?.trim() || 'Approved via Inbox';
+
+    const loading = await this.loadingCtrl.create({ message: 'Approving request...' });
+    await loading.present();
+
+    let obs$;
+    const isWfhRemote = this.isWfhRemoteRequest(notification);
+
+    if (isWfhRemote || notification.request_type === 'Leave Request') {
+      obs$ = this.leaveRequestService.approveLeave(notification.request_id, remark);
+    } else if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      obs$ = this.leaveRequestService.approveCompOff(notification.request_id);
+    } else if (notification.request_type === 'Timesheet Request') {
+      obs$ = this.timesheetService.approveTimesheet(notification.request_id);
+    } else if (notification.request_type === 'Resignation Request') {
+      obs$ = this.separationService.actionResignation(notification.request_id, { action: 'Approve', remarks: remark });
+    } else if (notification.request_type === 'Attendance Regularization') {
+      obs$ = this.inboxService.actionAttendanceRegularization({ notification_id: notification.notification_id, action: 'Approve', remarks: remark });
+    }
+
+    if (obs$) {
+      obs$.subscribe({
+        next: () => {
+          loading.dismiss();
+          this.actionComment = '';
+          this.toaster.showSuccess('Request approved successfully');
+          this.loadNotifications(null, true);
+        },
+        error: (err: any) => {
+          loading.dismiss();
+          this.toaster.showError(err.error?.error || 'Failed to approve request');
+        }
+      });
+    } else {
+      loading.dismiss();
+    }
+  }
+
+  async rejectWithComment() {
+    if (!this.selectedNotification) return;
+    if (!this.actionComment || this.actionComment.trim() === '') {
+      this.toaster.showWarning('Please enter a rejection reason in the comment box below');
+      return;
+    }
+    const notification = this.selectedNotification;
+    const reason = this.actionComment.trim();
+
+    this.executeRejection(notification, reason);
+    this.actionComment = '';
   }
 }
