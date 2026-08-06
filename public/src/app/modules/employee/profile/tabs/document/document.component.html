@@ -1,0 +1,171 @@
+<div class="my-documents-wrapper">
+  
+  <!-- PAGE TITLE -->
+  <div class="page-title-bar">
+    <h2>My Documents</h2>
+  </div>
+
+  <div class="documents-layout">
+    
+    <!-- LEFT SIDEBAR: FOLDERS & SEARCH -->
+    <div class="sidebar-panel">
+      
+      <!-- SEARCH INPUT -->
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input type="text" [(ngModel)]="searchTerm" (input)="onSearchChange()" placeholder="Search..." class="search-input" />
+      </div>
+
+      <!-- FOLDERS LIST -->
+      <div class="folder-section">
+        <span class="section-label">FOLDERS</span>
+
+        <div class="folder-list">
+          
+          <div class="folder-item" [class.active]="selectedFolder === 'Payroll'" (click)="selectFolder('Payroll')">
+            <div class="folder-icon-wrapper payroll">
+              <ion-icon name="cash-outline"></ion-icon>
+            </div>
+            <div class="folder-info">
+              <span class="folder-title">Form 16 & Payroll</span>
+              <span class="folder-count">{{ getDocsCount('Payroll') }} document(s)</span>
+            </div>
+          </div>
+
+          <div class="folder-item" [class.active]="selectedFolder === 'Identity'" (click)="selectFolder('Identity')">
+            <div class="folder-icon-wrapper identity">
+              <ion-icon name="id-card-outline"></ion-icon>
+            </div>
+            <div class="folder-info">
+              <span class="folder-title">Identity Proofs</span>
+              <span class="folder-count">{{ getDocsCount('Identity') }} document(s)</span>
+            </div>
+          </div>
+
+          <div class="folder-item" [class.active]="selectedFolder === 'Degrees'" (click)="selectFolder('Degrees')">
+            <div class="folder-icon-wrapper degrees">
+              <ion-icon name="school-outline"></ion-icon>
+            </div>
+            <div class="folder-info">
+              <span class="folder-title">Degrees & Certificates</span>
+              <span class="folder-count">{{ getDocsCount('Degrees') }} document(s)</span>
+            </div>
+          </div>
+
+          <div class="folder-item" [class.active]="selectedFolder === 'Employment'" (click)="selectFolder('Employment')">
+            <div class="folder-icon-wrapper employment">
+              <ion-icon name="briefcase-outline"></ion-icon>
+            </div>
+            <div class="folder-info">
+              <span class="folder-title">Employment Documents</span>
+              <span class="folder-count">{{ getDocsCount('Employment') }} document(s)</span>
+            </div>
+          </div>
+
+          <div class="folder-item" [class.active]="selectedFolder === 'Other'" (click)="selectFolder('Other')">
+            <div class="folder-icon-wrapper other">
+              <ion-icon name="folder-open-outline"></ion-icon>
+            </div>
+            <div class="folder-info">
+              <span class="folder-title">Other Documents</span>
+              <span class="folder-count">{{ getDocsCount('Other') }} document(s)</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT MAIN CONTENT AREA -->
+    <div class="main-panel">
+      
+      <!-- FOLDER HEADER -->
+      <div class="folder-header">
+        <div class="header-left">
+          <h3>{{ getFolderTitle() }}</h3>
+          <div class="header-meta">
+            <span class="doc-counter">{{ currentFolderDocs.length }} document(s)</span>
+            <span class="divider">|</span>
+            <span class="access-badge">
+              <ion-icon name="lock-closed-outline"></ion-icon> Restricted access
+            </span>
+          </div>
+          <p class="folder-description">{{ getFolderDescription() }}</p>
+        </div>
+
+        <!-- FINANCIAL YEAR FILTER (VISIBLE FOR FORM 16 / PAYROLL) -->
+        <div *ngIf="selectedFolder === 'Payroll'" class="fy-filter-wrapper">
+          <label>Financial Year:</label>
+          <select [(ngModel)]="selectedFinancialYear" (change)="applyYearFilter()" class="fy-select">
+            <option value="">All Financial Years</option>
+            <option *ngFor="let year of financialYears" [value]="year">FY {{ year }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- LOADING SPINNER -->
+      <div *ngIf="isLoading" class="loading-state">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p>Loading document records...</p>
+      </div>
+
+      <!-- EMPTY STATE PLACEHOLDER -->
+      <div *ngIf="!isLoading && currentFolderDocs.length === 0" class="empty-folder-state">
+        <div class="empty-icon-circle">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <h4>No Documents Found</h4>
+        <p>There are currently no documents uploaded in this folder.</p>
+      </div>
+
+      <!-- DOCUMENT CARDS LIST -->
+      <div *ngIf="!isLoading && currentFolderDocs.length > 0" class="document-cards-list">
+        <div *ngFor="let doc of currentFolderDocs" class="doc-item-card">
+          
+          <div class="doc-card-left">
+            <div class="file-icon" [ngClass]="getCategoryClass(doc.category)">
+              <ion-icon [name]="getDocIcon(doc)"></ion-icon>
+            </div>
+
+            <div class="file-details">
+              <div class="title-row">
+                <h4 class="doc-name">{{ doc.document_name }}</h4>
+                <span *ngIf="doc.financial_year" class="fy-chip">FY {{ doc.financial_year }}</span>
+                <span class="status-chip uploaded">On Record</span>
+              </div>
+
+              <div class="meta-row">
+                <span class="filename">{{ doc.original_file_name }}</span>
+                <span class="bullet">&bull;</span>
+                <span class="filesize">{{ formatBytes(doc.file_size) }}</span>
+                <span class="bullet">&bull;</span>
+                <span class="uploaddate">Uploaded: {{ doc.uploaded_at | date:'mediumDate' }}</span>
+              </div>
+
+              <p *ngIf="doc.remarks" class="doc-remarks">
+                <ion-icon name="information-circle-outline"></ion-icon> {{ doc.remarks }}
+              </p>
+            </div>
+          </div>
+
+          <!-- ACTIONS: PREVIEW & DOWNLOAD -->
+          <div class="doc-card-right">
+            <button class="btn-action btn-preview" (click)="previewFile(doc)" title="Preview Document">
+              <ion-icon name="eye-outline"></ion-icon>
+              <span>Preview</span>
+            </button>
+
+            <button class="btn-action btn-download" (click)="downloadFile(doc)" title="Download File">
+              <ion-icon name="download-outline"></ion-icon>
+              <span>Download</span>
+            </button>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</div>

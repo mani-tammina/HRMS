@@ -1,238 +1,29 @@
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
+import { FormsModule } from '@angular/forms';
 import { EmployeeDocumentService, EmployeeDocument } from 'src/app/core/services/employee-document.service';
 
 @Component({
   selector: 'app-document-tab',
-  template: `
-    <div class="document-tab-container">
-      
-      <!-- LOADING STATE -->
-      <div *ngIf="isLoading" class="loading-container">
-        <ion-spinner name="crescent" color="primary"></ion-spinner>
-        <p>Loading documents...</p>
-      </div>
-
-      <!-- NO DOCUMENTS PLACEHOLDER -->
-      <div *ngIf="!isLoading && documents.length === 0" class="placeholder-container">
-        <ion-icon name="document-attach-outline"></ion-icon>
-        <h3>No Documents Found</h3>
-        <p>There are currently no documents uploaded for this employee.</p>
-      </div>
-
-      <!-- UPLOADS DOCUMENT LIST (ONLY UPLOADED FILES) -->
-      <div *ngIf="!isLoading && documents.length > 0" class="document-list">
-        <div *ngFor="let doc of documents" class="doc-card">
-          <div class="doc-icon-box">
-            <ion-icon name="document-text-outline"></ion-icon>
-          </div>
-
-          <div class="doc-info">
-            <div class="doc-header">
-              <h4 class="doc-title">{{ doc.document_name }}</h4>
-              <ion-badge *ngIf="doc.financial_year" color="primary" class="fy-badge">
-                FY {{ doc.financial_year }}
-              </ion-badge>
-            </div>
-            <p class="doc-meta">
-              <span>{{ doc.original_file_name }}</span> &bull; 
-              <span>{{ formatBytes(doc.file_size) }}</span> &bull;
-              <span>Uploaded: {{ doc.uploaded_at | date:'mediumDate' }}</span>
-            </p>
-            <p *ngIf="doc.remarks" class="doc-remarks">{{ doc.remarks }}</p>
-          </div>
-
-          <div class="doc-actions">
-            <button class="action-btn preview-btn" (click)="previewFile(doc)" title="Preview Document">
-              <ion-icon name="eye-outline"></ion-icon>
-              <span>Preview</span>
-            </button>
-            <button class="action-btn download-btn" (click)="downloadFile(doc)" title="Download Document">
-              <ion-icon name="download-outline"></ion-icon>
-              <span>Download</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-    </div>
-  `,
-  styles: [`
-    .document-tab-container {
-      padding: 12px 4px;
-    }
-
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 50px 0;
-      color: #64748b;
-
-      p {
-        margin-top: 12px;
-        font-size: 14px;
-      }
-    }
-
-    .placeholder-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 60px 20px;
-      text-align: center;
-      background: #f8fafc;
-      border: 1px dashed #cbd5e1;
-      border-radius: 12px;
-      color: #64748b;
-
-      ion-icon {
-        font-size: 56px;
-        margin-bottom: 12px;
-        color: #cbd5e1;
-      }
-
-      h3 {
-        font-size: 18px;
-        font-weight: 700;
-        margin: 0 0 6px 0;
-        color: #1e293b;
-      }
-
-      p {
-        font-size: 14px;
-        margin: 0;
-        max-width: 320px;
-      }
-    }
-
-    .document-list {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .doc-card {
-      background: #ffffff;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-      transition: border-color 0.15s ease;
-
-      &:hover {
-        border-color: #2563eb;
-      }
-
-      .doc-icon-box {
-        width: 44px;
-        height: 44px;
-        border-radius: 10px;
-        background: #eff6ff;
-        color: #2563eb;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-
-        ion-icon {
-          font-size: 24px;
-        }
-      }
-
-      .doc-info {
-        flex: 1;
-
-        .doc-header {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-
-          .doc-title {
-            margin: 0;
-            font-size: 15px;
-            font-weight: 700;
-            color: #0f172a;
-          }
-
-          .fy-badge {
-            font-size: 11px;
-            padding: 3px 8px;
-            border-radius: 6px;
-          }
-        }
-
-        .doc-meta {
-          margin: 4px 0 0 0;
-          font-size: 12px;
-          color: #64748b;
-        }
-
-        .doc-remarks {
-          margin: 4px 0 0 0;
-          font-size: 12px;
-          color: #2563eb;
-        }
-      }
-
-      .doc-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-
-        .action-btn {
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          padding: 8px 14px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 600;
-          cursor: pointer;
-          border: 1px solid transparent;
-          transition: all 0.15s ease;
-
-          ion-icon {
-            font-size: 16px;
-          }
-
-          &.preview-btn {
-            background: #f1f5f9;
-            color: #334155;
-            border-color: #cbd5e1;
-
-            &:hover {
-              background: #e2e8f0;
-              color: #0f172a;
-            }
-          }
-
-          &.download-btn {
-            background: #2563eb;
-            color: #ffffff;
-
-            &:hover {
-              background: #1d4ed8;
-            }
-          }
-        }
-      }
-    }
-  `],
+  templateUrl: './document.component.html',
+  styleUrls: ['./document.component.scss'],
   standalone: true,
-  imports: [CommonModule, IonicModule]
+  imports: [CommonModule, IonicModule, FormsModule]
 })
 export class DocumentTabComponent implements OnInit, OnChanges {
   @Input() currentEmployee: any;
 
   isLoading: boolean = false;
   documents: EmployeeDocument[] = [];
+  
+  // Active state
+  selectedFolder: string = 'Payroll';
+  selectedFinancialYear: string = '';
+  searchTerm: string = '';
+
+  // Dynamic financial years list
+  financialYears: string[] = ['2026-2027', '2025-2026', '2024-2025', '2023-2024'];
 
   constructor(private docService: EmployeeDocumentService) {}
 
@@ -255,6 +46,7 @@ export class DocumentTabComponent implements OnInit, OnChanges {
           this.isLoading = false;
           if (res && res.success && res.data) {
             this.documents = res.data.documents || [];
+            this.extractFinancialYears();
           }
         },
         error: () => {
@@ -273,6 +65,7 @@ export class DocumentTabComponent implements OnInit, OnChanges {
         this.isLoading = false;
         if (res && res.success && res.data) {
           this.documents = res.data.documents || [];
+          this.extractFinancialYears();
         }
       },
       error: (err) => {
@@ -280,6 +73,118 @@ export class DocumentTabComponent implements OnInit, OnChanges {
         console.error('Failed to load documents', err);
       }
     });
+  }
+
+  /** Extract unique financial years from uploaded Form 16 documents */
+  extractFinancialYears() {
+    const yearsSet = new Set<string>(['2026-2027', '2025-2026', '2024-2025', '2023-2024']);
+    this.documents.forEach(d => {
+      if (d.financial_year) {
+        yearsSet.add(d.financial_year);
+      }
+    });
+    this.financialYears = Array.from(yearsSet).sort().reverse();
+  }
+
+  selectFolder(folder: string) {
+    this.selectedFolder = folder;
+  }
+
+  applyYearFilter() {
+    // Triggers change detection for currentFolderDocs
+  }
+
+  onSearchChange() {
+    // Triggers change detection for currentFolderDocs
+  }
+
+  /** Get count of documents per folder */
+  getDocsCount(folder: string): number {
+    if (!this.documents) return 0;
+    return this.documents.filter(d => this.matchesFolder(d, folder)).length;
+  }
+
+  /** Check if a document belongs to a specific folder */
+  private matchesFolder(doc: EmployeeDocument, folder: string): boolean {
+    const cat = (doc.category || '').toLowerCase();
+    const code = (doc.document_type_code || '').toLowerCase();
+
+    switch (folder) {
+      case 'Payroll':
+        return cat === 'payroll' || code === 'form16';
+      case 'Identity':
+        return cat === 'identity' || ['pan_card', 'aadhaar', 'voter_id', 'passport', 'driving_license', 'bank_passbook'].includes(code);
+      case 'Degrees':
+        return cat === 'degrees' || cat === 'education' || code === 'education_cert';
+      case 'Employment':
+        return cat === 'employment' || ['offer_letter', 'appointment_letter'].includes(code);
+      default:
+        return cat === 'other' || (!['payroll', 'identity', 'degrees', 'education', 'employment'].includes(cat) && code !== 'form16');
+    }
+  }
+
+  /** Get filtered documents for the current folder, year filter, and search term */
+  get currentFolderDocs(): EmployeeDocument[] {
+    if (!this.documents) return [];
+
+    return this.documents.filter(doc => {
+      // 1. Folder check
+      const matchesFolder = this.matchesFolder(doc, this.selectedFolder);
+      if (!matchesFolder) return false;
+
+      // 2. Financial Year filter (for Form 16 / Payroll folder)
+      if (this.selectedFolder === 'Payroll' && this.selectedFinancialYear) {
+        if (doc.financial_year !== this.selectedFinancialYear) {
+          return false;
+        }
+      }
+
+      // 3. Search Term filter
+      if (this.searchTerm && this.searchTerm.trim() !== '') {
+        const query = this.searchTerm.toLowerCase().trim();
+        const docName = (doc.document_name || '').toLowerCase();
+        const fileName = (doc.original_file_name || '').toLowerCase();
+        const typeName = (doc.document_type_name || '').toLowerCase();
+        const fy = (doc.financial_year || '').toLowerCase();
+
+        return docName.includes(query) || fileName.includes(query) || typeName.includes(query) || fy.includes(query);
+      }
+
+      return true;
+    });
+  }
+
+  getFolderTitle(): string {
+    switch (this.selectedFolder) {
+      case 'Payroll': return 'Form 16 & Payroll Documents';
+      case 'Identity': return 'Identity & Proof Documents';
+      case 'Degrees': return 'Degrees & Certificates';
+      case 'Employment': return 'Employment Documents';
+      default: return 'Other Documents';
+    }
+  }
+
+  getFolderDescription(): string {
+    switch (this.selectedFolder) {
+      case 'Payroll': return 'This section contains annual Form 16 tax deduction certificates and financial statements.';
+      case 'Identity': return 'This section contains identity proof documents on record such as PAN Card, Aadhaar, Passport, etc.';
+      case 'Degrees': return 'This section contains details about all educational degrees, marksheets, and certificates.';
+      case 'Employment': return 'This section contains employment contract letters, offer letters, and appointment letters.';
+      default: return 'This section contains miscellaneous employee records and general attachments.';
+    }
+  }
+
+  getCategoryClass(category?: string): string {
+    return category || this.selectedFolder;
+  }
+
+  getDocIcon(doc: EmployeeDocument): string {
+    const code = (doc.document_type_code || '').toUpperCase();
+    if (code === 'FORM16') return 'cash-outline';
+    if (['PAN_CARD', 'AADHAAR', 'VOTER_ID', 'PASSPORT', 'DRIVING_LICENSE'].includes(code)) return 'id-card-outline';
+    if (code === 'EDUCATION_CERT') return 'school-outline';
+    if (['OFFER_LETTER', 'APPOINTMENT_LETTER'].includes(code)) return 'briefcase-outline';
+    return 'document-text-outline';
   }
 
   formatBytes(bytes: number, decimals = 1): string {
