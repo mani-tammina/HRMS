@@ -395,11 +395,12 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
       },
       error: (err: any) => {
-        if (err?.error?.message?.includes('active punch-in')) {
+        const errorMessage = this.getErrorMessage(err, 'Clock-In failed. Please try again.');
+        if (/active punch-in|already punched in/i.test(errorMessage)) {
           this.showToast('You already have an active punch-in. Please clock out first.', 'warning');
           this.isClockedIn = true;
         } else {
-          this.showToast(err?.error?.message || 'Clock-In failed. Please try again.', 'danger');
+          this.showToast(errorMessage, 'danger');
           this.isClockedIn = false;
         }
       }
@@ -451,7 +452,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        this.showToast((err as any)?.error?.message || 'Clock-Out failed. Please try again.', 'danger');
+        this.showToast(this.getErrorMessage(err, 'Clock-Out failed. Please try again.'), 'danger');
       }
     }).add(() => {
       this.loading = false;
@@ -478,11 +479,15 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        this.showToast((err as any)?.error?.message || 'Remote Clock-Out failed.', 'danger');
+        this.showToast(this.getErrorMessage(err, 'Remote Clock-Out failed.'), 'danger');
       }
     }).add(() => {
       this.loading = false;
     });
+  }
+
+  private getErrorMessage(err: any, fallback: string): string {
+    return err?.error?.message || err?.error?.error || err?.message || fallback;
   }
 
   private async showToast(message: string, color: 'success' | 'danger' | 'warning' = 'success') {
