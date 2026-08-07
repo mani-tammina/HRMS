@@ -1,8 +1,0 @@
-{
-	"appId": "com.tamminahub.hrms",
-	"appName": "HRMS",
-	"webDir": "www/browser",
-	"android": {
-		"allowMixedContent": true
-	}
-}

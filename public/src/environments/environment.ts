@@ -4,5 +4,5 @@ const local =
 
 export const environment = {
   production: true,
-  apiURL: 'localhost:4203',
+  apiURL: local ? `http://${window.location.hostname}:4203` : 'http://localhost:4203',
 };

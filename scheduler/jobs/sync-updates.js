@@ -35,7 +35,7 @@ function postJSON(url, headers, bodyObj) {
 }
 
 async function syncUpdates() {
-    console.log("Sync started");
+    //
     try {
         const [countRows] = await db.query("SELECT COUNT(*) as count FROM timesheets where status = 'verified'");
         const total = countRows[0].count;
@@ -59,12 +59,23 @@ async function syncUpdates() {
                 'Content-Type': 'application/json'
             };
             const response = await postJSON('http://127.0.0.1:7860/api/v2/add-updates', headers, payload);
-            console.log(`Sent batch offset ${offset}, status: ${response.statusCode}`);
-            console.log(JSON.parse(response.body))
+            //
+            //
         }
-        console.log("Sync completed");
+        //
     } catch (err) {
-        console.error(err);
+        //
+    }
+}
+
+async function getPendingUpdates(){
+    let query = `SELECT * FROM hrms_db_new.timesheets where status = 'submitted';`
+    try {
+        const [rows] = await db.query(query);
+        return rows;
+    } catch (error) {
+        console.error(error);
+        return [];
     }
 }
 

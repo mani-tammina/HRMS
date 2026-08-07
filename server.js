@@ -82,7 +82,7 @@ const upload = multer({ dest: "uploads/" });
 // CORS Configuration for Production
 const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4203')
     .split(',')
-    .map(o => o.trim())
+    .map(o => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
 
 console.log("🌐 Allowed CORS origins:", allowedOrigins);
@@ -93,7 +93,19 @@ app.use(bodyParser.json());
 
 app.use(
   cors({
-    origin: true,
+    origin: function (origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, postman, or local files)
+      if (!origin) return callback(null, true);
+      
+      const cleanOrigin = origin.trim().replace(/\/$/, "");
+      if (allowedOrigins.includes(cleanOrigin)) {
+        callback(null, true);
+      } else {
+        console.warn(`[CORS] Blocked request from unauthorized origin: ${origin}`);
+        callback(null, false);
+      }
+    },
+    credentials: true,
   }),
 );
 
