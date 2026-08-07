@@ -37,6 +37,191 @@ async function releaseAttendanceLock(connection, lockName) {
   }
 }
 
+async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAddress, notes) {
+  // 1. Get employee's attendance_capture_scheme_id
+  const [empRows] = await connection.query(
+    "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
+    [employeeId]
+  );
+
+  if (!empRows || empRows.length === 0) {
+    return; // No employee found, normal flow handles error
+  }
+
+  const schemeId = empRows[0].attendance_capture_scheme_id;
+  if (!schemeId) {
+    return; // No policy assigned
+  }
+
+  // 2. Fetch the policy
+  const [policyRows] = await connection.query(
+    "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
+    [schemeId]
+  );
+
+  if (!policyRows || policyRows.length === 0) {
+    return; // Policy not found or inactive
+  }
+
+  const policy = policyRows[0];
+
+  const parseJSON = (str) => {
+    if (!str) return {};
+    if (typeof str === 'object') return str;
+    try { return JSON.parse(str); } catch (e) { return {}; }
+  };
+
+  const biometric = parseJSON(policy.biometric_settings);
+  const remote = parseJSON(policy.remote_punch_settings);
+  const wfh = parseJSON(policy.wfh_settings);
+
+  // Extract primary client IP (handles proxy headers like x-forwarded-for with multiple IPs)
+  let rawIp = (ipAddress || '').split(',')[0].trim();
+  if (rawIp === '::1' || rawIp === '::ffff:127.0.0.1' || rawIp === '127.0.0.1') {
+    rawIp = '127.0.0.1';
+  } else if (rawIp.startsWith('::ffff:')) {
+    rawIp = rawIp.replace('::ffff:', '');
+  }
+
+  // Strip port number if attached to IP (e.g. "202.53.69.35:32340" -> "202.53.69.35")
+  if (rawIp.includes(':') && !rawIp.includes('[')) {
+    const colonIndex = rawIp.lastIndexOf(':');
+    if (colonIndex > -1 && rawIp.indexOf(':') === colonIndex) {
+      rawIp = rawIp.substring(0, colonIndex);
+    }
+  } else if (rawIp.includes(']')) {
+    rawIp = rawIp.replace(/^\[/, '').replace(/\]:.*$/, '');
+  }
+
+  const incomingIp = rawIp;
+
+  if (workMode === 'Office') {
+    if (biometric.web_clockin_enabled === false) {
+      const err = new Error("Web clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+
+    if (biometric.web_clockin_comment_required === true) {
+      if (!notes || notes.trim() === '' || notes === 'Office Clock-In' || notes === 'Going for lunch') {
+        // Exclude default auto-generated notes to enforce genuine user comment
+        const err = new Error("A comment is mandatory for web clock-in/out according to your policy.");
+        err.statusCode = 400;
+        throw err;
+      }
+    }
+
+    const isIpRestrictionEnabled = biometric.ip_restriction_enabled === true || biometric.ip_restriction_enabled === 'true' || biometric.ip_restriction_enabled === 1 || biometric.ip_restriction_enabled === '1';
+    
+    if (isIpRestrictionEnabled) {
+      if (!biometric.ip_networks || biometric.ip_networks.length === 0) {
+        const err = new Error("Access denied. Please connect to an approved network or use Remote Clock In");
+        err.statusCode = 403;
+        throw err;
+      }
+
+      const ipToLong = (ip) => {
+        if (!ip) return null;
+        const parts = ip.trim().split('.');
+        if (parts.length !== 4) return null;
+        const nums = parts.map(p => parseInt(p, 10));
+        if (nums.some(n => isNaN(n) || n < 0 || n > 255)) return null;
+        return ((nums[0] << 24) | (nums[1] << 16) | (nums[2] << 8) | nums[3]) >>> 0;
+      };
+
+      let isAllowed = false;
+      const currentLong = ipToLong(incomingIp);
+
+      for (const net of biometric.ip_networks) {
+        const rawAllowed = (net.ip_address || '').trim();
+        if (!rawAllowed) continue;
+
+        // Split by comma or semicolon in case multiple IPs/ranges are listed in a single string
+        const allowedTokens = rawAllowed.split(/[,;]+/).map(s => s.trim()).filter(Boolean);
+
+        for (const allowed of allowedTokens) {
+          // 1. Exact match
+          if (allowed === incomingIp) {
+            isAllowed = true;
+            break;
+          }
+
+          // 2. CIDR notation match (e.g. "30.0.0.1/23" or "30.0.0.0/23")
+          if (allowed.includes('/')) {
+            const [ipPart, cidrPart] = allowed.split('/');
+            const baseLong = ipToLong(ipPart);
+            const bits = parseInt(cidrPart, 10);
+            if (baseLong !== null && !isNaN(bits) && bits >= 0 && bits <= 32 && currentLong !== null) {
+              const mask = bits === 0 ? 0 : ((0xFFFFFFFF << (32 - bits)) >>> 0);
+              if ((currentLong & mask) === (baseLong & mask)) {
+                isAllowed = true;
+                break;
+              }
+            }
+          }
+
+          // 3. Subnet mask match (e.g. "30.0.0.0 255.255.254.0")
+          if (allowed.includes('255.')) {
+            const parts = allowed.split(/[\s\/]+/);
+            if (parts.length === 2) {
+              const baseLong = ipToLong(parts[0]);
+              const maskLong = ipToLong(parts[1]);
+              if (baseLong !== null && maskLong !== null && currentLong !== null) {
+                if ((currentLong & maskLong) === (baseLong & maskLong)) {
+                  isAllowed = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          // 4. IP Range match (e.g., "30.0.0.2 - 30.0.1.254" or "30.0.0.2-30.0.1.254")
+          if (allowed.includes('-')) {
+            const rangeParts = allowed.split('-');
+            if (rangeParts.length === 2) {
+              const startLong = ipToLong(rangeParts[0]);
+              const endLong = ipToLong(rangeParts[1]);
+              if (startLong !== null && endLong !== null && currentLong !== null) {
+                if (currentLong >= startLong && currentLong <= endLong) {
+                  isAllowed = true;
+                  break;
+                }
+              }
+            }
+          }
+
+          // 5. Subnet / prefix match (e.g. "30.0." or "30.0.0.")
+          if (allowed.endsWith('.') && incomingIp.startsWith(allowed)) {
+            isAllowed = true;
+            break;
+          }
+        }
+
+        if (isAllowed) break;
+      }
+
+      if (!isAllowed) {
+        console.warn(`[IP Restriction] Incoming IP '${incomingIp}' denied. Configured authorized networks:`, biometric.ip_networks);
+        const err = new Error("Access denied. Please connect to an approved network or use Remote Clock In");
+        err.statusCode = 403;
+        throw err;
+      }
+    }
+  } else if (workMode === 'Remote') {
+    if (remote.remote_clockin_web_enabled === false) {
+      const err = new Error("Remote web clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+  } else if (workMode === 'WFH') {
+    if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) {
+      const err = new Error("WFH clock-in is disabled by your time tracking policy.");
+      err.statusCode = 403;
+      throw err;
+    }
+  }
+}
+
 /* ============================================
    PUNCH IN/OUT (Employee)
    ============================================ */
@@ -55,7 +240,14 @@ router.post("/punch-in", auth, async (req, res) => {
 
     const { work_mode, location, notes } = req.body;
     const ip_address =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      req.headers["cf-connecting-ip"] ||
+      req.headers["x-real-ip"] ||
+      req.headers["x-client-ip"] ||
+      req.headers["x-forwarded-for"] ||
+      req.body?.ip_address ||
+      req.body?.public_ip ||
+      req.ip ||
+      req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
     const today = new Date().toISOString().split("T")[0];
@@ -63,6 +255,10 @@ router.post("/punch-in", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
+
+    // Validate Time Tracking Policy before proceeding
+    await validateTimeTrackingPolicy(c, emp.id, work_mode || "Office", ip_address, notes);
+
     await c.beginTransaction();
     transactionStarted = true;
 
@@ -95,14 +291,52 @@ router.post("/punch-in", auth, async (req, res) => {
     let attendanceId;
 
     if (attendance.length === 0) {
+      let approvalStatus = 'approved';
+      if (work_mode === 'Remote') {
+        // check if policy requires approval for remote punch
+        const [empRows] = await c.query(
+          "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
+          [emp.id]
+        );
+        if (empRows.length > 0 && empRows[0].attendance_capture_scheme_id) {
+          const [policyRows] = await c.query(
+            "SELECT remote_punch_settings FROM attendance_capture_schemes WHERE id = ?",
+            [empRows[0].attendance_capture_scheme_id]
+          );
+          if (policyRows.length > 0) {
+            let remote = {};
+            try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) { }
+            if (remote.remote_clockin_approval_required === 'yes') {
+              approvalStatus = 'pending';
+            }
+          }
+        }
+      }
+
       // Create new attendance record
       const [result] = await c.query(
         `INSERT INTO attendance 
-                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status)
-                 VALUES (?, ?, ?, ?, ?, ?, 'present')`,
-        [emp.id, today, today, now, work_mode || "Office", location || "Office"]
+                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status, approval_status)
+                 VALUES (?, ?, ?, ?, ?, ?, 'present', ?)`,
+        [emp.id, today, today, now, work_mode || "Office", location || "Office", approvalStatus]
       );
       attendanceId = result.insertId;
+
+      if (approvalStatus === 'pending') {
+        // Trigger inbox notification for approver (we'll notify RM for simplicity)
+        const [rmRows] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [emp.id]);
+        if (rmRows.length > 0 && rmRows[0].reporting_manager_id) {
+          const approverId = rmRows[0].reporting_manager_id;
+          const [approverUser] = await c.query("SELECT user_id FROM employees WHERE id = ?", [approverId]);
+          if (approverUser.length > 0 && approverUser[0].user_id) {
+            await c.query(
+              `INSERT INTO inbox_notifications (user_id, sender_id, type, title, message, action_url)
+               VALUES (?, ?, 'approval', 'Remote Punch Approval Request', 'An employee requested remote punch approval.', '/inbox/approvals')`,
+              [approverUser[0].user_id, req.user.id]
+            );
+          }
+        }
+      }
     } else {
       attendanceId = attendance[0].id;
 
@@ -116,6 +350,11 @@ router.post("/punch-in", auth, async (req, res) => {
         await c.query(
           `UPDATE attendance SET first_check_in = ?, work_mode = ?, location = ? WHERE id = ?`,
           [now, work_mode || "Office", location || "Office", attendanceId]
+        );
+      } else {
+        await c.query(
+          `UPDATE attendance SET work_mode = ?, location = ? WHERE id = ?`,
+          [work_mode || "Office", location || "Office", attendanceId]
         );
       }
     }
@@ -183,7 +422,14 @@ router.post("/punch-out", auth, async (req, res) => {
 
     const { notes } = req.body;
     const ip_address =
-      req.ip || req.headers["x-forwarded-for"] || req.connection.remoteAddress;
+      req.headers["cf-connecting-ip"] ||
+      req.headers["x-real-ip"] ||
+      req.headers["x-client-ip"] ||
+      req.headers["x-forwarded-for"] ||
+      req.body?.ip_address ||
+      req.body?.public_ip ||
+      req.ip ||
+      req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
     const today = new Date().toISOString().split("T")[0];
@@ -191,12 +437,13 @@ router.post("/punch-out", auth, async (req, res) => {
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
+
     await c.beginTransaction();
     transactionStarted = true;
 
     // Lock the daily record while we validate and append the next punch.
     const [attendance] = await c.query(
-      `SELECT id FROM attendance
+      `SELECT id, work_mode FROM attendance
              WHERE employee_id = ? AND attendance_date = ?
              FOR UPDATE`,
       [emp.id, today]
@@ -209,6 +456,11 @@ router.post("/punch-out", auth, async (req, res) => {
     }
 
     const attendanceId = attendance[0].id;
+    const workMode = attendance[0].work_mode;
+
+    // Validate Time Tracking Policy before proceeding
+    // We use the workMode from the attendance record since punch-out doesn't send it.
+    await validateTimeTrackingPolicy(c, emp.id, workMode || "Office", ip_address, notes);
 
     // Check last punch
     const [lastPunch] = await c.query(
@@ -290,12 +542,51 @@ router.get("/today", auth, async (req, res) => {
       [emp.id, today]
     );
 
+    // Fetch policy permissions
+    let policyPermissions = {
+      web_clockin_enabled: true,
+      remote_clockin_enabled: true,
+      wfh_clockin_enabled: true,
+      web_clockin_comment_required: false,
+      remote_clockin_comment_required: 'no',
+      remote_clockin_approval_required: 'no'
+    };
+
+    if (emp.attendance_capture_scheme_id) {
+      const [policyRows] = await c.query(
+        "SELECT biometric_settings, remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ? AND status = 'active'",
+        [emp.attendance_capture_scheme_id]
+      );
+      if (policyRows.length > 0) {
+        const policy = policyRows[0];
+        const parseJSON = (str) => {
+          if (!str) return {};
+          if (typeof str === 'object') return str;
+          try { return JSON.parse(str); } catch (e) { return {}; }
+        };
+        const biometric = parseJSON(policy.biometric_settings);
+        const remote = parseJSON(policy.remote_punch_settings);
+        const wfh = parseJSON(policy.wfh_settings);
+
+        if (biometric.web_clockin_enabled === false) policyPermissions.web_clockin_enabled = false;
+        if (biometric.web_clockin_comment_required === true) policyPermissions.web_clockin_comment_required = true;
+
+        if (remote.remote_clockin_web_enabled === false) policyPermissions.remote_clockin_enabled = false;
+        if (remote.remote_clockin_comment_required) policyPermissions.remote_clockin_comment_required = remote.remote_clockin_comment_required;
+        if (remote.remote_clockin_approval_required) policyPermissions.remote_clockin_approval_required = remote.remote_clockin_approval_required;
+
+        if (wfh.wfh_enabled === false || wfh.wfh_clockin_allowed === false) policyPermissions.wfh_clockin_enabled = false;
+        policyPermissions.wfh_settings = wfh;
+      }
+    }
+
     if (attendance.length === 0) {
       c.end();
       return res.json({
         has_attendance: false,
         message: "No attendance record for today",
         punches: [],
+        policyPermissions
       });
     }
 
@@ -323,6 +614,7 @@ router.get("/today", auth, async (req, res) => {
         punches[punches.length - 1].punch_type === "out",
       can_punch_out:
         punches.length > 0 && punches[punches.length - 1].punch_type === "in",
+      policyPermissions
     });
   } catch (error) {
     console.error("Error fetching today's attendance:", error);

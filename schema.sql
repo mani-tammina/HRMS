@@ -211,12 +211,28 @@ CREATE TABLE IF NOT EXISTS attendance_policies (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Attendance Capture Schemes Master
+-- Attendance Capture Schemes Master (also serves as the full Time Tracking Policy store)
 CREATE TABLE IF NOT EXISTS attendance_capture_schemes (
   id INT PRIMARY KEY AUTO_INCREMENT,
-  name VARCHAR(100) UNIQUE NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+  name VARCHAR(255) UNIQUE NOT NULL,
+  description TEXT NULL,
+  status ENUM('active', 'inactive') DEFAULT 'active',
+  effective_date DATE NULL,
+  biometric_settings JSON NULL,
+  remote_punch_settings JSON NULL,
+  wfh_settings JSON NULL,
+  regularization_settings JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS attendance_capture_scheme_sites (
+  scheme_id INT NOT NULL,
+  site_id INT NOT NULL,
+  PRIMARY KEY (scheme_id, site_id),
+  FOREIGN KEY (scheme_id) REFERENCES attendance_capture_schemes(id) ON DELETE CASCADE,
+  FOREIGN KEY (site_id) REFERENCES locations(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- Holiday Lists Master
 CREATE TABLE IF NOT EXISTS holiday_lists (
@@ -457,6 +473,7 @@ CREATE TABLE IF NOT EXISTS attendance (
   work_mode ENUM('Office', 'WFH', 'Remote', 'Hybrid') DEFAULT 'Office',
   location VARCHAR(255),
   status ENUM('present', 'absent', 'half-day', 'late', 'on-leave') DEFAULT 'present',
+  approval_status ENUM('approved', 'pending', 'rejected') DEFAULT 'approved',
   notes TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -1918,4 +1935,5 @@ CREATE TABLE IF NOT EXISTS monthly_attendance (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
 );
+
 

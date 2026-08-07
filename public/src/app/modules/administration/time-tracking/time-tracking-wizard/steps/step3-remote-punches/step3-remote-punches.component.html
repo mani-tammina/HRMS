@@ -1,0 +1,187 @@
+<div class="step-panel" [formGroup]="formGroup">
+
+  <div class="step-header">
+    <div class="step-badge">Step 3</div>
+    <h3>Remote Punches</h3>
+    <p>Configure remote attendance tracking channels, remarks, and approval chains.</p>
+  </div>
+
+  <!-- ─── Main Question Section ─────────────────────────────────────────── -->
+  <div class="form-section">
+    <h4 class="question-title">Track attendance of employees working remotely</h4>
+
+    <!-- Mobile App Option -->
+    <div class="option-row">
+      <label class="custom-checkbox-label">
+        <input type="checkbox" formControlName="remote_clockin_mobile_enabled" class="checkbox-input" />
+        <span class="checkbox-text font-medium">
+          Allow Employees to do remote clock-in using Keka mobile app
+        </span>
+      </label>
+      <span class="info-icon" title="Allows clock-in/out through Android and iOS mobile applications when working outside boundaries.">i</span>
+    </div>
+
+    <!-- Web Browser Option -->
+    <div class="option-row mt-3">
+      <label class="custom-checkbox-label">
+        <input type="checkbox" formControlName="remote_clockin_web_enabled" class="checkbox-input" />
+        <span class="checkbox-text font-medium">
+          Allow Employees to do remote clock-in using Keka web browser
+        </span>
+      </label>
+      <span class="info-icon" title="Allows remote clock-in via desktop web browser outside office network.">i</span>
+    </div>
+
+    <!-- Comment Requirement Radio -->
+    <div class="sub-question-block mt-4">
+      <h5 class="sub-question-title">Is comment required for remote clock-in?</h5>
+      <div class="radio-group">
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="remote_clockin_comment_required"
+            value="no"
+            [checked]="commentRequired === 'no'"
+            (change)="setCommentRequired('no')"
+          />
+          <span>No</span>
+        </label>
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="remote_clockin_comment_required"
+            value="yes"
+            [checked]="commentRequired === 'yes'"
+            (change)="setCommentRequired('yes')"
+          />
+          <span>Yes</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Approval Requirement Radio -->
+    <div class="sub-question-block mt-4">
+      <h5 class="sub-question-title">
+        Is approval of remote clock-in required for attendance consideration?
+        <span class="muted-note">(only first remote clock-in of the day requires approval)</span>
+      </h5>
+      <div class="radio-group">
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="remote_clockin_approval_required"
+            value="no"
+            [checked]="approvalRequired === 'no'"
+            (change)="setApprovalRequired('no')"
+          />
+          <span>No</span>
+        </label>
+        <label class="radio-label">
+          <input
+            type="radio"
+            name="remote_clockin_approval_required"
+            value="yes"
+            [checked]="approvalRequired === 'yes'"
+            (change)="setApprovalRequired('yes')"
+          />
+          <span>Yes</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- ─── Approval Chain Builder Section ──────────────────────────────── -->
+    <div class="approval-chain-container mt-4 animate__animated animate__fadeIn" *ngIf="approvalRequired === 'yes'">
+      <h5 class="chain-title">Approval Chain</h5>
+
+      <div class="chain-box">
+        <div class="level-row" *ngFor="let lvl of approvalChain; let lIdx = index">
+          <!-- Level Indicator -->
+          <div class="level-indicator">
+            <span class="dot-blue"></span>
+            <span class="level-text">LEVEL {{ lvl.level }}</span>
+          </div>
+
+          <!-- Level Members list -->
+          <div class="level-members">
+            <!-- Member Pills -->
+            <div class="member-pill" *ngFor="let member of lvl.members; let mIdx = index">
+              <!-- Avatar or Icon -->
+              <span class="pill-avatar role" [class.hr-role]="member.value === 'HR'" [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
+                {{ member.value }}
+              </span>
+              <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar" alt="Avatar" />
+              <span class="pill-avatar text" *ngIf="member.type === 'employee' && !member.avatar">
+                {{ member.label.substring(0, 1) }}
+              </span>
+
+              <!-- Label -->
+              <span class="pill-label">{{ member.label }}</span>
+
+              <!-- Remove btn -->
+              <button type="button" class="btn-remove-member" (click)="removeMember(lIdx, mIdx)">&times;</button>
+            </div>
+
+            <!-- Add Member drop-down trigger -->
+            <div class="add-member-wrapper">
+              <button type="button" class="btn-add-member" (click)="showDropdown = !showDropdown">
+                Role / Employee
+              </button>
+
+              <!-- Dynamic Dropdown Overlay -->
+              <div class="add-dropdown-card" *ngIf="showDropdown">
+                <div class="dropdown-header">Add Approval Node</div>
+
+                <!-- Roles options -->
+                <div class="role-options">
+                  <button type="button" class="btn-role-opt" (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdown = false">
+                    + Add Reporting Manager (RM)
+                  </button>
+                  <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdown = false">
+                    + Add HR Manager
+                  </button>
+                  <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdown = false">
+                    + Add HR of that Location
+                  </button>
+                </div>
+
+                <!-- Employee search field -->
+                <div class="emp-search-group">
+                  <label class="search-lbl">Search specific employee:</label>
+                  <input
+                    type="text"
+                    [value]="searchQuery"
+                    (input)="searchEmployees($event)"
+                    placeholder="Type name to search..."
+                    class="search-input"
+                  />
+                  <div class="search-spinner" *ngIf="loadingSearch">Searching...</div>
+
+                  <!-- Autocomplete lists -->
+                  <div class="search-results-list" *ngIf="searchResults.length > 0">
+                    <button
+                      type="button"
+                      class="btn-result-item"
+                      *ngFor="let emp of searchResults"
+                      (click)="selectEmployee(lIdx, emp)"
+                    >
+                      <img class="emp-avatar" *ngIf="emp.profile_image" [src]="emp.profile_image" alt="" />
+                      <span class="emp-avatar-text" *ngIf="!emp.profile_image">{{ emp.full_name?.substring(0, 1) }}</span>
+                      <div class="emp-details">
+                        <span class="emp-name">{{ emp.full_name }}</span>
+                        <span class="emp-code" *ngIf="emp.employee_number">{{ emp.employee_number }}</span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+</div>
+

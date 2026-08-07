@@ -80,10 +80,12 @@ export class LeaveRequestComponent implements OnInit {
   onHalfDayToggle() {
     const isHalf = this.leaveForm.get('is_half_day')?.value;
     if (isHalf) {
-      // If half day, set end date to start date and disable end date logic
+      // If half day, set end date to start date
       const start = this.leaveForm.get('start_date')?.value;
-      this.leaveForm.patchValue({ end_date: start });
-      this.selectedDateTo = this.selectedDateFrom;
+      if (start) {
+        this.leaveForm.patchValue({ end_date: start });
+        this.selectedDateTo = this.selectedDateFrom;
+      }
     }
     this.recalculateTotalDays();
   }
@@ -307,7 +309,10 @@ export class LeaveRequestComponent implements OnInit {
 
     this.leaveRequestService.applyLeave(payload).subscribe({
       next: () => {
-        this.leaveForm.reset();
+        this.leaveForm.reset({
+          is_half_day: false,
+          half_day_session: 'First Half'
+        });
         this.total_days = 0;
         this.selectedDateFrom = '';
         this.selectedDateTo = '';
@@ -338,8 +343,13 @@ export class LeaveRequestComponent implements OnInit {
   }
 
   onDateChangeFrom(event: any, popover: IonPopover) {
-    this.leaveForm.patchValue({ start_date: event.detail.value });
-    this.selectedDateFrom = event.detail.value;
+    const val = event.detail.value;
+    this.leaveForm.patchValue({ start_date: val });
+    this.selectedDateFrom = val;
+    if (this.leaveForm.get('is_half_day')?.value) {
+      this.leaveForm.patchValue({ end_date: val });
+      this.selectedDateTo = val;
+    }
     popover.dismiss();
   }
 

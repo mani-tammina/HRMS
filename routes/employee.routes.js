@@ -498,6 +498,7 @@ router.put("/:id", auth, hr, async (req, res) => {
        "leave_plan_id",
        "shift_policy_id",
        "attendance_policy_id",
+       "attendance_capture_scheme_id",
        "weekly_off_policy_id",
        "PayGradeId",
        "DepartmentId",
@@ -1161,9 +1162,9 @@ const handleGetOrgTree = async (req, res) => {
          LEFT JOIN departments d ON e.DepartmentId = d.id
          LEFT JOIN designations des ON e.DesignationId = des.id
          LEFT JOIN locations l ON e.LocationId = l.id
-         WHERE e.reporting_manager_id = ? AND e.EmploymentStatus = 'Working'
+         WHERE e.reporting_manager_id = ? AND e.id != ? AND e.EmploymentStatus = 'Working'
          ORDER BY e.FirstName, e.LastName`,
-        [managerId]
+        [managerId, managerId]
       );
       return rows.map(e => {
         e.reports_count = parseInt(e.reports_count) || 0;
@@ -1189,7 +1190,7 @@ const handleGetOrgTree = async (req, res) => {
         "SELECT reporting_manager_id FROM employees WHERE id = ?",
         [currentId]
       );
-      if (rows.length > 0 && rows[0].reporting_manager_id) {
+      if (rows.length > 0 && rows[0].reporting_manager_id && rows[0].reporting_manager_id !== currentId) {
         currentId = rows[0].reporting_manager_id;
       } else {
         currentId = null;
@@ -1197,7 +1198,13 @@ const handleGetOrgTree = async (req, res) => {
     }
 
     // 2. Build the recursive tree starting from rootId (CEO)
+    const visitedNodes = new Set();
     const buildSubtree = async (nodeId) => {
+      if (visitedNodes.has(nodeId)) {
+        return null;
+      }
+      visitedNodes.add(nodeId);
+
       const employee = await fetchEmployeeDetail(nodeId);
       if (!employee) return null;
 
@@ -1207,20 +1214,21 @@ const handleGetOrgTree = async (req, res) => {
       let directReports = [];
       if (isPathNode || isFocusEmployee) {
         const reports = await fetchReports(nodeId);
-        directReports = await Promise.all(
-          reports.map(async (report) => {
-            if (pathIds.has(report.id)) {
-              return await buildSubtree(report.id);
-            } else {
-              return {
-                employee: report,
-                isPathNode: false,
-                isFocusEmployee: false,
-                directReports: []
-              };
-            }
-          })
-        );
+        const reportPromises = reports.map(async (report) => {
+          if (report.id === nodeId) return null;
+          if (pathIds.has(report.id) && !visitedNodes.has(report.id)) {
+            return await buildSubtree(report.id);
+          } else {
+            return {
+              employee: report,
+              isPathNode: false,
+              isFocusEmployee: false,
+              directReports: []
+            };
+          }
+        });
+        const resolvedReports = await Promise.all(reportPromises);
+        directReports = resolvedReports.filter(r => r !== null);
       }
 
       return {

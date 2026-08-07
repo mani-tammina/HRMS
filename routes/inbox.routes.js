@@ -42,7 +42,7 @@ router.get("/", auth, async (req, res) => {
                 e.EmployeeNumber as employee_number, 
                 d.name as department_name,
                 m.FullName as manager_name,
-                COALESCE(lt.type_name, l.leave_type) as leave_type_name
+                COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name
             FROM inbox_notifications n
             LEFT JOIN employees e ON n.employee_id = e.id
             LEFT JOIN departments d ON e.DepartmentId = d.id
@@ -88,13 +88,15 @@ router.get("/", auth, async (req, res) => {
             query += " AND n.is_archived = 0";
 
             if (tab === "Leave") {
-                query += " AND n.request_type = 'Leave Request'";
+                query += " AND n.request_type IN ('Leave Request', 'Comp Off Request')";
             } else if (tab === "Attendance") {
                 query += " AND n.request_type = 'Attendance Regularization'";
             } else if (tab === "Timesheet") {
                 query += " AND n.request_type = 'Timesheet Request'";
             } else if (tab === "Resignation") {
                 query += " AND n.request_type = 'Resignation Request'";
+            } else if (tab === "Comp Off" || tab === "CompOff" || tab === "Comp Off Request") {
+                query += " AND n.request_type = 'Comp Off Request'";
             }
         }
 
@@ -208,7 +210,7 @@ router.get("/:id", auth, async (req, res) => {
     try {
         c = await db();
         const [rows] = await c.query(
-            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, d.name as department_name, m.FullName as manager_name, COALESCE(lt.type_name, l.leave_type) as leave_type_name
+            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, d.name as department_name, m.FullName as manager_name, COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name
              FROM inbox_notifications n
              LEFT JOIN employees e ON n.employee_id = e.id
              LEFT JOIN departments d ON e.DepartmentId = d.id

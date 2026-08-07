@@ -110,6 +110,7 @@ export class InboxPage implements OnInit {
   applyDropdownFilters() {
     if (this.filterRequestType) {
       if (this.filterRequestType === 'Leave Request') this.selectedTab = 'Leave';
+      else if (this.filterRequestType === 'Comp Off Request' || this.filterRequestType === 'Comp Off') this.selectedTab = 'Comp Off';
       else if (this.filterRequestType === 'Attendance Regularization') this.selectedTab = 'Attendance';
       else if (this.filterRequestType === 'Timesheet Request') this.selectedTab = 'Timesheet';
       else if (this.filterRequestType === 'Resignation Request') this.selectedTab = 'Resignation';
@@ -163,6 +164,9 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'border-leave';
+      case 'Comp Off Request':
+      case 'Comp Off':
+        return 'border-compoff';
       case 'Attendance Regularization':
         return 'border-attendance';
       case 'Timesheet Request':
@@ -177,6 +181,9 @@ export class InboxPage implements OnInit {
   getIconPath(requestType: string): string {
     switch (requestType) {
       case 'Leave Request':
+        return 'assets/icons/menu/leave.svg';
+      case 'Comp Off Request':
+      case 'Comp Off':
         return 'assets/icons/menu/leave.svg';
       case 'Attendance Regularization':
         return 'assets/icons/menu/attendance.svg';
@@ -193,6 +200,9 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'calendar-outline';
+      case 'Comp Off Request':
+      case 'Comp Off':
+        return 'calendar-outline';
       case 'Attendance Regularization':
         return 'time-outline';
       case 'Timesheet Request':
@@ -208,6 +218,9 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'leave';
+      case 'Comp Off Request':
+      case 'Comp Off':
+        return 'compoff';
       case 'Attendance Regularization':
         return 'attendance';
       case 'Timesheet Request':
@@ -281,6 +294,16 @@ export class InboxPage implements OnInit {
     return { start: '', end: '' };
   }
 
+  getFallbackCompOffDate(notification: InboxNotification): string {
+    const meta = this.getParsedMetadata(notification.metadata);
+    if (meta.date_worked) return meta.date_worked;
+    
+    const desc = notification.description || '';
+    const dateRegex = /(\d{4}-\d{2}-\d{2})/;
+    const match = desc.match(dateRegex);
+    return match ? match[0] : '';
+  }
+
   getFallbackAttendanceDate(notification: InboxNotification): string {
     const meta = this.getParsedMetadata(notification.metadata);
     if (meta.date) return meta.date;
@@ -317,6 +340,11 @@ export class InboxPage implements OnInit {
       const dates = this.getFallbackLeaveDates(notification);
       const days = meta.total_days || this.getCalculatedDays(notification);
       return `Applied for ${days} days leave from ${this.formatDate(dates.start)}...`;
+    }
+    if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      const dateWorked = this.getFallbackCompOffDate(notification);
+      const days = meta.total_days || 1;
+      return `Requested ${days} day(s) Comp Off for date worked: ${this.formatDate(dateWorked)}...`;
     }
     if (notification.request_type === 'Attendance Regularization') {
       const date = this.getFallbackAttendanceDate(notification);
@@ -503,6 +531,8 @@ export class InboxPage implements OnInit {
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
     } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
+    } else if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      obs$ = this.leaveRequestService.approveCompOff(notification.request_id);
     } else if (notification.request_type === 'Timesheet Request') {
       obs$ = this.timesheetService.approveTimesheet(notification.request_id);
     } else if (notification.request_type === 'Resignation Request') {
@@ -581,6 +611,8 @@ export class InboxPage implements OnInit {
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
     } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
+    } else if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      obs$ = this.leaveRequestService.rejectCompOff(notification.request_id, reason);
     } else if (notification.request_type === 'Timesheet Request') {
       obs$ = this.timesheetService.rejectTimesheet(notification.request_id, reason);
     } else if (notification.request_type === 'Resignation Request') {

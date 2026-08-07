@@ -2014,7 +2014,7 @@ router.get("/wfh-check-today", auth, async (req, res) => {
              AND DATE(start_date) <= DATE(?) 
              AND DATE(end_date) >= DATE(?)
              AND leave_type IN ('WFH', 'Remote') 
-             AND status = 'approved' 
+             AND status IN ('approved', 'pending') 
              LIMIT 1`,
       [emp.id, today, today],
     );
@@ -2225,10 +2225,23 @@ router.post("/comp-off/request", auth, async (req, res) => {
       });
     }
 
-    await c.query(
+    const [result] = await c.query(
       `INSERT INTO comp_off_requests (employee_id, date_worked, total_days, reason, status)
        VALUES (?, ?, ?, ?, 'pending')`,
       [emp.id, date_worked, total_days, reason]
+    );
+
+    // Create Inbox Notification for reporting manager
+    await createInboxNotification(
+      c,
+      emp.id,
+      emp.reporting_manager_id,
+      "Comp Off Request",
+      result.insertId,
+      `Comp Off Request - ${emp.FullName || 'Employee'}`,
+      `Requested ${total_days} day(s) Comp Off for date worked: ${date_worked}. Reason: ${reason || 'N/A'}`,
+      "Medium",
+      { date_worked, total_days, reason }
     );
 
     c.end();
@@ -2376,6 +2389,10 @@ router.put("/comp-off/approve/:id", auth, async (req, res) => {
     );
 
     await c.commit();
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Comp Off Request", req.params.id, "Approved");
+
     c.end();
     res.json({ success: true, message: "Comp Off request approved successfully" });
   } catch (error) {
@@ -2437,6 +2454,10 @@ router.put("/comp-off/reject/:id", auth, async (req, res) => {
     );
 
     await c.commit();
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Comp Off Request", req.params.id, "Rejected", rejection_reason);
+
     c.end();
     res.json({ success: true, message: "Comp Off request rejected successfully" });
   } catch (error) {
@@ -2527,6 +2548,10 @@ router.put("/comp-off/cancel/:id", auth, async (req, res) => {
     }
 
     await c.commit();
+
+    // Update Inbox Notification
+    await updateNotificationStatus(c, "Comp Off Request", req.params.id, "Cancelled");
+
     c.end();
 
     res.json({ success: true, message: "Comp Off request cancelled successfully" });

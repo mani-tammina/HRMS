@@ -41,6 +41,10 @@ const routes: Routes = [
   {
     path: 'separation',
     loadChildren: () => import('./separation/separation.module').then(m => m.SeparationPageModule)
+  },
+  {
+    path: 'time-tracking',
+    loadChildren: () => import('./time-tracking/time-tracking.module').then(m => m.TimeTrackingModule)
   }
 ];
 

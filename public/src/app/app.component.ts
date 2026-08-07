@@ -30,15 +30,16 @@ export class AppComponent implements OnInit, OnDestroy {
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
     { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
-
-    { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-
-    { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
-
+    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: [ 'manager', 'hr'] },
+    {
+      title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance'], isExpanded: false, children: [
+        { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
+        { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
+        { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
+        { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] }
+      ]
+    },
     { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
-
     {
       title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager', 'finance'], isExpanded: false, children: [
         { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['hr', 'employee', 'manager', 'finance'] },
@@ -158,8 +159,13 @@ export class AppComponent implements OnInit, OnDestroy {
     if (!page.roles) return true;
     const role = this.userRole?.toLowerCase() || '';
 
+    // If page is a parent menu with children, check if any child is visible for current user
+    if (page.children && page.children.length > 0) {
+      return page.children.some((child: any) => this.shouldShowPage(child));
+    }
+
     // Custom logic for CEO if needed (preserving existing app logic)
-    if (page.title === 'Leave' && this.userDesignation?.includes('ceo')) {
+    if (['Leave', 'Leaves'].includes(page.title) && this.userDesignation?.includes('ceo')) {
       return false;
     }
 

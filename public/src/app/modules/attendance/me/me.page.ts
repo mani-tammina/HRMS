@@ -97,6 +97,10 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   remoteReason = '';
   remoteLoading = false;
   wfhClockInLoading = false;
+  remoteClockInLoading = false;
+  hasApprovedRemote = false;
+  hasApprovedWFH = false;
+  policyPermissions: any = null;
 
   // ── WFH Request Panel ──
   showWFHPanel = false;
@@ -107,6 +111,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   wfhReason = '';
   wfhTotalDays = 1;
   wfhLoading = false;
+
+  wfhDayType: 'full' | 'half' | 'hourly' = 'full';
+  wfhHalfDayType: 'first_half' | 'second_half' = 'first_half';
+  wfhAttachmentFileName: string = '';
+  wfhValidationError: string | null = null;
+
+  get wfhSettings(): any {
+    return this.policyPermissions?.wfh_settings || {};
+  }
 
   toggleTodayCard() {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
@@ -244,6 +257,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   loadTodayAttendance() {
+    this.checkApprovedWorkMode();
     const todayStr = this.formatDateOnly(new Date());
     const request$ = this.viewEmployeeId
       ? this.attendanceApi.getAttendanceDetailsByDate(todayStr, this.viewEmployeeId)
@@ -251,6 +265,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request$.subscribe({
       next: (res: any) => {
+        this.policyPermissions = res?.policyPermissions || null;
         if (res?.attendance) {
           this.status = res.attendance.status || 'NOT In Yet';
         } else if (res?.on_leave) {
@@ -709,14 +724,71 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   trackByDate(index: number, day: Date): string { return day.toDateString(); }
 
-  // ================= WFH CLOCK-IN =================
+  checkApprovedWorkMode() {
+    this.attendanceApi.checkTodayWFH().subscribe({
+      next: (res: any) => {
+        if (res?.has_wfh && res?.work_mode === 'Remote') {
+          this.hasApprovedRemote = true;
+          this.hasApprovedWFH = false;
+        } else if (res?.has_wfh && res?.work_mode === 'WFH') {
+          this.hasApprovedWFH = true;
+          this.hasApprovedRemote = false;
+        } else {
+          this.hasApprovedRemote = false;
+          this.hasApprovedWFH = false;
+        }
+      },
+      error: () => {
+        this.hasApprovedRemote = false;
+        this.hasApprovedWFH = false;
+      }
+    });
+  }
+
+  // ================= WFH / REMOTE CLOCK-IN =================
+
+  remoteClockIn() {
+    if (this.remoteClockInLoading || this.clockButton?.loading) return;
+    this.remoteClockInLoading = true;
+    this.attendanceApi.checkTodayWFH().subscribe({
+      next: (res: any) => {
+        if (!res?.has_wfh || res?.work_mode !== 'Remote') {
+          this.showToast('Remote request not approved for today', 'warning');
+          this.remoteClockInLoading = false;
+          return;
+        }
+        this.attendanceApi.apiPunchIn({ work_mode: 'Remote', location: 'Remote', notes: 'Remote Clock-In' }).subscribe({
+          next: () => {
+            this.remoteClockInLoading = false;
+            this.showToast('Remote Clock-In successful', 'success');
+            this.loadTodayAttendance();
+            if (this.clockButton) {
+              this.clockButton.workMode = 'Remote';
+              this.clockButton.isClockedIn = true;
+              this.clockButton.remoteActive = true;
+              localStorage.setItem('remoteActive', 'true');
+            }
+            this.attendanceRefresh = Date.now();
+          },
+          error: err => {
+            this.remoteClockInLoading = false;
+            this.showToast(err?.error?.message || 'Remote Clock-In failed', 'danger');
+          },
+        });
+      },
+      error: () => {
+        this.remoteClockInLoading = false;
+        this.showToast('Remote check failed', 'danger');
+      },
+    });
+  }
 
   wfhClockIn() {
     if (this.wfhClockInLoading || this.clockButton?.loading) return;
     this.wfhClockInLoading = true;
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh) {
+        if (!res?.has_wfh || res?.work_mode !== 'WFH') {
           this.showToast('WFH not approved for today', 'warning');
           this.wfhClockInLoading = false;
           return;
@@ -756,42 +828,49 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitRemoteRequest() {
-    if (!this.remoteReason.trim()) return;
     this.remoteLoading = true;
     const today = new Date().toISOString().split('T')[0];
 
-    this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
-      next: () => {
-        const punchIn = () =>
-          this.attendanceApi.apiPunchIn({
-            work_mode: 'Remote',
-            location: 'Remote',
-            notes: 'Remote Clock-In: ' + this.remoteReason
-          }).subscribe({
-            next: () => this.finalizeRemote(),
-            error: (err) => {
-              this.remoteLoading = false;
-              this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
-            }
-          });
-
-        if (!this.attendanceApi.getClockState()) {
-          punchIn();
-        } else {
-          this.finalizeRemote();
+    const doPunchIn = () => {
+      this.attendanceApi.apiPunchIn({
+        work_mode: 'Remote',
+        location: 'Remote',
+        notes: this.remoteReason ? 'Remote Clock-In: ' + this.remoteReason : 'Remote Clock-In'
+      }).subscribe({
+        next: () => this.finalizeRemote(),
+        error: (err) => {
+          this.remoteLoading = false;
+          if (err?.error?.message?.includes('active punch-in') || err?.error?.message?.includes('Already punched in')) {
+            this.finalizeRemote();
+          } else {
+            this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
+          }
         }
-      },
-      error: (err) => {
-        this.remoteLoading = false;
-        this.showToast(err?.error?.error || 'Failed to submit remote request', 'danger');
-      }
-    });
+      });
+    };
+
+    if (this.policyPermissions?.remote_clockin_approval_required === 'yes') {
+      this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
+        next: () => doPunchIn(),
+        error: () => doPunchIn()
+      });
+    } else {
+      doPunchIn();
+    }
   }
 
   private finalizeRemote() {
     this.remoteLoading = false;
     this.showRemotePanel = false;
-    this.showToast('Remote Clock-In request submitted successfully!', 'success');
+    this.hasApprovedRemote = true;
+    if (this.clockButton) {
+      this.clockButton.workMode = 'Remote';
+      this.clockButton.isClockedIn = true;
+      this.clockButton.remoteActive = true;
+      localStorage.setItem('remoteActive', 'true');
+    }
+    this.attendanceApi.setClockState(true);
+    this.showToast('Remote Clock-In successful!', 'success');
     this.loadTodayAttendance();
     this.attendanceRefresh = Date.now();
   }
@@ -800,10 +879,24 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   openWFHModal() {
     this.wfhReason = '';
     this.wfhLoading = false;
+    this.wfhDayType = 'full';
+    this.wfhHalfDayType = 'first_half';
+    this.wfhAttachmentFileName = '';
+    this.wfhValidationError = null;
     this.wfhFromDate = new Date().toISOString();
     this.wfhToDate = new Date().toISOString();
-    this.wfhMinDate = new Date().toISOString();
     this.wfhActivePicker = null;
+
+    const settings = this.wfhSettings;
+    const today = new Date();
+    if (settings?.wfh_past_dated_limit_days_enabled && settings?.wfh_past_dated_limit_days_value) {
+      const pastDays = Number(settings.wfh_past_dated_limit_days_value);
+      today.setDate(today.getDate() - pastDays);
+      this.wfhMinDate = today.toISOString();
+    } else {
+      this.wfhMinDate = today.toISOString();
+    }
+
     this.wfhCalculateDays();
     this.showWFHPanel = true;
   }
@@ -811,6 +904,25 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   closeWFHPanel() {
     this.showWFHPanel = false;
     this.wfhActivePicker = null;
+    this.wfhValidationError = null;
+  }
+
+  wfhSetDayType(type: 'full' | 'half' | 'hourly') {
+    this.wfhDayType = type;
+    if (type === 'half' || type === 'hourly') {
+      this.wfhToDate = this.wfhFromDate;
+    }
+    this.wfhCalculateDays();
+  }
+
+  onWFHFileSelected(event: any) {
+    const file = event.target.files?.[0];
+    if (file) {
+      this.wfhAttachmentFileName = file.name;
+    } else {
+      this.wfhAttachmentFileName = '';
+    }
+    this.validateWFHPolicy();
   }
 
   wfhTogglePicker(type: 'from' | 'to') {
@@ -821,7 +933,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     const date = event.detail.value;
     if (this.wfhActivePicker === 'from') {
       this.wfhFromDate = date;
-      if (new Date(this.wfhToDate) < new Date(date)) {
+      if (this.wfhDayType === 'half' || new Date(this.wfhToDate) < new Date(date)) {
         this.wfhToDate = date;
       }
     } else {
@@ -832,22 +944,125 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   wfhCalculateDays() {
+    if (this.wfhDayType === 'half') {
+      this.wfhTotalDays = 0.5;
+      this.validateWFHPolicy();
+      return;
+    }
+
     const start = new Date(this.wfhFromDate);
     const end = new Date(this.wfhToDate);
     start.setHours(0, 0, 0, 0);
     end.setHours(0, 0, 0, 0);
-    if (end < start) { this.wfhTotalDays = 0; return; }
+    if (end < start) {
+      this.wfhTotalDays = 0;
+      this.validateWFHPolicy();
+      return;
+    }
     const diffTime = Math.abs(end.getTime() - start.getTime());
     this.wfhTotalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    this.validateWFHPolicy();
+  }
+
+  validateWFHPolicy() {
+    this.wfhValidationError = null;
+    const settings = this.wfhSettings;
+    if (!settings || settings.wfh_enabled === false) return;
+
+    const start = new Date(this.wfhFromDate);
+    start.setHours(0, 0, 0, 0);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // 1. Past-dated Days / Months Limit (Options 8 & 9)
+    if (settings.wfh_past_dated_limit_days_enabled) {
+      const pastDaysLimit = Number(settings.wfh_past_dated_limit_days_value || 0);
+      const minPastDate = new Date(today);
+      minPastDate.setDate(minPastDate.getDate() - pastDaysLimit);
+      if (start < minPastDate) {
+        this.wfhValidationError = `Past-dated WFH requests are restricted beyond ${pastDaysLimit} calendar day(s) ago.`;
+        return;
+      }
+    } else if (settings.wfh_past_dated_limit_months_enabled) {
+      const months = Number(settings.wfh_past_dated_limit_months_value || 1);
+      const minPastDate = new Date(today);
+      minPastDate.setMonth(minPastDate.getMonth() - months);
+      if (start < minPastDate) {
+        this.wfhValidationError = `Past-dated WFH requests are restricted beyond ${months} month(s) ago.`;
+        return;
+      }
+    } else if (start < today) {
+      this.wfhValidationError = `Past-dated WFH requests are not allowed according to your policy.`;
+      return;
+    }
+
+    // 2. Prior Notice Validation (Option 11)
+    if (settings.wfh_prior_notice_enabled) {
+      const priorNoticeDays = Number(settings.wfh_prior_notice_days || 0);
+      const requiredNoticeDate = new Date(today);
+      requiredNoticeDate.setDate(requiredNoticeDate.getDate() + priorNoticeDays);
+      if (start < requiredNoticeDate) {
+        this.wfhValidationError = `Applying for WFH requires at least ${priorNoticeDays} calendar day(s) prior notice.`;
+        return;
+      }
+    }
+
+    // 3. Requested No Sooner Than (Option 12)
+    if (settings.wfh_no_sooner_enabled) {
+      const noSoonerDays = Number(settings.wfh_no_sooner_days || 0);
+      const maxFutureDate = new Date(today);
+      maxFutureDate.setDate(maxFutureDate.getDate() + (noSoonerDays * 2));
+      if (start > maxFutureDate) {
+        this.wfhValidationError = `WFH can be requested no sooner than ${noSoonerDays} working days before start date.`;
+        return;
+      }
+    }
+
+    // 4. Request Only On Specific Days of Week (Option 13)
+    if (settings.wfh_allowed_days_enabled && Array.isArray(settings.wfh_allowed_days) && settings.wfh_allowed_days.length > 0) {
+      const daysOfWeekMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const startDayName = daysOfWeekMap[start.getDay()];
+      if (!settings.wfh_allowed_days.includes(startDayName)) {
+        this.wfhValidationError = `WFH requests are only allowed on: ${settings.wfh_allowed_days.join(', ')}.`;
+        return;
+      }
+    }
+
+    // 5. Restrict on Holidays / Weekly Offs (Option 10)
+    if (settings.wfh_restrict_on_days_enabled) {
+      const daysOfWeekMap = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayLabel = daysOfWeekMap[start.getDay()];
+      const type = settings.wfh_restrict_on_days_type || 'Holidays & Weekly Offs';
+      if ((type.includes('Weekly Offs') || type.includes('Holidays & Weekly Offs')) && this.serverWeekOff.includes(dayLabel)) {
+        this.wfhValidationError = `WFH requests are restricted on Weekly Offs (${dayLabel.toUpperCase()}).`;
+        return;
+      }
+    }
+
+    // 6. Days limit per period (Option 6)
+    if (settings.wfh_limit_days_enabled && settings.wfh_limit_days_value) {
+      const limitVal = Number(settings.wfh_limit_days_value);
+      if (this.wfhTotalDays > limitVal) {
+        this.wfhValidationError = `Request exceeds maximum allowed limit of ${limitVal} day(s) per ${settings.wfh_limit_days_period || 'period'}.`;
+        return;
+      }
+    }
   }
 
   submitWFHRequest() {
-    if (!this.wfhReason.trim()) return;
+    if (!this.wfhReason.trim() || this.wfhValidationError) return;
+    if (this.wfhSettings?.wfh_attachment_required && !this.wfhAttachmentFileName) {
+      this.showToast('An attachment is required for WFH requests per policy', 'warning');
+      return;
+    }
     this.wfhLoading = true;
     const payload = {
       start_date: this.wfhFromDate.split('T')[0],
-      end_date: this.wfhToDate.split('T')[0],
+      end_date: this.wfhDayType === 'half' ? this.wfhFromDate.split('T')[0] : this.wfhToDate.split('T')[0],
       total_days: this.wfhTotalDays,
+      day_type: this.wfhDayType,
+      half_day_type: this.wfhDayType === 'half' ? this.wfhHalfDayType : null,
+      attachment_name: this.wfhAttachmentFileName,
       work_mode: 'WFH' as const,
       reason: this.wfhReason
     };
@@ -855,12 +1070,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       next: () => {
         this.wfhLoading = false;
         this.showWFHPanel = false;
-        this.showToast('Work From Home request submitted successfully!', 'success');
-        this.attendanceRefresh = Date.now();
+        this.showToast('WFH Request submitted successfully!', 'success');
+        this.loadTodayAttendance();
       },
-      error: (err) => {
+      error: (err: any) => {
         this.wfhLoading = false;
-        this.showToast(err?.error?.error || 'Failed to submit WFH request', 'danger');
+        this.showToast(err?.error?.message || err?.error?.error || 'Failed to submit WFH request', 'danger');
       }
     });
   }

@@ -144,6 +144,112 @@ const swaggerSpec = {
       },
     },
 
+    // ============ TIME TRACKING POLICIES ============
+    "/api/time-tracking-policies": {
+      get: {
+        summary: "Get All Time Tracking Policies",
+        description: "Retrieve list of all time tracking policies with configured settings and site links.",
+        tags: ["🕒 Time Tracking Policies"],
+        responses: {
+          200: {
+            description: "Success",
+          }
+        }
+      },
+      post: {
+        summary: "Create Time Tracking Policy",
+        description: "Create a new time tracking policy including biometric, remote, WFH, and regularization rules.",
+        tags: ["🕒 Time Tracking Policies"],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "effective_date"],
+                properties: {
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["active", "inactive"] },
+                  effective_date: { type: "string", format: "date", example: "2026-08-01" },
+                  site_ids: { type: "array", items: { type: "integer" } },
+                  biometric_settings: { type: "object" },
+                  remote_punch_settings: { type: "object" },
+                  wfh_settings: { type: "object" },
+                  regularization_settings: { type: "object" }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          201: {
+            description: "Policy created successfully"
+          }
+        }
+      }
+    },
+    "/api/time-tracking-policies/{id}": {
+      get: {
+        summary: "Get Policy by ID",
+        description: "Retrieve details of a specific policy by its ID.",
+        tags: ["🕒 Time Tracking Policies"],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          200: { description: "Success" },
+          404: { description: "Policy not found" }
+        }
+      },
+      put: {
+        summary: "Update Policy by ID",
+        description: "Update configurations of a specific policy.",
+        tags: ["🕒 Time Tracking Policies"],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "effective_date"],
+                properties: {
+                  name: { type: "string" },
+                  description: { type: "string" },
+                  status: { type: "string", enum: ["active", "inactive"] },
+                  effective_date: { type: "string", format: "date", example: "2026-08-01" },
+                  site_ids: { type: "array", items: { type: "integer" } },
+                  biometric_settings: { type: "object" },
+                  remote_punch_settings: { type: "object" },
+                  wfh_settings: { type: "object" },
+                  regularization_settings: { type: "object" }
+                }
+              }
+            }
+          }
+        },
+        responses: {
+          200: { description: "Policy updated successfully" },
+          404: { description: "Policy not found" }
+        }
+      },
+      delete: {
+        summary: "Delete Policy",
+        description: "Delete a specific policy by ID.",
+        tags: ["🕒 Time Tracking Policies"],
+        parameters: [
+          { name: "id", in: "path", required: true, schema: { type: "integer" } }
+        ],
+        responses: {
+          200: { description: "Policy deleted successfully" },
+          404: { description: "Policy not found" }
+        }
+      }
+    },
+
     // ============ UPLOADS ============
     "/api/upload/employees": {
       post: {
