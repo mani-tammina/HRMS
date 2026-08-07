@@ -11,6 +11,85 @@ function parseTime(dateStr, timeStr) {
     return `${dateStr} ${timeStr}:00`;
 }
 
+/* ============ TEAMMATES ON LEAVE ============ */
+
+// GET /api/inbox/teammates-on-leave - Check if any teammates are on leave for dates
+router.get("/teammates-on-leave", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employee_id, start_date, end_date } = req.query;
+        if (!employee_id || !start_date) {
+            return res.json({ count: 0, teammates: [] });
+        }
+
+        const startDate = start_date;
+        const endDate = end_date || start_date;
+
+        c = await db();
+        
+        // 1. Get the employee's reporting manager and department
+        const [empRows] = await c.query(
+            "SELECT reporting_manager_id, DepartmentId FROM employees WHERE id = ?",
+            [employee_id]
+        );
+
+        if (empRows.length === 0) {
+            c.end();
+            return res.json({ count: 0, teammates: [] });
+        }
+
+        const managerId = empRows[0].reporting_manager_id;
+        const deptId = empRows[0].DepartmentId;
+
+        // 2. Query teammates on leave during start_date..end_date
+        let query = `
+            SELECT 
+                l.id, l.employee_id, l.leave_type, l.start_date, l.end_date, l.status,
+                e.FullName as employee_name,
+                COALESCE(lt.type_name, l.leave_type) as type_name
+            FROM leaves l
+            JOIN employees e ON l.employee_id = e.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE l.employee_id != ?
+              AND l.status IN ('approved', 'pending')
+              AND DATE(l.start_date) <= DATE(?)
+              AND DATE(l.end_date) >= DATE(?)
+        `;
+        const params = [employee_id, endDate, startDate];
+
+        if (managerId) {
+            query += " AND (e.reporting_manager_id = ? OR e.DepartmentId = ?)";
+            params.push(managerId, deptId);
+        } else if (deptId) {
+            query += " AND e.DepartmentId = ?";
+            params.push(deptId);
+        }
+
+        query += " ORDER BY e.FirstName LIMIT 10";
+
+        const [rows] = await c.query(query, params);
+        c.end();
+
+        res.json({
+            count: rows.length,
+            teammates: rows.map(r => ({
+                id: r.id,
+                employee_id: r.employee_id,
+                employee_name: r.employee_name,
+                leave_type: r.type_name,
+                status: r.status,
+                start_date: r.start_date,
+                end_date: r.end_date
+            }))
+        });
+
+    } catch (err) {
+        console.error("Error fetching teammates on leave:", err);
+        if (c) c.end();
+        res.json({ count: 0, teammates: [] });
+    }
+});
+
 /* ============ NOTIFICATION LIST & DETAILS ============ */
 
 // GET /api/inbox - Get list of notifications for logged-in manager
@@ -42,6 +121,10 @@ router.get("/", auth, async (req, res) => {
                 e.EmployeeNumber as employee_number, 
                 d.name as department_name,
                 m.FullName as manager_name,
+                ts.hours_breakdown as ts_hours_breakdown,
+                ts.notes as ts_notes,
+                ts.total_hours as ts_total_hours,
+                ts.date as ts_date,
                 COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name
             FROM inbox_notifications n
             LEFT JOIN employees e ON n.employee_id = e.id
@@ -49,6 +132,7 @@ router.get("/", auth, async (req, res) => {
             LEFT JOIN employees m ON n.manager_id = m.id
             LEFT JOIN leaves l ON n.request_id = l.id
             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            LEFT JOIN timesheets ts ON n.request_type = 'Timesheet Request' AND n.request_id = ts.id
             WHERE 1=1
         `;
         const params = [];
@@ -362,13 +446,13 @@ router.post("/attendance/action", auth, async (req, res) => {
             return res.status(403).json({ error: "Access denied. You are not authorized to perform actions on this request." });
         }
 
-        if (notification.status !== "Pending") {
-            return res.status(400).json({ error: `This request has already been ${notification.status}` });
+        const resolvedStatus = action === "Approve" ? "Approved" : "Rejected";
+
+        if (notification.status === resolvedStatus) {
+            return res.json({ success: true, message: `Attendance regularization request is ${resolvedStatus.toLowerCase()}` });
         }
 
         await c.beginTransaction();
-
-        const resolvedStatus = action === "Approve" ? "Approved" : "Rejected";
 
         if (action === "Approve") {
             // Get regularization metadata

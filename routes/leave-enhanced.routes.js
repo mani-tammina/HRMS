@@ -1566,6 +1566,13 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
 
     const leave = leaves[0];
 
+    // If already approved, return success
+    if (leave.status === "approved") {
+      await c.rollback();
+      c.end();
+      return res.json({ success: true, message: "Leave approved successfully" });
+    }
+
     // Check authorization: HR/Admin can approve any, Manager can only approve their team's leaves
     const isHR = ["admin", "hr"].includes(req.user.role);
     const isReportingManager = leave.reporting_manager_id === currentEmp.id;
@@ -1633,32 +1640,69 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
     const { rejection_reason } = req.body;
 
     const c = await db();
+    await c.beginTransaction();
 
     // Get leave details with employee info
     const [leaves] = await c.query(
-      `SELECT l.*, e.reporting_manager_id 
+      `SELECT l.*, e.reporting_manager_id, lt.type_code 
              FROM leaves l
              JOIN employees e ON l.employee_id = e.id
+             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
              WHERE l.id = ?`,
       [req.params.leaveId],
     );
 
     if (leaves.length === 0) {
+      await c.rollback();
       c.end();
       return res.status(404).json({ error: "Leave not found" });
     }
 
     const leave = leaves[0];
 
+    // If already rejected, return success
+    if (leave.status === "rejected") {
+      await c.rollback();
+      c.end();
+      return res.json({ success: true, message: "Leave rejected successfully" });
+    }
+
     // Check authorization: HR/Admin can reject any, Manager can only reject their team's leaves
     const isHR = ["admin", "hr"].includes(req.user.role);
     const isReportingManager = leave.reporting_manager_id === currentEmp.id;
 
     if (!isHR && !isReportingManager) {
+      await c.rollback();
       c.end();
       return res
         .status(403)
         .json({ error: "You can only reject leaves for your direct reports" });
+    }
+
+    const leaveYear = new Date(leave.start_date).getFullYear();
+
+    // If leave was previously approved, revert the used and available days
+    if (leave.status === "approved") {
+      const ltcode = (leave.type_code || "").toUpperCase();
+      if (ltcode === "CL") {
+        await c.query(
+          `UPDATE employee_leave_balances SET used_days = GREATEST(0, used_days - ?) WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [leave.total_days, leave.employee_id, leave.leave_type_id, leaveYear],
+        );
+      } else {
+        await c.query(
+          `UPDATE employee_leave_balances 
+           SET used_days = GREATEST(0, used_days - ?), available_days = available_days + ?
+           WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [
+            leave.total_days,
+            leave.total_days,
+            leave.employee_id,
+            leave.leave_type_id,
+            leaveYear,
+          ],
+        );
+      }
     }
 
     await c.query(
@@ -1672,6 +1716,7 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
     const rejectNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
     await updateNotificationStatus(c, rejectNotifType, req.params.leaveId, "Rejected", currentEmp.id);
 
+    await c.commit();
     c.end();
 
     res.json({ success: true, message: "Leave rejected successfully" });
@@ -2333,10 +2378,10 @@ router.put("/comp-off/approve/:id", auth, async (req, res) => {
 
     const request = requests[0];
 
-    if (request.status !== "pending") {
+    if (request.status === "approved") {
       await c.rollback();
       c.end();
-      return res.status(400).json({ error: "Request is already processed" });
+      return res.json({ success: true, message: "Comp Off request approved successfully" });
     }
 
     // Check auth: HR/Admin or reporting manager
@@ -2431,10 +2476,10 @@ router.put("/comp-off/reject/:id", auth, async (req, res) => {
 
     const request = requests[0];
 
-    if (request.status !== "pending") {
+    if (request.status === "rejected") {
       await c.rollback();
       c.end();
-      return res.status(400).json({ error: "Request is already processed" });
+      return res.json({ success: true, message: "Comp Off request rejected successfully" });
     }
 
     const isHR = ["admin", "hr"].includes(req.user.role);
@@ -2444,6 +2489,24 @@ router.put("/comp-off/reject/:id", auth, async (req, res) => {
       await c.rollback();
       c.end();
       return res.status(403).json({ error: "You can only reject requests for your direct reports" });
+    }
+
+    if (request.status === "approved") {
+      // Revert the leave balance addition from previous approval
+      const [leaveTypes] = await c.query(
+        `SELECT id FROM leave_types WHERE type_code = 'COMP_OFF'`
+      );
+      if (leaveTypes.length > 0) {
+        const compOffTypeId = leaveTypes[0].id;
+        const leaveYear = new Date(request.date_worked).getFullYear();
+        await c.query(
+          `UPDATE employee_leave_balances 
+           SET allocated_days = GREATEST(0, allocated_days - ?),
+               available_days = GREATEST(0, available_days - ?)
+           WHERE employee_id = ? AND leave_type_id = ? AND leave_year = ?`,
+          [request.total_days, request.total_days, request.employee_id, compOffTypeId, leaveYear]
+        );
+      }
     }
 
     await c.query(

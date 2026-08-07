@@ -8,11 +8,11 @@ import { CommonModule, DatePipe } from '@angular/common';
   imports: [IonicModule, CommonModule],
   styleUrls: ['./timesheet-preview.component.scss'],
   template: `
-    <ion-header class="ion-no-border">
+    <ion-header class="modal-custom-header ion-no-border">
       <ion-toolbar>
-        <ion-title>Work Log Preview</ion-title>
+        <ion-title class="modal-title">Work Log Review</ion-title>
         <ion-buttons slot="end">
-          <ion-button class="close-btn" (click)="close()">
+          <ion-button class="close-btn" (click)="close()" title="Close">
             <ion-icon slot="icon-only" name="close-outline"></ion-icon>
           </ion-button>
         </ion-buttons>
@@ -24,11 +24,11 @@ import { CommonModule, DatePipe } from '@angular/common';
         <!-- Date Summary Section -->
         <div class="header-summary animate__animated animate__fadeInDown">
           <div class="date-info">
-            <h2>{{ data.date | date: 'EEEE, MMM d' }}</h2>
-            <p>{{ data.date | date: 'yyyy' }}</p>
+            <h2>{{ data?.date | date: 'EEEE, MMM d' }}</h2>
+            <p>{{ data?.date | date: 'yyyy' }}</p>
           </div>
           <div class="hours-badge">
-            <span class="count">{{ data.total_hours }}h</span>
+            <span class="count">{{ data?.total_hours || 0 }}h</span>
             <span class="label">Total Logs</span>
           </div>
         </div>
@@ -54,8 +54,8 @@ import { CommonModule, DatePipe } from '@angular/common';
           </div>
         </div>
 
-        <!-- Notes Section -->
-        <div *ngIf="data?.notes" class="notes-container ion-padding-top animate__animated animate__fadeInUp">
+        <!-- Notes Section (Only shown if custom notes exist) -->
+        <div *ngIf="shouldShowNotes()" class="notes-container ion-padding-top animate__animated animate__fadeInUp">
           <div class="notes-card">
              <div class="notes-header">
                 <ion-icon name="document-text-outline"></ion-icon>
@@ -81,5 +81,14 @@ export class TimesheetPreviewComponent {
 
   close() {
     this.modalCtrl.dismiss();
+  }
+
+  shouldShowNotes(): boolean {
+    if (!this.data || !this.data.notes) return false;
+    const n = String(this.data.notes).trim();
+    if (!n || n === 'N/A' || n.toLowerCase().includes('submitted timesheet for') || n.toLowerCase().includes('notes: n/a')) {
+      return false;
+    }
+    return true;
   }
 }

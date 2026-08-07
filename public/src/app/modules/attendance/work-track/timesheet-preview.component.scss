@@ -223,29 +223,37 @@
   }
 }
 
-ion-header {
-  ion-toolbar {
-    --background: #{vars.$color-white};
-    --border-color: #{vars.$color-border-light};
-    padding: 8px;
+ion-header.modal-custom-header {
+  border-bottom: 1px solid #e2e8f0;
 
-    ion-title {
-      font-size: vars.$fs-heading-sm;
-      color: vars.$color-text-primary;
-      font-weight: vars.$fw-bold;
-      letter-spacing: vars.$ls-tight;
+  ion-toolbar {
+    --background: #ffffff;
+    --border-style: none;
+    --min-height: 56px;
+    padding: 0 8px;
+
+    .modal-title {
+      font-size: 16px;
+      color: #0f172a;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+      padding: 0;
     }
   }
-}
 
-.close-btn {
-  --color: vars.$color-text-muted;
-  --padding-start: 8px;
-  --padding-end: 8px;
-  font-size: 24px;
-  transition: vars.$transition-base;
+  .close-btn {
+    --color: #64748b;
+    --padding-start: 8px;
+    --padding-end: 8px;
+    --border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    font-size: 22px;
+    transition: all 0.15s ease;
 
-  &:hover {
-    --color: #{vars.$color-danger};
+    &:hover {
+      --color: #0f172a;
+      --background: #f1f5f9;
+    }
   }
 }

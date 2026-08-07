@@ -35,6 +35,28 @@ body {
   font-feature-settings: 'cv11', 'ss01'; // Inter optical features
 }
 
+/* Right-side Full Height Drawer Modal */
+ion-modal.side-drawer-modal,
+ion-modal.side-custom-popup {
+  --width: 480px;
+  --height: 100vh;
+  --border-radius: 0;
+  --backdrop-opacity: 0.5;
+
+  &::part(content) {
+    position: fixed;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    left: auto;
+    height: 100vh;
+    width: 480px;
+    max-width: 100vw;
+    border-radius: 0;
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.18);
+  }
+}
+
 /* =================== INTER TYPOGRAPHY UTILITIES =================== */
 /* font-weight helpers — use these instead of raw font-weight values  */
 

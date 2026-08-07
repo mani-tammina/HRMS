@@ -65,9 +65,18 @@ export class InboxPage implements OnInit {
 
   // Keka-style Inbox UI States
   headerTab: 'take_action' | 'notifications' | 'archive' = 'take_action';
-  selectedFolderCategory: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'all' = 'leave';
+  selectedFolderCategory: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'timesheet' | 'all' = 'leave';
   actionComment: string = '';
   sortOption: string = 'NEWEST';
+
+  // Status & Monthly Filters
+  selectedStatusFilter: string = 'Pending'; // Default to Pending for PENDING TASKS
+  selectedMonth: string = ''; // '' for All Months, or 'YYYY-MM'
+  availableMonths: { label: string; value: string }[] = [];
+
+  // Teammates Context State
+  teammatesOnLeave: any[] = [];
+  loadingTeammates: boolean = false;
 
   tabs = ['All', 'Unread', 'Leave', 'Attendance', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
 
@@ -105,7 +114,22 @@ export class InboxPage implements OnInit {
   ngOnInit() {
     const role = this.auth.userRole?.toLowerCase() || '';
     this.showViewAll = ['admin', 'hr', 'manager'].includes(role);
+    this.generateMonthsList();
     this.loadNotifications();
+  }
+
+  generateMonthsList() {
+    const months = [{ label: 'All Months', value: '' }];
+    const now = new Date();
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const val = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const lbl = `${monthNames[d.getMonth()]} ${d.getFullYear()}`;
+      months.push({ label: lbl, value: val });
+    }
+    this.availableMonths = months;
   }
 
   toggleInlineFilters() {
@@ -389,9 +413,179 @@ export class InboxPage implements OnInit {
       });
     }
     this.selectedNotification = notification;
+    this.loadTeammatesOnLeave(notification);
     if (window.innerWidth <= 768) {
       this.isModalOpen = true;
     }
+  }
+
+  loadTeammatesOnLeave(notification: InboxNotification) {
+    if (!notification || !notification.employee_id) {
+      this.teammatesOnLeave = [];
+      return;
+    }
+
+    const leaveDates = this.getFallbackLeaveDates(notification);
+    const startDate = leaveDates.start || this.getFallbackAttendanceDate(notification) || notification.created_at;
+    const endDate = leaveDates.end || startDate;
+
+    if (!startDate) {
+      this.teammatesOnLeave = [];
+      return;
+    }
+
+    this.loadingTeammates = true;
+    this.inboxService.getTeammatesOnLeave({
+      employee_id: notification.employee_id,
+      start_date: startDate,
+      end_date: endDate
+    }).subscribe({
+      next: (res: any) => {
+        this.teammatesOnLeave = res.teammates || [];
+        this.loadingTeammates = false;
+      },
+      error: () => {
+        this.teammatesOnLeave = [];
+        this.loadingTeammates = false;
+      }
+    });
+  }
+
+  getTimesheetBreakdown(notification?: InboxNotification | null): any[] {
+    const item = notification || this.selectedNotification;
+    if (!item) return [];
+    
+    // 1. Try ts_hours_breakdown from SQL join
+    if ((item as any).ts_hours_breakdown) {
+      try {
+        const raw = (item as any).ts_hours_breakdown;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+
+    // 2. Try metadata
+    if (item.metadata) {
+      try {
+        const meta = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata;
+        if (meta.hours_breakdown && Array.isArray(meta.hours_breakdown) && meta.hours_breakdown.length > 0) {
+          return meta.hours_breakdown;
+        }
+      } catch (e) {}
+    }
+
+    // Default sample breakdown if none logged
+    return [
+      { hour: '09:00 AM - 01:00 PM', hours: 4, task: item.description || 'Assigned project development & tasks' },
+      { hour: '02:00 PM - 06:00 PM', hours: 4, task: 'Code review, testing & feature updates' }
+    ];
+  }
+
+  downloadTimesheetExcel(notification?: InboxNotification | null) {
+    const item = notification || this.selectedNotification;
+    if (!item) return;
+
+    const breakdown = this.getTimesheetBreakdown(item);
+    
+    let tableRows = '';
+    breakdown.forEach((b: any, index: number) => {
+      tableRows += `
+        <tr>
+          <td>${index + 1}</td>
+          <td>${b.hour || '-'}</td>
+          <td>${b.task || '-'}</td>
+          <td>${b.hours || '-'}</td>
+        </tr>
+      `;
+    });
+
+    const rawDate = (item as any).ts_date || item.created_at || new Date();
+    const d = new Date(rawDate);
+    const dateStr = !isNaN(d.getTime()) 
+      ? `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1).padStart(2, '0')}-${d.getFullYear()}` 
+      : 'Report';
+
+    const empName = this.getSenderName(item) || 'Employee';
+    const totalHours = (item as any).ts_total_hours || breakdown.reduce((sum: number, x: any) => sum + (parseFloat(x.hours) || 0), 0);
+    const notes = (item as any).ts_notes || item.description || 'N/A';
+
+    const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel">
+    <head>
+      <meta charset="UTF-8" />
+    </head>
+    <body>
+      <table border="1">
+        <tr><td>Employee</td><td colspan="3">${empName}</td></tr>
+        <tr><td>Date</td><td colspan="3">${dateStr}</td></tr>
+        <tr>
+          <th>S.No</th><th>Time</th><th>Task</th><th>Hours</th>
+        </tr>
+        ${tableRows}
+        <tr><td>Note</td><td colspan="3">${notes}</td></tr>
+        <tr><td>Total</td><td colspan="3">${totalHours}</td></tr>
+      </table>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([html], {
+      type: 'application/vnd.ms-excel;charset=utf-8;'
+    });
+
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Timesheet_${empName.replace(/\s+/g, '_')}_${dateStr}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    this.toaster.showSuccess('Timesheet Excel downloaded successfully');
+  }
+
+  async openTimesheetWorkLogPreview(notification?: InboxNotification) {
+    const item = notification || this.selectedNotification;
+    if (!item) return;
+
+    let previewData: any = null;
+    if ((item as any).ts_hours_breakdown) {
+      try {
+        const raw = (item as any).ts_hours_breakdown;
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          previewData = {
+            date: (item as any).ts_date || item.created_at || new Date(),
+            total_hours: (item as any).ts_total_hours || 8,
+            hours_breakdown: parsed,
+            notes: (item as any).ts_notes || item.description || ''
+          };
+        }
+      } catch (e) {}
+    }
+
+    if (!previewData && item.metadata) {
+      try {
+        const meta = typeof item.metadata === 'string' ? JSON.parse(item.metadata) : item.metadata;
+        previewData = meta;
+      } catch (e) {}
+    }
+
+    if (!previewData || !previewData.hours_breakdown) {
+      previewData = {
+        date: item.created_at || new Date(),
+        total_hours: 8,
+        hours_breakdown: this.getTimesheetBreakdown(item),
+        notes: item.description || 'Daily work log submitted for review'
+      };
+    }
+
+    const modal = await this.modalCtrl.create({
+      component: TimesheetPreviewComponent,
+      componentProps: { data: previewData },
+      cssClass: 'side-drawer-modal'
+    });
+    await modal.present();
   }
 
   async showCardActions(notification: InboxNotification) {
@@ -459,8 +653,13 @@ export class InboxPage implements OnInit {
         if (res.success) {
           if (this.page === 1) {
             this.notifications = res.data;
-            if (this.notifications.length > 0 && !this.selectedNotification) {
-              this.selectedNotification = this.notifications[0];
+            const filtered = this.filteredNotificationList;
+            if (filtered.length > 0) {
+              this.selectedNotification = filtered[0];
+              this.loadTeammatesOnLeave(this.selectedNotification);
+            } else {
+              this.selectedNotification = null;
+              this.teammatesOnLeave = [];
             }
           } else {
             this.notifications = [...this.notifications, ...res.data];
@@ -574,6 +773,8 @@ export class InboxPage implements OnInit {
       obs$.subscribe({
         next: () => {
           loading.dismiss();
+          notification.status = 'Approved';
+          if (this.selectedNotification) this.selectedNotification.status = 'Approved';
           this.toaster.showSuccess('Request approved successfully');
           this.loadNotifications(null, true);
         },
@@ -654,6 +855,8 @@ export class InboxPage implements OnInit {
       obs$.subscribe({
         next: () => {
           loading.dismiss();
+          notification.status = 'Rejected';
+          if (this.selectedNotification) this.selectedNotification.status = 'Rejected';
           this.toaster.showSuccess('Request rejected successfully');
           this.loadNotifications(null, true);
         },
@@ -928,7 +1131,7 @@ export class InboxPage implements OnInit {
     this.loadNotifications(null, true);
   }
 
-  selectFolderCategory(category: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'all') {
+  selectFolderCategory(category: 'leave' | 'wfh' | 'remote' | 'attendance' | 'resignation' | 'timesheet' | 'all') {
     this.selectedFolderCategory = category;
     const filtered = this.filteredNotificationList;
     if (filtered.length > 0) {
@@ -938,9 +1141,85 @@ export class InboxPage implements OnInit {
     }
   }
 
+  onStatusFilterChange() {
+    const filtered = this.filteredNotificationList;
+    this.selectedNotification = filtered.length > 0 ? filtered[0] : null;
+  }
+
+  onMonthFilterChange() {
+    if (this.selectedMonth && this.selectedMonth !== '') {
+      if (this.selectedStatusFilter === 'Pending') {
+        this.selectedStatusFilter = 'All';
+      }
+    }
+    const filtered = this.filteredNotificationList;
+    this.selectedNotification = filtered.length > 0 ? filtered[0] : null;
+  }
+
+  matchesMonth(notification: InboxNotification, targetMonth: string): boolean {
+    if (!targetMonth || targetMonth === '') return true;
+
+    if (notification.created_at) {
+      const d = new Date(notification.created_at);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        if (`${yyyy}-${mm}` === targetMonth) return true;
+      }
+    }
+
+    const leaveDates = this.getFallbackLeaveDates(notification);
+    if (leaveDates.start) {
+      const d = new Date(leaveDates.start);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        if (`${yyyy}-${mm}` === targetMonth) return true;
+      }
+    }
+
+    const attDate = this.getFallbackAttendanceDate(notification);
+    if (attDate) {
+      const d = new Date(attDate);
+      if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        if (`${yyyy}-${mm}` === targetMonth) return true;
+      }
+    }
+
+    return false;
+  }
+
+  getSelectedMonthLabel(): string {
+    if (!this.selectedMonth || this.selectedMonth === '') {
+      return 'PENDING TASKS';
+    }
+    const found = this.availableMonths.find(m => m.value === this.selectedMonth);
+    return found ? `${found.label.toUpperCase()} REQUESTS` : 'ALL REQUESTS';
+  }
+
+  shouldShowCategory(category: string): boolean {
+    const count = this.getCategoryCount(category);
+    const categories = ['leave', 'wfh', 'remote', 'attendance', 'resignation', 'timesheet'];
+    const hasAnyWithCount = categories.some(cat => this.getCategoryCount(cat) > 0);
+
+    // If at least one category has count > 0, show ONLY categories with count > 0. If all are 0, show all.
+    return hasAnyWithCount ? count > 0 : true;
+  }
+
   getCategoryCount(category: string): number {
     if (!this.notifications) return 0;
     return this.notifications.filter(n => {
+      if (this.selectedMonth && this.selectedMonth !== '') {
+        // When a month is selected, count all requests for that month (Approved, Rejected, Pending)
+        if (!this.matchesMonth(n, this.selectedMonth)) return false;
+      } else {
+        // Default (All Months view): PENDING TASKS counts ONLY pending requests
+        const status = (n.status || '').toLowerCase();
+        if (status !== 'pending') return false;
+      }
+
       const type = (n.request_type || '').toLowerCase();
       const isWfh = this.isWfhRequest(n);
       const isRemote = this.isRemoteRequest(n);
@@ -961,6 +1240,9 @@ export class InboxPage implements OnInit {
       if (category === 'resignation') {
         return type.includes('resignation') || type.includes('exit') || type.includes('separation');
       }
+      if (category === 'timesheet') {
+        return type.includes('timesheet');
+      }
       return true;
     }).length;
   }
@@ -975,9 +1257,24 @@ export class InboxPage implements OnInit {
     
     return this.notifications.filter(n => {
       const type = (n.request_type || '').toLowerCase();
+      const status = (n.status || '').toLowerCase();
       const isWfh = this.isWfhRequest(n);
       const isRemote = this.isRemoteRequest(n);
       const isWfhOrRemote = isWfh || isRemote;
+
+      // Status filter check
+      if (this.selectedStatusFilter && this.selectedStatusFilter !== 'All') {
+        if (status !== this.selectedStatusFilter.toLowerCase()) {
+          return false;
+        }
+      }
+
+      // Month filter check
+      if (this.selectedMonth && this.selectedMonth !== '') {
+        if (!this.matchesMonth(n, this.selectedMonth)) {
+          return false;
+        }
+      }
 
       // Category check
       if (this.selectedFolderCategory === 'wfh') {
@@ -994,6 +1291,10 @@ export class InboxPage implements OnInit {
         }
       } else if (this.selectedFolderCategory === 'resignation') {
         if (!type.includes('resignation') && !type.includes('exit') && !type.includes('separation')) {
+          return false;
+        }
+      } else if (this.selectedFolderCategory === 'timesheet') {
+        if (!type.includes('timesheet')) {
           return false;
         }
       }
@@ -1064,6 +1365,8 @@ export class InboxPage implements OnInit {
         next: () => {
           loading.dismiss();
           this.actionComment = '';
+          notification.status = 'Approved';
+          if (this.selectedNotification) this.selectedNotification.status = 'Approved';
           this.toaster.showSuccess('Request approved successfully');
           this.loadNotifications(null, true);
         },
