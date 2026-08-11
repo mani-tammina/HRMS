@@ -28,9 +28,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
+    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'employee'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: [ 'manager', 'hr'] },
+    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: ['manager', 'hr'] },
     {
       title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance'], isExpanded: false, children: [
         { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },

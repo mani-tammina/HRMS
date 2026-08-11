@@ -574,7 +574,9 @@ CREATE TABLE IF NOT EXISTS timesheets (
   id INT PRIMARY KEY AUTO_INCREMENT,
   employee_id INT NOT NULL,
   project_id INT NULL,
-  date DATE NOT NULL,
+  date DATE NULL,
+  week_start_date DATE NULL,
+  week_end_date DATE NULL,
   timesheet_type ENUM('regular', 'project') NOT NULL DEFAULT 'regular',
   
   -- Hourly breakdown (JSON format: [{hour: "09:00-10:00", task: "Development", hours: 1}])
@@ -583,9 +585,14 @@ CREATE TABLE IF NOT EXISTS timesheets (
   work_description TEXT,
   notes TEXT,
   
-  -- Submission info
-  status ENUM('draft', 'submitted', 'verified', 'rejected') DEFAULT 'draft',
+  -- Submission & Approval info
+  status ENUM('draft', 'submitted', 'pending', 'verified', 'approved', 'rejected') DEFAULT 'pending',
   submission_date TIMESTAMP NULL,
+  rejection_reason TEXT,
+  rejected_by INT NULL,
+  rejected_at TIMESTAMP NULL,
+  approved_by INT NULL,
+  approved_at TIMESTAMP NULL,
   
   -- Internal verification
   verified_by INT NULL,

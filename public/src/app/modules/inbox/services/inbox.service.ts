@@ -27,6 +27,7 @@ export class InboxService {
     limit: number;
     search?: string;
     tab?: string;
+    month?: string;
     sortField?: string;
     sortOrder?: 'ASC' | 'DESC';
     viewAll?: boolean;
@@ -40,6 +41,9 @@ export class InboxService {
     }
     if (params.tab) {
       httpParams = httpParams.set('tab', params.tab);
+    }
+    if (params.month) {
+      httpParams = httpParams.set('month', params.month);
     }
     if (params.sortField) {
       httpParams = httpParams.set('sortField', params.sortField);

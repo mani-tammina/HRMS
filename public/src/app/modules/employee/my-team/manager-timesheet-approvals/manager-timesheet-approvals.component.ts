@@ -203,14 +203,25 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
   getTodayFormatted(): string { return this.formatDate(this.currentDate); }
 
   downloadTimesheet(timesheet: any) {
-    if (!timesheet || !timesheet.hours_breakdown?.length) {
+    if (!timesheet) {
       this.showToast('No timesheet data available to download', 'warning');
       return;
     }
+    let breakdown = timesheet.hours_breakdown;
+    let attempts = 0;
+    while (typeof breakdown === 'string' && attempts < 3) {
+      attempts++;
+      try { breakdown = JSON.parse(breakdown); } catch { breakdown = null; break; }
+    }
     let tableRows = '';
-    timesheet.hours_breakdown.forEach((b: any, index: number) => {
-      tableRows += `<tr><td>${index + 1}</td><td>${b.hour || '-'}</td><td>${b.task || '-'}</td><td>${b.hours || '-'}</td></tr>`;
-    });
+    if (Array.isArray(breakdown) && breakdown.length > 0) {
+      breakdown.forEach((b: any, index: number) => {
+        tableRows += `<tr><td>${index + 1}</td><td>${b.hour || '-'}</td><td>${b.task || b.task_description || b.description || '-'}</td><td>${b.hours !== undefined ? b.hours : '-'}</td></tr>`;
+      });
+    } else {
+      const summaryText = timesheet.work_description || timesheet.notes || '-';
+      tableRows = `<tr><td>1</td><td>Daily Summary</td><td>${summaryText}</td><td>${timesheet.total_hours || 0}</td></tr>`;
+    }
     const formattedDate = this.formatDateDDMMYYYY(new Date(timesheet.date));
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"/></head><body><table border="1"><tr><td>Employee</td><td colspan="3">${timesheet.FirstName} ${timesheet.LastName}</td></tr><tr><td>Date</td><td colspan="3">${formattedDate}</td></tr><tr><th>S.No</th><th>Time</th><th>Task</th><th>Hours</th></tr>${tableRows}<tr><td>Note</td><td colspan="3">${timesheet.notes || '-'}</td></tr><tr><td>Total</td><td colspan="3">${timesheet.total_hours}</td></tr></table></body></html>`;
     const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });

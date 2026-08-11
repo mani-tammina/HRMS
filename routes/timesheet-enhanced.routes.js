@@ -110,8 +110,7 @@ router.get("/assignment-status", auth, async (req, res) => {
 
 /* ============ REGULAR TIMESHEET (Non-Project Employees) ============ */
 
-// Submit regular timesheet (hourly based on shift)
-router.post("/regular/submit", auth, async (req, res) => {
+const handleRegularTimesheetSubmission = async (req, res) => {
   try {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
@@ -214,7 +213,11 @@ router.post("/regular/submit", auth, async (req, res) => {
     console.error("Error submitting regular timesheet:", error);
     res.status(500).json({ error: error.message });
   }
-});
+};
+
+// Submit regular timesheet (hourly based on shift)
+router.post("/regular/submit", auth, handleRegularTimesheetSubmission);
+router.post("/regular/resubmit", auth, handleRegularTimesheetSubmission);
 
 // Get my regular timesheets
 router.get("/regular/my-timesheets", auth, async (req, res) => {
@@ -857,9 +860,8 @@ router.post("/admin/validate", auth, admin, async (req, res) => {
 
     res.json({
       success: true,
-      message: `Timesheets ${
-        validation_status === "validated" ? "validated" : "rejected"
-      } successfully`,
+      message: `Timesheets ${validation_status === "validated" ? "validated" : "rejected"
+        } successfully`,
     });
   } catch (error) {
     console.error("Error validating timesheets:", error);
@@ -1334,7 +1336,7 @@ router.get("/team-report", auth, async (req, res) => {
 
     // HR/Admin see all, Managers see only their team
     const isHR = ["admin", "hr"].includes(req.user.role);
-    
+
     let query = `
             SELECT 
                 t.*,

@@ -170,15 +170,27 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
   /* ================= DOWNLOAD EXCEL ================= */
 
   downloadTimesheet(timesheet: any) {
-    if (!timesheet || !timesheet.hours_breakdown?.length) {
+    if (!timesheet) {
       this.showToast('No timesheet data available to download', 'warning');
       return;
     }
 
+    let breakdown = timesheet.hours_breakdown;
+    let attempts = 0;
+    while (typeof breakdown === 'string' && attempts < 3) {
+      attempts++;
+      try { breakdown = JSON.parse(breakdown); } catch { breakdown = null; break; }
+    }
+
     let tableRows = '';
-    timesheet.hours_breakdown.forEach((b: any, index: number) => {
-      tableRows += `<tr><td>${index + 1}</td><td>${b.hour || '-'}</td><td>${b.task || '-'}</td><td>${b.hours || '-'}</td></tr>`;
-    });
+    if (Array.isArray(breakdown) && breakdown.length > 0) {
+      breakdown.forEach((b: any, index: number) => {
+        tableRows += `<tr><td>${index + 1}</td><td>${b.hour || '-'}</td><td>${b.task || b.task_description || b.description || '-'}</td><td>${b.hours !== undefined ? b.hours : '-'}</td></tr>`;
+      });
+    } else {
+      const summaryText = timesheet.work_description || timesheet.notes || '-';
+      tableRows = `<tr><td>1</td><td>Daily Summary</td><td>${summaryText}</td><td>${timesheet.total_hours || 0}</td></tr>`;
+    }
 
     const formattedDate = this.formatDateDDMMYYYY(new Date(timesheet.date));
     const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">

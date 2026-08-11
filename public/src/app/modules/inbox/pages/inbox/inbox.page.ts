@@ -49,6 +49,11 @@ export class InboxPage implements OnInit {
   filterStatus = '';
   filterPriority = '';
 
+  selectedMonth: string = '';
+  monthOptions: { label: string; value: string }[] = [];
+  isEmployee = false;
+  rejectedCount = 0;
+
   isModalOpen = false;
   selectedNotification: InboxNotification | null = null;
 
@@ -61,10 +66,71 @@ export class InboxPage implements OnInit {
     leaveCount: 0,
     attendanceCount: 0,
     timesheetCount: 0,
-    resignationCount: 0
+    resignationCount: 0,
+    wfhCount: 0,
+    remoteCount: 0
   };
 
-  tabs = ['All', 'Unread', 'Leave', 'Attendance', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
+  tabs = ['All', 'Unread', 'Leave', 'WFH', 'Remote', 'Attendance', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
+  rejectReasonText = '';
+
+  getDateParts(dateStr: string): { month: string; day: string; weekday: string } {
+    if (!dateStr) return { month: 'AUG', day: '10', weekday: 'MON' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { month: 'AUG', day: '10', weekday: 'MON' };
+    const months = ['AUG', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const month = months[d.getMonth() + 1] || 'AUG';
+    const day = d.getDate().toString().padStart(2, '0');
+    const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const weekday = weekdays[d.getDay()] || 'MON';
+    return { month, day, weekday };
+  }
+
+  getRelativeLeaveStatus(notification: InboxNotification | null): string {
+    if (!notification) return 'Leave starting soon';
+    if (notification.request_type === 'Timesheet Request') {
+      const meta = this.getParsedMetadata(notification.metadata);
+      const hours = meta.total_hours || 8;
+      if (notification.status === 'Rejected') {
+        return `${hours} Hours Logged - Timesheet Rejected`;
+      }
+      return `${hours} Hours Logged - Timesheet submitted for review`;
+    }
+    const dates = this.getFallbackLeaveDates(notification);
+    if (!dates.start) return 'Leave starting soon';
+    const start = new Date(dates.start);
+    const now = new Date();
+    const diffDays = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) return `Leave starting ${diffDays} day${diffDays > 1 ? 's' : ''} from now`;
+    if (diffDays === 0) return 'Leave starting today';
+    return `Leave started ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago`;
+  }
+
+  getLeaveTypeTitle(notification: InboxNotification | null): string {
+    if (!notification) return '1 day of Leave';
+    if (notification.request_type === 'Timesheet Request') {
+      const meta = this.getParsedMetadata(notification.metadata);
+      if (meta.week_range) {
+        return `Weekly Timesheet: ${meta.week_range}`;
+      }
+      if (meta.week_start && meta.week_end) {
+        return `Weekly Timesheet: ${this.formatDate(meta.week_start)} – ${this.formatDate(meta.week_end)}`;
+      }
+      return `Timesheet Submission`;
+    }
+    const meta = this.getParsedMetadata(notification.metadata);
+    const days = meta.total_days || this.getCalculatedDays(notification) || 1;
+    const title = (notification.title || '').toLowerCase();
+    const desc = (notification.description || '').toLowerCase();
+    if (title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('wfh')) {
+      return `${days} day${days > 1 ? 's' : ''} of WFH`;
+    }
+    if (title.includes('remote') || desc.includes('requested remote') || desc.includes('remote')) {
+      return `${days} day${days > 1 ? 's' : ''} of Remote`;
+    }
+    const typeName = notification.leave_type_name || (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off' ? 'Comp Offs' : 'Leaves');
+    return `${days} day${days > 1 ? 's' : ''} of ${typeName}`;
+  }
 
   constructor(
     private inboxService: InboxService,
@@ -99,8 +165,60 @@ export class InboxPage implements OnInit {
 
   ngOnInit() {
     const role = this.auth.userRole?.toLowerCase() || '';
+    this.isEmployee = role === 'employee';
     this.showViewAll = ['admin', 'hr', 'manager'].includes(role);
+    if (this.isEmployee) {
+      this.selectedTab = 'Rejected';
+      this.loadRejectedCount();
+    }
+    this.generateMonthOptions();
     this.loadNotifications();
+  }
+
+  loadRejectedCount() {
+    this.inboxService.getNotifications({ page: 1, limit: 1, tab: 'Rejected' }).subscribe({
+      next: (res) => {
+        if (res.success) {
+          this.rejectedCount = res.total || 0;
+        }
+      },
+      error: () => { this.rejectedCount = 0; }
+    });
+  }
+
+  generateMonthOptions() {
+    const options = [];
+    const now = new Date();
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const year = d.getFullYear();
+      const monthNum = String(d.getMonth() + 1).padStart(2, '0');
+      const val = `${year}-${monthNum}`;
+      const lbl = `${monthNames[d.getMonth()]} ${year}`;
+      options.push({ label: lbl, value: val });
+    }
+    this.monthOptions = options;
+  }
+
+  onMonthChange() {
+    this.selectedNotification = null;
+    this.loadNotifications(null, true);
+  }
+
+  getSidebarHeaderTitle(): string {
+    if (this.isEmployee) {
+      return 'MY NOTIFICATIONS';
+    }
+    if (this.selectedMonth && this.selectedMonth !== '') {
+      const match = this.monthOptions.find((m: any) => m.value === this.selectedMonth);
+      if (match) {
+        return `${match.label.toUpperCase()} REQUESTS`;
+      }
+      return `${this.selectedMonth} REQUESTS`;
+    }
+    return 'PENDING TASKS';
   }
 
   toggleInlineFilters() {
@@ -278,10 +396,30 @@ export class InboxPage implements OnInit {
     return date.toLocaleDateString();
   }
 
+  getRejectionReason(n: InboxNotification): string {
+    if (!n) return '';
+    const meta = this.getParsedMetadata(n.metadata);
+    return meta.rejection_reason || meta.reason || '';
+  }
+
+  getRejectedBy(n: InboxNotification): string {
+    if (!n) return '';
+    const meta = this.getParsedMetadata(n.metadata);
+    return meta.rejected_by || n.manager_name || 'Your Manager';
+  }
+
   getFallbackLeaveDates(notification: InboxNotification): { start: string, end: string } {
     const meta = this.getParsedMetadata(notification.metadata);
+    if (notification.request_type === 'Timesheet Request') {
+      if (meta.week_start && meta.week_end) {
+        return { start: meta.week_start, end: meta.week_end };
+      }
+    }
     if (meta.start_date && meta.end_date) {
       return { start: meta.start_date, end: meta.end_date };
+    }
+    if (meta.date) {
+      return { start: meta.date, end: meta.date };
     }
     
     const desc = notification.description || '';
@@ -291,7 +429,11 @@ export class InboxPage implements OnInit {
     if (matches && matches.length >= 2) {
       return { start: matches[0], end: matches[1] };
     }
-    return { start: '', end: '' };
+    if (matches && matches.length === 1) {
+      return { start: matches[0], end: matches[0] };
+    }
+    const created = notification.created_at ? notification.created_at.substring(0, 10) : '';
+    return { start: created, end: created };
   }
 
   getFallbackCompOffDate(notification: InboxNotification): string {
@@ -446,6 +588,7 @@ export class InboxPage implements OnInit {
       limit: this.limit,
       search: this.searchQuery,
       tab: this.selectedTab,
+      month: this.selectedMonth,
       sortField: this.sortField,
       sortOrder: this.sortOrder,
       viewAll: this.viewAll
@@ -454,8 +597,10 @@ export class InboxPage implements OnInit {
         if (res.success) {
           if (this.page === 1) {
             this.notifications = res.data;
-            if (this.notifications.length > 0 && !this.selectedNotification) {
+            if (this.notifications.length > 0) {
               this.selectedNotification = this.notifications[0];
+            } else {
+              this.selectedNotification = null;
             }
           } else {
             this.notifications = [...this.notifications, ...res.data];
@@ -484,6 +629,7 @@ export class InboxPage implements OnInit {
 
   selectTab(tab: string) {
     this.selectedTab = tab;
+    this.selectedNotification = null;
     this.loadNotifications(null, true);
   }
 
@@ -568,6 +714,13 @@ export class InboxPage implements OnInit {
   }
 
   async rejectRequest(notification: InboxNotification) {
+    if (this.rejectReasonText && this.rejectReasonText.trim() !== '') {
+      const reason = this.rejectReasonText.trim();
+      this.rejectReasonText = '';
+      this.executeRejection(notification, reason);
+      return;
+    }
+
     const alert = await this.alertCtrl.create({
       header: 'Reject Request',
       message: 'Please provide a reason for rejection:',

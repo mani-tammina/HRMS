@@ -72,6 +72,8 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   /* ================= EXISTING ================= */
   workTrackForm!: FormGroup;
   loading = false;
+  isEditing = false;
+  editingTimesheetId: number | null = null;
 
   myTimesheets: any[] = [];
   loadingList = false;
@@ -410,6 +412,13 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       return;
     }
 
+    const existing = this.findExistingTimesheetByDate(dateStr);
+    if (existing && (this.editingTimesheetId === null || Number(existing.id) !== Number(this.editingTimesheetId))) {
+      const displayStatus = this.getDisplayStatus(existing.status);
+      this.selectedDateStatus = `⚠️ Already Submitted (Status: ${displayStatus})`;
+      return;
+    }
+
     const leave = this.leaveTooltipMap.get(dateStr);
     if (leave) {
       this.selectedDateStatus = `🏖️ On Leave: ${leave}`;
@@ -610,11 +619,41 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       return;
     }
 
+    const dateVal = this.workTrackForm.value.date;
+    const existing = this.findExistingTimesheetByDate(dateVal);
+    if (existing) {
+      if (this.editingTimesheetId === null || Number(existing.id) === Number(this.editingTimesheetId)) {
+        this.isEditing = true;
+        this.editingTimesheetId = existing.id;
+      } else {
+        const displayStatus = this.getDisplayStatus(existing.status);
+        this.showToast(`Already timesheet submitted for this date (Status: ${displayStatus})`);
+        return;
+      }
+    }
+
+    const breakdown = this.workTrackForm.value.hours_breakdown;
+    const breakdownTasks = Array.isArray(breakdown)
+      ? breakdown
+          .map((b: any) => {
+            const slot = b.hour || b.time_slot || '';
+            const task = b.task || b.task_description || '';
+            return slot ? `[${slot}] ${task}` : task;
+          })
+          .filter((t: string) => t && t.trim())
+          .join(' • ')
+      : '';
+
+    const cleanDate = dateVal ? String(dateVal).split('T')[0] : this.today;
+
     const basePayload = {
-      date: this.workTrackForm.value.date,
-      hours_breakdown: this.workTrackForm.value.hours_breakdown,
+      id: this.editingTimesheetId,
+      timesheet_id: this.editingTimesheetId,
+      date: cleanDate,
+      hours_breakdown: breakdown,
       total_hours: this.calculateTotalHours(),
-      notes: this.workTrackForm.value.notes,
+      notes: this.workTrackForm.value.notes || breakdownTasks,
+      work_description: this.workTrackForm.value.work_description || breakdownTasks
     };
 
     this.loading = true;
@@ -625,18 +664,23 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       const projectPayload = {
         ...basePayload,
         project_id: this.workTrackForm.value.project_id || this.assignments?.[0]?.project_id,
-        work_description: this.workTrackForm.value.work_description || this.workTrackForm.value.notes
+        work_description: this.workTrackForm.value.work_description || breakdownTasks || this.workTrackForm.value.notes
       };
 
-      this.timesheetService.submitProjectTimesheet(projectPayload).subscribe({
+      const request$ = (this.isEditing || this.editingTimesheetId)
+        ? this.timesheetService.resubmitProjectTimesheet(projectPayload)
+        : this.timesheetService.submitProjectTimesheet(projectPayload);
+
+      request$.subscribe({
         next: () => {
           this.loading = false;
-          this.showToast('Project work submitted successfully');
+          this.showToast(this.isEditing ? 'Project report resubmitted successfully' : 'Project work submitted successfully');
           this.resetForm();
         },
-        error: () => {
+        error: (err) => {
           this.loading = false;
-          this.showToast('Failed to submit project work');
+          const msg = err?.error?.error || 'Failed to submit project work';
+          this.showToast(msg);
         },
       });
 
@@ -644,27 +688,44 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     }
 
     /* ================= REGULAR TIMESHEET ================= */
-    this.timesheetService.submitRegularTimesheet(basePayload).subscribe({
+    const regRequest$ = (this.isEditing || this.editingTimesheetId)
+      ? this.timesheetService.resubmitRegularTimesheet(basePayload)
+      : this.timesheetService.submitRegularTimesheet(basePayload);
+
+    regRequest$.subscribe({
       next: () => {
         this.loading = false;
-        this.showToast('Timesheet submitted successfully');
+        this.showToast(this.isEditing ? 'Timesheet resubmitted successfully' : 'Timesheet submitted successfully');
         this.resetForm();
       },
-      error: () => {
+      error: (err) => {
         this.loading = false;
-        this.showToast('Failed to submit timesheet');
+        const msg = err?.error?.error || 'Failed to submit timesheet';
+        this.showToast(msg);
       },
     });
   }
+
+  cancelEdit() {
+    this.isEditing = false;
+    this.editingTimesheetId = null;
+    this.resetForm();
+  }
+
   resetForm() {
+    this.isEditing = false;
+    this.editingTimesheetId = null;
     this.workTrackForm.reset({ date: this.today });
     this.initializeFirstTimeSlot();
     // Delay loading to ensure hasProject is set
     setTimeout(() => this.loadMyTimesheets(), 100);
   }
 
-  /* ================= EDIT ================= */
+  /* ================= EDIT / RESUBMIT ================= */
   editTimesheet(t: any) {
+    this.isEditing = true;
+    this.editingTimesheetId = t.id || null;
+
     // Scroll smoothly to the Daily Work Log card
     const formElement = document.getElementById('daily-work-log-card');
     if (formElement) {
@@ -676,7 +737,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     const formattedDate = new Date(t.date).toISOString().split('T')[0];
     this.workTrackForm.patchValue({
       date: formattedDate,
-      project_id: t.project_id,
+      project_id: t.project_id || null,
       work_description: t.work_description || '',
       notes: t.notes || ''
     });
@@ -684,34 +745,147 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     this.breakdowns.clear();
 
     let bd = t.hours_breakdown;
-    if (typeof bd === 'string') {
+    let attempts = 0;
+    while (typeof bd === 'string' && attempts < 5) {
+      attempts++;
       try {
         bd = JSON.parse(bd);
-      } catch (e) { bd = []; }
+      } catch (e) { bd = []; break; }
     }
 
+    // 1. If hours_breakdown exists as a non-empty array
     if (bd && Array.isArray(bd) && bd.length > 0) {
-      bd.forEach((b: any) => {
+      bd.forEach((b: any, idx: number) => {
+        let hourVal = '';
+        let taskVal = '';
+        let hoursVal = 1;
+
+        if (typeof b === 'string') {
+          const parsed = this.parseTaskStringForEdit(b, idx + 1, Number(t.total_hours || 1) / bd.length);
+          hourVal = parsed.hour;
+          taskVal = parsed.task;
+          hoursVal = parsed.hours;
+        } else {
+          hourVal = b.hour || b.time_slot || b.time || b.slot || b.timeSlot || '';
+          taskVal = b.task || b.task_description || b.notes || b.description || b.work_description || b.details || '';
+          hoursVal = b.hours !== undefined && b.hours !== null ? Number(b.hours) : (b.hours_worked !== undefined ? Number(b.hours_worked) : 1);
+        }
+
+        if (!hourVal) {
+          hourVal = this.generateSlotForIndex(idx, hoursVal);
+        }
+
         this.breakdowns.push(
           this.fb.group({
-            hour: [b.hour, Validators.required],
-            task: [b.task, Validators.required],
-            hours: [Number(b.hours), [Validators.required, Validators.min(0.1)]],
+            hour: [hourVal, Validators.required],
+            task: [taskVal, Validators.required],
+            hours: [hoursVal, [Validators.required, Validators.min(0.1)]],
           })
         );
       });
-    } else {
-      this.initializeFirstTimeSlot();
+      return;
     }
+
+    // 2. Fallback: Parse work_description or notes into multiple form rows
+    const summaryText = (t.work_description || t.notes || '').trim();
+    if (summaryText) {
+      const parsedSlots = this.parseSummaryTextForEdit(summaryText, Number(t.total_hours || 1));
+      if (parsedSlots.length > 0) {
+        parsedSlots.forEach((slot: any) => {
+          this.breakdowns.push(
+            this.fb.group({
+              hour: [slot.hour, Validators.required],
+              task: [slot.task, Validators.required],
+              hours: [slot.hours, [Validators.required, Validators.min(0.1)]],
+            })
+          );
+        });
+        return;
+      }
+    }
+
+    // 3. Default fallback
+    this.initializeFirstTimeSlot();
+  }
+
+  private parseSummaryTextForEdit(summaryText: string, totalHours: number): any[] {
+    if (!summaryText || !summaryText.trim()) return [];
+
+    const text = summaryText.trim();
+    let taskStrings: string[] = [];
+
+    if (text.includes(' • ')) {
+      taskStrings = text.split(' • ').map(t => t.trim()).filter(Boolean);
+    } else if (text.includes('\n')) {
+      taskStrings = text.split('\n').map(t => t.trim()).filter(Boolean);
+    } else if (text.includes(';')) {
+      taskStrings = text.split(';').map(t => t.trim()).filter(Boolean);
+    } else if (/\b\d+[\.\)]\s+/.test(text)) {
+      taskStrings = text.split(/\b\d+[\.\)]\s+/).map(t => t.trim()).filter(Boolean);
+    } else {
+      taskStrings = [text];
+    }
+
+    const calculatedHours = taskStrings.length > 0
+      ? Math.round(((totalHours || 1) / taskStrings.length) * 100) / 100
+      : (totalHours || 1);
+
+    return taskStrings.map((t, idx) => {
+      const parsed = this.parseTaskStringForEdit(t, idx + 1, calculatedHours);
+      if (!parsed.hour || parsed.hour.startsWith('Slot ')) {
+        parsed.hour = this.generateSlotForIndex(idx, calculatedHours);
+      }
+      return parsed;
+    });
+  }
+
+  private parseTaskStringForEdit(text: string, slotIndex: number, defaultHours: number): any {
+    const trimmed = text.trim();
+    const slotMatch = trimmed.match(/^(?:\[([^\]]+)\]|([0-9]{1,2}:[0-9]{2}\s*(?:AM|PM)?(?:\s*-\s*[0-9]{1,2}:[0-9]{2}\s*(?:AM|PM)?)?):?)\s*(.+)$/i);
+    if (slotMatch) {
+      const timeSlot = (slotMatch[1] || slotMatch[2] || '').trim();
+      const taskDesc = slotMatch[3].trim();
+      return {
+        hour: timeSlot,
+        hours: defaultHours,
+        task: taskDesc
+      };
+    }
+    return {
+      hour: '',
+      hours: defaultHours,
+      task: trimmed
+    };
+  }
+
+  private generateSlotForIndex(index: number, durationHours: number): string {
+    let startHour = 9 + index * Math.max(1, Math.floor(durationHours));
+    const startDate = new Date();
+    startDate.setHours(startHour, 0, 0, 0);
+
+    const endDate = new Date(startDate);
+    endDate.setMinutes(startDate.getMinutes() + Math.round(durationHours * 60));
+
+    return `${this.formatTime(startDate)} - ${this.formatTime(endDate)}`;
   }
 
   /* ================= PREVIEW ================= */
 
   async openPreview(timesheet: any) {
+    const ts = { ...timesheet };
+    let attempts = 0;
+    while (typeof ts.hours_breakdown === 'string' && attempts < 5) {
+      attempts++;
+      try {
+        ts.hours_breakdown = JSON.parse(ts.hours_breakdown);
+      } catch (e) {
+        break;
+      }
+    }
     const modal = await this.modalCtrl.create({
       component: TimesheetPreviewComponent,
       cssClass: 'side-custom-popup view-work-log',
-      componentProps: { data: timesheet },
+      componentProps: { data: ts },
     });
     await modal.present();
   }
@@ -864,6 +1038,24 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     }
   }
 
+  getDisplayStatus(status: string): string {
+    if (!status) return 'Pending';
+    const s = status.toLowerCase();
+    if (s === 'submitted') return 'Submitted';
+    if (s === 'approved' || s === 'verified') return 'Approved';
+    if (s === 'rejected') return 'Rejected';
+    return status;
+  }
+
+  findExistingTimesheetByDate(dateStr: string): any {
+    if (!dateStr || !this.myTimesheets || !this.myTimesheets.length) return null;
+    const clean = dateStr.split('T')[0];
+    return this.myTimesheets.find((t: any) => {
+      const d = t.date || t.week_start_date || t.created_at;
+      return d ? new Date(d).toISOString().split('T')[0] === clean : false;
+    }) || null;
+  }
+
   getApprovedCount(): number {
     if (!this.myTimesheets) return 0;
     return this.myTimesheets.filter(t => (t.status || '').toLowerCase() === 'approved').length;
@@ -878,7 +1070,6 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     if (!this.myTimesheets) return 0;
     return this.myTimesheets.reduce((sum, t) => sum + (parseFloat(t.total_hours) || 0), 0);
   }
-
 
   formatDate(date: Date): string {
     const year = date.getFullYear();

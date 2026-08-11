@@ -202,6 +202,11 @@
                     (click)="editTimesheet(t)" title="Edit">
                     <ion-icon name="create-outline"></ion-icon>
                   </button>
+                  <!-- <button class="icon-btn resubmit"
+                    *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                    (click)="editTimesheet(t)" title="Resubmit Report">
+                    <ion-icon name="repeat-outline"></ion-icon>
+                  </button> -->
                   <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
                     <ion-icon name="eye-outline"></ion-icon>
                   </button>
@@ -349,9 +354,15 @@
                   <ion-icon name="add-outline"></ion-icon>
                   <span>Add Slot</span>
                 </button>
+                <button type="button" class="premium-action-btn secondary" *ngIf="isEditing" (click)="cancelEdit()">
+                  <ion-icon name="close-circle-outline"></ion-icon>
+                  <span>Cancel Edit</span>
+                </button>
                 <button type="button" class="premium-action-btn primary large" (click)="submit()" [disabled]="loading">
-                  <ion-icon [name]="loading ? 'refresh-outline' : 'send-outline'"></ion-icon>
-                  <span>{{ loading ? 'Submitting...' : 'Submit Log' }}</span>
+                  <ion-icon
+                    [name]="loading ? 'refresh-outline' : (isEditing ? 'repeat-outline' : 'send-outline')"></ion-icon>
+                  <span>{{ loading ? (isEditing ? 'Resubmitting...' : 'Submitting...') : (isEditing ? 'Resubmit Report'
+                    : 'Submit Log') }}</span>
                 </button>
               </div>
             </div>
@@ -439,7 +450,7 @@
                 </div>
               </div>
               <div class="ts-row-body">
-                <!-- <div class="ts-desc">{{ t.work_description || t.notes || 'No description' }}</div> -->
+                <div class="ts-desc">Time Sheet</div>
                 <div class="ts-row-meta">
                   <span class="meta-item">
                     <ion-icon name="time-outline"></ion-icon>
@@ -460,6 +471,11 @@
                     (click)="editTimesheet(t)" title="Edit">
                     <ion-icon name="create-outline"></ion-icon>
                   </button>
+                  <!-- <button class="icon-btn resubmit"
+                    *ngIf="t.status && (t.status.toLowerCase() === 'submitted' || t.status.toLowerCase() === 'pending' || t.status.toLowerCase() === 'rejected')"
+                    (click)="editTimesheet(t)" title="Resubmit Report">
+                    <ion-icon name="repeat-outline"></ion-icon>
+                  </button> -->
                   <button class="icon-btn view" (click)="openPreview(t)" title="Preview">
                     <ion-icon name="eye-outline"></ion-icon>
                   </button>
