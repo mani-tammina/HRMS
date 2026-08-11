@@ -284,7 +284,9 @@
           color: #dc2626 !important;
           font-weight: 700 !important;
 
-          .item-icon { color: #dc2626 !important; }
+          .item-icon {
+            color: #dc2626 !important;
+          }
 
           &::before {
             background: #dc2626 !important;
@@ -292,12 +294,14 @@
         }
 
         &:not(.active):hover {
-          .item-icon { color: #dc2626; }
+          .item-icon {
+            color: #dc2626;
+          }
         }
 
         .item-count--rejected {
           background: #ef4444;
-          color: #ffffff;
+          color: #fff !important;
           font-size: 0.7rem;
           padding: 1px 6px;
           border-radius: 10px;
