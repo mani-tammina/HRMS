@@ -251,7 +251,8 @@
               [class.unread]="notification.is_read === 0" (click)="selectNotification(notification)">
 
               <div class="card-avatar-wrapper">
-                <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)" (error)="onProfileImageError(notification)" class="avatar-img" />
+                <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)"
+                  (error)="onProfileImageError(notification)" class="avatar-img" />
                 <div *ngIf="!getProfileImage(notification)" class="avatar-circle">
                   {{ getInitials(notification.employee_name) }}
                 </div>
@@ -260,7 +261,12 @@
               <div class="card-content-body">
                 <div class="card-header-line">
                   <span class="employee-name">{{ notification.employee_name }}</span>
-                  <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+                  <div class="card-meta-right">
+                    <span class="card-status-badge" [ngClass]="getStatusBadgeClass(notification.status)">
+                      {{ notification.status || 'Pending' }}
+                    </span>
+                    <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+                  </div>
                 </div>
                 <div class="request-title-line">
                   {{ notification.request_type }}: {{ getCardShortSummary(notification) }}
@@ -296,7 +302,8 @@
             <div class="reader-top-header">
               <div class="user-info-group">
                 <div class="reader-avatar">
-                  <img *ngIf="getProfileImage(selectedNotification)" [src]="getProfileImage(selectedNotification)" (error)="onProfileImageError(selectedNotification)" class="reader-avatar-img" />
+                  <img *ngIf="getProfileImage(selectedNotification)" [src]="getProfileImage(selectedNotification)"
+                    (error)="onProfileImageError(selectedNotification)" class="reader-avatar-img" />
                   <span *ngIf="!getProfileImage(selectedNotification)">
                     {{ getInitials(selectedNotification.employee_name) }}
                   </span>
@@ -304,6 +311,9 @@
                 <div class="user-details">
                   <div class="name-row">
                     <h2 class="emp-name">{{ selectedNotification.employee_name }}</h2>
+                    <span class="header-status-badge" [ngClass]="getStatusBadgeClass(selectedNotification.status)">
+                      {{ selectedNotification.status || 'Pending' }}
+                    </span>
                     <button class="kebab-options-btn" (click)="showCardActions(selectedNotification)">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
                         style="width: 18px; height: 18px; color: #64748b;">
@@ -350,7 +360,7 @@
 
               <div class="banner-summary-text">
                 <h3 class="summary-type-title">{{ getLeaveTypeTitle(selectedNotification) }}</h3>
-            <span class="summary-relative-time">{{ getRelativeLeaveStatus(selectedNotification) }}</span>
+                <span class="summary-relative-time">{{ getRelativeLeaveStatus(selectedNotification) }}</span>
               </div>
             </div>
 
@@ -391,7 +401,8 @@
               <div class="rejection-card-footer">
                 <div class="footer-timestamp">
                   <ion-icon name="time-outline"></ion-icon>
-                  <span>Rejected on {{ formatDate(selectedNotification.updated_at || selectedNotification.created_at) }}</span>
+                  <span>Rejected on {{ formatDate(selectedNotification.updated_at || selectedNotification.created_at)
+                    }}</span>
                 </div>
               </div>
             </div>
@@ -410,16 +421,36 @@
                 <div class="log-text-details">
                   <span class="log-title">Timesheet Work Log</span>
                   <span class="log-hours-count">
-                    <strong>{{ getParsedMetadata(selectedNotification.metadata).total_hours || '0' }}</strong> Hours Logged
+                    <strong>{{ getParsedMetadata(selectedNotification.metadata).total_hours || '0' }}</strong> Hours
+                    Logged
                   </span>
                 </div>
               </div>
-              <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
-                <ion-icon name="eye-outline"></ion-icon>
-                <span>View Details</span>
-              </button>
+              <div class="log-action-buttons">
+                <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
+                  <ion-icon name="eye-outline"></ion-icon>
+                  <span>View Details</span>
+                </button>
+                <button class="btn-resubmit-report" *ngIf="selectedNotification.status === 'Rejected'"
+                  (click)="navigateToResubmitWorkTrack(selectedNotification)">
+                  <ion-icon name="create-outline"></ion-icon>
+                  <span>Resubmit Report</span>
+                </button>
+              </div>
             </div>
           </div>
+
+          <!-- Bottom Action Bar for Rejected Timesheets -->
+          <!-- <div class="reader-bottom-action-bar resubmit-action-bar" *ngIf="selectedNotification.status === 'Rejected' && selectedNotification.request_type === 'Timesheet Request'">
+            <div class="action-status-hint">
+              <ion-icon name="alert-circle-outline"></ion-icon>
+              <span>Modify your work log and resubmit report for this date.</span>
+            </div>
+            <button class="btn-primary-resubmit" (click)="navigateToResubmitWorkTrack(selectedNotification)">
+              <ion-icon name="create-outline"></ion-icon>
+              <span>Edit & Resubmit Report</span>
+            </button>
+          </div> -->
 
           <!-- Bottom Action & Comment Footer Bar -->
           <div class="reader-bottom-action-bar" *ngIf="selectedNotification.status === 'Pending'">

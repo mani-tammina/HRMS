@@ -480,10 +480,48 @@
                 text-overflow: ellipsis;
               }
 
-              .time-ago {
-                font-size: 0.7rem;
-                color: #94a3b8;
-                white-space: nowrap;
+              .card-meta-right {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+
+                .card-status-badge {
+                  font-size: 0.65rem;
+                  font-weight: 700;
+                  padding: 2px 7px;
+                  border-radius: 12px;
+                  text-transform: capitalize;
+
+                  &.status-pending {
+                    background: #fef3c7;
+                    color: #d97706;
+                    border: 1px solid #fde68a;
+                  }
+
+                  &.status-approved {
+                    background: #dcfce7;
+                    color: #15803d;
+                    border: 1px solid #bbf7d0;
+                  }
+
+                  &.status-rejected {
+                    background: #fee2e2;
+                    color: #b91c1c;
+                    border: 1px solid #fecaca;
+                  }
+
+                  &.status-cancelled {
+                    background: #f1f5f9;
+                    color: #64748b;
+                    border: 1px solid #cbd5e1;
+                  }
+                }
+
+                .time-ago {
+                  font-size: 0.7rem;
+                  color: #94a3b8;
+                  white-space: nowrap;
+                }
               }
             }
 
@@ -612,6 +650,39 @@
                 font-weight: 700;
                 color: #0f172a;
                 margin: 0;
+              }
+
+              .header-status-badge {
+                font-size: 0.72rem;
+                font-weight: 700;
+                padding: 3px 10px;
+                border-radius: 14px;
+                text-transform: uppercase;
+                letter-spacing: 0.4px;
+
+                &.status-pending {
+                  background: #fef3c7;
+                  color: #d97706;
+                  border: 1px solid #fde68a;
+                }
+
+                &.status-approved {
+                  background: #dcfce7;
+                  color: #15803d;
+                  border: 1px solid #bbf7d0;
+                }
+
+                &.status-rejected {
+                  background: #fee2e2;
+                  color: #b91c1c;
+                  border: 1px solid #fecaca;
+                }
+
+                &.status-cancelled {
+                  background: #f1f5f9;
+                  color: #64748b;
+                  border: 1px solid #cbd5e1;
+                }
               }
 
               .kebab-options-btn {
@@ -989,32 +1060,67 @@
           }
         }
 
-        .btn-view-preview {
-          background: linear-gradient(135deg, vars.$color-primary 0%, #4a2e82 100%);
-          color: #ffffff;
-          border: none;
-          padding: 8px 18px;
-          border-radius: 20px;
-          font-size: 0.8rem;
-          font-weight: 700;
-          cursor: pointer;
+        .log-action-buttons {
           display: flex;
           align-items: center;
-          gap: 6px;
-          box-shadow: 0 3px 10px rgba(97, 67, 157, 0.25);
-          transition: all 0.2s ease;
+          gap: 10px;
 
-          ion-icon {
-            font-size: 16px;
+          .btn-view-preview {
+            background: linear-gradient(135deg, vars.$color-primary 0%, #4a2e82 100%);
+            color: #ffffff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 3px 10px rgba(97, 67, 157, 0.25);
+            transition: all 0.2s ease;
+
+            ion-icon {
+              font-size: 16px;
+            }
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 5px 15px rgba(97, 67, 157, 0.35);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
           }
 
-          &:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 5px 15px rgba(97, 67, 157, 0.35);
-          }
+          .btn-resubmit-report {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: #ffffff;
+            border: none;
+            padding: 8px 18px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+            transition: all 0.2s ease;
 
-          &:active {
-            transform: translateY(0);
+            ion-icon {
+              font-size: 16px;
+            }
+
+            &:hover {
+              transform: translateY(-1px);
+              box-shadow: 0 5px 15px rgba(37, 99, 235, 0.35);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
           }
         }
       }
@@ -1028,6 +1134,59 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
+
+      &.resubmit-action-bar {
+        background: #eff6ff;
+        border-top: 1px solid #bfdbfe;
+        padding: 14px 24px;
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+
+        .action-status-hint {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #1e40af;
+          font-size: 0.82rem;
+          font-weight: 600;
+
+          ion-icon {
+            font-size: 18px;
+            color: #2563eb;
+          }
+        }
+
+        .btn-primary-resubmit {
+          background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+          color: #ffffff;
+          border: none;
+          padding: 9px 20px;
+          border-radius: 20px;
+          font-size: 0.82rem;
+          font-weight: 700;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 3px 10px rgba(37, 99, 235, 0.25);
+          transition: all 0.2s ease;
+
+          ion-icon {
+            font-size: 17px;
+          }
+
+          &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(37, 99, 235, 0.35);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
+        }
+      }
 
       .character-limit-indicator {
         font-size: 0.7rem;

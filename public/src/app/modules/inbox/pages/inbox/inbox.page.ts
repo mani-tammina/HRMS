@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { AlertController, LoadingController, ModalController } from '@ionic/angular';
+import { Router } from '@angular/router';
 
 import { InboxNotification } from '../../models/notification.model';
 import { InboxService } from '../../services/inbox.service';
@@ -142,7 +143,8 @@ export class InboxPage implements OnInit {
     private auth: RouteGuardService,
     private alertCtrl: AlertController,
     private loadingCtrl: LoadingController,
-    private modalCtrl: ModalController
+    private modalCtrl: ModalController,
+    private router: Router
   ) {}
 
   showFilters = false;
@@ -173,6 +175,13 @@ export class InboxPage implements OnInit {
       this.loadRejectedCount();
     }
     this.generateMonthOptions();
+    this.loadNotifications();
+  }
+
+  ionViewWillEnter() {
+    if (this.isEmployee) {
+      this.loadRejectedCount();
+    }
     this.loadNotifications();
   }
 
@@ -283,6 +292,15 @@ export class InboxPage implements OnInit {
     if (n) {
       n.imageFailed = true;
     }
+  }
+
+  getStatusBadgeClass(status?: string): string {
+    if (!status) return 'status-pending';
+    const s = status.toLowerCase();
+    if (s === 'approved' || s === 'verified') return 'status-approved';
+    if (s === 'rejected') return 'status-rejected';
+    if (s === 'cancelled') return 'status-cancelled';
+    return 'status-pending';
   }
 
   getParsedMetadata(metadataStr: any): any {
@@ -853,6 +871,20 @@ export class InboxPage implements OnInit {
         loading.dismiss();
         console.error('Failed to load timesheet details', err);
         this.toaster.showError('Failed to load timesheet details');
+      }
+    });
+  }
+
+  navigateToResubmitWorkTrack(n: InboxNotification) {
+    if (!n) return;
+    const meta = this.getParsedMetadata(n.metadata);
+    const date = meta.date || meta.week_start || (n as any).date || (n.created_at ? n.created_at.substring(0, 10) : '');
+    const id = n.request_id;
+    this.router.navigate(['/workTrack'], {
+      queryParams: {
+        date: date,
+        id: id,
+        action: 'edit'
       }
     });
   }

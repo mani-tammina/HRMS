@@ -74,6 +74,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+
+    this.inboxService.refreshCount$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.fetchUnreadInboxCount();
+    });
   }
 
   @HostListener('document:click', ['$event'])
@@ -136,13 +140,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private fetchUnreadInboxCount() {
-    const role = this.userRole?.toLowerCase() || '';
-    const hasAccess = ['manager', 'hr', 'admin', 'approver'].includes(role);
-    if (!this.isLoginPage && this.routeGuardService.isLoggedIn && hasAccess) {
+    if (!this.isLoginPage && this.routeGuardService.isLoggedIn) {
       this.inboxService.getNotifications({ page: 1, limit: 1 }).subscribe({
         next: (res) => {
           if (res && res.success) {
-            this.unreadInboxCount = res.unreadCount;
+            const role = (this.userRole || '').toLowerCase();
+            if (role === 'employee') {
+              const rejected = res.stats?.rejected || 0;
+              const unread = res.unreadCount || 0;
+              this.unreadInboxCount = Math.max(unread, rejected);
+            } else {
+              this.unreadInboxCount = res.unreadCount || 0;
+            }
             this.cdr.detectChanges();
           }
         },

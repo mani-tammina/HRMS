@@ -154,7 +154,7 @@ router.get("/", auth, async (req, res) => {
                 SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unread,
                 SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'Rejected' AND request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as rejected,
+                SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
                 SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type IN ('Leave Request', 'Comp Off Request') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
                 SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Attendance Regularization' THEN 1 ELSE 0 END) as attendanceCount,
                 SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,

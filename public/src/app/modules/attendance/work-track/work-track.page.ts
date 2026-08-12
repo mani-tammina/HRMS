@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
+import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, forkJoin, takeUntil, catchError, of } from 'rxjs';
 import {
   FormBuilder,
@@ -128,7 +129,9 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     private employeeService: EmployeeService,
     private weeklyOffService: WeeklyOffPolicyService,
     private adminService: AdminService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private route: ActivatedRoute,
+    private router: Router
   ) { }
 
   ngOnInit() {
@@ -656,6 +659,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       work_description: this.workTrackForm.value.work_description || breakdownTasks
     };
 
+    const isResubmitting = this.isEditing || !!this.editingTimesheetId;
     this.loading = true;
 
     /* ================= PROJECT TIMESHEET ================= */
@@ -667,15 +671,20 @@ export class WorkTrackPage implements OnInit, OnDestroy {
         work_description: this.workTrackForm.value.work_description || breakdownTasks || this.workTrackForm.value.notes
       };
 
-      const request$ = (this.isEditing || this.editingTimesheetId)
+      const request$ = isResubmitting
         ? this.timesheetService.resubmitProjectTimesheet(projectPayload)
         : this.timesheetService.submitProjectTimesheet(projectPayload);
 
       request$.subscribe({
         next: () => {
           this.loading = false;
-          this.showToast(this.isEditing ? 'Project report resubmitted successfully' : 'Project work submitted successfully');
+          this.showToast(isResubmitting ? 'Project report resubmitted successfully' : 'Project work submitted successfully');
           this.resetForm();
+          if (isResubmitting) {
+            setTimeout(() => {
+              this.router.navigate(['/inbox']);
+            }, 600);
+          }
         },
         error: (err) => {
           this.loading = false;
@@ -688,15 +697,20 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     }
 
     /* ================= REGULAR TIMESHEET ================= */
-    const regRequest$ = (this.isEditing || this.editingTimesheetId)
+    const regRequest$ = isResubmitting
       ? this.timesheetService.resubmitRegularTimesheet(basePayload)
       : this.timesheetService.submitRegularTimesheet(basePayload);
 
     regRequest$.subscribe({
       next: () => {
         this.loading = false;
-        this.showToast(this.isEditing ? 'Timesheet resubmitted successfully' : 'Timesheet submitted successfully');
+        this.showToast(isResubmitting ? 'Timesheet resubmitted successfully' : 'Timesheet submitted successfully');
         this.resetForm();
+        if (isResubmitting) {
+          setTimeout(() => {
+            this.router.navigate(['/inbox']);
+          }, 600);
+        }
       },
       error: (err) => {
         this.loading = false;
@@ -911,6 +925,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
         this.currentPage = 1;
         this.updatePagination();
         this.loadingList = false;
+        this.checkRouteParamsAndEdit();
       },
       error: () => {
         this.loadingList = false;
@@ -919,7 +934,43 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     });
   }
 
-  /* ================= PAGINATION ================= */
+  checkRouteParamsAndEdit() {
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(params => {
+      if (params && (params['date'] || params['id'])) {
+        const targetDate = params['date'];
+        const targetId = params['id'] ? parseInt(params['id'], 10) : null;
+
+        if (targetDate) {
+          const cleanDate = targetDate.split('T')[0];
+          this.workTrackForm.patchValue({ date: cleanDate });
+        }
+
+        setTimeout(() => {
+          if (this.myTimesheets && this.myTimesheets.length > 0) {
+            const match = this.myTimesheets.find((t: any) => {
+              if (targetId && t.id === targetId) return true;
+              if (targetDate) {
+                const cleanTDate = new Date(t.date).toISOString().split('T')[0];
+                return cleanTDate === targetDate.split('T')[0];
+              }
+              return false;
+            });
+
+            if (match) {
+              this.editTimesheet(match);
+            } else {
+              this.isEditing = true;
+              if (targetId) this.editingTimesheetId = targetId;
+              const formElement = document.getElementById('daily-work-log-card');
+              if (formElement) {
+                formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }
+          }
+        }, 300);
+      }
+    });
+  }
 
   updatePagination() {
     this.totalPages = Math.ceil(this.myTimesheets.length / this.itemsPerPage);
