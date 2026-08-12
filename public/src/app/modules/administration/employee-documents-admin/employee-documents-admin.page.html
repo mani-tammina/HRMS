@@ -1,0 +1,519 @@
+<ion-content [fullscreen]="true" class="documents-admin-content ion-padding">
+  <!-- TOP HEADER -->
+  <div class="top-header-bar">
+    <div class="header-text">
+      <h1>Employee Documents Management</h1>
+      <p>Manage, verify, and bulk process employee identity, payroll, and compliance documents</p>
+    </div>
+    <div class="header-actions">
+      <button class="btn btn-secondary" (click)="openDocTypesModal()">
+        <ion-icon name="options-outline"></ion-icon>
+        <span>Document Types Master</span>
+      </button>
+      <button class="btn btn-primary-accent" (click)="openBulkForm16Modal()">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        <span>Bulk Form 16 (ZIP)</span>
+      </button>
+      <button class="btn btn-primary" (click)="openUploadModal()">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Upload Document</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI OVERVIEW STATS -->
+  <div class="kpi-stats-grid">
+    <div class="kpi-card total">
+      <div class="kpi-icon"><ion-icon name="folder-open-outline"></ion-icon></div>
+      <div class="kpi-info">
+        <span class="kpi-value">{{ kpiStats.total }}</span>
+        <span class="kpi-label">Total Documents</span>
+      </div>
+    </div>
+    <div class="kpi-card identity">
+      <div class="kpi-icon"><ion-icon name="card-outline"></ion-icon></div>
+      <div class="kpi-info">
+        <span class="kpi-value">{{ kpiStats.identity }}</span>
+        <span class="kpi-label">Identity Proofs</span>
+      </div>
+    </div>
+    <div class="kpi-card payroll">
+      <div class="kpi-icon"><ion-icon name="cash-outline"></ion-icon></div>
+      <div class="kpi-info">
+        <span class="kpi-value">{{ kpiStats.payroll }}</span>
+        <span class="kpi-label">Payroll & Tax</span>
+      </div>
+    </div>
+    <div class="kpi-card employment">
+      <div class="kpi-icon"><ion-icon name="briefcase-outline"></ion-icon></div>
+      <div class="kpi-info">
+        <span class="kpi-value">{{ kpiStats.employment }}</span>
+        <span class="kpi-label">Employment Files</span>
+      </div>
+    </div>
+    <div class="kpi-card form16">
+      <div class="kpi-icon"><ion-icon name="document-text-outline"></ion-icon></div>
+      <div class="kpi-info">
+        <span class="kpi-value">{{ kpiStats.form16 }}</span>
+        <span class="kpi-label">Form 16 Issued</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FILTER & SEARCH BAR -->
+  <div class="filter-card">
+    <div class="filter-grid">
+      <div class="filter-item">
+        <label>Employee</label>
+        <select [(ngModel)]="selectedEmployeeId" (change)="onFilterChange()">
+          <option value="">All Employees</option>
+          <option *ngFor="let emp of employeesList" [value]="emp.id">
+            {{ emp.FullName || emp.FirstName + ' ' + emp.LastName }} ({{ emp.EmployeeNumber || emp.id }})
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Category</label>
+        <select [(ngModel)]="selectedCategory" (change)="onFilterChange()">
+          <option value="">All Categories</option>
+          <option value="Identity">Identity</option>
+          <option value="Payroll">Payroll</option>
+          <option value="Employment">Employment</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Document Type</label>
+        <select [(ngModel)]="selectedDocumentTypeId" (change)="onFilterChange()">
+          <option value="">All Document Types</option>
+          <option *ngFor="let type of documentTypes" [value]="type.id">
+            {{ type.name }}
+          </option>
+        </select>
+      </div>
+
+      <div class="filter-item">
+        <label>Financial Year</label>
+        <select [(ngModel)]="selectedFinancialYear" (change)="onFilterChange()">
+          <option value="">All Years</option>
+          <option *ngFor="let fy of financialYears" [value]="fy">{{ fy }}</option>
+        </select>
+      </div>
+
+      <div class="filter-item search-item">
+        <label>Search Query</label>
+        <div class="search-input-wrap">
+          <ion-icon name="search-outline"></ion-icon>
+          <input 
+            type="text" 
+            [(ngModel)]="searchQuery" 
+            (keyup.enter)="onFilterChange()" 
+            placeholder="Search employee, document name..." 
+          />
+        </div>
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn btn-outline" (click)="clearFilters()" title="Reset Filters">
+          <ion-icon name="refresh-outline"></ion-icon> Clear
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLE CONTAINER -->
+  <div class="table-card">
+    <div class="table-responsive" *ngIf="!isLoading && documents.length > 0">
+      <table class="custom-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Document Name</th>
+            <th>Category & Type</th>
+            <th>FY</th>
+            <th>Size</th>
+            <th>Version</th>
+            <th>Uploaded By</th>
+            <th>Date</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let doc of documents">
+            <td>
+              <div class="emp-cell">
+                <span class="emp-name">{{ doc.employee_name || 'N/A' }}</span>
+                <span class="emp-code">#{{ doc.employee_number || doc.employee_id }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="doc-cell">
+                <span class="doc-title">{{ doc.document_name }}</span>
+                <span class="doc-filename">{{ doc.original_file_name }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="cat-cell">
+                <span class="badge" [class]="doc.document_category?.toLowerCase() || 'other'">
+                  {{ doc.document_category || 'Other' }}
+                </span>
+                <span class="type-name">{{ doc.document_type_name }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="fy-badge" *ngIf="doc.financial_year">{{ doc.financial_year }}</span>
+              <span class="na-text" *ngIf="!doc.financial_year">-</span>
+            </td>
+            <td>{{ formatFileSize(doc.file_size) }}</td>
+            <td>
+              <span class="v-tag">v{{ doc.version }}</span>
+            </td>
+            <td>{{ doc.uploaded_by_name || 'Admin' }}</td>
+            <td>{{ doc.uploaded_at | date:'shortDate' }}</td>
+            <td class="text-right">
+              <div class="action-buttons">
+                <button class="icon-btn preview" (click)="previewDocument(doc)" title="Preview">
+                  <ion-icon name="eye-outline"></ion-icon>
+                </button>
+                <button class="icon-btn download" (click)="downloadDocument(doc)" title="Download">
+                  <ion-icon name="download-outline"></ion-icon>
+                </button>
+                <button class="icon-btn replace" (click)="openReplaceModal(doc)" title="Replace Document">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn delete" (click)="deleteDocument(doc)" title="Delete Document">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- LOADING & EMPTY STATES -->
+    <div class="table-loading" *ngIf="isLoading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Fetching documents...</p>
+    </div>
+
+    <div class="table-empty" *ngIf="!isLoading && documents.length === 0">
+      <div class="empty-icon"><ion-icon name="folder-open-outline"></ion-icon></div>
+      <h3>No Documents Found</h3>
+      <p>No document records match your current filter parameters.</p>
+    </div>
+  </div>
+
+  <!-- MODAL 1: SINGLE DOCUMENT UPLOAD -->
+  <div class="modal-backdrop" *ngIf="showUploadModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><ion-icon name="cloud-upload-outline"></ion-icon> Upload Employee Document</h3>
+        <button class="close-btn" (click)="closeUploadModal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Employee <span class="req">*</span></label>
+          <select [(ngModel)]="singleUploadModel.employee_id">
+            <option value="">Select Employee...</option>
+            <option *ngFor="let emp of employeesList" [value]="emp.id">
+              {{ emp.FullName || emp.FirstName + ' ' + emp.LastName }} ({{ emp.EmployeeNumber || emp.id }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Document Type <span class="req">*</span></label>
+          <select [(ngModel)]="singleUploadModel.document_type_id">
+            <option value="">Select Document Type...</option>
+            <option *ngFor="let type of documentTypes" [value]="type.id">
+              {{ type.name }} ({{ type.category }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col">
+            <label>Financial Year (Optional)</label>
+            <select [(ngModel)]="singleUploadModel.financial_year">
+              <option value="">N/A</option>
+              <option *ngFor="let fy of financialYears" [value]="fy">{{ fy }}</option>
+            </select>
+          </div>
+          <div class="form-group col">
+            <label>Custom Title (Optional)</label>
+            <input type="text" [(ngModel)]="singleUploadModel.document_name" placeholder="e.g. Passport Copy 2026" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Select Document File <span class="req">*</span></label>
+          <div class="file-picker-box">
+            <input type="file" (change)="onSingleFileSelected($event)" id="singleFileInput" hidden />
+            <label for="singleFileInput" class="file-picker-label">
+              <ion-icon name="document-attach-outline"></ion-icon>
+              <span>{{ singleUploadFileName || 'Click to select PDF or image file' }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Remarks / Notes</label>
+          <textarea [(ngModel)]="singleUploadModel.remarks" rows="2" placeholder="Optional notes..."></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeUploadModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitSingleUpload()" [disabled]="isSubmittingSingle">
+          <span *ngIf="!isSubmittingSingle">Upload Document</span>
+          <span *ngIf="isSubmittingSingle">Uploading...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 2: BULK FORM 16 ZIP UPLOAD -->
+  <div class="modal-backdrop" *ngIf="showBulkForm16Modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><ion-icon name="folder-open-outline"></ion-icon> Bulk Form 16 Upload (ZIP)</h3>
+        <button class="close-btn" (click)="closeBulkForm16Modal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="info-alert">
+          <ion-icon name="information-circle-outline"></ion-icon>
+          <p>
+            Upload a single <strong>ZIP archive</strong> containing Form 16 PDFs. The system will automatically read each PDF, extract the <strong>Employee PAN</strong>, and map the document to the corresponding employee record!
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label>Financial Year <span class="req">*</span></label>
+          <select [(ngModel)]="bulkForm16Model.financial_year">
+            <option *ngFor="let fy of financialYears" [value]="fy">{{ fy }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Select Form 16 ZIP Archive (.zip) <span class="req">*</span></label>
+          <div class="file-picker-box zip-box">
+            <input type="file" accept=".zip" (change)="onZipFileSelected($event)" id="bulkZipInput" hidden />
+            <label for="bulkZipInput" class="file-picker-label">
+              <ion-icon name="folder-open-outline"></ion-icon>
+              <span>{{ bulkZipFileName || 'Click to select .zip file containing PDFs' }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeBulkForm16Modal()">Cancel</button>
+        <button class="btn btn-primary-accent" (click)="submitBulkForm16()" [disabled]="isSubmittingBulk">
+          <span *ngIf="!isSubmittingBulk">Extract & Upload All PDFs</span>
+          <span *ngIf="isSubmittingBulk">Processing PDFs & Extracting PANs...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 3: UPLOAD SUMMARY & FAILURE REPORT -->
+  <div class="modal-backdrop" *ngIf="showSummaryModal && bulkSummaryReport">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3><ion-icon name="analytics-outline"></ion-icon> Form 16 Bulk Upload Summary Report</h3>
+        <button class="close-btn" (click)="closeSummaryModal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="summary-metrics">
+          <div class="metric total">
+            <span class="num">{{ bulkSummaryReport.totalFiles }}</span>
+            <span class="lbl">Total PDFs Processed</span>
+          </div>
+          <div class="metric success">
+            <span class="num">{{ bulkSummaryReport.successCount }}</span>
+            <span class="lbl">Successfully Mapped</span>
+          </div>
+          <div class="metric failed">
+            <span class="num">{{ bulkSummaryReport.failedCount }}</span>
+            <span class="lbl">Failed / Unmapped</span>
+          </div>
+        </div>
+
+        <div class="summary-filter-bar">
+          <span>Filter Report:</span>
+          <button class="sm-btn" [class.active]="summaryFilterStatus === 'ALL'" (click)="summaryFilterStatus = 'ALL'">All ({{ bulkSummaryReport.results.length }})</button>
+          <button class="sm-btn success" [class.active]="summaryFilterStatus === 'SUCCESS'" (click)="summaryFilterStatus = 'SUCCESS'">Success ({{ bulkSummaryReport.successCount }})</button>
+          <button class="sm-btn failed" [class.active]="summaryFilterStatus === 'FAILED'" (click)="summaryFilterStatus = 'FAILED'">Failed ({{ bulkSummaryReport.failedCount }})</button>
+        </div>
+
+        <div class="table-responsive modal-table">
+          <table class="custom-table sm-table">
+            <thead>
+              <tr>
+                <th>File Name</th>
+                <th>Extracted PAN</th>
+                <th>Mapped Employee</th>
+                <th>Status</th>
+                <th>Details / Reason</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let r of getFilteredSummaryResults()">
+                <td><span class="file-txt">{{ r.fileName }}</span></td>
+                <td><code>{{ r.extractedPan }}</code></td>
+                <td>{{ r.employeeName }}</td>
+                <td>
+                  <span class="status-badge" [class.success]="r.status === 'Success'" [class.failed]="r.status === 'Failed'">
+                    {{ r.status }}
+                  </span>
+                </td>
+                <td class="reason-txt">{{ r.reason }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" (click)="closeSummaryModal()">Close Report</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 4: DOCUMENT TYPES MASTER SETUP -->
+  <div class="modal-backdrop" *ngIf="showDocTypesModal">
+    <div class="modal-card modal-lg">
+      <div class="modal-header">
+        <h3><ion-icon name="options-outline"></ion-icon> Document Types Master Data</h3>
+        <button class="close-btn" (click)="closeDocTypesModal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="add-doctype-box">
+          <h4>Add New Document Type</h4>
+          <div class="form-row">
+            <div class="form-group col">
+              <label>Code (Unique)</label>
+              <input type="text" [(ngModel)]="newDocTypeModel.code" placeholder="e.g. BONAFIDE_CERT" />
+            </div>
+            <div class="form-group col">
+              <label>Document Name</label>
+              <input type="text" [(ngModel)]="newDocTypeModel.name" placeholder="e.g. Bonafide Certificate" />
+            </div>
+            <div class="form-group col">
+              <label>Category</label>
+              <select [(ngModel)]="newDocTypeModel.category">
+                <option value="Identity">Identity</option>
+                <option value="Payroll">Payroll</option>
+                <option value="Employment">Employment</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-8">
+              <label>Description</label>
+              <input type="text" [(ngModel)]="newDocTypeModel.description" placeholder="Brief description..." />
+            </div>
+            <div class="form-group col-4 flex-align-end">
+              <button class="btn btn-primary w-100" (click)="submitNewDocType()" [disabled]="isSubmittingDocType">
+                Add Document Type
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <h4 class="mt-4">Existing Master Document Types</h4>
+        <div class="table-responsive modal-table">
+          <table class="custom-table sm-table">
+            <thead>
+              <tr>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Description</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let dt of documentTypes">
+                <td><code>{{ dt.code }}</code></td>
+                <td><strong>{{ dt.name }}</strong></td>
+                <td>
+                  <span class="badge" [class]="dt.category.toLowerCase()">{{ dt.category }}</span>
+                </td>
+                <td>{{ dt.description || '-' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeDocTypesModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL 5: REPLACE DOCUMENT -->
+  <div class="modal-backdrop" *ngIf="showReplaceModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3><ion-icon name="create-outline"></ion-icon> Replace Document</h3>
+        <button class="close-btn" (click)="closeReplaceModal()"><ion-icon name="close-outline"></ion-icon></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Document Title</label>
+          <input type="text" [(ngModel)]="replaceModel.document_name" />
+        </div>
+
+        <div class="form-group">
+          <label>Financial Year</label>
+          <select [(ngModel)]="replaceModel.financial_year">
+            <option value="">N/A</option>
+            <option *ngFor="let fy of financialYears" [value]="fy">{{ fy }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Upload Replacement File (Optional - leave empty to update metadata only)</label>
+          <div class="file-picker-box">
+            <input type="file" (change)="onReplaceFileSelected($event)" id="replaceFileInput" hidden />
+            <label for="replaceFileInput" class="file-picker-label">
+              <ion-icon name="cloud-upload-outline"></ion-icon>
+              <span>{{ replaceFileName || 'Click to select new file' }}</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Remarks</label>
+          <textarea [(ngModel)]="replaceModel.remarks" rows="2"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="closeReplaceModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="submitReplaceDocument()" [disabled]="isSubmittingReplace">
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW MODAL OVERLAY -->
+  <div class="preview-modal-overlay" *ngIf="showPreviewModal">
+    <div class="preview-modal-card">
+      <div class="modal-header">
+        <div class="header-title">
+          <ion-icon name="document-attach-outline"></ion-icon>
+          <h3>{{ previewTitle }}</h3>
+        </div>
+        <button class="close-modal-btn" (click)="closePreviewModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <iframe *ngIf="!isPreviewImage && previewUrl" [src]="previewUrl" class="preview-iframe" title="Document Preview"></iframe>
+        <img *ngIf="isPreviewImage && previewUrl" [src]="previewUrl" class="preview-img" alt="Document Preview" />
+      </div>
+    </div>
+  </div>
+</ion-content>

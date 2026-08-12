@@ -65,6 +65,7 @@ const taxationWorkflowRoutes = require("./routes/taxation-workflow.routes");
 const inboxRoutes = require("./routes/inbox.routes");
 const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
+const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -539,6 +540,10 @@ app.use("/api/payroll-master", payrollMasterRoutes);
 // app.use("/api/finance-config", financeConfigRoutes);
 // Upload Routes
 app.use("/api/upload", uploadRoutes);
+
+// Employee Documents Management Routes
+app.use("/api", employeeDocumentsRoutes);
+app.use("/", employeeDocumentsRoutes);
 
 // Timesheet Routes
 app.use("/api/timesheets", timesheetRoutes);
