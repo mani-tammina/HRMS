@@ -40,15 +40,19 @@ router.get("/", auth, async (req, res) => {
                 n.*, 
                 e.FullName as employee_name, 
                 e.EmployeeNumber as employee_number, 
+                e.profile_image as employee_profile_image,
                 d.name as department_name,
                 m.FullName as manager_name,
-                COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name
+                COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name,
+                ts.validation_remarks as validation_remarks,
+                l.rejection_reason as leave_rejection_reason
             FROM inbox_notifications n
             LEFT JOIN employees e ON n.employee_id = e.id
             LEFT JOIN departments d ON e.DepartmentId = d.id
             LEFT JOIN employees m ON n.manager_id = m.id
             LEFT JOIN leaves l ON n.request_id = l.id
             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            LEFT JOIN timesheets ts ON n.request_id = ts.id AND n.request_type = 'Timesheet Request'
             WHERE 1=1
         `;
         const params = [];
@@ -89,7 +93,7 @@ router.get("/", auth, async (req, res) => {
         } else if (tab === "Approved") {
             query += " AND n.status = 'Approved' AND n.is_archived = 0";
         } else if (tab === "Rejected") {
-            query += " AND n.status = 'Rejected' AND n.request_type = 'Timesheet Request' AND n.is_archived = 0";
+            query += " AND n.status = 'Rejected' AND n.is_archived = 0";
         } else {
             // General task tabs: show non-archived items. Enforce status = Pending only when NO specific month is selected
             query += " AND n.is_archived = 0";
@@ -242,13 +246,14 @@ router.get("/:id", auth, async (req, res) => {
     try {
         c = await db();
         const [rows] = await c.query(
-            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, d.name as department_name, m.FullName as manager_name, COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name
+            `SELECT n.*, e.FullName as employee_name, e.EmployeeNumber as employee_number, e.profile_image as employee_profile_image, d.name as department_name, m.FullName as manager_name, COALESCE(lt.type_name, l.leave_type, CASE WHEN n.request_type = 'Comp Off Request' THEN 'Compensatory Off' ELSE NULL END) as leave_type_name, ts.validation_remarks as validation_remarks, l.rejection_reason as leave_rejection_reason
              FROM inbox_notifications n
              LEFT JOIN employees e ON n.employee_id = e.id
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN employees m ON n.manager_id = m.id
              LEFT JOIN leaves l ON n.request_id = l.id
              LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+             LEFT JOIN timesheets ts ON n.request_id = ts.id AND n.request_type = 'Timesheet Request'
              WHERE n.notification_id = ?`,
             [req.params.id]
         );
@@ -478,11 +483,25 @@ router.post("/attendance/action", auth, async (req, res) => {
         }
 
         // Update Notification status
+        let metadata = {};
+        try {
+            metadata = notification.metadata ? (typeof notification.metadata === 'string' ? JSON.parse(notification.metadata) : notification.metadata) : {};
+        } catch (jsonErr) {}
+
+        if (action === "Reject") {
+            metadata.rejection_reason = remarks || "Rejected by Manager";
+            metadata.reason = remarks || "Rejected by Manager";
+            metadata.rejected_by = managerEmp.FullName;
+            metadata.rejected_on = new Date().toISOString();
+        }
+
+        const metadataStr = Object.keys(metadata).length > 0 ? JSON.stringify(metadata) : null;
+
         await c.query(
             `UPDATE inbox_notifications 
-             SET status = ?, is_read = 1, action_taken_by = ?, action_taken_on = NOW(), updated_at = NOW() 
+             SET status = ?, is_read = 1, action_taken_by = ?, action_taken_on = NOW(), metadata = COALESCE(?, metadata), updated_at = NOW() 
              WHERE notification_id = ?`,
-            [resolvedStatus, managerEmp.id, notification_id]
+            [resolvedStatus, managerEmp.id, metadataStr, notification_id]
         );
 
         await c.commit();

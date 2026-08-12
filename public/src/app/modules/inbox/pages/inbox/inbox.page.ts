@@ -12,6 +12,7 @@ import { SeparationService } from 'src/app/core/services/separation.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
 import { RouteGuardService } from 'src/app/core/services/route-guard.service';
 import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
+import { environment } from 'src/environments/environment';
 
 import { NotificationCardComponent } from '../../components/notification-card/notification-card.component';
 import { NotificationFilterComponent } from '../../components/notification-filter/notification-filter.component';
@@ -267,6 +268,23 @@ export class InboxPage implements OnInit {
     return name.slice(0, 2).toUpperCase();
   }
 
+  getProfileImage(n: any): string {
+    if (!n || n.imageFailed) return '';
+    const img = n.employee_profile_image || n.profile_image || n.profile_picture;
+    if (!img) return '';
+    if (img.startsWith('http://') || img.startsWith('https://')) {
+      return img;
+    }
+    const cleanImg = img.startsWith('/') ? img : `/${img}`;
+    return `${environment.apiURL}${cleanImg}`;
+  }
+
+  onProfileImageError(n: any) {
+    if (n) {
+      n.imageFailed = true;
+    }
+  }
+
   getParsedMetadata(metadataStr: any): any {
     if (!metadataStr) return {};
     if (typeof metadataStr === 'object') return metadataStr;
@@ -399,7 +417,16 @@ export class InboxPage implements OnInit {
   getRejectionReason(n: InboxNotification): string {
     if (!n) return '';
     const meta = this.getParsedMetadata(n.metadata);
-    return meta.rejection_reason || meta.reason || '';
+    const reason = meta.rejection_reason || 
+                   meta.reason || 
+                   meta.remarks || 
+                   meta.rejectionReason || 
+                   meta.validation_remarks ||
+                   (n as any).validation_remarks ||
+                   (n as any).rejection_reason ||
+                   (n as any).leave_rejection_reason ||
+                   '';
+    return reason ? String(reason).trim() : '';
   }
 
   getRejectedBy(n: InboxNotification): string {

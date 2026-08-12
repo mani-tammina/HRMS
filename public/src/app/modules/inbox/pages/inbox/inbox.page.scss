@@ -439,6 +439,14 @@
           }
 
           .card-avatar-wrapper {
+            .avatar-img {
+              width: 36px;
+              height: 36px;
+              border-radius: 50%;
+              object-fit: cover;
+              box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            }
+
             .avatar-circle {
               width: 36px;
               height: 36px;
@@ -582,6 +590,15 @@
             justify-content: center;
             font-size: 0.95rem;
             font-weight: 700;
+            overflow: hidden;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+            .reader-avatar-img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+              border-radius: 50%;
+            }
           }
 
           .user-details {
@@ -758,29 +775,247 @@
         }
       }
 
+      // Premium Enterprise Rejection Card
+      .rejection-details-card {
+        background: #ffffff;
+        border: 1px solid #fee2e2;
+        border-left: 5px solid #dc2626;
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 20px -2px rgba(220, 38, 38, 0.08), 0 2px 6px -1px rgba(0, 0, 0, 0.04);
+        transition: all 0.2s ease;
+
+        .rejection-card-top-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+          gap: 12px;
+
+          .rejection-header-group {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+
+            .rejection-icon-badge {
+              width: 40px;
+              height: 40px;
+              border-radius: 10px;
+              background: #fef2f2;
+              color: #dc2626;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              flex-shrink: 0;
+              border: 1px solid #fecaca;
+
+              ion-icon {
+                font-size: 24px;
+              }
+            }
+
+            .rejection-title-meta {
+              .rejection-title {
+                font-size: 1rem;
+                font-weight: 700;
+                color: #991b1b;
+                line-height: 1.2;
+                margin-bottom: 3px;
+              }
+
+              .rejection-manager-pill {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 0.78rem;
+                color: #64748b;
+
+                .manager-name-tag {
+                  display: inline-flex;
+                  align-items: center;
+                  gap: 4px;
+                  background: #fff5f5;
+                  color: #991b1b;
+                  font-weight: 700;
+                  padding: 2px 8px;
+                  border-radius: 12px;
+                  border: 1px solid #fee2e2;
+
+                  ion-icon {
+                    font-size: 13px;
+                    color: #dc2626;
+                  }
+                }
+              }
+            }
+          }
+
+          .rejection-status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            background: #fef2f2;
+            color: #991b1b;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+            border: 1px solid #fecaca;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+
+            .status-dot {
+              width: 6px;
+              height: 6px;
+              border-radius: 50%;
+              background: #dc2626;
+            }
+          }
+        }
+
+        .rejection-reason-body {
+          background: #fff5f5;
+          border: 1px solid #fecaca;
+          border-radius: 10px;
+          padding: 14px 16px;
+          margin-bottom: 12px;
+
+          .reason-label-tag {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            color: #b91c1c;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+
+            ion-icon {
+              font-size: 14px;
+              color: #dc2626;
+            }
+          }
+
+          .reason-text-content {
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #0f172a;
+            line-height: 1.5;
+            word-break: break-word;
+            font-style: italic;
+          }
+        }
+
+        .rejection-card-footer {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+
+          .footer-timestamp {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #64748b;
+
+            ion-icon {
+              font-size: 14px;
+              color: #94a3b8;
+            }
+          }
+        }
+      }
+
       .timesheet-worklog-box {
-        background: #f8fafc;
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
         border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 14px 18px;
+        border-radius: 12px;
+        padding: 14px 20px;
         display: flex;
         align-items: center;
         justify-content: space-between;
+        margin-top: 16px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+        transition: all 0.2s ease;
 
-        .log-info {
-          font-size: 0.82rem;
-          color: #334155;
+        &:hover {
+          border-color: #cbd5e1;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+
+        .log-info-group {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .log-icon-pill {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: vars.$color-primary-light;
+            color: vars.$color-primary;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            box-shadow: 0 2px 6px rgba(97, 67, 157, 0.15);
+          }
+
+          .log-text-details {
+            display: flex;
+            flex-direction: column;
+
+            .log-title {
+              font-size: 0.72rem;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.4px;
+            }
+
+            .log-hours-count {
+              font-size: 0.88rem;
+              color: #1e293b;
+              margin-top: 1px;
+
+              strong {
+                color: vars.$color-primary;
+                font-weight: 800;
+              }
+            }
+          }
         }
 
         .btn-view-preview {
-          background: vars.$color-primary;
+          background: linear-gradient(135deg, vars.$color-primary 0%, #4a2e82 100%);
           color: #ffffff;
           border: none;
-          padding: 6px 14px;
-          border-radius: 6px;
-          font-size: 0.78rem;
-          font-weight: 600;
+          padding: 8px 18px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 700;
           cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          box-shadow: 0 3px 10px rgba(97, 67, 157, 0.25);
+          transition: all 0.2s ease;
+
+          ion-icon {
+            font-size: 16px;
+          }
+
+          &:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(97, 67, 157, 0.35);
+          }
+
+          &:active {
+            transform: translateY(0);
+          }
         }
       }
     }

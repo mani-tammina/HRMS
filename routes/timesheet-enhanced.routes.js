@@ -1313,7 +1313,7 @@ router.put("/manager/reject/:timesheetId", auth, async (req, res) => {
     );
 
     // Update Inbox Notification
-    await updateNotificationStatus(c, "Timesheet Request", req.params.timesheetId, "Rejected", manager.id);
+    await updateNotificationStatus(c, "Timesheet Request", req.params.timesheetId, "Rejected", manager.id, rejection_reason);
 
     c.end();
     res.json({ success: true, message: "Timesheet rejected successfully" });

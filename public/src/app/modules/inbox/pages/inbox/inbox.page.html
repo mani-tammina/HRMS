@@ -251,7 +251,8 @@
               [class.unread]="notification.is_read === 0" (click)="selectNotification(notification)">
 
               <div class="card-avatar-wrapper">
-                <div class="avatar-circle">
+                <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)" (error)="onProfileImageError(notification)" class="avatar-img" />
+                <div *ngIf="!getProfileImage(notification)" class="avatar-circle">
                   {{ getInitials(notification.employee_name) }}
                 </div>
               </div>
@@ -295,7 +296,10 @@
             <div class="reader-top-header">
               <div class="user-info-group">
                 <div class="reader-avatar">
-                  {{ getInitials(selectedNotification.employee_name) }}
+                  <img *ngIf="getProfileImage(selectedNotification)" [src]="getProfileImage(selectedNotification)" (error)="onProfileImageError(selectedNotification)" class="reader-avatar-img" />
+                  <span *ngIf="!getProfileImage(selectedNotification)">
+                    {{ getInitials(selectedNotification.employee_name) }}
+                  </span>
                 </div>
                 <div class="user-details">
                   <div class="name-row">
@@ -346,43 +350,49 @@
 
               <div class="banner-summary-text">
                 <h3 class="summary-type-title">{{ getLeaveTypeTitle(selectedNotification) }}</h3>
-                <span class="summary-relative-time">{{ getRelativeLeaveStatus(selectedNotification) }}</span>
+            <span class="summary-relative-time">{{ getRelativeLeaveStatus(selectedNotification) }}</span>
               </div>
             </div>
 
-            <!-- Rejection Details (Only for Rejected requests) -->
-            <div class="detail-section" *ngIf="selectedNotification.status === 'Rejected'"
-              style="padding: 16px; border-bottom: 1px solid #e2e8f0; background: #fff;">
-              <div class="detail-alert-banner rejected-banner"
-                style="background: #fef2f2; border: 1px solid #fee2e2; border-radius: 8px; padding: 12px; display: flex; gap: 10px; align-items: start; margin-bottom: 12px;">
-                <ion-icon name="alert-circle" style="font-size: 20px; color: #dc2626; margin-top: 1px;"></ion-icon>
-                <div class="alert-content">
-                  <div class="alert-title" style="font-weight: 600; color: #991b1b; font-size: 14px;">Request Rejected
+            <!-- Premium Enterprise Rejection Feedback Card -->
+            <div class="rejection-details-card" *ngIf="selectedNotification.status === 'Rejected'">
+              <div class="rejection-card-top-row">
+                <div class="rejection-header-group">
+                  <div class="rejection-icon-badge">
+                    <ion-icon name="close-circle-outline"></ion-icon>
                   </div>
-                  <div class="alert-sub" style="font-size: 13px; color: #7f1d1d; margin-top: 2px;">This request was
-                    rejected by {{ getRejectedBy(selectedNotification) }}.</div>
+                  <div class="rejection-title-meta">
+                    <div class="rejection-title">Request Rejected</div>
+                    <div class="rejection-manager-pill">
+                      <span>Rejected by</span>
+                      <span class="manager-name-tag">
+                        <ion-icon name="person-circle-outline"></ion-icon>
+                        {{ getRejectedBy(selectedNotification) }}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div class="rejection-status-badge">
+                  <span class="status-dot"></span>
+                  <span>Rejected</span>
                 </div>
               </div>
 
-              <div class="detail-row" *ngIf="getRejectionReason(selectedNotification)"
-                style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
-                <span class="detail-label" style="color: #64748b; font-weight: 500;">Rejection Reason</span>
-                <span class="detail-value reason-text"
-                  style="color: #0f172a; font-weight: 600; text-align: right; max-width: 70%; word-break: break-word;">{{
-                  getRejectionReason(selectedNotification) }}</span>
+              <div class="rejection-reason-body">
+                <div class="reason-label-tag">
+                  <ion-icon name="chatbox-ellipses"></ion-icon>
+                  <span>Rejection Reason</span>
+                </div>
+                <div class="reason-text-content">
+                  "{{ getRejectionReason(selectedNotification) || 'No reason provided by manager.' }}"
+                </div>
               </div>
 
-              <div class="detail-row"
-                style="display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px;">
-                <span class="detail-label" style="color: #64748b; font-weight: 500;">Rejected By</span>
-                <span class="detail-value" style="color: #0f172a; font-weight: 600;">{{
-                  getRejectedBy(selectedNotification) }}</span>
-              </div>
-
-              <div class="detail-row" style="display: flex; justify-content: space-between; font-size: 13px;">
-                <span class="detail-label" style="color: #64748b; font-weight: 500;">Rejected On</span>
-                <span class="detail-value" style="color: #0f172a; font-weight: 600;">{{
-                  formatDate(selectedNotification.updated_at || selectedNotification.created_at) }}</span>
+              <div class="rejection-card-footer">
+                <div class="footer-timestamp">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span>Rejected on {{ formatDate(selectedNotification.updated_at || selectedNotification.created_at) }}</span>
+                </div>
               </div>
             </div>
 
@@ -391,32 +401,23 @@
               No teammates are on leave on this day
             </div>
 
-            <!-- Detailed User Request / Comment Box -->
-            <div class="request-comment-box">
-              <div class="comment-user-avatar">
-                {{ getInitials(selectedNotification.employee_name) }}
-              </div>
-              <div class="comment-main-content">
-                <div class="comment-header-row">
-                  <span class="comment-author">{{ selectedNotification.employee_name }}</span>
-                  <span class="comment-time">{{ formatDate(selectedNotification.created_at) }} 06:31 pm</span>
-                </div>
-                <div class="comment-body-text">
-                  Note: {{ getParsedMetadata(selectedNotification.metadata).reason ||
-                  getFallbackReason(selectedNotification) || selectedNotification.description || 'I would like to
-                  request leave/remote access as needed.' }}
-                </div>
-              </div>
-            </div>
-
             <!-- Work Log Preview box for Timesheets -->
             <div class="timesheet-worklog-box" *ngIf="selectedNotification.request_type === 'Timesheet Request'">
-              <div class="log-info">
-                <strong>Timesheet Work Log:</strong> {{ getParsedMetadata(selectedNotification.metadata).total_hours ||
-                'N/A' }} Hours Logged
+              <div class="log-info-group">
+                <div class="log-icon-pill">
+                  <ion-icon name="time-outline"></ion-icon>
+                </div>
+                <div class="log-text-details">
+                  <span class="log-title">Timesheet Work Log</span>
+                  <span class="log-hours-count">
+                    <strong>{{ getParsedMetadata(selectedNotification.metadata).total_hours || '0' }}</strong> Hours Logged
+                  </span>
+                </div>
               </div>
-              <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">View
-                Details</button>
+              <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
+                <ion-icon name="eye-outline"></ion-icon>
+                <span>View Details</span>
+              </button>
             </div>
           </div>
 
