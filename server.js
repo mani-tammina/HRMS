@@ -82,7 +82,7 @@ app.set('trust proxy', true);
 const upload = multer({ dest: "uploads/" });
 
 // CORS Configuration for Production
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4203')
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4200')
     .split(',')
     .map(o => o.trim().replace(/\/$/, ""))
     .filter(Boolean);

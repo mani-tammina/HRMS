@@ -59,6 +59,7 @@ async function syncUpdates() {
                 'Content-Type': 'application/json'
             };
             const response = await postJSON('http://127.0.0.1:7860/api/v2/add-updates', headers, payload);
+            console.log("Response: ", response);
             //
             //
         }
@@ -68,16 +69,43 @@ async function syncUpdates() {
     }
 }
 
-async function getPendingUpdates(){
-    let query = `SELECT * FROM hrms_db_new.timesheets where status = 'submitted';`
+async function getPendingUpdates() {
     try {
-        const [rows] = await db.query(query);
-        return rows;
-    } catch (error) {
-        console.error(error);
+        const [countRows] = await db.query("SELECT COUNT(*) as count FROM timesheets where status = 'submitted'");
+        const total = countRows[0].count;
+        const limit = 100;
+        const responses = [];
+        for (let offset = 0; offset < total; offset += limit) {
+            const [rows] = await db.query("SELECT * FROM timesheets where status = 'submitted' ORDER BY id LIMIT ? OFFSET ?", [limit, offset]);
+            const payload = {
+                body: {
+                    ruby: rows
+                },
+                metadata: {
+                    tableName: "pending_timesheets",
+                    totalRecords: total,
+                    offset: offset,
+                    limit: limit,
+                    batchSize: rows.length,
+                    syncedAt: new Date().toISOString()
+                }
+            };
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            const response = await postJSON('http://127.0.0.1:7860/api/v2/add-updates', headers, payload);
+            console.log("Response: ", response);
+            responses.push(response);
+        }
+        return responses;
+    } catch (err) {
+        console.error(err);
         return [];
     }
 }
 
-module.exports = syncUpdates;
+module.exports = {
+    syncUpdates,
+    getPendingUpdates
+};
 
