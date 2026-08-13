@@ -185,7 +185,7 @@
   </div>
 
   <!-- TAB CONTENT -->
-  <div class="tab-content-container ion-padding animate__animated animate__fadeIn" #tabContentRef>
+  <div class="tab-content-container ion-padding" #tabContentRef>
     <div [ngSwitch]="selectedSegment">
       <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"
         [isOwnProfile]="isOwnProfile"></app-about-tab>

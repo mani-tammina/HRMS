@@ -28,9 +28,9 @@ export class AppComponent implements OnInit, OnDestroy {
 
   public appPages = [
     { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'approver'] },
+    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'employee'] },
     { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: [ 'manager', 'hr'] },
+    { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: ['manager', 'hr'] },
     {
       title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance'], isExpanded: false, children: [
         { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
@@ -73,6 +73,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.fetchUnreadInboxCount();
         this.cdr.detectChanges();
       }
+    });
+
+    this.inboxService.refreshCount$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.fetchUnreadInboxCount();
     });
   }
 
@@ -136,13 +140,18 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private fetchUnreadInboxCount() {
-    const role = this.userRole?.toLowerCase() || '';
-    const hasAccess = ['manager', 'hr', 'admin', 'approver'].includes(role);
-    if (!this.isLoginPage && this.routeGuardService.isLoggedIn && hasAccess) {
+    if (!this.isLoginPage && this.routeGuardService.isLoggedIn) {
       this.inboxService.getNotifications({ page: 1, limit: 1 }).subscribe({
         next: (res) => {
           if (res && res.success) {
-            this.unreadInboxCount = res.unreadCount;
+            const role = (this.userRole || '').toLowerCase();
+            if (role === 'employee') {
+              const rejected = res.stats?.rejected || 0;
+              const unread = res.unreadCount || 0;
+              this.unreadInboxCount = Math.max(unread, rejected);
+            } else {
+              this.unreadInboxCount = res.unreadCount || 0;
+            }
             this.cdr.detectChanges();
           }
         },

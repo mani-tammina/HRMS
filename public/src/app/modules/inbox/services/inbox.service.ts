@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Observable, Subject, tap } from 'rxjs';
 import { environment } from 'src/environments/environment';
 import { InboxNotification } from '../models/notification.model';
 
@@ -10,6 +10,12 @@ import { InboxNotification } from '../models/notification.model';
 export class InboxService {
   private env = environment;
   private readonly BASE_URL = `${this.env.apiURL}/api/inbox`;
+
+  public refreshCount$ = new Subject<void>();
+
+  notifyCountChanged() {
+    this.refreshCount$.next();
+  }
 
   constructor(private http: HttpClient) {}
 
@@ -27,6 +33,7 @@ export class InboxService {
     limit: number;
     search?: string;
     tab?: string;
+    month?: string;
     sortField?: string;
     sortOrder?: 'ASC' | 'DESC';
     viewAll?: boolean;
@@ -40,6 +47,9 @@ export class InboxService {
     }
     if (params.tab) {
       httpParams = httpParams.set('tab', params.tab);
+    }
+    if (params.month) {
+      httpParams = httpParams.set('month', params.month);
     }
     if (params.sortField) {
       httpParams = httpParams.set('sortField', params.sortField);
@@ -65,15 +75,21 @@ export class InboxService {
   }
 
   markAllAsRead(): Observable<any> {
-    return this.http.put(`${this.BASE_URL}/read-all`, {}, { headers: this.getHeaders() });
+    return this.http.put(`${this.BASE_URL}/read-all`, {}, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   markAsRead(id: number): Observable<any> {
-    return this.http.put(`${this.BASE_URL}/read/${id}`, {}, { headers: this.getHeaders() });
+    return this.http.put(`${this.BASE_URL}/read/${id}`, {}, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   archiveNotification(id: number): Observable<any> {
-    return this.http.put(`${this.BASE_URL}/archive/${id}`, {}, { headers: this.getHeaders() });
+    return this.http.put(`${this.BASE_URL}/archive/${id}`, {}, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   deleteNotification(id: number): Observable<any> {

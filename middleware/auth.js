@@ -22,21 +22,20 @@ const { JWT_SECRET } = require("../config/constants");
  */
 const auth = (req, res, next) => {
     try {
-        // Extract token from Authorization header
+        // Extract token from Authorization header or Query string (for media/document preview)
+        let token = null;
         const authHeader = req.headers.authorization;
         
-        if (!authHeader) {
-            return res.status(401).json({ error: "Missing token" });
+        if (authHeader) {
+            const parts = authHeader.split(" ");
+            if (parts.length === 2 && parts[0] === "Bearer") {
+                token = parts[1];
+            }
         }
 
-        const parts = authHeader.split(" ");
-        
-        // Validate Bearer token format
-        if (parts.length !== 2 || parts[0] !== "Bearer") {
-            return res.status(401).json({ error: "Invalid token format. Expected: Bearer <token>" });
+        if (!token && req.query && (req.query.token || req.query.t)) {
+            token = req.query.token || req.query.t;
         }
-
-        const token = parts[1];
         
         if (!token || token.trim() === "") {
             return res.status(401).json({ error: "Missing token" });

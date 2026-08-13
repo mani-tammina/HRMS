@@ -574,7 +574,9 @@ CREATE TABLE IF NOT EXISTS timesheets (
   id INT PRIMARY KEY AUTO_INCREMENT,
   employee_id INT NOT NULL,
   project_id INT NULL,
-  date DATE NOT NULL,
+  date DATE NULL,
+  week_start_date DATE NULL,
+  week_end_date DATE NULL,
   timesheet_type ENUM('regular', 'project') NOT NULL DEFAULT 'regular',
   
   -- Hourly breakdown (JSON format: [{hour: "09:00-10:00", task: "Development", hours: 1}])
@@ -583,9 +585,14 @@ CREATE TABLE IF NOT EXISTS timesheets (
   work_description TEXT,
   notes TEXT,
   
-  -- Submission info
-  status ENUM('draft', 'submitted', 'verified', 'rejected') DEFAULT 'draft',
+  -- Submission & Approval info
+  status ENUM('draft', 'submitted', 'pending', 'verified', 'approved', 'rejected') DEFAULT 'pending',
   submission_date TIMESTAMP NULL,
+  rejection_reason TEXT,
+  rejected_by INT NULL,
+  rejected_at TIMESTAMP NULL,
+  approved_by INT NULL,
+  approved_at TIMESTAMP NULL,
   
   -- Internal verification
   verified_by INT NULL,
@@ -1935,5 +1942,62 @@ CREATE TABLE IF NOT EXISTS monthly_attendance (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   UNIQUE KEY uq_emp_month (EmployeeNumber, attendance_month)
 );
+
+-- ============================================
+-- Document Types Master Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS document_types (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  code VARCHAR(50) UNIQUE NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  category ENUM('Identity', 'Payroll', 'Employment', 'Other') DEFAULT 'Other',
+  description VARCHAR(255) NULL,
+  is_required TINYINT(1) DEFAULT 0,
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT IGNORE INTO document_types (code, name, category, description, is_required, is_active) VALUES
+('PAN_CARD', 'PAN Card', 'Identity', 'Permanent Account Number Card', 1, 1),
+('AADHAAR', 'Aadhaar Card', 'Identity', 'Aadhaar Identity Card', 1, 1),
+('VOTER_ID', 'Voter ID', 'Identity', 'Electoral Identity Card', 0, 1),
+('PASSPORT', 'Passport', 'Identity', 'Passport Copy', 0, 1),
+('DRIVING_LICENSE', 'Driving License', 'Identity', 'Driving License Copy', 0, 1),
+('OFFER_LETTER', 'Offer Letter', 'Employment', 'Company Offer Letter', 0, 1),
+('APPOINTMENT_LETTER', 'Appointment Letter', 'Employment', 'Company Appointment Letter', 0, 1),
+('EXPERIENCE_LETTER', 'Experience Letter', 'Employment', 'Previous Experience Letter', 0, 1),
+('RELIEVING_LETTER', 'Relieving Letter', 'Employment', 'Previous Relieving Letter', 0, 1),
+('EDUCATION_CERT', 'Education Certificates', 'Employment', 'Degree / Marks Sheets', 0, 1),
+('BANK_PASSBOOK', 'Bank Passbook / Cancelled Cheque', 'Payroll', 'Bank Account Proof', 0, 1),
+('SALARY_SLIPS', 'Salary Slips', 'Payroll', 'Previous Salary Slips', 0, 1),
+('FORM16', 'Form 16', 'Payroll', 'Annual Tax Certificate Form 16', 0, 1),
+('OTHER', 'Other Documents', 'Other', 'Miscellaneous Documents', 0, 1);
+
+-- ============================================
+-- Employee Documents Table
+-- ============================================
+CREATE TABLE IF NOT EXISTS employee_documents (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  document_type_id INT NOT NULL,
+  financial_year VARCHAR(10) NULL,
+  document_name VARCHAR(255) NOT NULL,
+  original_file_name VARCHAR(255) NOT NULL,
+  file_path VARCHAR(500) NOT NULL,
+  file_size INT NOT NULL,
+  mime_type VARCHAR(100) NOT NULL,
+  version INT DEFAULT 1,
+  uploaded_by INT NOT NULL,
+  uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  is_active TINYINT(1) DEFAULT 1,
+  remarks TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  FOREIGN KEY (document_type_id) REFERENCES document_types(id),
+  FOREIGN KEY (uploaded_by) REFERENCES users(id)
+);
+
 
 

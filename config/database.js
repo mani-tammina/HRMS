@@ -30,9 +30,7 @@ const DB = {
     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '2500', 10),
     queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '5000', 10),
     // Timeouts (in milliseconds)
-    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 10s
-    acquireTimeout: parseInt(process.env.DB_ACQUIRE_TIMEOUT || '15000', 10),  // 10s
-    timeout: parseInt(process.env.DB_QUERY_TIMEOUT || '50000', 10),          // 30s
+    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 15s
     // Character set
     charset: 'utf8mb4',
     // Timezone

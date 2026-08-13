@@ -69,6 +69,7 @@ const taxationWorkflowRoutes = require("./routes/taxation-workflow.routes");
 const inboxRoutes = require("./routes/inbox.routes");
 const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
+const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -420,6 +421,38 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not check/create otp_verifications table:", otpTableErr.message);
         }
 
+        // Verify timesheets table columns
+        try {
+            const [cols] = await conn.query("DESCRIBE timesheets");
+            const colNames = cols.map(c => c.Field);
+            if (!colNames.includes('week_start_date')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN week_start_date DATE NULL AFTER date");
+            }
+            if (!colNames.includes('week_end_date')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN week_end_date DATE NULL AFTER week_start_date");
+            }
+            if (!colNames.includes('rejection_reason')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN rejection_reason TEXT NULL");
+            }
+            if (!colNames.includes('rejected_by')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN rejected_by INT NULL");
+            }
+            if (!colNames.includes('rejected_at')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN rejected_at TIMESTAMP NULL");
+            }
+            if (!colNames.includes('approved_by')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN approved_by INT NULL");
+            }
+            if (!colNames.includes('approved_at')) {
+                await conn.query("ALTER TABLE timesheets ADD COLUMN approved_at TIMESTAMP NULL");
+            }
+            await conn.query("ALTER TABLE timesheets MODIFY COLUMN date DATE NULL");
+            await conn.query("ALTER TABLE timesheets MODIFY COLUMN status ENUM('draft', 'submitted', 'pending', 'verified', 'approved', 'rejected') DEFAULT 'pending'");
+            console.log("  ✓ Verified/Updated table columns: timesheets");
+        } catch (tsColErr) {
+            console.warn("⚠️ Warning: could not verify timesheets table columns:", tsColErr.message);
+        }
+
     } catch (error) {
         console.error("❌ Database initialization error:", error.message);
         throw error;
@@ -536,6 +569,10 @@ app.use("/api/payroll-master", payrollMasterRoutes);
 // app.use("/api/finance-config", financeConfigRoutes);
 // Upload Routes
 app.use("/api/upload", uploadRoutes);
+
+// Employee Documents Management Routes
+app.use("/api", employeeDocumentsRoutes);
+app.use("/", employeeDocumentsRoutes);
 
 // Timesheet Routes
 app.use("/api/timesheets", timesheetRoutes);

@@ -1,0 +1,96 @@
+<div class="documents-tab-wrapper">
+  <!-- CATEGORY FILTER CHIPS -->
+  <div class="category-chips-bar">
+    <button 
+      *ngFor="let cat of categories" 
+      class="chip-btn" 
+      [class.active]="activeCategory === cat" 
+      (click)="selectCategory(cat)"
+    >
+      <ion-icon [name]="getCategoryIcon(cat)" *ngIf="cat !== 'All'"></ion-icon>
+      <ion-icon name="apps-outline" *ngIf="cat === 'All'"></ion-icon>
+      <span>{{ cat }}</span>
+      <span class="badge" *ngIf="cat === 'All'">{{ allDocuments.length }}</span>
+      <span class="badge" *ngIf="cat !== 'All'">{{ getCategoryCount(cat) }}</span>
+    </button>
+  </div>
+
+  <!-- LOADING SPINNER -->
+  <div class="loading-state" *ngIf="isLoading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Loading documents...</p>
+  </div>
+
+  <!-- EMPTY STATE -->
+  <div class="placeholder-container" *ngIf="!isLoading && getFilteredDocuments().length === 0">
+    <div class="empty-icon-wrap">
+      <ion-icon name="folder-open-outline"></ion-icon>
+    </div>
+    <h3>No {{ activeCategory === 'All' ? '' : activeCategory }} Documents Found</h3>
+    <p>There are no uploaded documents under this section.</p>
+  </div>
+
+  <!-- DOCUMENT GRID -->
+  <div class="documents-grid" *ngIf="!isLoading && getFilteredDocuments().length > 0">
+    <div class="doc-card" *ngFor="let doc of getFilteredDocuments()">
+      <div class="doc-header">
+        <div class="doc-type-icon" [class]="doc.document_category?.toLowerCase() || 'other'">
+          <ion-icon [name]="getFileIcon(doc.mime_type)"></ion-icon>
+        </div>
+        <div class="doc-meta-top">
+          <span class="category-badge" [class]="doc.document_category?.toLowerCase() || 'other'">
+            {{ doc.document_category || 'Other' }}
+          </span>
+          <span class="version-badge" *ngIf="doc.version > 1">v{{ doc.version }}</span>
+        </div>
+      </div>
+
+      <div class="doc-body">
+        <h4 class="doc-name" [title]="doc.document_name">{{ doc.document_name }}</h4>
+        <p class="doc-type">{{ doc.document_type_name }}</p>
+        
+        <div class="doc-details">
+          <span class="fy-tag" *ngIf="doc.financial_year">
+            <ion-icon name="calendar-outline"></ion-icon> {{ doc.financial_year }}
+          </span>
+          <span class="size-tag">
+            <ion-icon name="document-text-outline"></ion-icon> {{ formatFileSize(doc.file_size) }}
+          </span>
+        </div>
+
+        <p class="doc-date">Uploaded: {{ doc.uploaded_at | date:'mediumDate' }}</p>
+        <p class="doc-remarks" *ngIf="doc.remarks"><em>Note: {{ doc.remarks }}</em></p>
+      </div>
+
+      <div class="doc-actions">
+        <button class="action-btn preview-btn" (click)="previewDocument(doc)" title="Preview Document">
+          <ion-icon name="eye-outline"></ion-icon>
+          <span>Preview</span>
+        </button>
+        <button class="action-btn download-btn" (click)="downloadDocument(doc)" title="Download Document">
+          <ion-icon name="download-outline"></ion-icon>
+          <span>Download</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PREVIEW MODAL OVERLAY -->
+  <div class="preview-modal-overlay" *ngIf="showPreviewModal">
+    <div class="preview-modal-card">
+      <div class="modal-header">
+        <div class="header-title">
+          <ion-icon name="document-attach-outline"></ion-icon>
+          <h3>{{ previewTitle }}</h3>
+        </div>
+        <button class="close-modal-btn" (click)="closePreviewModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+      <div class="modal-body">
+        <iframe *ngIf="!isPreviewImage && previewUrl" [src]="previewUrl" class="preview-iframe" title="Document Preview"></iframe>
+        <img *ngIf="isPreviewImage && previewUrl" [src]="previewUrl" class="preview-img" alt="Document Preview" />
+      </div>
+    </div>
+  </div>
+</div>

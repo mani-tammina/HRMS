@@ -75,6 +75,19 @@
             </ion-button>
           </ion-card-header>
         </ion-card>
+
+        <ion-card (click)="documentsSetup()" class="clickable-card">
+          <ion-card-header>
+            <div class="card-icon-wrapper">
+              <ion-icon name="folder-open-outline" style="font-size:44px;color:#2563eb;"></ion-icon>
+            </div>
+            <ion-card-title>Employee Documents Management</ion-card-title>
+            <p>Upload, verify, and bulk process employee identity, payroll & Form 16 documents.</p>
+            <ion-button fill="clear" color="light" class="card-btn">
+              Documents Hub <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
+            </ion-button>
+          </ion-card-header>
+        </ion-card>
       </ion-col>
     </ion-row>
   </ion-grid>

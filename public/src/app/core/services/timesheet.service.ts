@@ -20,8 +20,16 @@ export class TimesheetService {
     return this.http.post(`${this.baseUrl}/regular/submit`, payload);
   }
 
+  resubmitRegularTimesheet(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/regular/resubmit`, payload);
+  }
+
   submitProjectTimesheet(payload: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/project/submit`, payload);
+  }
+
+  resubmitProjectTimesheet(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/project/resubmit`, payload);
   }
 
   /* ================= GET MY TIMESHEETS ================= */

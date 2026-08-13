@@ -80,7 +80,7 @@ const routes: Routes = [
     path: 'inbox',
     loadComponent: () => import('./modules/inbox/pages/inbox/inbox.page').then(m => m.InboxPage),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['manager', 'hr', 'approver'] }
+    data: { role: ['employee', 'manager', 'hr', 'admin'] }
   },
   {
     path: 'Me',

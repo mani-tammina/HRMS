@@ -19,7 +19,10 @@ export interface InboxNotification {
   // Join fields
   employee_name?: string;
   employee_number?: string;
+  employee_profile_image?: string;
+  profile_image?: string;
   department_name?: string;
   manager_name?: string;
   leave_type_name?: string;
+  imageFailed?: boolean;
 }
