@@ -42,7 +42,7 @@
                     <ion-label>{{ p.title }}</ion-label>
                   </div>
                   <div class="menu-badge animate__animated animate__pulse animate__infinite"
-                    *ngIf="p.title === 'Inbox' && unreadInboxCount > 0">
+                    *ngIf="p.title === 'Inbox' && unreadInboxCount > 0 && userRole === 'manager'">
                     {{ unreadInboxCount }}
                   </div>
                 </ion-item>
