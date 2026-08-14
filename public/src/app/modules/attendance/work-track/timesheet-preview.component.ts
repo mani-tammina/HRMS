@@ -24,12 +24,30 @@ import { CommonModule } from '@angular/common';
         <!-- Date Summary Section -->
         <div class="header-summary animate__animated animate__fadeInDown">
           <div class="date-info">
+            <h3 *ngIf="data?.FirstName" style="margin: 0 0 6px 0; font-size: 15px; font-weight: 600; color: rgba(255, 255, 255, 0.95); letter-spacing: 0.3px;">
+              {{ data?.FirstName }} {{ data?.LastName }}
+            </h3>
             <h2>{{ (data?.date || data?.week_start_date || data?.created_at) | date: 'EEEE, MMM d' }}</h2>
             <p>{{ (data?.date || data?.week_start_date || data?.created_at) | date: 'yyyy' }}</p>
           </div>
           <div class="hours-badge">
             <span class="count">{{ data?.total_hours || 0 }}h</span>
             <span class="label">Total Logs</span>
+          </div>
+        </div>
+
+        <!-- AI Insights Banner if available -->
+        <div
+          class="ai-preview-banner animate__animated animate__fadeIn"
+          *ngIf="data?.ai_summary"
+          [ngClass]="data?.ai_flag ? 'ai-banner-danger' : 'ai-banner-success'"
+        >
+          <div class="ai-preview-icon">
+            <ion-icon [name]="data?.ai_flag ? 'alert-circle' : 'checkmark-circle'"></ion-icon>
+          </div>
+          <div class="ai-preview-text">
+            <h4>{{ data?.ai_flag ? 'AI Flagged Anomaly' : 'AI Verified Clean' }}</h4>
+            <p>{{ data?.ai_summary }}</p>
           </div>
         </div>
 
@@ -56,7 +74,13 @@ import { CommonModule } from '@angular/common';
 
         <!-- Additional Notes Section if present and not duplicate -->
         <div class="notes-container ion-padding-top animate__animated animate__fadeInUp" *ngIf="hasExtraNotes()">
-         
+          <div class="notes-card">
+            <div class="notes-header">
+              <ion-icon name="document-text-outline"></ion-icon>
+              <span>Notes / Description</span>
+            </div>
+            <p class="notes-content">{{ getNoteContent() }}</p>
+          </div>
         </div>
 
         <!-- Empty State -->

@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule, AlertController, ToastController, ModalController } from '@ionic/angular';
 import { TimesheetService } from '../../../../core/services/timesheet.service';
+import { TimesheetPreviewComponent } from '../../../attendance/work-track/timesheet-preview.component';
+import { UpdateMeAnalyticsService } from '../../../../core/analytics/update-me.analytics';
 import { environment } from 'src/environments/environment';
 
 @Component({
@@ -32,6 +34,7 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
 
   constructor(
     private timesheetService: TimesheetService,
+    private analyticsService: UpdateMeAnalyticsService,
     private alertController: AlertController,
     private toastController: ToastController,
     private modalCtrl: ModalController
@@ -74,13 +77,84 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
 
     this.timesheetService.getManagerPendingTimesheets(filters).subscribe({
       next: (res: any[]) => {
-        this.pendingTimesheets = res || [];
+        this.pendingTimesheets = (res || []).map(t => ({
+          ...t,
+          ai_analytics_loading: true,
+          ai_analytics_loaded: false,
+          ai_flag: false,
+          ai_summary: ''
+        }));
         this.filteredTimesheets = [...this.pendingTimesheets];
         this.loading = false;
+        this.fetchAiAnalyticsForTimesheets(this.pendingTimesheets);
       },
       error: (err) => {
         console.error('Error fetching pending timesheets:', err);
         this.loading = false;
+      }
+    });
+  }
+
+  fetchAiAnalyticsForTimesheets(timesheets: any[]) {
+    if (!timesheets || timesheets.length === 0) return;
+
+    // Group pending timesheets by date (YYYY-MM-DD)
+    const dateGroups: { [dateStr: string]: Set<number | string> } = {};
+    timesheets.forEach(t => {
+      if (!t.date || !t.employee_id) return;
+      const d = typeof t.date === 'string' ? t.date.split('T')[0] : new Date(t.date).toISOString().split('T')[0];
+      if (!dateGroups[d]) {
+        dateGroups[d] = new Set();
+      }
+      dateGroups[d].add(Number(t.employee_id));
+    });
+
+    Object.keys(dateGroups).forEach(dateStr => {
+      const empIds = Array.from(dateGroups[dateStr]);
+      this.analyticsService.getPendingTimesheetsAnalytics({
+        tableName: 'pending_timesheets',
+        employee_id: empIds,
+        date: dateStr
+      }).subscribe({
+        next: (res: any) => {
+          if (res?.success && res?.data) {
+            Object.entries(res.data).forEach(([empId, data]: [string, any]) => {
+              timesheets.forEach(t => {
+                const tDate = typeof t.date === 'string' ? t.date.split('T')[0] : '';
+                if (String(t.employee_id) === String(empId) && tDate === dateStr) {
+                  t.ai_analytics_loading = false;
+                  t.ai_analytics_loaded = true;
+                  if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                    t.ai_flag = data.flag === true;
+                    t.ai_summary = data.ai_summary || (t.ai_flag ? 'Anomalies detected in timesheet.' : 'Timesheet verified clean.');
+                    t.ai_analytics = data;
+                  } else {
+                    t.ai_flag = false;
+                    t.ai_summary = 'No anomalies detected in timesheet.';
+                  }
+                }
+              });
+            });
+          } else {
+            this.markDateGroupLoaded(timesheets, dateStr);
+          }
+        },
+        error: (err) => {
+          console.warn(`Could not load AI analytics for date ${dateStr}:`, err);
+          this.markDateGroupLoaded(timesheets, dateStr);
+        }
+      });
+    });
+  }
+
+  private markDateGroupLoaded(timesheets: any[], dateStr: string) {
+    timesheets.forEach(t => {
+      const tDate = typeof t.date === 'string' ? t.date.split('T')[0] : '';
+      if (tDate === dateStr && !t.ai_analytics_loaded) {
+        t.ai_analytics_loading = false;
+        t.ai_analytics_loaded = true;
+        t.ai_flag = false;
+        t.ai_summary = 'No anomalies detected in timesheet.';
       }
     });
   }
@@ -200,7 +274,57 @@ export class ManagerTimesheetApprovalsComponent implements OnInit {
     return 'Current Month';
   }
 
-  getTodayFormatted(): string { return this.formatDate(this.currentDate); }
+  getTodayFormatted(): string {
+    return this.formatDate(this.currentDate);
+  }
+
+  async openAiSummary(timesheet: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    const isFlagged = timesheet.ai_flag === true;
+    const summaryText = timesheet.ai_summary || (isFlagged ? 'Anomalies detected in this timesheet.' : 'No anomalies detected. Timesheet looks clean!');
+    const headerTitle = isFlagged ? 'AI Flagged Anomaly' : 'AI Verified Clean';
+
+    const alert = await this.alertController.create({
+      header: headerTitle,
+      subHeader: `${timesheet.FirstName} ${timesheet.LastName} • ${this.formatDate(timesheet.date)}`,
+      message: summaryText,
+      cssClass: isFlagged ? 'ai-alert-flagged' : 'ai-alert-clean',
+      buttons: [
+        {
+          text: 'View Timesheet',
+          handler: () => {
+            this.openPreview(timesheet);
+          }
+        },
+        {
+          text: 'Dismiss',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  async openPreview(timesheet: any) {
+    const ts = { ...timesheet };
+    let attempts = 0;
+    while (typeof ts.hours_breakdown === 'string' && attempts < 5) {
+      attempts++;
+      try {
+        ts.hours_breakdown = JSON.parse(ts.hours_breakdown);
+      } catch (e) {
+        break;
+      }
+    }
+    const modal = await this.modalCtrl.create({
+      component: TimesheetPreviewComponent,
+      cssClass: 'side-custom-popup view-work-log',
+      componentProps: { data: ts },
+    });
+    await modal.present();
+  }
 
   downloadTimesheet(timesheet: any) {
     if (!timesheet) {

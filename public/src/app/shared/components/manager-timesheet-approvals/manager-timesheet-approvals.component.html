@@ -94,7 +94,19 @@
               <p>{{ timesheet.WorkEmail }}</p>
             </div>
           </div>
-          <div>
+          <div class="header-right-badges">
+            <!-- AI Flag Badge (Red if flagged, Green if clean) -->
+            <div
+              *ngIf="timesheet.ai_analytics_loaded"
+              class="ai-flag-badge"
+              [ngClass]="timesheet.ai_flag ? 'flag-danger' : 'flag-success'"
+              (click)="openAiSummary(timesheet, $event)"
+              [title]="timesheet.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
+            >
+              <ion-icon name="flag"></ion-icon>
+              <span class="flag-label">{{ timesheet.ai_flag ? 'Flagged' : 'Clean' }}</span>
+            </div>
+
             <ion-chip [color]="timesheet.timesheet_type === 'project' ? 'primary' : 'secondary'">
               <ion-icon [name]="getTimesheetTypeIcon(timesheet.timesheet_type)"></ion-icon>
               <ion-label>{{ timesheet.timesheet_type | titlecase }}</ion-label>
@@ -104,6 +116,22 @@
       </ion-card-header>
 
       <ion-card-content>
+        <!-- AI Flag Reason Alert Banner if Flagged -->
+        <div
+          class="ai-summary-banner"
+          *ngIf="timesheet.ai_flag && timesheet.ai_summary"
+          (click)="openAiSummary(timesheet, $event)"
+        >
+          <div class="banner-icon">
+            <ion-icon name="alert-circle"></ion-icon>
+          </div>
+          <div class="banner-content">
+            <span class="banner-title">AI Flag Reason</span>
+            <p class="banner-text">{{ timesheet.ai_summary }}</p>
+          </div>
+          <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
+        </div>
+
         <div class="row-space-between">
           <div>
             <label>Work Log Date:</label>
@@ -132,7 +160,10 @@
 
         <!-- Action Buttons -->
         <div class="row-right">
-          <ion-button fill="clear" color="medium" (click)="downloadTimesheet(timesheet)" [disabled]="loading">
+          <ion-button fill="clear" color="primary" (click)="openPreview(timesheet)" [disabled]="loading" title="View Timesheet">
+            <ion-icon slot="icon-only" name="eye-outline"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" color="medium" (click)="downloadTimesheet(timesheet)" [disabled]="loading" title="Download Timesheet">
             <ion-icon slot="icon-only" name="download-outline"></ion-icon>
           </ion-button>
           <ion-button class="primary-outline-btn" (click)="rejectTimesheet(timesheet)" [disabled]="loading">

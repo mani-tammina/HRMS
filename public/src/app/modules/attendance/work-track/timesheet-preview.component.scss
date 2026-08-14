@@ -249,3 +249,76 @@ ion-header {
     --color: #{vars.$color-danger};
   }
 }
+
+/* ================= AI INSIGHTS BANNER ================= */
+
+.ai-preview-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: vars.$radius-lg;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  box-shadow: vars.$shadow-xs;
+
+  .ai-preview-icon {
+    font-size: 22px;
+    margin-top: 1px;
+    flex-shrink: 0;
+  }
+
+  .ai-preview-text {
+    flex: 1;
+
+    h4 {
+      margin: 0 0 4px 0;
+      font-size: 13px;
+      font-weight: vars.$fw-bold;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+
+    p {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      font-weight: vars.$fw-medium;
+    }
+  }
+
+  &.ai-banner-danger {
+    background: #fffaf0;
+    border: 1px solid #feebc8;
+    border-left: 4px solid #e53e3e;
+
+    .ai-preview-icon {
+      color: #e53e3e;
+    }
+
+    h4 {
+      color: #c53030;
+    }
+
+    p {
+      color: #742a2a;
+    }
+  }
+
+  &.ai-banner-success {
+    background: #f0fff4;
+    border: 1px solid #c6f6d5;
+    border-left: 4px solid #38a169;
+
+    .ai-preview-icon {
+      color: #38a169;
+    }
+
+    h4 {
+      color: #276749;
+    }
+
+    p {
+      color: #22543d;
+    }
+  }
+}

@@ -1,7 +1,10 @@
 <ion-header>
   <ion-toolbar>
     <ion-buttons slot="start">
-      <ion-back-button (click)="goBack()" defaultHref="/MyTeam"></ion-back-button>
+      <ion-back-button
+        (click)="goBack()"
+        defaultHref="/MyTeam"
+      ></ion-back-button>
     </ion-buttons>
     <ion-title>Timesheet Approvals</ion-title>
     <ion-buttons slot="end">
@@ -12,10 +15,19 @@
   </ion-toolbar>
 
   <ion-toolbar>
-    <ion-segment [(ngModel)]="filterType" (ionChange)="onFilterTypeChange($event)">
-      <ion-segment-button value="all"><ion-label>All</ion-label></ion-segment-button>
-      <ion-segment-button value="regular"><ion-label>Regular</ion-label></ion-segment-button>
-      <ion-segment-button value="project"><ion-label>Project</ion-label></ion-segment-button>
+    <ion-segment
+      [(ngModel)]="filterType"
+      (ionChange)="onFilterTypeChange($event)"
+    >
+      <ion-segment-button value="all"
+        ><ion-label>All</ion-label></ion-segment-button
+      >
+      <ion-segment-button value="regular"
+        ><ion-label>Regular</ion-label></ion-segment-button
+      >
+      <ion-segment-button value="project"
+        ><ion-label>Project</ion-label></ion-segment-button
+      >
     </ion-segment>
   </ion-toolbar>
 </ion-header>
@@ -26,8 +38,12 @@
   </ion-refresher>
 
   <!-- Search Bar -->
-  <ion-searchbar [(ngModel)]="searchText" (ionInput)="filterTimesheets()"
-    placeholder="Search by name, email, or project" animated></ion-searchbar>
+  <ion-searchbar
+    [(ngModel)]="searchText"
+    (ionInput)="filterTimesheets()"
+    placeholder="Search by name, email, or project"
+    animated
+  ></ion-searchbar>
 
   <!-- Date Filter -->
   <ion-grid class="filter-block">
@@ -35,14 +51,23 @@
       <ion-col>
         <div>
           <label>Start Date</label>
-          <ion-input placeholder="Start Date" type="date" [(ngModel)]="startDate"
-            (ionChange)="onDateRangeChange()"></ion-input>
+          <ion-input
+            placeholder="Start Date"
+            type="date"
+            [(ngModel)]="startDate"
+            (ionChange)="onDateRangeChange()"
+          ></ion-input>
         </div>
       </ion-col>
       <ion-col>
         <div>
           <label>End Date</label>
-          <ion-input placeholder="" type="date" [(ngModel)]="endDate" (ionChange)="onDateRangeChange()"></ion-input>
+          <ion-input
+            placeholder=""
+            type="date"
+            [(ngModel)]="endDate"
+            (ionChange)="onDateRangeChange()"
+          ></ion-input>
         </div>
       </ion-col>
       <ion-col class="ion-align-self-end">
@@ -70,8 +95,14 @@
   </div>
 
   <!-- Timesheet Cards -->
-  <div class="requests-container" *ngIf="!loading && filteredTimesheets.length > 0">
-    <ion-card *ngFor="let timesheet of filteredTimesheets" class="timesheet-card">
+  <div
+    class="requests-container"
+    *ngIf="!loading && filteredTimesheets.length > 0"
+  >
+    <ion-card
+      *ngFor="let timesheet of filteredTimesheets"
+      class="timesheet-card"
+    >
       <ion-card-header>
         <div class="card-header-content row-space-between">
           <div class="row-left">
@@ -79,18 +110,57 @@
               <img [src]="getProfileImage(timesheet)" />
             </ion-avatar>
             <div class="employee-info">
-              <ion-card-title>{{ timesheet.FirstName }} {{ timesheet.LastName }}</ion-card-title>
+              <ion-card-title
+                >{{ timesheet.FirstName }}
+                {{ timesheet.LastName }}</ion-card-title
+              >
               <p>{{ timesheet.WorkEmail }}</p>
             </div>
           </div>
-          <ion-chip [color]="timesheet.timesheet_type === 'project' ? 'primary' : 'secondary'">
-            <ion-icon [name]="getTimesheetTypeIcon(timesheet.timesheet_type)"></ion-icon>
-            <ion-label>{{ timesheet.timesheet_type | titlecase }}</ion-label>
-          </ion-chip>
+          <div class="header-right-badges">
+            <!-- AI Flag Badge (Red if flagged, Green if clean) -->
+            <div
+              *ngIf="timesheet.ai_analytics_loaded"
+              class="ai-flag-badge"
+              [ngClass]="timesheet.ai_flag ? 'flag-danger' : 'flag-success'"
+              (click)="openAiSummary(timesheet, $event)"
+              [title]="timesheet.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
+            >
+              <ion-icon name="flag"></ion-icon>
+              <span class="flag-label">{{ timesheet.ai_flag ? 'Flagged' : 'Clean' }}</span>
+            </div>
+
+            <ion-chip
+              [color]="
+                timesheet.timesheet_type === 'project' ? 'primary' : 'secondary'
+              "
+            >
+              <ion-icon
+                [name]="getTimesheetTypeIcon(timesheet.timesheet_type)"
+              ></ion-icon>
+              <ion-label>{{ timesheet.timesheet_type | titlecase }}</ion-label>
+            </ion-chip>
+          </div>
         </div>
       </ion-card-header>
 
       <ion-card-content>
+        <!-- AI Flag Reason Alert Banner if Flagged -->
+        <div
+          class="ai-summary-banner"
+          *ngIf="timesheet.ai_flag && timesheet.ai_summary"
+          (click)="openAiSummary(timesheet, $event)"
+        >
+          <div class="banner-icon">
+            <ion-icon name="alert-circle"></ion-icon>
+          </div>
+          <div class="banner-content">
+            <span class="banner-title">AI Flag Reason</span>
+            <p class="banner-text">{{ timesheet.ai_summary }}</p>
+          </div>
+          <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
+        </div>
+
         <div class="row-space-between">
           <div>
             <label>Work Log Date:</label>
@@ -119,13 +189,35 @@
 
         <!-- Action Buttons -->
         <div class="row-right">
-          <ion-button fill="clear" color="medium" (click)="downloadTimesheet(timesheet)" [disabled]="loading">
+          <ion-button
+            fill="clear"
+            color="medium"
+            (click)="downloadTimesheet(timesheet)"
+            [disabled]="loading"
+          >
             <ion-icon slot="icon-only" name="download-outline"></ion-icon>
           </ion-button>
-          <ion-button class="primary-outline-btn" (click)="rejectTimesheet(timesheet)" [disabled]="loading">
+          <ion-button
+            fill="clear"
+            color="primary"
+            (click)="openPreview(timesheet)"
+            [disabled]="loading"
+            title="View Timesheet"
+          >
+            <ion-icon slot="icon-only" name="eye-outline"></ion-icon>
+          </ion-button>
+          <ion-button
+            class="primary-outline-btn"
+            (click)="rejectTimesheet(timesheet)"
+            [disabled]="loading"
+          >
             Reject
           </ion-button>
-          <ion-button class="primary-btn" (click)="approveTimesheet(timesheet)" [disabled]="loading">
+          <ion-button
+            class="primary-btn"
+            (click)="approveTimesheet(timesheet)"
+            [disabled]="loading"
+          >
             Approve
           </ion-button>
         </div>
@@ -134,9 +226,15 @@
   </div>
 
   <!-- Empty State -->
-  <ion-row class="no-leaves" *ngIf="!loading && filteredTimesheets.length === 0">
+  <ion-row
+    class="no-leaves"
+    *ngIf="!loading && filteredTimesheets.length === 0"
+  >
     <ion-col size="12" class="ion-text-center">
-      <img src="../../assets/Profile_Picture.png" style="width:120px;opacity:0.4">
+      <img
+        src="../../assets/Profile_Picture.png"
+        style="width: 120px; opacity: 0.4"
+      />
       <p class="no-data-text">No Pending Timesheets.</p>
     </ion-col>
   </ion-row>
