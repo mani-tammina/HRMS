@@ -125,10 +125,7 @@
               [ngClass]="timesheet.ai_flag ? 'flag-danger' : 'flag-success'"
               (click)="openAiSummary(timesheet, $event)"
               [title]="timesheet.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
-            >
-              <ion-icon name="flag"></ion-icon>
-              <span class="flag-label">{{ timesheet.ai_flag ? 'Flagged' : 'Clean' }}</span>
-            </div>
+            ><ion-icon name="flag"></ion-icon><span class="flag-label">{{ timesheet.ai_flag ? 'Flagged' : 'Clean' }}</span></div>
 
             <ion-chip
               [color]="

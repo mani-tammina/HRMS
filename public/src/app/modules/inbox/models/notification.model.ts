@@ -25,4 +25,11 @@ export interface InboxNotification {
   manager_name?: string;
   leave_type_name?: string;
   imageFailed?: boolean;
+
+  // AI analytics fields
+  ai_analytics_loaded?: boolean;
+  ai_analytics_loading?: boolean;
+  ai_flag?: boolean;
+  ai_summary?: string;
+  ai_analytics?: any;
 }

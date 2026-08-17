@@ -13,6 +13,7 @@ import { SeparationService } from 'src/app/core/services/separation.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
 import { RouteGuardService } from 'src/app/core/services/route-guard.service';
 import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
+import { UpdateMeAnalyticsService } from 'src/app/core/analytics/update-me.analytics';
 import { environment } from 'src/environments/environment';
 
 import { NotificationCardComponent } from '../../components/notification-card/notification-card.component';
@@ -139,6 +140,7 @@ export class InboxPage implements OnInit {
     private leaveRequestService: LeaverequestService,
     private timesheetService: TimesheetService,
     private separationService: SeparationService,
+    private analyticsService: UpdateMeAnalyticsService,
     private toaster: ToasterService,
     private auth: RouteGuardService,
     private alertCtrl: AlertController,
@@ -571,6 +573,7 @@ export class InboxPage implements OnInit {
       });
     }
     this.selectedNotification = notification;
+    this.fetchAiAnalyticsForSingleNotification(notification);
     if (window.innerWidth <= 768) {
       this.isModalOpen = true;
     }
@@ -644,12 +647,14 @@ export class InboxPage implements OnInit {
             this.notifications = res.data;
             if (this.notifications.length > 0) {
               this.selectedNotification = this.notifications[0];
+              this.fetchAiAnalyticsForSingleNotification(this.selectedNotification);
             } else {
               this.selectedNotification = null;
             }
           } else {
             this.notifications = [...this.notifications, ...res.data];
           }
+          this.fetchAiAnalyticsForNotifications(this.notifications);
           this.total = res.total;
           this.unreadCount = res.unreadCount;
           if (res.stats) {
@@ -844,6 +849,151 @@ export class InboxPage implements OnInit {
     }
   }
 
+  /* ================= AI ANALYTICS FOR TIMESHEETS ================= */
+
+  fetchAiAnalyticsForNotifications(notifications: InboxNotification[]) {
+    const timesheetNotifs = notifications.filter(n => n.request_type === 'Timesheet Request');
+    if (!timesheetNotifs.length) return;
+
+    const dateGroups: { [dateStr: string]: Set<number | string> } = {};
+    timesheetNotifs.forEach(n => {
+      const meta = this.getParsedMetadata(n.metadata);
+      const d = meta.week_range || meta.date || (n.created_at ? n.created_at.split('T')[0] : '');
+      if (d && n.employee_id) {
+        if (!dateGroups[d]) dateGroups[d] = new Set();
+        dateGroups[d].add(Number(n.employee_id));
+      }
+    });
+
+    Object.keys(dateGroups).forEach(dateStr => {
+      const empIds = Array.from(dateGroups[dateStr]);
+      this.analyticsService.getPendingTimesheetsAnalytics({
+        tableName: 'pending_timesheets',
+        employee_id: empIds,
+        date: dateStr
+      }).subscribe({
+        next: (res: any) => {
+          if (res?.success && res?.data) {
+            Object.entries(res.data).forEach(([empId, data]: [string, any]) => {
+              timesheetNotifs.forEach(n => {
+                const meta = this.getParsedMetadata(n.metadata);
+                const tDate = meta.week_range || meta.date || (n.created_at ? n.created_at.split('T')[0] : '');
+                if (String(n.employee_id) === String(empId) && tDate === dateStr) {
+                  (n as any).ai_analytics_loaded = true;
+                  if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+                    (n as any).ai_flag = data.flag === true;
+                    (n as any).ai_summary = data.ai_summary || ((n as any).ai_flag ? 'Anomalies detected in timesheet.' : 'Timesheet verified clean.');
+                    (n as any).ai_analytics = data;
+                  } else {
+                    (n as any).ai_flag = false;
+                    (n as any).ai_summary = 'No anomalies detected in timesheet.';
+                  }
+                }
+              });
+            });
+          }
+        },
+        error: (err) => {
+          console.warn('Error fetching AI analytics in inbox:', err);
+        }
+      });
+    });
+  }
+
+  fetchAiAnalyticsForSingleNotification(n: InboxNotification) {
+    if (!n || n.request_type !== 'Timesheet Request' || (n as any).ai_analytics_loaded) return;
+
+    (n as any).ai_analytics_loading = true;
+
+    const meta = this.getParsedMetadata(n.metadata);
+    const metaDate = meta.week_range || meta.date || meta.week_start;
+
+    if (metaDate && n.employee_id) {
+      const dateStr = typeof metaDate === 'string' ? metaDate.split('T')[0] : new Date(metaDate).toISOString().split('T')[0];
+      this.callAiAnalyticsEndpoint(n, n.employee_id, dateStr);
+    } else if (n.request_id) {
+      this.timesheetService.getTimesheetDetails(n.request_id).subscribe({
+        next: (ts: any) => {
+          if (!ts) {
+            (n as any).ai_analytics_loaded = true;
+            (n as any).ai_flag = false;
+            return;
+          }
+          (n as any).timesheet_details = ts;
+          const dateStr = typeof ts.date === 'string' ? ts.date.split('T')[0] : new Date(ts.date).toISOString().split('T')[0];
+          const empId = ts.employee_id || n.employee_id;
+          this.callAiAnalyticsEndpoint(n, empId, dateStr);
+        },
+        error: () => {
+          (n as any).ai_analytics_loaded = true;
+          (n as any).ai_flag = false;
+        }
+      });
+    }
+  }
+
+  private callAiAnalyticsEndpoint(n: InboxNotification, empId: number | string, dateStr: string) {
+    this.analyticsService.getPendingTimesheetsAnalytics({
+      tableName: 'pending_timesheets',
+      employee_id: [Number(empId)],
+      date: dateStr
+    }).subscribe({
+      next: (res: any) => {
+        (n as any).ai_analytics_loading = false;
+        (n as any).ai_analytics_loaded = true;
+        if (res?.success && res?.data && res.data[String(empId)]) {
+          const data = res.data[String(empId)];
+          if (data && typeof data === 'object' && Object.keys(data).length > 0) {
+            (n as any).ai_flag = data.flag === true;
+            (n as any).ai_summary = data.ai_summary || ((n as any).ai_flag ? 'Anomalies detected in timesheet.' : 'Timesheet verified clean.');
+            (n as any).ai_analytics = data;
+          } else {
+            (n as any).ai_flag = false;
+            (n as any).ai_summary = 'No anomalies detected in timesheet.';
+          }
+        } else {
+          (n as any).ai_flag = false;
+          (n as any).ai_summary = 'No anomalies detected in timesheet.';
+        }
+      },
+      error: () => {
+        (n as any).ai_analytics_loading = false;
+        (n as any).ai_analytics_loaded = true;
+        (n as any).ai_flag = false;
+        (n as any).ai_summary = 'No anomalies detected in timesheet.';
+      }
+    });
+  }
+
+  async openAiSummary(notification: any, event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    const isFlagged = notification.ai_flag === true;
+    const summaryText = notification.ai_summary || (isFlagged ? 'Anomalies detected in this timesheet.' : 'No anomalies detected. Timesheet looks clean!');
+    const headerTitle = isFlagged ? 'AI Flagged Anomaly' : 'AI Verified Clean';
+
+    const alert = await this.alertCtrl.create({
+      header: headerTitle,
+      subHeader: `${notification.employee_name || 'Employee'} • Timesheet Request`,
+      message: summaryText,
+      cssClass: isFlagged ? 'ai-alert-flagged' : 'ai-alert-clean',
+      buttons: [
+        {
+          text: 'View Details',
+          handler: () => {
+            this.openTimesheetPreview(notification);
+          }
+        },
+        {
+          text: 'Dismiss',
+          role: 'cancel'
+        }
+      ]
+    });
+    await alert.present();
+  }
+
   async openTimesheetPreview(notification: InboxNotification) {
     const loading = await this.loadingCtrl.create({
       message: 'Loading work logs...',
@@ -860,10 +1010,17 @@ export class InboxPage implements OnInit {
             res.hours_breakdown = [];
           }
         }
+        const modalData = {
+          ...res,
+          FirstName: res.FirstName || (notification.employee_name ? notification.employee_name.split(' ')[0] : ''),
+          LastName: res.LastName || (notification.employee_name ? notification.employee_name.split(' ').slice(1).join(' ') : ''),
+          ai_flag: (notification as any).ai_flag,
+          ai_summary: (notification as any).ai_summary
+        };
         const modal = await this.modalCtrl.create({
           component: TimesheetPreviewComponent,
           cssClass: 'side-custom-popup view-work-log',
-          componentProps: { data: res },
+          componentProps: { data: modalData },
         });
         await modal.present();
       },

@@ -427,6 +427,15 @@
                 </div>
               </div>
               <div class="log-action-buttons">
+                <!-- AI Flag Pill -->
+                <div
+                  *ngIf="selectedNotification.ai_analytics_loaded"
+                  class="ai-flag-badge"
+                  [ngClass]="selectedNotification.ai_flag ? 'flag-danger' : 'flag-success'"
+                  (click)="openAiSummary(selectedNotification, $event)"
+                  [title]="selectedNotification.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
+                ><ion-icon name="flag"></ion-icon><span class="flag-label">{{ selectedNotification.ai_flag ? 'Flagged' : 'Clean' }}</span></div>
+
                 <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
                   <ion-icon name="eye-outline"></ion-icon>
                   <span>View Details</span>
@@ -437,6 +446,22 @@
                   <span>Resubmit Report</span>
                 </button>
               </div>
+            </div>
+
+            <!-- AI Flag Reason Alert Banner if Flagged -->
+            <div
+              class="ai-summary-banner"
+              *ngIf="selectedNotification.request_type === 'Timesheet Request' && selectedNotification.ai_flag && selectedNotification.ai_summary"
+              (click)="openAiSummary(selectedNotification, $event)"
+            >
+              <div class="banner-icon">
+                <ion-icon name="alert-circle"></ion-icon>
+              </div>
+              <div class="banner-content">
+                <span class="banner-title">AI Flag Reason</span>
+                <p class="banner-text">{{ selectedNotification.ai_summary }}</p>
+              </div>
+              <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
             </div>
           </div>
 
@@ -466,6 +491,15 @@
                   </svg>
                 </button>
                 <ng-container *ngIf="selectedNotification.status === 'Pending'">
+                  <!-- AI Flag Badge (Red if flagged, Green if clean) -->
+                  <div
+                    *ngIf="selectedNotification.request_type === 'Timesheet Request' && selectedNotification.ai_analytics_loaded"
+                    class="ai-flag-badge"
+                    [ngClass]="selectedNotification.ai_flag ? 'flag-danger' : 'flag-success'"
+                    (click)="openAiSummary(selectedNotification, $event)"
+                    [title]="selectedNotification.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
+                  ><ion-icon name="flag"></ion-icon><span class="flag-label">{{ selectedNotification.ai_flag ? 'Flagged' : 'Clean' }}</span></div>
+
                   <button class="btn-action-approve" (click)="approveRequest(selectedNotification)">Approve</button>
                   <button class="btn-action-reject" (click)="rejectRequest(selectedNotification)">Reject</button>
                 </ng-container>
