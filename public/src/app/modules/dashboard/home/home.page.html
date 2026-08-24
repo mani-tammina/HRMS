@@ -137,7 +137,7 @@
             <!-- Right Column -->
             <div class="stats-right-col">
               <!-- Card 1: This Week -->
-              <div class="info-mini-card">
+              <!-- <div class="info-mini-card">
                 <div class="mini-card-content">
                   <span class="mini-card-label">Weekly Gross Hours</span>
                   <span class="mini-card-value">{{ weeklyGrossHours }}</span>
@@ -149,7 +149,7 @@
                     <polyline points="12 6 12 12 16 14"></polyline>
                   </svg>
                 </div>
-              </div>
+              </div> -->
 
               <!-- Card 2: Avg. Start Time -->
               <!-- <div class="info-mini-card">
@@ -190,13 +190,28 @@
               <div class="ql-icon-wrap">
                 <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
                   stroke-linecap="round" stroke-linejoin="round">
-                  <circle cx="17" cy="21" r="1" />
-                  <circle cx="9" cy="21" r="1" />
-                  <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                  <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+                  <polyline points="9 22 9 12 15 12 15 22"></polyline>
                 </svg>
               </div>
               <div class="ql-text">
                 <span class="ql-title">WFH request</span>
+                <span class="ql-desc">Request work from home</span>
+              </div>
+            </div>
+
+            <div class="quick-link-tile" (click)="remoteRequest()">
+              <div class="ql-icon-wrap">
+                <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="2" y1="12" x2="22" y2="12"></line>
+                  <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+                  </path>
+                </svg>
+              </div>
+              <div class="ql-text">
+                <span class="ql-title">Remote request</span>
                 <span class="ql-desc">Request remote work</span>
               </div>
             </div>
@@ -264,9 +279,126 @@
       </ion-col>
     </ion-row>
 
+    <!-- ═══ Row 2: Today's Workplace Status & Leave Balance Side-by-Side ═══ -->
     <ion-row class="dashboard-row">
+      <!-- Today's Workplace Status Card -->
       <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
-        <!-- Leave balance card -->
+        <ion-card class="overview-block modern-overview-card unified-team-status-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Workplace Overview</h3>
+              <p class="overview-subtitle">Employees on leave, WFH, and remote today</p>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <div class="card-content unified-status-body">
+            <!-- 3 Category Switcher Tabs -->
+            <div class="workplace-tabs-bar">
+              <button type="button" class="wp-tab-btn" [class.active]="activeWorkplaceTab === 'leave'"
+                (click)="setWorkplaceTab('leave')">
+                <span class="status-icon-dot leave-dot"></span>
+                <span class="wp-tab-label">On Leave</span>
+                <span class="wp-tab-badge leave-badge">{{ onLeaveToday.length }}</span>
+              </button>
+              <button type="button" class="wp-tab-btn" [class.active]="activeWorkplaceTab === 'wfh'"
+                (click)="setWorkplaceTab('wfh')">
+                <span class="status-icon-dot wfh-dot"></span>
+                <span class="wp-tab-label">Work From Home</span>
+                <span class="wp-tab-badge wfh-badge">{{ wfhToday.length }}</span>
+              </button>
+              <button type="button" class="wp-tab-btn" [class.active]="activeWorkplaceTab === 'remote'"
+                (click)="setWorkplaceTab('remote')">
+                <span class="status-icon-dot remote-dot"></span>
+                <span class="wp-tab-label">Remote</span>
+                <span class="wp-tab-badge remote-badge">{{ remoteToday.length }}</span>
+              </button>
+            </div>
+
+            <!-- Active Tab Content Area (Spans Full Card Width!) -->
+            <div class="workplace-tab-content">
+              <!-- TAB 1: On Leave -->
+              <ng-container *ngIf="activeWorkplaceTab === 'leave'">
+                <div *ngIf="onLeaveToday.length === 0" class="status-empty-box">
+                  <ion-icon name="checkmark-circle-outline" class="empty-status-icon leave-empty-icon"></ion-icon>
+                  <p class="empty-status-text">Everyone is working today!</p>
+                  <p class="empty-status-sub">No one is on leave today.</p>
+                </div>
+                <div *ngIf="onLeaveToday.length > 0" class="status-scroll-container">
+                  <div class="status-avatar-card" *ngFor="let emp of onLeaveToday">
+                    <div class="status-avatar-wrapper">
+                      <img *ngIf="emp.fullImageUrl" [src]="emp.fullImageUrl" [alt]="emp.FirstName"
+                        class="status-avatar-img" onerror="this.style.display='none'">
+                      <div *ngIf="!emp.fullImageUrl" class="status-initials-avatar"
+                        [style.backgroundColor]="emp.avatarColor">
+                        {{ emp.initials }}
+                      </div>
+                    </div>
+                    <span class="status-emp-name" [title]="emp.FirstName + ' ' + emp.LastName">{{ emp.FirstName
+                      }}</span>
+                    <span class="status-emp-sub" [title]="emp.leave_type || emp.department_name">{{ emp.leave_type ||
+                      emp.department_name || 'On Leave' }}</span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- TAB 2: Work From Home -->
+              <ng-container *ngIf="activeWorkplaceTab === 'wfh'">
+                <div *ngIf="wfhToday.length === 0" class="status-empty-box">
+                  <ion-icon name="home-outline" class="empty-status-icon wfh-empty-icon"></ion-icon>
+                  <p class="empty-status-text">No one working from home today</p>
+                  <p class="empty-status-sub">All team members are at the office.</p>
+                </div>
+                <div *ngIf="wfhToday.length > 0" class="status-scroll-container">
+                  <div class="status-avatar-card" *ngFor="let emp of wfhToday">
+                    <div class="status-avatar-wrapper">
+                      <img *ngIf="emp.fullImageUrl" [src]="emp.fullImageUrl" [alt]="emp.FirstName"
+                        class="status-avatar-img" onerror="this.style.display='none'">
+                      <div *ngIf="!emp.fullImageUrl" class="status-initials-avatar"
+                        [style.backgroundColor]="emp.avatarColor">
+                        {{ emp.initials }}
+                      </div>
+                    </div>
+                    <span class="status-emp-name" [title]="emp.FirstName + ' ' + emp.LastName">{{ emp.FirstName
+                      }}</span>
+                    <span class="status-emp-sub" [title]="emp.department_name || emp.designation_name">{{
+                      emp.department_name || emp.designation_name || 'WFH' }}</span>
+                  </div>
+                </div>
+              </ng-container>
+
+              <!-- TAB 3: Remote -->
+              <ng-container *ngIf="activeWorkplaceTab === 'remote'">
+                <div *ngIf="remoteToday.length === 0" class="status-empty-box">
+                  <ion-icon name="globe-outline" class="empty-status-icon remote-empty-icon"></ion-icon>
+                  <p class="empty-status-text">No remote workers today</p>
+                  <p class="empty-status-sub">No team members are working remotely.</p>
+                </div>
+                <div *ngIf="remoteToday.length > 0" class="status-scroll-container">
+                  <div class="status-avatar-card" *ngFor="let emp of remoteToday">
+                    <div class="status-avatar-wrapper">
+                      <img *ngIf="emp.fullImageUrl" [src]="emp.fullImageUrl" [alt]="emp.FirstName"
+                        class="status-avatar-img" onerror="this.style.display='none'">
+                      <div *ngIf="!emp.fullImageUrl" class="status-initials-avatar"
+                        [style.backgroundColor]="emp.avatarColor">
+                        {{ emp.initials }}
+                      </div>
+                    </div>
+                    <span class="status-emp-name" [title]="emp.FirstName + ' ' + emp.LastName">{{ emp.FirstName
+                      }}</span>
+                    <span class="status-emp-sub" [title]="emp.department_name || emp.designation_name">{{
+                      emp.department_name || emp.designation_name || 'Remote' }}</span>
+                  </div>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </ion-card>
+      </ion-col>
+
+      <!-- Leave balance card -->
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
         <ion-card class="overview-block modern-overview-card leave-balance-card-flat">
           <div class="card-header-row">
             <div class="header-text">
@@ -303,119 +435,12 @@
           </div>
         </ion-card>
       </ion-col>
-
-      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
-        <!-- Announcements card -->
-        <ion-card class="overview-block modern-overview-card announcements-card-flat">
-          <div class="card-header-row">
-            <div class="header-text">
-              <h3 class="overview-title">Announcements</h3>
-              <p class="overview-subtitle">Your attendance, progress, and status at a glance</p>
-            </div>
-            <div class="header-badge" *ngIf="announcements.length > 0">
-              <span class="badge-pill light-blue">{{ announcements.length }} new</span>
-            </div>
-          </div>
-
-          <div class="divider-line"></div>
-
-          <div class="card-content announcements-list-body">
-            <div *ngIf="announcements.length === 0" class="no-announcements">
-              <p>No new announcements at this time.</p>
-            </div>
-
-            <div class="announcements-carousel-wrapper" *ngIf="announcements.length > 0">
-              <!-- <button class="carousel-control-btn prev-btn" (click)="prevAnnounce()" *ngIf="announcements.length > 1">
-                <ion-icon name="chevron-back-outline"></ion-icon>
-              </button> -->
-
-              <div class="announcements-carousel-slides">
-                <div class="announcement-item-row active-slide">
-                  <div class="announcement-thumbnail">
-                    <img
-                      [src]="announcements[currentAnnounceIndex].image_url ? env + announcements[currentAnnounceIndex].image_url : 'assets/announcement_thumbnail.png'"
-                      alt="Announcement Thumbnail">
-                  </div>
-
-                  <div class="announcement-main-content">
-                    <h4 class="announcement-title">{{ announcements[currentAnnounceIndex].title }}</h4>
-                    <p class="announcement-description">{{ announcements[currentAnnounceIndex].body }}</p>
-                    <div class="announcement-footer-row">
-                      <span class="time-ago">Active Announcement</span>
-                      <span class="separator-dot">•</span>
-                      <div class="author-info">
-                        <img src="assets/user.png" class="author-avatar" alt="Author">
-                        <span class="author-name">HR Team</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div class="announcement-reactions">
-                    <div class="reaction-item">
-                      <span class="emoji">👍</span>
-                      <span class="count">24</span>
-                    </div>
-                    <div class="reaction-item">
-                      <span class="emoji">💬</span>
-                      <span class="count">6</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Next Button
-              <button class="carousel-control-btn next-btn" (click)="nextAnnounce()" *ngIf="announcements.length > 1">
-                <ion-icon name="chevron-forward-outline"></ion-icon>
-              </button> -->
-            </div>
-
-            <!-- Indicators / Dot Navigation -->
-            <div class="carousel-indicators" *ngIf="announcements.length > 1">
-              <span *ngFor="let announce of announcements; let idx = index" class="dot"
-                [class.active]="idx === currentAnnounceIndex" (click)="setAnnounce(idx)">
-              </span>
-            </div>
-
-            <div class="view-all-link-container" *ngIf="announcements.length > 0">
-              <a class="view-all-link" (click)="viewAllAnnouncements()">View All</a>
-            </div>
-          </div>
-        </ion-card>
-      </ion-col>
     </ion-row>
 
+      <!-- ═══ Row 3: Celebrations (Left 50%) & [Holidays + Announcements] (Right 50% Column) ═══ -->
     <ion-row class="dashboard-row">
+      <!-- Left Column: Celebrations card (50% Width) -->
       <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
-        <!-- Upcoming holidays card -->
-        <ion-card class="overview-block modern-overview-card holidays-card">
-          <div class="card-header-row">
-            <div class="header-text">
-              <h3 class="overview-title">Upcoming holidays</h3>
-              <p class="overview-subtitle">Next few company and regional holidays</p>
-            </div>
-            <div class="header-badge">
-              <span class="badge-pill">Location : Vizag</span>
-            </div>
-          </div>
-
-          <div class="divider-line"></div>
-
-          <!-- Festive Holiday Banner -->
-          <div class="holiday-banner">
-            <div class="holiday-banner-content">
-              <div class="holiday-date-block">
-                <span class="holiday-day">25</span>
-                <span class="holiday-month-year">December 2025</span>
-                <span class="holiday-name">Happy Christmas</span>
-              </div>
-            </div>
-            <div class="holiday-banner-overlay"></div>
-          </div>
-        </ion-card>
-      </ion-col>
-
-      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col">
-        <!-- Birthdays & Work Anniversaries card -->
         <ion-card class="overview-block modern-overview-card milestone-card">
           <div class="card-header-row">
             <div class="header-text">
@@ -451,7 +476,6 @@
                   <div class="empty-illustration-container">
                     <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"
                       class="cake-illustration">
-                      <!-- Garland/Bunting at the top -->
                       <path d="M20,20 C35,28 50,28 60,20 C70,28 85,28 100,20" stroke="#E2E8F0" stroke-width="1.5"
                         stroke-linecap="round" fill="none" />
                       <path d="M25,23 L28,29 L22,29 Z" fill="#FEE2E2" />
@@ -459,33 +483,21 @@
                       <path d="M58,22 L61,28 L55,28 Z" fill="#FEF3C7" />
                       <path d="M78,24 L81,30 L75,30 Z" fill="#FCE7F3" />
                       <path d="M92,23 L95,29 L89,29 Z" fill="#E0F2FE" />
-
-                      <!-- Background decorative clouds/circles -->
                       <circle cx="28" cy="65" r="10" fill="#F8FAFC" />
                       <circle cx="95" cy="55" r="14" fill="#F8FAFC" />
-
-                      <!-- Candle -->
                       <rect x="58" y="38" width="4" height="14" rx="1" fill="#E2E8F0" />
                       <path d="M60,38 L60,34" stroke="#94A3B8" stroke-width="1.5" />
                       <path d="M60,34 C58,34 57.5,31 60,27 C62.5,31 62,34 60,34 Z" fill="#EF4444" />
-
-                      <!-- Cake Tier 1 (top) -->
                       <rect x="40" y="52" width="40" height="18" rx="2" fill="#FFFFFF" stroke="#94A3B8"
                         stroke-width="1.5" />
-                      <!-- Frosting drips on Tier 1 -->
                       <path
                         d="M40,58 C44,61 46,61 48,58 C50,55 52,62 55,58 C58,54 60,61 63,58 C66,55 68,61 70,58 C72,55 74,60 76,58 C78,56 79,59 80,58"
                         stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
-
-                      <!-- Cake Tier 2 (bottom) -->
                       <rect x="30" y="70" width="60" height="22" rx="3" fill="#FFFFFF" stroke="#94A3B8"
                         stroke-width="1.5" />
-                      <!-- Frosting drips on Tier 2 -->
                       <path
                         d="M30,78 C35,82 38,82 42,78 C46,74 50,83 55,78 C60,73 64,82 68,78 C72,74 76,82 80,78 C84,74 86,81 90,78"
                         stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
-
-                      <!-- Cake Stand/Base plate -->
                       <path d="M20,92 L100,92" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" />
                       <path d="M35,92 L42,98 L78,98 L85,92" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5"
                         stroke-linejoin="round" />
@@ -558,10 +570,8 @@
                       </div>
                     </div>
                     <div class="upcoming-info">
-                      <span class="upcoming-emp-name">{{ milestone.FirstName }}</span>
-                      <div>
-                        <span class="upcoming-event-date">{{ getEventDateLabel(milestone.eventDate) }}</span>
-                      </div>
+                      <span class="upcoming-emp-name" [title]="milestone.FirstName + ' ' + (milestone.LastName || '')">{{ milestone.FirstName }}</span>
+                      <span class="upcoming-event-date">{{ getEventDateLabel(milestone.eventDate) }}</span>
                     </div>
                   </div>
                 </div>
@@ -579,7 +589,6 @@
                   <div class="empty-illustration-container">
                     <svg width="120" height="120" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg"
                       class="cake-illustration">
-                      <!-- Garland/Bunting at the top -->
                       <path d="M20,20 C35,28 50,28 60,20 C70,28 85,28 100,20" stroke="#E2E8F0" stroke-width="1.5"
                         stroke-linecap="round" fill="none" />
                       <path d="M25,23 L28,29 L22,29 Z" fill="#FEE2E2" />
@@ -587,33 +596,21 @@
                       <path d="M58,22 L61,28 L55,28 Z" fill="#FEF3C7" />
                       <path d="M78,24 L81,30 L75,30 Z" fill="#FCE7F3" />
                       <path d="M92,23 L95,29 L89,29 Z" fill="#E0F2FE" />
-
-                      <!-- Background decorative clouds/circles -->
                       <circle cx="28" cy="65" r="10" fill="#F8FAFC" />
                       <circle cx="95" cy="55" r="14" fill="#F8FAFC" />
-
-                      <!-- Candle -->
                       <rect x="58" y="38" width="4" height="14" rx="1" fill="#E2E8F0" />
                       <path d="M60,38 L60,34" stroke="#94A3B8" stroke-width="1.5" />
                       <path d="M60,34 C58,34 57.5,31 60,27 C62.5,31 62,34 60,34 Z" fill="#EF4444" />
-
-                      <!-- Cake Tier 1 (top) -->
                       <rect x="40" y="52" width="40" height="18" rx="2" fill="#FFFFFF" stroke="#94A3B8"
                         stroke-width="1.5" />
-                      <!-- Frosting drips on Tier 1 -->
                       <path
                         d="M40,58 C44,61 46,61 48,58 C50,55 52,62 55,58 C58,54 60,61 63,58 C66,55 68,61 70,58 C72,55 74,60 76,58 C78,56 79,59 80,58"
                         stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
-
-                      <!-- Cake Tier 2 (bottom) -->
                       <rect x="30" y="70" width="60" height="22" rx="3" fill="#FFFFFF" stroke="#94A3B8"
                         stroke-width="1.5" />
-                      <!-- Frosting drips on Tier 2 -->
                       <path
                         d="M30,78 C35,82 38,82 42,78 C46,74 50,83 55,78 C60,73 64,82 68,78 C72,74 76,82 80,78 C84,74 86,81 90,78"
                         stroke="#3B82F6" stroke-width="1.5" stroke-linecap="round" fill="none" />
-
-                      <!-- Cake Stand/Base plate -->
                       <path d="M20,92 L100,92" stroke="#94A3B8" stroke-width="2" stroke-linecap="round" />
                       <path d="M35,92 L42,98 L78,98 L85,92" fill="#E2E8F0" stroke="#94A3B8" stroke-width="1.5"
                         stroke-linejoin="round" />
@@ -687,18 +684,111 @@
                       </div>
                     </div>
                     <div class="upcoming-info">
-                      <span class="upcoming-emp-name">{{ milestone.FirstName }}</span>
-                      <div>
-                        <span class="upcoming-event-date">{{ getEventDateLabel(milestone.eventDate) }} ({{
-                          milestone.years
-                          }} {{ milestone.years > 1 ? 'yrs' : 'yr' }})</span>
-                      </div>
+                      <span class="upcoming-emp-name" [title]="milestone.FirstName + ' ' + (milestone.LastName || '')">{{ milestone.FirstName }}</span>
+                      <span class="upcoming-event-date">{{ getEventDateLabel(milestone.eventDate) }} ({{ milestone.years }}{{ milestone.years > 1 ? ' yrs' : ' yr' }})</span>
                     </div>
                   </div>
                 </div>
               </div>
             </ng-container>
+          </div>
+        </ion-card>
+      </ion-col>
 
+      <!-- Right Column: [Announcements (Top) + Upcoming Holidays (Below)] Stacked in a Column -->
+      <ion-col size="12" size-sm="12" size-md="12" size-lg="6" size-xl="6" class="dashboard-col side-stacked-col">
+        <!-- 1. Announcements card (Top) -->
+        <ion-card class="overview-block modern-overview-card announcements-card-flat">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Announcements</h3>
+              <p class="overview-subtitle">Your attendance, progress, and status at a glance</p>
+            </div>
+            <div class="header-badge" *ngIf="announcements.length > 0">
+              <span class="badge-pill light-blue">{{ announcements.length }} new</span>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <div class="card-content announcements-list-body">
+            <div *ngIf="announcements.length === 0" class="no-announcements">
+              <p>No new announcements at this time.</p>
+            </div>
+
+            <div class="announcements-carousel-wrapper" *ngIf="announcements.length > 0">
+              <div class="announcements-carousel-slides">
+                <div class="announcement-item-row active-slide">
+                  <div class="announcement-thumbnail">
+                    <img
+                      [src]="announcements[currentAnnounceIndex].image_url ? env + announcements[currentAnnounceIndex].image_url : 'assets/announcement_thumbnail.png'"
+                      alt="Announcement Thumbnail">
+                  </div>
+
+                  <div class="announcement-main-content">
+                    <h4 class="announcement-title">{{ announcements[currentAnnounceIndex].title }}</h4>
+                    <p class="announcement-description">{{ announcements[currentAnnounceIndex].body }}</p>
+                    <div class="announcement-footer-row">
+                      <span class="time-ago">Active Announcement</span>
+                      <span class="separator-dot">•</span>
+                      <div class="author-info">
+                        <img src="assets/user.png" class="author-avatar" alt="Author">
+                        <span class="author-name">HR Team</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="announcement-reactions">
+                    <div class="reaction-item">
+                      <span class="emoji">👍</span>
+                      <span class="count">24</span>
+                    </div>
+                    <div class="reaction-item">
+                      <span class="emoji">💬</span>
+                      <span class="count">6</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Indicators / Dot Navigation -->
+            <div class="carousel-indicators" *ngIf="announcements.length > 1">
+              <span *ngFor="let announce of announcements; let idx = index" class="dot"
+                [class.active]="idx === currentAnnounceIndex" (click)="setAnnounce(idx)">
+              </span>
+            </div>
+
+            <div class="view-all-link-container" *ngIf="announcements.length > 0">
+              <a class="view-all-link" (click)="viewAllAnnouncements()">View All</a>
+            </div>
+          </div>
+        </ion-card>
+
+        <!-- 2. Upcoming holidays card (Below) -->
+        <ion-card class="overview-block modern-overview-card holidays-card">
+          <div class="card-header-row">
+            <div class="header-text">
+              <h3 class="overview-title">Upcoming holidays</h3>
+              <p class="overview-subtitle">Next few company and regional holidays</p>
+            </div>
+            <div class="header-badge">
+              <span class="badge-pill">Location : Vizag</span>
+            </div>
+          </div>
+
+          <div class="divider-line"></div>
+
+          <!-- Festive Holiday Banner -->
+          <div class="holiday-banner">
+            <div class="holiday-banner-content">
+              <div class="holiday-date-block">
+                <span class="holiday-day">25</span>
+                <span class="holiday-month-year">December 2025</span>
+                <span class="holiday-name">Happy Christmas</span>
+              </div>
+            </div>
+            <div class="holiday-banner-overlay"></div>
           </div>
         </ion-card>
       </ion-col>

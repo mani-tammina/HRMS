@@ -425,7 +425,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         if (/already being processed/i.test(errorMessage)) {
           this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
           setTimeout(() => {
-            this.loadTodayAttendance(true);
+            this.loadLastPunch();
           }, 1500);
         } else if (/active punch-in|already punched in/i.test(errorMessage)) {
           this.showToast('You already have an active punch-in. Please clock out first.', 'warning');
@@ -487,7 +487,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         if (/already being processed/i.test(errorMessage)) {
           this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
           setTimeout(() => {
-            this.loadTodayAttendance(true);
+            this.loadLastPunch();
           }, 1500);
         } else if (/already punched out|no punch-in/i.test(errorMessage)) {
           this.showToast('You are already clocked out.', 'warning');
@@ -525,7 +525,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         if (/already being processed/i.test(errorMessage)) {
           this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
           setTimeout(() => {
-            this.loadTodayAttendance(true);
+            this.loadLastPunch();
           }, 1500);
         } else {
           this.showToast(errorMessage, 'danger');

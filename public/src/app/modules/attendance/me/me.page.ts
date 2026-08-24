@@ -156,9 +156,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.loadAllData();
     });
 
-    this.route.queryParams.subscribe(queryParams => {
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(queryParams => {
       if (queryParams['action'] === 'wfh') {
         this.openWFHModal();
+      } else if (queryParams['action'] === 'remote') {
+        this.openRemoteClockinModal();
       }
     });
 
@@ -202,6 +204,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   ionViewWillEnter() {
     this.loadTodayAttendance();
     this.loadMonthlySummary();
+
+    const action = this.route.snapshot.queryParams['action'];
+    if (action === 'wfh') {
+      this.openWFHModal();
+    } else if (action === 'remote') {
+      this.openRemoteClockinModal();
+    }
   }
 
   // ================= DATA LOADERS =================

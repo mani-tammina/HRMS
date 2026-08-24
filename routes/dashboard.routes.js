@@ -635,4 +635,93 @@ router.get("/analytics/payroll", auth, admin, async (req, res) => {
     }
 });
 
+/* ============================================
+   TEAM STATUS TODAY (On Leave / WFH / Remote)
+   ============================================ */
+
+router.get("/team-status-today", auth, async (req, res) => {
+    try {
+        const c = await db();
+        const today = new Date().toISOString().split('T')[0];
+
+        // 1. Employees on approved leave today (excluding WFH/Remote leave types)
+        const [onLeave] = await c.query(`
+            SELECT DISTINCT
+                e.id as employee_id,
+                e.FirstName,
+                e.LastName,
+                e.profile_image,
+                d.name as department_name,
+                des.name as designation_name,
+                lt.type_name as leave_type
+            FROM leaves l
+            INNER JOIN employees e ON l.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE l.status = 'approved'
+              AND l.start_date <= ?
+              AND l.end_date >= ?
+              AND e.EmploymentStatus = 'Working'
+              AND (l.leave_type IS NULL OR l.leave_type NOT IN ('WFH', 'Remote'))
+            ORDER BY e.FirstName, e.LastName
+        `, [today, today]);
+
+        // 2. Employees working from home today
+        const [wfhToday] = await c.query(`
+            SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
+                   e.profile_image, d.name as department_name, des.name as designation_name
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE e.EmploymentStatus = 'Working'
+              AND (
+                EXISTS (
+                  SELECT 1 FROM attendance a
+                  WHERE a.employee_id = e.id AND a.attendance_date = ? AND a.work_mode = 'WFH'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM leaves l
+                  WHERE l.employee_id = e.id AND l.status = 'approved'
+                    AND l.leave_type = 'WFH' AND l.start_date <= ? AND l.end_date >= ?
+                )
+              )
+            ORDER BY e.FirstName, e.LastName
+        `, [today, today, today]);
+
+        // 3. Employees working remotely today
+        const [remoteToday] = await c.query(`
+            SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
+                   e.profile_image, d.name as department_name, des.name as designation_name
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE e.EmploymentStatus = 'Working'
+              AND (
+                EXISTS (
+                  SELECT 1 FROM attendance a
+                  WHERE a.employee_id = e.id AND a.attendance_date = ? AND a.work_mode = 'Remote'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM leaves l
+                  WHERE l.employee_id = e.id AND l.status = 'approved'
+                    AND l.leave_type = 'Remote' AND l.start_date <= ? AND l.end_date >= ?
+                )
+              )
+            ORDER BY e.FirstName, e.LastName
+        `, [today, today, today]);
+
+        c.end();
+
+        res.json({
+            on_leave: onLeave,
+            wfh: wfhToday,
+            remote: remoteToday
+        });
+    } catch (error) {
+        console.error("Error fetching team status today:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
 module.exports = router;

@@ -95,10 +95,6 @@
                   <span class="shift-text-label">Shift : {{ (shift_policy?.start_time || shiftTiming?.startTime || '09:00:00') | timeFormat }} - {{
                     (shift_policy?.end_time || shiftTiming?.endTime || '18:00:00') | timeFormat }}</span>
                 </div>
-                <span *ngIf="shiftTiming?.autoClockOutTime" class="auto-clockout-pill" title="Auto clock-out activates 2 hours after shift ending time">
-                  <ion-icon name="timer-outline" style="vertical-align: middle; margin-right: 3px; font-size: 13px;"></ion-icon>
-                  Auto-out: {{ shiftTiming.autoClockOutTime | date:'hh:mm a' }}
-                </span>
               </div>
 
               <div class="days-row-capsules">
@@ -155,11 +151,6 @@
                   <div class="status-msg-box" *ngIf="clockButton?.isClockedIn">
                     <p class="status-main">You are clocked in</p>
                     <p class="status-sub">Have a productive day!</p>
-                  </div>
-
-                  <div class="time-left-box">
-                    <span class="tl-label">Time Left : </span>
-                    <span class="tl-value">{{ shiftTimeLeft }}</span>
                   </div>
 
                   <div class="main-clock-btn-wrapper" *ngIf="!isHRView">

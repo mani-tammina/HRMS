@@ -11,6 +11,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 import { AdminService } from '../../../core/services/admin.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
 import { LeavePlanService } from '../../../core/services/leave-plans.service';
+import { DashboardService } from '../../../core/services/dashboard.service';
 
 @Component({
   selector: 'app-home',
@@ -77,6 +78,12 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= ANNOUNCEMENTS ================= */
   announcements: any[] = [];
 
+  /* ================= TEAM STATUS TODAY ================= */
+  onLeaveToday: any[] = [];
+  wfhToday: any[] = [];
+  remoteToday: any[] = [];
+  activeWorkplaceTab: 'leave' | 'wfh' | 'remote' = 'leave';
+
   /* ================= DASHBOARD ================= */
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
   hasPunchedToday: boolean = false;
@@ -92,6 +99,7 @@ export class HomePage implements OnInit, OnDestroy {
     private leaveRequestService: LeaverequestService,
     private leavePlanService: LeavePlanService,
     private adminService: AdminService,
+    private dashboardService: DashboardService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -104,6 +112,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadCurrentMonthLeaves();
     this.loadAnnouncements();
     this.refreshAttendanceState();
+    this.loadTeamStatusToday();
 
     const year = new Date().getFullYear();
     const month = new Date().getMonth() + 1;
@@ -235,6 +244,54 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadLeaveBalance();
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
+    this.loadTeamStatusToday();
+  }
+
+  setWorkplaceTab(tab: 'leave' | 'wfh' | 'remote') {
+    this.activeWorkplaceTab = tab;
+    this.cdr.detectChanges();
+  }
+
+  loadTeamStatusToday() {
+    const colors = ['#ff9800', '#2196f3', '#4caf50', '#f44336', '#9c27b0', '#009688', '#3f51b5', '#e91e63'];
+    this.dashboardService.getTeamStatusToday().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.onLeaveToday = (res.on_leave || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+        this.wfhToday = (res.wfh || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+        this.remoteToday = (res.remote || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+
+        // Auto-select tab with active employees
+        if (this.onLeaveToday.length > 0) {
+          this.activeWorkplaceTab = 'leave';
+        } else if (this.wfhToday.length > 0) {
+          this.activeWorkplaceTab = 'wfh';
+        } else if (this.remoteToday.length > 0) {
+          this.activeWorkplaceTab = 'remote';
+        }
+
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.onLeaveToday = [];
+        this.wfhToday = [];
+        this.remoteToday = [];
+      }
+    });
   }
 
   loadBirthdays() {
@@ -455,6 +512,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   attendance() { this.router.navigate(['/Me']); }
   wfhRequest() { this.router.navigate(['/Me'], { queryParams: { action: 'wfh' } }); }
+  remoteRequest() { this.router.navigate(['/Me'], { queryParams: { action: 'remote' } }); }
   leaves() { this.router.navigate(['/leaves']); }
   myteam() { this.router.navigate(['/MyTeam']); }
   viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }

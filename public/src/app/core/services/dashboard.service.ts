@@ -64,3 +64,19 @@ export class AdminService {
     }).pipe(shareReplay(1));
   }
 }
+
+@Injectable({ providedIn: 'root' })
+export class DashboardService {
+  private env = environment;
+  private readonly API_URL = `${this.env.apiURL}/api/dashboard`;
+
+  constructor(private http: HttpClient) {}
+
+  getTeamStatusToday(): Observable<any> {
+    const token = localStorage.getItem('token');
+    return this.http.get<any>(`${this.API_URL}/team-status-today`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  }
+}
+
