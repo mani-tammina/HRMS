@@ -6,8 +6,9 @@
 const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
-const { auth, admin, hr, manager } = require("../middleware/auth");
+const { auth, admin, hr, manager, roleAuth } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
+const autoClockOutService = require("../services/auto-clockout.service");
 
 const ATTENDANCE_LOCK_WAIT_SECONDS = 10;
 
@@ -256,6 +257,9 @@ router.post("/punch-in", auth, async (req, res) => {
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
 
+    // Auto clock-out check: resolve any overdue active punch for this employee
+    await autoClockOutService.processAutoClockOutForEmployee(c, emp.id);
+
     // Validate Time Tracking Policy before proceeding
     await validateTimeTrackingPolicy(c, emp.id, work_mode || "Office", ip_address, notes);
 
@@ -438,6 +442,9 @@ router.post("/punch-out", auth, async (req, res) => {
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
 
+    // Auto clock-out check: resolve any overdue active punch for this employee
+    await autoClockOutService.processAutoClockOutForEmployee(c, emp.id);
+
     await c.beginTransaction();
     transactionStarted = true;
 
@@ -536,6 +543,21 @@ router.get("/today", auth, async (req, res) => {
     const today = new Date().toISOString().split("T")[0];
     const c = await db();
 
+    // Auto clock-out check: resolve any overdue active punch for this employee
+    try {
+      await autoClockOutService.processAutoClockOutForEmployee(c, emp.id);
+    } catch (autoErr) {
+      console.warn("[AutoClockOut] Check in /today error:", autoErr.message);
+    }
+
+    // Fetch shift timing & auto clock-out cutoff info
+    let shiftTiming = null;
+    try {
+      shiftTiming = await autoClockOutService.getShiftTimingForEmployee(c, emp.id, today);
+    } catch (shiftErr) {
+      console.warn("[AutoClockOut] Shift timing fetch error:", shiftErr.message);
+    }
+
     // Get attendance record
     const [attendance] = await c.query(
       `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
@@ -586,7 +608,8 @@ router.get("/today", auth, async (req, res) => {
         has_attendance: false,
         message: "No attendance record for today",
         punches: [],
-        policyPermissions
+        policyPermissions,
+        shiftTiming
       });
     }
 
@@ -614,7 +637,8 @@ router.get("/today", auth, async (req, res) => {
         punches[punches.length - 1].punch_type === "out",
       can_punch_out:
         punches.length > 0 && punches[punches.length - 1].punch_type === "in",
-      policyPermissions
+      policyPermissions,
+      shiftTiming
     });
   } catch (error) {
     console.error("Error fetching today's attendance:", error);
@@ -1804,6 +1828,9 @@ router.post("/checkin", auth, async (req, res) => {
     const device_info = req.headers["user-agent"];
 
     const c = await db();
+    // Auto clock-out check: resolve any overdue active punch for this employee
+    await autoClockOutService.processAutoClockOutForEmployee(c, emp.id);
+
     await c.beginTransaction();
 
     const today = new Date().toISOString().split("T")[0];
@@ -1933,6 +1960,9 @@ router.post("/checkout", auth, async (req, res) => {
     const device_info = req.headers["user-agent"];
 
     const c = await db();
+    // Auto clock-out check: resolve any overdue active punch for this employee
+    await autoClockOutService.processAutoClockOutForEmployee(c, emp.id);
+
     await c.beginTransaction();
 
     const today = new Date().toISOString().split("T")[0];
@@ -2363,6 +2393,35 @@ router.get("/regularization/history/:employeeId", auth, manager, async (req, res
     return res.status(statusCode).json({ error: error.message });
   } finally {
     if (c) c.end();
+  }
+});
+
+// GET /api/attendance/shift-timing - Get employee's shift details and auto clock-out cutoff
+router.get("/shift-timing", auth, async (req, res) => {
+  let c = null;
+  try {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+    c = await db();
+    const timing = await autoClockOutService.getShiftTimingForEmployee(c, emp.id, req.query.date);
+    return res.json(timing);
+  } catch (error) {
+    console.error("Error fetching shift timing:", error);
+    return res.status(500).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// POST /api/attendance/auto-clockout/run - Manually trigger auto clock-out sweep (Admin/HR)
+router.post("/auto-clockout/run", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  try {
+    await autoClockOutService.processAllPendingAutoClockOuts();
+    return res.json({ success: true, message: "Auto clock-out sweep completed successfully" });
+  } catch (error) {
+    console.error("Error running auto clock-out sweep:", error);
+    return res.status(500).json({ error: error.message });
   }
 });
 

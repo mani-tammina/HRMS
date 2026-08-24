@@ -199,7 +199,8 @@
                     <ion-icon name="location-outline"></ion-icon>
                     <span>{{ ev.location }}</span>
                   </div>
-                  <div class="note-text" *ngIf="ev.notes">
+                  <div class="note-text" *ngIf="ev.notes" [class.auto-clockout-note]="ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')">
+                    <ion-icon *ngIf="ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')" name="alert-circle-outline" style="color: #dc2626; vertical-align: middle; margin-right: 4px; font-size: 13px;"></ion-icon>
                     "{{ ev.notes }}"
                   </div>
                   <div class="location-info" *ngIf="!ev.location && !ev.notes">

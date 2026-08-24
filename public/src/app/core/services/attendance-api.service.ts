@@ -131,6 +131,12 @@ export class AttendanceApiService {
     return this.http.put(`${this.BASE_URL}/remote-clockin/${id}/decide`, { decision, rejected_reason }, { headers: this.getHeaders() });
   }
 
+  getShiftTiming(date?: string): Observable<any> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get(`${this.BASE_URL}/shift-timing`, { headers: this.getHeaders(), params });
+  }
+
   private clearCaches() {
     this.todayAttendance$ = null;
   }

@@ -71,6 +71,7 @@ const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 // Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
 const complianceChecker = require("./utils/compliance-checker.service");
+const autoClockOutService = require("./services/auto-clockout.service");
 
 const app = express();
 app.set('trust proxy', true);
@@ -696,6 +697,9 @@ app.get("/api/health", (req, res) => {
 
         // Start compliance checker service
         complianceChecker.start();
+
+        // Start automatic clock-out background service
+        autoClockOutService.start();
 
         app.listen(PORT, () => {
             console.log(`\n╔══════════════════════════════════════════════╗`);

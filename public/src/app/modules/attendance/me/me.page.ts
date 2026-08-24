@@ -54,6 +54,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   shift_id: any;
   allShiftPolicies: any[] = [];
   shift_policy: any;
+  shiftTiming: any = null;
 
   // Weekend
   weekend_id: any;
@@ -266,6 +267,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     request$.subscribe({
       next: (res: any) => {
         this.policyPermissions = res?.policyPermissions || null;
+        if (res?.shiftTiming) {
+          this.shiftTiming = res.shiftTiming;
+          if (res.shiftTiming.shiftDurationHours) {
+            this.shiftDuration = `${res.shiftTiming.shiftDurationHours}h 0m`;
+          }
+        }
         if (res?.attendance) {
           this.status = res.attendance.status || 'NOT In Yet';
         } else if (res?.on_leave) {

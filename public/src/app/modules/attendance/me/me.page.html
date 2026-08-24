@@ -76,23 +76,29 @@
             </div>
 
             <div class="timings-body">
-              <div class="shift-row-new" *ngIf="shift_policy">
-                <div class="shift-icon-box">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                  </svg>
+              <div class="shift-row-new">
+                <div class="shift-left-meta">
+                  <div class="shift-icon-box">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="5" />
+                      <line x1="12" y1="1" x2="12" y2="3" />
+                      <line x1="12" y1="21" x2="12" y2="23" />
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                      <line x1="1" y1="12" x2="3" y2="12" />
+                      <line x1="21" y1="12" x2="23" y2="12" />
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                  </div>
+                  <span class="shift-text-label">Shift : {{ (shift_policy?.start_time || shiftTiming?.startTime || '09:00:00') | timeFormat }} - {{
+                    (shift_policy?.end_time || shiftTiming?.endTime || '18:00:00') | timeFormat }}</span>
                 </div>
-                <span class="shift-text-label">Shift : {{ shift_policy.start_time | timeFormat }} - {{
-                  shift_policy.end_time | timeFormat }}</span>
+                <span *ngIf="shiftTiming?.autoClockOutTime" class="auto-clockout-pill" title="Auto clock-out activates 2 hours after shift ending time">
+                  <ion-icon name="timer-outline" style="vertical-align: middle; margin-right: 3px; font-size: 13px;"></ion-icon>
+                  Auto-out: {{ shiftTiming.autoClockOutTime | date:'hh:mm a' }}
+                </span>
               </div>
 
               <div class="days-row-capsules">

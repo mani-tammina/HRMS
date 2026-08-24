@@ -1,7 +1,7 @@
 import { Component, Output, EventEmitter, OnInit, OnDestroy, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ToastController, AlertController } from '@ionic/angular';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, interval, fromEvent } from 'rxjs';
 import { Router } from '@angular/router';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
 
@@ -240,14 +240,31 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.currentUrl = this.router.url;
-    this.loadLastPunch()
+    this.loadLastPunch();
+
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe((isClockedIn: boolean) => {
       this.isClockedIn = isClockedIn;
       this.remoteActive = localStorage.getItem('remoteActive') === 'true';
       if (this.remoteActive) this.workMode = 'Remote';
     });
 
-    this.loadLastPunch();
+    this.attendanceApi.punchRefresh$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.loadLastPunch();
+    });
+
+    // Periodically re-check attendance status every 30 seconds (especially when clocked in)
+    interval(30000).pipe(takeUntil(this.destroy$)).subscribe(() => {
+      if (this.isClockedIn) {
+        this.loadLastPunch();
+      }
+    });
+
+    // Re-check whenever the user switches back to the application tab
+    if (typeof window !== 'undefined') {
+      fromEvent(window, 'focus').pipe(takeUntil(this.destroy$)).subscribe(() => {
+        this.loadLastPunch();
+      });
+    }
   }
 
   ngOnDestroy(): void {
@@ -256,13 +273,16 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   }
 
   private loadLastPunch(): void {
-    console.log("loadLastPunch")
+    const wasClockedIn = this.isClockedIn;
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
         this.policyPermissions = res?.policyPermissions;
         const punches = res?.punches || [];
         if (!punches.length) {
           this.isClockedIn = false;
+          if (wasClockedIn) {
+            this.statusChanged.emit({ isClockedIn: false });
+          }
           this.attendanceApi.checkTodayWFH().subscribe({
             next: (wfhRes) => {
               if (wfhRes?.has_wfh && wfhRes?.work_mode === 'WFH') {
@@ -288,6 +308,12 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
         const lastPunch = punches[punches.length - 1];
         this.isClockedIn = lastPunch.punch_type === 'in';
+
+        // Detect if state transitioned from Clocked-In to Clocked-Out
+        if (wasClockedIn && !this.isClockedIn) {
+          const isAutoOut = (lastPunch?.notes || '').includes('OUT Missing') || (lastPunch?.notes || '').includes('Auto Clock-Out');
+          this.statusChanged.emit({ isClockedIn: false, autoClockedOut: isAutoOut, lastPunch });
+        }
 
         if (this.isClockedIn) {
           const lastMode = lastPunch?.work_mode;
