@@ -467,6 +467,19 @@ ion-modal.side-custom-popup {
             color: vars.$color-danger;
             border: 1px solid vars.$color-danger-border;
           }
+
+          &.missing-tag {
+            background: #fee2e2 !important;
+            color: #dc2626 !important;
+            border: 1px solid #fca5a5 !important;
+            font-weight: 700;
+          }
+        }
+
+        .missing-out-text {
+          color: #dc2626 !important;
+          font-weight: 700 !important;
+          font-size: 13px !important;
         }
       }
 
@@ -479,10 +492,25 @@ ion-modal.side-custom-popup {
         border-radius: vars.$radius-pill;
         border: 1px solid rgba(vars.$color-primary, 0.1);
         text-transform: uppercase;
+
+        &.badge-danger {
+          color: #dc2626 !important;
+          background: #fee2e2 !important;
+          border-color: #fca5a5 !important;
+        }
       }
     }
 
+    .timeline-dot.missing-dot {
+      background: #ef4444 !important;
+      border-color: #fee2e2 !important;
+    }
+
     .record-card {
+      &.card-missing {
+        border-left: 3px solid #ef4444;
+        background: #fffafa;
+      }
       background: vars.$color-white;
       border: 1px solid vars.$color-border-light;
       border-radius: vars.$radius-md;

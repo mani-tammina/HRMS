@@ -554,12 +554,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         });
       }
       if (r.check_out) {
+        const isAutoOut = r.is_auto_out || (r.out_notes || '').includes('OUT Missing') || (r.out_notes || '').includes('Auto Clock-Out');
         timeline.push({
           type: 'OUT',
           time: r.check_out,
-          mode: r.work_mode || 'Office',
-          location: displayLocation,
-          notes: displayNotes,
+          isAutoOut: isAutoOut,
+          mode: isAutoOut ? 'System Auto-Out' : (r.work_mode || 'Office'),
+          location: isAutoOut ? 'Missing Clock-Out' : displayLocation,
+          notes: isAutoOut ? 'OUT Missing' : (r.out_notes || displayNotes),
           icon: 'log-out-outline'
         });
       }
@@ -579,11 +581,24 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     let current: any = null;
     punches.forEach(p => {
       const isRemote = (p.work_mode === 'Remote') || (p.location?.toLowerCase().includes('remote')) || (p.notes?.toLowerCase().includes('remote'));
+      const isOutMissing = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
       if (p.punch_type === 'in') {
-        current = { check_in: p.punch_time, check_out: null, work_mode: isRemote ? 'Remote' : (p.work_mode || 'Office'), location: p.location, notes: p.notes, approved: p.approved };
+        current = {
+          check_in: p.punch_time,
+          check_out: null,
+          work_mode: isRemote ? 'Remote' : (p.work_mode || 'Office'),
+          location: p.location,
+          notes: p.notes,
+          approved: p.approved
+        };
         records.push(current);
       }
-      if (p.punch_type === 'out' && current) { current.check_out = p.punch_time; current = null; }
+      if (p.punch_type === 'out' && current) {
+        current.check_out = p.punch_time;
+        current.out_notes = p.notes;
+        current.is_auto_out = isOutMissing;
+        current = null;
+      }
     });
     return records;
   }

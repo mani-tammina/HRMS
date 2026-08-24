@@ -1815,16 +1815,23 @@ function calculatePunchPairs(punches) {
       currentPair = {
         punch_in: punch.punch_time,
         punch_in_location: punch.location,
+        punch_in_notes: punch.notes,
       };
     } else if (punch.punch_type === "out" && currentPair.punch_in) {
-      currentPair.punch_out = punch.punch_time;
-      currentPair.punch_out_location = punch.location;
+      const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
+      currentPair.punch_out = isMissingOut ? null : punch.punch_time;
+      currentPair.punch_out_raw = punch.punch_time;
+      currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : punch.punch_time;
+      currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
+      currentPair.punch_out_notes = punch.notes;
+      currentPair.is_missing_out = isMissingOut;
 
       const punchIn = new Date(currentPair.punch_in);
-      const punchOut = new Date(currentPair.punch_out);
-      const hours = ((punchOut - punchIn) / (1000 * 60 * 60)).toFixed(2);
+      const punchOut = new Date(punch.punch_time);
+      const hours = isMissingOut ? '0.00' : ((punchOut - punchIn) / (1000 * 60 * 60)).toFixed(2);
 
       currentPair.hours_worked = hours;
+      currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
       pairs.push({ ...currentPair });
       currentPair = {};
     }
@@ -1833,6 +1840,7 @@ function calculatePunchPairs(punches) {
   // If there's an unpaired punch in
   if (currentPair.punch_in) {
     currentPair.punch_out = null;
+    currentPair.punch_out_display = 'In Progress';
     currentPair.hours_worked = null;
     currentPair.status = "In Progress";
     pairs.push(currentPair);

@@ -30,7 +30,7 @@
         <p>{{ (selectedDate?.date | date: 'MMM d') || 'Select a date' }}
           <span *ngIf="attendanceDetails?.attendance?.first_check_in">
             ( {{ attendanceDetails?.attendance?.first_check_in | date: 'HH:mm' }} -
-            {{ attendanceDetails?.attendance?.last_check_out | date: 'HH:mm' }} )
+            {{ attendanceDetails?.attendance?.last_check_out ? (attendanceDetails?.attendance?.last_check_out | date: 'HH:mm') : 'OUT Missing' }} )
           </span>
         </p>
       </div>

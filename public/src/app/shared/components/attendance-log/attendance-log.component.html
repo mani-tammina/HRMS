@@ -182,28 +182,31 @@
 
           <!-- Vertical Timeline -->
           <div class="timeline-container">
-            <div *ngFor="let ev of selectedLog.timeline; let last = last" class="timeline-item">
-              <div class="timeline-dot" [class.active]="ev.type === 'IN'"></div>
+            <div *ngFor="let ev of selectedLog.timeline; let last = last" class="timeline-item" [class.auto-out-item]="ev.isAutoOut">
+              <div class="timeline-dot" [class.active]="ev.type === 'IN'" [class.missing-dot]="ev.isAutoOut"></div>
 
               <div class="timeline-content">
                 <div class="punch-header">
                   <div class="time-box">
-                    <span class="time">{{ ev.time | date:'h:mm a' }}</span>
-                    <span class="type-tag" [ngClass]="ev.type.toLowerCase()">{{ ev.type }}</span>
+                    <span class="time" *ngIf="!ev.isAutoOut; else missingOutTime">{{ ev.time | date:'h:mm a' }}</span>
+                    <ng-template #missingOutTime>
+                      <span class="time missing-out-text" style="color: #dc2626; font-weight: 700; font-size: 13px;">OUT Missing</span>
+                    </ng-template>
+                    <span class="type-tag" [ngClass]="ev.type.toLowerCase()" [class.missing-tag]="ev.isAutoOut">{{ ev.isAutoOut ? 'MISSING' : ev.type }}</span>
                   </div>
-                  <span class="mode-badge">{{ ev.mode }}</span>
+                  <span class="mode-badge" [class.badge-danger]="ev.isAutoOut">{{ ev.mode }}</span>
                 </div>
 
-                <div class="record-card">
+                <div class="record-card" [class.card-missing]="ev.isAutoOut">
                   <div class="location-info" *ngIf="ev.location">
-                    <ion-icon name="location-outline"></ion-icon>
-                    <span>{{ ev.location }}</span>
+                    <ion-icon [name]="ev.isAutoOut ? 'alert-circle-outline' : 'location-outline'" [style.color]="ev.isAutoOut ? '#dc2626' : 'inherit'"></ion-icon>
+                    <span [style.color]="ev.isAutoOut ? '#dc2626' : 'inherit'" [style.font-weight]="ev.isAutoOut ? '600' : 'normal'">{{ ev.location }}</span>
                   </div>
-                  <div class="note-text" *ngIf="ev.notes" [class.auto-clockout-note]="ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')">
-                    <ion-icon *ngIf="ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')" name="alert-circle-outline" style="color: #dc2626; vertical-align: middle; margin-right: 4px; font-size: 13px;"></ion-icon>
+                  <div class="note-text" *ngIf="ev.notes" [class.auto-clockout-note]="ev.isAutoOut || ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')">
+                    <ion-icon *ngIf="ev.isAutoOut || ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')" name="alert-circle-outline" style="color: #dc2626; vertical-align: middle; margin-right: 4px; font-size: 13px;"></ion-icon>
                     "{{ ev.notes }}"
                   </div>
-                  <div class="location-info" *ngIf="!ev.location && !ev.notes">
+                  <div class="location-info" *ngIf="!ev.location && !ev.notes && !ev.isAutoOut">
                     <ion-icon name="shield-checkmark-outline"></ion-icon>
                     <span>Verified Active Log</span>
                   </div>
