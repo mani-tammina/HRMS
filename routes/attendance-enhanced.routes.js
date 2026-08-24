@@ -268,7 +268,7 @@ router.post("/punch-in", auth, async (req, res) => {
 
     // The named lock serializes all punch requests for this employee and day.
     const [lastPunch] = await c.query(
-      `SELECT punch_type
+      `SELECT punch_type, punch_time
              FROM attendance_punches
              WHERE employee_id = ? AND punch_date = ?
              ORDER BY punch_time DESC, id DESC
@@ -277,6 +277,17 @@ router.post("/punch-in", auth, async (req, res) => {
     );
 
     if (lastPunch[0]?.punch_type === "in") {
+      const punchTime = lastPunch[0].punch_time ? new Date(lastPunch[0].punch_time).getTime() : 0;
+      const secondsAgo = (Date.now() - punchTime) / 1000;
+      if (secondsAgo >= 0 && secondsAgo <= 15) {
+        return res.json({
+          success: true,
+          message: "Punched in successfully",
+          punch_time: lastPunch[0].punch_time,
+          work_mode: work_mode || "Office",
+          alreadyProcessed: true
+        });
+      }
       return res.status(400).json({
         error: "Already punched in. Please punch out first.",
         message:
@@ -402,6 +413,13 @@ router.post("/punch-in", auth, async (req, res) => {
     return res.status(error.statusCode || 500).json({ error: error.message });
   } finally {
     if (c) {
+      if (transactionStarted) {
+        try {
+          await c.rollback();
+        } catch (rollbackError) {
+          console.error("Punch in rollback error in finally:", rollbackError);
+        }
+      }
       try {
         await releaseAttendanceLock(c, lockName);
       } catch (releaseError) {
@@ -485,6 +503,17 @@ router.post("/punch-out", auth, async (req, res) => {
     }
 
     if (lastPunch[0].punch_type === "out") {
+      const punchTime = lastPunch[0].punch_time ? new Date(lastPunch[0].punch_time).getTime() : 0;
+      const secondsAgo = (Date.now() - punchTime) / 1000;
+      if (secondsAgo >= 0 && secondsAgo <= 15) {
+        return res.json({
+          success: true,
+          message: "Punched out successfully",
+          punch_time: lastPunch[0].punch_time,
+          attendance_id: attendanceId,
+          alreadyProcessed: true
+        });
+      }
       return res.status(400).json({
         error: "Already punched out. Punch in first to punch out again.",
       });
@@ -522,6 +551,13 @@ router.post("/punch-out", auth, async (req, res) => {
     return res.status(error.statusCode || 500).json({ error: error.message });
   } finally {
     if (c) {
+      if (transactionStarted) {
+        try {
+          await c.rollback();
+        } catch (rollbackError) {
+          console.error("Punch out rollback error in finally:", rollbackError);
+        }
+      }
       try {
         await releaseAttendanceLock(c, lockName);
       } catch (releaseError) {

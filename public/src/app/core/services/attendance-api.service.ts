@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable, Subject, tap, shareReplay } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, tap, shareReplay, throwError, finalize } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -9,6 +9,7 @@ export class AttendanceApiService {
   private readonly BASE_URL = `${this.env.apiURL}/api/attendance`;
   private readonly leaves_BASE_URL = `${this.env.apiURL}/api/leaves`;
 
+  private isPunchInProgress = false;
 
   private clockStateSubject = new BehaviorSubject<boolean>(false);
   clockState$ = this.clockStateSubject.asObservable();
@@ -36,6 +37,11 @@ export class AttendanceApiService {
   }
 
   apiPunchIn(payload: { work_mode: string; location: string; notes?: string }): Observable<any> {
+    if (this.isPunchInProgress) {
+      return throwError(() => ({ error: { message: 'An attendance request is already being processed. Please wait a moment.' } }));
+    }
+    this.isPunchInProgress = true;
+
     return this.http.post(`${this.BASE_URL}/punch-in`, payload, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         if (res?.success) {
@@ -43,11 +49,19 @@ export class AttendanceApiService {
           this.setClockState(true);
           this.punchRefreshSubject.next();
         }
+      }),
+      finalize(() => {
+        this.isPunchInProgress = false;
       })
     );
   }
 
   apiPunchOut(payload: { notes?: string }): Observable<any> {
+    if (this.isPunchInProgress) {
+      return throwError(() => ({ error: { message: 'An attendance request is already being processed. Please wait a moment.' } }));
+    }
+    this.isPunchInProgress = true;
+
     return this.http.post(`${this.BASE_URL}/punch-out`, payload, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         if (res?.success) {
@@ -55,6 +69,9 @@ export class AttendanceApiService {
           this.setClockState(false);
           this.punchRefreshSubject.next();
         }
+      }),
+      finalize(() => {
+        this.isPunchInProgress = false;
       })
     );
   }

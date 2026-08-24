@@ -118,6 +118,9 @@ async function db() {
             const originalEnd = conn.end;
             conn.end = async () => {
                 try {
+                    // Guarantee any uncommitted transaction is rolled back and locks freed before reuse
+                    await conn.query("ROLLBACK").catch(() => {});
+                    await conn.query("SELECT RELEASE_ALL_LOCKS()").catch(() => {});
                     conn.release();
                 } catch (err) {
                     console.error('[DB] Error releasing connection:', err.message);
@@ -188,6 +191,9 @@ db.getConnection = async () => {
             const originalEnd = conn.end;
             conn.end = async () => {
                 try {
+                    // Guarantee any uncommitted transaction is rolled back and locks freed before reuse
+                    await conn.query("ROLLBACK").catch(() => {});
+                    await conn.query("SELECT RELEASE_ALL_LOCKS()").catch(() => {});
                     conn.release();
                 } catch (err) {
                     console.error('[DB] Error releasing connection:', err.message);

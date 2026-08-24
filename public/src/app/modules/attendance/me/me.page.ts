@@ -847,8 +847,10 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         next: () => this.finalizeRemote(),
         error: (err) => {
           this.remoteLoading = false;
-          if (err?.error?.message?.includes('active punch-in') || err?.error?.message?.includes('Already punched in')) {
+          const msg = err?.error?.message || '';
+          if (msg.includes('active punch-in') || msg.includes('Already punched in') || msg.includes('already being processed')) {
             this.finalizeRemote();
+            this.loadTodayAttendance();
           } else {
             this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
           }

@@ -422,7 +422,12 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
       },
       error: (err: any) => {
         const errorMessage = this.getErrorMessage(err, 'Clock-In failed. Please try again.');
-        if (/active punch-in|already punched in/i.test(errorMessage)) {
+        if (/already being processed/i.test(errorMessage)) {
+          this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
+          setTimeout(() => {
+            this.loadTodayAttendance(true);
+          }, 1500);
+        } else if (/active punch-in|already punched in/i.test(errorMessage)) {
           this.showToast('You already have an active punch-in. Please clock out first.', 'warning');
           this.isClockedIn = true;
         } else {
@@ -478,7 +483,18 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        this.showToast(this.getErrorMessage(err, 'Clock-Out failed. Please try again.'), 'danger');
+        const errorMessage = this.getErrorMessage(err, 'Clock-Out failed. Please try again.');
+        if (/already being processed/i.test(errorMessage)) {
+          this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
+          setTimeout(() => {
+            this.loadTodayAttendance(true);
+          }, 1500);
+        } else if (/already punched out|no punch-in/i.test(errorMessage)) {
+          this.showToast('You are already clocked out.', 'warning');
+          this.isClockedIn = false;
+        } else {
+          this.showToast(errorMessage, 'danger');
+        }
       }
     }).add(() => {
       this.loading = false;
@@ -505,7 +521,15 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
       },
       error: (err) => {
-        this.showToast(this.getErrorMessage(err, 'Remote Clock-Out failed.'), 'danger');
+        const errorMessage = this.getErrorMessage(err, 'Remote Clock-Out failed.');
+        if (/already being processed/i.test(errorMessage)) {
+          this.showToast('Attendance request is synchronizing. Updating status...', 'warning');
+          setTimeout(() => {
+            this.loadTodayAttendance(true);
+          }, 1500);
+        } else {
+          this.showToast(errorMessage, 'danger');
+        }
       }
     }).add(() => {
       this.loading = false;
