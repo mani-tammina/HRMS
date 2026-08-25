@@ -644,7 +644,74 @@ router.get("/team-status-today", auth, async (req, res) => {
         const c = await db();
         const today = new Date().toISOString().split('T')[0];
 
-        // 1. Employees on approved leave today (excluding WFH/Remote leave types)
+        // 1. Identify logged-in employee
+        let currentEmp = null;
+        if (req.user && req.user.id) {
+            const [userRows] = await c.query("SELECT username FROM users WHERE id = ?", [req.user.id]);
+            if (userRows && userRows.length > 0) {
+                const username = userRows[0].username;
+                const [empRows] = await c.query(
+                    "SELECT * FROM employees WHERE WorkEmail = ? OR EmployeeNumber = ? LIMIT 1",
+                    [username, username]
+                );
+                if (empRows && empRows.length > 0) {
+                    currentEmp = empRows[0];
+                }
+            }
+        }
+
+        if (!currentEmp) {
+            c.end();
+            return res.json({
+                on_leave: [],
+                wfh: [],
+                remote: []
+            });
+        }
+
+        // 2. Determine team member IDs
+        let teamMemberIds = [];
+
+        // Check if employee has direct reportees (manager / lead)
+        const [reportees] = await c.query(
+            "SELECT id FROM employees WHERE reporting_manager_id = ? AND EmploymentStatus = 'Working'",
+            [currentEmp.id]
+        );
+
+        if (reportees && reportees.length > 0) {
+            teamMemberIds = reportees.map(r => r.id);
+        } else if (currentEmp.reporting_manager_id) {
+            // Peer team: other employees reporting to the same manager
+            const [coTeam] = await c.query(
+                "SELECT id FROM employees WHERE reporting_manager_id = ? AND id != ? AND EmploymentStatus = 'Working'",
+                [currentEmp.reporting_manager_id, currentEmp.id]
+            );
+            if (coTeam && coTeam.length > 0) {
+                teamMemberIds = coTeam.map(r => r.id);
+            }
+        }
+
+        // Fallback: department team members
+        if (teamMemberIds.length === 0 && currentEmp.DepartmentId) {
+            const [deptTeam] = await c.query(
+                "SELECT id FROM employees WHERE DepartmentId = ? AND id != ? AND EmploymentStatus = 'Working'",
+                [currentEmp.DepartmentId, currentEmp.id]
+            );
+            if (deptTeam && deptTeam.length > 0) {
+                teamMemberIds = deptTeam.map(r => r.id);
+            }
+        }
+
+        if (teamMemberIds.length === 0) {
+            c.end();
+            return res.json({
+                on_leave: [],
+                wfh: [],
+                remote: []
+            });
+        }
+
+        // 3. Employees on approved leave today in the team
         const [onLeave] = await c.query(`
             SELECT DISTINCT
                 e.id as employee_id,
@@ -663,11 +730,12 @@ router.get("/team-status-today", auth, async (req, res) => {
               AND l.start_date <= ?
               AND l.end_date >= ?
               AND e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
               AND (l.leave_type IS NULL OR l.leave_type NOT IN ('WFH', 'Remote'))
             ORDER BY e.FirstName, e.LastName
-        `, [today, today]);
+        `, [today, today, teamMemberIds]);
 
-        // 2. Employees working from home today
+        // 4. Employees working from home today in the team
         const [wfhToday] = await c.query(`
             SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
                    e.profile_image, d.name as department_name, des.name as designation_name
@@ -675,6 +743,7 @@ router.get("/team-status-today", auth, async (req, res) => {
             LEFT JOIN departments d ON e.DepartmentId = d.id
             LEFT JOIN designations des ON e.DesignationId = des.id
             WHERE e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
               AND (
                 EXISTS (
                   SELECT 1 FROM attendance a
@@ -687,9 +756,9 @@ router.get("/team-status-today", auth, async (req, res) => {
                 )
               )
             ORDER BY e.FirstName, e.LastName
-        `, [today, today, today]);
+        `, [teamMemberIds, today, today, today]);
 
-        // 3. Employees working remotely today
+        // 5. Employees working remotely today in the team
         const [remoteToday] = await c.query(`
             SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
                    e.profile_image, d.name as department_name, des.name as designation_name
@@ -697,6 +766,7 @@ router.get("/team-status-today", auth, async (req, res) => {
             LEFT JOIN departments d ON e.DepartmentId = d.id
             LEFT JOIN designations des ON e.DesignationId = des.id
             WHERE e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
               AND (
                 EXISTS (
                   SELECT 1 FROM attendance a
@@ -709,7 +779,7 @@ router.get("/team-status-today", auth, async (req, res) => {
                 )
               )
             ORDER BY e.FirstName, e.LastName
-        `, [today, today, today]);
+        `, [teamMemberIds, today, today, today]);
 
         c.end();
 
