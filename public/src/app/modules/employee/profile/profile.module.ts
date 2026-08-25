@@ -13,6 +13,7 @@ import { DocumentTabComponent } from './tabs/document/document.component';
 import { AssetsTabComponent } from './tabs/assets/assets.component';
 import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
 import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
+import { IdCardModalComponent } from './components/id-card-modal/id-card-modal.component';
 
 const routes: Routes = [
   {
@@ -34,7 +35,8 @@ const routes: Routes = [
     DocumentTabComponent,
     AssetsTabComponent,
     ResignationFormComponent,
-    ResignationTrackingComponent
+    ResignationTrackingComponent,
+    IdCardModalComponent
   ],
   declarations: [ProfilePage]
 })

@@ -1,0 +1,86 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="id-card-toolbar">
+    <ion-title>ID Preview</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()">
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="id-card-content">
+  <!-- No Profile Image Warning -->
+  <div class="no-image-warning" *ngIf="!hasProfileImage">
+    <div class="warning-card">
+      <ion-icon name="camera-outline" class="warning-icon"></ion-icon>
+      <h3>Profile Picture Required</h3>
+      <p>Please upload your profile picture to generate your Employee ID Card.</p>
+      <ion-button fill="outline" color="primary" (click)="dismiss()">
+        <ion-icon slot="start" name="arrow-back-outline"></ion-icon>
+        Go Back & Upload
+      </ion-button>
+    </div>
+  </div>
+
+  <!-- ID Card Preview -->
+  <div class="id-card-wrapper" *ngIf="hasProfileImage">
+    <div class="id-card" #idCardRef>
+      <!-- Blue Header Section -->
+      <div class="id-card-header">
+        <div class="header-pattern"></div>
+        <!-- NFC / Chip Icon -->
+        <div class="chip-icon">
+          <ion-icon name="wifi-outline"></ion-icon>
+        </div>
+        <!-- Profile Photo -->
+        <div class="photo-container">
+          <img [src]="profileImageUrl" alt="Employee Photo" class="employee-photo" crossorigin="anonymous" />
+        </div>
+        <!-- Name & Designation -->
+        <h2 class="employee-name">{{ currentEmployee?.FullName }}</h2>
+        <p class="employee-designation">{{ currentEmployee?.designation_name }}</p>
+      </div>
+
+      <!-- Details Section -->
+      <div class="id-card-body">
+        <div class="detail-row">
+          <span class="detail-label">Employee Number</span>
+          <span class="detail-value">{{ currentEmployee?.EmployeeNumber || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Department</span>
+          <span class="detail-value">{{ currentEmployee?.department_name || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Phone</span>
+          <span class="detail-value">{{ currentEmployee?.mobile_number || currentEmployee?.PhoneNumber || 'N/A'
+            }}</span>
+        </div>
+        <!-- <div class="detail-row">
+          <span class="detail-label">Email</span>
+          <span class="detail-value email-value">{{ currentEmployee?.WorkEmail || 'N/A' }}</span>
+        </div> -->
+        <div class="detail-row">
+          <span class="detail-label">Location</span>
+          <span class="detail-value">{{ currentEmployee?.location_name || 'N/A' }}</span>
+        </div>
+        <div class="detail-row">
+          <span class="detail-label">Blood Group</span>
+          <span class="detail-value">{{ currentEmployee?.BloodGroup || 'N/A' }}</span>
+        </div>
+      </div>
+
+      <!-- Company Logo Footer -->
+      <div class="id-card-footer">
+        <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo" crossorigin="anonymous" />
+      </div>
+    </div>
+
+    <!-- Download Button -->
+    <ion-button expand="block" class="download-btn" (click)="downloadIdCard()" [disabled]="isDownloading">
+      <ion-icon slot="start" [name]="isDownloading ? 'hourglass-outline' : 'download-outline'"></ion-icon>
+      {{ isDownloading ? 'Generating...' : 'Download ID' }}
+    </ion-button>
+  </div>
+</ion-content>

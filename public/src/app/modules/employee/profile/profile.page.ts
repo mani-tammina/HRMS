@@ -8,6 +8,7 @@ import { environment } from '../../../../environments/environment';
 import { SeparationService } from '../../../core/services/separation.service';
 import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
 import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
+import { IdCardModalComponent } from './components/id-card-modal/id-card-modal.component';
 import { RouteGuardService } from '../../../core/services/route-guard.service';
 
 @Component({
@@ -317,8 +318,12 @@ export class ProfilePage implements OnInit, OnDestroy {
       await this.popoverController.dismiss();
     } catch (e) {}
 
+    if (actionKey === 'id_card') {
+      this.openIdCardModal();
+      return;
+    }
+
     const actionNames: { [key: string]: string } = {
-      'id_card': 'ID Card',
       'write_note': 'Write Internal Note',
       'request_feedback': 'Request Feedback',
       'disable_login': 'Disable Login',
@@ -330,6 +335,20 @@ export class ProfilePage implements OnInit, OnDestroy {
 
     const label = actionNames[actionKey] || actionKey;
     this.showToast(`${label} - Work in progress`, 'warning');
+  }
+
+  async openIdCardModal() {
+    if (!this.currentEmployee) return;
+
+    const modal = await this.modalController.create({
+      component: IdCardModalComponent,
+      componentProps: {
+        currentEmployee: this.currentEmployee
+      },
+      cssClass: 'id-card-modal'
+    });
+
+    await modal.present();
   }
 
   async openResignationModal() {

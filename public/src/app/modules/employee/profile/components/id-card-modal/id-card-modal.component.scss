@@ -1,0 +1,302 @@
+@use '../../../../../../theme/_variables' as vars;
+
+// ─────────────────────────────────────────────────────────────
+// ID CARD MODAL STYLES
+// ─────────────────────────────────────────────────────────────
+
+.id-card-toolbar {
+  --background: #{vars.$color-white};
+  --color: #{vars.$color-text-primary};
+  --border-color: #{vars.$color-border-light};
+
+  ion-title {
+    font-size: vars.$fs-body;
+    font-weight: vars.$fw-bold;
+    letter-spacing: vars.$ls-tight;
+  }
+}
+
+.id-card-content {
+  --background: #{vars.$color-bg-page};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
+  // ─── No Image Warning ───
+  .no-image-warning {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    padding: 24px;
+
+    .warning-card {
+      text-align: center;
+      background: vars.$color-white;
+      border-radius: vars.$radius-xl;
+      padding: 48px 32px;
+      box-shadow: vars.$shadow-md;
+      border: 1px solid vars.$color-border-light;
+      max-width: 360px;
+
+      .warning-icon {
+        font-size: 64px;
+        color: vars.$color-warning;
+        margin-bottom: 16px;
+      }
+
+      h3 {
+        font-size: vars.$fs-heading-md;
+        font-weight: vars.$fw-bold;
+        color: vars.$color-text-primary;
+        margin: 0 0 12px 0;
+      }
+
+      p {
+        font-size: vars.$fs-small;
+        color: vars.$color-text-muted;
+        margin: 0 0 24px 0;
+        line-height: vars.$lh-relaxed;
+      }
+
+      ion-button {
+        --border-radius: #{vars.$radius-md};
+        font-weight: vars.$fw-bold;
+        text-transform: none;
+        height: 42px;
+      }
+    }
+  }
+
+  // ─── ID Card Wrapper ───
+  .id-card-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 32px 16px 40px;
+    width: 100%;
+    max-width: 420px;
+    margin: 0 auto;
+  }
+
+  // ─── ID Card ───
+  .id-card {
+    width: 100%;
+    max-width: 340px;
+    background: vars.$color-white;
+    border-radius: vars.$radius-xl;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10), 0 2px 8px rgba(0, 0, 0, 0.05);
+    overflow: hidden;
+    position: relative;
+
+    // ─── Blue Header ───
+    .id-card-header {
+      background: #2196F3;
+      padding: 32px 24px 28px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+
+      .header-pattern {
+        position: absolute;
+        inset: 0;
+        background-image:
+          radial-gradient(circle at 20% 80%, rgba(255,255,255,0.06) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(255,255,255,0.04) 0%, transparent 50%);
+        pointer-events: none;
+      }
+
+      .chip-icon {
+        position: absolute;
+        top: 14px;
+        right: 18px;
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 22px;
+        transform: rotate(45deg);
+
+        ion-icon {
+          font-size: 22px;
+        }
+      }
+
+      .photo-container {
+        width: 110px;
+        height: 110px;
+        border-radius: 50%;
+        border: 4px solid rgba(255, 255, 255, 0.9);
+        margin: 0 auto 16px;
+        overflow: hidden;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        position: relative;
+        z-index: 1;
+
+        .employee-photo {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+      }
+
+      .employee-name {
+        color: #ffffff;
+        font-size: 18px;
+        font-weight: 700;
+        margin: 0 0 4px 0;
+        letter-spacing: -0.01em;
+        position: relative;
+        z-index: 1;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+      }
+
+      .employee-designation {
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 13px;
+        font-weight: 500;
+        margin: 0;
+        position: relative;
+        z-index: 1;
+      }
+    }
+
+    // ─── Body / Details ───
+    .id-card-body {
+      padding: 24px 28px 20px;
+
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f5f9;
+
+        &:last-child {
+          border-bottom: none;
+        }
+
+        .detail-label {
+          font-size: 13px;
+          font-weight: 600;
+          color: #475569;
+          white-space: nowrap;
+          min-width: 120px;
+        }
+
+        .detail-value {
+          font-size: 13px;
+          font-weight: 500;
+          color: #0f172a;
+          text-align: right;
+          word-break: break-word;
+          max-width: 180px;
+
+          &.email-value {
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+          }
+        }
+      }
+    }
+
+    // ─── Footer ───
+    .id-card-footer {
+      text-align: center;
+      padding: 16px 24px 24px;
+      border-top: 1px solid #f1f5f9;
+
+      .company-logo {
+        max-width: 120px;
+        max-height: 50px;
+        object-fit: contain;
+        margin-bottom: 6px;
+      }
+
+      .powered-by {
+        font-size: 11px;
+        color: #94a3b8;
+        margin: 4px 0 0 0;
+        font-weight: 500;
+      }
+    }
+  }
+
+  // ─── Download Button ───
+  .download-btn {
+    width: 100%;
+    max-width: 340px;
+    margin-top: 24px;
+    --background: #2196F3;
+    --color: #ffffff;
+    --border-radius: #{vars.$radius-lg};
+    --box-shadow: 0 4px 16px rgba(33, 150, 243, 0.3);
+    height: 48px;
+    font-weight: 700;
+    font-size: 15px;
+    text-transform: none;
+    letter-spacing: 0.01em;
+    transition: vars.$transition-base;
+
+    &:hover {
+      --background: #1976D2;
+      --box-shadow: 0 6px 24px rgba(33, 150, 243, 0.4);
+    }
+
+    &:active {
+      --background: #1565C0;
+    }
+
+    ion-icon {
+      font-size: 20px;
+      margin-right: 6px;
+    }
+  }
+}
+
+// ─── Mobile Responsive ───
+@media (max-width: 400px) {
+  .id-card-content {
+    .id-card {
+      max-width: 300px;
+
+      .id-card-header {
+        padding: 24px 16px 22px;
+
+        .photo-container {
+          width: 90px;
+          height: 90px;
+        }
+
+        .employee-name {
+          font-size: 16px;
+        }
+
+        .employee-designation {
+          font-size: 12px;
+        }
+      }
+
+      .id-card-body {
+        padding: 16px 20px 12px;
+
+        .detail-row {
+          padding: 8px 0;
+
+          .detail-label {
+            font-size: 12px;
+            min-width: 100px;
+          }
+
+          .detail-value {
+            font-size: 12px;
+            max-width: 140px;
+          }
+        }
+      }
+    }
+
+    .download-btn {
+      max-width: 300px;
+    }
+  }
+}
