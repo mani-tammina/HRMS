@@ -12,19 +12,19 @@ const { findEmployeeByUserId } = require("../utils/helpers");
 // Format a Date object or ISO string to plain YYYY-MM-DD.
 // Database dates are now stored correctly, so no timezone offset is needed.
 function formatDateToIST(val) {
-  if (!val) return null;
-  if (typeof val === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    if (val.includes('T')) return val.split('T')[0];
-    return val;
-  }
-  if (val instanceof Date) {
-    const yyyy = val.getUTCFullYear();
-    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(val.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  return null;
+    if (!val) return null;
+    if (typeof val === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+        if (val.includes('T')) return val.split('T')[0];
+        return val;
+    }
+    if (val instanceof Date) {
+        const yyyy = val.getUTCFullYear();
+        const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(val.getUTCDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    return null;
 }
 
 /* ============================================
