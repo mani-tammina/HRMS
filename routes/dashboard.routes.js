@@ -702,6 +702,11 @@ router.get("/team-status-today", auth, async (req, res) => {
             }
         }
 
+        // Always include the current employee so they can see their own status
+        if (!teamMemberIds.includes(currentEmp.id)) {
+            teamMemberIds.push(currentEmp.id);
+        }
+
         if (teamMemberIds.length === 0) {
             c.end();
             return res.json({
