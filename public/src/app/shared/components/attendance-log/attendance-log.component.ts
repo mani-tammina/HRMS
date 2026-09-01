@@ -478,10 +478,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (today === logDate && this.todayPunches.length) {
       this.selectedLog = {
         ...log,
-        records: this.mapPunches(this.todayPunches),
         prepared: false
       };
-      this.processSelectedLogRecords();
+      this.processSelectedLog(this.todayPunches);
     } else {
       this.selectedLog = { ...log, prepared: false };
       this.loadLogDetails(log);
@@ -498,109 +497,141 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       next: (res) => {
         this.selectedLog = {
           ...log,
-          records: this.mapPunches(res?.punches || []),
           prepared: false
         };
-        this.processSelectedLogRecords();
+        this.processSelectedLog(res?.punches || []);
       },
       error: () => {
-        this.selectedLog = { ...log, records: [], prepared: true, officeRecords: [], wfhRecords: [], remoteRecords: [] };
+        this.selectedLog = { ...log, prepared: true, timeline: [], total_work_hours: '0.00', gross_hours: '0.00' };
       }
     });
   }
 
-  private processSelectedLogRecords(): void {
-    if (!this.selectedLog || !this.selectedLog.records) return;
+  private processSelectedLog(punches: any[]): void {
+    if (!this.selectedLog) return;
 
-    const records = this.selectedLog.records;
+    const rawPunches = Array.isArray(punches)
+      ? punches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime())
+      : [];
 
-    this.selectedLog.officeRecords = records.filter((r: any) => {
-      const loc = r.location?.toLowerCase() || '';
-      return r.work_mode === 'Office' || loc.includes('office') || loc.includes('mumbai');
-    }).slice().reverse();
-
-    this.selectedLog.wfhRecords = records.filter((r: any) =>
-      r.work_mode === 'WFH' || r.location?.toLowerCase().includes('home')
-    ).slice().reverse();
-
-    this.selectedLog.remoteRecords = records.filter((r: any) =>
-      r.work_mode === 'Remote'
-    ).map((r: any) => ({ ...r, pendingApproval: r.approved !== true })).slice().reverse();
-
-    // Create a unified timeline for the redesign
+    const isToday = this.islogToday(this.selectedLog.attendance_date);
     const timeline: any[] = [];
-    records.forEach((r: any) => {
-      let displayLocation = r.location;
-      if (displayLocation && displayLocation.toLowerCase().includes('mumbai')) {
+
+    let currentInTime: number | null = null;
+    let hasOpenIn = false;
+    let totalWorkMinutes = 0;
+    let totalBreakMinutes = 0;
+    let prevValidOutMs: number | null = null;
+    let hasAnyValidOut = false;
+
+    for (let i = 0; i < rawPunches.length; i++) {
+      const p = rawPunches[i];
+      const pTimeMs = new Date(p.punch_time).getTime();
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const isRemote = p.work_mode === 'Remote' || p.location?.toLowerCase().includes('remote') || p.notes?.toLowerCase().includes('remote');
+      const mode = isRemote ? 'Remote' : (p.work_mode || this.selectedLog.work_mode || 'Office');
+
+      let displayLocation = p.location || this.employeeProfile?.location_name || 'Office';
+      if (displayLocation.toLowerCase().includes('mumbai')) {
         displayLocation = this.employeeProfile?.location_name || displayLocation;
-      } else if (r.work_mode === 'Office' && !displayLocation) {
-        displayLocation = this.employeeProfile?.location_name;
       }
 
-      let displayNotes = r.notes;
-      const lowerNotes = displayNotes?.toLowerCase().trim();
-      if (lowerNotes === 'morning shift' || lowerNotes === 'office clock-in') {
-        displayNotes = this.shiftPolicy?.name || displayNotes;
+      let inNotes = p.notes || '';
+      const lowerInNotes = inNotes.toLowerCase().trim();
+      if (lowerInNotes === 'morning shift' || lowerInNotes === 'office clock-in') {
+        inNotes = this.shiftPolicy?.name || inNotes;
       }
 
-      if (r.check_in) {
+      if (p.punch_type === 'in') {
         timeline.push({
           type: 'IN',
-          time: r.check_in,
-          mode: r.work_mode || 'Office',
+          time: p.punch_time,
+          mode: mode,
           location: displayLocation,
-          notes: displayNotes,
+          notes: inNotes,
+          isAutoOut: false,
           icon: 'log-in-outline'
         });
-      }
-      if (r.check_out) {
-        const isAutoOut = r.is_auto_out || (r.out_notes || '').includes('OUT Missing') || (r.out_notes || '').includes('Auto Clock-Out');
-        timeline.push({
-          type: 'OUT',
-          time: r.check_out,
-          isAutoOut: isAutoOut,
-          mode: isAutoOut ? 'System Auto-Out' : (r.work_mode || 'Office'),
-          location: isAutoOut ? 'Missing Clock-Out' : displayLocation,
-          notes: isAutoOut ? 'OUT Missing' : (r.out_notes || displayNotes),
-          icon: 'log-out-outline'
-        });
-      }
-    });
 
-    // Sort timeline by time ascending
-    this.selectedLog.timeline = timeline.sort((a, b) =>
-      new Date(a.time).getTime() - new Date(b.time).getTime()
-    );
+        if (prevValidOutMs !== null && pTimeMs > prevValidOutMs) {
+          const breakM = (pTimeMs - prevValidOutMs) / (1000 * 60);
+          if (breakM > 0) totalBreakMinutes += breakM;
+        }
 
+        currentInTime = pTimeMs;
+        hasOpenIn = true;
+      } else if (p.punch_type === 'out') {
+        if (!isAutoOut) {
+          // Normal valid OUT punch
+          let outNotes = p.notes || '';
+          const lowerOutNotes = outNotes.toLowerCase().trim();
+          if (lowerOutNotes === 'office clock-out' || lowerOutNotes === 'evening shift') {
+            outNotes = this.shiftPolicy?.name || outNotes;
+          }
+
+          timeline.push({
+            type: 'OUT',
+            time: p.punch_time,
+            mode: mode,
+            location: displayLocation,
+            notes: outNotes,
+            isAutoOut: false,
+            icon: 'log-out-outline'
+          });
+
+          if (currentInTime !== null && pTimeMs > currentInTime) {
+            const workM = (pTimeMs - currentInTime) / (1000 * 60);
+            if (workM > 0) {
+              totalWorkMinutes += workM;
+              hasAnyValidOut = true;
+              prevValidOutMs = pTimeMs;
+            }
+          }
+
+          hasOpenIn = false;
+          currentInTime = null;
+        } else {
+          // Auto out punch: if we had an open IN, show exactly ONE OUT Missing
+          if (hasOpenIn) {
+            timeline.push({
+              type: 'OUT',
+              time: p.punch_time,
+              mode: 'System Auto-Out',
+              location: 'Missing Clock-Out',
+              notes: 'OUT Missing',
+              isAutoOut: true,
+              icon: 'log-out-outline'
+            });
+            hasOpenIn = false;
+            currentInTime = null;
+          }
+        }
+      }
+    }
+
+    // If day ends with an open IN punch and it's a past day (or overdue today), show ONE OUT Missing at the end
+    if (hasOpenIn && !isToday) {
+      timeline.push({
+        type: 'OUT',
+        time: null,
+        mode: 'System Auto-Out',
+        location: 'Missing Clock-Out',
+        notes: 'OUT Missing',
+        isAutoOut: true,
+        icon: 'log-out-outline'
+      });
+    }
+
+    if (hasAnyValidOut) {
+      this.selectedLog.total_work_hours = (totalWorkMinutes / 60).toFixed(2);
+      this.selectedLog.gross_hours = ((totalWorkMinutes + totalBreakMinutes) / 60).toFixed(2);
+    } else {
+      this.selectedLog.total_work_hours = '0.00';
+      this.selectedLog.gross_hours = '0.00';
+    }
+
+    this.selectedLog.timeline = timeline;
     this.selectedLog.prepared = true;
-  }
-
-  private mapPunches(punches: any): any[] {
-    if (!Array.isArray(punches)) return [];
-    const records: any[] = [];
-    let current: any = null;
-    punches.forEach(p => {
-      const isRemote = (p.work_mode === 'Remote') || (p.location?.toLowerCase().includes('remote')) || (p.notes?.toLowerCase().includes('remote'));
-      const isOutMissing = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      if (p.punch_type === 'in') {
-        current = {
-          check_in: p.punch_time,
-          check_out: null,
-          work_mode: isRemote ? 'Remote' : (p.work_mode || 'Office'),
-          location: p.location,
-          notes: p.notes,
-          approved: p.approved
-        };
-        records.push(current);
-      }
-      if (p.punch_type === 'out' && current) {
-        current.check_out = p.punch_time;
-        current.out_notes = p.notes;
-        current.is_auto_out = isOutMissing;
-        current = null;
-      }
-    });
-    return records;
   }
 
   getOfficeRecords(records: any[]): any[] {

@@ -143,7 +143,7 @@ class AutoClockOutService {
    */
   async calculateAndUpdateHours(connection, attendanceId) {
     const [punches] = await connection.query(
-      `SELECT id, punch_type, punch_time FROM attendance_punches
+      `SELECT id, punch_type, punch_time, notes FROM attendance_punches
        WHERE attendance_id = ? 
        ORDER BY punch_time ASC, id ASC`,
       [attendanceId]
@@ -152,33 +152,48 @@ class AutoClockOutService {
     let totalWorkMinutes = 0;
     let totalBreakMinutes = 0;
     let lastPunchIn = null;
-    let lastPunchOut = null;
+    let prevValidOut = null;
+    let lastValidCheckOut = null;
 
     for (let i = 0; i < punches.length; i++) {
       const punch = punches[i];
       const punchTime = new Date(punch.punch_time);
+      const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
 
       if (punch.punch_type === 'in') {
-        lastPunchIn = punchTime;
-        if (lastPunchOut && i > 0) {
-          const breakMinutes = (punchTime - lastPunchOut) / (1000 * 60);
-          totalBreakMinutes += Math.max(0, breakMinutes);
+        if (lastPunchIn === null) {
+          lastPunchIn = punchTime;
+          if (prevValidOut !== null) {
+            const breakMinutes = (punchTime - prevValidOut) / (1000 * 60);
+            if (breakMinutes > 0) {
+              totalBreakMinutes += breakMinutes;
+            }
+          }
+        } else {
+          // Another IN without an OUT: if gap > 15 mins, start new session
+          const gap = (punchTime - lastPunchIn) / (1000 * 60);
+          if (gap > 15) {
+            lastPunchIn = punchTime;
+          }
         }
-      } else if (punch.punch_type === 'out' && lastPunchIn) {
-        lastPunchOut = punchTime;
-        const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
-        totalWorkMinutes += Math.max(0, workMinutes);
-        lastPunchIn = null;
+      } else if (punch.punch_type === 'out') {
+        if (lastPunchIn !== null) {
+          if (!isAutoOut) {
+            const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
+            if (workMinutes > 0) {
+              totalWorkMinutes += workMinutes;
+              prevValidOut = punchTime;
+              lastValidCheckOut = punch.punch_time;
+            }
+          }
+          lastPunchIn = null;
+        }
       }
     }
 
     const totalWorkHours = (totalWorkMinutes / 60).toFixed(2);
     const totalBreakHours = (totalBreakMinutes / 60).toFixed(2);
     const grossHours = (parseFloat(totalWorkHours) + parseFloat(totalBreakHours)).toFixed(2);
-
-    const lastCheckOut = punches.length > 0 && punches[punches.length - 1].punch_type === 'out'
-      ? punches[punches.length - 1].punch_time
-      : null;
 
     await connection.query(
       `UPDATE attendance 
@@ -187,7 +202,7 @@ class AutoClockOutService {
            total_break_hours = ?, 
            gross_hours = ?
        WHERE id = ?`,
-      [lastCheckOut, totalWorkHours, totalBreakHours, grossHours, attendanceId]
+      [lastValidCheckOut, totalWorkHours, totalBreakHours, grossHours, attendanceId]
     );
 
     return { totalWorkHours, totalBreakHours, grossHours };
@@ -267,7 +282,7 @@ class AutoClockOutService {
         SELECT id, punch_type, punch_time, punch_date, notes
         FROM attendance_punches
         WHERE attendance_id = ?
-        ORDER BY punch_time DESC, id DESC
+        ORDER BY id DESC
         LIMIT 1
       `, [att.attendance_id]);
 
@@ -283,10 +298,25 @@ class AutoClockOutService {
 
       if (timing.isOverdue) {
         // Automatically clock out!
-        const autoOutTimeMySQL = this.formatToMySQLDateTime(timing.autoClockOutTime);
-        const autoOutDate = this.formatToDateOnly(timing.autoClockOutTime);
+        let autoOutDateObj = timing.autoClockOutTime;
+        if (autoOutDateObj <= punchInTime) {
+          autoOutDateObj = new Date(punchInTime.getTime() + 1000);
+        }
+        const autoOutTimeMySQL = this.formatToMySQLDateTime(autoOutDateObj);
+        const autoOutDate = this.formatToDateOnly(autoOutDateObj);
 
         const autoNotes = 'OUT Missing';
+
+        // Check if there is already an auto out punch to prevent duplicate insertion
+        const [existingAutoOut] = await connection.query(`
+          SELECT id FROM attendance_punches
+          WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'
+          LIMIT 1
+        `, [att.attendance_id]);
+
+        if (existingAutoOut.length > 0) {
+          continue;
+        }
 
         // Insert punch out record marked as 'OUT Missing'
         await connection.query(`
@@ -301,15 +331,8 @@ class AutoClockOutService {
           autoNotes
         ]);
 
-        // As per policy for missing clock-out: do not calculate work/gross hours, leave last_check_out as NULL
-        await connection.query(`
-          UPDATE attendance 
-          SET last_check_out = NULL,
-              total_work_hours = 0.00,
-              total_break_hours = 0.00,
-              gross_hours = 0.00
-          WHERE id = ?
-        `, [att.attendance_id]);
+        // Calculate hours up until completed in and out sessions
+        await this.calculateAndUpdateHours(connection, att.attendance_id);
 
         console.log(`🕒 [AutoClockOut] Auto clocked out (OUT Missing) Employee ID ${employeeId} (${emp.FirstName} ${emp.LastName}) for attendance ID ${att.attendance_id} at ${autoOutTimeMySQL}`);
 

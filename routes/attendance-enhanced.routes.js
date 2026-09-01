@@ -1748,7 +1748,7 @@ router.get("/report/all", auth, hr, async (req, res) => {
 async function calculateAndUpdateHours(connection, attendanceId) {
   // Get all punches for this attendance
   const [punches] = await connection.query(
-    `SELECT id, punch_type, punch_time FROM attendance_punches
+    `SELECT id, punch_type, punch_time, notes FROM attendance_punches
          WHERE attendance_id = ? 
          ORDER BY punch_time ASC, id ASC`,
     [attendanceId]
@@ -1757,25 +1757,41 @@ async function calculateAndUpdateHours(connection, attendanceId) {
   let totalWorkMinutes = 0;
   let totalBreakMinutes = 0;
   let lastPunchIn = null;
-  let lastPunchOut = null;
+  let prevValidOut = null;
+  let lastValidCheckOut = null;
 
   for (let i = 0; i < punches.length; i++) {
     const punch = punches[i];
     const punchTime = new Date(punch.punch_time);
+    const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
 
-    if (punch.punch_type === "in") {
-      lastPunchIn = punchTime;
-
-      // If there was a previous punch out, calculate break time
-      if (lastPunchOut && i > 0) {
-        const breakMinutes = (punchTime - lastPunchOut) / (1000 * 60);
-        totalBreakMinutes += breakMinutes;
+    if (punch.punch_type === 'in') {
+      if (lastPunchIn === null) {
+        lastPunchIn = punchTime;
+        if (prevValidOut !== null) {
+          const breakMinutes = (punchTime - prevValidOut) / (1000 * 60);
+          if (breakMinutes > 0) {
+            totalBreakMinutes += breakMinutes;
+          }
+        }
+      } else {
+        const gap = (punchTime - lastPunchIn) / (1000 * 60);
+        if (gap > 15) {
+          lastPunchIn = punchTime;
+        }
       }
-    } else if (punch.punch_type === "out" && lastPunchIn) {
-      lastPunchOut = punchTime;
-      const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
-      totalWorkMinutes += workMinutes;
-      lastPunchIn = null;
+    } else if (punch.punch_type === 'out') {
+      if (lastPunchIn !== null) {
+        if (!isAutoOut) {
+          const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
+          if (workMinutes > 0) {
+            totalWorkMinutes += workMinutes;
+            prevValidOut = punchTime;
+            lastValidCheckOut = punch.punch_time;
+          }
+        }
+        lastPunchIn = null;
+      }
     }
   }
 
@@ -1792,7 +1808,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
              gross_hours = ?
          WHERE id = ?`,
     [
-      punches[punches.length - 1].punch_time,
+      lastValidCheckOut,
       totalWorkHours,
       totalBreakHours,
       grossHours,
