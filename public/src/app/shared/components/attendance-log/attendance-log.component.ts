@@ -515,10 +515,75 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       : [];
 
     const isToday = this.islogToday(this.selectedLog.attendance_date);
-    const timeline: any[] = [];
+    const groupsMap = new Map<string, { locationName: string; icon: string; sessions: any[] }>();
 
-    let currentInTime: number | null = null;
-    let hasOpenIn = false;
+    const getCleanLocationName = (p: any): string => {
+      if (!p) return 'Web Clock In';
+      const loc = (p.location || '').trim();
+      const mode = (p.work_mode || '').trim();
+      const source = (p.source || '').trim();
+      const lowerLoc = loc.toLowerCase();
+      const lowerNotes = (p.notes || '').toLowerCase();
+
+      if (source === 'biometric' || mode === 'Biometric' || lowerNotes.includes('biometric')) {
+        if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai')) {
+          return loc;
+        }
+        if (p.device_info) {
+          const dev = String(p.device_info).trim();
+          if (dev === '1') return '4th Floor SVS Towers';
+          if (dev === '2') return '3rd Floor SVS Towers';
+          if (dev === '3') return '4th Floor SVS Towers';
+          return `${dev}${dev.endsWith('Floor') ? '' : ''} SVS Towers`;
+        }
+        return '4th Floor SVS Towers';
+      }
+
+      if (mode === 'Remote' || lowerLoc.includes('remote') || lowerNotes.includes('remote')) {
+        return 'Remote Clock In';
+      }
+
+      if (mode === 'WFH' || lowerLoc.includes('home') || lowerNotes.includes('wfh')) {
+        return 'Work From Home';
+      }
+
+      if (mode === 'Office' || lowerLoc.includes('office') || lowerLoc.includes('mumbai') || lowerNotes.includes('office')) {
+        return 'Web Clock In';
+      }
+
+      if (mode) {
+        return `${mode} Clock In`;
+      }
+
+      return 'Web Clock In';
+    };
+
+    const getFormattedTime = (dateVal: any): string => {
+      if (!dateVal) return '';
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) {
+        if (typeof dateVal === 'string' && dateVal.includes(':')) {
+          const parts = dateVal.split(' ');
+          const t = parts.length > 1 ? parts[1] : parts[0];
+          return t.split('.')[0];
+        }
+        return String(dateVal);
+      }
+      const hours = d.getHours();
+      const mins = String(d.getMinutes()).padStart(2, '0');
+      const secs = String(d.getSeconds()).padStart(2, '0');
+      return `${hours}:${mins}:${secs}`;
+    };
+
+    const getGroupIcon = (name: string): string => {
+      const lower = name.toLowerCase();
+      if (lower.includes('floor') || lower.includes('svs') || lower.includes('biometric')) return 'finger-print-outline';
+      if (lower.includes('remote')) return 'cloud-outline';
+      if (lower.includes('home') || lower.includes('wfh')) return 'home-outline';
+      return 'desktop-outline';
+    };
+
+    let currentInPunch: any = null;
     let totalWorkMinutes = 0;
     let totalBreakMinutes = 0;
     let prevValidOutMs: number | null = null;
@@ -528,109 +593,98 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const p = rawPunches[i];
       const pTimeMs = new Date(p.punch_time).getTime();
       const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const isRemote = p.work_mode === 'Remote' || p.location?.toLowerCase().includes('remote') || p.notes?.toLowerCase().includes('remote');
-      const mode = isRemote ? 'Remote' : (p.work_mode || this.selectedLog.work_mode || 'Office');
+      const punchType = (p.punch_type || '').toLowerCase();
+      const locName = getCleanLocationName(p);
 
-      let displayLocation = p.location || this.employeeProfile?.location_name || 'Office';
-      if (displayLocation.toLowerCase().includes('mumbai')) {
-        displayLocation = this.employeeProfile?.location_name || displayLocation;
-      }
-
-      let inNotes = p.notes || '';
-      const lowerInNotes = inNotes.toLowerCase().trim();
-      if (lowerInNotes === 'morning shift' || lowerInNotes === 'office clock-in') {
-        inNotes = this.shiftPolicy?.name || inNotes;
-      }
-
-      if (p.punch_type === 'in') {
-        timeline.push({
-          type: 'IN',
-          time: p.punch_time,
-          mode: mode,
-          location: displayLocation,
-          notes: inNotes,
-          isAutoOut: false,
-          icon: 'log-in-outline'
-        });
+      if (punchType === 'in') {
+        if (currentInPunch) {
+          const prevLoc = getCleanLocationName(currentInPunch);
+          if (!groupsMap.has(prevLoc)) {
+            groupsMap.set(prevLoc, { locationName: prevLoc, icon: getGroupIcon(prevLoc), sessions: [] });
+          }
+          groupsMap.get(prevLoc)!.sessions.push({
+            inTime: getFormattedTime(currentInPunch.punch_time),
+            outTime: 'MISSING',
+            isMissingOut: true,
+            isAutoOut: true,
+            notes: currentInPunch.notes
+          });
+        }
+        currentInPunch = p;
 
         if (prevValidOutMs !== null && pTimeMs > prevValidOutMs) {
           const breakM = (pTimeMs - prevValidOutMs) / (1000 * 60);
           if (breakM > 0) totalBreakMinutes += breakM;
         }
-
-        currentInTime = pTimeMs;
-        hasOpenIn = true;
-      } else if (p.punch_type === 'out') {
-        if (!isAutoOut) {
-          // Normal valid OUT punch
-          let outNotes = p.notes || '';
-          const lowerOutNotes = outNotes.toLowerCase().trim();
-          if (lowerOutNotes === 'office clock-out' || lowerOutNotes === 'evening shift') {
-            outNotes = this.shiftPolicy?.name || outNotes;
+      } else if (punchType === 'out') {
+        if (currentInPunch) {
+          const groupLoc = getCleanLocationName(currentInPunch) || locName;
+          if (!groupsMap.has(groupLoc)) {
+            groupsMap.set(groupLoc, { locationName: groupLoc, icon: getGroupIcon(groupLoc), sessions: [] });
           }
 
-          timeline.push({
-            type: 'OUT',
-            time: p.punch_time,
-            mode: mode,
-            location: displayLocation,
-            notes: outNotes,
-            isAutoOut: false,
-            icon: 'log-out-outline'
-          });
+          if (isAutoOut) {
+            groupsMap.get(groupLoc)!.sessions.push({
+              inTime: getFormattedTime(currentInPunch.punch_time),
+              outTime: 'MISSING',
+              isMissingOut: true,
+              isAutoOut: true,
+              notes: p.notes
+            });
+          } else {
+            groupsMap.get(groupLoc)!.sessions.push({
+              inTime: getFormattedTime(currentInPunch.punch_time),
+              outTime: getFormattedTime(p.punch_time),
+              isMissingOut: false,
+              isAutoOut: false,
+              notes: p.notes
+            });
 
-          if (currentInTime !== null && pTimeMs > currentInTime) {
-            const workM = (pTimeMs - currentInTime) / (1000 * 60);
-            if (workM > 0) {
-              totalWorkMinutes += workM;
-              hasAnyValidOut = true;
-              prevValidOutMs = pTimeMs;
+            if (pTimeMs > new Date(currentInPunch.punch_time).getTime()) {
+              const workM = (pTimeMs - new Date(currentInPunch.punch_time).getTime()) / (1000 * 60);
+              if (workM > 0) {
+                totalWorkMinutes += workM;
+                hasAnyValidOut = true;
+                prevValidOutMs = pTimeMs;
+              }
             }
           }
-
-          hasOpenIn = false;
-          currentInTime = null;
+          currentInPunch = null;
         } else {
-          // Auto out punch: if we had an open IN, show exactly ONE OUT Missing
-          if (hasOpenIn) {
-            timeline.push({
-              type: 'OUT',
-              time: p.punch_time,
-              mode: 'System Auto-Out',
-              location: 'Missing Clock-Out',
-              notes: 'OUT Missing',
-              isAutoOut: true,
-              icon: 'log-out-outline'
-            });
-            hasOpenIn = false;
-            currentInTime = null;
+          if (!groupsMap.has(locName)) {
+            groupsMap.set(locName, { locationName: locName, icon: getGroupIcon(locName), sessions: [] });
           }
+          groupsMap.get(locName)!.sessions.push({
+            inTime: 'MISSING',
+            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+            isMissingOut: false,
+            isAutoOut: isAutoOut,
+            notes: p.notes
+          });
         }
       }
     }
 
-    // If day ends with an open IN punch and it's a past day (or overdue today), show ONE OUT Missing at the end
-    if (hasOpenIn && !isToday) {
-      timeline.push({
-        type: 'OUT',
-        time: null,
-        mode: 'System Auto-Out',
-        location: 'Missing Clock-Out',
-        notes: 'OUT Missing',
-        isAutoOut: true,
-        icon: 'log-out-outline'
+    if (currentInPunch) {
+      const prevLoc = getCleanLocationName(currentInPunch);
+      if (!groupsMap.has(prevLoc)) {
+        groupsMap.set(prevLoc, { locationName: prevLoc, icon: getGroupIcon(prevLoc), sessions: [] });
+      }
+      groupsMap.get(prevLoc)!.sessions.push({
+        inTime: getFormattedTime(currentInPunch.punch_time),
+        outTime: isToday ? 'IN PROGRESS' : 'MISSING',
+        isMissingOut: !isToday,
+        isAutoOut: false,
+        notes: currentInPunch.notes
       });
     }
 
     if (hasAnyValidOut) {
       this.selectedLog.total_work_hours = (totalWorkMinutes / 60).toFixed(2);
       this.selectedLog.gross_hours = ((totalWorkMinutes + totalBreakMinutes) / 60).toFixed(2);
-    } else {
-      this.selectedLog.total_work_hours = '0.00';
-      this.selectedLog.gross_hours = '0.00';
     }
 
-    this.selectedLog.timeline = timeline;
+    this.selectedLog.locationGroups = Array.from(groupsMap.values());
     this.selectedLog.prepared = true;
   }
 

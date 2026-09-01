@@ -66,6 +66,7 @@ const inboxRoutes = require("./routes/inbox.routes");
 const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
 const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
+const biometricAttendanceRoutes = require("./routes/biometric-attendance.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 // Import notification service
@@ -204,17 +205,19 @@ async function initializeDatabase() {
 
         if (!fs.existsSync(schemaPath)) {
             console.warn('⚠️ schema.sql not found, skipping file-based initialization');
-            await conn.query(`CREATE DATABASE IF NOT EXISTS hrms_db_new`);
-            await conn.query(`USE hrms_db_new`);
-            console.log("✅ Database created/verified (minimal setup)");
+            const targetDb = process.env.DB_NAME || 'hrms_db_new';
+            await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
+            await conn.query(`USE \`${targetDb}\``);
+            console.log(`✅ Database ${targetDb} created/verified (minimal setup)`);
         } else {
             console.log('📄 Reading schema from schema.sql...');
             const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
 
-            await conn.query(`CREATE DATABASE IF NOT EXISTS hrms_db_new`);
-            console.log("✅ Database hrms_db_new created/verified");
-            await conn.query(`USE hrms_db_new`);
-            console.log("✅ Using database hrms_db_new");
+            const targetDb = process.env.DB_NAME || 'hrms_db_new';
+            await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
+            console.log(`✅ Database ${targetDb} created/verified`);
+            await conn.query(`USE \`${targetDb}\``);
+            console.log(`✅ Using database ${targetDb}`);
 
             const sqlWithoutComments = schemaSQL
                 .split('\n')
@@ -605,6 +608,9 @@ app.use("/api/v1", payrollTaxV1Routes);
 
 // Taxation Workflow Compatibility Routes (non-v1 paths)
 app.use("/api", taxationWorkflowRoutes);
+
+// Dedicated Biometric Attendance Routes
+app.use("/api/biometric-attendance", biometricAttendanceRoutes);
 
 /* ============ SWAGGER API DOCUMENTATION ============ */
 
