@@ -11,9 +11,11 @@ import { ProfileTabComponent } from './tabs/profile/profile.component';
 import { JobTabComponent } from './tabs/job/job.component';
 import { DocumentTabComponent } from './tabs/document/document.component';
 import { AssetsTabComponent } from './tabs/assets/assets.component';
+import { LeavesTabComponent } from './tabs/leaves/leaves.component';
 import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
 import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
 import { IdCardModalComponent } from './components/id-card-modal/id-card-modal.component';
+import { LeaveBalanceModalComponent } from './components/leave-balance-modal/leave-balance-modal.component';
 
 const routes: Routes = [
   {
@@ -34,9 +36,11 @@ const routes: Routes = [
     JobTabComponent,
     DocumentTabComponent,
     AssetsTabComponent,
+    LeavesTabComponent,
     ResignationFormComponent,
     ResignationTrackingComponent,
-    IdCardModalComponent
+    IdCardModalComponent,
+    LeaveBalanceModalComponent
   ],
   declarations: [ProfilePage]
 })

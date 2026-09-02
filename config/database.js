@@ -333,6 +333,22 @@ db.escapeId = (identifier) => {
     return pool.escapeId(identifier);
 };
 
+/**
+ * Direct query on pool
+ */
+db.query = async (...args) => {
+    const pool = getPool();
+    return pool.query(...args);
+};
+
+/**
+ * Direct execute on pool
+ */
+db.execute = async (...args) => {
+    const pool = getPool();
+    return pool.execute(...args);
+};
+
 // Handle process termination gracefully
 process.on('SIGINT', async () => {
     console.log('\n[DB] Received SIGINT, closing database connections...');

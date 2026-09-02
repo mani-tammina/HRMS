@@ -26,6 +26,9 @@
       <ion-segment-button value="assets" *ngIf="canViewPrivateTabs">
         <ion-label>Assets</ion-label>
       </ion-segment-button>
+      <ion-segment-button value="leaves" *ngIf="canViewLeaves" (click)="onLeavesSegmentClick($event)">
+        <ion-label>Leaves</ion-label>
+      </ion-segment-button>
     </ion-segment>
   </ion-toolbar>
 </ion-header>
@@ -54,6 +57,11 @@
           <button class="menu-item" (click)="onMenuAction('id_card')">
             <ion-icon name="id-card-outline" class="item-icon"></ion-icon>
             <span>ID Card</span>
+          </button>
+
+          <button class="menu-item" (click)="onMenuAction('leaves')" *ngIf="canViewLeaves">
+            <ion-icon name="calendar-outline" class="item-icon"></ion-icon>
+            <span>Leaves</span>
           </button>
 
           <button class="menu-item" (click)="onMenuAction('write_note')">
@@ -195,6 +203,7 @@
         <app-job-tab *ngSwitchCase="'job'" [currentEmployee]="currentEmployee"></app-job-tab>
         <app-document-tab *ngSwitchCase="'documents'" [currentEmployee]="currentEmployee"></app-document-tab>
         <app-assets-tab *ngSwitchCase="'assets'" [currentEmployee]="currentEmployee"></app-assets-tab>
+        <app-leaves-tab *ngSwitchCase="'leaves'" [currentEmployee]="currentEmployee"></app-leaves-tab>
       </ng-container>
     </div>
   </div>

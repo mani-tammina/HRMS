@@ -1073,25 +1073,33 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
     const empLeavePlanId =
       empRows && empRows[0] ? empRows[0].leave_plan_id : null;
 
+    let planStartMonth = 1;
+    try {
+      if (empLeavePlanId) {
+        const [planRows] = await c.query(
+          "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
+          [empLeavePlanId],
+        );
+        if (planRows && planRows[0] && planRows[0].leave_year_start_month)
+          planStartMonth = planRows[0].leave_year_start_month;
+      }
+    } catch (e) {
+      planStartMonth = 1;
+    }
+
     const adjusted = [];
     for (const b of balances) {
       if ((b.type_code || "").toUpperCase() === "CL") {
         const allocated = Number(b.allocated_days) || 0;
         const carry = Number(b.carry_forward_days) || 0;
         const used = Number(b.used_days) || 0;
-        let planStartMonth = 1;
-        try {
-          if (empLeavePlanId) {
-            const [planRows] = await c.query(
-              "SELECT leave_year_start_month FROM leave_plans WHERE id = ?",
-              [empLeavePlanId],
-            );
-            if (planRows && planRows[0] && planRows[0].leave_year_start_month)
-              planStartMonth = planRows[0].leave_year_start_month;
-          }
-        } catch (e) {
-          planStartMonth = 1;
-        }
+        const accruedSoFar = computeCLAccruedSoFar(
+          allocated,
+          empJoined,
+          Number(b.leave_year) || new Date().getFullYear(),
+          new Date(),
+          planStartMonth,
+        );
         const available = computeCLAvailable(
           allocated,
           carry,
@@ -1101,12 +1109,17 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
           new Date(),
           planStartMonth,
         );
-        adjusted.push({ ...b, available_days: available });
-      } else adjusted.push(b);
+        adjusted.push({ ...b, available_days: available, accrued_so_far: accruedSoFar, plan_start_month: planStartMonth });
+      } else {
+        adjusted.push({ ...b, plan_start_month: planStartMonth });
+      }
     }
 
     c.end();
-    res.json(adjusted);
+    res.json({
+      balances: adjusted,
+      leave_year_start_month: planStartMonth,
+    });
   } catch (error) {
     console.error("Error fetching employee leave balance:", error);
     res.status(500).json({ error: error.message });
