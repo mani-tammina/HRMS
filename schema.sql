@@ -2006,24 +2006,20 @@ CREATE TABLE IF NOT EXISTS employee_documents (
 -- 1. Raw imported punches from Microsoft SQL Server (DeviceLogs)
 CREATE TABLE IF NOT EXISTS biometric_attendance_raw (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  device_log_id BIGINT UNIQUE NOT NULL,
-  download_date DATETIME NULL,
+  source_system VARCHAR(50) DEFAULT 'ETIMETRACK_MSSQL',
+  source_log_id VARCHAR(100) NOT NULL,
+  biometric_user_id VARCHAR(100) NOT NULL,
+  punch_time DATETIME NOT NULL,
   device_id VARCHAR(100) NULL,
-  user_id VARCHAR(100) NOT NULL,
-  log_date DATETIME NOT NULL,
   direction VARCHAR(50) NULL,
-  att_direction VARCHAR(50) NULL,
-  c1 VARCHAR(100) NULL,
-  c2 VARCHAR(100) NULL,
-  c3 VARCHAR(100) NULL,
-  c4 VARCHAR(100) NULL,
-  c5 VARCHAR(100) NULL,
-  c6 VARCHAR(100) NULL,
-  c7 VARCHAR(100) NULL,
-  work_code VARCHAR(50) NULL,
-  imported_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_raw_user_log (user_id, log_date),
-  INDEX idx_raw_log_date (log_date)
+  raw_payload JSON NULL,
+  status ENUM('processed', 'ignored', 'pending') DEFAULT 'pending',
+  employee_id INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_source_log (source_system, source_log_id),
+  INDEX idx_raw_user_log (biometric_user_id, punch_time),
+  INDEX idx_raw_punch_time (punch_time),
+  INDEX idx_raw_emp (employee_id)
 );
 
 -- 2. Employee mapping between Biometric User ID and HRMS Employee ID
@@ -2076,25 +2072,29 @@ CREATE TABLE IF NOT EXISTS biometric_daily_attendance (
 -- 5. Synchronization cursor state
 CREATE TABLE IF NOT EXISTS biometric_sync_state (
   source_system VARCHAR(50) PRIMARY KEY,
-  last_source_log_id BIGINT DEFAULT 0,
+  last_source_log_id VARCHAR(100) DEFAULT '0',
   last_sync_at DATETIME NULL,
   last_status VARCHAR(20) NULL,
   last_error TEXT NULL,
+  last_synced_records_count INT DEFAULT 0,
+  total_synced_records INT DEFAULT 0,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- 6. Operational audit history
 CREATE TABLE IF NOT EXISTS biometric_sync_log (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
-  run_start DATETIME NOT NULL,
-  run_end DATETIME NULL,
-  source_database VARCHAR(100) NULL,
-  watermark_before BIGINT NULL,
-  watermark_after BIGINT NULL,
+  source_system VARCHAR(50) DEFAULT 'ETIMETRACK_MSSQL',
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NULL,
+  watermark_before VARCHAR(100) NULL,
+  watermark_after VARCHAR(100) NULL,
   rows_read INT DEFAULT 0,
   rows_inserted INT DEFAULT 0,
   rows_skipped INT DEFAULT 0,
-  status VARCHAR(20) DEFAULT 'RUNNING',
+  rows_processed INT DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'running',
   error_message TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+

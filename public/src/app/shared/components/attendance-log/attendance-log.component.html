@@ -44,7 +44,8 @@
         <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'half-day'">
-        <span class="badge-leave" style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+        <span class="badge-leave"
+          style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
           {{ getHalfDayNotation(log) }}
         </span>
       </ng-container>
@@ -65,7 +66,8 @@
     <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave') && log.noLogs" class="no-log">
       <p *ngIf="log.status === 'weekend'" style="color:#333;font-size:11px;font-weight:550;margin:0;">Full day week off
       </p>
-      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType || log.notes || 'Leave' }}</p>
+      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
+        || log.notes || 'Leave' }}</p>
     </ion-col>
 
     <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
@@ -149,7 +151,7 @@
 <ion-modal [isOpen]="showSlider" class="daily-activity-modal" (didDismiss)="closeSlider()">
   <ng-template>
     <div class="daily-activity-card">
-      
+
       <!-- Top Shift Info Box & Close Button -->
       <div class="activity-card-header">
         <div class="shift-info-block">
@@ -158,7 +160,8 @@
             <span class="shift-date-text"> ({{ selectedLog?.attendance_date | date:'dd MMM' }})</span>
           </div>
           <div class="shift-timing-text">
-            {{ shiftPolicy?.start_time ? (shiftPolicy.start_time | slice:0:5) : '10:00' }} - {{ shiftPolicy?.end_time ? (shiftPolicy.end_time | slice:0:5) : '19:00' }}
+            {{ shiftPolicy?.start_time ? (shiftPolicy.start_time | slice:0:5) : '10:00' }} - {{ shiftPolicy?.end_time ?
+            (shiftPolicy.end_time | slice:0:5) : '19:00' }}
           </div>
         </div>
         <button class="close-card-btn" (click)="closeSlider()" aria-label="Close">
@@ -175,7 +178,7 @@
       <!-- Scrollable Logs Content -->
       <div class="activity-card-body" *ngIf="selectedLog?.prepared; else loadingDetails">
         <div class="groups-container" *ngIf="selectedLog?.locationGroups?.length; else noRecords">
-          
+
           <!-- Location / Device Group (Rendered individually one after another) -->
           <div *ngFor="let group of selectedLog.locationGroups" class="location-group-box">
             <div class="location-heading">
@@ -193,8 +196,10 @@
 
                 <!-- OUT Column -->
                 <div class="punch-col out-col">
-                  <span class="punch-arrow out-arrow" [class.missing-arrow]="s.isMissingOut || s.outTime === 'MISSING'">&#x2197;</span>
-                  <span class="punch-time out-time" [class.missing-text]="s.isMissingOut || s.outTime === 'MISSING'">{{ s.outTime }}</span>
+                  <span class="punch-arrow out-arrow"
+                    [class.missing-arrow]="s.isMissingOut || s.outTime === 'MISSING'">&#x2197;</span>
+                  <span class="punch-time out-time" [class.missing-text]="s.isMissingOut || s.outTime === 'MISSING'">{{
+                    s.outTime }}</span>
                 </div>
               </div>
             </div>

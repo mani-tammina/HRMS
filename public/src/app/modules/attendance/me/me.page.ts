@@ -291,25 +291,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         }
         const punches = res?.punches || [];
 
-        if (res?.attendance) {
-          let gross = parseFloat(res.attendance.gross_hours || 0);
-          let effective = parseFloat(res.attendance.total_work_hours || 0);
+        if (punches && punches.length > 0) {
+          const metrics = this.calculateMetricsFromPunches(punches, true);
+          this.grossHours = this.formatHours(parseFloat(metrics.grossHours));
+          this.effectiveHours = this.formatHours(parseFloat(metrics.totalWorkHours));
 
-          if (res.last_punch_type === 'in' && punches.length > 0) {
-            const lastPunch = punches[punches.length - 1];
-            const startTime = new Date(lastPunch.punch_time).getTime();
-            const now = new Date().getTime();
-            const diffHours = (now - startTime) / (1000 * 60 * 60);
-            effective += diffHours;
-            const firstPunch = punches[0];
-            gross = (now - new Date(firstPunch.punch_time).getTime()) / (1000 * 60 * 60);
-          }
-
-          this.grossHours = this.formatHours(gross);
-          this.effectiveHours = this.formatHours(effective);
-
-          this.grossMinutes = Math.round(gross * 60);
-          this.effectiveMinutes = Math.round(effective * 60);
+          this.grossMinutes = Math.round(metrics.grossMinutes);
+          this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
 
           // Calculate late login if shift is available
           if (this.shift_policy && punches.length > 0) {
@@ -328,6 +316,18 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
           this.createTimelineData(punches);
           this.startLiveTimer(punches, res.last_punch_type);
+        } else if (res?.attendance) {
+          let gross = parseFloat(res.attendance.gross_hours || 0);
+          let effective = parseFloat(res.attendance.total_work_hours || 0);
+
+          this.grossHours = this.formatHours(gross);
+          this.effectiveHours = this.formatHours(effective);
+
+          this.grossMinutes = Math.round(gross * 60);
+          this.effectiveMinutes = Math.round(effective * 60);
+
+          this.createTimelineData([]);
+          this.startLiveTimer([], '');
         } else {
           this.grossHours = '0h 0m';
           this.effectiveHours = '0h 0m';
@@ -347,6 +347,94 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         this.startLiveTimer([], '');
       },
     });
+  }
+
+  calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const locationPunchesMap = new Map<string, any[]>();
+    for (const p of punches) {
+      const loc = (p.location || p.source || p.work_mode || 'default').trim();
+      if (!locationPunchesMap.has(loc)) {
+        locationPunchesMap.set(loc, []);
+      }
+      locationPunchesMap.get(loc)!.push(p);
+    }
+
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+
+    locationPunchesMap.forEach(streamPunches => {
+      let currentInPunch: any = null;
+      for (let i = 0; i < streamPunches.length; i++) {
+        const p = streamPunches[i];
+        const pTimeMs = new Date(p.punch_time).getTime();
+        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+        const punchType = (p.punch_type || '').toLowerCase();
+
+        if (punchType === 'in') {
+          if (earliestInMs === null || pTimeMs < earliestInMs) {
+            earliestInMs = pTimeMs;
+          }
+          currentInPunch = p;
+        } else if (punchType === 'out') {
+          if (currentInPunch && !isAutoOut) {
+            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            if (pTimeMs > inTimeMs) {
+              workIntervals.push({ start: inTimeMs, end: pTimeMs });
+              hasAnyValidOut = true;
+              if (latestOutMs === null || pTimeMs > latestOutMs) {
+                latestOutMs = pTimeMs;
+              }
+            }
+          }
+          currentInPunch = null;
+        }
+      }
+    });
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
   }
 
   createTimelineData(punches: any[]) {

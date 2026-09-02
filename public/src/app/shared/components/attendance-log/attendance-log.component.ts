@@ -368,21 +368,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             }
             const isToday = this.islogToday(date);
             if (isToday && this.todayPunches && this.todayPunches.length > 0) {
-              const lastPunch = this.todayPunches[this.todayPunches.length - 1];
-              const isPunchedIn = lastPunch.punch_type === 'in';
-              if (isPunchedIn) {
-                const lastPunchTime = new Date(lastPunch.punch_time).getTime();
-                const now = new Date().getTime();
-                const diffHours = (now - lastPunchTime) / (1000 * 60 * 60);
-
-                let effective = parseFloat(updatedExisting.total_work_hours || 0);
-                effective += diffHours;
-                updatedExisting.total_work_hours = effective.toFixed(2);
-
-                const firstPunch = this.todayPunches[0];
-                const firstPunchTime = new Date(firstPunch.punch_time).getTime();
-                const gross = (now - firstPunchTime) / (1000 * 60 * 60);
-                updatedExisting.gross_hours = gross.toFixed(2);
+              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+              updatedExisting.total_work_hours = metrics.totalWorkHours;
+              updatedExisting.gross_hours = metrics.grossHours;
+              const sortedPunches = this.todayPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+              const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
+              if (firstInPunch) {
+                updatedExisting.first_check_in = firstInPunch.punch_time;
               }
             }
             return updatedExisting;
@@ -409,9 +401,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (now > penaltyThreshold) {
             defaultStatus = 'penalty';
           } else {
-            // If it's today, handle 'not-in-yet'
+            // If it's today, handle 'not-in-yet' or present from today punches
             const isToday = now.getFullYear() === logD.getFullYear() && now.getMonth() === logD.getMonth() && now.getDate() === logD.getDate();
             if (isToday) {
+              if (this.todayPunches && this.todayPunches.length > 0) {
+                const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+                const sortedPunches = this.todayPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+                const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
+                return {
+                  attendance_date: date,
+                  first_check_in: firstInPunch ? firstInPunch.punch_time : null,
+                  total_work_hours: metrics.totalWorkHours,
+                  gross_hours: metrics.grossHours,
+                  status: 'present',
+                  records: [],
+                  noLogs: false
+                };
+              }
               defaultStatus = 'not-in-yet';
             }
           }
@@ -593,16 +599,16 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       locationPunchesMap.get(locName)!.push(p);
     }
 
-    let totalWorkMinutes = 0;
-    let totalBreakMinutes = 0;
     let hasAnyValidOut = false;
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
 
-    // Process each location/source stream independently so biometric and web punches do not interfere
+    // Process each location/source stream independently so biometric and web punches do not interfere visually
     locationPunchesMap.forEach((streamPunches, locName) => {
       const icon = getGroupIcon(locName);
       const sessions: any[] = [];
       let currentInPunch: any = null;
-      let prevValidOutMs: number | null = null;
 
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
@@ -611,6 +617,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         const punchType = (p.punch_type || '').toLowerCase();
 
         if (punchType === 'in') {
+          if (earliestInMs === null || pTimeMs < earliestInMs) {
+            earliestInMs = pTimeMs;
+          }
           if (currentInPunch) {
             sessions.push({
               inTime: getFormattedTime(currentInPunch.punch_time),
@@ -621,11 +630,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             });
           }
           currentInPunch = p;
-
-          if (prevValidOutMs !== null && pTimeMs > prevValidOutMs) {
-            const breakM = (pTimeMs - prevValidOutMs) / (1000 * 60);
-            if (breakM > 0) totalBreakMinutes += breakM;
-          }
         } else if (punchType === 'out') {
           if (currentInPunch) {
             if (isAutoOut) {
@@ -645,12 +649,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
                 notes: p.notes
               });
 
-              if (pTimeMs > new Date(currentInPunch.punch_time).getTime()) {
-                const workM = (pTimeMs - new Date(currentInPunch.punch_time).getTime()) / (1000 * 60);
-                if (workM > 0) {
-                  totalWorkMinutes += workM;
-                  hasAnyValidOut = true;
-                  prevValidOutMs = pTimeMs;
+              const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+              if (pTimeMs > inTimeMs) {
+                workIntervals.push({ start: inTimeMs, end: pTimeMs });
+                hasAnyValidOut = true;
+                if (latestOutMs === null || pTimeMs > latestOutMs) {
+                  latestOutMs = pTimeMs;
                 }
               }
             }
@@ -684,13 +688,102 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       });
     });
 
-    if (hasAnyValidOut) {
-      this.selectedLog.total_work_hours = (totalWorkMinutes / 60).toFixed(2);
-      this.selectedLog.gross_hours = ((totalWorkMinutes + totalBreakMinutes) / 60).toFixed(2);
+    const metrics = this.calculateMetricsFromPunches(rawPunches, isToday);
+    if (metrics.hasAnyValidOut || isToday) {
+      this.selectedLog.total_work_hours = metrics.totalWorkHours;
+      this.selectedLog.gross_hours = metrics.grossHours;
     }
 
     this.selectedLog.locationGroups = Array.from(groupsMap.values());
     this.selectedLog.prepared = true;
+  }
+
+  calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const locationPunchesMap = new Map<string, any[]>();
+    for (const p of punches) {
+      const loc = (p.location || p.source || p.work_mode || 'default').trim();
+      if (!locationPunchesMap.has(loc)) {
+        locationPunchesMap.set(loc, []);
+      }
+      locationPunchesMap.get(loc)!.push(p);
+    }
+
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+
+    locationPunchesMap.forEach(streamPunches => {
+      let currentInPunch: any = null;
+      for (let i = 0; i < streamPunches.length; i++) {
+        const p = streamPunches[i];
+        const pTimeMs = new Date(p.punch_time).getTime();
+        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+        const punchType = (p.punch_type || '').toLowerCase();
+
+        if (punchType === 'in') {
+          if (earliestInMs === null || pTimeMs < earliestInMs) {
+            earliestInMs = pTimeMs;
+          }
+          currentInPunch = p;
+        } else if (punchType === 'out') {
+          if (currentInPunch && !isAutoOut) {
+            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            if (pTimeMs > inTimeMs) {
+              workIntervals.push({ start: inTimeMs, end: pTimeMs });
+              hasAnyValidOut = true;
+              if (latestOutMs === null || pTimeMs > latestOutMs) {
+                latestOutMs = pTimeMs;
+              }
+            }
+          }
+          currentInPunch = null;
+        }
+      }
+    });
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
   }
 
   getOfficeRecords(records: any[]): any[] {

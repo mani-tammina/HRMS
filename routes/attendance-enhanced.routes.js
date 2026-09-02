@@ -1153,11 +1153,17 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       const existing = combinedAttendanceMap.get(dStr);
       existing.punch_in_count += (Number(bd.bio_punch_in_count) || 0);
       existing.punch_out_count += (Number(bd.bio_punch_out_count) || 0);
-      if (!existing.first_check_in && bd.first_punch_in) {
-        existing.first_check_in = `${dStr} ${bd.first_punch_in}`;
+      if (bd.first_punch_in) {
+        const bioFirstIn = `${dStr} ${bd.first_punch_in}`;
+        if (!existing.first_check_in || new Date(bioFirstIn).getTime() < new Date(existing.first_check_in).getTime()) {
+          existing.first_check_in = bioFirstIn;
+        }
       }
-      if (!existing.last_check_out && bd.last_punch_out) {
-        existing.last_check_out = `${dStr} ${bd.last_punch_out}`;
+      if (bd.last_punch_out) {
+        const bioLastOut = `${dStr} ${bd.last_punch_out}`;
+        if (!existing.last_check_out || new Date(bioLastOut).getTime() > new Date(existing.last_check_out).getTime()) {
+          existing.last_check_out = bioLastOut;
+        }
       }
       if ((!existing.gross_hours || parseFloat(existing.gross_hours) === 0) && parseFloat(bd.gross_hours) > 0) {
         existing.gross_hours = bd.gross_hours;
@@ -1194,6 +1200,16 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       }
       if (existing.punch_out_count === 0 && Number(bp.bio_punch_out_count) > 0) {
         existing.punch_out_count += Number(bp.bio_punch_out_count);
+      }
+      if (bp.first_punch_in) {
+        if (!existing.first_check_in || new Date(bp.first_punch_in).getTime() < new Date(existing.first_check_in).getTime()) {
+          existing.first_check_in = bp.first_punch_in;
+        }
+      }
+      if (bp.last_punch_out) {
+        if (!existing.last_check_out || new Date(bp.last_punch_out).getTime() > new Date(existing.last_check_out).getTime()) {
+          existing.last_check_out = bp.last_punch_out;
+        }
       }
     } else {
       const startMs = new Date(bp.first_punch_in).getTime();
