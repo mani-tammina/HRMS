@@ -44,7 +44,8 @@
         <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'half-day'">
-        <span class="badge-leave" style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+        <span class="badge-leave"
+          style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
           {{ getHalfDayNotation(log) }}
         </span>
       </ng-container>
@@ -65,7 +66,8 @@
     <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave') && log.noLogs" class="no-log">
       <p *ngIf="log.status === 'weekend'" style="color:#333;font-size:11px;font-weight:550;margin:0;">Full day week off
       </p>
-      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType || log.notes || 'Leave' }}</p>
+      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
+        || log.notes || 'Leave' }}</p>
     </ion-col>
 
     <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
@@ -145,96 +147,94 @@
   </ion-row>
 </ion-grid>
 
-<!-- Right Side Timeline Modal -->
-<ion-modal [isOpen]="showSlider" class="side-custom-popup" (didDismiss)="closeSlider()">
+<!-- Daily Activity Log Modal / Centered Floating Card -->
+<ion-modal [isOpen]="showSlider" class="daily-activity-modal" (didDismiss)="closeSlider()">
   <ng-template>
-    <ion-header class="log-modal-header">
-      <ion-toolbar>
-        <ion-title>Daily Activity Log</ion-title>
-        <ion-buttons slot="end">
-          <ion-button (click)="closeSlider()" color="medium" size="small">
-            <ion-icon name="close-circle-outline" slot="icon-only"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-        <p class="modal-date">
-          {{ selectedLog?.attendance_date | date:'fullDate' }}
-        </p>
-      </ion-toolbar>
-    </ion-header>
+    <div class="daily-activity-card">
 
-    <ion-content>
-      <div class="modal-content-wrapper" *ngIf="selectedLog?.prepared; else loadingDetails">
-        <div *ngIf="selectedLog?.timeline?.length; else noRecords">
-          <!-- Daily Performance Summary Card -->
-          <div class="daily-summary-card">
-            <div class="summary-grid">
-              <div class="summary-item">
-                <span class="s-label">EFFECTIVE</span>
-                <span class="s-value">{{ formatHours(selectedLog.total_work_hours, selectedLog.attendance_date)
-                  }}</span>
-              </div>
-              <div class="summary-item" style="text-align: right;">
-                <span class="s-label">GROSS TIME</span>
-                <span class="s-value">{{ formatHours(selectedLog.gross_hours, selectedLog.attendance_date) }}</span>
+      <!-- Top Shift Info Box & Close Button -->
+      <div class="activity-card-header">
+        <div class="shift-info-block">
+          <div class="shift-title">
+            <span class="shift-name-text">{{ shiftPolicy?.name || 'Day shift' }}</span>
+            <span class="shift-date-text"> ({{ selectedLog?.attendance_date | date:'dd MMM' }})</span>
+          </div>
+          <div class="shift-timing-text">
+            {{ shiftPolicy?.start_time ? (shiftPolicy.start_time | slice:0:5) : '10:00' }} - {{ shiftPolicy?.end_time ?
+            (shiftPolicy.end_time | slice:0:5) : '19:00' }}
+          </div>
+        </div>
+        <button class="close-card-btn" (click)="closeSlider()" aria-label="Close">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Action Link: Apply Partial Day / Regularize -->
+      <div class="action-link-row" (click)="openRegularizeModal(selectedLog)">
+        <ion-icon name="pencil-outline" class="action-icon"></ion-icon>
+        <span class="action-text">Apply Partial Day</span>
+      </div>
+
+      <!-- Scrollable Logs Content -->
+      <div class="activity-card-body" *ngIf="selectedLog?.prepared; else loadingDetails">
+        <div class="groups-container" *ngIf="selectedLog?.locationGroups?.length; else noRecords">
+
+          <!-- Location / Device Group (Rendered individually one after another) -->
+          <div *ngFor="let group of selectedLog.locationGroups" class="location-group-box">
+            <div class="location-heading">
+              <ion-icon [name]="group.icon" class="group-icon"></ion-icon>
+              <span>{{ group.locationName }}</span>
+            </div>
+
+            <div class="session-list">
+              <div *ngFor="let s of group.sessions" class="session-row">
+                <!-- IN Column -->
+                <div class="punch-col in-col">
+                  <span class="punch-arrow in-arrow">&#x2199;</span>
+                  <span class="punch-time in-time" [class.missing-text]="s.inTime === 'MISSING'">{{ s.inTime }}</span>
+                </div>
+
+                <!-- OUT Column -->
+                <div class="punch-col out-col">
+                  <span class="punch-arrow out-arrow"
+                    [class.missing-arrow]="s.isMissingOut || s.outTime === 'MISSING'">&#x2197;</span>
+                  <span class="punch-time out-time" [class.missing-text]="s.isMissingOut || s.outTime === 'MISSING'">{{
+                    s.outTime }}</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <!-- Vertical Timeline -->
-          <div class="timeline-container">
-            <div *ngFor="let ev of selectedLog.timeline; let last = last" class="timeline-item" [class.auto-out-item]="ev.isAutoOut">
-              <div class="timeline-dot" [class.active]="ev.type === 'IN'" [class.missing-dot]="ev.isAutoOut"></div>
-
-              <div class="timeline-content">
-                <div class="punch-header">
-                  <div class="time-box">
-                    <span class="time" *ngIf="!ev.isAutoOut; else missingOutTime">{{ ev.time | date:'h:mm a' }}</span>
-                    <ng-template #missingOutTime>
-                      <span class="time missing-out-text" style="color: #dc2626; font-weight: 700; font-size: 13px;">OUT Missing</span>
-                    </ng-template>
-                    <span class="type-tag" [ngClass]="ev.type.toLowerCase()" [class.missing-tag]="ev.isAutoOut">{{ ev.isAutoOut ? 'MISSING' : ev.type }}</span>
-                  </div>
-                  <span class="mode-badge" [class.badge-danger]="ev.isAutoOut">{{ ev.mode }}</span>
-                </div>
-
-                <div class="record-card" [class.card-missing]="ev.isAutoOut">
-                  <div class="location-info" *ngIf="ev.location">
-                    <ion-icon [name]="ev.isAutoOut ? 'alert-circle-outline' : 'location-outline'" [style.color]="ev.isAutoOut ? '#dc2626' : 'inherit'"></ion-icon>
-                    <span [style.color]="ev.isAutoOut ? '#dc2626' : 'inherit'" [style.font-weight]="ev.isAutoOut ? '600' : 'normal'">{{ ev.location }}</span>
-                  </div>
-                  <div class="note-text" *ngIf="ev.notes" [class.auto-clockout-note]="ev.isAutoOut || ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')">
-                    <ion-icon *ngIf="ev.isAutoOut || ev.notes.includes('OUT Missing') || ev.notes.includes('Auto Clock-Out')" name="alert-circle-outline" style="color: #dc2626; vertical-align: middle; margin-right: 4px; font-size: 13px;"></ion-icon>
-                    "{{ ev.notes }}"
-                  </div>
-                  <div class="location-info" *ngIf="!ev.location && !ev.notes && !ev.isAutoOut">
-                    <ion-icon name="shield-checkmark-outline"></ion-icon>
-                    <span>Verified Active Log</span>
-                  </div>
-                </div>
-
-                <!-- Session Separation Line (Visual only) -->
-                <div class="duration-indicator" *ngIf="ev.type === 'OUT' && !last">
-                  Next break segment...
-                </div>
-              </div>
+          <!-- Total Hours Metrics Footer -->
+          <div class="activity-footer-metrics" *ngIf="selectedLog?.total_work_hours || selectedLog?.gross_hours">
+            <div class="metric-item">
+              <span class="m-label">Effective:</span>
+              <span class="m-val">{{ formatHours(selectedLog.total_work_hours, selectedLog.attendance_date) }}</span>
+            </div>
+            <div class="metric-divider"></div>
+            <div class="metric-item">
+              <span class="m-label">Gross Time:</span>
+              <span class="m-val">{{ formatHours(selectedLog.gross_hours, selectedLog.attendance_date) }}</span>
             </div>
           </div>
+
         </div>
 
         <ng-template #noRecords>
-          <div class="ion-text-center" style="padding: 60px 20px;">
-            <ion-icon name="calendar-clear-outline" style="font-size: 48px; color: #cbd5e1;"></ion-icon>
-            <p style="color: #64748b; font-size: 14px; margin-top: 16px;">No activity logs found for this date.</p>
+          <div class="no-activity-placeholder">
+            <ion-icon name="calendar-clear-outline"></ion-icon>
+            <p>No activity logs found for this date.</p>
           </div>
         </ng-template>
       </div>
 
       <ng-template #loadingDetails>
-        <div class="ion-text-center" style="padding: 100px 0;">
+        <div class="loading-placeholder">
           <ion-spinner name="crescent" color="primary"></ion-spinner>
-          <p style="color: #64748b; font-size: 14px; margin-top: 16px; font-weight: 500;">Retrieving logs...</p>
+          <p>Retrieving activity logs...</p>
         </div>
       </ng-template>
-    </ion-content>
+
+    </div>
   </ng-template>
 </ion-modal>

@@ -685,23 +685,112 @@ export class HomePage implements OnInit, OnDestroy {
       this.hasPunchedToday = punches.length > 0;
 
       if (this.hasPunchedToday) {
-        // Build the overview data object
+        // Build the overview data object with merged metrics
+        const metrics = this.calculateMetricsFromPunches(punches, true);
 
         this.todayAttendance = {
           ...this.todayAttendance,
           first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
           last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
-          gross_hours: this.formatMinutesToHours(res.gross_hours),
+          gross_hours: this.formatGrossHours(metrics.grossHours),
           work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
-          effective_hours: this.formatMinutesToHours(res.total_work_hours)
+          effective_hours: this.formatGrossHours(metrics.totalWorkHours)
         };
 
-        const eff = parseFloat(res.effective_hours) || 0;
-        this.todayEffectivePercentage = Math.round((eff / (8 * 60)) * 100);
+        const eff = parseFloat(metrics.totalWorkHours) || 0;
+        this.todayEffectivePercentage = Math.round((eff / 8) * 100);
       }
 
       this.cdr.detectChanges();
     });
+  }
+
+  private calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const locationPunchesMap = new Map<string, any[]>();
+    for (const p of punches) {
+      const loc = (p.location || p.source || p.work_mode || 'default').trim();
+      if (!locationPunchesMap.has(loc)) {
+        locationPunchesMap.set(loc, []);
+      }
+      locationPunchesMap.get(loc)!.push(p);
+    }
+
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+
+    locationPunchesMap.forEach(streamPunches => {
+      let currentInPunch: any = null;
+      for (let i = 0; i < streamPunches.length; i++) {
+        const p = streamPunches[i];
+        const pTimeMs = new Date(p.punch_time).getTime();
+        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+        const punchType = (p.punch_type || '').toLowerCase();
+
+        if (punchType === 'in') {
+          if (earliestInMs === null || pTimeMs < earliestInMs) {
+            earliestInMs = pTimeMs;
+          }
+          currentInPunch = p;
+        } else if (punchType === 'out') {
+          if (currentInPunch && !isAutoOut) {
+            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            if (pTimeMs > inTimeMs) {
+              workIntervals.push({ start: inTimeMs, end: pTimeMs });
+              hasAnyValidOut = true;
+              if (latestOutMs === null || pTimeMs > latestOutMs) {
+                latestOutMs = pTimeMs;
+              }
+            }
+          }
+          currentInPunch = null;
+        }
+      }
+    });
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
   }
 
   private formatMinutesToHours(val: any): string {

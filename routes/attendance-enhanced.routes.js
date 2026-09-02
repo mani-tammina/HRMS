@@ -638,8 +638,81 @@ router.get("/today", auth, async (req, res) => {
       }
     }
 
-    if (attendance.length === 0) {
-      c.end();
+    // Fetch both web punches and biometric punches for today
+    let punches = [];
+    if (attendance.length > 0) {
+      const [webPunches] = await c.query(
+        `SELECT ap.*, a.work_mode, 'web' as source 
+         FROM attendance_punches ap
+         JOIN attendance a ON ap.attendance_id = a.id
+         WHERE ap.attendance_id = ? 
+         ORDER BY ap.punch_time ASC`,
+        [attendance[0].id]
+      );
+      punches = webPunches || [];
+    } else {
+      const [webPunches] = await c.query(
+        `SELECT ap.*, 'Office' as work_mode, 'web' as source 
+         FROM attendance_punches ap
+         WHERE ap.employee_id = ? AND ap.punch_date = ?
+         ORDER BY ap.punch_time ASC`,
+        [emp.id, today]
+      );
+      punches = webPunches || [];
+    }
+
+    // Biometric punches for today
+    try {
+      const [bioPunches] = await c.query(
+        `SELECT bp.id, 0 as attendance_id, bp.employee_id, bp.direction,
+                DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+                DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
+                null as ip_address, bp.device_id as device_info,
+                CONCAT('Biometric Device (', COALESCE(bp.device_id, 'Reader'), ')') as location,
+                'Biometric Punch' as notes,
+                'biometric' as source,
+                'Biometric' as work_mode,
+                bp.created_at
+         FROM biometric_punches bp
+         WHERE bp.employee_id = ? AND bp.punch_date = ?
+         ORDER BY bp.punch_time ASC`,
+        [emp.id, today]
+      );
+      if (bioPunches && bioPunches.length > 0) {
+        let bioOpen = false;
+        const mappedBio = bioPunches.map(p => {
+          let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+          if (pt === 'in') bioOpen = true;
+          else if (pt === 'out') bioOpen = false;
+          return {
+            ...p,
+            punch_type: pt
+          };
+        });
+        punches.push(...mappedBio);
+      }
+    } catch (_) {}
+
+    punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+
+    let attendanceRecord = attendance.length > 0 ? attendance[0] : null;
+    if (!attendanceRecord && punches.length > 0) {
+      attendanceRecord = {
+        id: 0,
+        employee_id: emp.id,
+        attendance_date: today,
+        punch_date: today,
+        first_check_in: punches[0].punch_time,
+        last_check_out: punches.length > 1 ? punches[punches.length - 1].punch_time : null,
+        work_mode: punches[0].work_mode || 'Biometric',
+        location: punches[0].location || 'Biometric Device',
+        status: 'present'
+      };
+    }
+
+    c.end();
+
+    if (!attendanceRecord && punches.length === 0) {
       return res.json({
         has_attendance: false,
         message: "No attendance record for today",
@@ -649,30 +722,16 @@ router.get("/today", auth, async (req, res) => {
       });
     }
 
-    // Get all punches (include work_mode from attendance table)
-    const [punches] = await c.query(
-      `SELECT ap.*, a.work_mode 
-             FROM attendance_punches ap
-             JOIN attendance a ON ap.attendance_id = a.id
-             WHERE ap.attendance_id = ? 
-             ORDER BY ap.punch_time ASC`,
-      [attendance[0].id]
-    );
-
-    c.end();
+    const lastPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
 
     res.json({
       has_attendance: true,
-      attendance: attendance[0],
+      attendance: attendanceRecord,
       punches: punches,
       punch_count: punches.length,
-      last_punch_type:
-        punches.length > 0 ? punches[punches.length - 1].punch_type : null,
-      can_punch_in:
-        punches.length === 0 ||
-        punches[punches.length - 1].punch_type === "out",
-      can_punch_out:
-        punches.length > 0 && punches[punches.length - 1].punch_type === "in",
+      last_punch_type: lastPunchType,
+      can_punch_in: punches.length === 0 || lastPunchType === "out",
+      can_punch_out: punches.length > 0 && lastPunchType === "in",
       policyPermissions,
       shiftTiming
     });
@@ -698,134 +757,681 @@ router.post("/bulk-status", auth, async (req, res) => {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    console.log("\n🔍 ========== BULK STATUS DEBUG ==========");
-    console.log("📅 Checking attendance for date:", today);
-    console.log("👥 Employee IDs requested:", employee_ids);
-
     const c = await db();
 
-    // Get attendance records for all employees today
     const placeholders = employee_ids.map(() => "?").join(",");
     const [attendance] = await c.query(
       `SELECT 
-                a.employee_id,
-                a.id as attendance_id,
-                a.attendance_date,
-                a.work_mode,
-                a.status
+                a.*,
+                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'in') as punch_in_count,
+                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'out') as punch_out_count
              FROM attendance a
-             WHERE a.employee_id IN (${placeholders}) 
-               AND a.attendance_date = ?`,
+             WHERE a.employee_id IN (${placeholders}) AND a.attendance_date = ?`,
       [...employee_ids, today]
     );
 
-    console.log("\n📋 Attendance Records Found:", attendance.length);
-    attendance.forEach((att) => {
-      console.log(
-        `  Employee ${att.employee_id}: attendance_id=${att.attendance_id}, work_mode=${att.work_mode}, status=${att.status}`
-      );
-    });
-
-    // Get last punch for each attendance
-    const attendanceIds = attendance.map((a) => a.attendance_id);
-    let lastPunches = [];
-
-    console.log("\n🎯 Attendance IDs to check for punches:", attendanceIds);
-
-    if (attendanceIds.length > 0) {
-      const punchPlaceholders = attendanceIds.map(() => "?").join(",");
-      [lastPunches] = await c.query(
-        `SELECT 
-                    ap.attendance_id,
-                    ap.employee_id,
-                    ap.punch_type,
-                    ap.punch_time
-                 FROM attendance_punches ap
-                 INNER JOIN (
-                     SELECT attendance_id, MAX(punch_time) as max_time
-                     FROM attendance_punches
-                     WHERE attendance_id IN (${punchPlaceholders})
-                     GROUP BY attendance_id
-                 ) latest ON ap.attendance_id = latest.attendance_id 
-                   AND ap.punch_time = latest.max_time`,
-        attendanceIds
-      );
-
-      console.log("\n👊 Last Punches Found:", lastPunches.length);
-      lastPunches.forEach((punch) => {
-        console.log(
-          `  Employee ${punch.employee_id}: attendance_id=${punch.attendance_id}, punch_type=${punch.punch_type}, punch_time=${punch.punch_time}`
-        );
-      });
-    } else {
-      console.log("\n⚠️ No attendance IDs found - skipping punch query");
-    }
+    const [latestPunches] = await c.query(
+      `SELECT ap.employee_id, ap.punch_type, ap.punch_time, ap.work_mode, ap.location, ap.notes
+             FROM attendance_punches ap
+             INNER JOIN (
+                 SELECT employee_id, MAX(punch_time) as max_time
+                 FROM attendance_punches
+                 WHERE employee_id IN (${placeholders}) AND punch_date = ?
+                 GROUP BY employee_id
+             ) latest ON ap.employee_id = latest.employee_id AND ap.punch_time = latest.max_time`,
+      [...employee_ids, today]
+    );
 
     c.end();
 
-    console.log("\n🏗️ Building Status Map...");
+    const punchMap = new Map();
+    latestPunches.forEach((p) => {
+      punchMap.set(p.employee_id, p);
+    });
 
-    // Build status map
-    const statusMap = {};
-    employee_ids.forEach((id) => {
-      statusMap[id] = {
+    const attendanceMap = new Map();
+    attendance.forEach((a) => {
+      const punch = punchMap.get(a.employee_id);
+      attendanceMap.set(a.employee_id, {
+        ...a,
+        is_clocked_in: punch ? punch.punch_type === "in" : false,
+        last_punch: punch || null,
+      });
+    });
+
+    const result = employee_ids.map((id) => {
+      const att = attendanceMap.get(id);
+      if (att) {
+        return {
+          employee_id: id,
+          has_attendance: true,
+          ...att,
+        };
+      }
+      return {
         employee_id: id,
-        status: "out",
         has_attendance: false,
-        work_mode: null,
-        last_punch_time: null,
+        status: "absent",
+        is_clocked_in: false,
+        gross_hours: 0,
+        total_work_hours: 0,
       };
     });
 
-    console.log(
-      "📝 Initial Status Map (all out):",
-      Object.keys(statusMap).length,
-      "employees"
-    );
-
-    // Update with actual attendance data
-    attendance.forEach((att) => {
-      statusMap[att.employee_id].has_attendance = true;
-      statusMap[att.employee_id].work_mode = att.work_mode;
-      statusMap[att.employee_id].attendance_status = att.status;
-      console.log(
-        `✏️ Updated Employee ${att.employee_id}: has_attendance=true, work_mode=${att.work_mode}`
-      );
-    });
-
-    // Update with last punch type
-    lastPunches.forEach((punch) => {
-      if (statusMap[punch.employee_id]) {
-        const newStatus = punch.punch_type === "in" ? "in" : "out";
-        statusMap[punch.employee_id].status = newStatus;
-        statusMap[punch.employee_id].last_punch_time = punch.punch_time;
-        console.log(
-          `✅ Employee ${punch.employee_id}: Last punch type = ${punch.punch_type}, Status = ${newStatus}, Time = ${punch.punch_time}`
-        );
-      }
-    });
-
-    console.log("\n📊 Final Bulk Status Response:");
-    Object.values(statusMap).forEach((emp) => {
-      console.log(
-        `  Employee ${emp.employee_id}: status=${emp.status}, has_attendance=${emp.has_attendance}, work_mode=${emp.work_mode}, last_punch_time=${emp.last_punch_time}`
-      );
-    });
-    console.log("========================================\n");
-
     res.json({
-      success: true,
       date: today,
-      statuses: Object.values(statusMap),
+      count: result.length,
+      employees: result,
     });
   } catch (error) {
-    console.error("Error fetching bulk attendance status:", error);
+    console.error("Bulk status check error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
+/* ============================================
+   SHARED ATTENDANCE DETAILS & REPORT HELPERS
+   ============================================ */
+
+function toISTFormat(val) {
+  if (!val) return null;
+  if (typeof val === 'string') {
+    const clean = val.replace('Z', '').replace('T', ' ').trim();
+    const parts = clean.split(' ');
+    if (parts.length >= 2) {
+      const datePart = parts[0];
+      const timePart = parts[1].split('.')[0];
+      return `${datePart}T${timePart}+05:30`;
+    }
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const hours = String(d.getHours()).padStart(2, '0');
+  const minutes = String(d.getMinutes()).padStart(2, '0');
+  const seconds = String(d.getSeconds()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+05:30`;
+}
+
+function calculatePunchPairs(punches) {
+  const pairs = [];
+  let currentPair = {};
+
+  for (let i = 0; i < punches.length; i++) {
+    const punch = punches[i];
+    const formattedTime = toISTFormat(punch.punch_time);
+    let punchType = (punch.punch_type || '').toLowerCase();
+    if (punchType === 'auto' || !punchType) {
+      punchType = currentPair.punch_in ? 'out' : 'in';
+    }
+
+    if (punchType === "in") {
+      if (currentPair.punch_in) {
+        currentPair.punch_out = null;
+        currentPair.punch_out_display = 'In Progress';
+        currentPair.hours_worked = null;
+        currentPair.status = "In Progress";
+        pairs.push({ ...currentPair });
+        currentPair = {};
+      }
+      currentPair = {
+        punch_in: formattedTime,
+        punch_in_location: punch.location,
+        punch_in_notes: punch.notes,
+        work_mode: punch.work_mode || 'Office',
+        source: punch.source || 'web'
+      };
+    } else if (punchType === "out" && currentPair.punch_in) {
+      const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
+      currentPair.punch_out = isMissingOut ? null : formattedTime;
+      currentPair.punch_out_raw = formattedTime;
+      currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : formattedTime;
+      currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
+      currentPair.punch_out_notes = punch.notes;
+      currentPair.is_missing_out = isMissingOut;
+
+      const punchIn = new Date(currentPair.punch_in);
+      const punchOut = new Date(formattedTime);
+      const hours = isMissingOut ? '0.00' : Math.max(0, ((punchOut - punchIn) / (1000 * 60 * 60))).toFixed(2);
+
+      currentPair.hours_worked = hours;
+      currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
+      pairs.push({ ...currentPair });
+      currentPair = {};
+    }
+  }
+
+  if (currentPair.punch_in) {
+    currentPair.punch_out = null;
+    currentPair.punch_out_display = 'In Progress';
+    currentPair.hours_worked = null;
+    currentPair.status = "In Progress";
+    pairs.push(currentPair);
+  }
+
+  return pairs;
+}
+
+async function getUnifiedAttendanceDetails(c, employeeId, date) {
+  let [attendance] = await c.query(
+    `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+    [employeeId, date]
+  );
+
+  const [leaves] = await c.query(
+    `SELECT l.*, lt.type_name, lt.type_code 
+     FROM leaves l 
+     JOIN leave_types lt ON l.leave_type_id = lt.id 
+     WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
+    [employeeId, date]
+  );
+
+  let punches = [];
+
+  // 1. Fetch Web/Mobile/Remote Punches
+  const [webPunches] = await c.query(
+    `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type, 
+            DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+            DATE_FORMAT(ap.punch_date, '%Y-%m-%d') as punch_date, 
+            ap.ip_address, ap.device_info, ap.location, ap.notes, 'web' as source,
+            COALESCE(a.work_mode, 'Office') as work_mode,
+            ap.created_at
+     FROM attendance_punches ap
+     LEFT JOIN attendance a ON ap.attendance_id = a.id
+     WHERE ap.employee_id = ? AND ap.punch_date = ?
+     ORDER BY ap.punch_time ASC`,
+    [employeeId, date]
+  );
+
+  if (webPunches && webPunches.length > 0) {
+    punches.push(...webPunches);
+  }
+
+  // 2. Fetch Biometric Punches
+  try {
+    const [bioPunches] = await c.query(
+      `SELECT bp.id, 0 as attendance_id, bp.employee_id, bp.direction,
+              DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+              DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
+              null as ip_address, bp.device_id as device_info,
+              CONCAT('Biometric Device (', COALESCE(bp.device_id, 'Reader'), ')') as location,
+              'Biometric Punch' as notes,
+              'biometric' as source,
+              'Biometric' as work_mode,
+              bp.created_at
+       FROM biometric_punches bp
+       WHERE bp.employee_id = ? AND bp.punch_date = ?
+       ORDER BY bp.punch_time ASC`,
+      [employeeId, date]
+    );
+
+    if (bioPunches && bioPunches.length > 0) {
+      let bioOpen = false;
+      const mappedBioPunches = bioPunches.map(p => {
+        let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+        if (pt === 'in') bioOpen = true;
+        else if (pt === 'out') bioOpen = false;
+        return {
+          ...p,
+          punch_type: pt
+        };
+      });
+      punches.push(...mappedBioPunches);
+    }
+  } catch (err) {
+    console.warn("Error fetching biometric punches for details:", err.message);
+  }
+
+  punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+
+  // Deduplicate punches that are within 5 seconds of each other
+  const uniquePunches = [];
+  punches.forEach(p => {
+    const pTime = new Date(p.punch_time).getTime();
+    const isDupe = uniquePunches.some(existing => {
+      const exTime = new Date(existing.punch_time).getTime();
+      return Math.abs(exTime - pTime) < 5000 && existing.punch_type === p.punch_type;
+    });
+    if (!isDupe) {
+      uniquePunches.push(p);
+    }
+  });
+  punches = uniquePunches;
+
+  let attendanceRecord = attendance.length > 0 ? { ...attendance[0] } : null;
+  if (!attendanceRecord) {
+    try {
+      const [bioDaily] = await c.query(
+        `SELECT * FROM biometric_daily_attendance WHERE employee_id = ? AND attendance_date = ?`,
+        [employeeId, date]
+      );
+      if (bioDaily && bioDaily.length > 0) {
+        const bd = bioDaily[0];
+        attendanceRecord = {
+          id: bd.id,
+          employee_id: bd.employee_id,
+          attendance_date: bd.attendance_date ? String(bd.attendance_date).substring(0, 10) : date,
+          status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
+          total_work_hours: bd.gross_hours || '0.00',
+          gross_hours: bd.gross_hours || '0.00',
+          first_check_in: bd.first_punch_in ? `${date} ${String(bd.first_punch_in).substring(0, 8)}` : null,
+          last_check_out: bd.last_punch_out ? `${date} ${String(bd.last_punch_out).substring(0, 8)}` : null,
+          work_mode: 'Biometric',
+          location: 'Biometric Device'
+        };
+      } else if (punches.length > 0) {
+        const firstP = punches[0];
+        const lastP = punches[punches.length - 1];
+        let calculatedGross = '0.00';
+        if (punches.length > 1) {
+          const startMs = new Date(firstP.punch_time).getTime();
+          const endMs = new Date(lastP.punch_time).getTime();
+          calculatedGross = Math.max(0, (endMs - startMs) / (1000 * 60 * 60)).toFixed(2);
+        }
+        attendanceRecord = {
+          id: 0,
+          employee_id: employeeId,
+          attendance_date: date,
+          status: 'present',
+          total_work_hours: calculatedGross,
+          gross_hours: calculatedGross,
+          first_check_in: firstP.punch_time,
+          last_check_out: punches.length > 1 ? lastP.punch_time : null,
+          work_mode: firstP.work_mode || 'Biometric',
+          location: firstP.location || 'Office'
+        };
+      }
+    } catch (_) {}
+  } else {
+    if (punches.length > 0) {
+      if (!attendanceRecord.first_check_in) {
+        attendanceRecord.first_check_in = punches[0].punch_time;
+      }
+      if (!attendanceRecord.last_check_out && punches.length > 1) {
+        attendanceRecord.last_check_out = punches[punches.length - 1].punch_time;
+      }
+    }
+  }
+
+  if (attendanceRecord) {
+    attendanceRecord.attendance_date = date;
+  }
+
+  const formattedPunches = punches.map(p => ({
+    ...p,
+    punch_time: toISTFormat(p.punch_time),
+    punch_date: p.punch_date ? `${String(p.punch_date).substring(0, 10)}T00:00:00+05:30` : `${date}T00:00:00+05:30`,
+    created_at: p.created_at ? toISTFormat(p.created_at) : undefined
+  }));
+
+  return {
+    has_attendance: !!attendanceRecord || formattedPunches.length > 0,
+    attendance: attendanceRecord,
+    punches: formattedPunches,
+    punch_pairs: calculatePunchPairs(punches),
+    on_leave: leaves.length > 0,
+    leave: leaves[0] || null
+  };
+}
+
+async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, endDate, month, year) {
+  const now = new Date();
+  let start, end;
+  if (startDate && endDate) {
+    start = new Date(startDate);
+    end = new Date(endDate);
+  } else {
+    const rMonth = parseInt(month) || (now.getMonth() + 1);
+    const rYear = parseInt(year) || now.getFullYear();
+    start = new Date(rYear, rMonth - 1, 1);
+    end = new Date(rYear, rMonth, 0);
+  }
+  const startStr = start.toISOString().split('T')[0];
+  const endStr = end.toISOString().split('T')[0];
+
+  const [attendanceRows] = await c.query(`
+    SELECT 
+      a.*,
+      DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as formatted_date,
+      (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'in') as web_punch_in_count,
+      (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'out') as web_punch_out_count
+    FROM attendance a
+    WHERE a.employee_id = ? AND a.attendance_date BETWEEN ? AND ?
+    ORDER BY a.attendance_date DESC
+  `, [targetEmpId, startStr, endStr]);
+
+  let bioDailyRows = [];
+  try {
+    const [bda] = await c.query(`
+      SELECT 
+        bda.*,
+        DATE_FORMAT(bda.attendance_date, '%Y-%m-%d') as formatted_date,
+        (SELECT COUNT(*) FROM biometric_punches WHERE employee_id = bda.employee_id AND punch_date = bda.attendance_date AND (direction = 'in' OR direction = 'auto')) as bio_punch_in_count,
+        (SELECT COUNT(*) FROM biometric_punches WHERE employee_id = bda.employee_id AND punch_date = bda.attendance_date AND direction = 'out') as bio_punch_out_count
+      FROM biometric_daily_attendance bda
+      WHERE bda.employee_id = ? AND bda.attendance_date BETWEEN ? AND ?
+    `, [targetEmpId, startStr, endStr]);
+    bioDailyRows = bda || [];
+  } catch (_) {}
+
+  let bioPunchSummary = [];
+  try {
+    const [bps] = await c.query(`
+      SELECT 
+        DATE_FORMAT(punch_date, '%Y-%m-%d') as formatted_date,
+        MIN(punch_time) as first_punch_in,
+        MAX(punch_time) as last_punch_out,
+        COUNT(*) as total_punches,
+        SUM(CASE WHEN direction = 'in' OR direction = 'auto' THEN 1 ELSE 0 END) as bio_punch_in_count,
+        SUM(CASE WHEN direction = 'out' THEN 1 ELSE 0 END) as bio_punch_out_count
+      FROM biometric_punches
+      WHERE employee_id = ? AND punch_date BETWEEN ? AND ?
+      GROUP BY punch_date
+    `, [targetEmpId, startStr, endStr]);
+    bioPunchSummary = bps || [];
+  } catch (_) {}
+
+  const combinedAttendanceMap = new Map();
+
+  for (const a of attendanceRows) {
+    const dStr = a.formatted_date || String(a.attendance_date).substring(0, 10);
+    combinedAttendanceMap.set(dStr, {
+      ...a,
+      attendance_date: dStr,
+      punch_date: a.punch_date ? String(a.punch_date).substring(0, 10) : dStr,
+      punch_in_count: Number(a.web_punch_in_count) || 0,
+      punch_out_count: Number(a.web_punch_out_count) || 0,
+      work_mode: a.work_mode || 'Office'
+    });
+  }
+
+  for (const bd of bioDailyRows) {
+    const dStr = bd.formatted_date || String(bd.attendance_date).substring(0, 10);
+    if (combinedAttendanceMap.has(dStr)) {
+      const existing = combinedAttendanceMap.get(dStr);
+      existing.punch_in_count += (Number(bd.bio_punch_in_count) || 0);
+      existing.punch_out_count += (Number(bd.bio_punch_out_count) || 0);
+      if (bd.first_punch_in) {
+        const bioFirstIn = `${dStr} ${bd.first_punch_in}`;
+        if (!existing.first_check_in || new Date(bioFirstIn).getTime() < new Date(existing.first_check_in).getTime()) {
+          existing.first_check_in = bioFirstIn;
+        }
+      }
+      if (bd.last_punch_out) {
+        const bioLastOut = `${dStr} ${bd.last_punch_out}`;
+        if (!existing.last_check_out || new Date(bioLastOut).getTime() > new Date(existing.last_check_out).getTime()) {
+          existing.last_check_out = bioLastOut;
+        }
+      }
+      if ((!existing.gross_hours || parseFloat(existing.gross_hours) === 0) && parseFloat(bd.gross_hours) > 0) {
+        existing.gross_hours = bd.gross_hours;
+        existing.total_work_hours = bd.gross_hours;
+      }
+    } else {
+      combinedAttendanceMap.set(dStr, {
+        id: `bio_${bd.id || dStr}`,
+        employee_id: targetEmpId,
+        attendance_date: dStr,
+        punch_date: dStr,
+        first_check_in: bd.first_punch_in ? `${dStr} ${bd.first_punch_in}` : null,
+        last_check_out: bd.last_punch_out ? `${dStr} ${bd.last_punch_out}` : null,
+        total_work_hours: parseFloat(bd.gross_hours) || 0,
+        total_break_hours: 0,
+        gross_hours: parseFloat(bd.gross_hours) || 0,
+        work_mode: 'Biometric',
+        location: 'Biometric Device',
+        status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
+        approval_status: 'approved',
+        punch_in_count: Number(bd.bio_punch_in_count) || Number(bd.total_punches) || 1,
+        punch_out_count: Number(bd.bio_punch_out_count) || (bd.total_punches > 1 ? 1 : 0),
+        notes: 'Biometric Attendance'
+      });
+    }
+  }
+
+  for (const bp of bioPunchSummary) {
+    const dStr = bp.formatted_date;
+    if (combinedAttendanceMap.has(dStr)) {
+      const existing = combinedAttendanceMap.get(dStr);
+      if (existing.punch_in_count === 0 && Number(bp.bio_punch_in_count) > 0) {
+        existing.punch_in_count += Number(bp.bio_punch_in_count);
+      }
+      if (existing.punch_out_count === 0 && Number(bp.bio_punch_out_count) > 0) {
+        existing.punch_out_count += Number(bp.bio_punch_out_count);
+      }
+      if (bp.first_punch_in) {
+        if (!existing.first_check_in || new Date(bp.first_punch_in).getTime() < new Date(existing.first_check_in).getTime()) {
+          existing.first_check_in = bp.first_punch_in;
+        }
+      }
+      if (bp.last_punch_out) {
+        if (!existing.last_check_out || new Date(bp.last_punch_out).getTime() > new Date(existing.last_check_out).getTime()) {
+          existing.last_check_out = bp.last_punch_out;
+        }
+      }
+    } else {
+      const startMs = new Date(bp.first_punch_in).getTime();
+      const endMs = new Date(bp.last_punch_out).getTime();
+      const gross = (bp.total_punches > 1 && endMs > startMs) ? ((endMs - startMs) / (1000 * 60 * 60)).toFixed(2) : '0.00';
+      combinedAttendanceMap.set(dStr, {
+        id: `bio_p_${dStr}`,
+        employee_id: targetEmpId,
+        attendance_date: dStr,
+        punch_date: dStr,
+        first_check_in: bp.first_punch_in,
+        last_check_out: bp.total_punches > 1 ? bp.last_punch_out : null,
+        total_work_hours: parseFloat(gross) || 0,
+        total_break_hours: 0,
+        gross_hours: parseFloat(gross) || 0,
+        work_mode: 'Biometric',
+        location: 'Biometric Device',
+        status: 'present',
+        approval_status: 'approved',
+        punch_in_count: Number(bp.bio_punch_in_count) || 1,
+        punch_out_count: Number(bp.bio_punch_out_count) || (bp.total_punches > 1 ? 1 : 0),
+        notes: 'Biometric Punch Log'
+      });
+    }
+  }
+
+  const attendance = Array.from(combinedAttendanceMap.values()).sort((a, b) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
+
+  const [lopData] = await c.query(`
+    SELECT SUM(l.total_days) as lop_days
+    FROM leaves l
+    INNER JOIN leave_types lt ON l.leave_type_id = lt.id
+    WHERE l.employee_id = ? AND l.status = 'approved' AND lt.type_code = 'LOP'
+      AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)
+  `, [targetEmpId, startStr, endStr, startStr, endStr]);
+  const lopDays = Number(lopData[0]?.lop_days) || 0;
+
+  const [empDetails] = await c.query(`
+    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
+    FROM employees e
+    LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+    LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+    LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+    WHERE e.id = ?
+  `, [targetEmpId]);
+  const employee = empDetails[0];
+
+  const [allLeaves] = await c.query(`
+    SELECT l.*, lt.type_code, lt.is_paid 
+    FROM leaves l 
+    INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
+    WHERE l.employee_id = ? AND l.status = 'approved'
+  `, [targetEmpId]);
+
+  const attMap = new Map();
+  attendance.forEach(a => {
+    const dStr = new Date(a.attendance_date).toDateString();
+    attMap.set(dStr, a);
+  });
+
+  const todayStr = now.toDateString();
+  let present_days = 0;
+  let absent_days = 0;
+  let leave_days = 0;
+  let penalty_count = 0;
+  let half_day_count = 0;
+  let weekend_days = 0;
+
+  const weekOffDays = [];
+  if (employee) {
+    if (employee.sunday_off) weekOffDays.push('sunday');
+    if (employee.monday_off) weekOffDays.push('monday');
+    if (employee.tuesday_off) weekOffDays.push('tuesday');
+    if (employee.wednesday_off) weekOffDays.push('wednesday');
+    if (employee.thursday_off) weekOffDays.push('thursday');
+    if (employee.friday_off) weekOffDays.push('friday');
+    if (employee.saturday_off) weekOffDays.push('saturday');
+  }
+
+  const [dbLeaveTypesList] = await c.query("SELECT type_code, type_name FROM leave_types");
+  const dynamicLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
+  dbLeaveTypesList.forEach(lt => {
+    if (lt.type_code) dynamicLeaveTokens.add(String(lt.type_code).toLowerCase().trim());
+    if (lt.type_name) dynamicLeaveTokens.add(String(lt.type_name).toLowerCase().trim());
+  });
+  const leaveTokenArray = Array.from(dynamicLeaveTokens);
+
+  let curr = new Date(start);
+  let lop_from_leaves = 0;
+  let lop_from_attendance = 0;
+  let penalty_absent_days = 0;
+  let regular_absent_days = 0;
+
+  while (curr <= end) {
+    if (curr > now && curr.toDateString() !== todayStr) {
+      curr.setDate(curr.getDate() + 1);
+      continue;
+    }
+
+    const dStr = curr.toDateString();
+    const isToday = dStr === todayStr;
+    const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+
+    const todaysLeaves = allLeaves.filter(l => {
+      const lStart = new Date(l.start_date);
+      const lEnd = new Date(l.end_date);
+      const check = new Date(curr);
+      check.setHours(0, 0, 0, 0);
+      lStart.setHours(0, 0, 0, 0);
+      lEnd.setHours(0, 0, 0, 0);
+      return check >= lStart && check <= lEnd;
+    });
+
+    if (todaysLeaves.length > 0) {
+      todaysLeaves.forEach(l => {
+        const weight = l.is_half_day ? 0.5 : 1.0;
+        leave_days += weight;
+        if (l.type_code === 'LOP' || l.type_code === 'UL') {
+          lop_from_leaves += weight;
+        }
+      });
+    } else if (weekOffDays.includes(weekday)) {
+      weekend_days++;
+    } else if (attMap.has(dStr)) {
+      const record = attMap.get(dStr);
+      const nLower = String(record.notes || '').toLowerCase();
+      if (record.status === 'present') present_days++;
+      else if (record.status === 'absent') {
+        absent_days++;
+        if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
+          lop_from_attendance++;
+        } else {
+          regular_absent_days++;
+        }
+      } else if (record.status === 'half-day') {
+        present_days += 0.5;
+        half_day_count++;
+        if (leaveTokenArray.some(token => nLower.includes(token))) {
+          leave_days += 0.5;
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
+            lop_from_attendance += 0.5;
+          }
+        }
+      } else if (record.status === 'on-leave') {
+        leave_days++;
+        if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
+          lop_from_attendance++;
+        }
+      } else if (record.status === 'penalty') {
+        penalty_count++;
+        penalty_absent_days++;
+        absent_days++;
+      }
+    } else if (!isToday) {
+      const shiftStartStr = employee?.start_time || '09:00:00';
+      const [sh, sm] = shiftStartStr.split(':').map(Number);
+      const shiftStart = new Date(curr);
+      shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+
+      const penaltyThreshold = new Date(shiftStart);
+      const thresholdHours = employee?.missing_log_threshold || 48;
+      penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
+
+      if (now > penaltyThreshold) {
+        penalty_count++;
+        penalty_absent_days++;
+        absent_days++;
+      }
+    }
+
+    curr.setDate(curr.getDate() + 1);
+  }
+
+  const summary = {
+    total_days: attendance.length + weekend_days,
+    present_days: present_days,
+    absent_days: absent_days,
+    half_days: half_day_count,
+    leave_days: leave_days,
+    weekend_days: weekend_days,
+    lop_days: (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
+    total_work_hours: attendance
+      .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
+      .toFixed(2),
+    avg_work_hours:
+      attendance.length > 0
+        ? (
+          attendance.reduce(
+            (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
+            0
+          ) / attendance.length
+        ).toFixed(2)
+        : 0,
+  };
+
+  return {
+    attendance,
+    summary,
+    employee,
+    shift_policy: employee ? {
+      id: employee.shift_policy_id,
+      start_time: employee.start_time,
+      end_time: employee.end_time,
+      name: employee.shift_name
+    } : null,
+    weekly_off_policy: employee ? {
+      id: employee.weekly_off_policy_id,
+      sunday_off: employee.sunday_off,
+      monday_off: employee.monday_off,
+      tuesday_off: employee.tuesday_off,
+      wednesday_off: employee.wednesday_off,
+      thursday_off: employee.thursday_off,
+      friday_off: employee.friday_off,
+      saturday_off: employee.saturday_off,
+      name: employee.name,
+      policy_code: employee.policy_code
+    } : null
+  };
+}
+
 /**
- * Get My Attendance Report (Employee)
+ * Get Monthly Attendance Report (Employee)
  */
 router.get("/my-report", auth, async (req, res) => {
   try {
@@ -835,255 +1441,10 @@ router.get("/my-report", auth, async (req, res) => {
     const { startDate, endDate, month, year } = req.query;
     const c = await db();
 
-    let query = `
-            SELECT 
-                a.*,
-                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'in') as punch_in_count,
-                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'out') as punch_out_count
-            FROM attendance a
-            WHERE a.employee_id = ?
-        `;
-
-    const params = [emp.id];
-
-    if (startDate && endDate) {
-      query += ` AND a.attendance_date BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    } else if (month && year) {
-      query += ` AND MONTH(a.attendance_date) = ? AND YEAR(a.attendance_date) = ?`;
-      params.push(month, year);
-    }
-
-    query += ` ORDER BY a.attendance_date DESC`;
-
-    const [attendance] = await c.query(query, params);
-
-    // Get LOP leaves count for the period
-    let lopQuery = `
-      SELECT SUM(l.total_days) as lop_days
-      FROM leaves l
-      INNER JOIN leave_types lt ON l.leave_type_id = lt.id
-      WHERE l.employee_id = ? AND l.status = 'approved' AND lt.type_code = 'LOP'
-    `;
-    const lopParams = [emp.id];
-
-    if (startDate && endDate) {
-      lopQuery += ` AND (l.start_date BETWEEN ? AND ? OR l.end_date BETWEEN ? AND ?)`;
-      lopParams.push(startDate, endDate, startDate, endDate);
-    } else if (month && year) {
-      lopQuery += ` AND ((MONTH(l.start_date) = ? AND YEAR(l.start_date) = ?) OR (MONTH(l.end_date) = ? AND YEAR(l.end_date) = ?))`;
-      lopParams.push(month, year, month, year);
-    }
-
-    const [lopData] = await c.query(lopQuery, lopParams);
-    const lopDays = Number(lopData[0].lop_days) || 0;
-
-    // Get detailed shift and weekend policies
-    const [empDetails] = await c.query(`
-      SELECT e.id, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
-      FROM employees e
-      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
-      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-      WHERE e.id = ?
-    `, [emp.id]);
-    const employee = empDetails[0];
-
-    // Get all approved leaves for the period for summary calculation
-    let allLeavesQuery = `
-      SELECT l.*, lt.type_code 
-      FROM leaves l 
-      INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
-      WHERE l.employee_id = ? AND l.status = 'approved'
-    `;
-    const allLeavesParams = [emp.id];
-    const [allLeaves] = await c.query(allLeavesQuery, allLeavesParams);
-
-    // Map existing attendance for fast lookup
-    const attMap = new Map();
-    attendance.forEach(a => {
-      const dStr = new Date(a.attendance_date).toDateString();
-      attMap.set(dStr, a);
-    });
-
-    const now = new Date();
-    const todayStr = now.toDateString();
-
-    // Determine range
-    let start, end;
-    if (startDate && endDate) {
-      start = new Date(startDate);
-      end = new Date(endDate);
-    } else {
-      const rMonth = parseInt(month) || (now.getMonth() + 1);
-      const rYear = parseInt(year) || now.getFullYear();
-      start = new Date(rYear, rMonth - 1, 1);
-      end = new Date(rYear, rMonth, 0);
-    }
-
-    // Iterate through range
-    let present_days = 0;
-    let absent_days = 0;
-    let leave_days = 0;
-    let penalty_count = 0;
-    let half_day_count = 0;
-    let weekend_days = 0;
-
-    const weekOffDays = [];
-    if (employee) {
-      if (employee.sunday_off) weekOffDays.push('sunday');
-      if (employee.monday_off) weekOffDays.push('monday');
-      if (employee.tuesday_off) weekOffDays.push('tuesday');
-      if (employee.wednesday_off) weekOffDays.push('wednesday');
-      if (employee.thursday_off) weekOffDays.push('thursday');
-      if (employee.friday_off) weekOffDays.push('friday');
-      if (employee.saturday_off) weekOffDays.push('saturday');
-    }
-
-    // Fetch all leave types dynamically from database
-    const [dbLeaveTypesList] = await c.query("SELECT type_code, type_name FROM leave_types");
-    const dynamicLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
-    dbLeaveTypesList.forEach(lt => {
-      if (lt.type_code) dynamicLeaveTokens.add(String(lt.type_code).toLowerCase().trim());
-      if (lt.type_name) dynamicLeaveTokens.add(String(lt.type_name).toLowerCase().trim());
-    });
-    const leaveTokenArray = Array.from(dynamicLeaveTokens);
-
-    let curr = new Date(start);
-    let lop_from_leaves = 0;
-    let lop_from_attendance = 0;
-    let penalty_absent_days = 0;
-    let regular_absent_days = 0;
-
-    while (curr <= end) {
-      if (curr > now && curr.toDateString() !== todayStr) {
-        curr.setDate(curr.getDate() + 1);
-        continue;
-      }
-
-      const dStr = curr.toDateString();
-      const isToday = dStr === todayStr;
-      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-
-      // Check if on leave (including partial days)
-      const todaysLeaves = allLeaves.filter(l => {
-        const lStart = new Date(l.start_date);
-        const lEnd = new Date(l.end_date);
-        const check = new Date(curr);
-        check.setHours(0, 0, 0, 0);
-        lStart.setHours(0, 0, 0, 0);
-        lEnd.setHours(0, 0, 0, 0);
-        return check >= lStart && check <= lEnd;
-      });
-
-      if (todaysLeaves.length > 0) {
-        // Calculate leave days for today
-        todaysLeaves.forEach(l => {
-          const weight = l.is_half_day ? 0.5 : 1.0;
-          leave_days += weight;
-          if (l.type_code === 'LOP' || l.type_code === 'UL') {
-            lop_from_leaves += weight;
-          }
-        });
-      } else if (weekOffDays.includes(weekday)) {
-        weekend_days++;
-      } else if (attMap.has(dStr)) {
-        const record = attMap.get(dStr);
-        const nLower = String(record.notes || '').toLowerCase();
-        if (record.status === 'present') present_days++;
-        else if (record.status === 'absent') {
-          absent_days++;
-          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-            lop_from_attendance++;
-          } else {
-            regular_absent_days++;
-          }
-        } else if (record.status === 'half-day') {
-          present_days += 0.5;
-          half_day_count++;
-          if (leaveTokenArray.some(token => nLower.includes(token))) {
-            leave_days += 0.5;
-            if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-              lop_from_attendance += 0.5;
-            }
-          }
-        } else if (record.status === 'on-leave') {
-          leave_days++;
-          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-            lop_from_attendance++;
-          }
-        } else if (record.status === 'penalty') {
-          penalty_count++;
-          penalty_absent_days++;
-          absent_days++;
-        }
-      } else if (!isToday) {
-        // No log and not today - apply penalty rule
-        const shiftStartStr = employee?.start_time || '09:00:00';
-        const [sh, sm] = shiftStartStr.split(':').map(Number);
-        const shiftStart = new Date(curr);
-        shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-
-        const penaltyThreshold = new Date(shiftStart);
-        const thresholdHours = employee?.missing_log_threshold || 48;
-        penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
-
-        if (now > penaltyThreshold) {
-          penalty_count++;
-          penalty_absent_days++;
-          absent_days++;
-        }
-      }
-
-      curr.setDate(curr.getDate() + 1);
-    }
-
-    const summary = {
-      total_days: attendance.length + weekend_days,
-      present_days: present_days,
-      absent_days: absent_days,
-      half_days: half_day_count,
-      leave_days: leave_days,
-      weekend_days: weekend_days,
-      lop_days: (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
-      total_work_hours: attendance
-        .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
-        .toFixed(2),
-      avg_work_hours:
-        attendance.length > 0
-          ? (
-            attendance.reduce(
-              (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
-              0
-            ) / attendance.length
-          ).toFixed(2)
-          : 0,
-    };
-
+    const reportData = await getUnifiedAttendanceListAndSummary(c, emp.id, startDate, endDate, month, year);
     c.end();
 
-    res.json({
-      summary,
-      attendance,
-      shift_policy: employee ? {
-        id: employee.shift_policy_id,
-        start_time: employee.start_time,
-        end_time: employee.end_time,
-        name: employee.shift_name
-      } : null,
-      weekly_off_policy: employee ? {
-        id: employee.weekly_off_policy_id,
-        sunday_off: employee.sunday_off,
-        monday_off: employee.monday_off,
-        tuesday_off: employee.tuesday_off,
-        wednesday_off: employee.wednesday_off,
-        thursday_off: employee.thursday_off,
-        friday_off: employee.friday_off,
-        saturday_off: employee.saturday_off,
-        name: employee.name,
-        policy_code: employee.policy_code
-      } : null
-    });
+    res.json(reportData);
   } catch (error) {
     console.error("Error fetching my attendance report:", error);
     res.status(500).json({ error: error.message });
@@ -1102,46 +1463,10 @@ router.get("/details/:date", auth, async (req, res) => {
     if (date && date.endsWith("/")) date = date.slice(0, -1);
     const c = await db();
 
-    const [attendance] = await c.query(
-      `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
-      [emp.id, date]
-    );
-
-    const [leaves] = await c.query(
-      `SELECT l.*, lt.type_name, lt.type_code 
-       FROM leaves l 
-       JOIN leave_types lt ON l.leave_type_id = lt.id 
-       WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
-      [emp.id, date]
-    );
-
-    if (attendance.length === 0) {
-      c.end();
-      return res.json({
-        has_attendance: false,
-        attendance: null,
-        punches: [],
-        punch_pairs: [],
-        on_leave: leaves.length > 0,
-        leave: leaves[0] || null
-      });
-    }
-
-    const [punches] = await c.query(
-      `SELECT * FROM attendance_punches WHERE attendance_id = ? ORDER BY punch_time ASC`,
-      [attendance[0].id]
-    );
-
+    const details = await getUnifiedAttendanceDetails(c, emp.id, date);
     c.end();
 
-    res.json({
-      has_attendance: true,
-      attendance: attendance[0],
-      punches,
-      punch_pairs: calculatePunchPairs(punches),
-      on_leave: leaves.length > 0,
-      leave: leaves[0] || null
-    });
+    res.json(details);
   } catch (error) {
     console.error("Error fetching attendance details:", error);
     res.status(500).json({ error: error.message });
@@ -1157,46 +1482,10 @@ router.get("/details/:date/:employeeId", auth, manager, async (req, res) => {
     if (date && date.endsWith("/")) date = date.slice(0, -1);
     const c = await db();
 
-    const [attendance] = await c.query(
-      `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
-      [employeeId, date]
-    );
-
-    const [leaves] = await c.query(
-      `SELECT l.*, lt.type_name, lt.type_code 
-       FROM leaves l 
-       JOIN leave_types lt ON l.leave_type_id = lt.id 
-       WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
-      [employeeId, date]
-    );
-
-    if (attendance.length === 0) {
-      c.end();
-      return res.json({
-        has_attendance: false,
-        attendance: null,
-        punches: [],
-        punch_pairs: [],
-        on_leave: leaves.length > 0,
-        leave: leaves[0] || null
-      });
-    }
-
-    const [punches] = await c.query(
-      `SELECT * FROM attendance_punches WHERE attendance_id = ? ORDER BY punch_time ASC`,
-      [attendance[0].id]
-    );
-
+    const details = await getUnifiedAttendanceDetails(c, employeeId, date);
     c.end();
 
-    res.json({
-      has_attendance: true,
-      attendance: attendance[0],
-      punches,
-      punch_pairs: calculatePunchPairs(punches),
-      on_leave: leaves.length > 0,
-      leave: leaves[0] || null
-    });
+    res.json(details);
   } catch (error) {
     console.error("Error fetching employee attendance details:", error);
     res.status(500).json({ error: error.message });
@@ -1216,246 +1505,22 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
     const targetEmpId = req.params.employeeId;
     const c = await db();
 
-    let query = `
-            SELECT 
-                a.*,
-                e.EmployeeNumber,
-                e.FirstName,
-                e.LastName,
-                e.WorkEmail,
-                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'in') as punch_in_count,
-                (SELECT COUNT(*) FROM attendance_punches WHERE attendance_id = a.id AND punch_type = 'out') as punch_out_count
-            FROM attendance a
-            INNER JOIN employees e ON a.employee_id = e.id
-            WHERE a.employee_id = ?
-        `;
-
-    const params = [targetEmpId];
-
-    if (startDate && endDate) {
-      query += ` AND a.attendance_date BETWEEN ? AND ?`;
-      params.push(startDate, endDate);
-    } else if (month && year) {
-      query += ` AND MONTH(a.attendance_date) = ? AND YEAR(a.attendance_date) = ?`;
-      params.push(month, year);
-    }
-
-    query += ` ORDER BY a.attendance_date DESC`;
-
-    const [attendance] = await c.query(query, params);
-
-    // Get detailed shift and weekend policies for the employee
-    const [empDetails] = await c.query(`
-      SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
-      FROM employees e
-      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-      LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
-      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-      WHERE e.id = ?
-    `, [targetEmpId]);
-    const employee = empDetails[0];
-
-    // Get all approved leaves for the period for summary calculation
-    let allLeavesQuery = `
-      SELECT l.*, lt.type_code, lt.is_paid 
-      FROM leaves l 
-      INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
-      WHERE l.employee_id = ? AND l.status = 'approved'
-    `;
-    const [allLeaves] = await c.query(allLeavesQuery, [targetEmpId]);
-
-    // Map existing attendance for fast lookup
-    const attMap = new Map();
-    attendance.forEach(a => {
-      const dStr = new Date(a.attendance_date).toDateString();
-      attMap.set(dStr, a);
-    });
-
-    const now = new Date();
-    const todayStr = now.toDateString();
-
-    // Determine range
-    let start, end;
-    if (startDate && endDate) {
-      start = new Date(startDate);
-      end = new Date(endDate);
-    } else {
-      const rMonth = parseInt(month) || (now.getMonth() + 1);
-      const rYear = parseInt(year) || now.getFullYear();
-      start = new Date(rYear, rMonth - 1, 1);
-      end = new Date(rYear, rMonth, 0);
-    }
-
-    // Iterate through range for accurate summary
-    let present_days = 0;
-    let absent_days = 0;
-    let leave_days = 0;
-    let penalty_count = 0;
-    let half_day_count = 0;
-    let weekend_days = 0;
-
-    const weekOffDays = [];
-    if (employee) {
-      if (employee.sunday_off) weekOffDays.push('sunday');
-      if (employee.monday_off) weekOffDays.push('monday');
-      if (employee.tuesday_off) weekOffDays.push('tuesday');
-      if (employee.wednesday_off) weekOffDays.push('wednesday');
-      if (employee.thursday_off) weekOffDays.push('thursday');
-      if (employee.friday_off) weekOffDays.push('friday');
-      if (employee.saturday_off) weekOffDays.push('saturday');
-    }
-
-    // Fetch all leave types dynamically from database
-    const [empReportLeaveTypes] = await c.query("SELECT type_code, type_name FROM leave_types");
-    const empLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
-    empReportLeaveTypes.forEach(lt => {
-      if (lt.type_code) empLeaveTokens.add(String(lt.type_code).toLowerCase().trim());
-      if (lt.type_name) empLeaveTokens.add(String(lt.type_name).toLowerCase().trim());
-    });
-    const empLeaveTokenArray = Array.from(empLeaveTokens);
-
-    let curr = new Date(start);
-    let lop_from_leaves = 0;
-    let lop_from_attendance = 0;
-    let penalty_absent_days = 0;
-    let regular_absent_days = 0;
-
-    while (curr <= end) {
-      if (curr > now && curr.toDateString() !== todayStr) {
-        curr.setDate(curr.getDate() + 1);
-        continue;
-      }
-
-      const dStr = curr.toDateString();
-      const isToday = dStr === todayStr;
-      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-
-      // Check if on leave
-      const todaysLeaves = allLeaves.filter(l => {
-        const lStart = new Date(l.start_date);
-        const lEnd = new Date(l.end_date);
-        const check = new Date(curr);
-        check.setHours(0, 0, 0, 0);
-        lStart.setHours(0, 0, 0, 0);
-        lEnd.setHours(0, 0, 0, 0);
-        return check >= lStart && check <= lEnd;
-      });
-
-      if (todaysLeaves.length > 0) {
-        todaysLeaves.forEach(l => {
-          const weight = l.is_half_day ? 0.5 : 1.0;
-          leave_days += weight;
-          if (l.type_code === 'LOP' || l.type_code === 'UL' || !l.is_paid) {
-            lop_from_leaves += weight;
-          }
-        });
-      } else if (weekOffDays.includes(weekday)) {
-        weekend_days++;
-      } else if (attMap.has(dStr)) {
-        const record = attMap.get(dStr);
-        const nLower = String(record.notes || '').toLowerCase();
-        if (record.status === 'present') present_days++;
-        else if (record.status === 'absent') {
-          absent_days++;
-          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-            lop_from_attendance++;
-          } else {
-            regular_absent_days++;
-          }
-        } else if (record.status === 'half-day') {
-          present_days += 0.5;
-          half_day_count++;
-          if (empLeaveTokenArray.some(token => nLower.includes(token))) {
-            leave_days += 0.5;
-            if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-              lop_from_attendance += 0.5;
-            }
-          }
-        } else if (record.status === 'on-leave') {
-          leave_days++;
-          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-            lop_from_attendance++;
-          }
-        } else if (record.status === 'penalty') {
-          penalty_count++;
-          penalty_absent_days++;
-          absent_days++;
-        }
-      } else if (!isToday) {
-        // No log and not today - apply penalty rule
-        const shiftStartStr = employee?.start_time || '09:00:00';
-        const [sh, sm] = shiftStartStr.split(':').map(Number);
-        const shiftStart = new Date(curr);
-        shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-
-        const penaltyThreshold = new Date(shiftStart);
-        const thresholdHours = employee?.missing_log_threshold || 48;
-        penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
-
-        if (now > penaltyThreshold) {
-          penalty_count++;
-          penalty_absent_days++;
-          absent_days++;
-        }
-      }
-
-      curr.setDate(curr.getDate() + 1);
-    }
-
-    const totalLopDays = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance;
-
-    const summary = {
-      total_days: attendance.length,
-      present_days,
-      absent_days,
-      half_days: half_day_count,
-      leave_days,
-      lop_days: totalLopDays,
-      total_work_hours: attendance
-        .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
-        .toFixed(2),
-      avg_work_hours:
-        attendance.length > 0
-          ? (
-            attendance.reduce(
-              (sum, a) => sum + (parseFloat(a.gross_hours) || 0),
-              0
-            ) / attendance.length
-          ).toFixed(2)
-          : 0,
-    };
-
+    const reportData = await getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, endDate, month, year);
     c.end();
 
     res.json({
-      employee: employee
+      employee: reportData.employee
         ? {
-          id: employee.id,
-          employee_number: employee.EmployeeNumber,
-          name: `${employee.FirstName || ''} ${employee.LastName || ''}`.trim(),
-          email: employee.WorkEmail,
+          id: reportData.employee.id,
+          employee_number: reportData.employee.EmployeeNumber,
+          name: `${reportData.employee.FirstName || ''} ${reportData.employee.LastName || ''}`.trim(),
+          email: reportData.employee.WorkEmail,
         }
         : null,
-      summary,
-      attendance,
-      shift_policy: employee ? {
-        id: employee.shift_policy_id,
-        start_time: employee.start_time,
-        end_time: employee.end_time,
-        name: employee.shift_name
-      } : null,
-      weekly_off_policy: employee ? {
-        id: employee.weekly_off_policy_id,
-        sunday_off: employee.sunday_off,
-        monday_off: employee.monday_off,
-        tuesday_off: employee.tuesday_off,
-        wednesday_off: employee.wednesday_off,
-        thursday_off: employee.thursday_off,
-        friday_off: employee.friday_off,
-        saturday_off: employee.saturday_off,
-        name: employee.name,
-        policy_code: employee.policy_code
-      } : null
+      summary: reportData.summary,
+      attendance: reportData.attendance,
+      shift_policy: reportData.shift_policy,
+      weekly_off_policy: reportData.weekly_off_policy
     });
   } catch (error) {
     console.error("Error fetching employee attendance report:", error);
@@ -1475,35 +1540,17 @@ router.get(
       const { employeeId, date } = req.params;
       const c = await db();
 
-      const [attendance] = await c.query(
-        `SELECT a.*, e.EmployeeNumber, e.FirstName, e.LastName 
-             FROM attendance a
-             INNER JOIN employees e ON a.employee_id = e.id
-             WHERE a.employee_id = ? AND a.attendance_date = ?`,
-        [employeeId, date]
-      );
-
-      if (attendance.length === 0) {
-        c.end();
-        return res.status(404).json({ error: "No attendance record found" });
-      }
-
-      const [punches] = await c.query(
-        `SELECT * FROM attendance_punches WHERE attendance_id = ? ORDER BY punch_time ASC`,
-        [attendance[0].id]
-      );
-
+      const [empRows] = await c.query("SELECT id, EmployeeNumber, FirstName, LastName FROM employees WHERE id = ?", [employeeId]);
+      const details = await getUnifiedAttendanceDetails(c, employeeId, date);
       c.end();
 
       res.json({
-        employee: {
-          id: attendance[0].employee_id,
-          employee_number: attendance[0].EmployeeNumber,
-          name: `${attendance[0].FirstName} ${attendance[0].LastName}`,
-        },
-        attendance: attendance[0],
-        punches,
-        punch_pairs: calculatePunchPairs(punches),
+        employee: empRows.length > 0 ? {
+          id: empRows[0].id,
+          employee_number: empRows[0].EmployeeNumber,
+          name: `${empRows[0].FirstName} ${empRows[0].LastName}`.trim(),
+        } : null,
+        ...details
       });
     } catch (error) {
       console.error("Error fetching attendance details:", error);
@@ -1748,7 +1795,7 @@ router.get("/report/all", auth, hr, async (req, res) => {
 async function calculateAndUpdateHours(connection, attendanceId) {
   // Get all punches for this attendance
   const [punches] = await connection.query(
-    `SELECT id, punch_type, punch_time FROM attendance_punches
+    `SELECT id, punch_type, punch_time, notes FROM attendance_punches
          WHERE attendance_id = ? 
          ORDER BY punch_time ASC, id ASC`,
     [attendanceId]
@@ -1757,25 +1804,41 @@ async function calculateAndUpdateHours(connection, attendanceId) {
   let totalWorkMinutes = 0;
   let totalBreakMinutes = 0;
   let lastPunchIn = null;
-  let lastPunchOut = null;
+  let prevValidOut = null;
+  let lastValidCheckOut = null;
 
   for (let i = 0; i < punches.length; i++) {
     const punch = punches[i];
     const punchTime = new Date(punch.punch_time);
+    const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
 
-    if (punch.punch_type === "in") {
-      lastPunchIn = punchTime;
-
-      // If there was a previous punch out, calculate break time
-      if (lastPunchOut && i > 0) {
-        const breakMinutes = (punchTime - lastPunchOut) / (1000 * 60);
-        totalBreakMinutes += breakMinutes;
+    if (punch.punch_type === 'in') {
+      if (lastPunchIn === null) {
+        lastPunchIn = punchTime;
+        if (prevValidOut !== null) {
+          const breakMinutes = (punchTime - prevValidOut) / (1000 * 60);
+          if (breakMinutes > 0) {
+            totalBreakMinutes += breakMinutes;
+          }
+        }
+      } else {
+        const gap = (punchTime - lastPunchIn) / (1000 * 60);
+        if (gap > 15) {
+          lastPunchIn = punchTime;
+        }
       }
-    } else if (punch.punch_type === "out" && lastPunchIn) {
-      lastPunchOut = punchTime;
-      const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
-      totalWorkMinutes += workMinutes;
-      lastPunchIn = null;
+    } else if (punch.punch_type === 'out') {
+      if (lastPunchIn !== null) {
+        if (!isAutoOut) {
+          const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
+          if (workMinutes > 0) {
+            totalWorkMinutes += workMinutes;
+            prevValidOut = punchTime;
+            lastValidCheckOut = punch.punch_time;
+          }
+        }
+        lastPunchIn = null;
+      }
     }
   }
 
@@ -1792,7 +1855,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
              gross_hours = ?
          WHERE id = ?`,
     [
-      punches[punches.length - 1].punch_time,
+      lastValidCheckOut,
       totalWorkHours,
       totalBreakHours,
       grossHours,
@@ -1803,51 +1866,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
   return { totalWorkHours, totalBreakHours, grossHours };
 }
 
-/**
- * Calculate punch pairs (in-out combinations)
- */
-function calculatePunchPairs(punches) {
-  const pairs = [];
-  let currentPair = {};
 
-  for (const punch of punches) {
-    if (punch.punch_type === "in") {
-      currentPair = {
-        punch_in: punch.punch_time,
-        punch_in_location: punch.location,
-        punch_in_notes: punch.notes,
-      };
-    } else if (punch.punch_type === "out" && currentPair.punch_in) {
-      const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
-      currentPair.punch_out = isMissingOut ? null : punch.punch_time;
-      currentPair.punch_out_raw = punch.punch_time;
-      currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : punch.punch_time;
-      currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
-      currentPair.punch_out_notes = punch.notes;
-      currentPair.is_missing_out = isMissingOut;
-
-      const punchIn = new Date(currentPair.punch_in);
-      const punchOut = new Date(punch.punch_time);
-      const hours = isMissingOut ? '0.00' : ((punchOut - punchIn) / (1000 * 60 * 60)).toFixed(2);
-
-      currentPair.hours_worked = hours;
-      currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
-      pairs.push({ ...currentPair });
-      currentPair = {};
-    }
-  }
-
-  // If there's an unpaired punch in
-  if (currentPair.punch_in) {
-    currentPair.punch_out = null;
-    currentPair.punch_out_display = 'In Progress';
-    currentPair.hours_worked = null;
-    currentPair.status = "In Progress";
-    pairs.push(currentPair);
-  }
-
-  return pairs;
-}
 
 /* ============================================
    SIMPLE CHECK-IN/CHECK-OUT ENDPOINTS
