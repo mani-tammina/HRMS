@@ -28,10 +28,10 @@ async function runSyncCycle() {
 
   isRunning = true;
   try {
-    const result = await syncBiometricLogs({ batchSize: 1000 });
+    const result = await syncBiometricLogs({ batchSize: 2000, syncAll: true });
     if (result.success) {
       if (result.rowsRead > 0) {
-        console.log(`✅ [Biometric Worker] Synced ${result.rowsRead} rows (${result.rowsInserted} inserted, ${result.rowsSkipped} skipped). Watermark: ${result.watermarkAfter}`);
+        console.log(`✅ [Biometric Worker] Synced ${result.rowsRead} rows (${result.rowsInserted} inserted, ${result.rowsSkipped} skipped, ${result.recalculatedDays || 0} days recalculated). Watermark: ${result.watermarkAfter}`);
       }
     } else {
       console.warn('⚠️ [Biometric Worker] Sync cycle warning/error:', result.message || result.error);

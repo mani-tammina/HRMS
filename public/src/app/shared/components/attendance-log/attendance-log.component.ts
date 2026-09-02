@@ -583,101 +583,106 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return 'desktop-outline';
     };
 
-    let currentInPunch: any = null;
+    // Partition punches by distinct location/source group
+    const locationPunchesMap = new Map<string, any[]>();
+    for (const p of rawPunches) {
+      const locName = getCleanLocationName(p);
+      if (!locationPunchesMap.has(locName)) {
+        locationPunchesMap.set(locName, []);
+      }
+      locationPunchesMap.get(locName)!.push(p);
+    }
+
     let totalWorkMinutes = 0;
     let totalBreakMinutes = 0;
-    let prevValidOutMs: number | null = null;
     let hasAnyValidOut = false;
 
-    for (let i = 0; i < rawPunches.length; i++) {
-      const p = rawPunches[i];
-      const pTimeMs = new Date(p.punch_time).getTime();
-      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
-      const locName = getCleanLocationName(p);
+    // Process each location/source stream independently so biometric and web punches do not interfere
+    locationPunchesMap.forEach((streamPunches, locName) => {
+      const icon = getGroupIcon(locName);
+      const sessions: any[] = [];
+      let currentInPunch: any = null;
+      let prevValidOutMs: number | null = null;
 
-      if (punchType === 'in') {
-        if (currentInPunch) {
-          const prevLoc = getCleanLocationName(currentInPunch);
-          if (!groupsMap.has(prevLoc)) {
-            groupsMap.set(prevLoc, { locationName: prevLoc, icon: getGroupIcon(prevLoc), sessions: [] });
-          }
-          groupsMap.get(prevLoc)!.sessions.push({
-            inTime: getFormattedTime(currentInPunch.punch_time),
-            outTime: 'MISSING',
-            isMissingOut: true,
-            isAutoOut: true,
-            notes: currentInPunch.notes
-          });
-        }
-        currentInPunch = p;
+      for (let i = 0; i < streamPunches.length; i++) {
+        const p = streamPunches[i];
+        const pTimeMs = new Date(p.punch_time).getTime();
+        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+        const punchType = (p.punch_type || '').toLowerCase();
 
-        if (prevValidOutMs !== null && pTimeMs > prevValidOutMs) {
-          const breakM = (pTimeMs - prevValidOutMs) / (1000 * 60);
-          if (breakM > 0) totalBreakMinutes += breakM;
-        }
-      } else if (punchType === 'out') {
-        if (currentInPunch) {
-          const groupLoc = getCleanLocationName(currentInPunch) || locName;
-          if (!groupsMap.has(groupLoc)) {
-            groupsMap.set(groupLoc, { locationName: groupLoc, icon: getGroupIcon(groupLoc), sessions: [] });
-          }
-
-          if (isAutoOut) {
-            groupsMap.get(groupLoc)!.sessions.push({
+        if (punchType === 'in') {
+          if (currentInPunch) {
+            sessions.push({
               inTime: getFormattedTime(currentInPunch.punch_time),
               outTime: 'MISSING',
               isMissingOut: true,
               isAutoOut: true,
-              notes: p.notes
+              notes: currentInPunch.notes
             });
-          } else {
-            groupsMap.get(groupLoc)!.sessions.push({
-              inTime: getFormattedTime(currentInPunch.punch_time),
-              outTime: getFormattedTime(p.punch_time),
-              isMissingOut: false,
-              isAutoOut: false,
-              notes: p.notes
-            });
+          }
+          currentInPunch = p;
 
-            if (pTimeMs > new Date(currentInPunch.punch_time).getTime()) {
-              const workM = (pTimeMs - new Date(currentInPunch.punch_time).getTime()) / (1000 * 60);
-              if (workM > 0) {
-                totalWorkMinutes += workM;
-                hasAnyValidOut = true;
-                prevValidOutMs = pTimeMs;
+          if (prevValidOutMs !== null && pTimeMs > prevValidOutMs) {
+            const breakM = (pTimeMs - prevValidOutMs) / (1000 * 60);
+            if (breakM > 0) totalBreakMinutes += breakM;
+          }
+        } else if (punchType === 'out') {
+          if (currentInPunch) {
+            if (isAutoOut) {
+              sessions.push({
+                inTime: getFormattedTime(currentInPunch.punch_time),
+                outTime: 'MISSING',
+                isMissingOut: true,
+                isAutoOut: true,
+                notes: p.notes
+              });
+            } else {
+              sessions.push({
+                inTime: getFormattedTime(currentInPunch.punch_time),
+                outTime: getFormattedTime(p.punch_time),
+                isMissingOut: false,
+                isAutoOut: false,
+                notes: p.notes
+              });
+
+              if (pTimeMs > new Date(currentInPunch.punch_time).getTime()) {
+                const workM = (pTimeMs - new Date(currentInPunch.punch_time).getTime()) / (1000 * 60);
+                if (workM > 0) {
+                  totalWorkMinutes += workM;
+                  hasAnyValidOut = true;
+                  prevValidOutMs = pTimeMs;
+                }
               }
             }
+            currentInPunch = null;
+          } else {
+            sessions.push({
+              inTime: 'MISSING',
+              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+              isMissingOut: false,
+              isAutoOut: isAutoOut,
+              notes: p.notes
+            });
           }
-          currentInPunch = null;
-        } else {
-          if (!groupsMap.has(locName)) {
-            groupsMap.set(locName, { locationName: locName, icon: getGroupIcon(locName), sessions: [] });
-          }
-          groupsMap.get(locName)!.sessions.push({
-            inTime: 'MISSING',
-            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-            isMissingOut: false,
-            isAutoOut: isAutoOut,
-            notes: p.notes
-          });
         }
       }
-    }
 
-    if (currentInPunch) {
-      const prevLoc = getCleanLocationName(currentInPunch);
-      if (!groupsMap.has(prevLoc)) {
-        groupsMap.set(prevLoc, { locationName: prevLoc, icon: getGroupIcon(prevLoc), sessions: [] });
+      if (currentInPunch) {
+        sessions.push({
+          inTime: getFormattedTime(currentInPunch.punch_time),
+          outTime: isToday ? 'IN PROGRESS' : 'MISSING',
+          isMissingOut: !isToday,
+          isAutoOut: false,
+          notes: currentInPunch.notes
+        });
       }
-      groupsMap.get(prevLoc)!.sessions.push({
-        inTime: getFormattedTime(currentInPunch.punch_time),
-        outTime: isToday ? 'IN PROGRESS' : 'MISSING',
-        isMissingOut: !isToday,
-        isAutoOut: false,
-        notes: currentInPunch.notes
+
+      groupsMap.set(locName, {
+        locationName: locName,
+        icon,
+        sessions
       });
-    }
+    });
 
     if (hasAnyValidOut) {
       this.selectedLog.total_work_hours = (totalWorkMinutes / 60).toFixed(2);

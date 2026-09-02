@@ -69,10 +69,10 @@ const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 const biometricAttendanceRoutes = require("./routes/biometric-attendance.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
-// Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
 const complianceChecker = require("./utils/compliance-checker.service");
 const autoClockOutService = require("./services/auto-clockout.service");
+const { syncBiometricLogs } = require("./services/biometric-sync.service");
 
 const app = express();
 app.set('trust proxy', true);
@@ -706,6 +706,29 @@ app.get("/api/health", (req, res) => {
 
         // Start automatic clock-out background service
         autoClockOutService.start();
+
+        // Start automatic periodic biometric synchronization background service
+        if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
+            const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
+            console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
+            setTimeout(() => {
+                syncBiometricLogs({ batchSize: 2000, syncAll: true })
+                    .then(res => {
+                        if (res && res.success && res.rowsRead > 0) {
+                            console.log(`✅ [Biometric Sync] Startup sync completed: ${res.rowsRead} rows read, ${res.rowsInserted} inserted. Watermark: ${res.watermarkAfter}`);
+                        }
+                    })
+                    .catch(e => console.warn('⚠️ [Biometric Sync] Startup sync warning:', e.message));
+            }, 3000);
+
+            setInterval(async () => {
+                try {
+                    await syncBiometricLogs({ batchSize: 2000, syncAll: true });
+                } catch (e) {
+                    console.warn('⚠️ [Biometric Sync] Background interval error:', e.message);
+                }
+            }, biometricIntervalSec * 1000);
+        }
 
         app.listen(PORT, () => {
             console.log(`\n╔══════════════════════════════════════════════╗`);

@@ -4,6 +4,7 @@
  * Reads attendance punch logs from MS SQL (BiometricSyncDB.dbo.DeviceLogs),
  * inserts raw records with exact machine local timestamps, matches employees,
  * populates biometric_punches & biometric_daily_attendance, and maintains sync state.
+ * Supports high-throughput multi-batch streaming and complete historical backfill.
  */
 
 const { db } = require('../config/database');
@@ -89,15 +90,25 @@ async function getEmployeeLookupMap() {
   return map;
 }
 
-async function autoRegisterMapping(biometricUserId, employeeId, deviceId) {
-  try {
-    await db.query(
-      `INSERT INTO biometric_employee_map (employee_id, biometric_user_id, device_id, active)
-       VALUES (?, ?, ?, 1)
-       ON DUPLICATE KEY UPDATE employee_id = VALUES(employee_id), active = 1`,
-      [employeeId, String(biometricUserId).trim(), deviceId ? String(deviceId) : null]
-    );
-  } catch (_) {}
+async function autoRegisterMappings(mappingList) {
+  if (!mappingList || mappingList.length === 0) return;
+  const chunkSize = 200;
+  for (let i = 0; i < mappingList.length; i += chunkSize) {
+    const chunk = mappingList.slice(i, i + chunkSize);
+    const valuePlaceholders = chunk.map(() => '(?, ?, ?, 1)').join(', ');
+    const params = [];
+    for (const m of chunk) {
+      params.push(m.employeeId, String(m.userId).trim(), m.deviceId ? String(m.deviceId) : null);
+    }
+    try {
+      await db.query(
+        `INSERT INTO biometric_employee_map (employee_id, biometric_user_id, device_id, active)
+         VALUES ${valuePlaceholders}
+         ON DUPLICATE KEY UPDATE employee_id = VALUES(employee_id), active = 1`,
+        params
+      );
+    } catch (_) {}
+  }
 }
 
 async function recalculateDailyBiometric(employeeId, punchDate) {
@@ -166,6 +177,11 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
 
 /**
  * Main Synchronization Function
+ * Options:
+ *  - syncAll: boolean (default true) -> loops until all pending logs in MS SQL are ingested
+ *  - batchSize: number (default 2000) -> number of rows per query
+ *  - forceFromLogId: number -> override watermark (e.g. 0 for full backfill)
+ *  - maxBatches: number -> optional limit on loop iterations
  */
 async function syncBiometricLogs(options = {}) {
   if (isSyncRunning) {
@@ -183,7 +199,10 @@ async function syncBiometricLogs(options = {}) {
       ? Number(options.forceFromLogId)
       : Number(currentState.last_source_log_id || 0);
 
-    const batchSize = Number(options.batchSize || 1000);
+    const startDateStr = options.startDate || process.env.BIOMETRIC_START_DATE || '2026-09-01 00:00:00';
+    const batchSize = Math.max(100, Math.min(10000, Number(options.batchSize || 2000)));
+    const syncAll = options.syncAll !== false;
+    const maxBatches = Number(options.maxBatches || (syncAll ? 1000 : 1));
 
     // Create sync audit log
     try {
@@ -198,175 +217,235 @@ async function syncBiometricLogs(options = {}) {
       console.warn('[BiometricSync] Warning logging sync start:', e.message);
     }
 
-    // 1. Fetch records from MS SQL with exact string format for dates
     const mssqlPool = await getBiometricPool();
-    const request = mssqlPool.request();
-    request.input('watermark', watermarkBefore);
-    request.input('batchSize', batchSize);
-
-    const query = `
-      SELECT TOP (@batchSize)
-        DeviceLogId,
-        CONVERT(varchar(19), DownloadDate, 120) AS DownloadDateStr,
-        DeviceId,
-        UserId,
-        CONVERT(varchar(19), LogDate, 120) AS LogDateStr,
-        Direction,
-        AttDirection,
-        C1, C2, C3, C4, C5, C6, C7,
-        WorkCode
-      FROM dbo.DeviceLogs
-      WHERE DeviceLogId > @watermark
-      ORDER BY DeviceLogId ASC
-    `;
-
-    const result = await request.query(query);
-    const sourceLogs = result.recordset || [];
-
-    if (sourceLogs.length === 0) {
-      await updateSyncState(watermarkBefore, 'SUCCESS', 0);
-      if (logRecordId) {
-        await db.query(
-          `UPDATE biometric_sync_log 
-           SET end_time = NOW(), watermark_after = ?, rows_read = 0, rows_inserted = 0, rows_skipped = 0, rows_processed = 0, status = 'success'
-           WHERE id = ?`,
-          [String(watermarkBefore), logRecordId]
-        );
-      }
-      isSyncRunning = false;
-      return {
-        success: true,
-        rowsRead: 0,
-        rowsInserted: 0,
-        watermark: watermarkBefore
-      };
-    }
-
-    // 2. Fetch employee lookup cache
-    const employeeMap = await getEmployeeLookupMap();
-
-    let maxLogIdProcessed = watermarkBefore;
-    let insertedCount = 0;
-    let skippedCount = 0;
+    let currentWatermark = watermarkBefore;
+    let totalRowsRead = 0;
+    let totalRowsInserted = 0;
+    let totalRowsSkipped = 0;
+    let batchCount = 0;
     const affectedEmpDates = new Set();
+    let employeeMap = await getEmployeeLookupMap();
 
-    for (const log of sourceLogs) {
-      const deviceLogId = Number(log.DeviceLogId);
-      const userId = String(log.UserId || '').trim();
-      const logDateStr = log.LogDateStr ? String(log.LogDateStr).trim() : null;
+    console.log(`🚀 [BiometricSync] Starting sync: StartDate=${startDateStr}, Watermark=${watermarkBefore}, BatchSize=${batchSize}, SyncAll=${syncAll}`);
 
-      if (!logDateStr || !userId) {
-        skippedCount++;
-        if (deviceLogId > maxLogIdProcessed) maxLogIdProcessed = deviceLogId;
-        continue;
+    while (batchCount < maxBatches) {
+      batchCount++;
+      const request = mssqlPool.request();
+      request.input('watermark', currentWatermark);
+      request.input('batchSize', batchSize);
+      request.input('startDate', startDateStr);
+
+      const query = `
+        SELECT TOP (@batchSize)
+          DeviceLogId,
+          CONVERT(varchar(19), DownloadDate, 120) AS DownloadDateStr,
+          DeviceId,
+          UserId,
+          CONVERT(varchar(19), LogDate, 120) AS LogDateStr,
+          Direction,
+          AttDirection,
+          C1, C2, C3, C4, C5, C6, C7,
+          WorkCode
+        FROM dbo.DeviceLogs
+        WHERE DeviceLogId > @watermark
+          AND LogDate >= @startDate
+          AND LogDate <= DATEADD(day, 1, GETDATE())
+        ORDER BY DeviceLogId ASC
+      `;
+
+      const result = await request.query(query);
+      const sourceLogs = result.recordset || [];
+
+      if (sourceLogs.length === 0) {
+        break;
       }
 
-      // Exact local date and time string from machine
-      const punchDate = logDateStr.substring(0, 10);
-      const formattedLogDate = logDateStr;
-      const empKey = userId.toUpperCase();
-      const employeeId = employeeMap.get(empKey) || null;
+      totalRowsRead += sourceLogs.length;
+      let batchMaxLogId = currentWatermark;
 
-      // Insert into raw staging table
-      try {
-        const [insertRes] = await db.query(
-          `INSERT INTO biometric_attendance_raw 
-             (source_system, source_log_id, biometric_user_id, punch_time, device_id, direction, raw_payload, status, employee_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-           ON DUPLICATE KEY UPDATE 
-             punch_time = VALUES(punch_time),
-             employee_id = VALUES(employee_id)`,
-          [
-            SOURCE_SYSTEM,
-            String(deviceLogId),
-            userId,
-            formattedLogDate,
-            log.DeviceId ? String(log.DeviceId) : null,
-            log.Direction ? String(log.Direction) : null,
-            JSON.stringify(log),
-            employeeId ? 'processed' : 'ignored',
-            employeeId
-          ]
-        );
+      const rawInsertRows = [];
+      const punchInsertRows = [];
+      const newMappings = [];
 
-        if (insertRes.affectedRows > 0) {
-          insertedCount++;
+      for (const log of sourceLogs) {
+        const deviceLogId = Number(log.DeviceLogId);
+        const userId = String(log.UserId || '').trim();
+        const logDateStr = log.LogDateStr ? String(log.LogDateStr).trim() : null;
+
+        if (deviceLogId > batchMaxLogId) {
+          batchMaxLogId = deviceLogId;
         }
-      } catch (insertErr) {
-        console.warn(`[BiometricSync] Warning inserting raw log ${deviceLogId}:`, insertErr.message);
+
+        if (!logDateStr || !userId) {
+          totalRowsSkipped++;
+          continue;
+        }
+
+        const punchDate = logDateStr.substring(0, 10);
+        const formattedLogDate = logDateStr;
+        const empKey = userId.toUpperCase();
+        const employeeId = employeeMap.get(empKey) || null;
+
+        rawInsertRows.push({
+          source_system: SOURCE_SYSTEM,
+          source_log_id: String(deviceLogId),
+          biometric_user_id: userId,
+          punch_time: formattedLogDate,
+          device_id: log.DeviceId ? String(log.DeviceId) : null,
+          direction: log.Direction ? String(log.Direction) : null,
+          raw_payload: JSON.stringify(log),
+          status: employeeId ? 'processed' : 'ignored',
+          employee_id: employeeId
+        });
+
+        if (employeeId) {
+          newMappings.push({ userId, employeeId, deviceId: log.DeviceId });
+
+          let direction = 'auto';
+          const dirStr = String(log.Direction || log.AttDirection || '').toLowerCase();
+          if (dirStr.includes('in')) direction = 'in';
+          else if (dirStr.includes('out')) direction = 'out';
+
+          punchInsertRows.push({
+            employee_id: employeeId,
+            user_id: userId,
+            punch_time: formattedLogDate,
+            punch_date: punchDate,
+            direction,
+            device_id: log.DeviceId ? String(log.DeviceId) : null,
+            raw_log_id: deviceLogId
+          });
+
+          affectedEmpDates.add(`${employeeId}:${punchDate}`);
+        } else {
+          totalRowsSkipped++;
+        }
       }
 
-      if (employeeId) {
-        autoRegisterMapping(userId, employeeId, log.DeviceId);
+      // Bulk insert raw logs in chunks of 500
+      const RAW_CHUNK_SIZE = 500;
+      for (let i = 0; i < rawInsertRows.length; i += RAW_CHUNK_SIZE) {
+        const chunk = rawInsertRows.slice(i, i + RAW_CHUNK_SIZE);
+        const valuePlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const params = [];
+        for (const row of chunk) {
+          params.push(
+            row.source_system,
+            row.source_log_id,
+            row.biometric_user_id,
+            row.punch_time,
+            row.device_id,
+            row.direction,
+            row.raw_payload,
+            row.status,
+            row.employee_id
+          );
+        }
 
-        let direction = 'auto';
-        const dirStr = String(log.Direction || log.AttDirection || '').toLowerCase();
-        if (dirStr.includes('in')) direction = 'in';
-        else if (dirStr.includes('out')) direction = 'out';
+        try {
+          const [res] = await db.query(
+            `INSERT INTO biometric_attendance_raw 
+               (source_system, source_log_id, biometric_user_id, punch_time, device_id, direction, raw_payload, status, employee_id)
+             VALUES ${valuePlaceholders}
+             ON DUPLICATE KEY UPDATE 
+               punch_time = VALUES(punch_time),
+               status = VALUES(status),
+               employee_id = VALUES(employee_id)`,
+            params
+          );
+          totalRowsInserted += res.affectedRows > 0 ? chunk.length : 0;
+        } catch (insertErr) {
+          console.warn(`[BiometricSync] Warning in raw bulk insert chunk:`, insertErr.message);
+        }
+      }
+
+      // Bulk insert punches in chunks of 500
+      const PUNCH_CHUNK_SIZE = 500;
+      for (let i = 0; i < punchInsertRows.length; i += PUNCH_CHUNK_SIZE) {
+        const chunk = punchInsertRows.slice(i, i + PUNCH_CHUNK_SIZE);
+        const valuePlaceholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
+        const params = [];
+        for (const row of chunk) {
+          params.push(
+            row.employee_id,
+            row.user_id,
+            row.punch_time,
+            row.punch_date,
+            row.direction,
+            row.device_id,
+            row.raw_log_id
+          );
+        }
 
         try {
           await db.query(
             `INSERT INTO biometric_punches 
                (employee_id, user_id, punch_time, punch_date, direction, device_id, raw_log_id)
-             VALUES (?, ?, ?, ?, ?, ?, ?)
+             VALUES ${valuePlaceholders}
              ON DUPLICATE KEY UPDATE 
                punch_time = VALUES(punch_time),
                direction = VALUES(direction),
                device_id = VALUES(device_id)`,
-            [
-              employeeId,
-              userId,
-              formattedLogDate,
-              punchDate,
-              direction,
-              log.DeviceId ? String(log.DeviceId) : null,
-              deviceLogId
-            ]
+            params
           );
-
-          affectedEmpDates.add(`${employeeId}:${punchDate}`);
-        } catch (_) {}
-      } else {
-        skippedCount++;
+        } catch (punchErr) {
+          console.warn(`[BiometricSync] Warning in punches bulk insert chunk:`, punchErr.message);
+        }
       }
 
-      if (deviceLogId > maxLogIdProcessed) {
-        maxLogIdProcessed = deviceLogId;
+      if (newMappings.length > 0) {
+        await autoRegisterMappings(newMappings);
+      }
+
+      currentWatermark = batchMaxLogId;
+      await updateSyncState(currentWatermark, 'RUNNING', sourceLogs.length);
+
+      console.log(`📦 [BiometricSync] Batch #${batchCount} complete: Read ${sourceLogs.length}, Current Watermark: ${currentWatermark}`);
+
+      if (sourceLogs.length < batchSize) {
+        // Less than requested batch size means we reached the latest available record
+        break;
       }
     }
 
-    // 3. Recalculate daily attendance for affected employee-dates
+    // Recalculate daily attendance for all touched employee dates
+    console.log(`⚙️ [BiometricSync] Recalculating daily attendance for ${affectedEmpDates.size} employee-dates...`);
+    let recalcCount = 0;
     for (const item of affectedEmpDates) {
       const [empIdStr, dateStr] = item.split(':');
       const empId = Number(empIdStr);
       try {
         await recalculateDailyBiometric(empId, dateStr);
+        recalcCount++;
       } catch (calcErr) {
         console.error(`[BiometricSync] Recalculate error for emp ${empId} on ${dateStr}:`, calcErr.message);
       }
     }
 
-    // 4. Update sync state
-    await updateSyncState(maxLogIdProcessed, 'SUCCESS', insertedCount);
+    // Finalize sync state
+    await updateSyncState(currentWatermark, 'SUCCESS', totalRowsInserted);
 
-    // 5. Complete sync log
+    // Complete sync audit log
     if (logRecordId) {
       await db.query(
         `UPDATE biometric_sync_log 
          SET end_time = NOW(), watermark_after = ?, rows_read = ?, rows_inserted = ?, rows_skipped = ?, rows_processed = ?, status = 'success'
          WHERE id = ?`,
-        [String(maxLogIdProcessed), sourceLogs.length, insertedCount, skippedCount, insertedCount, logRecordId]
+        [String(currentWatermark), totalRowsRead, totalRowsInserted, totalRowsSkipped, totalRowsInserted, logRecordId]
       );
     }
 
     isSyncRunning = false;
+    console.log(`✅ [BiometricSync] Sync completed successfully! Total read: ${totalRowsRead}, Inserted: ${totalRowsInserted}, Watermark: ${currentWatermark}`);
+
     return {
       success: true,
-      rowsRead: sourceLogs.length,
-      rowsInserted: insertedCount,
-      rowsSkipped: skippedCount,
+      rowsRead: totalRowsRead,
+      rowsInserted: totalRowsInserted,
+      rowsSkipped: totalRowsSkipped,
+      recalculatedDays: recalcCount,
       watermarkBefore,
-      watermarkAfter: maxLogIdProcessed
+      watermarkAfter: currentWatermark
     };
   } catch (error) {
     isSyncRunning = false;

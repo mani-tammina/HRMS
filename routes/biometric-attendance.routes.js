@@ -67,8 +67,8 @@ router.get('/status', auth, async (req, res) => {
  */
 router.post('/sync-now', auth, hr, async (req, res) => {
   try {
-    const { batchSize = 500, forceFromLogId = null } = req.body;
-    const result = await syncBiometricLogs({ batchSize, forceFromLogId });
+    const { batchSize = 2000, forceFromLogId = null, syncAll = true, maxBatches } = req.body;
+    const result = await syncBiometricLogs({ batchSize, forceFromLogId, syncAll, maxBatches });
 
     res.json({
       success: result.success,
@@ -77,6 +77,27 @@ router.post('/sync-now', auth, hr, async (req, res) => {
     });
   } catch (err) {
     console.error('[BiometricRoute] Manual sync error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/biometric-attendance/backfill-all
+ * @desc    Trigger full historical backfill from Log ID 0
+ * @access  Private (Admin / HR)
+ */
+router.post('/backfill-all', auth, hr, async (req, res) => {
+  try {
+    const { batchSize = 3000 } = req.body;
+    const result = await syncBiometricLogs({ batchSize, forceFromLogId: 0, syncAll: true });
+
+    res.json({
+      success: result.success,
+      data: result,
+      message: result.success ? 'Full historical biometric backfill completed successfully.' : result.message || result.error
+    });
+  } catch (err) {
+    console.error('[BiometricRoute] Backfill error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });

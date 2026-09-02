@@ -679,24 +679,21 @@ router.get("/today", auth, async (req, res) => {
         [emp.id, today]
       );
       if (bioPunches && bioPunches.length > 0) {
-        const mappedBio = bioPunches.map(p => ({
-          ...p,
-          punch_type: p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : 'auto')
-        }));
+        let bioOpen = false;
+        const mappedBio = bioPunches.map(p => {
+          let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+          if (pt === 'in') bioOpen = true;
+          else if (pt === 'out') bioOpen = false;
+          return {
+            ...p,
+            punch_type: pt
+          };
+        });
         punches.push(...mappedBio);
       }
     } catch (_) {}
 
     punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-
-    let openIn = false;
-    punches.forEach(p => {
-      if (p.punch_type === 'auto') {
-        p.punch_type = openIn ? 'out' : 'in';
-      }
-      if (p.punch_type === 'in') openIn = true;
-      else if (p.punch_type === 'out') openIn = false;
-    });
 
     let attendanceRecord = attendance.length > 0 ? attendance[0] : null;
     if (!attendanceRecord && punches.length > 0) {
@@ -971,10 +968,16 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     );
 
     if (bioPunches && bioPunches.length > 0) {
-      const mappedBioPunches = bioPunches.map(p => ({
-        ...p,
-        punch_type: p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : 'auto')
-      }));
+      let bioOpen = false;
+      const mappedBioPunches = bioPunches.map(p => {
+        let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+        if (pt === 'in') bioOpen = true;
+        else if (pt === 'out') bioOpen = false;
+        return {
+          ...p,
+          punch_type: pt
+        };
+      });
       punches.push(...mappedBioPunches);
     }
   } catch (err) {
@@ -982,15 +985,6 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
   }
 
   punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-
-  let openIn = false;
-  punches.forEach(p => {
-    if (p.punch_type === 'auto') {
-      p.punch_type = openIn ? 'out' : 'in';
-    }
-    if (p.punch_type === 'in') openIn = true;
-    else if (p.punch_type === 'out') openIn = false;
-  });
 
   // Deduplicate punches that are within 5 seconds of each other
   const uniquePunches = [];

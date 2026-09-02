@@ -277,7 +277,8 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
         this.policyPermissions = res?.policyPermissions;
-        const punches = res?.punches || [];
+        const allPunches = res?.punches || [];
+        const punches = allPunches.filter((p: any) => p.source !== 'biometric' && p.work_mode !== 'Biometric');
         if (!punches.length) {
           this.isClockedIn = false;
           if (wasClockedIn) {
