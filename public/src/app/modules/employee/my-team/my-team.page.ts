@@ -80,10 +80,10 @@ export class MyTeamPage implements OnInit, OnDestroy {
       filtered = filtered.filter(m => {
         const stats = this.getRealTimeStatus(m.id);
         const status = (stats.status || '').toLowerCase();
-        if (this.currentFilter === 'present') return status === 'in' || status === 'present' || status.includes('in') || status === 'wfh';
-        if (this.currentFilter === 'absent') return status === 'absent';
         if (this.currentFilter === 'on_leave') return status.includes('leave') || status === 'on_leave';
-        if (this.currentFilter === 'not_punched') return status === 'not_punched' || status === 'not_checked_in' || status === 'out' || !status;
+        if (this.currentFilter === 'absent') return status === 'absent';
+        if (this.currentFilter === 'not_punched') return status === 'not_punched' || status === 'not_checked_in' || !status;
+        if (this.currentFilter === 'present') return status === 'present' || status === 'in' || status === 'wfh' || (status !== 'absent' && status !== 'not_punched' && status !== 'not_checked_in' && !status.includes('leave'));
         return true;
       });
     }
@@ -174,10 +174,11 @@ export class MyTeamPage implements OnInit, OnDestroy {
 
     attendanceList.forEach((att: any) => {
       newStatuses[att.employee_id] = {
-        status: att.status || (isToday ? 'in' : 'present'),
-        first_in: att.first_in,
-        last_out: att.last_out,
-        total_hours: att.total_hours
+        status: 'present',
+        first_in: att.first_in || att.first_check_in,
+        last_out: att.last_out || att.last_check_out,
+        total_hours: att.total_hours || att.total_work_hours,
+        work_mode: att.work_mode
       };
     });
 
@@ -224,18 +225,19 @@ export class MyTeamPage implements OnInit, OnDestroy {
       const stats = this.getRealTimeStatus(m.id);
       const status = (stats.status || '').toLowerCase();
 
-      if (status === 'in' || status === 'present' || status.includes('in') || status === 'wfh') {
-        this.counts.present++;
-      } else if (status.includes('leave') || status === 'on_leave') {
+      if (status.includes('leave') || status === 'on_leave') {
         this.counts.onLeave++;
       } else if (status === 'absent') {
         this.counts.absent++;
-      } else {
+      } else if (status === 'not_punched' || status === 'not_checked_in') {
         if (!isToday) {
           this.counts.absent++;
         } else {
           this.counts.notPunched++;
         }
+      } else {
+        // Any attendance marked (web clock-in, remote, wfh, biometric) is counted as Present
+        this.counts.present++;
       }
     });
   }
@@ -275,17 +277,17 @@ export class MyTeamPage implements OnInit, OnDestroy {
   /** Returns card-accent color based on attendance status */
   getAccentColor(employeeId: number): string {
     const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
-    if (status === 'in' || status === 'present' || status.includes('in') || status === 'wfh') {
-      return 'rgb(0, 152, 61)';      // Present / Clocked-in — Green
-    }
     if (status.includes('leave') || status === 'on_leave') {
       return 'rgb(31, 116, 187)';    // On Leave — Blue
     }
     if (status === 'absent') {
       return 'rgb(187, 44, 31)';     // Absent — Red
     }
-    // Not punched / default
-    return '#1f74bb';       // Not Punched — Warm Amber-Brown
+    if (status === 'not_punched' || status === 'not_checked_in') {
+      return '#1f74bb';              // Not Punched — Blue
+    }
+    // Any employee with attendance / punch is Present
+    return 'rgb(0, 152, 61)';        // Present — Green
   }
 
   async navigateToLeaveApprovals() {
@@ -376,19 +378,19 @@ export class MyTeamPage implements OnInit, OnDestroy {
 
   getDisplayStatusText(employeeId: number): string {
     const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
-    if (status === 'in' || status === 'present' || status.includes('in') || status === 'wfh') return 'PRESENT';
     if (status.includes('leave') || status === 'on_leave') return 'ON LEAVE';
     if (status === 'absent') return 'ABSENT';
-    if (status === 'not_punched') return 'NOT PUNCHED';
-    return 'OUT';
+    if (status === 'not_punched' || status === 'not_checked_in') return 'NOT PUNCHED';
+    // Any employee with attendance / punch (biometric, web, remote, wfh) is PRESENT
+    return 'PRESENT';
   }
 
   getDisplayStatusClass(employeeId: number): string {
     const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
-    if (status === 'in' || status === 'present' || status.includes('in') || status === 'wfh') return 'present';
     if (status.includes('leave') || status === 'on_leave') return 'leave-status';
     if (status === 'absent') return 'absent';
-    return 'not-punched-status';
+    if (status === 'not_punched' || status === 'not_checked_in') return 'not-punched-status';
+    return 'present';
   }
 
   // ================= HR ACTIONS =================
