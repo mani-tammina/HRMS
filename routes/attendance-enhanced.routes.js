@@ -113,7 +113,7 @@ async function validateTimeTrackingPolicy(connection, employeeId, workMode, ipAd
     }
 
     const isIpRestrictionEnabled = biometric.ip_restriction_enabled === true || biometric.ip_restriction_enabled === 'true' || biometric.ip_restriction_enabled === 1 || biometric.ip_restriction_enabled === '1';
-    
+
     if (isIpRestrictionEnabled) {
       if (!biometric.ip_networks || biometric.ip_networks.length === 0) {
         const err = new Error("Access denied. Please connect to an approved network or use Remote Clock In");
@@ -642,7 +642,11 @@ router.get("/today", auth, async (req, res) => {
     let punches = [];
     if (attendance.length > 0) {
       const [webPunches] = await c.query(
-        `SELECT ap.*, a.work_mode, 'web' as source 
+        `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type,
+                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time,
+                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+                ap.ip_address, ap.device_info, ap.location, ap.notes,
+                a.work_mode, 'web' as source 
          FROM attendance_punches ap
          JOIN attendance a ON ap.attendance_id = a.id
          WHERE ap.attendance_id = ? 
@@ -652,7 +656,11 @@ router.get("/today", auth, async (req, res) => {
       punches = webPunches || [];
     } else {
       const [webPunches] = await c.query(
-        `SELECT ap.*, 'Office' as work_mode, 'web' as source 
+        `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type,
+                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time,
+                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+                ap.ip_address, ap.device_info, ap.location, ap.notes,
+                'Office' as work_mode, 'web' as source 
          FROM attendance_punches ap
          WHERE ap.employee_id = ? AND ap.punch_date = ?
          ORDER BY ap.punch_time ASC`,
@@ -691,7 +699,7 @@ router.get("/today", auth, async (req, res) => {
         });
         punches.push(...mappedBio);
       }
-    } catch (_) {}
+    } catch (_) { }
 
     punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
@@ -778,7 +786,7 @@ router.post("/bulk-status", auth, async (req, res) => {
         [...employee_ids, today]
       );
       bioDaily = bdRows || [];
-    } catch (_) {}
+    } catch (_) { }
 
     const [latestPunches] = await c.query(
       `SELECT p.employee_id, p.punch_type, p.punch_time, p.work_mode, p.location, p.notes
@@ -973,7 +981,10 @@ function calculatePunchPairs(punches) {
 
 async function getUnifiedAttendanceDetails(c, employeeId, date) {
   let [attendance] = await c.query(
-    `SELECT * FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+    `SELECT a.*,
+            DATE_FORMAT(DATE_ADD(a.first_check_in, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
+            DATE_FORMAT(DATE_ADD(a.last_check_out, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as last_check_out_ist
+     FROM attendance a WHERE a.employee_id = ? AND a.attendance_date = ?`,
     [employeeId, date]
   );
 
@@ -987,14 +998,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   let punches = [];
 
-  // 1. Fetch Web/Mobile/Remote Punches
+  // 1. Fetch Web/Mobile/Remote Punches (Converted to IST +05:30)
   const [webPunches] = await c.query(
     `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type, 
-            DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
-            DATE_FORMAT(ap.punch_date, '%Y-%m-%d') as punch_date, 
+            DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time, 
+            DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date, 
             ap.ip_address, ap.device_info, ap.location, ap.notes, 'web' as source,
             COALESCE(a.work_mode, 'Office') as work_mode,
-            ap.created_at
+            DATE_FORMAT(DATE_ADD(ap.created_at, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as created_at
      FROM attendance_punches ap
      LEFT JOIN attendance a ON ap.attendance_id = a.id
      WHERE ap.employee_id = ? AND ap.punch_date = ?
@@ -1100,8 +1111,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
           location: firstP.location || 'Office'
         };
       }
-    } catch (_) {}
+    } catch (_) { }
   } else {
+    if (attendanceRecord.first_check_in_ist) {
+      attendanceRecord.first_check_in = attendanceRecord.first_check_in_ist;
+    }
+    if (attendanceRecord.last_check_out_ist) {
+      attendanceRecord.last_check_out = attendanceRecord.last_check_out_ist;
+    }
     if (punches.length > 0) {
       if (!attendanceRecord.first_check_in) {
         attendanceRecord.first_check_in = punches[0].punch_time;
@@ -1152,6 +1169,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     SELECT 
       a.*,
       DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as formatted_date,
+      DATE_FORMAT(DATE_ADD(a.first_check_in, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
+      DATE_FORMAT(DATE_ADD(a.last_check_out, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as last_check_out_ist,
       (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'in') as web_punch_in_count,
       (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'out') as web_punch_out_count
     FROM attendance a
@@ -1171,7 +1190,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       WHERE bda.employee_id = ? AND bda.attendance_date BETWEEN ? AND ?
     `, [targetEmpId, startStr, endStr]);
     bioDailyRows = bda || [];
-  } catch (_) {}
+  } catch (_) { }
 
   let bioPunchSummary = [];
   try {
@@ -1188,7 +1207,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       GROUP BY punch_date
     `, [targetEmpId, startStr, endStr]);
     bioPunchSummary = bps || [];
-  } catch (_) {}
+  } catch (_) { }
 
   const combinedAttendanceMap = new Map();
 
@@ -1198,6 +1217,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       ...a,
       attendance_date: dStr,
       punch_date: a.punch_date ? String(a.punch_date).substring(0, 10) : dStr,
+      first_check_in: a.first_check_in_ist || a.first_check_in,
+      last_check_out: a.last_check_out_ist || a.last_check_out,
       punch_in_count: Number(a.web_punch_in_count) || 0,
       punch_out_count: Number(a.web_punch_out_count) || 0,
       work_mode: a.work_mode || 'Office'
@@ -1766,7 +1787,7 @@ router.get("/report/team", auth, async (req, res) => {
         [teamIds, targetDate]
       );
       bioPunchesSummary = bPunches || [];
-    } catch (_) {}
+    } catch (_) { }
 
     // Get approved leaves for team members for today (covering full/partial day)
     const [onLeave] = await c.query(
