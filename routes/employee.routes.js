@@ -327,12 +327,21 @@ router.get("/:id", auth, async (req, res) => {
               mgr.LastName as manager_last_name,
               COALESCE(
                 (SELECT CASE 
-                          WHEN ap.punch_type = 'in' THEN 'In'
-                          WHEN ap.punch_type = 'out' THEN 'Out'
+                          WHEN combined.punch_type = 'in' THEN 'In'
+                          WHEN combined.punch_type = 'out' THEN 'Out'
+                          ELSE 'In'
                         END
-                 FROM attendance_punches ap 
-                 WHERE ap.employee_id = e.id AND ap.punch_date = CURDATE() 
-                 ORDER BY ap.punch_time DESC LIMIT 1),
+                 FROM (
+                   SELECT punch_type, punch_time
+                   FROM attendance_punches
+                   WHERE employee_id = e.id AND punch_date = CURDATE()
+                   UNION ALL
+                   SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time
+                   FROM biometric_punches
+                   WHERE employee_id = e.id AND punch_date = CURDATE()
+                 ) combined
+                 ORDER BY combined.punch_time DESC
+                 LIMIT 1),
                 (SELECT 'On Leave'
                  FROM leaves lv
                  WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
@@ -343,6 +352,10 @@ router.get("/:id", auth, async (req, res) => {
                 (SELECT att.work_mode 
                  FROM attendance att 
                  WHERE att.employee_id = e.id AND att.attendance_date = CURDATE() 
+                 LIMIT 1),
+                (SELECT 'Biometric'
+                 FROM biometric_punches bp
+                 WHERE bp.employee_id = e.id AND bp.punch_date = CURDATE()
                  LIMIT 1),
                 'N/A'
               ) AS work_mode
@@ -433,13 +446,26 @@ router.get("/:id/details", auth, async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Get recent attendance (last 30 days)
+    // Get recent attendance (last 30 days) combining web attendance and biometric attendance
     const [attendance] = await c.query(
-      `SELECT attendance_date, first_check_in, last_check_out, total_work_hours as total_hours, work_mode, status 
-           FROM attendance 
-           WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-         ORDER BY attendance_date DESC`,
-      [requestedEmployeeId],
+      `SELECT attendance_date, first_check_in, last_check_out, total_hours, work_mode, status
+       FROM (
+         SELECT attendance_date, first_check_in, last_check_out, total_work_hours as total_hours, work_mode, status
+         FROM attendance
+         WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         UNION ALL
+         SELECT attendance_date, 
+                CONCAT(attendance_date, ' ', COALESCE(first_punch_in, '00:00:00')) as first_check_in,
+                CONCAT(attendance_date, ' ', COALESCE(last_punch_out, '00:00:00')) as last_check_out,
+                gross_hours as total_hours,
+                'Biometric' as work_mode,
+                CASE WHEN status = 'half_day' THEN 'half-day' ELSE COALESCE(status, 'present') END as status
+         FROM biometric_daily_attendance
+         WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND attendance_date NOT IN (SELECT attendance_date FROM attendance WHERE employee_id = ?)
+       ) combined_att
+       ORDER BY attendance_date DESC`,
+      [requestedEmployeeId, requestedEmployeeId, requestedEmployeeId],
     );
 
     // Get leave balance

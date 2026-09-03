@@ -770,16 +770,42 @@ router.post("/bulk-status", auth, async (req, res) => {
       [...employee_ids, today]
     );
 
+    let bioDaily = [];
+    try {
+      const [bdRows] = await c.query(
+        `SELECT * FROM biometric_daily_attendance
+         WHERE employee_id IN (${placeholders}) AND attendance_date = ?`,
+        [...employee_ids, today]
+      );
+      bioDaily = bdRows || [];
+    } catch (_) {}
+
     const [latestPunches] = await c.query(
-      `SELECT ap.employee_id, ap.punch_type, ap.punch_time, ap.work_mode, ap.location, ap.notes
-             FROM attendance_punches ap
-             INNER JOIN (
-                 SELECT employee_id, MAX(punch_time) as max_time
-                 FROM attendance_punches
-                 WHERE employee_id IN (${placeholders}) AND punch_date = ?
-                 GROUP BY employee_id
-             ) latest ON ap.employee_id = latest.employee_id AND ap.punch_time = latest.max_time`,
-      [...employee_ids, today]
+      `SELECT p.employee_id, p.punch_type, p.punch_time, p.work_mode, p.location, p.notes
+       FROM (
+           SELECT employee_id, punch_type, punch_time, 'Office' as work_mode, location, notes
+           FROM attendance_punches
+           WHERE employee_id IN (${placeholders}) AND punch_date = ?
+           UNION ALL
+           SELECT employee_id, 
+                  CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, 
+                  punch_time, 
+                  'Biometric' as work_mode, 
+                  CONCAT('Biometric Device (', COALESCE(device_id, 'Reader'), ')') as location, 
+                  'Biometric Punch' as notes
+           FROM biometric_punches
+           WHERE employee_id IN (${placeholders}) AND punch_date = ?
+       ) p
+       INNER JOIN (
+           SELECT employee_id, MAX(ptime) as max_time
+           FROM (
+               SELECT employee_id, punch_time as ptime FROM attendance_punches WHERE employee_id IN (${placeholders}) AND punch_date = ?
+               UNION ALL
+               SELECT employee_id, punch_time as ptime FROM biometric_punches WHERE employee_id IN (${placeholders}) AND punch_date = ?
+           ) combined
+           GROUP BY employee_id
+       ) latest ON p.employee_id = latest.employee_id AND p.punch_time = latest.max_time`,
+      [...employee_ids, today, ...employee_ids, today, ...employee_ids, today, ...employee_ids, today]
     );
 
     c.end();
@@ -789,6 +815,13 @@ router.post("/bulk-status", auth, async (req, res) => {
       punchMap.set(p.employee_id, p);
     });
 
+    const bioDailyMap = new Map();
+    if (bioDaily && bioDaily.length > 0) {
+      bioDaily.forEach((bd) => {
+        bioDailyMap.set(bd.employee_id, bd);
+      });
+    }
+
     const attendanceMap = new Map();
     attendance.forEach((a) => {
       const punch = punchMap.get(a.employee_id);
@@ -797,6 +830,30 @@ router.post("/bulk-status", auth, async (req, res) => {
         is_clocked_in: punch ? punch.punch_type === "in" : false,
         last_punch: punch || null,
       });
+    });
+
+    // Merge biometric attendance for employees who only punched via biometric
+    employee_ids.forEach((id) => {
+      if (!attendanceMap.has(id)) {
+        const bd = bioDailyMap.get(id);
+        const punch = punchMap.get(id);
+        if (bd || punch) {
+          attendanceMap.set(id, {
+            id: bd?.id ? `bio_${bd.id}` : 0,
+            employee_id: id,
+            attendance_date: today,
+            status: bd ? (bd.status === 'half_day' ? 'half-day' : (bd.status || 'present')) : 'present',
+            first_check_in: bd?.first_punch_in || punch?.punch_time || null,
+            last_check_out: bd?.last_punch_out || null,
+            gross_hours: bd?.gross_hours || 0,
+            total_work_hours: bd?.gross_hours || 0,
+            work_mode: 'Biometric',
+            location: punch?.location || 'Biometric Device',
+            is_clocked_in: punch ? punch.punch_type === "in" : false,
+            last_punch: punch || null,
+          });
+        }
+      }
     });
 
     const result = employee_ids.map((id) => {
@@ -1685,6 +1742,32 @@ router.get("/report/team", auth, async (req, res) => {
       [teamIds, targetDate]
     );
 
+    // Get biometric daily attendance & punches for team members on targetDate
+    let bioDailyList = [];
+    let bioPunchesSummary = [];
+    try {
+      const [bDaily] = await c.query(
+        `SELECT bda.*, e.EmployeeNumber, e.FirstName, e.LastName
+         FROM biometric_daily_attendance bda
+         INNER JOIN employees e ON bda.employee_id = e.id
+         WHERE bda.employee_id IN (?) AND bda.attendance_date = ?`,
+        [teamIds, targetDate]
+      );
+      bioDailyList = bDaily || [];
+
+      const [bPunches] = await c.query(
+        `SELECT employee_id, 
+                COUNT(*) as punch_count,
+                MIN(punch_time) as first_punch,
+                MAX(punch_time) as last_punch
+         FROM biometric_punches
+         WHERE employee_id IN (?) AND punch_date = ?
+         GROUP BY employee_id`,
+        [teamIds, targetDate]
+      );
+      bioPunchesSummary = bPunches || [];
+    } catch (_) {}
+
     // Get approved leaves for team members for today (covering full/partial day)
     const [onLeave] = await c.query(
       `SELECT 
@@ -1698,28 +1781,106 @@ router.get("/report/team", auth, async (req, res) => {
       [teamIds, targetDate]
     );
 
+    c.end();
+
+    const attendanceMap = new Map();
+    attendance.forEach((a) => {
+      attendanceMap.set(a.employee_id, { ...a });
+    });
+
+    const bioPunchMap = new Map();
+    bioPunchesSummary.forEach((bp) => {
+      bioPunchMap.set(bp.employee_id, bp);
+    });
+
+    const teamMap = new Map();
+    team.forEach((tm) => {
+      teamMap.set(tm.id, tm);
+    });
+
+    // Merge biometric daily records
+    bioDailyList.forEach((bd) => {
+      const existing = attendanceMap.get(bd.employee_id);
+      const bp = bioPunchMap.get(bd.employee_id);
+      if (existing) {
+        if (bp) {
+          existing.total_punches = (existing.total_punches || 0) + (bp.punch_count || 0);
+        }
+      } else {
+        const empInfo = teamMap.get(bd.employee_id) || bd;
+        attendanceMap.set(bd.employee_id, {
+          id: `bio_${bd.id}`,
+          employee_id: bd.employee_id,
+          attendance_date: targetDate,
+          first_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : (bp?.first_punch || null),
+          last_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : (bp?.last_punch || null),
+          first_check_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : (bp?.first_punch || null),
+          last_check_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : (bp?.last_punch || null),
+          total_hours: bd.gross_hours || '0.00',
+          gross_hours: bd.gross_hours || '0.00',
+          total_work_hours: bd.gross_hours || '0.00',
+          status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
+          work_mode: 'Biometric',
+          location: 'Biometric Device',
+          total_punches: bd.total_punches || bp?.punch_count || 1,
+          EmployeeNumber: empInfo.EmployeeNumber,
+          FirstName: empInfo.FirstName,
+          LastName: empInfo.LastName
+        });
+      }
+    });
+
+    // Also merge any employee who has punches in biometric_punches but not yet daily aggregate
+    bioPunchesSummary.forEach((bp) => {
+      if (!attendanceMap.has(bp.employee_id)) {
+        const empInfo = teamMap.get(bp.employee_id);
+        if (empInfo) {
+          attendanceMap.set(bp.employee_id, {
+            id: `bio_p_${bp.employee_id}`,
+            employee_id: bp.employee_id,
+            attendance_date: targetDate,
+            first_in: bp.first_punch,
+            last_out: bp.last_punch !== bp.first_punch ? bp.last_punch : null,
+            first_check_in: bp.first_punch,
+            last_check_out: bp.last_punch !== bp.first_punch ? bp.last_punch : null,
+            total_hours: '0.00',
+            gross_hours: '0.00',
+            total_work_hours: '0.00',
+            status: 'present',
+            work_mode: 'Biometric',
+            location: 'Biometric Device',
+            total_punches: bp.punch_count,
+            EmployeeNumber: empInfo.EmployeeNumber,
+            FirstName: empInfo.FirstName,
+            LastName: empInfo.LastName
+          });
+        }
+      }
+    });
+
+    const combinedAttendance = Array.from(attendanceMap.values());
+
     // Merge attendance and leave info for summary
     // Employees with attendance record marked as 'on-leave' OR with approved leave for today
-    const attendanceOnLeaveIds = attendance
+    const attendanceOnLeaveIds = combinedAttendance
       .filter((a) => a.status === "on-leave")
       .map((a) => a.employee_id);
     const leaveOnLeaveIds = onLeave.map((l) => l.employee_id);
     const uniqueOnLeaveIds = Array.from(
       new Set([...attendanceOnLeaveIds, ...leaveOnLeaveIds])
     );
-
-    c.end();
+    const presentCount = combinedAttendance.filter((a) => a.status === "present" || a.status === "in" || a.status === "half-day").length;
 
     res.json({
       team_members: team,
       date: targetDate,
       current_user_id: emp.id, // Helps frontend highlight the logged-in user
-      attendance,
+      attendance: combinedAttendance,
       on_leave: onLeave, // List of leave records for today
       summary: {
         total_team: team.length,
-        present: attendance.filter((a) => a.status === "present").length,
-        absent: team.length - attendance.length - uniqueOnLeaveIds.length,
+        present: presentCount,
+        absent: Math.max(0, team.length - presentCount - uniqueOnLeaveIds.length),
         on_leave: uniqueOnLeaveIds.length,
       },
     });
