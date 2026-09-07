@@ -676,7 +676,12 @@ router.get("/today", auth, async (req, res) => {
                 DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
                 DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
                 null as ip_address, bp.device_id as device_info,
-                CONCAT('Biometric Device (', COALESCE(bp.device_id, 'Reader'), ')') as location,
+                CASE 
+                  WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
+                  WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
+                  WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
+                  ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+                END as location,
                 'Biometric Punch' as notes,
                 'biometric' as source,
                 'Biometric' as work_mode,
@@ -799,7 +804,12 @@ router.post("/bulk-status", auth, async (req, res) => {
                   CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, 
                   punch_time, 
                   'Biometric' as work_mode, 
-                  CONCAT('Biometric Device (', COALESCE(device_id, 'Reader'), ')') as location, 
+                  CASE 
+                    WHEN device_id = '3' THEN 'SVS 4th Floor'
+                    WHEN device_id = '2' THEN 'SVS 1st Floor'
+                    WHEN device_id = '1' THEN 'SVS 3rd Floor'
+                    ELSE CONCAT('SVS Floor (', COALESCE(device_id, 'Reader'), ')')
+                  END as location, 
                   'Biometric Punch' as notes
            FROM biometric_punches
            WHERE employee_id IN (${placeholders}) AND punch_date = ?
@@ -1024,7 +1034,12 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
               DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
               DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
               null as ip_address, bp.device_id as device_info,
-              CONCAT('Biometric Device (', COALESCE(bp.device_id, 'Reader'), ')') as location,
+              CASE 
+                WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
+                WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
+                WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
+                ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+              END as location,
               'Biometric Punch' as notes,
               'biometric' as source,
               'Biometric' as work_mode,

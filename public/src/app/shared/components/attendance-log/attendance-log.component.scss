@@ -446,22 +446,83 @@ ion-modal.daily-activity-modal {
   }
 }
 
+/* Floor Filter Chips Bar */
+.floor-filters-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 4px 0 8px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  .floor-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    border-radius: 16px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 16px;
+      height: 16px;
+      padding: 0 4px;
+      border-radius: 8px;
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    &:hover {
+      background: #e2e8f0;
+      color: #1e293b;
+    }
+
+    &.active {
+      background: #0284c7;
+      border-color: #0284c7;
+      color: #ffffff;
+
+      .count-badge {
+        background: rgba(255, 255, 255, 0.25);
+        color: #ffffff;
+      }
+    }
+  }
+}
+
 /* Location Group Box (Each work mode individual section) */
 .location-group-box {
-  margin-top: 14px;
+  margin-top: 10px;
   padding: 10px 12px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 8px;
 
   &:first-child {
-    margin-top: 6px;
+    margin-top: 4px;
   }
 
   .location-heading {
     display: flex;
     align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    gap: 8px;
     font-size: 13px;
     font-weight: 700;
     color: #0f172a;
@@ -470,9 +531,21 @@ ion-modal.daily-activity-modal {
     border-bottom: 1px solid #edf2f7;
     letter-spacing: -0.2px;
 
-    .group-icon {
-      font-size: 15px;
-      color: #0284c7;
+    .heading-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+
+      .group-icon {
+        font-size: 15px;
+        color: #0284c7;
+      }
+    }
+
+    .group-session-count {
+      font-size: 11px;
+      font-weight: 500;
+      color: #64748b;
     }
   }
 }

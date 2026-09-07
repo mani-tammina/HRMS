@@ -179,11 +179,27 @@
       <div class="activity-card-body" *ngIf="selectedLog?.prepared; else loadingDetails">
         <div class="groups-container" *ngIf="selectedLog?.locationGroups?.length; else noRecords">
 
-          <!-- Location / Device Group (Rendered individually one after another) -->
-          <div *ngFor="let group of selectedLog.locationGroups" class="location-group-box">
+          <!-- Floor Filter Chips (if more than 1 floor / source is present) -->
+          <!-- <div class="floor-filters-bar" *ngIf="getFloorFilterOptions().length > 1">
+            <button *ngFor="let opt of getFloorFilterOptions()" 
+                    class="floor-filter-chip" 
+                    [class.active]="selectedFloorFilter === opt.key"
+                    (click)="setFloorFilter(opt.key)">
+              <span>{{ opt.label }}</span>
+              <span class="count-badge" *ngIf="opt.count">{{ opt.count }}</span>
+            </button>
+          </div> -->
+
+          <!-- Location / Device Group (Rendered floor-wise with filter support) -->
+          <div *ngFor="let group of getFilteredLocationGroups()" class="location-group-box">
             <div class="location-heading">
-              <ion-icon [name]="group.icon" class="group-icon"></ion-icon>
-              <span>{{ group.locationName }}</span>
+              <div class="heading-left">
+                <ion-icon [name]="group.icon" class="group-icon"></ion-icon>
+                <span>{{ group.locationName }}</span>
+              </div>
+              <span class="group-session-count" *ngIf="group.sessions?.length">
+                {{ group.sessions.length }} {{ group.sessions.length === 1 ? 'session' : 'sessions' }}
+              </span>
             </div>
 
             <div class="session-list">

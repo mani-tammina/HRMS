@@ -52,6 +52,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   monthButtons: string[] = [];
   showSlider = false;
   selectedLog: any = null;
+  selectedFloorFilter: string = 'ALL';
 
   currentYear = new Date().getFullYear();
   currentMonth = new Date().getMonth() + 1;
@@ -99,6 +100,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.todayPunches = [];
     this.selectedLog = null;
     this.showSlider = false;
+    this.selectedFloorFilter = 'ALL';
     if (!this.startDate || !this.endDate) {
       const now = new Date();
       this.currentMonth = now.getMonth() + 1;
@@ -371,7 +373,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
               updatedExisting.total_work_hours = metrics.totalWorkHours;
               updatedExisting.gross_hours = metrics.grossHours;
-              const sortedPunches = this.todayPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+              const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
               const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
               if (firstInPunch) {
                 updatedExisting.first_check_in = firstInPunch.punch_time;
@@ -406,7 +408,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             if (isToday) {
               if (this.todayPunches && this.todayPunches.length > 0) {
                 const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
-                const sortedPunches = this.todayPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+                const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
                 const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
                 return {
                   attendance_date: date,
@@ -479,6 +481,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   openLogDetails(log: any): void {
+    this.selectedFloorFilter = 'ALL';
     const today = new Date().toDateString();
     const logDate = new Date(log.attendance_date).toDateString();
     if (today === logDate && this.todayPunches.length) {
@@ -494,7 +497,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.showSlider = true;
   }
 
-  closeSlider(): void { this.showSlider = false; this.selectedLog = null; }
+  closeSlider(): void { this.showSlider = false; this.selectedLog = null; this.selectedFloorFilter = 'ALL'; }
 
   private loadLogDetails(log: any): void {
     if (!log?.attendance_date) return;
@@ -513,11 +516,30 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
 
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
+      }
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
+      }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
+  }
+
   private processSelectedLog(punches: any[]): void {
     if (!this.selectedLog) return;
 
     const rawPunches = Array.isArray(punches)
-      ? punches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime())
+      ? punches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time))
       : [];
 
     const isToday = this.islogToday(this.selectedLog.attendance_date);
@@ -528,21 +550,37 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const loc = (p.location || '').trim();
       const mode = (p.work_mode || '').trim();
       const source = (p.source || '').trim();
+      const dev = p.device_info != null ? String(p.device_info).trim() : '';
       const lowerLoc = loc.toLowerCase();
       const lowerNotes = (p.notes || '').toLowerCase();
+
+      // Explicit Device ID Mappings:
+      // Device ID 3 -> SVS 4th Floor
+      // Device ID 2 -> SVS 1st Floor
+      // Device ID 1 -> SVS 3rd Floor
+      if (dev === '3') return 'SVS 4th Floor';
+      if (dev === '2') return 'SVS 1st Floor';
+      if (dev === '1') return 'SVS 3rd Floor';
+
+      // Check if location string specifies device ID or floor
+      if (lowerLoc.includes('device (3)') || lowerLoc.includes('device 3') || lowerLoc.includes('4th floor') || lowerLoc.includes('4th')) {
+        return 'SVS 4th Floor';
+      }
+      if (lowerLoc.includes('device (2)') || lowerLoc.includes('device 2') || lowerLoc.includes('1st floor') || lowerLoc.includes('1st')) {
+        return 'SVS 1st Floor';
+      }
+      if (lowerLoc.includes('device (1)') || lowerLoc.includes('device 1') || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd')) {
+        return 'SVS 3rd Floor';
+      }
 
       if (source === 'biometric' || mode === 'Biometric' || lowerNotes.includes('biometric')) {
         if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai')) {
           return loc;
         }
-        if (p.device_info) {
-          const dev = String(p.device_info).trim();
-          if (dev === '1') return '4th Floor SVS Towers';
-          if (dev === '2') return '3rd Floor SVS Towers';
-          if (dev === '3') return '4th Floor SVS Towers';
-          return `${dev}${dev.endsWith('Floor') ? '' : ''} SVS Towers`;
+        if (dev) {
+          return `SVS Floor ${dev}`;
         }
-        return '4th Floor SVS Towers';
+        return 'SVS Biometric Punch';
       }
 
       if (mode === 'Remote' || lowerLoc.includes('remote') || lowerNotes.includes('remote')) {
@@ -566,19 +604,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
     const getFormattedTime = (dateVal: any): string => {
       if (!dateVal) return '';
-      const d = new Date(dateVal);
-      if (isNaN(d.getTime())) {
-        if (typeof dateVal === 'string' && dateVal.includes(':')) {
-          const parts = dateVal.split(' ');
-          const t = parts.length > 1 ? parts[1] : parts[0];
-          return t.split('.')[0];
-        }
-        return String(dateVal);
+      const ms = this.parsePunchTimeToMs(dateVal);
+      if (ms > 0) {
+        const d = new Date(ms);
+        const hours = d.getHours();
+        const mins = String(d.getMinutes()).padStart(2, '0');
+        const secs = String(d.getSeconds()).padStart(2, '0');
+        return `${hours}:${mins}:${secs}`;
       }
-      const hours = d.getHours();
-      const mins = String(d.getMinutes()).padStart(2, '0');
-      const secs = String(d.getSeconds()).padStart(2, '0');
-      return `${hours}:${mins}:${secs}`;
+      if (typeof dateVal === 'string' && dateVal.includes(':')) {
+        const parts = dateVal.split(' ');
+        const t = parts.length > 1 ? parts[1] : parts[0];
+        return t.split('.')[0];
+      }
+      return String(dateVal);
     };
 
     const getGroupIcon = (name: string): string => {
@@ -599,11 +638,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       locationPunchesMap.get(locName)!.push(p);
     }
 
-    let hasAnyValidOut = false;
-    const workIntervals: { start: number; end: number }[] = [];
-    let earliestInMs: number | null = null;
-    let latestOutMs: number | null = null;
-
     // Process each location/source stream independently so biometric and web punches do not interfere visually
     locationPunchesMap.forEach((streamPunches, locName) => {
       const icon = getGroupIcon(locName);
@@ -612,14 +646,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
-        const pTimeMs = new Date(p.punch_time).getTime();
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         const punchType = (p.punch_type || '').toLowerCase();
 
         if (punchType === 'in') {
-          if (earliestInMs === null || pTimeMs < earliestInMs) {
-            earliestInMs = pTimeMs;
-          }
           if (currentInPunch) {
             sessions.push({
               inTime: getFormattedTime(currentInPunch.punch_time),
@@ -648,15 +678,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
                 isAutoOut: false,
                 notes: p.notes
               });
-
-              const inTimeMs = new Date(currentInPunch.punch_time).getTime();
-              if (pTimeMs > inTimeMs) {
-                workIntervals.push({ start: inTimeMs, end: pTimeMs });
-                hasAnyValidOut = true;
-                if (latestOutMs === null || pTimeMs > latestOutMs) {
-                  latestOutMs = pTimeMs;
-                }
-              }
             }
             currentInPunch = null;
           } else {
@@ -689,13 +710,57 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     const metrics = this.calculateMetricsFromPunches(rawPunches, isToday);
-    if (metrics.hasAnyValidOut || isToday) {
+    if (metrics.hasAnyValidOut || isToday || metrics.grossMinutes > 0) {
       this.selectedLog.total_work_hours = metrics.totalWorkHours;
       this.selectedLog.gross_hours = metrics.grossHours;
     }
 
-    this.selectedLog.locationGroups = Array.from(groupsMap.values());
+    // Sort location groups logically: 1st Floor -> 3rd Floor -> 4th Floor -> Web -> Remote -> WFH
+    const floorOrder = ['SVS 1st Floor', 'SVS 3rd Floor', 'SVS 4th Floor', 'Web Clock In', 'Work From Home', 'Remote Clock In'];
+    const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
+      const idxA = floorOrder.indexOf(a.locationName);
+      const idxB = floorOrder.indexOf(b.locationName);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.locationName.localeCompare(b.locationName);
+    });
+
+    this.selectedLog.locationGroups = sortedGroups;
     this.selectedLog.prepared = true;
+  }
+
+  setFloorFilter(filterKey: string): void {
+    this.selectedFloorFilter = filterKey;
+  }
+
+  getFloorFilterOptions(): { key: string; label: string; count: number }[] {
+    if (!this.selectedLog?.locationGroups || this.selectedLog.locationGroups.length <= 1) {
+      return [];
+    }
+    const totalSessions = this.selectedLog.locationGroups.reduce(
+      (acc: number, g: any) => acc + (g.sessions?.length || 0),
+      0
+    );
+    const options: { key: string; label: string; count: number }[] = [
+      { key: 'ALL', label: 'All Floors', count: totalSessions }
+    ];
+    for (const g of this.selectedLog.locationGroups) {
+      options.push({
+        key: g.locationName,
+        label: g.locationName,
+        count: g.sessions?.length || 0
+      });
+    }
+    return options;
+  }
+
+  getFilteredLocationGroups(): any[] {
+    if (!this.selectedLog?.locationGroups) return [];
+    if (!this.selectedFloorFilter || this.selectedFloorFilter === 'ALL') {
+      return this.selectedLog.locationGroups;
+    }
+    return this.selectedLog.locationGroups.filter((g: any) => g.locationName === this.selectedFloorFilter);
   }
 
   calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
@@ -709,7 +774,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
     }
 
-    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
     const locationPunchesMap = new Map<string, any[]>();
     for (const p of punches) {
       const loc = (p.location || p.source || p.work_mode || 'default').trim();
@@ -728,18 +793,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       let currentInPunch: any = null;
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
-        const pTimeMs = new Date(p.punch_time).getTime();
+        const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         const punchType = (p.punch_type || '').toLowerCase();
 
         if (punchType === 'in') {
-          if (earliestInMs === null || pTimeMs < earliestInMs) {
+          if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
             earliestInMs = pTimeMs;
           }
           currentInPunch = p;
         } else if (punchType === 'out') {
           if (currentInPunch && !isAutoOut) {
-            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
             if (pTimeMs > inTimeMs) {
               workIntervals.push({ start: inTimeMs, end: pTimeMs });
               hasAnyValidOut = true;
@@ -749,6 +814,17 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             }
           }
           currentInPunch = null;
+        }
+      }
+
+      if (currentInPunch && isToday) {
+        const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+        const nowMs = Date.now();
+        if (nowMs > inTimeMs) {
+          workIntervals.push({ start: inTimeMs, end: nowMs });
+          if (latestOutMs === null || nowMs > latestOutMs) {
+            latestOutMs = nowMs;
+          }
         }
       }
     });
