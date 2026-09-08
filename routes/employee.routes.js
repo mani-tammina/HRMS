@@ -140,7 +140,7 @@ router.get("/", auth, async (req, res) => {
     c.end();
 
     res.json({
-      data: r,
+      data: r.map(emp => formatEmployeeDates(emp)),
       pagination: {
         page,
         limit,
