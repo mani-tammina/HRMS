@@ -34,10 +34,14 @@ export class EmployeeListPage implements OnInit {
   weeklyOffPolicies: any[] = [];
   departments: any[] = [];
   locations: any[] = [];
-  allEmployees: any[] = []; // For reporting manager selection
+  allEmployees: any[] = []; // For reporting manager selection (only active/working employees)
   filteredManagers: any[] = []; // Filtered list for searchable dropdown
   managerSearchTerm: string = '';
   managerDropdownOpen: boolean = false;
+
+  selectedTab: 'WORKING' | 'RELIEVED' = 'WORKING';
+  workingEmployeesCount: number = 0;
+  relievedEmployeesCount: number = 0;
 
   allLoadedEmployees: any[] = [];
   filteredEmployees: any[] = [];
@@ -117,18 +121,38 @@ export class EmployeeListPage implements OnInit {
     // Fetch a large number of employees to support local filtering like app-roles
     this.employeeService.getAllEmployees(1, 2000, '').subscribe((res: any) => {
       this.allLoadedEmployees = (res.data || []).sort((a: any, b: any) => Number(a.id) - Number(b.id));
-      this.allEmployees = [...this.allLoadedEmployees];
+      
+      // Calculate counts for Working and Relieved employees
+      this.workingEmployeesCount = this.allLoadedEmployees.filter(e => (e.EmploymentStatus || '').toLowerCase() !== 'relieved').length;
+      this.relievedEmployeesCount = this.allLoadedEmployees.filter(e => (e.EmploymentStatus || '').toLowerCase() === 'relieved').length;
+
+      // Only working employees can be assigned as reporting managers
+      this.allEmployees = this.allLoadedEmployees.filter(e => (e.EmploymentStatus || '').toLowerCase() !== 'relieved');
       this.filteredManagers = [...this.allEmployees];
       this.applySearch();
     });
+  }
+
+  selectTab(tab: 'WORKING' | 'RELIEVED') {
+    if (this.selectedTab === tab) return;
+    this.selectedTab = tab;
+    this.currentPage = 1;
+    this.applySearch();
   }
 
   applySearch() {
     this.currentPage = 1;
     const term = (this.searchTerm || '').toLowerCase().trim();
     
+    // 1. Filter by selected Tab (Working vs Relieved)
+    const tabFiltered = this.allLoadedEmployees.filter(emp => {
+      const isRelieved = (emp.EmploymentStatus || '').toLowerCase() === 'relieved';
+      return this.selectedTab === 'RELIEVED' ? isRelieved : !isRelieved;
+    });
+
+    // 2. Filter by search term
     if (term) {
-      this.filteredEmployees = this.allLoadedEmployees.filter(emp => {
+      this.filteredEmployees = tabFiltered.filter(emp => {
         return (emp.FullName || '').toLowerCase().includes(term) ||
                (emp.WorkEmail || '').toLowerCase().includes(term) ||
                (emp.EmployeeNumber || '').toString().toLowerCase().includes(term) ||
@@ -137,7 +161,7 @@ export class EmployeeListPage implements OnInit {
                (emp.id || '').toString().includes(term);
       });
     } else {
-      this.filteredEmployees = [...this.allLoadedEmployees];
+      this.filteredEmployees = [...tabFiltered];
     }
     
     this.totalEmployees = this.filteredEmployees.length;

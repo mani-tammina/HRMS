@@ -30,10 +30,10 @@
           </svg>
         </div>
         <div>
-          <h1>Employee List
+          <h1>Employee Directory
             <span class="count-badge">{{ totalEmployees }}</span>
           </h1>
-          <p>Monitor and maintain all employee records</p>
+          <p>Monitor and maintain working and relieved employee records</p>
         </div>
       </div>
       <div class="header-actions">
@@ -60,28 +60,54 @@
       </div>
     </div>
 
+    <!-- Tab Navigation (Working vs Relieved) -->
+    <div class="emp-tabs-bar">
+      <button class="emp-tab-btn" [class.active]="selectedTab === 'WORKING'" (click)="selectTab('WORKING')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="11" cy="7" r="4"></circle>
+          <path d="M22 11l-3 3-2-2"></path>
+        </svg>
+        <span class="tab-label">Working Employees</span>
+        <span class="tab-count working">{{ workingEmployeesCount }}</span>
+      </button>
+
+      <button class="emp-tab-btn" [class.active]="selectedTab === 'RELIEVED'" (click)="selectTab('RELIEVED')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" class="tab-icon">
+          <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"></path>
+          <circle cx="11" cy="7" r="4"></circle>
+          <line x1="18" y1="8" x2="23" y2="13"></line>
+          <line x1="23" y1="8" x2="18" y2="13"></line>
+        </svg>
+        <span class="tab-label">Relieved Employees</span>
+        <span class="tab-count relieved">{{ relievedEmployeesCount }}</span>
+      </button>
+    </div>
+
     <!-- Employee Table Card -->
     <div class="table-card">
       <div class="table-responsive">
         <table class="emp-table">
           <thead>
             <tr>
-              <!-- <th class="col-id">EMP ID</th> -->
               <th class="col-num">EMP ID</th>
               <th class="col-name">NAME</th>
               <th class="col-email">EMAIL</th>
               <th class="col-dept">DEPARTMENT</th>
               <th class="col-desig">DESIGNATION</th>
+              <th class="col-exit" *ngIf="selectedTab === 'RELIEVED'">RELIEVED DATE</th>
+              <th class="col-status" *ngIf="selectedTab === 'RELIEVED'">STATUS</th>
               <th class="col-actions text-center">ACTIONS</th>
             </tr>
           </thead>
           <tbody>
-            <tr *ngFor="let emp of pagedCandidates" class="emp-row">
+            <tr *ngFor="let emp of pagedCandidates" class="emp-row" [class.relieved-row]="selectedTab === 'RELIEVED'">
               <!-- ID -->
               <td class="col-id">
                 <span class="id-chip">{{ emp.EmployeeNumber || '—' }}</span>
               </td>
-              <!-- Emp Number -->
 
               <!-- Name with avatar -->
               <td class="col-name">
@@ -89,7 +115,10 @@
                   <div class="emp-avatar" [style.background]="getAvatarColor(emp.FullName)">
                     {{ getInitials(emp.FullName) }}
                   </div>
-                  <span class="emp-fullname">{{ emp.FullName }}</span>
+                  <div class="emp-name-info">
+                    <span class="emp-fullname">{{ emp.FullName }}</span>
+                    <span class="emp-sub-status" *ngIf="selectedTab === 'RELIEVED'">Relieved</span>
+                  </div>
                 </div>
               </td>
               <!-- Email -->
@@ -103,6 +132,15 @@
               </td>
               <!-- Designation -->
               <td class="col-desig">{{ emp.designation_name || '—' }}</td>
+              <!-- Exit / Relieved Date (Relieved Tab only) -->
+              <td class="col-exit" *ngIf="selectedTab === 'RELIEVED'">
+                <span class="date-chip" *ngIf="emp.exit_date">{{ emp.exit_date | date:'dd MMM yyyy' }}</span>
+                <span class="empty-val" *ngIf="!emp.exit_date">—</span>
+              </td>
+              <!-- Status Badge (Relieved Tab only) -->
+              <td class="col-status" *ngIf="selectedTab === 'RELIEVED'">
+                <span class="status-badge relieved">{{ emp.EmploymentStatus || 'Relieved' }}</span>
+              </td>
               <!-- Actions -->
               <td class="col-actions text-center">
                 <button class="action-btn edit" (click)="selectEmployee(emp)" title="Edit Profile">
@@ -116,7 +154,7 @@
             </tr>
             <!-- Empty State Row -->
             <tr *ngIf="pagedCandidates.length === 0">
-              <td colspan="7" class="empty-state">
+              <td [attr.colspan]="selectedTab === 'RELIEVED' ? 8 : 6" class="empty-state">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
                   stroke-linecap="round" stroke-linejoin="round" class="empty-icon">
                   <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
@@ -124,7 +162,7 @@
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
-                <p>No employees found matching your search.</p>
+                <p>{{ selectedTab === 'RELIEVED' ? 'No relieved employees found matching your search.' : 'No working employees found matching your search.' }}</p>
               </td>
             </tr>
           </tbody>
