@@ -31,7 +31,9 @@
         </div>
         <div>
           <h1>Employee Directory
-            <span class="count-badge">{{ totalEmployees }}</span>
+            <span class="count-badge total" title="Total Employees">{{ totalEmployeesCount }} Total</span>
+            <!-- <span class="count-badge working" title="Working Employees">{{ workingEmployeesCount }} Working</span> -->
+            <!-- <span class="count-badge relieved" title="Relieved Employees">{{ relievedEmployeesCount }} Relieved</span> -->
           </h1>
           <p>Monitor and maintain working and relieved employee records</p>
         </div>
@@ -117,7 +119,7 @@
                   </div>
                   <div class="emp-name-info">
                     <span class="emp-fullname">{{ emp.FullName }}</span>
-                    <span class="emp-sub-status" *ngIf="selectedTab === 'RELIEVED'">Relieved</span>
+                    <!-- <span class="emp-sub-status" *ngIf="selectedTab === 'RELIEVED'">Relieved</span> -->
                   </div>
                 </div>
               </td>
@@ -134,7 +136,7 @@
               <td class="col-desig">{{ emp.designation_name || '—' }}</td>
               <!-- Exit / Relieved Date (Relieved Tab only) -->
               <td class="col-exit" *ngIf="selectedTab === 'RELIEVED'">
-                <span class="date-chip" *ngIf="emp.exit_date">{{ emp.exit_date | date:'dd MMM yyyy' }}</span>
+                <span class="date-chip" *ngIf="emp.exit_date">{{ formatDisplayDate(emp.exit_date) }}</span>
                 <span class="empty-val" *ngIf="!emp.exit_date">—</span>
               </td>
               <!-- Status Badge (Relieved Tab only) -->
@@ -162,7 +164,8 @@
                   <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
                   <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
                 </svg>
-                <p>{{ selectedTab === 'RELIEVED' ? 'No relieved employees found matching your search.' : 'No working employees found matching your search.' }}</p>
+                <p>{{ selectedTab === 'RELIEVED' ? 'No relieved employees found matching your search.' : 'No working
+                  employees found matching your search.' }}</p>
               </td>
             </tr>
           </tbody>
@@ -224,6 +227,8 @@
     <div class="modal-body">
       <div class="modal-section-title">Update Profile Settings</div>
 
+
+
       <!-- Reporting Manager -->
       <div class="form-group">
         <label class="form-label">Reporting Manager</label>
@@ -276,6 +281,7 @@
             </div>
           </div>
         </div>
+
       </div>
 
       <!-- Department -->
@@ -375,6 +381,45 @@
           <select [(ngModel)]="updateData.weekly_off_policy_id" class="glass-select">
             <option [ngValue]="null">Select Weekly Off</option>
             <option *ngFor="let w of weeklyOffPolicies" [ngValue]="w.id">{{ w.name }}</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Employee Status -->
+      <div class="form-group">
+        <label class="form-label">Employee Status</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.EmploymentStatus" class="glass-select">
+            <option value="Working">Working</option>
+            <option value="Relieved">Relieved</option>
+          </select>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+            stroke-linecap="round" stroke-linejoin="round" class="select-chevron">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Exit Date -->
+      <div class="form-group">
+        <label class="form-label">Exit Date</label>
+        <div class="glass-input-wrapper">
+          <input type="date" [(ngModel)]="updateData.exit_date" class="glass-input" />
+        </div>
+      </div>
+
+      <!-- Exit Status -->
+      <div class="form-group">
+        <label class="form-label">Exit Status</label>
+        <div class="glass-select-wrapper">
+          <select [(ngModel)]="updateData.exit_status" class="glass-select">
+            <option [ngValue]="null">Select Exit Status</option>
+            <option value="Initiated">Initiated</option>
+            <option value="Completed">Completed</option>
           </select>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
             stroke-linecap="round" stroke-linejoin="round" class="select-chevron">

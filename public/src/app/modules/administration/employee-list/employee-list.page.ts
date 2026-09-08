@@ -24,7 +24,10 @@ export class EmployeeListPage implements OnInit {
     weekly_off_policy_id: null,
     PayGradeId: null,
     DepartmentId: null,
-    LocationId: null
+    LocationId: null,
+    EmploymentStatus: 'Working',
+    exit_date: null,
+    exit_status: null
   };
 
   shiftPolicies: any[] = [];
@@ -40,6 +43,7 @@ export class EmployeeListPage implements OnInit {
   managerDropdownOpen: boolean = false;
 
   selectedTab: 'WORKING' | 'RELIEVED' = 'WORKING';
+  totalEmployeesCount: number = 0;
   workingEmployeesCount: number = 0;
   relievedEmployeesCount: number = 0;
 
@@ -122,7 +126,8 @@ export class EmployeeListPage implements OnInit {
     this.employeeService.getAllEmployees(1, 2000, '').subscribe((res: any) => {
       this.allLoadedEmployees = (res.data || []).sort((a: any, b: any) => Number(a.id) - Number(b.id));
       
-      // Calculate counts for Working and Relieved employees
+      // Calculate counts for Total, Working and Relieved employees
+      this.totalEmployeesCount = this.allLoadedEmployees.length;
       this.workingEmployeesCount = this.allLoadedEmployees.filter(e => (e.EmploymentStatus || '').toLowerCase() !== 'relieved').length;
       this.relievedEmployeesCount = this.allLoadedEmployees.filter(e => (e.EmploymentStatus || '').toLowerCase() === 'relieved').length;
 
@@ -174,8 +179,45 @@ export class EmployeeListPage implements OnInit {
     this.pagedCandidates = this.filteredEmployees.slice(startIndex, startIndex + this.pageSize);
   }
 
+  formatDisplayDate(dateVal: any): string {
+    if (!dateVal) return '—';
+    if (typeof dateVal === 'string') {
+      const parts = dateVal.split('T')[0].split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const monthIndex = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        if (!isNaN(day) && !isNaN(monthIndex) && monthIndex >= 0 && monthIndex < 12 && !isNaN(year)) {
+          const dd = String(day).padStart(2, '0');
+          return `${dd} ${months[monthIndex]} ${year}`;
+        }
+      }
+    }
+    if (dateVal instanceof Date) {
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const dd = String(dateVal.getDate()).padStart(2, '0');
+      const mmm = months[dateVal.getMonth()];
+      const yyyy = dateVal.getFullYear();
+      return `${dd} ${mmm} ${yyyy}`;
+    }
+    return String(dateVal);
+  }
+
   selectEmployee(emp: any) {
     this.selectedEmployee = emp;
+    let formattedExitDate: string | null = null;
+    if (emp.exit_date) {
+      if (typeof emp.exit_date === 'string') {
+        formattedExitDate = emp.exit_date.split('T')[0];
+      } else if (emp.exit_date instanceof Date) {
+        const yyyy = emp.exit_date.getFullYear();
+        const mm = String(emp.exit_date.getMonth() + 1).padStart(2, '0');
+        const dd = String(emp.exit_date.getDate()).padStart(2, '0');
+        formattedExitDate = `${yyyy}-${mm}-${dd}`;
+      }
+    }
+
     this.updateData = {
       reporting_manager_id: emp.reporting_manager_id || null,
       leave_plan_id: emp.leave_plan_id || null,
@@ -185,7 +227,10 @@ export class EmployeeListPage implements OnInit {
       weekly_off_policy_id: emp.weekly_off_policy_id || null,
       PayGradeId: emp.PayGradeId || null,
       DepartmentId: emp.DepartmentId || null,
-      LocationId: emp.LocationId || null
+      LocationId: emp.LocationId || null,
+      EmploymentStatus: emp.EmploymentStatus || 'Working',
+      exit_date: formattedExitDate,
+      exit_status: emp.exit_status || null
     };
   }
 

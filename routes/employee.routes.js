@@ -59,9 +59,9 @@ const formatDateField = function(val) {
     return val;
   }
   if (val instanceof Date) {
-    const yyyy = val.getUTCFullYear();
-    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(val.getUTCDate()).padStart(2, '0');
+    const yyyy = val.getFullYear();
+    const mm = String(val.getMonth() + 1).padStart(2, '0');
+    const dd = String(val.getDate()).padStart(2, '0');
     return `${yyyy}-${mm}-${dd}`;
   }
   return null;
@@ -77,14 +77,6 @@ const formatEmployeeDates = function(emp) {
   const result = { ...emp };
   for (const field of dateFields) {
     if (result[field] !== undefined && result[field] !== null) {
-      // Add 1 day to DateOfBirth and DateJoined to compensate for UTC timezone shift
-      if (field === 'DateOfBirth' || field === 'DateJoined' || field === 'exit_date') {
-        let d = new Date(result[field]);
-        if (!isNaN(d.getTime())) {
-          d.setUTCDate(d.getUTCDate() + 1);
-          result[field] = d;
-        }
-      }
       result[field] = formatDateField(result[field]);
     }
   }
@@ -547,6 +539,8 @@ router.put("/:id", auth, hr, async (req, res) => {
        "Gender",
        "BloodGroup",
        "MaritalStatus",
+       "exit_date",
+       "exit_status",
     ];
     const updateData = {};
     for (const key of allowedFields) {
@@ -561,6 +555,13 @@ router.put("/:id", auth, hr, async (req, res) => {
       if (!dateRegex.test(updateData.DateOfBirth)) {
         return res.status(400).json({ error: "DateOfBirth must be in YYYY-MM-DD format" });
       }
+    }
+
+    if (updateData.exit_date === '') {
+      updateData.exit_date = null;
+    }
+    if (updateData.exit_status === '') {
+      updateData.exit_status = null;
     }
 
     if (Object.keys(updateData).length === 0) {
