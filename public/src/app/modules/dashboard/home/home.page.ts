@@ -123,10 +123,19 @@ export class HomePage implements OnInit, OnDestroy {
       this.monthlyAttendanceReport = report;
 
       const todayStr = new Date().toISOString().split('T')[0];
-      this.todayAttendance = report.find(r => {
+      const foundToday = report.find(r => {
         const d = r.attendance_date || r.date;
         return d && d.startsWith(todayStr);
-      }) || null;
+      });
+      if (foundToday) {
+        this.todayAttendance = {
+          ...this.todayAttendance,
+          ...foundToday,
+          gross_hours: this.todayAttendance?.gross_hours || foundToday.gross_hours,
+          total_work_hours: this.todayAttendance?.total_work_hours || foundToday.total_work_hours || foundToday.effective_hours,
+          effective_hours: this.todayAttendance?.effective_hours || foundToday.effective_hours || foundToday.total_work_hours
+        };
+      }
 
       if (report.length) {
         const presentDays = report.filter(r => r.status === 'present').length;
@@ -245,6 +254,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
     this.loadTeamStatusToday();
+    this.refreshAttendanceState();
   }
 
   setWorkplaceTab(tab: 'leave' | 'wfh' | 'remote') {
@@ -680,21 +690,22 @@ export class HomePage implements OnInit, OnDestroy {
 
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
-      console.log(res)
       const punches = res?.punches || [];
       this.hasPunchedToday = punches.length > 0;
 
       if (this.hasPunchedToday) {
-        // Build the overview data object with merged metrics
+        // Build the overview data object with merged metrics matching attendance log component
         const metrics = this.calculateMetricsFromPunches(punches, true);
 
         this.todayAttendance = {
           ...this.todayAttendance,
+          attendance_date: new Date().toISOString().split('T')[0],
           first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
           last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
-          gross_hours: this.formatGrossHours(metrics.grossHours),
+          gross_hours: metrics.grossHours,
           work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
-          effective_hours: this.formatGrossHours(metrics.totalWorkHours)
+          effective_hours: metrics.totalWorkHours,
+          total_work_hours: metrics.totalWorkHours
         };
 
         const eff = parseFloat(metrics.totalWorkHours) || 0;
@@ -703,6 +714,25 @@ export class HomePage implements OnInit, OnDestroy {
 
       this.cdr.detectChanges();
     });
+  }
+
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
+      }
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
+      }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
   }
 
   private calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
@@ -716,7 +746,7 @@ export class HomePage implements OnInit, OnDestroy {
       return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
     }
 
-    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
     const locationPunchesMap = new Map<string, any[]>();
     for (const p of punches) {
       const loc = (p.location || p.source || p.work_mode || 'default').trim();
@@ -735,18 +765,18 @@ export class HomePage implements OnInit, OnDestroy {
       let currentInPunch: any = null;
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
-        const pTimeMs = new Date(p.punch_time).getTime();
+        const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         const punchType = (p.punch_type || '').toLowerCase();
 
         if (punchType === 'in') {
-          if (earliestInMs === null || pTimeMs < earliestInMs) {
+          if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
             earliestInMs = pTimeMs;
           }
           currentInPunch = p;
         } else if (punchType === 'out') {
           if (currentInPunch && !isAutoOut) {
-            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
             if (pTimeMs > inTimeMs) {
               workIntervals.push({ start: inTimeMs, end: pTimeMs });
               hasAnyValidOut = true;
@@ -756,6 +786,17 @@ export class HomePage implements OnInit, OnDestroy {
             }
           }
           currentInPunch = null;
+        }
+      }
+
+      if (currentInPunch && isToday) {
+        const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+        const nowMs = Date.now();
+        if (nowMs > inTimeMs) {
+          workIntervals.push({ start: inTimeMs, end: nowMs });
+          if (latestOutMs === null || nowMs > latestOutMs) {
+            latestOutMs = nowMs;
+          }
         }
       }
     });
@@ -795,7 +836,6 @@ export class HomePage implements OnInit, OnDestroy {
 
   private formatMinutesToHours(val: any): string {
     if (!val) return '0h 0m';
-    // Ensure we handle strings like "120" or numeric values correctly
     const totalMinutes = typeof val === 'number' ? val : parseInt(val.toString().replace(/[^0-9]/g, '')) || 0;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -805,13 +845,14 @@ export class HomePage implements OnInit, OnDestroy {
   formatGrossHours(val: any): string {
     if (val === null || val === undefined || val === '') return '0h 0m';
     const str = val.toString().trim();
+    if (str === '-' || str === '0') return '0h 0m';
     // Already formatted as "Xh Ym" or "Xh Y m"
     if (str.includes('h')) {
       const hPart = parseFloat(str.split('h')[0].trim()) || 0;
       const mPart = parseFloat((str.split('h')[1] || '').replace(/[^0-9.]/g, '')) || 0;
       return `${hPart}h ${mPart}m`;
     }
-    // Numeric decimal hours (e.g. 7.5 from monthly report)
+    // Numeric decimal hours (e.g. 7.5 from monthly report or "7.50")
     const num = parseFloat(str);
     if (!isNaN(num)) {
       const hours = Math.floor(num);

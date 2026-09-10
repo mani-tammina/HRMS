@@ -126,11 +126,22 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
   }
 
-  formatHours(value: number): string {
-    if (value === null || value === undefined || isNaN(value)) return '0h 0m';
-    const hours = Math.floor(value);
-    const minutes = Math.round((value - hours) * 60);
-    return `${hours}h ${minutes}m`;
+  formatHours(value: any): string {
+    if (value === null || value === undefined || value === '' || value === '-') return '0h 0m';
+    const str = value.toString().trim();
+    if (str === '-' || str === '0') return '0h 0m';
+    if (str.includes('h')) {
+      const hPart = parseFloat(str.split('h')[0].trim()) || 0;
+      const mPart = parseFloat((str.split('h')[1] || '').replace(/[^0-9.]/g, '')) || 0;
+      return `${hPart}h ${mPart}m`;
+    }
+    const num = parseFloat(str);
+    if (!isNaN(num) && num > 0) {
+      const hours = Math.floor(num);
+      const minutes = Math.round((num - hours) * 60);
+      return `${hours}h ${minutes}m`;
+    }
+    return '0h 0m';
   }
 
   constructor(
@@ -191,6 +202,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       });
+
+    this.attendanceApi.punchRefresh$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.loadTodayAttendance();
+      this.loadMonthlySummary();
+    });
+
+    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.loadTodayAttendance();
+    });
   }
 
   loadAllData() {
@@ -293,24 +313,29 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
         if (punches && punches.length > 0) {
           const metrics = this.calculateMetricsFromPunches(punches, true);
-          this.grossHours = this.formatHours(parseFloat(metrics.grossHours));
-          this.effectiveHours = this.formatHours(parseFloat(metrics.totalWorkHours));
+          this.grossHours = this.formatHours(metrics.grossHours);
+          this.effectiveHours = this.formatHours(metrics.totalWorkHours);
 
           this.grossMinutes = Math.round(metrics.grossMinutes);
           this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
 
           // Calculate late login if shift is available
           if (this.shift_policy && punches.length > 0) {
-            const firstPunch = new Date(punches[0].punch_time);
-            const shiftStartStr = this.shift_policy.start_time; // HH:mm
-            const [h, m] = shiftStartStr.split(':').map(Number);
-            const shiftStartDate = new Date(firstPunch);
-            shiftStartDate.setHours(h, m, 0, 0);
+            const sortedPunches = punches.slice().sort((a: any, b: any) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+            const firstInPunch = sortedPunches.find((p: any) => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
+            const firstPunchTimeMs = this.parsePunchTimeToMs(firstInPunch.punch_time);
+            if (firstPunchTimeMs > 0) {
+              const firstPunch = new Date(firstPunchTimeMs);
+              const shiftStartStr = this.shift_policy.start_time; // HH:mm:ss
+              const [h, m] = shiftStartStr.split(':').map(Number);
+              const shiftStartDate = new Date(firstPunch);
+              shiftStartDate.setHours(h, m, 0, 0);
 
-            if (firstPunch > shiftStartDate) {
-              this.lateMinutes = Math.max(0, Math.round((firstPunch.getTime() - shiftStartDate.getTime()) / 60000));
-            } else {
-              this.lateMinutes = 0;
+              if (firstPunch.getTime() > shiftStartDate.getTime()) {
+                this.lateMinutes = Math.max(0, Math.round((firstPunch.getTime() - shiftStartDate.getTime()) / 60000));
+              } else {
+                this.lateMinutes = 0;
+              }
             }
           }
 
@@ -349,6 +374,25 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
+      }
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
+      }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
+  }
+
   calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
     totalWorkHours: string;
     grossHours: string;
@@ -360,7 +404,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
     }
 
-    const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
     const locationPunchesMap = new Map<string, any[]>();
     for (const p of punches) {
       const loc = (p.location || p.source || p.work_mode || 'default').trim();
@@ -379,18 +423,18 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       let currentInPunch: any = null;
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
-        const pTimeMs = new Date(p.punch_time).getTime();
+        const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         const punchType = (p.punch_type || '').toLowerCase();
 
         if (punchType === 'in') {
-          if (earliestInMs === null || pTimeMs < earliestInMs) {
+          if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
             earliestInMs = pTimeMs;
           }
           currentInPunch = p;
         } else if (punchType === 'out') {
           if (currentInPunch && !isAutoOut) {
-            const inTimeMs = new Date(currentInPunch.punch_time).getTime();
+            const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
             if (pTimeMs > inTimeMs) {
               workIntervals.push({ start: inTimeMs, end: pTimeMs });
               hasAnyValidOut = true;
@@ -400,6 +444,17 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             }
           }
           currentInPunch = null;
+        }
+      }
+
+      if (currentInPunch && isToday) {
+        const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+        const nowMs = Date.now();
+        if (nowMs > inTimeMs) {
+          workIntervals.push({ start: inTimeMs, end: nowMs });
+          if (latestOutMs === null || nowMs > latestOutMs) {
+            latestOutMs = nowMs;
+          }
         }
       }
     });
@@ -735,17 +790,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         this.gaugeDashOffset = '251.3';
         return;
       }
-      let isPunchedIn = lastPunchType === 'in';
-      let totalEffectiveMs = 0;
 
-      for (let i = 0; i < punches.length; i += 2) {
-        const punchIn = punches[i];
-        const punchOut = punches[i + 1];
-        if (punchIn) {
-          const inTime = new Date(punchIn.punch_time).getTime();
-          const outTime = punchOut ? new Date(punchOut.punch_time).getTime() : Date.now();
-          totalEffectiveMs += (outTime - inTime);
-        }
+      let totalEffectiveMs = 0;
+      if (punches && punches.length > 0) {
+        const metrics = this.calculateMetricsFromPunches(punches, true);
+        this.grossHours = this.formatHours(metrics.grossHours);
+        this.effectiveHours = this.formatHours(metrics.totalWorkHours);
+        this.grossMinutes = Math.round(metrics.grossMinutes);
+        this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
+        totalEffectiveMs = metrics.totalWorkMinutes * 60 * 1000;
       }
 
       const totalSec = Math.floor(totalEffectiveMs / 1000);
@@ -765,7 +818,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.gaugeDashOffset = (251.3 * (1 - progress)).toFixed(1);
 
       // Countdown
-      if (!isPunchedIn && punches.length === 0) {
+      const isPunchedIn = lastPunchType === 'in';
+      if (!isPunchedIn && (!punches || punches.length === 0)) {
         if (this.shift_policy) {
           const [sh, sm] = this.shift_policy.start_time.split(':').map(Number);
           const shiftStart = new Date();
@@ -777,7 +831,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             const s = diffSec % 60;
             this.shiftTimeLeft = `${m}m${s.toString().padStart(2, '0')}s`;
           } else {
-            this.shiftTimeLeft = '10m06s'; // Realistic fallback count matching reference exactly
+            this.shiftTimeLeft = '10m06s';
           }
         } else {
           this.shiftTimeLeft = '10m06s';

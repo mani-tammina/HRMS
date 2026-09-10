@@ -104,7 +104,7 @@
               <div class="stat-item-row effective-row">
                 <div class="effective-labels">
                   <span class="stat-label">Effective Hours</span>
-                  <span class="stat-value">{{ formatGrossHours(todayAttendance?.total_work_hours) }}</span>
+                  <span class="stat-value">{{ formatGrossHours(todayAttendance?.total_work_hours || todayAttendance?.effective_hours) }}</span>
                 </div>
                 <!-- Custom segmented attendance visual bar -->
                 <div class="attendance-visual-wrap">
