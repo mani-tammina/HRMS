@@ -713,6 +713,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (metrics.hasAnyValidOut || isToday || metrics.grossMinutes > 0) {
       this.selectedLog.total_work_hours = metrics.totalWorkHours;
       this.selectedLog.gross_hours = metrics.grossHours;
+      this.selectedLog.effective_hours = metrics.totalWorkHours;
     }
 
     // Sort location groups logically: 1st Floor -> 3rd Floor -> 4th Floor -> Web -> Remote -> WFH

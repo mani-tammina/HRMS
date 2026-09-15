@@ -735,16 +735,22 @@ router.get("/today", auth, async (req, res) => {
       });
     }
 
-    const lastPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
+    const webPunchesList = punches.filter(p => p.source !== 'biometric' && p.work_mode !== 'Biometric');
+    const lastWebPunch = webPunchesList.length > 0 ? webPunchesList[webPunchesList.length - 1] : null;
+    const isWebClockedIn = lastWebPunch ? lastWebPunch.punch_type === 'in' : false;
+    const lastWebPunchType = lastWebPunch ? lastWebPunch.punch_type : null;
+    const lastOverallPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
 
     res.json({
       has_attendance: true,
       attendance: attendanceRecord,
       punches: punches,
       punch_count: punches.length,
-      last_punch_type: lastPunchType,
-      can_punch_in: punches.length === 0 || lastPunchType === "out",
-      can_punch_out: punches.length > 0 && lastPunchType === "in",
+      last_punch_type: lastWebPunchType || lastOverallPunchType,
+      last_web_punch_type: lastWebPunchType,
+      can_punch_in: !isWebClockedIn,
+      can_punch_out: isWebClockedIn,
+      is_web_clocked_in: isWebClockedIn,
       policyPermissions,
       shiftTiming
     });
@@ -928,6 +934,86 @@ function toISTFormat(val) {
   const minutes = String(d.getMinutes()).padStart(2, '0');
   const seconds = String(d.getSeconds()).padStart(2, '0');
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+05:30`;
+}
+
+function calculateAttendanceMetrics(rawPunches, isToday) {
+  if (!rawPunches || !rawPunches.length) {
+    return { totalWorkHours: '0.00', grossHours: '0.00', totalBreakHours: '0.00' };
+  }
+  const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+  const locationPunchesMap = new Map();
+  for (const p of punches) {
+    const loc = (p.location || p.source || p.work_mode || 'default').trim();
+    if (!locationPunchesMap.has(loc)) {
+      locationPunchesMap.set(loc, []);
+    }
+    locationPunchesMap.get(loc).push(p);
+  }
+
+  const workIntervals = [];
+  let earliestInMs = null;
+  let latestOutMs = null;
+
+  locationPunchesMap.forEach(streamPunches => {
+    let currentIn = null;
+    for (let i = 0; i < streamPunches.length; i++) {
+      const p = streamPunches[i];
+      const pTimeMs = new Date(p.punch_time).getTime();
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
+
+      if (punchType === 'in') {
+        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+          earliestInMs = pTimeMs;
+        }
+        currentIn = p;
+      } else if (punchType === 'out') {
+        if (currentIn && !isAutoOut) {
+          const inTimeMs = new Date(currentIn.punch_time).getTime();
+          if (pTimeMs > inTimeMs) {
+            workIntervals.push({ start: inTimeMs, end: pTimeMs });
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+          }
+        }
+        currentIn = null;
+      }
+    }
+    if (currentIn && isToday) {
+      const inTimeMs = new Date(currentIn.punch_time).getTime();
+      const nowMs = Date.now();
+      if (nowMs > inTimeMs) {
+        workIntervals.push({ start: inTimeMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) {
+          latestOutMs = nowMs;
+        }
+      }
+    }
+  });
+
+  workIntervals.sort((a, b) => a.start - b.start);
+  const merged = [];
+  for (const interval of workIntervals) {
+    if (!merged.length || merged[merged.length - 1].end < interval.start) {
+      merged.push({ ...interval });
+    } else {
+      merged[merged.length - 1].end = Math.max(merged[merged.length - 1].end, interval.end);
+    }
+  }
+
+  const totalWorkMs = merged.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+  const totalWorkHours = (totalWorkMs / (1000 * 60 * 60)).toFixed(2);
+
+  let grossHours = '0.00';
+  if (earliestInMs !== null) {
+    const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+    if (endMs > earliestInMs) {
+      grossHours = ((endMs - earliestInMs) / (1000 * 60 * 60)).toFixed(2);
+    }
+  }
+  const totalBreakHours = Math.max(0, parseFloat(grossHours) - parseFloat(totalWorkHours)).toFixed(2);
+  return { totalWorkHours, grossHours, totalBreakHours };
 }
 
 function calculatePunchPairs(punches) {
@@ -1146,6 +1232,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   if (attendanceRecord) {
     attendanceRecord.attendance_date = date;
+    const isToday = toISTFormat(new Date()).substring(0, 10) === date;
+    const metrics = calculateAttendanceMetrics(punches, isToday);
+    if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+      attendanceRecord.total_work_hours = metrics.totalWorkHours;
+      attendanceRecord.gross_hours = metrics.grossHours;
+      attendanceRecord.total_break_hours = metrics.totalBreakHours;
+      attendanceRecord.effective_hours = metrics.totalWorkHours;
+    }
   }
 
   const formattedPunches = punches.map(p => ({
@@ -1223,6 +1317,56 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     `, [targetEmpId, startStr, endStr]);
     bioPunchSummary = bps || [];
   } catch (_) { }
+
+  // Fetch all individual punches for range to accurately calculate effective work hours & gross hours
+  let allPunchesMap = new Map();
+  try {
+    const [webRange] = await c.query(`
+      SELECT ap.employee_id, 
+             DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time, 
+             DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+             ap.punch_type, ap.location, ap.notes, 'web' as source
+      FROM attendance_punches ap
+      WHERE ap.employee_id = ? AND ap.punch_date BETWEEN ? AND ?
+      ORDER BY ap.punch_time ASC
+    `, [targetEmpId, startStr, endStr]);
+
+    const [bioRange] = await c.query(`
+      SELECT bp.employee_id, 
+             DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+             DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
+             bp.direction, bp.device_id,
+             CASE 
+               WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
+               WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
+               WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
+               ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+             END as location,
+             'biometric' as source
+      FROM biometric_punches bp
+      WHERE bp.employee_id = ? AND bp.punch_date BETWEEN ? AND ?
+      ORDER BY bp.punch_time ASC
+    `, [targetEmpId, startStr, endStr]);
+
+    let bioOpen = false;
+    const mappedBioRange = (bioRange || []).map(p => {
+      let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+      if (pt === 'in') bioOpen = true;
+      else if (pt === 'out') bioOpen = false;
+      return { ...p, punch_type: pt };
+    });
+
+    const allPunches = [...(webRange || []), ...mappedBioRange];
+    for (const p of allPunches) {
+      const dStr = p.punch_date;
+      if (!allPunchesMap.has(dStr)) {
+        allPunchesMap.set(dStr, []);
+      }
+      allPunchesMap.get(dStr).push(p);
+    }
+  } catch (err) {
+    console.warn("Error fetching range punches:", err.message);
+  }
 
   const combinedAttendanceMap = new Map();
 
@@ -1328,6 +1472,22 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       });
     }
   }
+
+  // Recalculate accurate metrics using all punches for each day
+  const todayDateStr = toISTFormat(now).substring(0, 10);
+  combinedAttendanceMap.forEach((val, dStr) => {
+    const dayPunches = allPunchesMap.get(dStr);
+    if (dayPunches && dayPunches.length > 0) {
+      const isToday = dStr === todayDateStr;
+      const metrics = calculateAttendanceMetrics(dayPunches, isToday);
+      if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+        val.total_work_hours = metrics.totalWorkHours;
+        val.gross_hours = metrics.grossHours;
+        val.total_break_hours = metrics.totalBreakHours;
+        val.effective_hours = metrics.totalWorkHours;
+      }
+    }
+  });
 
   const attendance = Array.from(combinedAttendanceMap.values()).sort((a, b) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
 

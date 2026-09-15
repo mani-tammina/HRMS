@@ -95,7 +95,7 @@
       <div style="display: flex; align-items: center; gap: 8px;">
         <ion-icon [name]="islogToday(log.attendance_date) ? 'ellipse-outline' : 'ellipse'"
           style="color:#0EA5E9;font-size:14px;"></ion-icon>
-        <span>{{ formatHours(log.total_work_hours, log.attendance_date) }}</span>
+        <span>{{ formatHours(log.total_work_hours !== undefined && log.total_work_hours !== null ? log.total_work_hours : log.effective_hours, log.attendance_date) }}</span>
       </div>
     </ion-col>
     <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
@@ -222,14 +222,14 @@
           </div>
 
           <!-- Total Hours Metrics Footer -->
-          <div class="activity-footer-metrics" *ngIf="selectedLog?.total_work_hours || selectedLog?.gross_hours">
+          <div class="activity-footer-metrics" *ngIf="selectedLog?.total_work_hours || selectedLog?.gross_hours || selectedLog?.effective_hours">
             <div class="metric-item">
-              <span class="m-label">Effective:</span>
-              <span class="m-val">{{ formatHours(selectedLog.total_work_hours, selectedLog.attendance_date) }}</span>
+              <span class="m-label">EFFECTIVE:</span>
+              <span class="m-val">{{ formatHours(selectedLog.total_work_hours !== undefined && selectedLog.total_work_hours !== null ? selectedLog.total_work_hours : selectedLog.effective_hours, selectedLog.attendance_date) }}</span>
             </div>
             <div class="metric-divider"></div>
             <div class="metric-item">
-              <span class="m-label">Gross Time:</span>
+              <span class="m-label">GROSS TIME:</span>
               <span class="m-val">{{ formatHours(selectedLog.gross_hours, selectedLog.attendance_date) }}</span>
             </div>
           </div>

@@ -490,8 +490,8 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           setTimeout(() => {
             this.loadLastPunch();
           }, 1500);
-        } else if (/already punched out|no punch-in/i.test(errorMessage)) {
-          this.showToast('You are already clocked out.', 'warning');
+        } else if (/already punched out|no punch-in|no attendance record/i.test(errorMessage)) {
+          this.showToast('You are not currently clocked in via web.', 'warning');
           this.isClockedIn = false;
         } else {
           this.showToast(errorMessage, 'danger');

@@ -83,9 +83,9 @@ export class AttendanceApiService {
     if (!force && this.todayAttendance$) return this.todayAttendance$;
     this.todayAttendance$ = this.http.get(`${this.BASE_URL}/today`, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
-        const punches = res?.punches || [];
-        if (punches.length > 0) {
-          this.setClockState(punches[punches.length - 1].punch_type === 'in');
+        const webPunches = (res?.punches || []).filter((p: any) => p.source !== 'biometric' && p.work_mode !== 'Biometric');
+        if (webPunches.length > 0) {
+          this.setClockState(webPunches[webPunches.length - 1].punch_type === 'in');
         } else {
           this.setClockState(false);
         }
