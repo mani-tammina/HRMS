@@ -133,6 +133,12 @@
       border-left: 4px solid vars.$color-border-medium;
     }
 
+    &.holiday-row {
+      background: #F0FDF4;
+      color: #065F46;
+      border-left: 4px solid #10B981;
+    }
+
     &.leave-row {
       background: vars.$color-primary-light;
       border-left: 4px solid vars.$color-primary;
@@ -143,6 +149,18 @@
       border-left: 4px solid vars.$color-danger;
     }
   }
+}
+
+.badge-holiday {
+  background: #10B981;
+  color: #fff;
+  font-size: 10px;
+  font-weight: vars.$fw-bold;
+  padding: 4px 10px;
+  border-radius: vars.$radius-sm;
+  margin-left: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .badge-leave {

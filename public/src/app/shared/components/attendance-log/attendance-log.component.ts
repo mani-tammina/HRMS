@@ -9,6 +9,7 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { LeaverequestService, MyLeave } from '../../../core/services/leaverequest.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { HolidayService, Holiday } from '../../../core/services/holiday.service';
 import { AlertController, ToastController } from '@ionic/angular';
 import { TimeFormatPipe } from '../../pipes/time-format.pipe';
 import { FormsModule } from '@angular/forms';
@@ -67,6 +68,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   private destroy$ = new Subject<void>();
   private reloadInProgress = false;
   leaveDaysMap: Map<string, string> = new Map();
+  holidaysMap: Map<string, { id?: number; name: string; type: string }> = new Map();
   employeeProfile: any = null;
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
   missingLogConfigs: any[] = [];
@@ -77,6 +79,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     private leaveService: LeaverequestService,
     private employeeService: EmployeeService,
     private adminService: AdminService,
+    private holidayService: HolidayService,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
   ) {
@@ -154,13 +157,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
     const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
+    const holidays$ = this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([])));
 
-    forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$, missingLogs: missingLogTimes$ })
+    forkJoin({
+      profile: profile$,
+      shiftPolicies: shiftPolicies$,
+      weekOffPolicies: weekOffPolicies$,
+      leaves: leaves$,
+      today: todayPunches$,
+      missingLogs: missingLogTimes$,
+      holidays: holidays$
+    })
       .pipe(takeUntil(this.destroy$)).subscribe({
         next: (res: any) => {
           this.employeeProfile = res.profile;
           const woId = res.profile?.weekly_off_policy_id || res.profile?.WeeklyOffPolicyId;
           const sId = res.profile?.shift_policy_id || res.profile?.ShiftPolicyId;
+          const locId = res.profile?.location_id || res.profile?.LocationId || res.profile?.Location_id;
 
           const weekOffPolicies = Array.isArray(res.weekOffPolicies) ? res.weekOffPolicies : (res.weekOffPolicies?.data || []);
           this.weeklyOffPolicy = (weekOffPolicies || []).find((p: any) => p.id === woId) || null;
@@ -172,11 +185,57 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           this.missingLogConfigs = res.missingLogs || [];
           const leaves = Array.isArray(res.leaves) ? res.leaves : (res.leaves.data || res.leaves.leaves || []);
           this.processLeavesIntoMap(leaves);
+          const holidays = Array.isArray(res.holidays) ? res.holidays : (res.holidays?.data || []);
+          this.processHolidaysIntoMap(holidays, locId);
           this.loadMonthlyReport();
           this.reloadInProgress = false;
         },
         error: () => { this.loadMonthlyReport(); this.reloadInProgress = false; }
       });
+  }
+
+  private processHolidaysIntoMap(holidays: Holiday[], locationId?: number | null) {
+    this.holidaysMap = new Map();
+    if (!Array.isArray(holidays)) return;
+    const empLocId = locationId ? Number(locationId) : null;
+    holidays.forEach(h => {
+      if (h.is_active !== undefined && (h.is_active === 0 || h.is_active === false)) return;
+
+      let isApplicable = false;
+      const hLocId = h.location_id ? Number(h.location_id) : null;
+
+      let appLocs: number[] = [];
+      if (h.applicable_locations) {
+        try {
+          appLocs = typeof h.applicable_locations === 'string' ? JSON.parse(h.applicable_locations) : h.applicable_locations;
+        } catch (e) {
+          appLocs = [];
+        }
+      }
+
+      if (!hLocId && (!appLocs || appLocs.length === 0)) {
+        isApplicable = true;
+      } else if (empLocId) {
+        if (hLocId === empLocId) {
+          isApplicable = true;
+        } else if (Array.isArray(appLocs) && appLocs.map(Number).includes(empLocId)) {
+          isApplicable = true;
+        }
+      } else {
+        if (!hLocId && (!appLocs || appLocs.length === 0)) {
+          isApplicable = true;
+        }
+      }
+
+      if (isApplicable && h.holiday_date) {
+        const dStr = this.formatDateOnly(h.holiday_date);
+        this.holidaysMap.set(dStr, {
+          id: h.id,
+          name: h.holiday_name,
+          type: h.holiday_type || 'public'
+        });
+      }
+    });
   }
 
   private leaveDetailsMap: Map<string, { leaveType: string; isHalfDay: boolean; halfDaySession: string; typeCode: string; halfCode: string }> = new Map();
@@ -348,6 +407,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const leaveType = this.leaveDaysMap.get(date);
           const leaveDetail = this.leaveDetailsMap.get(date);
           const isWeekOff = weekOffDays.includes(day);
+          const holiday = this.holidaysMap.get(date);
 
           if (leaveDetail && leaveDetail.isHalfDay) {
             return {
@@ -361,6 +421,35 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           }
 
           if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
+
+          if (holiday) {
+            const hasPunches = existing && (
+              (existing.punches && existing.punches.length > 0) ||
+              existing.total_work_hours ||
+              existing.gross_hours ||
+              (existing.status && existing.status !== 'absent' && existing.status !== 'penalty' && existing.status !== 'on-leave')
+            );
+            if (hasPunches) {
+              return {
+                ...existing,
+                attendance_date: date,
+                isHoliday: true,
+                holidayName: holiday.name,
+                noLogs: false
+              };
+            }
+            return {
+              ...(existing || {}),
+              attendance_date: date,
+              status: 'holiday',
+              holidayName: holiday.name,
+              leaveType: holiday.name,
+              total_work_hours: null,
+              gross_hours: null,
+              noLogs: true
+            };
+          }
+
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
@@ -436,6 +525,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   filterByPeriod(period: string): void {
     this.selectedPeriod = period;
     const now = new Date();
+    const prevYear = this.currentYear;
     if (period === '30DAYS') {
       this.currentMonth = now.getMonth() + 1;
       this.currentYear = now.getFullYear();
@@ -453,7 +543,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         this.currentYear = year;
       }
     }
-    this.loadMonthlyReport();
+
+    if (this.currentYear !== prevYear) {
+      const locId = this.employeeProfile?.location_id || this.employeeProfile?.LocationId || this.employeeProfile?.Location_id;
+      this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([]))).subscribe(holidays => {
+        const holidayList = Array.isArray(holidays) ? holidays : ((holidays as any)?.data || []);
+        this.processHolidaysIntoMap(holidayList, locId);
+        this.loadMonthlyReport();
+      });
+    } else {
+      this.loadMonthlyReport();
+    }
+
     this.periodChanged.emit({
       period: this.selectedPeriod,
       startDate: this.startDate,

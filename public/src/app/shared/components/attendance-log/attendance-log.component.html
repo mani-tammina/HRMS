@@ -37,9 +37,12 @@
 
   <!-- Rows -->
   <ion-row *ngFor="let log of currentMonthreport" class="table-row"
-    [ngClass]="{'weekoff-row': log.status === 'weekend', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
+    [ngClass]="{'weekoff-row': log.status === 'weekend', 'holiday-row': log.status === 'holiday', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
+      <ng-container *ngIf="log.status === 'holiday'">
+        <span class="badge-holiday" [title]="log.holidayName || 'Holiday'">HOLIDAY</span>
+      </ng-container>
       <ng-container *ngIf="log.status === 'on-leave'">
         <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
@@ -63,14 +66,18 @@
       </ng-container>
     </ion-col>
 
-    <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave') && log.noLogs" class="no-log">
+    <ion-col size="10" *ngIf="(log.status == 'weekend' || log.status == 'on-leave' || log.status == 'holiday') && log.noLogs" class="no-log">
       <p *ngIf="log.status === 'weekend'" style="color:#333;font-size:11px;font-weight:550;margin:0;">Full day week off
+      </p>
+      <p *ngIf="log.status === 'holiday'" style="color:#047857;font-size:11px;font-weight:600;margin:0;display:flex;align-items:center;gap:6px;">
+        <ion-icon name="sparkles" style="color:#10b981;font-size:13px;"></ion-icon>
+        {{ log.holidayName || 'Holiday' }}
       </p>
       <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
         || log.notes || 'Leave' }}</p>
     </ion-col>
 
-    <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
+    <ion-col size="3" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave' || log.status === 'holiday') && log.noLogs)">
       <!-- Custom segmented attendance visual bar -->
       <div class="attendance-visual-wrap">
         <div class="attendance-bar" [class.empty-bar]="getAttendanceSegments(log).length === 0">
@@ -91,14 +98,14 @@
         </div>
       </div>
     </ion-col>
-    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
+    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave' || log.status === 'holiday') && log.noLogs)">
       <div style="display: flex; align-items: center; gap: 8px;">
         <ion-icon [name]="islogToday(log.attendance_date) ? 'ellipse-outline' : 'ellipse'"
           style="color:#0EA5E9;font-size:14px;"></ion-icon>
         <span>{{ formatHours(log.total_work_hours !== undefined && log.total_work_hours !== null ? log.total_work_hours : log.effective_hours, log.attendance_date) }}</span>
       </div>
     </ion-col>
-    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
+    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave' || log.status === 'holiday') && log.noLogs)">
       <div style="display: flex; align-items: center; gap: 8px;">
         <ion-icon [name]="islogToday(log.attendance_date) ? 'ellipse-outline' : 'ellipse'"
           style="color:#334155;font-size:14px;"></ion-icon>
@@ -106,7 +113,7 @@
       </div>
     </ion-col>
 
-    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
+    <ion-col size="2" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave' || log.status === 'holiday') && log.noLogs)">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <ng-container [ngSwitch]="getArrivalStatus(log)">
@@ -139,7 +146,7 @@
         </ion-button>
       </div>
     </ion-col>
-    <ion-col size="1" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave') && log.noLogs)">
+    <ion-col size="1" *ngIf="!((log.status === 'weekend' || log.status === 'on-leave' || log.status === 'holiday') && log.noLogs)">
       <ion-button class="log-btn" color="primary" style="cursor:pointer" (click)="openLogDetails(log)">
         <img src="../../../../assets/logs.png" alt="logs">
       </ion-button>

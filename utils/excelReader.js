@@ -21,27 +21,57 @@ function excel(file) {
         if (!str || typeof str !== 'string') return null;
         const trimmed = str.trim();
 
-        // 1. Check YYYY-MM-DD or YYYY/MM/DD
-        const matchYYYYMMDD = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})(?:T|\s|$)/);
+        // 1. Check YYYY-MM-DD, YYYY/MM/DD, or YYYY.MM.DD
+        const matchYYYYMMDD = trimmed.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})/);
         if (matchYYYYMMDD) {
             const [, year, month, day] = matchYYYYMMDD;
             return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
         }
 
-        // 2. Check DD-MM-YYYY or DD/MM/YYYY
-        const matchDDMMYYYY = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+        // 2. Check DD-MM-YYYY, DD/MM/YYYY, or DD.MM.YYYY
+        const matchDDMMYYYY = trimmed.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})/);
         if (matchDDMMYYYY) {
-            const [, day, month, year] = matchDDMMYYYY;
-            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            let [, p1, p2, year] = matchDDMMYYYY;
+            let day = parseInt(p1, 10);
+            let month = parseInt(p2, 10);
+            if (month > 12 && day <= 12) {
+                const tmp = day;
+                day = month;
+                month = tmp;
+            }
+            return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         }
 
-        // Fallback to Date parsing
+        // 3. Named month formats (e.g. 26-Jan-2026, 26 Jan 2026, January 26 2026)
+        const monthMap = {
+            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+            jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+        };
+
+        const matchNamed1 = trimmed.match(/^(\d{1,2})[-/. ]([A-Za-z]+)[-/. ](\d{4})/);
+        if (matchNamed1) {
+            const [, d, mStr, y] = matchNamed1;
+            const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+            if (m) {
+                return `${y}-${m}-${d.padStart(2, '0')}`;
+            }
+        }
+
+        const matchNamed2 = trimmed.match(/^([A-Za-z]+)[-/. ](\d{1,2})[-,. ]+(\d{4})/);
+        if (matchNamed2) {
+            const [, mStr, d, y] = matchNamed2;
+            const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+            if (m) {
+                return `${y}-${m}-${d.padStart(2, '0')}`;
+            }
+        }
+
+        // 4. Fallback to Date parsing
         const d = new Date(trimmed);
         if (!isNaN(d.getTime())) {
-            const hasTimezone = /Z|[+-]\d{2}/.test(trimmed);
-            const yyyy = hasTimezone ? d.getUTCFullYear() : d.getFullYear();
-            const mm = String((hasTimezone ? d.getUTCMonth() : d.getMonth()) + 1).padStart(2, '0');
-            const dd = String(hasTimezone ? d.getUTCDate() : d.getDate()).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
             return `${yyyy}-${mm}-${dd}`;
         }
         return null;

@@ -740,6 +740,16 @@ router.get("/template", auth, (req, res) => {
             { wch: 40 }  // Description
         ];
 
+        // Format all date column cells as Date format yyyy-mm-dd (e.g. 2026-08-15)
+        for (let r = 2; r <= 200; r++) {
+            const dateCell = XLSX.utils.encode_cell({ r, c: 0 });
+            if (ws[dateCell]) {
+                ws[dateCell].z = 'yyyy-mm-dd';
+            } else {
+                ws[dateCell] = { t: 's', v: '', z: 'yyyy-mm-dd' };
+            }
+        }
+
         XLSX.utils.book_append_sheet(wb, ws, "Teach Tammina Holidays list");
         const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
 
@@ -884,12 +894,95 @@ router.post("/upload", auth, roleAuth(["admin", "hr"]), upload.single("file"), a
         let skipped = 0;
         const errors = [];
 
+function normalizeHolidayDate(val) {
+    if (!val) return null;
+    if (val instanceof Date) {
+        if (isNaN(val.getTime())) return null;
+        const yyyy = val.getFullYear();
+        const mm = String(val.getMonth() +
+         1).padStart(2, '0');
+        const dd = String(val.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    if (typeof val === 'number') {
+        if (val > 1000 && val < 100000) {
+            const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+            if (!isNaN(d.getTime())) {
+                const yyyy = d.getUTCFullYear();
+                const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(d.getUTCDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+            }
+        }
+    }
+
+    const str = String(val).trim();
+    if (!str) return null;
+
+    // 1. YYYY-MM-DD, YYYY/MM/DD, or YYYY.MM.DD
+    const matchYMD = str.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})/);
+    if (matchYMD) {
+        const [, y, m, d] = matchYMD;
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+
+    // 2. DD-MM-YYYY, DD/MM/YYYY, or DD.MM.YYYY
+    const matchDMY = str.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})/);
+    if (matchDMY) {
+        let [, p1, p2, y] = matchDMY;
+        let d = parseInt(p1, 10);
+        let m = parseInt(p2, 10);
+        if (m > 12 && d <= 12) {
+            const tmp = d;
+            d = m;
+            m = tmp;
+        }
+        return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    }
+
+    // 3. Named month formats (e.g. 26-Jan-2026, 26 Jan 2026, January 26 2026)
+    const monthMap = {
+        jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+        jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+    };
+
+    const matchNamed1 = str.match(/^(\d{1,2})[-/. ]([A-Za-z]+)[-/. ](\d{4})/);
+    if (matchNamed1) {
+        const [, d, mStr, y] = matchNamed1;
+        const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+        if (m) {
+            return `${y}-${m}-${d.padStart(2, '0')}`;
+        }
+    }
+
+    const matchNamed2 = str.match(/^([A-Za-z]+)[-/. ](\d{1,2})[-,. ]+(\d{4})/);
+    if (matchNamed2) {
+        const [, mStr, d, y] = matchNamed2;
+        const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+        if (m) {
+            return `${y}-${m}-${d.padStart(2, '0')}`;
+        }
+    }
+
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+
+    return null;
+}
+
         for (let i = 0; i < rows.length; i++) {
             const r = rows[i];
             const rowNumber = i + 2;
 
             try {
-                const holidayDate = r['HolidayDate(YYYY-MM-DD)'] || r.HolidayDate || r.holiday_date || r.Date || r.date || null;
+                const rawDate = r['HolidayDate(YYYY-MM-DD)'] || r.HolidayDate || r.holiday_date || r.Date || r.date || null;
+                const holidayDate = normalizeHolidayDate(rawDate);
                 const holidayName = r.HolidayName || r['HolidayName'] || r.holiday_name || r.Name || r.name || null;
                 const holidayType = (r['HolidayType(public/optional/restricted)'] || r.HolidayType || r.holiday_type || r.Type || r.type || 'public').toLowerCase().trim();
                 const description = r.Description || r.description || null;

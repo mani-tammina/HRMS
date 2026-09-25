@@ -207,10 +207,6 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.loadTodayAttendance();
       this.loadMonthlySummary();
     });
-
-    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(() => {
-      this.loadTodayAttendance();
-    });
   }
 
   loadAllData() {

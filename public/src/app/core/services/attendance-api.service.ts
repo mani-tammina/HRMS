@@ -20,7 +20,9 @@ export class AttendanceApiService {
   constructor(private http: HttpClient) { }
 
   setClockState(isClockedIn: boolean): void {
-    this.clockStateSubject.next(isClockedIn);
+    if (this.clockStateSubject.value !== isClockedIn) {
+      this.clockStateSubject.next(isClockedIn);
+    }
   }
 
   getClockState(): boolean {

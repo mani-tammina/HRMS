@@ -910,6 +910,79 @@ export class HolidaysAdminPage implements OnInit, OnDestroy {
 
         const rawJson: any[] = XLSX.utils.sheet_to_json(firstSheet, { range: headerRowIndex, defval: '' });
 
+        const parsePreviewDate = (val: any): string => {
+          if (!val) return '';
+          if (val instanceof Date) {
+            if (isNaN(val.getTime())) return '';
+            const yyyy = val.getFullYear();
+            const mm = String(val.getMonth() + 1).padStart(2, '0');
+            const dd = String(val.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          if (typeof val === 'number') {
+            if (val > 1000 && val < 100000) {
+              const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+              if (!isNaN(d.getTime())) {
+                const yyyy = d.getUTCFullYear();
+                const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+                const dd = String(d.getUTCDate()).padStart(2, '0');
+                return `${yyyy}-${mm}-${dd}`;
+              }
+            }
+          }
+          const str = String(val).trim();
+          if (!str) return '';
+
+          // 1. YYYY-MM-DD
+          const matchYMD = str.match(/^(\d{4})[-/. ](\d{1,2})[-/. ](\d{1,2})/);
+          if (matchYMD) {
+            const [, y, m, d] = matchYMD;
+            return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+          }
+
+          // 2. DD-MM-YYYY
+          const matchDMY = str.match(/^(\d{1,2})[-/. ](\d{1,2})[-/. ](\d{4})/);
+          if (matchDMY) {
+            let [, p1, p2, y] = matchDMY;
+            let d = parseInt(p1, 10);
+            let m = parseInt(p2, 10);
+            if (m > 12 && d <= 12) {
+              const tmp = d;
+              d = m;
+              m = tmp;
+            }
+            return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+          }
+
+          // 3. Named month
+          const monthMap: Record<string, string> = {
+            jan: '01', feb: '02', mar: '03', apr: '04', may: '05', jun: '06',
+            jul: '07', aug: '08', sep: '09', oct: '10', nov: '11', dec: '12'
+          };
+          const matchNamed1 = str.match(/^(\d{1,2})[-/. ]([A-Za-z]+)[-/. ](\d{4})/);
+          if (matchNamed1) {
+            const [, d, mStr, y] = matchNamed1;
+            const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+            if (m) return `${y}-${m}-${d.padStart(2, '0')}`;
+          }
+
+          const matchNamed2 = str.match(/^([A-Za-z]+)[-/. ](\d{1,2})[-,. ]+(\d{4})/);
+          if (matchNamed2) {
+            const [, mStr, d, y] = matchNamed2;
+            const m = monthMap[mStr.toLowerCase().substring(0, 3)];
+            if (m) return `${y}-${m}-${d.padStart(2, '0')}`;
+          }
+
+          const d = new Date(str);
+          if (!isNaN(d.getTime())) {
+            const yyyy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            return `${yyyy}-${mm}-${dd}`;
+          }
+          return str;
+        };
+
         this.previewRows = rawJson.map((row) => {
           const rawDate = row['Holiday Date (YYYY-MM-DD)'] || row['Holiday Date'] || row['holiday_date'] || row['Date'] || row['date'] || '';
           const rawName = row['Holiday Name'] || row['holiday_name'] || row['Name'] || row['name'] || '';
@@ -918,12 +991,7 @@ export class HolidaysAdminPage implements OnInit, OnDestroy {
           const rawShift = row['Shift Policy'] || row['shift_policy'] || 'All Shifts';
           const rawList = row['Holiday List Name'] || row['Holiday List'] || row['holiday_list'] || 'General';
 
-          let parsedDateStr = '';
-          if (rawDate instanceof Date) {
-            parsedDateStr = rawDate.toISOString().split('T')[0];
-          } else if (rawDate) {
-            parsedDateStr = String(rawDate).trim();
-          }
+          const parsedDateStr = parsePreviewDate(rawDate);
 
           const isValid = !!(parsedDateStr && rawName.toString().trim());
           const errorMsg = !parsedDateStr
