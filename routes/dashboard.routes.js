@@ -420,16 +420,33 @@ router.get("/employee", auth, async (req, res) => {
             AND status = 'allocated'
         `, [emp.id]);
 
-        // Upcoming holidays (next 30 days)
-        const [upcomingHolidays] = await c.query(`
+        // Upcoming holidays (mapped by employee location)
+        let holidayQuery = `
             SELECT 
-                holiday_date,
-                holiday_name,
-                day_name
-            FROM holidays
-            WHERE holiday_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-            ORDER BY holiday_date
-        `);
+                h.id,
+                h.holiday_date,
+                h.holiday_name,
+                h.day_name,
+                h.holiday_type,
+                h.description,
+                loc.name as location_name
+            FROM holidays h
+            LEFT JOIN locations loc ON h.location_id = loc.id
+            WHERE h.is_active = 1
+        `;
+        const holidayParams = [];
+        if (emp.LocationId) {
+            holidayQuery += ` AND (
+                h.location_id = ?
+                OR (h.location_id IS NULL AND (h.applicable_locations IS NULL OR h.applicable_locations = '' OR h.applicable_locations = 'null'))
+                OR h.applicable_locations LIKE ?
+                OR (h.holiday_list_id IS NOT NULL AND h.holiday_list_id = ?)
+            )`;
+            holidayParams.push(emp.LocationId, `%"${emp.LocationId}"%`, emp.holiday_list_id || 0);
+        }
+        holidayQuery += ` AND h.holiday_date >= CURDATE() ORDER BY h.holiday_date ASC LIMIT 10`;
+
+        const [upcomingHolidays] = await c.query(holidayQuery, holidayParams);
 
         c.end();
 

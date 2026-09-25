@@ -12,6 +12,7 @@ import { AdminService } from '../../../core/services/admin.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
 import { LeavePlanService } from '../../../core/services/leave-plans.service';
 import { DashboardService } from '../../../core/services/dashboard.service';
+import { HolidayService } from '../../../core/services/holiday.service';
 
 @Component({
   selector: 'app-home',
@@ -84,6 +85,16 @@ export class HomePage implements OnInit, OnDestroy {
   remoteToday: any[] = [];
   activeWorkplaceTab: 'leave' | 'wfh' | 'remote' = 'leave';
 
+  /* ================= UPCOMING HOLIDAYS CAROUSEL ================= */
+  upcomingHolidays: any[] = [];
+  currentHolidayIndex: number = 0;
+  employeeLocationName: string = '';
+  isHolidaysLoading: boolean = false;
+
+  get currentHoliday(): any {
+    return this.upcomingHolidays[this.currentHolidayIndex] || null;
+  }
+
   /* ================= DASHBOARD ================= */
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
   hasPunchedToday: boolean = false;
@@ -100,6 +111,7 @@ export class HomePage implements OnInit, OnDestroy {
     private leavePlanService: LeavePlanService,
     private adminService: AdminService,
     private dashboardService: DashboardService,
+    private holidayService: HolidayService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -113,6 +125,7 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadAnnouncements();
     this.refreshAttendanceState();
     this.loadTeamStatusToday();
+    this.loadUpcomingHolidays();
 
     const year = new Date().getFullYear();
     const month = new Date().getMonth() + 1;
@@ -254,7 +267,100 @@ export class HomePage implements OnInit, OnDestroy {
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
     this.loadTeamStatusToday();
+    this.loadUpcomingHolidays();
     this.refreshAttendanceState();
+  }
+
+  loadUpcomingHolidays() {
+    this.isHolidaysLoading = true;
+    this.holidayService.getUpcomingHolidays().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.isHolidaysLoading = false;
+        const list = Array.isArray(res) ? res : (res?.holidays || []);
+        this.upcomingHolidays = list;
+
+        if (res?.location_name) {
+          this.employeeLocationName = res.location_name;
+        } else if (this.currentEmployee?.location_name) {
+          this.employeeLocationName = this.currentEmployee.location_name;
+        }
+
+        // Default carousel slide to the next upcoming holiday
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextIdx = list.findIndex((h: any) => {
+          const d = new Date(h.holiday_date);
+          d.setHours(0, 0, 0, 0);
+          return d >= today;
+        });
+
+        if (nextIdx !== -1) {
+          this.currentHolidayIndex = nextIdx;
+        } else if (list.length > 0) {
+          this.currentHolidayIndex = list.length - 1;
+        } else {
+          this.currentHolidayIndex = 0;
+        }
+
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.isHolidaysLoading = false;
+        console.warn('Could not load upcoming holidays:', err);
+      }
+    });
+  }
+
+  prevHoliday() {
+    if (this.upcomingHolidays.length <= 1) return;
+    if (this.currentHolidayIndex > 0) {
+      this.currentHolidayIndex--;
+    } else {
+      this.currentHolidayIndex = this.upcomingHolidays.length - 1;
+    }
+    this.cdr.detectChanges();
+  }
+
+  nextHoliday() {
+    if (this.upcomingHolidays.length <= 1) return;
+    if (this.currentHolidayIndex < this.upcomingHolidays.length - 1) {
+      this.currentHolidayIndex++;
+    } else {
+      this.currentHolidayIndex = 0;
+    }
+    this.cdr.detectChanges();
+  }
+
+  setHolidayIndex(index: number) {
+    if (index >= 0 && index < this.upcomingHolidays.length) {
+      this.currentHolidayIndex = index;
+      this.cdr.detectChanges();
+    }
+  }
+
+  isPastHoliday(holiday: any): boolean {
+    if (!holiday || !holiday.holiday_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hDate = new Date(holiday.holiday_date);
+    hDate.setHours(0, 0, 0, 0);
+    return hDate < today;
+  }
+
+  getHolidayStatusLabel(holiday: any): string {
+    if (!holiday || !holiday.holiday_date) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hDate = new Date(holiday.holiday_date);
+    hDate.setHours(0, 0, 0, 0);
+    const diffTime = hDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
+    if (diffDays < 0) return 'Past Holiday';
+    return 'Upcoming';
   }
 
   setWorkplaceTab(tab: 'leave' | 'wfh' | 'remote') {

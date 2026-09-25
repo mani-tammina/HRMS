@@ -772,24 +772,62 @@
               <h3 class="overview-title">Upcoming holidays</h3>
               <p class="overview-subtitle">Next few company and regional holidays</p>
             </div>
-            <div class="header-badge">
-              <span class="badge-pill">Location : Vizag</span>
+            <div class="header-actions-group">
+              <span class="badge-pill">Location : {{ employeeLocationName || currentEmployee?.location_name || 'All Locations' }}</span>
+              <div class="holiday-nav-btns" *ngIf="upcomingHolidays.length > 1">
+                <button type="button" class="holiday-nav-btn" (click)="prevHoliday()" title="Previous Holiday">
+                  <ion-icon name="chevron-back-outline"></ion-icon>
+                </button>
+                <span class="holiday-counter-badge">{{ currentHolidayIndex + 1 }} / {{ upcomingHolidays.length }}</span>
+                <button type="button" class="holiday-nav-btn" (click)="nextHoliday()" title="Next Holiday">
+                  <ion-icon name="chevron-forward-outline"></ion-icon>
+                </button>
+              </div>
             </div>
           </div>
 
           <div class="divider-line"></div>
 
-          <!-- Festive Holiday Banner -->
-          <div class="holiday-banner">
-            <div class="holiday-banner-content">
-              <div class="holiday-date-block">
-                <span class="holiday-day">25</span>
-                <span class="holiday-month-year">December 2025</span>
-                <span class="holiday-name">Happy Christmas</span>
+          <!-- Festive Holiday Banner Carousel Slide -->
+          <div class="holiday-carousel-wrapper" *ngIf="upcomingHolidays.length > 0; else noHolidays">
+            <div class="holiday-banner" [class.past-holiday-banner]="isPastHoliday(currentHoliday)">
+              <div class="holiday-status-pill" *ngIf="getHolidayStatusLabel(currentHoliday)">
+                <span>{{ getHolidayStatusLabel(currentHoliday) }}</span>
               </div>
+              <div class="holiday-banner-content">
+                <div class="holiday-date-block">
+                  <span class="holiday-day">{{ currentHoliday.holiday_date | date:'dd' }}</span>
+                  <span class="holiday-month-year">{{ currentHoliday.holiday_date | date:'MMMM yyyy' }}</span>
+                  <span class="holiday-name"><span class="holiday-bullet">• </span>{{ currentHoliday.holiday_name }}</span>
+                </div>
+              </div>
+              <div class="holiday-banner-overlay"></div>
             </div>
-            <div class="holiday-banner-overlay"></div>
+
+            <!-- Dot Indicators -->
+            <div class="holiday-carousel-dots" *ngIf="upcomingHolidays.length > 1">
+              <span *ngFor="let h of upcomingHolidays; let idx = index"
+                    class="holiday-dot"
+                    [class.active]="idx === currentHolidayIndex"
+                    [class.past]="isPastHoliday(h)"
+                    (click)="setHolidayIndex(idx)"
+                    [title]="h.holiday_name + ' (' + (h.holiday_date | date:'mediumDate') + ')'">
+              </span>
+            </div>
           </div>
+
+          <ng-template #noHolidays>
+            <div class="holiday-banner no-holiday-banner">
+              <div class="holiday-banner-content">
+                <div class="holiday-date-block">
+                  <span class="holiday-day">--</span>
+                  <span class="holiday-month-year">No Holidays</span>
+                  <span class="holiday-name">No scheduled holidays for your location</span>
+                </div>
+              </div>
+              <div class="holiday-banner-overlay"></div>
+            </div>
+          </ng-template>
         </ion-card>
       </ion-col>
     </ion-row>

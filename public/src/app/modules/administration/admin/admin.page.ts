@@ -31,4 +31,7 @@ export class AdminPage implements OnInit {
   documentsSetup() {
     this.router.navigate(['/administration/documents']);
   }
+  holidaySetup() {
+    this.router.navigate(['/administration/holidays']);
+  }
 }

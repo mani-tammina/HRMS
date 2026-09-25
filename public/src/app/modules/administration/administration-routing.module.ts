@@ -49,6 +49,10 @@ const routes: Routes = [
   {
     path: 'documents',
     loadComponent: () => import('./employee-documents-admin/employee-documents-admin.page').then(m => m.EmployeeDocumentsAdminPage)
+  },
+  {
+    path: 'holidays',
+    loadComponent: () => import('./holidays-admin/holidays-admin.page').then(m => m.HolidaysAdminPage)
   }
 ];
 
