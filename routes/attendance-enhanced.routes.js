@@ -1501,7 +1501,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   const lopDays = Number(lopData[0]?.lop_days) || 0;
 
   const [empDetails] = await c.query(`
-    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.location_id, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
+    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
     FROM employees e
     LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
     LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
@@ -1577,7 +1577,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     const matchingHoliday = (holidaysList || []).find(h => {
       const hDateStr = new Date(h.holiday_date).toDateString();
       if (hDateStr !== dStr) return false;
-      const empLoc = employee?.location_id;
+      const empLoc = employee?.LocationId || employee?.location_id;
       if (!h.location_id && (!h.applicable_locations || h.applicable_locations === '' || h.applicable_locations === 'null' || h.applicable_locations === '[]')) return true;
       if (empLoc && Number(h.location_id) === Number(empLoc)) return true;
       if (empLoc && h.applicable_locations) {

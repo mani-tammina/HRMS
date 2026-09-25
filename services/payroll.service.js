@@ -264,7 +264,7 @@ async function runPayroll(year, month, runBy = null) {
 
     // 1. Fetch only employees who have clocked in during the period
     const [employees] = await conn.query(`
-      SELECT e.id, e.FirstName, e.LastName,
+      SELECT e.id, e.FirstName, e.LastName, e.LocationId,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
              wop.thursday_off, wop.friday_off, wop.saturday_off,
              sp.start_time, mlt.threshold_hours as missing_log_threshold
@@ -306,6 +306,13 @@ async function runPayroll(year, month, runBy = null) {
       leavesByEmp[l.employee_id].push(l);
     });
 
+    // 4. Fetch all active holidays for the period
+    const [holidaysList] = await conn.query(`
+      SELECT holiday_date, holiday_name, location_id, applicable_locations
+      FROM holidays
+      WHERE is_active = 1 AND holiday_date BETWEEN ? AND ?
+    `, [sd, ed]);
+
     const now = new Date();
     const todayStr = now.toDateString();
     const snapshots = [];
@@ -315,6 +322,7 @@ async function runPayroll(year, month, runBy = null) {
       let penalty_absent_days = 0;
       let regular_absent_days = 0;
       let leave_days = 0;
+      let holiday_days = 0;
       let weekend_days = 0;
       let lop_from_leaves = 0;
 
@@ -338,6 +346,21 @@ async function runPayroll(year, month, runBy = null) {
         const isFuture = curr > now && dStr !== todayStr;
         const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
+        const matchingHoliday = (holidaysList || []).find(h => {
+          const hDateStr = new Date(h.holiday_date).toDateString();
+          if (hDateStr !== dStr) return false;
+          const empLoc = emp.LocationId || emp.location_id;
+          if (!h.location_id && (!h.applicable_locations || h.applicable_locations === '' || h.applicable_locations === 'null' || h.applicable_locations === '[]')) return true;
+          if (empLoc && Number(h.location_id) === Number(empLoc)) return true;
+          if (empLoc && h.applicable_locations) {
+            try {
+              const locs = typeof h.applicable_locations === 'string' ? JSON.parse(h.applicable_locations) : h.applicable_locations;
+              if (Array.isArray(locs) && locs.map(Number).includes(Number(empLoc))) return true;
+            } catch (e) {}
+          }
+          return false;
+        });
+
         // Leave Check
         const todaysLeaves = empLeaves.filter(l => {
           const lStart = new Date(l.start_date);
@@ -357,6 +380,9 @@ async function runPayroll(year, month, runBy = null) {
             const isUnpaid = l.type_code === 'LOP' || l.type_code === 'UL' || !l.is_paid;
             if (isUnpaid) lop_from_leaves += weight;
           });
+        } else if (matchingHoliday && (!empAtt[dStr] || empAtt[dStr].status === 'absent' || empAtt[dStr].status === 'penalty')) {
+          // Holiday is NOT absent or penalty
+          holiday_days++;
         } else if (weekOffDays.includes(weekday)) {
           weekend_days++;
         } else if (empAtt[dStr]) {
