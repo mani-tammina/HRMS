@@ -286,6 +286,138 @@ router.get("/public/:id", async (req, res) => {
     }
 });
 
+// In-memory OTP storage with timestamp expiry (10 minutes)
+const candidateOtpStore = new Map();
+
+// Public endpoint: Generate & Send OTP to candidate's email
+router.post("/public/send-otp", async (req, res) => {
+    const { email, candidateId } = req.body;
+
+    if (!email) {
+        return res.status(400).json({ success: false, message: "Candidate email is required." });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    let c = null;
+
+    try {
+        c = await db();
+        let matchedCandidate = null;
+
+        if (candidateId) {
+            const [candidates] = await c.query("SELECT * FROM candidates WHERE id = ?", [candidateId]);
+            if (candidates.length > 0) matchedCandidate = candidates[0];
+        }
+
+        if (!matchedCandidate) {
+            const [candidates] = await c.query("SELECT * FROM candidates WHERE LOWER(email) = ? ORDER BY id DESC LIMIT 1", [cleanEmail]);
+            if (candidates.length > 0) matchedCandidate = candidates[0];
+        }
+        c.end();
+
+        const candidateName = matchedCandidate ? (matchedCandidate.first_name || matchedCandidate.full_name || 'Candidate') : 'Candidate';
+        const targetCandidateId = matchedCandidate ? matchedCandidate.id : (candidateId || 1);
+
+        // Generate 6-digit OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+        // Store OTP in memory map
+        candidateOtpStore.set(cleanEmail, { otp, expiry, candidateId: targetCandidateId });
+        if (targetCandidateId) {
+            candidateOtpStore.set(String(targetCandidateId), { otp, expiry, candidateId: targetCandidateId });
+        }
+
+        // Send Email with professional HTML template
+        try {
+            const { sendMail } = require("../utils/mail.service");
+            const htmlContent = `
+                <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 580px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
+                    <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 24px; text-align: center; color: #ffffff;">
+                        <h2 style="margin: 0; font-size: 22px; font-weight: 700; color: #ffffff;">Tech Tammina Candidate Portal</h2>
+                        <p style="margin: 6px 0 0; color: #94a3b8; font-size: 14px;">Identity Verification & Secure Access</p>
+                    </div>
+                    <div style="padding: 32px 28px;">
+                        <p style="font-size: 16px; color: #1e293b; margin: 0 0 16px;">Hello <strong>${candidateName}</strong>,</p>
+                        <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px;">
+                            We received a request to access your official Tech Tammina Candidate Portal. Please use the one-time verification code below to securely log in:
+                        </p>
+                        <div style="background: #f8fafc; border: 2px dashed #3b82f6; border-radius: 10px; padding: 20px; text-align: center; margin: 24px 0;">
+                            <span style="display: block; font-size: 12px; font-weight: 700; color: #64748b; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px;">Your Verification Code (OTP)</span>
+                            <span style="font-family: 'Courier New', monospace; font-size: 34px; font-weight: 800; color: #1d4ed8; letter-spacing: 8px;">${otp}</span>
+                        </div>
+                        <p style="font-size: 13px; color: #64748b; margin: 20px 0 0; line-height: 1.5;">
+                            ⏱️ This verification code is valid for <strong>10 minutes</strong>. If you did not request this access, please contact your HR coordinator immediately.
+                        </p>
+                    </div>
+                    <div style="background: #f1f5f9; padding: 16px; text-align: center; font-size: 12px; color: #94a3b8;">
+                        &copy; ${new Date().getFullYear()} Tech Tammina. All rights reserved. &bull; Confidential &bull; ISO 27001 Certified
+                    </div>
+                </div>
+            `;
+
+            await sendMail({
+                to: cleanEmail,
+                subject: `🔐 Your Tech Tammina Verification Code: ${otp}`,
+                html: htmlContent
+            });
+            console.log(`[Candidate OTP] Successfully dispatched OTP email to: ${cleanEmail}`);
+        } catch (mailErr) {
+            console.error("[Candidate OTP] Email dispatch error:", mailErr.message);
+        }
+
+        res.json({
+            success: true,
+            message: `Verification code sent to ${cleanEmail}`,
+            candidateId: targetCandidateId
+        });
+
+    } catch (error) {
+        if (c) c.end();
+        console.error("Error in public send-otp:", error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// Public endpoint: Verify OTP
+router.post("/public/verify-otp", async (req, res) => {
+    const { email, otp, candidateId } = req.body;
+
+    if (!otp) {
+        return res.status(400).json({ success: false, message: "Verification code (OTP) is required." });
+    }
+
+    const cleanEmail = (email || '').trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    // Look up OTP entry by email or candidateId
+    const entry = candidateOtpStore.get(cleanEmail) || (candidateId ? candidateOtpStore.get(String(candidateId)) : null);
+
+    if (!entry) {
+        return res.status(400).json({ success: false, message: "No active verification code found for this email. Please request a new OTP." });
+    }
+
+    if (Date.now() > entry.expiry) {
+        candidateOtpStore.delete(cleanEmail);
+        if (candidateId) candidateOtpStore.delete(String(candidateId));
+        return res.status(400).json({ success: false, message: "The verification code has expired. Please click Resend OTP." });
+    }
+
+    if (entry.otp !== cleanOtp) {
+        return res.status(400).json({ success: false, message: "Invalid verification code. Please check and try again." });
+    }
+
+    // OTP matched! Clean up
+    candidateOtpStore.delete(cleanEmail);
+    if (candidateId) candidateOtpStore.delete(String(candidateId));
+
+    res.json({
+        success: true,
+        message: "OTP verified successfully.",
+        candidateId: entry.candidateId || candidateId || 1
+    });
+});
+
 // Public endpoint — candidate accepts or rejects their offer (no auth required)
 router.put("/public/:id/status", async (req, res) => {
     const c = await db();

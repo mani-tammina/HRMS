@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiURL: 'https://hrms.tamminahub.com',
+  apiURL: 'http://30.0.0.221:4201',
 };

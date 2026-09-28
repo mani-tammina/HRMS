@@ -26,11 +26,9 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
 
   // Flow State
   currentStep: 'credentials' | 'otp' = 'credentials';
-  showPassword = false;
 
   // OTP Management
   otpDigits: string[] = ['', '', '', '', '', ''];
-  generatedOtp: string | null = null;
   otpTimer = 60;
   timerInterval: any = null;
   canResendOtp = false;
@@ -48,9 +46,7 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
     this.candidateId = this.route.snapshot.paramMap.get('id');
 
     this.loginForm = this.fb.group({
-      email: ['', [Validators.required, Validators.email]],
-      password: ['', [Validators.required, Validators.minLength(4)]],
-      rememberMe: [true]
+      email: ['', [Validators.required, Validators.email]]
     });
 
     if (this.candidateId) {
@@ -111,15 +107,11 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
     return `${maskedUser}@${domain}`;
   }
 
-  togglePasswordVisibility() {
-    this.showPassword = !this.showPassword;
-  }
-
-  // Step 1: Submit Credentials & Generate OTP
+  // Step 1: Submit Email & Generate/Send OTP
   onSubmitCredentials() {
     if (this.loginForm.invalid) {
       this.loginForm.markAllAsTouched();
-      this.toaster.showWarning('Please provide your valid registered email and password.');
+      this.toaster.showWarning('Please provide your valid registered email address.');
       return;
     }
 
@@ -133,26 +125,26 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
 
     this.isVerifying = true;
 
-    // Simulate credential validation & generate OTP
-    setTimeout(() => {
-      this.isVerifying = false;
-      this.sendNewOtp();
-      this.currentStep = 'otp';
-      this.toaster.showSuccess(`Verification code generated and sent to ${this.maskedEmail}`);
-      
-      // Auto-focus first OTP digit input after view updates
-      setTimeout(() => {
-        this.focusOtpBox(0);
-      }, 100);
-    }, 600);
-  }
+    // Call backend to dispatch email OTP
+    this.candidateService.sendCandidateOtp(inputEmail, this.candidateId).subscribe({
+      next: () => {
+        this.isVerifying = false;
+        this.otpDigits = ['', '', '', '', '', ''];
+        this.otpError = false;
+        this.startOtpTimer();
+        this.currentStep = 'otp';
+        this.toaster.showSuccess(`Verification code sent to your email: ${this.maskedEmail}`);
 
-  // Generate and send 6-digit OTP
-  sendNewOtp() {
-    this.generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    this.otpDigits = ['', '', '', '', '', ''];
-    this.otpError = false;
-    this.startOtpTimer();
+        setTimeout(() => {
+          this.focusOtpBox(0);
+        }, 150);
+      },
+      error: (err: any) => {
+        this.isVerifying = false;
+        const msg = err?.error?.message || 'Failed to dispatch verification code. Please check the email or contact HR.';
+        this.toaster.showError(msg);
+      }
+    });
   }
 
   startOtpTimer() {
@@ -180,17 +172,21 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
 
   resendOtp() {
     if (!this.canResendOtp) return;
-    this.sendNewOtp();
-    this.toaster.showInfo(`New verification code sent to ${this.maskedEmail}`);
-    this.focusOtpBox(0);
-  }
+    const inputEmail = this.loginForm.value.email.trim().toLowerCase();
 
-  autoFillDemoOtp() {
-    if (!this.generatedOtp) return;
-    const digits = this.generatedOtp.split('');
-    this.otpDigits = digits;
-    this.otpError = false;
-    this.toaster.showSuccess('Code auto-filled. You can now verify.');
+    this.candidateService.sendCandidateOtp(inputEmail, this.candidateId).subscribe({
+      next: () => {
+        this.otpDigits = ['', '', '', '', '', ''];
+        this.otpError = false;
+        this.startOtpTimer();
+        this.toaster.showSuccess(`New verification code sent to ${this.maskedEmail}`);
+        this.focusOtpBox(0);
+      },
+      error: (err: any) => {
+        const msg = err?.error?.message || 'Failed to resend verification code. Please try again.';
+        this.toaster.showError(msg);
+      }
+    });
   }
 
   // Handle individual OTP digit typing
@@ -262,6 +258,7 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
   // Step 2: Verify Entered OTP
   onVerifyOtp() {
     const enteredOtp = this.otpDigits.join('').trim();
+    const inputEmail = this.loginForm.value.email.trim().toLowerCase();
 
     if (enteredOtp.length < 6) {
       this.otpError = true;
@@ -271,19 +268,21 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
 
     this.isVerifying = true;
 
-    setTimeout(() => {
-      this.isVerifying = false;
-
-      if (enteredOtp === this.generatedOtp) {
-        const targetId = this.candidateId || this.candidateData?.id || '1';
+    this.candidateService.verifyCandidateOtp(inputEmail, enteredOtp, this.candidateId).subscribe({
+      next: (res: any) => {
+        this.isVerifying = false;
+        const targetId = res?.candidateId || this.candidateId || this.candidateData?.id || '1';
         sessionStorage.setItem('candidate_verified_' + targetId, 'true');
         this.toaster.showSuccess('OTP Verified successfully! Welcome to your Candidate Portal.');
         this.router.navigate(['/candidate-portal', targetId]);
-      } else {
+      },
+      error: (err: any) => {
+        this.isVerifying = false;
         this.otpError = true;
-        this.toaster.showError('Invalid OTP code. Please enter the correct 6-digit code or request a new one.');
+        const errorMsg = err?.error?.message || 'Invalid verification code. Please enter the correct 6-digit code received in your email.';
+        this.toaster.showError(errorMsg);
       }
-    }, 650);
+    });
   }
 
   backToCredentials() {

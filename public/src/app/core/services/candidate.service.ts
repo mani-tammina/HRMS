@@ -31,6 +31,16 @@ export class CandidateService {
     return this.http.get<any>(`${this.apiUrl}/public/${id}`);
   }
 
+  // Send OTP to candidate email (Public)
+  sendCandidateOtp(email: string, candidateId?: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/public/send-otp`, { email, candidateId });
+  }
+
+  // Verify candidate OTP (Public)
+  verifyCandidateOtp(email: string, otp: string, candidateId?: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/public/verify-otp`, { email, otp, candidateId });
+  }
+
   // Update candidate status (Public acceptance/rejection)
   updateCandidateStatusPublic(id: number, status: string): Observable<any> {
     return this.http.put<any>(`${this.apiUrl}/public/${id}/status`, { status });

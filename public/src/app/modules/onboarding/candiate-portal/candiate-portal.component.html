@@ -35,7 +35,8 @@
       <div class="user-side">
         <!-- Live Status Pill -->
         <span class="status-pill" [ngClass]="offerStatusClass">
-          <ion-icon [name]="isOfferAccepted ? 'checkmark-circle' : (offerStatusClass === 'rejected' ? 'close-circle' : 'time-outline')"></ion-icon>
+          <ion-icon
+            [name]="isOfferAccepted ? 'checkmark-circle' : (offerStatusClass === 'rejected' ? 'close-circle' : 'time-outline')"></ion-icon>
           {{ offerStatusLabel }}
         </span>
 
@@ -59,7 +60,8 @@
         <div class="hero-text">
           <span class="hero-tag">Welcome to Tech Tammina</span>
           <h1>Hello, <span class="text-gradient">{{ candidateName }}</span></h1>
-          <p>We are thrilled to extend this career opportunity to you. Review your employment offer, track your pre-onboarding progress, and prepare for Day 1.</p>
+          <p>We are thrilled to extend this career opportunity to you. Review your employment offer, track your
+            pre-onboarding progress, and prepare for Day 1.</p>
         </div>
 
         <!-- Joining Countdown Card -->
@@ -71,10 +73,10 @@
             <span class="countdown-label">Target Date of Joining</span>
             <strong class="countdown-date">{{ formatDate(dateOfJoining) }}</strong>
             <span class="countdown-days" *ngIf="daysUntilJoining !== null && daysUntilJoining > 0">
-              ⚡ {{ daysUntilJoining }} days to go!
+              {{ daysUntilJoining }} days to go!
             </span>
             <span class="countdown-days" *ngIf="daysUntilJoining !== null && daysUntilJoining <= 0">
-              🎯 Joining Date Arrived!
+              Joining Date Arrived!
             </span>
           </div>
         </div>
@@ -86,7 +88,8 @@
       <div class="celebration-icon">🎉</div>
       <div class="celebration-body">
         <h3>Offer Accepted Successfully!</h3>
-        <p>Welcome to the Tech Tammina family! Please proceed to the <strong>Pre-Onboarding Checklist</strong> tab to review and submit your joining documents.</p>
+        <p>Welcome to the Tech Tammina family! Please proceed to the <strong>Pre-Onboarding Checklist</strong> tab to
+          review and submit your joining documents.</p>
       </div>
       <ion-button size="small" fill="solid" color="success" (click)="setTab('documents')" class="celebrate-btn">
         View Checklist
@@ -118,7 +121,7 @@
 
     <!-- ════════════════ TAB 1: OVERVIEW & JOURNEY ════════════════ -->
     <div *ngIf="currentTab === 'home'" class="tab-content fade-in">
-      
+
       <!-- Key Highlights Grid -->
       <div class="summary-metrics-grid">
         <div class="metric-box">
@@ -233,7 +236,7 @@
 
       <!-- Profile & Employment Details Dual Cards -->
       <div class="dual-cards-grid">
-        
+
         <!-- Personal Details -->
         <div class="portal-card">
           <div class="card-header-row">
@@ -312,7 +315,7 @@
 
     <!-- ════════════════ TAB 2: OFFER LETTER & BREAKDOWN ════════════════ -->
     <div *ngIf="currentTab === 'offer'" class="tab-content fade-in">
-      
+
       <!-- Toolbar: Print & Quick Status -->
       <div class="offer-doc-toolbar">
         <div class="toolbar-left">
@@ -328,9 +331,7 @@
       </div>
 
       <!-- A4 Letter View -->
-      <app-offer-letter-view
-        [candidate]="candidate"
-        [showControls]="false">
+      <app-offer-letter-view [candidate]="candidate" [showControls]="false">
       </app-offer-letter-view>
 
       <!-- Compensation Highlights Table -->
@@ -376,14 +377,17 @@
       <div class="portal-card offer-decision-panel">
         <div *ngIf="!isOfferProcessed">
           <h3>Ready to take the next step?</h3>
-          <p>Please review all clauses above. Once you confirm acceptance, you will gain access to upload your pre-onboarding documents.</p>
+          <p>Please review all clauses above. Once you confirm acceptance, you will gain access to upload your
+            pre-onboarding documents.</p>
           <div class="decision-btn-row">
-            <ion-button size="default" color="success" class="action-btn-large" (click)="confirmAcceptOffer()" [disabled]="isProcessing">
+            <ion-button size="default" color="success" class="action-btn-large" (click)="confirmAcceptOffer()"
+              [disabled]="isProcessing">
               <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
               Accept Employment Offer
             </ion-button>
 
-            <ion-button size="default" fill="outline" color="danger" class="action-btn-large" (click)="confirmDeclineOffer()" [disabled]="isProcessing">
+            <ion-button size="default" fill="outline" color="danger" class="action-btn-large"
+              (click)="confirmDeclineOffer()" [disabled]="isProcessing">
               <ion-icon name="close-circle-outline" slot="start"></ion-icon>
               Decline Offer
             </ion-button>
@@ -393,10 +397,12 @@
         <div *ngIf="isOfferAccepted" class="accepted-state-box">
           <ion-icon name="checkmark-done-circle" class="accepted-big-icon"></ion-icon>
           <h3>You Accepted This Employment Offer</h3>
-          <p>Confirmation recorded on <strong>{{ formatDate(candidate?.offer_accepted_date || dateOfJoining) }}</strong>. Your HR Coordinator has been notified.</p>
+          <p>Confirmation recorded on <strong>{{ formatDate(candidate?.offer_accepted_date || dateOfJoining)
+              }}</strong>. Your HR Coordinator has been notified.</p>
         </div>
 
-        <div *ngIf="candidate?.status === 'offer_declined' || candidate?.status === 'rejected'" class="declined-state-box">
+        <div *ngIf="candidate?.status === 'offer_declined' || candidate?.status === 'rejected'"
+          class="declined-state-box">
           <ion-icon name="close-circle" class="declined-big-icon"></ion-icon>
           <h3>Employment Offer Declined</h3>
           <p>You have indicated that you are unable to accept this offer at this time.</p>
@@ -407,7 +413,7 @@
 
     <!-- ════════════════ TAB 3: PRE-ONBOARDING CHECKLIST ════════════════ -->
     <div *ngIf="currentTab === 'documents'" class="tab-content fade-in">
-      
+
       <div class="portal-card">
         <div class="card-header-row">
           <div class="header-title-box">
@@ -418,7 +424,8 @@
         </div>
 
         <p class="checklist-desc">
-          To ensure seamless Day 1 onboarding and payroll registration, please have digital copies (PDF/JPG) of the following documents ready for verification.
+          To ensure seamless Day 1 onboarding and payroll registration, please have digital copies (PDF/JPG) of the
+          following documents ready for verification.
         </p>
 
         <div class="checklist-items-grid">
@@ -429,7 +436,8 @@
             <div class="doc-content">
               <div class="doc-title-row">
                 <span class="doc-title">{{ doc.title }}</span>
-                <span class="req-tag" [class.mandatory]="doc.mandatory">{{ doc.mandatory ? 'Mandatory' : 'Optional' }}</span>
+                <span class="req-tag" [class.mandatory]="doc.mandatory">{{ doc.mandatory ? 'Mandatory' : 'Optional'
+                  }}</span>
               </div>
               <p class="doc-desc">{{ doc.description }}</p>
               <div class="doc-action-bar">
@@ -452,9 +460,9 @@
 
     <!-- ════════════════ TAB 4: FIRST DAY GUIDE & LOCATION ════════════════ -->
     <div *ngIf="currentTab === 'guide'" class="tab-content fade-in">
-      
+
       <div class="dual-cards-grid">
-        
+
         <!-- Day 1 Checklist -->
         <div class="portal-card">
           <div class="card-header-row">
@@ -463,7 +471,7 @@
               <h3>What to Expect on Day 1</h3>
             </div>
           </div>
-          
+
           <div class="guide-steps-list">
             <div class="guide-item">
               <div class="guide-num">01</div>
