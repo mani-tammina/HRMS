@@ -70,9 +70,19 @@ export class CompensationComponent implements OnInit {
   initForm() {
     if (!this.candidate) this.candidate = {};
 
-    // Load initial values from candidate
-    if (this.candidate.offered_ctc) {
-      this.annualSalary = Number(this.candidate.offered_ctc);
+    // Load initial values from candidate - check all possible CTC fields
+    const ctcCandidate = this.candidate.offered_ctc || 
+                         this.candidate.jobDetailsForm?.offeredCTC || 
+                         this.candidate.jobDetailsForm?.offered_ctc || 
+                         this.candidate.package || 
+                         this.candidate.jobDetailsForm?.package ||
+                         this.candidate.jobDetailsForm?.package_lpa;
+
+    if (ctcCandidate !== undefined && ctcCandidate !== null && ctcCandidate !== '') {
+      const parsed = parseFloat(String(ctcCandidate).replace(/[^0-9.]/g, ''));
+      if (!isNaN(parsed) && parsed > 0) {
+        this.annualSalary = parsed;
+      }
     }
     if (this.candidate.eligible_pf !== undefined) {
       this.eligiblePF = this.candidate.eligible_pf === 1 || this.candidate.eligible_pf === true;
@@ -89,7 +99,6 @@ export class CompensationComponent implements OnInit {
     if (this.candidate.payroll_template_id) {
       this.selectedTemplateId = Number(this.candidate.payroll_template_id);
     }
-
   }
 
   saveCompensation() {

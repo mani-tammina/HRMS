@@ -79,9 +79,9 @@
 
         <div class="form-group">
 
-          <label>Annual Salary</label>
+          <label>Annual Salary (CTC)</label>
 
-          <ion-input type="number" [value]="annualSalary" (ionInput)="onAnnualSalaryChange($event)" placeholder="600000">
+          <ion-input type="number" [(ngModel)]="annualSalary" (ionInput)="onAnnualSalaryChange($event)" (ionChange)="onAnnualSalaryChange($event)" placeholder="Enter Annual CTC">
           </ion-input>
 
         </div>

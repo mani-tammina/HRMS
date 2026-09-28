@@ -12,8 +12,13 @@ export class CandidateService {
   constructor(private http: HttpClient) { }
 
   // Get all candidates
-  getAllCandidates(): Observable<any> {
-    return this.http.get<any>(this.apiUrl);
+  getAllCandidates(params?: any): Observable<any> {
+    return this.http.get<any>(this.apiUrl, { params });
+  }
+
+  // Get offer accepted candidates
+  getOfferAcceptedCandidates(params?: any): Observable<any> {
+    return this.http.get<any>(this.apiUrl, { params: { ...params, offer_accepted: '1' } });
   }
 
   // Get candidate by ID

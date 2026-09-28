@@ -38,8 +38,20 @@ const routes: Routes = [
     data: { role: ['admin', 'hr'] }
   },
   {
-    // Public candidate verification page
+    // Public candidate verification page (with or without id param)
     path: 'candidate-portal/login/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-portal/login',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-login/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-login',
     loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
   },
   {

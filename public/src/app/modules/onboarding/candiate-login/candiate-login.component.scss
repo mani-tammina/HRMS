@@ -1,169 +1,1046 @@
 .login-content {
-  --background: #f0f4f8;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  --background: #0b1329;
+  position: relative;
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  min-height: 100vh;
+}
+
+/* ── Ambient Background Glow & Tech Grid ── */
+.login-page-bg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+
+  .glow-sphere {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(90px);
+    opacity: 0.4;
+  }
+
+  .glow-1 {
+    width: 500px;
+    height: 500px;
+    top: -120px;
+    left: -100px;
+    background: radial-gradient(circle, #2563eb 0%, rgba(37, 99, 235, 0) 70%);
+  }
+
+  .glow-2 {
+    width: 550px;
+    height: 550px;
+    bottom: -160px;
+    right: -120px;
+    background: radial-gradient(circle, #4f46e5 0%, rgba(79, 70, 229, 0) 70%);
+  }
+
+  .glow-3 {
+    width: 380px;
+    height: 380px;
+    top: 35%;
+    left: 40%;
+    background: radial-gradient(circle, #06b6d4 0%, rgba(6, 182, 212, 0) 70%);
+    opacity: 0.22;
+  }
+
+  .grid-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: 
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: 32px 32px;
+    opacity: 0.7;
+  }
 }
 
 .login-container {
+  position: relative;
+  z-index: 1;
+  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 80vh;
-  padding: 20px;
+  padding: 32px 20px;
+  box-sizing: border-box;
 }
 
-// ── Loading / Error states ───────────────────────────────────────────────
-
-.loading-wrapper,
-.error-wrapper {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #ffffff;
-  padding: 40px;
-  border-radius: 16px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
-  max-width: 400px;
+/* ── State Cards (Loading / Error) ── */
+.state-card {
+  background: rgba(17, 24, 39, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  padding: 44px 32px;
+  max-width: 440px;
   width: 100%;
   text-align: center;
-  color: #666;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+  color: #f8fafc;
+  animation: fadeIn 0.3s ease;
 
-  p {
-    font-size: 15px;
-    margin: 16px 0 0;
-  }
-}
-
-.error-icon {
-  font-size: 54px;
-  color: #e53935;
-}
-
-.error-msg {
-  color: #333;
-  font-weight: 500;
-  line-height: 1.5;
-}
-
-// ── Card Styles ──────────────────────────────────────────────────────────
-
-.login-card {
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-  max-width: 420px;
-  width: 100%;
-  padding: 40px 32px;
-  border-top: 4px solid #1976d2;
-}
-
-.card-header {
-  text-align: center;
-  margin-bottom: 32px;
-
-  .company-logo {
-    height: 60px;
-    object-fit: contain;
-    margin-bottom: 20px;
-  }
-
-  h2 {
-    font-size: 22px;
+  h3 {
+    font-size: 21px;
     font-weight: 700;
-    color: #1a1a2e;
-    margin: 0 0 10px;
+    margin: 18px 0 8px;
+    color: #f8fafc;
   }
 
   p {
     font-size: 14px;
-    color: #666;
-    line-height: 1.5;
+    color: #94a3b8;
+    line-height: 1.55;
     margin: 0;
   }
-}
 
-// ── Form & Inputs ────────────────────────────────────────────────────────
+  .spinner-ring {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: rgba(37, 99, 235, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
 
-.login-form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.field-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #4a5568;
-}
-
-.input-wrapper {
-  position: relative;
-  display: flex;
-  align-items: center;
-
-  .input-icon {
-    position: absolute;
-    left: 14px;
-    font-size: 20px;
-    color: #a0aec0;
-    pointer-events: none;
-  }
-}
-
-.form-input {
-  width: 100%;
-  padding: 14px 14px 14px 44px;
-  border: 1.5px solid #cbd5e0;
-  border-radius: 10px;
-  font-size: 15px;
-  color: #2d3748;
-  outline: none;
-  transition: all 0.2s ease;
-  background-color: #f7fafc;
-
-  &:focus {
-    border-color: #1976d2;
-    background-color: #ffffff;
-    box-shadow: 0 0 0 3px rgba(25, 118, 210, 0.15);
+    ion-spinner {
+      width: 38px;
+      height: 38px;
+    }
   }
 
-  &::placeholder {
-    color: #a0aec0;
+  .error-icon-box {
+    width: 68px;
+    height: 68px;
+    border-radius: 50%;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: #ef4444;
+    font-size: 38px;
   }
 
-  &.has-error {
-    border-color: #e53935;
-    background-color: #fff8f8;
+  .help-box {
+    margin-top: 24px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #cbd5e1;
+    text-align: left;
 
-    &:focus {
-      box-shadow: 0 0 0 3px rgba(229, 57, 53, 0.15);
+    ion-icon {
+      font-size: 22px;
+      color: #38bdf8;
+      flex-shrink: 0;
+    }
+
+    strong {
+      color: #38bdf8;
     }
   }
 }
 
-.validation-error {
-  font-size: 12px;
-  color: #e53935;
-  font-weight: 500;
-  margin-top: 2px;
+/* ── Main Dual-Panel Auth Card ── */
+.portal-auth-card {
+  display: grid;
+  grid-template-columns: 1fr;
+  max-width: 1060px;
+  width: 100%;
+  background: rgba(15, 23, 42, 0.82);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 24px;
+  box-shadow: 
+    0 25px 65px -15px rgba(0, 0, 0, 0.7),
+    0 0 30px rgba(59, 130, 246, 0.12);
+  overflow: hidden;
+
+  @media (min-width: 900px) {
+    grid-template-columns: 1.12fr 1fr;
+  }
 }
 
-.verify-btn {
-  --background: #1976d2;
-  --background-hover: #1565c0;
-  --border-radius: 10px;
-  --padding-top: 14px;
-  --padding-bottom: 14px;
-  font-weight: 700;
-  font-size: 15px;
-  letter-spacing: 0.3px;
-  margin-top: 10px;
+/* ── Left Panel (Hero, Vector Image & Roadmap) ── */
+.auth-left-panel {
+  background: linear-gradient(155deg, rgba(26, 38, 59, 0.96) 0%, rgba(15, 23, 42, 0.98) 100%);
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+
+  @media (min-width: 900px) {
+    border-bottom: none;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .brand-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+
+    .brand-logo-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .auth-brand-logo {
+        height: 44px;
+        max-width: 170px;
+        object-fit: contain;
+        filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.35));
+      }
+    }
+
+    .portal-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 20px;
+      letter-spacing: 0.3px;
+
+      ion-icon {
+        font-size: 14px;
+        color: #38bdf8;
+      }
+    }
+  }
+
+  .hero-text-block {
+    margin-bottom: 20px;
+
+    .welcome-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid rgba(245, 158, 11, 0.32);
+      color: #fbbf24;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 4px 12px;
+      border-radius: 20px;
+      margin-bottom: 12px;
+
+      .sparkle {
+        font-size: 13px;
+      }
+    }
+
+    h2 {
+      font-size: 25px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1.25;
+      margin: 0 0 10px;
+      letter-spacing: -0.4px;
+    }
+
+    p {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.55;
+      margin: 0;
+    }
+  }
+
+  /* Vector Illustration Box */
+  .vector-illustration-container {
+    margin: 10px 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+
+    .login-vector-svg {
+      width: 100%;
+      max-width: 420px;
+      height: auto;
+      filter: drop-shadow(0 10px 25px rgba(0, 0, 0, 0.45));
+    }
+
+    /* Floating micro animations */
+    .floating-item {
+      transition: transform 0.3s ease;
+    }
+
+    .float-left {
+      animation: floatUpDown 4s ease-in-out infinite;
+    }
+
+    .float-right {
+      animation: floatUpDown 4.5s ease-in-out infinite 0.5s;
+    }
+
+    .float-key {
+      animation: pulseKey 3s ease-in-out infinite;
+    }
+  }
+
+  /* Journey steps timeline */
+  .journey-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+
+      .step-dot {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 2px;
+      }
+
+      .step-content {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+
+        strong {
+          font-size: 13px;
+          color: #e2e8f0;
+          font-weight: 600;
+        }
+
+        span {
+          font-size: 11.5px;
+          color: #64748b;
+        }
+      }
+
+      &.completed {
+        .step-dot {
+          background: rgba(16, 185, 129, 0.2);
+          border-color: #10b981;
+          color: #10b981;
+          font-size: 18px;
+        }
+      }
+
+      &.active {
+        .step-dot {
+          background: rgba(59, 130, 246, 0.25);
+          border-color: #3b82f6;
+
+          .inner-pulse {
+            width: 10px;
+            height: 10px;
+            background: #3b82f6;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+          }
+        }
+
+        .step-content strong {
+          color: #60a5fa;
+        }
+      }
+    }
+  }
+
+  .security-footer-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    font-size: 11.5px;
+    color: #64748b;
+
+    ion-icon {
+      font-size: 16px;
+      color: #10b981;
+      flex-shrink: 0;
+    }
+  }
+}
+
+/* ── Right Panel (Auth Forms & OTP) ── */
+.auth-right-panel {
+  background: rgba(22, 30, 49, 0.88);
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  .mobile-brand-row {
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 22px;
+
+    @media (max-width: 899px) {
+      display: flex;
+    }
+
+    .mobile-logo {
+      height: 38px;
+      object-fit: contain;
+    }
+
+    .mobile-portal-badge {
+      font-size: 11.5px;
+      color: #93c5fd;
+      background: rgba(59, 130, 246, 0.2);
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-weight: 600;
+    }
+  }
+
+  .candidate-greeting-chip {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 9px 14px;
+    border-radius: 14px;
+    margin-bottom: 22px;
+
+    .avatar-circle {
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+      color: #fff;
+      font-weight: 700;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+    }
+
+    .greeting-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      flex: 1;
+
+      .greeting-title {
+        font-size: 13.5px;
+        color: #f1f5f9;
+
+        strong {
+          color: #ffffff;
+        }
+      }
+
+      .greeting-role {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 12px;
+        color: #93c5fd;
+
+        ion-icon {
+          font-size: 13px;
+        }
+      }
+    }
+
+    .greeting-verified-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 12px;
+
+      ion-icon {
+        font-size: 13px;
+      }
+    }
+  }
+
+  .auth-step-container {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .form-header {
+    margin-bottom: 24px;
+
+    h3 {
+      font-size: 23px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 6px;
+      letter-spacing: -0.3px;
+    }
+
+    p {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 0;
+    }
+  }
+
+  .auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .field-container {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+
+    .label-with-hint {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+
+      .sub-hint {
+        font-size: 11px;
+        color: #64748b;
+      }
+    }
+
+    .input-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #cbd5e1;
+      letter-spacing: 0.2px;
+    }
+
+    .custom-input-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: rgba(11, 19, 43, 0.7);
+      border: 1.5px solid rgba(255, 255, 255, 0.14);
+      border-radius: 12px;
+      padding: 0 16px;
+      height: 50px;
+      transition: all 0.2s ease;
+
+      .leading-icon {
+        font-size: 19px;
+        color: #64748b;
+        transition: color 0.2s;
+        flex-shrink: 0;
+      }
+
+      input {
+        background: transparent;
+        border: none;
+        outline: none;
+        flex: 1;
+        font-size: 14.5px;
+        color: #ffffff;
+        font-family: inherit;
+
+        &::placeholder {
+          color: #64748b;
+        }
+      }
+
+      .password-toggle-btn {
+        background: transparent;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 4px;
+        color: #94a3b8;
+        font-size: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: color 0.2s;
+
+        &:hover {
+          color: #38bdf8;
+        }
+      }
+
+      &:focus-within {
+        border-color: #3b82f6;
+        background: rgba(11, 19, 43, 0.95);
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2);
+
+        .leading-icon {
+          color: #3b82f6;
+        }
+      }
+
+      &.input-error {
+        border-color: #ef4444;
+        background: rgba(239, 68, 68, 0.05);
+
+        .leading-icon {
+          color: #ef4444;
+        }
+
+        &:focus-within {
+          box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+        }
+      }
+    }
+
+    .field-error-msg {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #f87171;
+      font-weight: 500;
+      margin-top: 2px;
+
+      ion-icon {
+        font-size: 14px;
+      }
+    }
+  }
+
+  .form-aux-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 12.5px;
+
+    .remember-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #94a3b8;
+      cursor: pointer;
+
+      .custom-checkbox {
+        accent-color: #3b82f6;
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+      }
+    }
+
+    .otp-tag-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11.5px;
+      color: #38bdf8;
+      background: rgba(56, 189, 248, 0.12);
+      padding: 3px 8px;
+      border-radius: 8px;
+
+      ion-icon {
+        font-size: 13px;
+      }
+    }
+  }
+
+  .submit-access-btn {
+    --background: linear-gradient(135deg, #2563eb, #3b82f6);
+    --background-hover: linear-gradient(135deg, #1d4ed8, #2563eb);
+    --border-radius: 12px;
+    --box-shadow: 0 8px 22px -4px rgba(37, 99, 235, 0.55);
+    height: 50px;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    margin-top: 6px;
+
+    .btn-spinner {
+      width: 18px;
+      height: 18px;
+      margin-right: 8px;
+    }
+  }
+
+  .help-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 12px;
+    color: #94a3b8;
+    line-height: 1.45;
+
+    ion-icon {
+      font-size: 18px;
+      color: #60a5fa;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+  }
+
+  .hr-support-text {
+    text-align: center;
+    font-size: 12.5px;
+    color: #64748b;
+    margin-top: 4px;
+
+    a {
+      color: #38bdf8;
+      font-weight: 600;
+      text-decoration: none;
+
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+  }
+
+  /* ── STEP 2: OTP Verification Specific Styles ── */
+  .otp-step-animation {
+    animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .otp-header {
+    text-align: center;
+    margin-bottom: 20px;
+
+    .otp-icon-bubble {
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.18);
+      border: 1px solid rgba(59, 130, 246, 0.35);
+      color: #38bdf8;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 14px;
+      box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
+    }
+
+    h3 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #ffffff;
+      margin: 0 0 8px;
+    }
+
+    p {
+      font-size: 13.5px;
+      color: #94a3b8;
+      line-height: 1.5;
+      margin: 0;
+
+      .highlight-email {
+        color: #38bdf8;
+        font-weight: 600;
+      }
+    }
+  }
+
+  /* Demo OTP Banner for Instant Ease of Testing */
+  .demo-otp-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, rgba(37, 99, 235, 0.18), rgba(16, 185, 129, 0.15));
+    border: 1px dashed rgba(59, 130, 246, 0.5);
+    border-radius: 12px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+
+    .banner-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      .otp-badge-pill {
+        font-size: 11px;
+        text-transform: uppercase;
+        font-weight: 700;
+        background: #2563eb;
+        color: #ffffff;
+        padding: 3px 8px;
+        border-radius: 6px;
+        letter-spacing: 0.4px;
+      }
+
+      .otp-code-display {
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 18px;
+        font-weight: 800;
+        color: #38bdf8;
+        letter-spacing: 3px;
+      }
+    }
+
+    .autofill-action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      ion-icon {
+        font-size: 13px;
+        color: #fbbf24;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: translateY(-1px);
+      }
+    }
+  }
+
+  /* OTP Segmented Input Boxes */
+  .otp-input-wrapper {
+    margin-bottom: 20px;
+
+    .otp-boxes-grid {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+
+      .otp-digit-box {
+        width: 48px;
+        height: 56px;
+        border-radius: 12px;
+        background: rgba(11, 19, 43, 0.85);
+        border: 2px solid rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+        font-size: 22px;
+        font-weight: 700;
+        text-align: center;
+        outline: none;
+        transition: all 0.2s ease;
+        font-family: inherit;
+
+        &:focus {
+          border-color: #3b82f6;
+          background: rgba(11, 19, 43, 1);
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+          transform: translateY(-2px);
+        }
+
+        &.filled {
+          border-color: #38bdf8;
+          background: rgba(30, 58, 138, 0.25);
+        }
+      }
+
+      &.otp-has-error {
+        animation: shake 0.4s ease;
+
+        .otp-digit-box {
+          border-color: #ef4444;
+          background: rgba(239, 68, 68, 0.08);
+
+          &:focus {
+            box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.2);
+          }
+        }
+      }
+    }
+
+    .center-error {
+      justify-content: center;
+      margin-top: 10px;
+    }
+  }
+
+  /* Resend & Timer Row */
+  .resend-countdown-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 13px;
+
+    .timer-active {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #94a3b8;
+
+      ion-icon {
+        font-size: 16px;
+        color: #38bdf8;
+      }
+
+      strong {
+        color: #ffffff;
+      }
+    }
+
+    .resend-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      color: #38bdf8;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 12px;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+
+      ion-icon {
+        font-size: 16px;
+      }
+
+      &:hover {
+        background: rgba(56, 189, 248, 0.1);
+        text-decoration: underline;
+      }
+    }
+  }
+
+  /* Back to credentials */
+  .back-to-credentials-row {
+    text-align: center;
+    margin: 14px 0 10px;
+
+    .back-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: transparent;
+      border: none;
+      color: #94a3b8;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 6px 10px;
+      border-radius: 6px;
+      transition: color 0.2s;
+
+      ion-icon {
+        font-size: 14px;
+      }
+
+      &:hover {
+        color: #ffffff;
+      }
+    }
+  }
+}
+
+/* ── Keyframe Animations ── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes floatUpDown {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseKey {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* ── Responsive adjustments ── */
+@media (max-width: 600px) {
+  .login-container {
+    padding: 16px 12px;
+  }
+
+  .portal-auth-card {
+    border-radius: 18px;
+  }
+
+  .auth-left-panel,
+  .auth-right-panel {
+    padding: 28px 20px;
+  }
+
+  .otp-boxes-grid {
+    gap: 6px !important;
+
+    .otp-digit-box {
+      width: 42px !important;
+      height: 50px !important;
+      font-size: 19px !important;
+    }
+  }
 }

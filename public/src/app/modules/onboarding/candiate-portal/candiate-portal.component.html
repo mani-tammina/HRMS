@@ -1,192 +1,550 @@
-<ion-content class="portal-content">
+<ion-content class="portal-content" [fullscreen]="true">
 
-  <!-- ── Loading state ──────────────────────────────────── -->
+  <!-- ── Loading State ────────────────────────────────────────────── -->
   <div *ngIf="isLoading" class="loading-wrapper">
-    <ion-spinner name="crescent" class="big-spinner"></ion-spinner>
-    <p>Loading your offer details...</p>
+    <div class="spinner-box">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+    </div>
+    <h3>Loading Candidate Portal</h3>
+    <p>Retrieving your personalized offer and pre-onboarding journey...</p>
   </div>
 
-  <!-- ── Error state ────────────────────────────────────── -->
+  <!-- ── Error State ──────────────────────────────────────────────── -->
   <div *ngIf="!isLoading && errorMessage" class="error-wrapper">
-    <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+    <div class="error-icon-box">
+      <ion-icon name="alert-circle-outline"></ion-icon>
+    </div>
+    <h3>Access Error</h3>
     <p>{{ errorMessage }}</p>
+    <ion-button fill="outline" (click)="logout()" class="back-btn">
+      <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
+      Back to Verification
+    </ion-button>
   </div>
 
-  <!-- ── Main portal ────────────────────────────────────── -->
+  <!-- ── Main Portal Experience ───────────────────────────────────── -->
   <div *ngIf="!isLoading && !errorMessage" class="portal-wrapper">
 
-    <!-- Header bar -->
-    <div class="portal-header">
-      <img src="assets/techtammina.webp" alt="Tech Tammina Logo" class="company-logo"
-           onerror="this.style.display='none'" />
-      <div class="candidate-chip">
-        <div class="avatar">{{ avatarLetter }}</div>
-        <span class="candidate-name-label">{{ candidateName }}</span>
+    <!-- Top Navigation Header -->
+    <header class="portal-top-bar">
+      <div class="brand-side">
+        <img src="assets/techtammina.webp" alt="Tech Tammina" class="portal-logo" onerror="this.style.display='none'" />
+        <span class="portal-label">Candidate Portal</span>
       </div>
-    </div>
 
-    <!-- Tab navigation -->
-    <ion-segment [value]="currentTab" (ionChange)="onTabChange($event)" class="portal-tabs">
-      <ion-segment-button value="home">
-        <ion-label>Home</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="offer">
-        <ion-label>Offer</ion-label>
-      </ion-segment-button>
-    </ion-segment>
+      <div class="user-side">
+        <!-- Live Status Pill -->
+        <span class="status-pill" [ngClass]="offerStatusClass">
+          <ion-icon [name]="isOfferAccepted ? 'checkmark-circle' : (offerStatusClass === 'rejected' ? 'close-circle' : 'time-outline')"></ion-icon>
+          {{ offerStatusLabel }}
+        </span>
 
-    <!-- Home tab -->
-    <div *ngIf="currentTab === 'home'">
-      <div class="portal-grid">
-        <!-- Left: Greeting Card & Summary -->
-        <div class="grid-left">
-          <ion-card class="welcome-card">
-            <ion-card-content>
-              <h1 class="welcome-title">
-                Welcome, <span class="highlight">{{ candidateName }}!</span>
-              </h1>
-              <p class="message-text">
-                It was great interacting with you as part of our hiring process. We are excited to bring you onboard. Please review your details and click the <b>Offer</b> tab to view your official offer letter.
-              </p>
-
-              <!-- Offer summary chips -->
-              <div class="info-chips" *ngIf="designation || offerExpiryDate || dateOfJoining">
-                <div class="info-chip" *ngIf="designation">
-                  <ion-icon name="briefcase-outline"></ion-icon>
-                  <span>{{ designation }}</span>
-                </div>
-                <div class="info-chip" *ngIf="dateOfJoining">
-                  <ion-icon name="calendar-outline"></ion-icon>
-                  <span>Joining: {{ dateOfJoining }}</span>
-                </div>
-                <div class="info-chip accent" *ngIf="offerExpiryDate">
-                  <ion-icon name="time-outline"></ion-icon>
-                  <span>Accept by: {{ offerExpiryDate }}</span>
-                </div>
-              </div>
-
-              <p class="regards-text">
-                Regards,<br />
-                <b>Sree Tammina Software Solutions Pvt. Ltd. HR Team</b>
-              </p>
-            </ion-card-content>
-          </ion-card>
+        <div class="candidate-profile-chip">
+          <div class="avatar-ring">{{ avatarLetter }}</div>
+          <div class="chip-text">
+            <span class="chip-name">{{ candidateName }}</span>
+            <span class="chip-id">{{ candidateId }}</span>
+          </div>
         </div>
 
-        <!-- Right: Candidate & Job Profile details -->
-        <div class="grid-right">
-          <!-- Personal Details Card -->
-          <ion-card class="detail-card">
-            <ion-card-header>
-              <div class="card-title-row">
-                <ion-icon name="person-outline"></ion-icon>
-                <ion-card-title>Personal Details</ion-card-title>
-              </div>
-            </ion-card-header>
-            <ion-card-content>
-              <div class="detail-grid">
-                <div class="detail-item">
-                  <span class="label">Candidate ID</span>
-                  <span class="value">{{ candidateId || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Full Name</span>
-                  <span class="value">{{ candidateFullName || candidateName }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Email Address</span>
-                  <span class="value">{{ email || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Phone Number</span>
-                  <span class="value">{{ phone || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Date of Birth</span>
-                  <span class="value">{{ dob || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Gender</span>
-                  <span class="value">{{ gender || 'N/A' }}</span>
-                </div>
-              </div>
-            </ion-card-content>
-          </ion-card>
+        <ion-button fill="clear" size="small" (click)="logout()" class="exit-btn" title="Exit portal">
+          <ion-icon name="log-out-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </div>
+    </header>
 
-          <!-- Job Details Card -->
-          <ion-card class="detail-card">
-            <ion-card-header>
-              <div class="card-title-row">
-                <ion-icon name="business-outline"></ion-icon>
-                <ion-card-title>Employment Details</ion-card-title>
-              </div>
-            </ion-card-header>
-            <ion-card-content>
-              <div class="detail-grid">
-                <div class="detail-item">
-                  <span class="label">Designation / Role</span>
-                  <span class="valueHighlight">{{ designation || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Department</span>
-                  <span class="value">{{ department || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Work Location</span>
-                  <span class="value">{{ location || 'N/A' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Work Type</span>
-                  <span class="value">{{ workType || 'Permanent' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Offered CTC (Annual)</span>
-                  <span class="valueHighlight">₹{{ ctc || 'As per offer letter' }}</span>
-                </div>
-                <div class="detail-item">
-                  <span class="label">Business Unit</span>
-                  <span class="value">{{ businessUnit || 'N/A' }}</span>
-                </div>
-                <div class="detail-item" *ngIf="recruiterName">
-                  <span class="label">Recruiter Name</span>
-                  <span class="value">{{ recruiterName }}</span>
-                </div>
-                <div class="detail-item" *ngIf="recruitmentSource">
-                  <span class="label">Recruitment Source</span>
-                  <span class="value">{{ recruitmentSource }}</span>
-                </div>
-              </div>
-            </ion-card-content>
-          </ion-card>
+    <!-- Hero Greeting Banner -->
+    <div class="hero-banner">
+      <div class="hero-content">
+        <div class="hero-text">
+          <span class="hero-tag">Welcome to Tech Tammina</span>
+          <h1>Hello, <span class="text-gradient">{{ candidateName }}</span></h1>
+          <p>We are thrilled to extend this career opportunity to you. Review your employment offer, track your pre-onboarding progress, and prepare for Day 1.</p>
+        </div>
+
+        <!-- Joining Countdown Card -->
+        <div class="joining-highlight-card" *ngIf="dateOfJoining">
+          <div class="calendar-icon-wrap">
+            <ion-icon name="calendar-outline"></ion-icon>
+          </div>
+          <div class="countdown-info">
+            <span class="countdown-label">Target Date of Joining</span>
+            <strong class="countdown-date">{{ formatDate(dateOfJoining) }}</strong>
+            <span class="countdown-days" *ngIf="daysUntilJoining !== null && daysUntilJoining > 0">
+              ⚡ {{ daysUntilJoining }} days to go!
+            </span>
+            <span class="countdown-days" *ngIf="daysUntilJoining !== null && daysUntilJoining <= 0">
+              🎯 Joining Date Arrived!
+            </span>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Offer tab -->
-    <div *ngIf="currentTab === 'offer'">
-      <!-- Shared offer letter – same template used in PreviewSendComponent (HR view) -->
+    <!-- Acceptance Success Alert Banner -->
+    <div *ngIf="isOfferAccepted" class="celebration-banner">
+      <div class="celebration-icon">🎉</div>
+      <div class="celebration-body">
+        <h3>Offer Accepted Successfully!</h3>
+        <p>Welcome to the Tech Tammina family! Please proceed to the <strong>Pre-Onboarding Checklist</strong> tab to review and submit your joining documents.</p>
+      </div>
+      <ion-button size="small" fill="solid" color="success" (click)="setTab('documents')" class="celebrate-btn">
+        View Checklist
+      </ion-button>
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="portal-nav-tabs">
+      <button class="nav-tab-btn" [class.active]="currentTab === 'home'" (click)="setTab('home')">
+        <ion-icon name="grid-outline"></ion-icon>
+        <span>Overview &amp; Journey</span>
+      </button>
+
+      <button class="nav-tab-btn" [class.active]="currentTab === 'offer'" (click)="setTab('offer')">
+        <ion-icon name="document-text-outline"></ion-icon>
+        <span>Offer Letter &amp; Compensation</span>
+      </button>
+
+      <button class="nav-tab-btn" [class.active]="currentTab === 'documents'" (click)="setTab('documents')">
+        <ion-icon name="checkbox-outline"></ion-icon>
+        <span>Pre-Onboarding Checklist</span>
+      </button>
+
+      <button class="nav-tab-btn" [class.active]="currentTab === 'guide'" (click)="setTab('guide')">
+        <ion-icon name="compass-outline"></ion-icon>
+        <span>First Day Guide &amp; Location</span>
+      </button>
+    </div>
+
+    <!-- ════════════════ TAB 1: OVERVIEW & JOURNEY ════════════════ -->
+    <div *ngIf="currentTab === 'home'" class="tab-content fade-in">
+      
+      <!-- Key Highlights Grid -->
+      <div class="summary-metrics-grid">
+        <div class="metric-box">
+          <div class="metric-icon-wrap icon-blue">
+            <ion-icon name="briefcase-outline"></ion-icon>
+          </div>
+          <div class="metric-meta">
+            <span class="meta-label">Position / Role</span>
+            <strong class="meta-value">{{ designation }}</strong>
+          </div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-icon-wrap icon-green">
+            <ion-icon name="cash-outline"></ion-icon>
+          </div>
+          <div class="metric-meta">
+            <span class="meta-label">Offered Annual CTC</span>
+            <strong class="meta-value">₹{{ ctc }}</strong>
+          </div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-icon-wrap icon-purple">
+            <ion-icon name="business-outline"></ion-icon>
+          </div>
+          <div class="metric-meta">
+            <span class="meta-label">Department</span>
+            <strong class="meta-value">{{ department }}</strong>
+          </div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-icon-wrap icon-amber">
+            <ion-icon name="location-outline"></ion-icon>
+          </div>
+          <div class="metric-meta">
+            <span class="meta-label">Work Location</span>
+            <strong class="meta-value">{{ location }}</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Candidate Pre-Onboarding Journey Timeline -->
+      <div class="portal-card journey-card">
+        <div class="card-header-row">
+          <div class="header-title-box">
+            <ion-icon name="git-commit-outline" class="title-icon"></ion-icon>
+            <h3>Your Onboarding Milestones</h3>
+          </div>
+          <span class="journey-status-tag">5 Stages</span>
+        </div>
+
+        <div class="milestones-timeline">
+          <!-- Stage 1 -->
+          <div class="timeline-step done">
+            <div class="step-circle">
+              <ion-icon name="checkmark"></ion-icon>
+            </div>
+            <div class="step-details">
+              <strong>Offer Letter Issued</strong>
+              <span>Employment offer drafted and delivered</span>
+            </div>
+          </div>
+
+          <!-- Stage 2 -->
+          <div class="timeline-step" [ngClass]="isOfferAccepted ? 'done' : 'current'">
+            <div class="step-circle">
+              <ion-icon *ngIf="isOfferAccepted" name="checkmark"></ion-icon>
+              <span *ngIf="!isOfferAccepted">2</span>
+            </div>
+            <div class="step-details">
+              <strong>Offer Acceptance</strong>
+              <span>{{ isOfferAccepted ? 'Confirmed by Candidate' : 'Pending Candidate Review' }}</span>
+            </div>
+          </div>
+
+          <!-- Stage 3 -->
+          <div class="timeline-step" [ngClass]="isOfferAccepted ? 'current' : ''">
+            <div class="step-circle">
+              <span>3</span>
+            </div>
+            <div class="step-details">
+              <strong>Document Submission</strong>
+              <span>Upload mandatory ID, educational &amp; bank proofs</span>
+            </div>
+          </div>
+
+          <!-- Stage 4 -->
+          <div class="timeline-step">
+            <div class="step-circle">
+              <span>4</span>
+            </div>
+            <div class="step-details">
+              <strong>Background Verification (BGV)</strong>
+              <span>HR verification and system account provisioning</span>
+            </div>
+          </div>
+
+          <!-- Stage 5 -->
+          <div class="timeline-step">
+            <div class="step-circle">
+              <span>5</span>
+            </div>
+            <div class="step-details">
+              <strong>Day 1 Induction &amp; Welcome</strong>
+              <span>Welcome kit, laptop handover &amp; team orientation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile & Employment Details Dual Cards -->
+      <div class="dual-cards-grid">
+        
+        <!-- Personal Details -->
+        <div class="portal-card">
+          <div class="card-header-row">
+            <div class="header-title-box">
+              <ion-icon name="person-circle-outline" class="title-icon"></ion-icon>
+              <h3>Personal Profile</h3>
+            </div>
+          </div>
+          <div class="info-table-grid">
+            <div class="info-row">
+              <span class="lbl">Full Name</span>
+              <span class="val font-bold">{{ candidateFullName }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Candidate ID</span>
+              <span class="val badge-val">{{ candidateId }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Email Address</span>
+              <span class="val">{{ email || 'N/A' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Contact Phone</span>
+              <span class="val">{{ phone || 'N/A' }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Date of Birth</span>
+              <span class="val">{{ dob }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Gender</span>
+              <span class="val capitalize">{{ gender || 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Employment & Terms -->
+        <div class="portal-card">
+          <div class="card-header-row">
+            <div class="header-title-box">
+              <ion-icon name="id-card-outline" class="title-icon"></ion-icon>
+              <h3>Employment Terms</h3>
+            </div>
+          </div>
+          <div class="info-table-grid">
+            <div class="info-row">
+              <span class="lbl">Role / Designation</span>
+              <span class="val highlight-blue">{{ designation }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Department</span>
+              <span class="val">{{ department }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Work Location</span>
+              <span class="val">{{ location }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Employment Type</span>
+              <span class="val">{{ workType }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Business Unit</span>
+              <span class="val">{{ businessUnit }}</span>
+            </div>
+            <div class="info-row">
+              <span class="lbl">Target Joining Date</span>
+              <span class="val highlight-green">{{ formatDate(dateOfJoining) }}</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ════════════════ TAB 2: OFFER LETTER & BREAKDOWN ════════════════ -->
+    <div *ngIf="currentTab === 'offer'" class="tab-content fade-in">
+      
+      <!-- Toolbar: Print & Quick Status -->
+      <div class="offer-doc-toolbar">
+        <div class="toolbar-left">
+          <ion-icon name="shield-checkmark" class="verified-icon"></ion-icon>
+          <span>Official Employment Offer Document</span>
+        </div>
+        <div class="toolbar-right">
+          <ion-button size="small" fill="outline" color="dark" (click)="printOfferLetter()">
+            <ion-icon name="print-outline" slot="start"></ion-icon>
+            Print / Save as PDF
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- A4 Letter View -->
       <app-offer-letter-view
         [candidate]="candidate"
         [showControls]="false">
       </app-offer-letter-view>
 
-      <!-- Status banner if already accepted/declined -->
-      <div *ngIf="isOfferProcessed" class="status-banner" [ngClass]="offerStatusClass">
-        <ion-icon [name]="offerStatusClass === 'accepted' ? 'checkmark-circle-outline' : 'close-circle-outline'"></ion-icon>
-        <h2>{{ offerStatusLabel }}</h2>
+      <!-- Compensation Highlights Table -->
+      <div class="portal-card compensation-summary-card">
+        <div class="card-header-row">
+          <div class="header-title-box">
+            <ion-icon name="wallet-outline" class="title-icon"></ion-icon>
+            <h3>Compensation &amp; Benefits Structure</h3>
+          </div>
+        </div>
+
+        <div class="comp-table-wrap">
+          <table class="comp-table">
+            <thead>
+              <tr>
+                <th>Salary Component</th>
+                <th>Monthly (₹)</th>
+                <th>Annual (₹)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Basic Pay + Allowances</strong></td>
+                <td>₹{{ monthlyGross }}</td>
+                <td><strong>₹{{ ctc }}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Statutory Benefits (EPF, ESI, Gratuity)</strong></td>
+                <td>As per norms</td>
+                <td>Included in CTC</td>
+              </tr>
+              <tr class="highlight-row">
+                <td><strong>Total Cost to Company (CTC)</strong></td>
+                <td><strong>₹{{ monthlyGross }}</strong></td>
+                <td><strong class="ctc-total">₹{{ ctc }}</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
-      <!-- Action buttons -->
-      <div *ngIf="!isOfferProcessed" class="offer-actions-panel">
-        <ion-button color="success" class="accept-btn" (click)="acceptOffer()" [disabled]="isProcessing">
-          <ion-spinner *ngIf="isProcessing" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
-          Accept Offer
-        </ion-button>
-        <ion-button fill="outline" color="danger" class="decline-btn" (click)="declineOffer()" [disabled]="isProcessing">
-          Decline Offer
-        </ion-button>
+      <!-- Action Panel: Accept / Decline -->
+      <div class="portal-card offer-decision-panel">
+        <div *ngIf="!isOfferProcessed">
+          <h3>Ready to take the next step?</h3>
+          <p>Please review all clauses above. Once you confirm acceptance, you will gain access to upload your pre-onboarding documents.</p>
+          <div class="decision-btn-row">
+            <ion-button size="default" color="success" class="action-btn-large" (click)="confirmAcceptOffer()" [disabled]="isProcessing">
+              <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+              Accept Employment Offer
+            </ion-button>
+
+            <ion-button size="default" fill="outline" color="danger" class="action-btn-large" (click)="confirmDeclineOffer()" [disabled]="isProcessing">
+              <ion-icon name="close-circle-outline" slot="start"></ion-icon>
+              Decline Offer
+            </ion-button>
+          </div>
+        </div>
+
+        <div *ngIf="isOfferAccepted" class="accepted-state-box">
+          <ion-icon name="checkmark-done-circle" class="accepted-big-icon"></ion-icon>
+          <h3>You Accepted This Employment Offer</h3>
+          <p>Confirmation recorded on <strong>{{ formatDate(candidate?.offer_accepted_date || dateOfJoining) }}</strong>. Your HR Coordinator has been notified.</p>
+        </div>
+
+        <div *ngIf="candidate?.status === 'offer_declined' || candidate?.status === 'rejected'" class="declined-state-box">
+          <ion-icon name="close-circle" class="declined-big-icon"></ion-icon>
+          <h3>Employment Offer Declined</h3>
+          <p>You have indicated that you are unable to accept this offer at this time.</p>
+        </div>
       </div>
+
     </div>
+
+    <!-- ════════════════ TAB 3: PRE-ONBOARDING CHECKLIST ════════════════ -->
+    <div *ngIf="currentTab === 'documents'" class="tab-content fade-in">
+      
+      <div class="portal-card">
+        <div class="card-header-row">
+          <div class="header-title-box">
+            <ion-icon name="cloud-upload-outline" class="title-icon"></ion-icon>
+            <h3>Pre-Onboarding Document Submissions</h3>
+          </div>
+          <span class="checklist-badge">Required for BGV</span>
+        </div>
+
+        <p class="checklist-desc">
+          To ensure seamless Day 1 onboarding and payroll registration, please have digital copies (PDF/JPG) of the following documents ready for verification.
+        </p>
+
+        <div class="checklist-items-grid">
+          <div class="checklist-card" *ngFor="let doc of documentChecklist">
+            <div class="doc-icon-wrap">
+              <ion-icon [name]="doc.icon"></ion-icon>
+            </div>
+            <div class="doc-content">
+              <div class="doc-title-row">
+                <span class="doc-title">{{ doc.title }}</span>
+                <span class="req-tag" [class.mandatory]="doc.mandatory">{{ doc.mandatory ? 'Mandatory' : 'Optional' }}</span>
+              </div>
+              <p class="doc-desc">{{ doc.description }}</p>
+              <div class="doc-action-bar">
+                <span class="status-indicator pending">
+                  <ion-icon name="time-outline"></ion-icon>
+                  Pending Submission
+                </span>
+                <ion-button size="small" fill="outline" color="primary" class="upload-chip-btn">
+                  <ion-icon name="arrow-up-circle-outline" slot="start"></ion-icon>
+                  Upload File
+                </ion-button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ════════════════ TAB 4: FIRST DAY GUIDE & LOCATION ════════════════ -->
+    <div *ngIf="currentTab === 'guide'" class="tab-content fade-in">
+      
+      <div class="dual-cards-grid">
+        
+        <!-- Day 1 Checklist -->
+        <div class="portal-card">
+          <div class="card-header-row">
+            <div class="header-title-box">
+              <ion-icon name="sparkles-outline" class="title-icon"></ion-icon>
+              <h3>What to Expect on Day 1</h3>
+            </div>
+          </div>
+          
+          <div class="guide-steps-list">
+            <div class="guide-item">
+              <div class="guide-num">01</div>
+              <div class="guide-txt">
+                <strong>Arrival &amp; Reception Check-In</strong>
+                <span>Please arrive by 9:30 AM at the main reception with original identity proofs.</span>
+              </div>
+            </div>
+
+            <div class="guide-item">
+              <div class="guide-num">02</div>
+              <div class="guide-txt">
+                <strong>IT Assets &amp; Access Handover</strong>
+                <span>Receive your workstation, corporate laptop, email ID, and system credentials.</span>
+              </div>
+            </div>
+
+            <div class="guide-item">
+              <div class="guide-num">03</div>
+              <div class="guide-txt">
+                <strong>HR Induction Session</strong>
+                <span>Company overview, benefits walkthrough, HR policies, and culture briefing.</span>
+              </div>
+            </div>
+
+            <div class="guide-item">
+              <div class="guide-num">04</div>
+              <div class="guide-txt">
+                <strong>Team Introduction &amp; Buddy Meet</strong>
+                <span>Meet your reporting manager, buddy, and immediate project teammates.</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Office Location & Support -->
+        <div class="portal-card">
+          <div class="card-header-row">
+            <div class="header-title-box">
+              <ion-icon name="navigate-outline" class="title-icon"></ion-icon>
+              <h3>Office Location &amp; Contact</h3>
+            </div>
+          </div>
+
+          <div class="location-guide-box">
+            <div class="office-name">Sree Tammina Software Solutions Pvt. Ltd.</div>
+            <p class="office-address">
+              Site 2 - SVS Towers, Tech Hub Area, Visakhapatnam, Andhra Pradesh, India.
+            </p>
+            <div class="timings-row">
+              <ion-icon name="time-outline"></ion-icon>
+              <span>Standard Work Hours: 9:30 AM - 6:30 PM (Mon - Fri)</span>
+            </div>
+            <div class="dress-code-row">
+              <ion-icon name="shirt-outline"></ion-icon>
+              <span>Dress Code: Smart Casuals</span>
+            </div>
+          </div>
+
+          <div class="hr-coordinator-card">
+            <h4>HR Helpdesk &amp; Coordinator</h4>
+            <div class="coord-row">
+              <ion-icon name="mail-outline"></ion-icon>
+              <a href="mailto:careers@tamminahub.com">careers@tamminahub.com</a>
+            </div>
+            <div class="coord-row">
+              <ion-icon name="call-outline"></ion-icon>
+              <span>+91 91776 71201</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <footer class="portal-footer">
+      <p>© 2026 Tech Tammina (Sree Tammina Software Solutions Pvt. Ltd.). All rights reserved.</p>
+    </footer>
+
   </div>
 
 </ion-content>

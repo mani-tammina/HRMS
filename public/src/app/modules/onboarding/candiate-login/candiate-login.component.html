@@ -1,53 +1,431 @@
 <ion-content class="login-content" [fullscreen]="true">
+  <!-- Dynamic Ambient Glow Backdrop -->
+  <div class="login-page-bg">
+    <div class="glow-sphere glow-1"></div>
+    <div class="glow-sphere glow-2"></div>
+    <div class="glow-sphere glow-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
   <div class="login-container">
-    
-    <!-- Loading state -->
-    <div *ngIf="isLoading" class="loading-wrapper">
-      <ion-spinner name="crescent" color="primary"></ion-spinner>
-      <p>Verifying invitation link...</p>
-    </div>
 
-    <!-- Error state -->
-    <div *ngIf="!isLoading && errorMessage" class="error-wrapper">
-      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
-      <p class="error-msg">{{ errorMessage }}</p>
-    </div>
-
-    <!-- Login card -->
-    <div *ngIf="!isLoading && !errorMessage" class="login-card">
-      <div class="card-header">
-        <img src="assets/techtammina.webp" alt="Tech Tammina Logo" class="company-logo" onerror="this.style.display='none'" />
-        <h2>Verify Your Email</h2>
-        <p>Please enter the email address where you received the offer letter link to access your candidate portal.</p>
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="state-card loading-card">
+      <div class="spinner-ring">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
       </div>
+      <h3>Connecting to Secure Portal</h3>
+      <p>Please wait while we verify your candidate invitation link...</p>
+    </div>
 
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-        <!-- EMAIL FIELD -->
-        <div class="field-group">
-          <label class="field-label" for="candidate-email">Email Address</label>
-          <div class="input-wrapper">
-            <ion-icon name="mail-outline" class="input-icon"></ion-icon>
-            <input 
-              id="candidate-email" 
-              type="email" 
-              formControlName="email" 
-              placeholder="e.g. name@example.com" 
-              class="form-input" 
-              [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
-            />
+    <!-- Error State -->
+    <div *ngIf="!isLoading && errorMessage" class="state-card error-card">
+      <div class="error-icon-box">
+        <ion-icon name="alert-circle-outline"></ion-icon>
+      </div>
+      <h3>Verification Error</h3>
+      <p class="error-detail">{{ errorMessage }}</p>
+      <div class="help-box">
+        <ion-icon name="help-circle-outline"></ion-icon>
+        <span>Need assistance? Contact our HR team at <strong>careers@tamminahub.com</strong></span>
+      </div>
+    </div>
+
+    <!-- Main Dual-Column Authentication Layout -->
+    <div *ngIf="!isLoading && !errorMessage" class="portal-auth-card">
+      
+      <!-- ================= LEFT HERO & VECTOR ILLUSTRATION PANEL ================= -->
+      <div class="auth-left-panel">
+        
+        <!-- Brand Header -->
+        <div class="brand-top">
+          <div class="brand-logo-wrap">
+            <img src="assets/TamminaLogo.png" alt="Tech Tammina" class="auth-brand-logo" onerror="this.src='assets/techtammina.webp'" />
           </div>
-          <div *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" class="validation-error">
-            <span *ngIf="loginForm.get('email')?.errors?.['required']">Email address is required.</span>
-            <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email address.</span>
+          <span class="portal-tag">
+            <ion-icon name="shield-checkmark"></ion-icon> Candidate Portal
+          </span>
+        </div>
+
+        <!-- Hero Headline & Greeting -->
+        <div class="hero-text-block">
+          <div class="welcome-pill">
+            <span class="sparkle">✨</span> Welcome to Tech Tammina
+          </div>
+          <h2>Begin Your Career Journey With Us</h2>
+          <p>Access your official offer letter, review compensation details, and complete your seamless pre-onboarding experience.</p>
+        </div>
+
+        <!-- High-Impact Vector Illustration Section -->
+        <div class="vector-illustration-container">
+          <!-- Rich Scalable Vector Artwork -->
+          <svg class="login-vector-svg" viewBox="0 0 460 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Background Glow & Shapes -->
+            <defs>
+              <linearGradient id="gradPortalCard" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e293b" stop-opacity="0.95" />
+                <stop offset="100%" stop-color="#0f172a" stop-opacity="0.95" />
+              </linearGradient>
+              <linearGradient id="gradPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#3b82f6" />
+                <stop offset="100%" stop-color="#1d4ed8" />
+              </linearGradient>
+              <linearGradient id="gradCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#06b6d4" />
+                <stop offset="100%" stop-color="#3b82f6" />
+              </linearGradient>
+              <linearGradient id="gradAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#10b981" />
+                <stop offset="100%" stop-color="#059669" />
+              </linearGradient>
+              <linearGradient id="gradGold" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#f59e0b" />
+                <stop offset="100%" stop-color="#d97706" />
+              </linearGradient>
+              <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur stdDeviation="8" result="blur" />
+                <feComposite in="SourceGraphic" in2="blur" operator="over" />
+              </filter>
+            </defs>
+
+            <!-- Decorative Digital Grid / Orbit Lines -->
+            <circle cx="230" cy="150" r="130" stroke="rgba(59, 130, 246, 0.15)" stroke-width="1.5" stroke-dasharray="6 6" />
+            <circle cx="230" cy="150" r="95" stroke="rgba(14, 165, 233, 0.2)" stroke-width="1.5" />
+            
+            <!-- Central Main Device Card (Offer Portal Window) -->
+            <rect x="110" y="45" width="240" height="200" rx="16" fill="url(#gradPortalCard)" stroke="rgba(59, 130, 246, 0.4)" stroke-width="1.5" />
+            
+            <!-- Card Window Top Header Bar -->
+            <rect x="110" y="45" width="240" height="34" rx="16" fill="rgba(30, 41, 59, 0.8)" />
+            <rect x="110" y="65" width="240" height="14" fill="rgba(30, 41, 59, 0.8)" />
+            <circle cx="130" cy="62" r="4.5" fill="#ef4444" />
+            <circle cx="144" cy="62" r="4.5" fill="#f59e0b" />
+            <circle cx="158" cy="62" r="4.5" fill="#10b981" />
+            <rect x="180" y="57" width="100" height="10" rx="5" fill="rgba(255, 255, 255, 0.1)" />
+
+            <!-- Card Window Content -->
+            <!-- User Avatar & Badge -->
+            <circle cx="230" cy="115" r="24" fill="url(#gradCyan)" filter="url(#softGlow)" />
+            <!-- User Silhouette -->
+            <path d="M230 106 A 6 6 0 1 0 230 118 A 6 6 0 1 0 230 106 Z" fill="#ffffff" />
+            <path d="M218 127 C218 121 223 120 230 120 C237 120 242 121 242 127 Z" fill="#ffffff" />
+
+            <!-- Verified Lock Badge -->
+            <circle cx="248" cy="128" r="8" fill="url(#gradAccent)" />
+            <path d="M245 128 L247.5 130.5 L251.5 126.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+
+            <!-- Portal Document Lines -->
+            <rect x="145" y="152" width="170" height="8" rx="4" fill="rgba(255, 255, 255, 0.2)" />
+            <rect x="165" y="166" width="130" height="7" rx="3.5" fill="rgba(255, 255, 255, 0.1)" />
+            <rect x="155" y="180" width="150" height="7" rx="3.5" fill="rgba(255, 255, 255, 0.1)" />
+            <rect x="185" y="200" width="90" height="24" rx="6" fill="url(#gradPrimary)" />
+            <text x="230" y="216" text-anchor="middle" fill="#ffffff" font-size="9" font-weight="bold" font-family="sans-serif">ACCESS OFFER</text>
+
+            <!-- Floating Card 1: 2FA / OTP Verification Shield -->
+            <g class="floating-item float-left">
+              <rect x="30" y="100" width="105" height="72" rx="12" fill="#1e293b" stroke="rgba(59, 130, 246, 0.5)" stroke-width="1.5" />
+              <rect x="42" y="112" width="24" height="24" rx="6" fill="rgba(59, 130, 246, 0.2)" />
+              <path d="M54 118 L54 128 M49 123 L59 123" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" />
+              <circle cx="54" cy="123" r="5" stroke="#38bdf8" stroke-width="1.5" fill="none" />
+              <rect x="72" y="115" width="50" height="6" rx="3" fill="#ffffff" />
+              <rect x="72" y="125" width="35" height="5" rx="2.5" fill="rgba(148, 163, 184, 0.8)" />
+              <!-- OTP Dots -->
+              <rect x="42" y="146" width="12" height="14" rx="3" fill="rgba(59, 130, 246, 0.3)" />
+              <rect x="58" y="146" width="12" height="14" rx="3" fill="rgba(59, 130, 246, 0.3)" />
+              <rect x="74" y="146" width="12" height="14" rx="3" fill="rgba(59, 130, 246, 0.3)" />
+              <rect x="90" y="146" width="12" height="14" rx="3" fill="rgba(59, 130, 246, 0.3)" />
+              <circle cx="48" cy="153" r="2" fill="#38bdf8" />
+              <circle cx="64" cy="153" r="2" fill="#38bdf8" />
+              <circle cx="80" cy="153" r="2" fill="#38bdf8" />
+              <circle cx="96" cy="153" r="2" fill="#38bdf8" />
+            </g>
+
+            <!-- Floating Card 2: Offer Letter & Congratulations Badge -->
+            <g class="floating-item float-right">
+              <rect x="325" y="130" width="105" height="74" rx="12" fill="#1e293b" stroke="rgba(16, 185, 129, 0.5)" stroke-width="1.5" />
+              <circle cx="347" cy="152" r="12" fill="url(#gradGold)" />
+              <text x="347" y="156" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="bold">★</text>
+              <rect x="366" y="145" width="50" height="6" rx="3" fill="#ffffff" />
+              <rect x="366" y="155" width="36" height="5" rx="2.5" fill="rgba(148, 163, 184, 0.8)" />
+              <rect x="337" y="174" width="80" height="16" rx="4" fill="rgba(16, 185, 129, 0.2)" />
+              <text x="377" y="185" text-anchor="middle" fill="#34d399" font-size="8" font-weight="bold" font-family="sans-serif">OFFER READY</text>
+            </g>
+
+            <!-- Floating Key / Security Token -->
+            <g class="floating-item float-key">
+              <circle cx="230" cy="272" r="14" fill="url(#gradPrimary)" />
+              <path d="M226 272 H234 M231 269 V275" stroke="#ffffff" stroke-width="2" stroke-linecap="round" />
+            </g>
+          </svg>
+        </div>
+
+        <!-- Journey Steps Timeline -->
+        <div class="journey-steps">
+          <div class="step-item completed">
+            <div class="step-dot">
+              <ion-icon name="checkmark-circle"></ion-icon>
+            </div>
+            <div class="step-content">
+              <strong>Step 1: Offer Letter Dispatched</strong>
+              <span>HR sent your personalized offer package</span>
+            </div>
+          </div>
+
+          <div class="step-item active">
+            <div class="step-dot">
+              <div class="inner-pulse"></div>
+            </div>
+            <div class="step-content">
+              <strong>Step 2: Password &amp; OTP Authentication</strong>
+              <span>Enter password &amp; dynamic OTP code to verify</span>
+            </div>
+          </div>
+
+          <div class="step-item">
+            <div class="step-dot"></div>
+            <div class="step-content">
+              <strong>Step 3: Review, Accept &amp; Onboard</strong>
+              <span>Sign offer, view salary structure &amp; upload documents</span>
+            </div>
           </div>
         </div>
 
-        <!-- Submit Button -->
-        <ion-button expand="block" type="submit" class="verify-btn" [disabled]="isVerifying">
-          <ion-spinner *ngIf="isVerifying" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
-          {{ isVerifying ? 'Verifying...' : 'Verify & Access Offer' }}
-        </ion-button>
-      </form>
+        <!-- Security Footer Badge -->
+        <div class="security-footer-badge">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <span>256-Bit SSL Encrypted &bull; ISO 27001 Certified Portal</span>
+        </div>
+
+      </div>
+
+      <!-- ================= RIGHT AUTH & OTP VERIFICATION PANEL ================= -->
+      <div class="auth-right-panel">
+        
+        <!-- Mobile Branded Header (Visible on small screens) -->
+        <div class="mobile-brand-row">
+          <img src="assets/TamminaLogo.png" alt="Tech Tammina" class="mobile-logo" onerror="this.src='assets/techtammina.webp'" />
+          <span class="mobile-portal-badge">Candidate Access</span>
+        </div>
+
+        <!-- Candidate Greeting Chip (If candidate data loaded) -->
+        <div *ngIf="candidateDisplayName" class="candidate-greeting-chip">
+          <div class="avatar-circle">{{ candidateDisplayName.charAt(0).toUpperCase() }}</div>
+          <div class="greeting-info">
+            <div class="greeting-title">
+              Hello, <strong>{{ candidateDisplayName }}</strong>!
+            </div>
+            <div class="greeting-role" *ngIf="candidateRole">
+              <ion-icon name="briefcase-outline"></ion-icon>
+              <span>{{ candidateRole }}</span>
+            </div>
+          </div>
+          <div class="greeting-verified-badge">
+            <ion-icon name="checkmark-done-circle"></ion-icon>
+            <span>Invited</span>
+          </div>
+        </div>
+
+        <!-- ──────────────── STEP 1: CREDENTIALS FORM (EMAIL + PASSWORD) ──────────────── -->
+        <div *ngIf="currentStep === 'credentials'" class="auth-step-container">
+          
+          <div class="form-header">
+            <h3>Candidate Sign In</h3>
+            <p>Enter your registered email address and password to generate your secure login OTP.</p>
+          </div>
+
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="auth-form">
+            
+            <!-- Email Input Field -->
+            <div class="field-container">
+              <label class="input-label" for="candidate-email">Registered Email Address</label>
+              <div class="custom-input-box" [class.input-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid">
+                <ion-icon name="mail-outline" class="leading-icon"></ion-icon>
+                <input 
+                  id="candidate-email" 
+                  type="email" 
+                  formControlName="email" 
+                  placeholder="name@example.com" 
+                  autocomplete="email"
+                />
+              </div>
+              
+              <div *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" class="field-error-msg">
+                <ion-icon name="alert-circle"></ion-icon>
+                <span *ngIf="loginForm.get('email')?.errors?.['required']">Email address is required.</span>
+                <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email address.</span>
+              </div>
+            </div>
+
+            <!-- Password Input Field with Toggle -->
+            <div class="field-container">
+              <div class="label-with-hint">
+                <label class="input-label" for="candidate-password">Portal Password</label>
+                <span class="sub-hint">As provided in your offer email</span>
+              </div>
+
+              <div class="custom-input-box" [class.input-error]="loginForm.get('password')?.touched && loginForm.get('password')?.invalid">
+                <ion-icon name="lock-closed-outline" class="leading-icon"></ion-icon>
+                <input 
+                  id="candidate-password" 
+                  [type]="showPassword ? 'text' : 'password'" 
+                  formControlName="password" 
+                  placeholder="Enter your password" 
+                  autocomplete="current-password"
+                  (keydown.enter)="onSubmitCredentials()"
+                />
+                <button 
+                  type="button" 
+                  class="password-toggle-btn" 
+                  (click)="togglePasswordVisibility()"
+                  [attr.aria-label]="showPassword ? 'Hide password' : 'Show password'"
+                >
+                  <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                </button>
+              </div>
+
+              <div *ngIf="loginForm.get('password')?.touched && loginForm.get('password')?.invalid" class="field-error-msg">
+                <ion-icon name="alert-circle"></ion-icon>
+                <span *ngIf="loginForm.get('password')?.errors?.['required']">Password is required.</span>
+                <span *ngIf="loginForm.get('password')?.errors?.['minlength']">Password must be at least 4 characters.</span>
+              </div>
+            </div>
+
+            <!-- Remember Me & Security Notice -->
+            <div class="form-aux-row">
+              <label class="remember-label">
+                <input type="checkbox" formControlName="rememberMe" class="custom-checkbox" />
+                <span>Remember on this browser</span>
+              </label>
+              <span class="otp-tag-badge">
+                <ion-icon name="key-outline"></ion-icon> 2-Factor OTP Enabled
+              </span>
+            </div>
+
+            <!-- Submit Button (Generates OTP) -->
+            <ion-button 
+              expand="block" 
+              type="submit" 
+              class="submit-access-btn" 
+              [disabled]="isVerifying"
+            >
+              <ion-spinner *ngIf="isVerifying" name="crescent" slot="start" class="btn-spinner"></ion-spinner>
+              <span>{{ isVerifying ? 'Generating OTP...' : 'Generate OTP &amp; Continue' }}</span>
+              <ion-icon *ngIf="!isVerifying" name="arrow-forward-outline" slot="end"></ion-icon>
+            </ion-button>
+
+            <!-- Safe Auth Notice -->
+            <div class="help-notice">
+              <ion-icon name="shield-checkmark-outline"></ion-icon>
+              <span>Every login requires a newly generated OTP sent to your email to safeguard your confidential salary &amp; offer details.</span>
+            </div>
+
+            <div class="hr-support-text">
+              <span>Need help logging in? </span>
+              <a href="mailto:careers@tamminahub.com">Contact HR Support</a>
+            </div>
+
+          </form>
+
+        </div>
+
+        <!-- ──────────────── STEP 2: OTP VERIFICATION VIEW ──────────────── -->
+        <div *ngIf="currentStep === 'otp'" class="auth-step-container otp-step-animation">
+          
+          <div class="otp-header">
+            <div class="otp-icon-bubble">
+              <ion-icon name="mail-unread-outline"></ion-icon>
+            </div>
+            <h3>Enter Verification Code</h3>
+            <p>
+              We've generated and sent a 6-digit OTP code to <br />
+              <strong class="highlight-email">{{ maskedEmail }}</strong>
+            </p>
+          </div>
+
+          <!-- Live Generated OTP Notification Banner (Great for testing/instant verification) -->
+          <div *ngIf="generatedOtp" class="demo-otp-banner">
+            <div class="banner-left">
+              <div class="otp-badge-pill">Generated OTP</div>
+              <div class="otp-code-display">{{ generatedOtp }}</div>
+            </div>
+            <button type="button" class="autofill-action-btn" (click)="autoFillDemoOtp()">
+              <ion-icon name="flash-outline"></ion-icon>
+              <span>Auto Fill</span>
+            </button>
+          </div>
+
+          <!-- 6 Segmented OTP Inputs -->
+          <div class="otp-input-wrapper" (paste)="onOtpPaste($event)">
+            <div class="otp-boxes-grid" [class.otp-has-error]="otpError">
+              <input 
+                #otpInput
+                *ngFor="let digit of otpDigits; let i = index"
+                type="text"
+                inputmode="numeric"
+                maxlength="1"
+                [value]="otpDigits[i]"
+                (input)="onOtpInput($event, i)"
+                (keydown)="onOtpKeyDown($event, i)"
+                class="otp-digit-box"
+                [class.filled]="otpDigits[i] !== ''"
+                autocomplete="one-time-code"
+              />
+            </div>
+
+            <div *ngIf="otpError" class="field-error-msg center-error">
+              <ion-icon name="alert-circle"></ion-icon>
+              <span>Invalid OTP code. Please enter the correct 6-digit code.</span>
+            </div>
+          </div>
+
+          <!-- Countdown Timer & Resend Option -->
+          <div class="resend-countdown-row">
+            <div *ngIf="otpTimer > 0" class="timer-active">
+              <ion-icon name="time-outline"></ion-icon>
+              <span>Resend code in <strong>00:{{ otpTimer < 10 ? '0' + otpTimer : otpTimer }}</strong></span>
+            </div>
+
+            <button 
+              *ngIf="otpTimer === 0" 
+              type="button" 
+              class="resend-btn" 
+              (click)="resendOtp()"
+            >
+              <ion-icon name="refresh-outline"></ion-icon>
+              <span>Resend New OTP</span>
+            </button>
+          </div>
+
+          <!-- Verify OTP Submit Button -->
+          <ion-button 
+            expand="block" 
+            type="button" 
+            class="submit-access-btn" 
+            (click)="onVerifyOtp()" 
+            [disabled]="isVerifying"
+          >
+            <ion-spinner *ngIf="isVerifying" name="crescent" slot="start" class="btn-spinner"></ion-spinner>
+            <span>{{ isVerifying ? 'Verifying OTP...' : 'Verify OTP &amp; Access Portal' }}</span>
+            <ion-icon *ngIf="!isVerifying" name="lock-open-outline" slot="end"></ion-icon>
+          </ion-button>
+
+          <!-- Back to Credentials Step -->
+          <div class="back-to-credentials-row">
+            <button type="button" class="back-link-btn" (click)="backToCredentials()">
+              <ion-icon name="arrow-back-outline"></ion-icon>
+              <span>Back to Login &amp; Change Password</span>
+            </button>
+          </div>
+
+          <div class="hr-support-text">
+            <span>Did not receive the email? Check spam or </span>
+            <a href="mailto:careers@tamminahub.com">Contact HR</a>
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
 
   </div>

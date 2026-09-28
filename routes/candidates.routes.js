@@ -109,7 +109,7 @@ router.post("/", auth, hr, async (req, res) => {
 router.get("/", auth, hr, async (req, res) => {
     const c = await db();
     try {
-        const { status, joining_date_from, joining_date_to, department_id } = req.query;
+        const { status, joining_date_from, joining_date_to, department_id, location_id, offer_accepted, search } = req.query;
 
         let query = `
             SELECT c.*, 
@@ -130,6 +130,9 @@ router.get("/", auth, hr, async (req, res) => {
             query += " AND c.status = ?";
             params.push(status);
         }
+        if (offer_accepted === '1' || offer_accepted === 'true') {
+            query += " AND (c.offer_accepted = 1 OR c.status IN ('offer_accepted', 'documents_pending', 'bgv_initiated', 'bgv_completed', 'ready_to_join'))";
+        }
         if (joining_date_from) {
             query += " AND c.joining_date >= ?";
             params.push(joining_date_from);
@@ -141,6 +144,15 @@ router.get("/", auth, hr, async (req, res) => {
         if (department_id) {
             query += " AND c.department_id = ?";
             params.push(department_id);
+        }
+        if (location_id) {
+            query += " AND c.location_id = ?";
+            params.push(location_id);
+        }
+        if (search) {
+            query += " AND (c.full_name LIKE ? OR c.first_name LIKE ? OR c.last_name LIKE ? OR c.email LIKE ? OR c.candidate_id LIKE ?)";
+            const searchTerm = `%${search}%`;
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
         }
 
         query += " ORDER BY c.created_at DESC";
@@ -155,6 +167,15 @@ router.get("/", auth, hr, async (req, res) => {
                 id: cand.id,
                 candidate_id: cand.candidate_id,
                 status: cand.status,
+                offer_accepted: cand.offer_accepted,
+                offer_accepted_date: cand.offer_accepted_date,
+                offer_letter_sent: cand.offer_letter_sent,
+                offer_letter_sent_date: cand.offer_letter_sent_date,
+                bgv_status: cand.bgv_status,
+                documents_submitted: cand.documents_submitted,
+                documents_verified: cand.documents_verified,
+                converted_to_employee: cand.converted_to_employee,
+                created_at: cand.created_at,
                 personalDetails: {
                     FirstName: cand.first_name,
                     MiddleName: cand.middle_name,
