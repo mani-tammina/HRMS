@@ -4,10 +4,10 @@
     <!-- Left side: Menu Button (if inside split-pane context) & Logo -->
     <div slot="start" class="header-left">
       <ion-menu-button *ngIf="isAuthenticated" color="light"></ion-menu-button>
-      <img width="165px" height="70px" [src]="companyLogoUrl"
-        [alt]="companyName" class="brand-logo" *ngIf="!isAdmin" fetchpriority="high" loading="eager" (error)="onLogoError($event)" />
-      <img [src]="companyLogoUrl" [alt]="companyName" class="brand-logo"
-        *ngIf="isAdmin" fetchpriority="high" loading="eager" (error)="onLogoError($event)" />
+      <img width="165px" height="75px" [src]="companyLogoUrl" [alt]="companyName" class="brand-logo" *ngIf="!isAdmin"
+        fetchpriority="high" loading="eager" (error)="onLogoError($event)" />
+      <img [src]="companyLogoUrl" [alt]="companyName" class="brand-logo" *ngIf="isAdmin" fetchpriority="high"
+        loading="eager" (error)="onLogoError($event)" />
     </div>
 
     <!-- Center: Search Bar -->

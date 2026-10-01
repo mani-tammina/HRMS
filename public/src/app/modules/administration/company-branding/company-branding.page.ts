@@ -229,7 +229,15 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
     reader.readAsDataURL(file);
   }
 
-  uploadLogo() {
+  cancelLogoSelection(fileInput?: HTMLInputElement) {
+    this.selectedLogoFile = null;
+    this.logoPreviewUrl = this.branding.logo_url ? this.getFullImageUrl(this.branding.logo_url) : null;
+    if (fileInput) {
+      fileInput.value = '';
+    }
+  }
+
+  uploadLogo(fileInput?: HTMLInputElement) {
     if (!this.selectedLogoFile) return;
 
     this.isUploadingLogo = true;
@@ -240,6 +248,9 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
         next: (res) => {
           this.isUploadingLogo = false;
           this.selectedLogoFile = null;
+          if (fileInput) {
+            fileInput.value = '';
+          }
           if (res && res.logo_url) {
             this.branding.logo_url = res.logo_url;
             this.logoPreviewUrl = this.getFullImageUrl(res.logo_url);

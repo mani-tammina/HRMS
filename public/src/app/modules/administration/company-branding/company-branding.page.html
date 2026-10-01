@@ -95,11 +95,17 @@
               <ion-icon name="checkmark-circle" color="success"></ion-icon>
               <span>{{ selectedLogoFile.name }} ({{ (selectedLogoFile.size / 1024).toFixed(1) }} KB)</span>
             </div>
-            <button class="btn-primary" (click)="uploadLogo()" [disabled]="isUploadingLogo">
-              <ion-spinner name="crescent" *ngIf="isUploadingLogo"></ion-spinner>
-              <ion-icon name="arrow-up-circle-outline" *ngIf="!isUploadingLogo"></ion-icon>
-              <span>{{ isUploadingLogo ? 'Uploading...' : 'Save & Apply Logo' }}</span>
-            </button>
+            <div class="logo-action-buttons">
+              <button type="button" class="btn-secondary" (click)="cancelLogoSelection(fileInput)" [disabled]="isUploadingLogo">
+                <ion-icon name="close-circle-outline"></ion-icon>
+                <span>Cancel</span>
+              </button>
+              <button type="button" class="btn-primary" (click)="uploadLogo(fileInput)" [disabled]="isUploadingLogo">
+                <ion-spinner name="crescent" *ngIf="isUploadingLogo"></ion-spinner>
+                <ion-icon name="arrow-up-circle-outline" *ngIf="!isUploadingLogo"></ion-icon>
+                <span>{{ isUploadingLogo ? 'Uploading...' : 'Save & Apply Logo' }}</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
