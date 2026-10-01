@@ -7,6 +7,7 @@ import { AuthService } from './core/services/auth.service';
 import { CustomIconService } from './core/services/custom-icon.service';
 import { MenuController, Platform } from '@ionic/angular';
 import { InboxService } from './modules/inbox/services/inbox.service';
+import { BrandingService } from './core/services/branding.service';
 import './core/icons';
 
 @Component({
@@ -17,6 +18,9 @@ import './core/icons';
 })
 export class AppComponent implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+  companyLogoUrl: string = 'assets/tt_blue_logo.png';
+  companyName: string = 'Tech Tammina';
+
   showIntro = false;
   fadeOutIntro = false;
   showMenu = false;
@@ -60,7 +64,8 @@ export class AppComponent implements OnInit, OnDestroy {
     private customIconService: CustomIconService,
     private menuController: MenuController,
     private platform: Platform,
-    private inboxService: InboxService
+    private inboxService: InboxService,
+    private brandingService: BrandingService
   ) {
     this.router.events.pipe(takeUntil(this.destroy$)).subscribe((event) => {
       if (event instanceof NavigationEnd) {
@@ -101,6 +106,20 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Dynamic company logo & name from branding
+    this.brandingService.logoUrl$.pipe(takeUntil(this.destroy$)).subscribe((url) => {
+      if (url) {
+        this.companyLogoUrl = url;
+        this.cdr.detectChanges();
+      }
+    });
+    this.brandingService.companyName$.pipe(takeUntil(this.destroy$)).subscribe((name) => {
+      if (name) {
+        this.companyName = name;
+        this.cdr.detectChanges();
+      }
+    });
+
     // Initial visibility fixes
     document.documentElement.style.opacity = '1';
     document.body.style.opacity = '1';
@@ -119,6 +138,10 @@ export class AppComponent implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }, 2500);
     }
+  }
+
+  onLogoError(event: any) {
+    event.target.src = 'assets/tt_blue_logo.png';
   }
 
   private fetchProfileInfoIfNeeded() {

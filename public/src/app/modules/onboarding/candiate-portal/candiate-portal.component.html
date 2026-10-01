@@ -28,7 +28,7 @@
     <!-- Top Navigation Header -->
     <header class="portal-top-bar">
       <div class="brand-side">
-        <img src="assets/techtammina.webp" alt="Tech Tammina" class="portal-logo" onerror="this.style.display='none'" />
+        <img [src]="companyLogoUrl" [alt]="companyName" class="portal-logo" onerror="this.src='assets/techtammina.webp'" />
         <span class="portal-label">Candidate Portal</span>
       </div>
 

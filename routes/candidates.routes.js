@@ -738,7 +738,7 @@ router.post("/:id/send-offer", auth, hr, async (req, res) => {
             </p>
         </div>
         <div style="background-color: #f8fafc; padding: 25px 40px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
-            <p style="margin: 0 0 5px 0;">This is an automated email from Tech Tammina MasterHRMS.</p>
+            <p style="margin: 0 0 5px 0;">This is an automated email from Tech Tammina Interact.</p>
             <p style="margin: 0;">© 2026 Tech Tammina. All rights reserved.</p>
         </div>
     </div>

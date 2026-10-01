@@ -73,7 +73,7 @@
 
       <!-- Company Logo Footer -->
       <div class="id-card-footer">
-        <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo" crossorigin="anonymous" />
+        <img [src]="companyLogoUrl" [alt]="companyName" class="company-logo" crossorigin="anonymous" (error)="onLogoError($event)" />
       </div>
     </div>
 

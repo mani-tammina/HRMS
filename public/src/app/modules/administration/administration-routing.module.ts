@@ -53,6 +53,10 @@ const routes: Routes = [
   {
     path: 'holidays',
     loadComponent: () => import('./holidays-admin/holidays-admin.page').then(m => m.HolidaysAdminPage)
+  },
+  {
+    path: 'company-branding',
+    loadComponent: () => import('./company-branding/company-branding.page').then(m => m.CompanyBrandingPage)
   }
 ];
 

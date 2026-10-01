@@ -39,7 +39,45 @@ CREATE TABLE IF NOT EXISTS locations (
   id INT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100) UNIQUE NOT NULL,
   country VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  address_line1 VARCHAR(255),
+  address_line2 VARCHAR(255),
+  city VARCHAR(100),
+  state VARCHAR(100),
+  postal_code VARCHAR(50),
+  phone_number VARCHAR(50),
+  email VARCHAR(255),
+  timezone VARCHAR(100),
+  is_headquarters TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Company Branding Master
+CREATE TABLE IF NOT EXISTS company_branding (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  company_name VARCHAR(255) NOT NULL DEFAULT 'Tech Tammina',
+  legal_name VARCHAR(255),
+  tagline VARCHAR(255),
+  website VARCHAR(255),
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  tax_id VARCHAR(100),
+  registration_number VARCHAR(100),
+  logo_url VARCHAR(500),
+  favicon_url VARCHAR(500),
+  primary_color VARCHAR(50) DEFAULT '#2563eb',
+  secondary_color VARCHAR(50) DEFAULT '#1e40af',
+  about_us TEXT,
+  mission TEXT,
+  vision TEXT,
+  core_values TEXT,
+  linkedin_url VARCHAR(255),
+  twitter_url VARCHAR(255),
+  facebook_url VARCHAR(255),
+  instagram_url VARCHAR(255),
+  youtube_url VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Departments Master

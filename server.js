@@ -67,6 +67,7 @@ const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes")
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
 const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
 const biometricAttendanceRoutes = require("./routes/biometric-attendance.routes");
+const brandingRoutes = require("./routes/branding.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
@@ -433,6 +434,68 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not verify timesheets table columns:", tsColErr.message);
         }
 
+        // Ensure company_branding table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS company_branding (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    company_name VARCHAR(255) NOT NULL DEFAULT 'Tech Tammina',
+                    legal_name VARCHAR(255) NULL,
+                    tagline VARCHAR(255) NULL,
+                    website VARCHAR(255) NULL,
+                    email VARCHAR(255) NULL,
+                    phone VARCHAR(50) NULL,
+                    tax_id VARCHAR(100) NULL,
+                    registration_number VARCHAR(100) NULL,
+                    logo_url VARCHAR(500) NULL,
+                    favicon_url VARCHAR(500) NULL,
+                    primary_color VARCHAR(50) DEFAULT '#2563eb',
+                    secondary_color VARCHAR(50) DEFAULT '#1e40af',
+                    about_us TEXT NULL,
+                    mission TEXT NULL,
+                    vision TEXT NULL,
+                    core_values TEXT NULL,
+                    linkedin_url VARCHAR(255) NULL,
+                    twitter_url VARCHAR(255) NULL,
+                    facebook_url VARCHAR(255) NULL,
+                    instagram_url VARCHAR(255) NULL,
+                    youtube_url VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+            console.log("  ✓ Verified/Created table: company_branding");
+        } catch (brandErr) {
+            console.warn("⚠️ Warning: could not check/create company_branding table:", brandErr.message);
+        }
+
+        // Ensure locations table has detailed address columns
+        try {
+            const [locCols] = await conn.query("DESCRIBE locations");
+            const locColNames = locCols.map(c => c.Field);
+            const locColumnsToAdd = [
+                { name: 'address_line1', type: 'VARCHAR(255) NULL' },
+                { name: 'address_line2', type: 'VARCHAR(255) NULL' },
+                { name: 'city', type: 'VARCHAR(100) NULL' },
+                { name: 'state', type: 'VARCHAR(100) NULL' },
+                { name: 'postal_code', type: 'VARCHAR(50) NULL' },
+                { name: 'phone_number', type: 'VARCHAR(50) NULL' },
+                { name: 'email', type: 'VARCHAR(255) NULL' },
+                { name: 'timezone', type: 'VARCHAR(100) NULL' },
+                { name: 'is_headquarters', type: 'TINYINT(1) DEFAULT 0' }
+            ];
+
+            for (const col of locColumnsToAdd) {
+                if (!locColNames.includes(col.name)) {
+                    console.log(`   ⚡ Adding missing column "${col.name}" to locations table...`);
+                    await conn.query(`ALTER TABLE locations ADD COLUMN ${col.name} ${col.type}`);
+                }
+            }
+            console.log("  ✓ Verified/Updated table columns: locations");
+        } catch (locErr) {
+            console.warn("⚠️ Warning: could not check/update locations address columns:", locErr.message);
+        }
+
     } catch (error) {
         console.error("❌ Database initialization error:", error.message);
         throw error;
@@ -555,6 +618,9 @@ app.use("/api/timesheet", timesheetRoutes); // Also mount on singular for compat
 
 // Compliance & Enforcement Routes
 app.use("/api/compliance", complianceRoutes);
+
+// Company Branding & Locations Routes
+app.use("/api/company-branding", brandingRoutes);
 
 // Announcement Routes
 app.use("/api/announcements", announcementRoutes);

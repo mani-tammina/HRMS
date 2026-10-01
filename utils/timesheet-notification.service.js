@@ -236,8 +236,8 @@ class TimesheetNotificationService {
     message += `Project: ${employee.project_name}\n`;
     message += `Client: ${employee.client_name}\n`;
     message += `Date: ${new Date().toLocaleDateString()}\n\n`;
-    message += `Please log in to the HRMS portal to submit your update.\n\n`;
-    message += `Best regards,\nHRMS Team`;
+    message += `Please log in to the Interact portal to submit your update.\n\n`;
+    message += `Best regards,\nInteract Team`;
 
     return message;
   }
@@ -265,8 +265,8 @@ class TimesheetNotificationService {
       message += `⚠️ This is your ${employee.reminder_count + 1}th reminder. Repeated non-compliance may result in escalation.\n\n`;
     }
 
-    message += `Please log in to the HRMS portal to submit your update.\n\n`;
-    message += `Best regards,\nHRMS Team`;
+    message += `Please log in to the Interact portal to submit your update.\n\n`;
+    message += `Best regards,\nInteract Team`;
 
     return message;
   }

@@ -1,0 +1,393 @@
+<ion-content [fullscreen]="true" class="branding-dashboard ion-padding">
+  <!-- TOP HEADER -->
+  <div class="top-header-banner animate__animated animate__fadeIn">
+    <div class="header-left">
+      <div class="badge-tag">
+        <ion-icon name="sparkles-outline"></ion-icon>
+        <span>Organization Setup</span>
+      </div>
+      <h1>Company Branding & Profiles</h1>
+      <p>Configure corporate visual identity, upload official logos, set company narratives, and maintain branch office addresses.</p>
+    </div>
+    <div class="header-right">
+      <div class="branding-quick-card">
+        <div class="mini-logo-container">
+          <img [src]="getFullImageUrl(branding.logo_url)" alt="Company Logo" onerror="this.src='assets/tt_blue_logo.png'" />
+        </div>
+        <div class="company-quick-meta">
+          <span class="quick-title">{{ branding.company_name || 'Tech Tammina' }}</span>
+          <span class="quick-tagline">{{ branding.tagline || 'Corporate Workspace' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="tabs-nav-container animate__animated animate__fadeIn">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'identity'" 
+      (click)="activeTab = 'identity'">
+      <ion-icon name="color-palette-outline"></ion-icon>
+      <span>Brand Identity & Logo</span>
+    </button>
+
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'locations'" 
+      (click)="activeTab = 'locations'">
+      <ion-icon name="business-outline"></ion-icon>
+      <span>Locations & Addresses</span>
+      <span class="count-pill">{{ locations.length }}</span>
+    </button>
+  </div>
+
+  <!-- =========================================================================
+       TAB 1: BRAND IDENTITY & LOGO
+  ========================================================================= -->
+  <div class="tab-content-area" *ngIf="activeTab === 'identity'">
+    <div class="identity-grid">
+      <!-- LEFT COLUMN: LOGO UPLOAD & THEME -->
+      <div class="panel-card logo-upload-card animate__animated animate__fadeInLeft">
+        <div class="card-header-styled">
+          <div class="header-icon-box">
+            <ion-icon name="image-outline"></ion-icon>
+          </div>
+          <div>
+            <h3>Official Company Logo</h3>
+            <p>Upload high-resolution logo for headers, candidate portal, and payslips.</p>
+          </div>
+        </div>
+
+        <div class="logo-preview-box" [class.dark-bg]="previewBgDark">
+          <div class="preview-backdrop-toggle">
+            <button class="bg-toggle-btn" (click)="toggleDarkPreview()" [title]="previewBgDark ? 'Switch to light backdrop' : 'Switch to dark backdrop'">
+              <ion-icon [name]="previewBgDark ? 'sunny-outline' : 'moon-outline'"></ion-icon>
+              <span>{{ previewBgDark ? 'Light Backdrop' : 'Dark Backdrop' }}</span>
+            </button>
+          </div>
+
+          <div class="image-wrapper">
+            <img 
+              [src]="logoPreviewUrl || getFullImageUrl(branding.logo_url)" 
+              alt="Logo Preview" 
+              onerror="this.src='assets/tt_blue_logo.png'" />
+          </div>
+        </div>
+
+        <!-- UPLOAD DROPZONE -->
+        <div class="upload-dropzone">
+          <input 
+            type="file" 
+            #fileInput 
+            (change)="onLogoSelected($event)" 
+            accept="image/png, image/jpeg, image/svg+xml, image/webp" 
+            class="hidden-file-input" />
+
+          <div class="dropzone-content" (click)="fileInput.click()">
+            <ion-icon name="cloud-upload-outline" class="cloud-icon"></ion-icon>
+            <span class="dropzone-text">Click to choose new logo image</span>
+            <span class="dropzone-sub">PNG, SVG, JPG, or WEBP (Max: 5MB)</span>
+          </div>
+
+          <div class="upload-actions" *ngIf="selectedLogoFile">
+            <div class="selected-file-info">
+              <ion-icon name="checkmark-circle" color="success"></ion-icon>
+              <span>{{ selectedLogoFile.name }} ({{ (selectedLogoFile.size / 1024).toFixed(1) }} KB)</span>
+            </div>
+            <button class="btn-primary" (click)="uploadLogo()" [disabled]="isUploadingLogo">
+              <ion-spinner name="crescent" *ngIf="isUploadingLogo"></ion-spinner>
+              <ion-icon name="arrow-up-circle-outline" *ngIf="!isUploadingLogo"></ion-icon>
+              <span>{{ isUploadingLogo ? 'Uploading...' : 'Save & Apply Logo' }}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: COMPANY DETAILS -->
+      <div class="panel-card company-details-card animate__animated animate__fadeInRight">
+        <div class="card-header-styled">
+          <div class="header-icon-box">
+            <ion-icon name="business-outline"></ion-icon>
+          </div>
+          <div>
+            <h3>Corporate Identity Details</h3>
+            <p>Essential organization information displayed throughout the Interact portal.</p>
+          </div>
+        </div>
+
+        <form [formGroup]="identityForm" (ngSubmit)="saveIdentity()" class="identity-form">
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Company Brand Name <span class="req">*</span></label>
+              <div class="input-with-icon">
+                <ion-icon name="business-outline"></ion-icon>
+                <input type="text" formControlName="company_name" placeholder="e.g. Tech Tammina" />
+              </div>
+              <span class="field-error" *ngIf="identityForm.get('company_name')?.touched && identityForm.get('company_name')?.errors?.['required']">
+                Company name is required.
+              </span>
+            </div>
+
+            <div class="form-group col-6">
+              <label>Legal Registered Name</label>
+              <div class="input-with-icon">
+                <ion-icon name="shield-checkmark-outline"></ion-icon>
+                <input type="text" formControlName="legal_name" placeholder="e.g. Tech Tammina LLC / Pvt Ltd" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Tagline / Slogan</label>
+            <div class="input-with-icon">
+              <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+              <input type="text" formControlName="tagline" placeholder="e.g. Empowering Innovation & Human Agility" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Official Website URL</label>
+            <div class="input-with-icon">
+              <ion-icon name="globe-outline"></ion-icon>
+              <input type="url" formControlName="website" placeholder="https://www.tammina.com" />
+            </div>
+          </div>
+
+          <div class="form-submit-footer">
+            <button type="submit" class="btn-primary" [disabled]="isSaving">
+              <ion-spinner name="crescent" *ngIf="isSaving"></ion-spinner>
+              <ion-icon name="save-outline" *ngIf="!isSaving"></ion-icon>
+              <span>{{ isSaving ? 'Saving Changes...' : 'Save Brand Identity' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 2: LOCATIONS & ADDRESSES
+  ========================================================================= -->
+  <div class="tab-content-area" *ngIf="activeTab === 'locations'">
+    <!-- LOCATIONS TOP BAR -->
+    <div class="locations-toolbar animate__animated animate__fadeIn">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (ngModelChange)="filterLocations()" 
+          placeholder="Search locations by name, city, state, or address..." />
+        <button *ngIf="searchTerm" (click)="searchTerm = ''; filterLocations()" class="clear-search-btn">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <button class="btn-primary add-loc-btn" (click)="openAddLocationModal()">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Add Office Location</span>
+      </button>
+    </div>
+
+    <!-- LOCATIONS GRID -->
+    <div class="locations-grid animate__animated animate__fadeIn" *ngIf="filteredLocations.length > 0">
+      <div class="location-card" *ngFor="let loc of filteredLocations" [class.is-hq]="loc.is_headquarters">
+        <!-- HQ RIBBON -->
+        <div class="hq-badge" *ngIf="loc.is_headquarters">
+          <ion-icon name="star"></ion-icon>
+          <span>HEADQUARTERS</span>
+        </div>
+
+        <div class="loc-card-header">
+          <div class="loc-icon-bubble">
+            <ion-icon [name]="loc.is_headquarters ? 'business' : 'location'"></ion-icon>
+          </div>
+          <div class="loc-title-meta">
+            <h3 class="loc-name">{{ loc.name }}</h3>
+            <span class="loc-country">{{ loc.country || 'Not specified' }}</span>
+          </div>
+        </div>
+
+        <!-- ADDRESS DETAILS -->
+        <div class="loc-address-block">
+          <div class="address-line" *ngIf="loc.address_line1">
+            <ion-icon name="navigate-outline"></ion-icon>
+            <span>{{ loc.address_line1 }}<span *ngIf="loc.address_line2">, {{ loc.address_line2 }}</span></span>
+          </div>
+
+          <div class="address-line" *ngIf="loc.city || loc.state || loc.postal_code">
+            <ion-icon name="map-outline"></ion-icon>
+            <span>
+              {{ loc.city }}<span *ngIf="loc.city && loc.state">, </span>{{ loc.state }} {{ loc.postal_code }}
+            </span>
+          </div>
+
+          <div class="address-line fallback-line" *ngIf="!loc.address_line1 && !loc.city">
+            <ion-icon name="alert-circle-outline" color="warning"></ion-icon>
+            <span class="text-muted">Detailed address not yet updated</span>
+          </div>
+        </div>
+
+        <!-- EXTRA META -->
+        <div class="loc-contact-meta">
+          <div class="meta-pill" *ngIf="loc.phone_number">
+            <ion-icon name="call-outline"></ion-icon>
+            <span>{{ loc.phone_number }}</span>
+          </div>
+          <div class="meta-pill" *ngIf="loc.email">
+            <ion-icon name="mail-outline"></ion-icon>
+            <span>{{ loc.email }}</span>
+          </div>
+          <div class="meta-pill" *ngIf="loc.timezone">
+            <ion-icon name="time-outline"></ion-icon>
+            <span>{{ loc.timezone }}</span>
+          </div>
+        </div>
+
+        <!-- CARD ACTIONS -->
+        <div class="loc-card-actions">
+          <button class="action-btn edit-btn" (click)="openEditLocationModal(loc)">
+            <ion-icon name="create-outline"></ion-icon>
+            <span>Update Address</span>
+          </button>
+          <button class="action-btn delete-btn" (click)="confirmDeleteLocation(loc)" title="Delete location">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state-card animate__animated animate__fadeIn" *ngIf="filteredLocations.length === 0">
+      <div class="empty-icon-wrap">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+      <h3>No Locations Found</h3>
+      <p *ngIf="searchTerm">No office locations match your search query "{{ searchTerm }}".</p>
+      <p *ngIf="!searchTerm">No corporate office locations have been set up yet. Add your primary headquarters or branch offices now.</p>
+      <button class="btn-primary" (click)="openAddLocationModal()">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Add Your First Location</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       LOCATION ADD/EDIT MODAL
+  ========================================================================= -->
+  <div class="custom-modal-backdrop" *ngIf="showLocationModal">
+    <div class="custom-modal-box animate__animated animate__zoomIn">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <ion-icon name="business-outline" class="modal-title-icon"></ion-icon>
+          <h3>{{ locationModalTitle }}</h3>
+        </div>
+        <button class="close-modal-btn" (click)="closeLocationModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="locationForm" (ngSubmit)="saveLocation()" class="modal-body-form">
+        <!-- NAME & COUNTRY -->
+        <div class="form-row">
+          <div class="form-group col-7">
+            <label>Location / Office Name <span class="req">*</span></label>
+            <input type="text" formControlName="name" placeholder="e.g. Headquarters - Herndon" />
+            <span class="field-error" *ngIf="locationForm.get('name')?.touched && locationForm.get('name')?.errors?.['required']">
+              Location name is required.
+            </span>
+          </div>
+
+          <div class="form-group col-5">
+            <label>Country <span class="req">*</span></label>
+            <select formControlName="country">
+              <option *ngFor="let c of countries" [value]="c">{{ c }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ADDRESS LINE 1 -->
+        <div class="form-group">
+          <label>Street Address Line 1 <span class="req">*</span></label>
+          <input type="text" formControlName="address_line1" placeholder="e.g. 13800 Coppermine Road, Suite 300" />
+          <span class="field-error" *ngIf="locationForm.get('address_line1')?.touched && locationForm.get('address_line1')?.errors?.['required']">
+            Street address is required.
+          </span>
+        </div>
+
+        <!-- ADDRESS LINE 2 -->
+        <div class="form-group">
+          <label>Street Address Line 2 (Building / Floor / Suite)</label>
+          <input type="text" formControlName="address_line2" placeholder="e.g. Building 4, 2nd Floor" />
+        </div>
+
+        <!-- CITY, STATE, POSTAL -->
+        <div class="form-row">
+          <div class="form-group col-4">
+            <label>City <span class="req">*</span></label>
+            <input type="text" formControlName="city" placeholder="e.g. Herndon" />
+            <span class="field-error" *ngIf="locationForm.get('city')?.touched && locationForm.get('city')?.errors?.['required']">
+              City is required.
+            </span>
+          </div>
+
+          <div class="form-group col-4">
+            <label>State / Province <span class="req">*</span></label>
+            <input type="text" formControlName="state" placeholder="e.g. Virginia" />
+            <span class="field-error" *ngIf="locationForm.get('state')?.touched && locationForm.get('state')?.errors?.['required']">
+              State is required.
+            </span>
+          </div>
+
+          <div class="form-group col-4">
+            <label>Postal / ZIP Code <span class="req">*</span></label>
+            <input type="text" formControlName="postal_code" placeholder="e.g. 20171" />
+            <span class="field-error" *ngIf="locationForm.get('postal_code')?.touched && locationForm.get('postal_code')?.errors?.['required']">
+              Postal code is required.
+            </span>
+          </div>
+        </div>
+
+        <!-- PHONE, EMAIL, TIMEZONE -->
+        <div class="form-row">
+          <div class="form-group col-6">
+            <label>Office Phone Number</label>
+            <input type="text" formControlName="phone_number" placeholder="e.g. +1 (703) 349-1070" />
+          </div>
+
+          <div class="form-group col-6">
+            <label>Office Email</label>
+            <input type="email" formControlName="email" placeholder="e.g. va-office@tammina.com" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group col-7">
+            <label>Timezone</label>
+            <select formControlName="timezone">
+              <option *ngFor="let tz of timezones" [value]="tz">{{ tz }}</option>
+            </select>
+          </div>
+
+          <div class="form-group col-5 hq-checkbox-group">
+            <label class="checkbox-container">
+              <input type="checkbox" formControlName="is_headquarters" />
+              <span class="checkmark"></span>
+              <span class="cb-label">Set as Primary Headquarters</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" (click)="closeLocationModal()">Cancel</button>
+          <button type="submit" class="btn-primary" [disabled]="isSaving">
+            <ion-spinner name="crescent" *ngIf="isSaving"></ion-spinner>
+            <ion-icon name="checkmark-circle-outline" *ngIf="!isSaving"></ion-icon>
+            <span>{{ isSaving ? 'Saving...' : 'Save Location Address' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</ion-content>

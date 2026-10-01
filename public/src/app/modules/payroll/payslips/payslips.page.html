@@ -103,7 +103,7 @@
                     </p>
                   </div>
                   <div class="company-logo-right">
-                    <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo-img" />
+                    <img [src]="companyLogoUrl" [alt]="companyName" class="company-logo-img" (error)="onLogoError($event)" />
                   </div>
                 </div>
 

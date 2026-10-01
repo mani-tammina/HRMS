@@ -8,6 +8,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { RouteGuardService } from '../../../core/services/route-guard.service';
 import { EmployeeLeavesService } from '../../../core/services/employee-leaves.service';
+import { BrandingService } from '../../../core/services/branding.service';
 
 @Component({
   selector: 'app-login',
@@ -16,6 +17,9 @@ import { EmployeeLeavesService } from '../../../core/services/employee-leaves.se
   standalone: false,
 })
 export class LoginPage implements OnInit {
+  companyLogoUrl: string = 'assets/TamminaLogo.png';
+  companyName: string = 'Tech Tammina';
+
   loginForm!: FormGroup;
   emailChecked = false;
   showPassword = false;
@@ -51,6 +55,7 @@ export class LoginPage implements OnInit {
     private authService: AuthService,
     private employeeService: EmployeeService,
     private employeeLeavesService: EmployeeLeavesService,
+    private brandingService: BrandingService,
     private router: Router,
     private routeGuardService: RouteGuardService,
     private toastController: ToastController,
@@ -59,6 +64,16 @@ export class LoginPage implements OnInit {
 
   ngOnInit(): void {
     this.initForms();
+    this.brandingService.logoUrl$.subscribe((url) => {
+      if (url) this.companyLogoUrl = url;
+    });
+    this.brandingService.companyName$.subscribe((name) => {
+      if (name) this.companyName = name;
+    });
+  }
+
+  onLogoError(event: any) {
+    event.target.src = 'assets/TamminaLogo.png';
   }
 
   private initForms() {

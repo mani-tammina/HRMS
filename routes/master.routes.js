@@ -70,7 +70,108 @@ const createMasterRoutes = (route, table, col) => {
 };
 
 // Create routes for all master tables
-createMasterRoutes("locations", "locations", "name");
+// Enhanced locations endpoints (with full address and PUT support)
+router.get("/locations", auth, roleAuth(["admin", "hr", "manager", "employee"]), async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    const [rows] = await c.query(
+      "SELECT id, name, country, address_line1, address_line2, city, state, postal_code, phone_number, email, timezone, is_headquarters, created_at FROM locations ORDER BY is_headquarters DESC, name ASC"
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+router.put("/locations/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const id = req.params.id;
+    const { name, country, address_line1, address_line2, city, state, postal_code, phone_number, email, timezone, is_headquarters } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Location name is required" });
+    }
+    c = await db();
+    if (is_headquarters) {
+      await c.query("UPDATE locations SET is_headquarters = 0 WHERE id != ?", [id]);
+    }
+    const payload = {
+      name: name.trim(),
+      country: country || null,
+      address_line1: address_line1 !== undefined ? address_line1 : null,
+      address_line2: address_line2 !== undefined ? address_line2 : null,
+      city: city !== undefined ? city : null,
+      state: state !== undefined ? state : null,
+      postal_code: postal_code !== undefined ? postal_code : null,
+      phone_number: phone_number !== undefined ? phone_number : null,
+      email: email !== undefined ? email : null,
+      timezone: timezone !== undefined ? timezone : null,
+      is_headquarters: is_headquarters ? 1 : 0,
+    };
+    await c.query("UPDATE locations SET ? WHERE id = ?", [payload, id]);
+    res.json({ success: true, message: "Location updated successfully", id, ...payload });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+router.post("/locations", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const { name, country, address_line1, address_line2, city, state, postal_code, phone_number, email, timezone, is_headquarters } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Location name is required" });
+    }
+    c = await db();
+    const [existing] = await c.query("SELECT id FROM locations WHERE name = ?", [name.trim()]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: `Location '${name.trim()}' already exists` });
+    }
+    if (is_headquarters) {
+      await c.query("UPDATE locations SET is_headquarters = 0");
+    }
+    const payload = {
+      name: name.trim(),
+      country: country || null,
+      address_line1: address_line1 || null,
+      address_line2: address_line2 || null,
+      city: city || null,
+      state: state || null,
+      postal_code: postal_code || null,
+      phone_number: phone_number || null,
+      email: email || null,
+      timezone: timezone || null,
+      is_headquarters: is_headquarters ? 1 : 0,
+    };
+    const [result] = await c.query("INSERT INTO locations SET ?", [payload]);
+    res.status(201).json({ success: true, message: "Location created successfully", id: result.insertId, ...payload });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+router.delete("/locations/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    const [result] = await c.query("DELETE FROM locations WHERE id = ?", [req.params.id]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Location not found" });
+    }
+    res.json({ success: true, message: "Location deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
 createMasterRoutes("departments", "departments", "name");
 createMasterRoutes("designations", "designations", "name");
 createMasterRoutes("business-units", "business_units", "name");

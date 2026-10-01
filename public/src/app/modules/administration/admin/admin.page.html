@@ -101,6 +101,19 @@
             </ion-button>
           </ion-card-header>
         </ion-card>
+
+        <ion-card (click)="companyBrandingSetup()" class="clickable-card">
+          <ion-card-header>
+            <div class="card-icon-wrapper">
+              <ion-icon name="color-palette-outline" style="font-size:44px;color:#2563eb;"></ion-icon>
+            </div>
+            <ion-card-title>Company Branding</ion-card-title>
+            <p>Upload corporate logo, manage organization story, and update branch office addresses.</p>
+            <ion-button fill="clear" color="light" class="card-btn">
+              Brand & Locations <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
+            </ion-button>
+          </ion-card-header>
+        </ion-card>
       </ion-col>
     </ion-row>
   </ion-grid>

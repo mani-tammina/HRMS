@@ -72,6 +72,8 @@ ion-content.login-content {
     padding: 4px;
     box-sizing: border-box;
     flex-shrink: 0;
+    width: 150px;
+    height: 75px
   }
 
   .left-logo-text {
@@ -854,8 +856,15 @@ ion-content.login-content {
 }
 
 @keyframes pwPopupIn {
-  from { opacity: 0; transform: translateY(-4px); }
-  to   { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .pw-rule {
@@ -881,6 +890,7 @@ ion-content.login-content {
 
   &.pass {
     color: #16a34a;
+
     .pw-icon {
       background: #dcfce7;
       color: #16a34a;
@@ -889,6 +899,7 @@ ion-content.login-content {
 
   &.fail {
     color: #94a3b8;
+
     .pw-icon {
       background: #f1f5f9;
       color: #ef4444;

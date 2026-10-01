@@ -15,10 +15,11 @@
       <label class="custom-checkbox-label">
         <input type="checkbox" formControlName="remote_clockin_mobile_enabled" class="checkbox-input" />
         <span class="checkbox-text font-medium">
-          Allow Employees to do remote clock-in using Keka mobile app
+          Allow Employees to do remote clock-in using INTERACT mobile app
         </span>
       </label>
-      <span class="info-icon" title="Allows clock-in/out through Android and iOS mobile applications when working outside boundaries.">i</span>
+      <span class="info-icon"
+        title="Allows clock-in/out through Android and iOS mobile applications when working outside boundaries.">i</span>
     </div>
 
     <!-- Web Browser Option -->
@@ -26,7 +27,7 @@
       <label class="custom-checkbox-label">
         <input type="checkbox" formControlName="remote_clockin_web_enabled" class="checkbox-input" />
         <span class="checkbox-text font-medium">
-          Allow Employees to do remote clock-in using Keka web browser
+          Allow Employees to do remote clock-in using INTERACT web browser
         </span>
       </label>
       <span class="info-icon" title="Allows remote clock-in via desktop web browser outside office network.">i</span>
@@ -37,23 +38,13 @@
       <h5 class="sub-question-title">Is comment required for remote clock-in?</h5>
       <div class="radio-group">
         <label class="radio-label">
-          <input
-            type="radio"
-            name="remote_clockin_comment_required"
-            value="no"
-            [checked]="commentRequired === 'no'"
-            (change)="setCommentRequired('no')"
-          />
+          <input type="radio" name="remote_clockin_comment_required" value="no" [checked]="commentRequired === 'no'"
+            (change)="setCommentRequired('no')" />
           <span>No</span>
         </label>
         <label class="radio-label">
-          <input
-            type="radio"
-            name="remote_clockin_comment_required"
-            value="yes"
-            [checked]="commentRequired === 'yes'"
-            (change)="setCommentRequired('yes')"
-          />
+          <input type="radio" name="remote_clockin_comment_required" value="yes" [checked]="commentRequired === 'yes'"
+            (change)="setCommentRequired('yes')" />
           <span>Yes</span>
         </label>
       </div>
@@ -67,23 +58,13 @@
       </h5>
       <div class="radio-group">
         <label class="radio-label">
-          <input
-            type="radio"
-            name="remote_clockin_approval_required"
-            value="no"
-            [checked]="approvalRequired === 'no'"
-            (change)="setApprovalRequired('no')"
-          />
+          <input type="radio" name="remote_clockin_approval_required" value="no" [checked]="approvalRequired === 'no'"
+            (change)="setApprovalRequired('no')" />
           <span>No</span>
         </label>
         <label class="radio-label">
-          <input
-            type="radio"
-            name="remote_clockin_approval_required"
-            value="yes"
-            [checked]="approvalRequired === 'yes'"
-            (change)="setApprovalRequired('yes')"
-          />
+          <input type="radio" name="remote_clockin_approval_required" value="yes" [checked]="approvalRequired === 'yes'"
+            (change)="setApprovalRequired('yes')" />
           <span>Yes</span>
         </label>
       </div>
@@ -106,10 +87,12 @@
             <!-- Member Pills -->
             <div class="member-pill" *ngFor="let member of lvl.members; let mIdx = index">
               <!-- Avatar or Icon -->
-              <span class="pill-avatar role" [class.hr-role]="member.value === 'HR'" [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
+              <span class="pill-avatar role" [class.hr-role]="member.value === 'HR'"
+                [class.hrm-role]="member.value === 'HRM'" *ngIf="member.type === 'role'">
                 {{ member.value }}
               </span>
-              <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar" alt="Avatar" />
+              <img class="pill-avatar" *ngIf="member.type === 'employee' && member.avatar" [src]="member.avatar"
+                alt="Avatar" />
               <span class="pill-avatar text" *ngIf="member.type === 'employee' && !member.avatar">
                 {{ member.label.substring(0, 1) }}
               </span>
@@ -133,13 +116,16 @@
 
                 <!-- Roles options -->
                 <div class="role-options">
-                  <button type="button" class="btn-role-opt" (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdown = false">
+                  <button type="button" class="btn-role-opt"
+                    (click)="addRoleToChain(lIdx, 'RM', 'Reporting Manager'); showDropdown = false">
                     + Add Reporting Manager (RM)
                   </button>
-                  <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdown = false">
+                  <button type="button" class="btn-role-opt mt-2"
+                    (click)="addRoleToChain(lIdx, 'HRM', 'HR Manager'); showDropdown = false">
                     + Add HR Manager
                   </button>
-                  <button type="button" class="btn-role-opt mt-2" (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdown = false">
+                  <button type="button" class="btn-role-opt mt-2"
+                    (click)="addRoleToChain(lIdx, 'HR', 'HR of that Location'); showDropdown = false">
                     + Add HR of that Location
                   </button>
                 </div>
@@ -147,25 +133,17 @@
                 <!-- Employee search field -->
                 <div class="emp-search-group">
                   <label class="search-lbl">Search specific employee:</label>
-                  <input
-                    type="text"
-                    [value]="searchQuery"
-                    (input)="searchEmployees($event)"
-                    placeholder="Type name to search..."
-                    class="search-input"
-                  />
+                  <input type="text" [value]="searchQuery" (input)="searchEmployees($event)"
+                    placeholder="Type name to search..." class="search-input" />
                   <div class="search-spinner" *ngIf="loadingSearch">Searching...</div>
 
                   <!-- Autocomplete lists -->
                   <div class="search-results-list" *ngIf="searchResults.length > 0">
-                    <button
-                      type="button"
-                      class="btn-result-item"
-                      *ngFor="let emp of searchResults"
-                      (click)="selectEmployee(lIdx, emp)"
-                    >
+                    <button type="button" class="btn-result-item" *ngFor="let emp of searchResults"
+                      (click)="selectEmployee(lIdx, emp)">
                       <img class="emp-avatar" *ngIf="emp.profile_image" [src]="emp.profile_image" alt="" />
-                      <span class="emp-avatar-text" *ngIf="!emp.profile_image">{{ emp.full_name?.substring(0, 1) }}</span>
+                      <span class="emp-avatar-text" *ngIf="!emp.profile_image">{{ emp.full_name?.substring(0, 1)
+                        }}</span>
                       <div class="emp-details">
                         <span class="emp-name">{{ emp.full_name }}</span>
                         <span class="emp-code" *ngIf="emp.employee_number">{{ emp.employee_number }}</span>
@@ -184,4 +162,3 @@
   </div>
 
 </div>
-

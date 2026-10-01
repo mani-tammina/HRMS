@@ -9,7 +9,7 @@
     </div>
 
     <div class="logo-box animate__animated animate__zoomIn">
-      <img src="assets/tt_blue_logo.png" alt="Tech Tammina Logo" class="intro-logo" />
+      <img [src]="companyLogoUrl" [alt]="companyName" class="intro-logo" (error)="onLogoError($event)" />
       <div class="loading-bar">
         <div class="loading-progress"></div>
       </div>

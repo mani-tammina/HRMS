@@ -6,6 +6,7 @@ import { EmployeeService } from '../../../core/services/employee.service';
 import { PayrollService } from '../../../core/services/payroll.service';
 import { PayrollApiService } from '../../../core/services/payroll-api.service';
 import { AttendanceApiService } from '../../../core/services/attendance-api.service';
+import { BrandingService } from '../../../core/services/branding.service';
 
 declare var html2pdf: any;
 
@@ -17,6 +18,9 @@ declare var html2pdf: any;
 })
 export class PayslipsPage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
+
+  companyLogoUrl: string = 'assets/tt_blue_logo.png';
+  companyName: string = 'Sree Tammina Software solutions Pvt. Ltd.';
 
   currentTab: string = 'payslips';
   currentEmployee: any;
@@ -91,13 +95,24 @@ export class PayslipsPage implements OnInit, OnDestroy {
     private payrollService: PayrollService,
     private payrollApi: PayrollApiService,
     private attendanceApi: AttendanceApiService,
+    private brandingService: BrandingService,
     private loadingController: LoadingController
   ) {
     this.financialYear = this.payrollApi.getCurrentFinancialYear();
   }
 
   ngOnInit() {
+    this.brandingService.logoUrl$.pipe(takeUntil(this.destroy$)).subscribe((url) => {
+      if (url) this.companyLogoUrl = url;
+    });
+    this.brandingService.companyName$.pipe(takeUntil(this.destroy$)).subscribe((name) => {
+      if (name) this.companyName = name;
+    });
     this.loadData();
+  }
+
+  onLogoError(event: any) {
+    event.target.src = 'assets/tt_blue_logo.png';
   }
 
   setTab(event: any) {

@@ -6,6 +6,7 @@ import { IonicModule, AlertController, ToastController } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CandidateService } from 'src/app/core/services/candidate.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
+import { BrandingService } from 'src/app/core/services/branding.service';
 import { OfferLetterViewComponent } from '../offer-letter-view/offer-letter-view.component';
 
 @Component({
@@ -16,6 +17,9 @@ import { OfferLetterViewComponent } from '../offer-letter-view/offer-letter-view
   imports: [IonicModule, CommonModule, FormsModule, HttpClientModule, OfferLetterViewComponent]
 })
 export class CandiatePortalComponent implements OnInit {
+
+  companyLogoUrl: string = 'assets/techtammina.webp';
+  companyName: string = 'Tech Tammina';
 
   candidate: any = null;
   isLoading = true;
@@ -81,10 +85,18 @@ export class CandiatePortalComponent implements OnInit {
     private candidateService: CandidateService,
     private toaster: ToasterService,
     private alertCtrl: AlertController,
-    private toastCtrl: ToastController
+    private toastCtrl: ToastController,
+    private brandingService: BrandingService
   ) {}
 
   ngOnInit() {
+    this.brandingService.logoUrl$.subscribe((url) => {
+      if (url) this.companyLogoUrl = url;
+    });
+    this.brandingService.companyName$.subscribe((name) => {
+      if (name) this.companyName = name;
+    });
+
     const id = this.route.snapshot.paramMap.get('id');
 
     if (!id) {

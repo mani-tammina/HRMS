@@ -34,4 +34,7 @@ export class AdminPage implements OnInit {
   holidaySetup() {
     this.router.navigate(['/administration/holidays']);
   }
+  companyBrandingSetup() {
+    this.router.navigate(['/administration/company-branding']);
+  }
 }

@@ -595,7 +595,7 @@ router.get("/payroll/payslip/download", auth, async (req, res) => {
     const payslip = safeJson(rows[0].payslip_json, {});
     const totals = payslip.totals || {};
     const lines = [
-      `HRMS Payslip #${rows[0].id}`,
+      `Interact Payslip #${rows[0].id}`,
       `Employee: ${employee.FullName || employee.FirstName || employee.id}`,
       `Generated: ${rows[0].generated_at}`,
       `Gross: ${totals.gross || 0}`,

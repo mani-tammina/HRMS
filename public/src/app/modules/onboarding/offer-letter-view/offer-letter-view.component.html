@@ -15,10 +15,10 @@
     <!-- Letterhead -->
     <div class="letter-header">
       <img
-        src="assets/techtammina.webp"
-        alt="Tech Tammina Logo"
+        [src]="companyLogoUrl"
+        [alt]="companyName"
         class="letterhead-logo"
-        onerror="this.style.display='none'"
+        (error)="onLogoError($event)"
       />
       <div class="company-address">
         <h3>Sree Tammina Software Solutions Pvt. Ltd.</h3>
