@@ -1145,13 +1145,14 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                     delete cleaned.updated_at;
                     delete cleaned.attendance_month;
 
-                    // Convert UL → LOP in all day-column cells (date columns like "01-Jun-2026")
+                    // Convert UL → LOP and normalize any legacy BA:P marks in all day-column cells (date columns like "01-Jun-2026")
                     for (const key of Object.keys(cleaned)) {
                         if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
                             const cellVal = String(cleaned[key] || '').trim().toUpperCase();
                             if (cellVal === 'UL') cleaned[key] = 'LOP';
                             if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
                             if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
+                            if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cleaned[key] = 'P';
                         }
                     }
 
@@ -1178,13 +1179,14 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                     delete cleaned.updated_at;
                     delete cleaned.attendance_month;
 
-                    // Convert UL → LOP in all day-column cells
+                    // Convert UL → LOP and normalize any legacy BA:P marks in all day-column cells
                     for (const key of Object.keys(cleaned)) {
                         if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
                             const cellVal = String(cleaned[key] || '').trim().toUpperCase();
                             if (cellVal === 'UL') cleaned[key] = 'LOP';
                             if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
                             if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
+                            if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cleaned[key] = 'P';
                         }
                     }
 
@@ -1289,6 +1291,8 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                 else if (lType.includes('PRIVILEGE') || lType === 'PL') lCode = 'PL';
                 else if (lType.includes('EARNED') || lType === 'EL') lCode = 'EL';
                 else if (lType.includes('UNPAID') || lType.includes('LOSS OF PAY') || lType === 'LOP') lCode = 'LOP';
+                else if (lType.includes('BEREAVEMENT') || lType === 'BL' || lType === 'BA') lCode = 'BL';
+                if (lCode === 'BA') lCode = 'BL';
 
                 const isHalf = Number(l.is_half_day) === 1 || String(l.is_half_day) === 'true';
                 const sess = String(l.half_day_session || '').toLowerCase();
@@ -1300,6 +1304,9 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                     } else {
                         finalCode = `P:${lCode}`;
                     }
+                }
+                if (finalCode === 'BA:P' || finalCode === 'P:BA' || finalCode === 'BA') {
+                    finalCode = 'P';
                 }
 
                 while (d <= end) {
@@ -1481,6 +1488,9 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                             code = 'A';
                             absentCount++;
                         }
+                    }
+                    if (code === 'BA:P' || code === 'P:BA' || code === 'BA') {
+                        code = 'P';
                     }
                     row[header] = code;
                 }

@@ -254,14 +254,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
       else if (code.includes('EARNED') || code === 'EL') code = 'EL';
       else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
+      else if (code.includes('BEREAVEMENT') || code === 'BL' || code === 'BA') code = 'BL';
       else if (code.length > 5) {
-        const words = code.split(/[\s_]+/);
-        if (words.length > 1) {
-          code = words.map(w => w[0]).join('');
-        } else {
-          code = code.substring(0, 4);
-        }
+        code = 'LEAVE';
       }
+
+      if (code === 'BA') code = 'BL';
 
       const leaveType = (leave as any).type_name || leave.leave_type || code;
       const isHalfDay = !!(leave.is_half_day || (leave as any).is_half_day);
@@ -285,6 +283,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             halfCode = `P:${code}`;
           }
         }
+        if (halfCode === 'BA:P' || halfCode === 'P:BA' || halfCode === 'BA') {
+          halfCode = 'HD';
+        }
         this.leaveDaysMap.set(dStr, leaveType);
         this.leaveDetailsMap.set(dStr, { leaveType, isHalfDay, halfDaySession, typeCode: code, halfCode });
         d.setDate(d.getDate() + 1);
@@ -294,18 +295,24 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getHalfDayNotation(log: any): string {
     if (!log) return 'HD';
-    if (log.halfCode) return log.halfCode;
+    if (log.halfCode) {
+      if (log.halfCode === 'BA:P' || log.halfCode === 'P:BA' || log.halfCode === 'BA') return 'HD';
+      return log.halfCode;
+    }
     const dateStr = this.formatDateOnly(log.attendance_date);
     const leaveDetail = this.leaveDetailsMap.get(dateStr);
     if (leaveDetail && leaveDetail.halfCode) {
+      if (leaveDetail.halfCode === 'BA:P' || leaveDetail.halfCode === 'P:BA' || leaveDetail.halfCode === 'BA') return 'HD';
       return leaveDetail.halfCode;
     }
     if (log.notes && (log.notes.includes(':P') || log.notes.includes('P:'))) {
-      return log.notes.trim();
+      const trimmed = log.notes.trim();
+      if (trimmed === 'BA:P' || trimmed === 'P:BA' || trimmed === 'BA') return 'HD';
+      return trimmed;
     }
     const notesStr = String(log.notes || '').trim();
     const notesLower = notesStr.toLowerCase();
-    let leaveCode = 'CL';
+    let leaveCode = '';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul') || notesLower.includes('unpaid')) {
       leaveCode = 'LOP';
     } else if (notesLower.includes('sick') || notesLower.includes('sl')) {
@@ -320,30 +327,30 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       leaveCode = 'EL';
     } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
       leaveCode = 'PL';
-    } else if (notesStr) {
-      const cleanName = notesStr.replace(/^(first|second|1st|2nd)\s+half\s+/i, '').trim();
-      if (cleanName) {
-        const words = cleanName.split(/\s+/);
-        if (words.length > 1) {
-          leaveCode = words.map(w => w[0].toUpperCase()).join('');
-        } else {
-          leaveCode = cleanName.substring(0, 4).toUpperCase();
-        }
-      }
+    } else if (notesLower.includes('bereavement') || notesLower.includes('bl')) {
+      leaveCode = 'BL';
     }
 
-    if (notesLower.includes('second') || notesLower.includes('2nd')) {
-      return `P:${leaveCode}`;
+    if (leaveCode) {
+      if (notesLower.includes('second') || notesLower.includes('2nd')) {
+        return `P:${leaveCode}`;
+      }
+      return `${leaveCode}:P`;
     }
-    return `${leaveCode}:P`;
+
+    return 'HD';
   }
 
   getLeaveBadgeText(log: any): string {
     if (!log) return 'LEAVE';
-    if (log.leaveCode) return log.leaveCode;
+    if (log.leaveCode) {
+      if (log.leaveCode === 'BA') return 'LEAVE';
+      return log.leaveCode;
+    }
     const dateStr = this.formatDateOnly(log.attendance_date);
     const leaveDetail = this.leaveDetailsMap.get(dateStr);
     if (leaveDetail && leaveDetail.typeCode) {
+      if (leaveDetail.typeCode === 'BA') return 'LEAVE';
       return leaveDetail.typeCode;
     }
     const notesStr = String(log.notes || log.leaveType || '').trim();
@@ -355,14 +362,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (notesLower.includes('privilege') || notesLower.includes('pl')) return 'PL';
     if (notesLower.includes('earned') || notesLower.includes('el')) return 'EL';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul')) return 'LOP';
+    if (notesLower.includes('bereavement') || notesLower.includes('bl')) return 'BL';
 
-    if (notesStr) {
-      const words = notesStr.split(/\s+/);
-      if (words.length > 1) {
-        return words.map(w => w[0].toUpperCase()).join('');
-      }
-      return notesStr.substring(0, 4).toUpperCase();
-    }
     return 'LEAVE';
   }
 
@@ -433,8 +434,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               return {
                 ...existing,
                 attendance_date: date,
+                status: 'holiday',
                 isHoliday: true,
                 holidayName: holiday.name,
+                leaveType: holiday.name,
                 noLogs: false
               };
             }
@@ -987,22 +990,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return 'regularlise';
     }
 
-    if (log.notes && (log.notes.includes('Half') || log.notes.includes('Leave') || log.notes.includes('Loss of Pay'))) {
+    if (log.notes && (log.notes.includes('Leave') || log.notes.includes('Loss of Pay')) && !log.notes.toLowerCase().includes('half')) {
       return log.notes;
     }
 
     const statusMap: { [key: string]: string } = {
-      present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
+      present: 'On Time', absent: 'Absent', 'half-day': 'On Time',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
       penalty: 'Penalty'
     };
-    if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
+    if (log.first_check_in && this.shiftPolicy?.start_time) {
       try {
         const checkIn = new Date(log.first_check_in);
         const [shiftH, shiftM, shiftS] = this.shiftPolicy.start_time.split(':').map(Number);
         const grace = new Date(checkIn);
         grace.setHours(shiftH, shiftM + 15, shiftS || 0, 0);
         if (checkIn > grace) return 'Late Arrival';
+        return 'On Time';
       } catch { }
     }
     return statusMap[log.status] || 'Unknown';
