@@ -434,10 +434,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               return {
                 ...existing,
                 attendance_date: date,
-                status: 'holiday',
                 isHoliday: true,
                 holidayName: holiday.name,
-                leaveType: holiday.name,
                 noLogs: false
               };
             }
@@ -990,23 +988,22 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return 'regularlise';
     }
 
-    if (log.notes && (log.notes.includes('Leave') || log.notes.includes('Loss of Pay')) && !log.notes.toLowerCase().includes('half')) {
+    if (log.notes && (log.notes.includes('Half') || log.notes.includes('Leave') || log.notes.includes('Loss of Pay'))) {
       return log.notes;
     }
 
     const statusMap: { [key: string]: string } = {
-      present: 'On Time', absent: 'Absent', 'half-day': 'On Time',
+      present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
       penalty: 'Penalty'
     };
-    if (log.first_check_in && this.shiftPolicy?.start_time) {
+    if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {
         const checkIn = new Date(log.first_check_in);
         const [shiftH, shiftM, shiftS] = this.shiftPolicy.start_time.split(':').map(Number);
         const grace = new Date(checkIn);
         grace.setHours(shiftH, shiftM + 15, shiftS || 0, 0);
         if (checkIn > grace) return 'Late Arrival';
-        return 'On Time';
       } catch { }
     }
     return statusMap[log.status] || 'Unknown';

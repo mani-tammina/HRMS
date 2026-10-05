@@ -1607,7 +1607,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
           lop_from_leaves += weight;
         }
       });
-    } else if (matchingHoliday) {
+    } else if (matchingHoliday && (!attMap.has(dStr) || attMap.get(dStr).status === 'absent' || attMap.get(dStr).status === 'penalty')) {
       holiday_days++;
     } else if (weekOffDays.includes(weekday)) {
       weekend_days++;

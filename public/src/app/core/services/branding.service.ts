@@ -33,16 +33,16 @@ export interface CompanyBranding {
 export interface LocationItem {
   id?: number;
   name: string;
-  country?: string;
-  address_line1?: string;
-  address_line2?: string;
-  city?: string;
-  state?: string;
-  postal_code?: string;
-  phone_number?: string;
-  email?: string;
-  timezone?: string;
-  is_headquarters?: number | boolean;
+  country?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  phone_number?: string | null;
+  email?: string | null;
+  timezone?: string | null;
+  is_headquarters?: number | boolean | null;
   created_at?: string;
   updated_at?: string;
 }

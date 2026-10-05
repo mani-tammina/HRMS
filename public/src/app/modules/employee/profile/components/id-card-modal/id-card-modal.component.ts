@@ -1,7 +1,9 @@
-import { Component, Input, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
+import { Subject, takeUntil } from 'rxjs';
 import { environment } from '../../../../../../environments/environment';
+import { BrandingService, CompanyBranding, LocationItem } from '../../../../../core/services/branding.service';
 import html2canvas from 'html2canvas';
 
 @Component({
@@ -14,7 +16,9 @@ import html2canvas from 'html2canvas';
     IonicModule
   ]
 })
-export class IdCardModalComponent implements OnInit {
+export class IdCardModalComponent implements OnInit, OnDestroy {
+  private destroy$ = new Subject<void>();
+
   @Input() currentEmployee: any;
   @ViewChild('idCardFrontRef', { static: false }) idCardFrontRef!: ElementRef;
   @ViewChild('idCardBackRef', { static: false }) idCardBackRef!: ElementRef;
@@ -22,6 +26,13 @@ export class IdCardModalComponent implements OnInit {
   env: string = '';
   isDownloading = false;
   isFlipped = false;
+
+  // Dynamic Location & Branding Data for THIS specific employee
+  siteAddress: string = '';
+  sitePhone: string = '';
+  siteFax: string = '0891-2555201';
+  companyName: string = 'SREE TAMMINA SOFTWARE SOLUTIONS PVT. LTD.';
+  companyWebsite: string = 'www.techtammina.com';
 
   get hasProfileImage(): boolean {
     return !!this.currentEmployee?.profile_image;
@@ -79,14 +90,145 @@ export class IdCardModalComponent implements OnInit {
            '8688613873';
   }
 
+  /**
+   * Dynamically formats the location address lines below the company title
+   * derived STRICTLY from this employee's assigned site location.
+   */
+  get locationAddressLines(): string[] {
+    if (this.siteAddress && this.siteAddress.trim()) {
+      const raw = this.siteAddress.trim();
+      if (raw.includes('\n')) {
+        return raw.split('\n').map(s => s.trim()).filter(Boolean);
+      }
+
+      // If comma-separated long string, split into 2 neat lines
+      if (raw.length > 38 && raw.includes(',')) {
+        const parts = raw.split(',').map(s => s.trim()).filter(Boolean);
+        const mid = Math.ceil(parts.length / 2);
+        return [
+          parts.slice(0, mid).join(', ') + ',',
+          parts.slice(mid).join(', ')
+        ];
+      }
+
+      return [raw];
+    }
+
+    // Default Fallback
+    return [
+      '# 49-24-64, Sri Venkata Sai Towers, 3rd Floor,',
+      'Sankaramatam Road, Madhuranagar, Visakhapatnam'
+    ];
+  }
+
+  get companyNameDisplay(): string {
+    return this.companyName || 'SREE TAMMINA SOFTWARE SOLUTIONS PVT. LTD.';
+  }
+
+  get locationPhone(): string {
+    return this.sitePhone || '0891-2555200';
+  }
+
+  get locationFax(): string {
+    return this.siteFax || '0891-2555201';
+  }
+
+  get companyWebsiteDisplay(): string {
+    return this.companyWebsite || 'www.techtammina.com';
+  }
+
   constructor(
     private modalController: ModalController,
     private toastController: ToastController,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private brandingService: BrandingService
   ) {}
 
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
+    this.initDynamicBrandingAndLocation();
+  }
+
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private initDynamicBrandingAndLocation() {
+    const empLocId = this.currentEmployee?.LocationId || this.currentEmployee?.location_id;
+    const empLocName = (
+      this.currentEmployee?.location_name ||
+      this.currentEmployee?.Location ||
+      this.currentEmployee?.location ||
+      ''
+    ).trim().toLowerCase();
+
+    // 1. Direct assignment from employee object if already populated by backend query
+    if (this.currentEmployee?.location_address_line1 && this.currentEmployee.location_address_line1.trim()) {
+      this.siteAddress = this.currentEmployee.location_address_line1.trim();
+      if (this.currentEmployee.location_phone_number) {
+        this.sitePhone = this.currentEmployee.location_phone_number.trim();
+      }
+    }
+
+    // 2. Query Locations from Branding Service to match ONLY this employee's assigned location
+    this.brandingService
+      .getLocations()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (locations: LocationItem[]) => {
+          if (!locations || locations.length === 0) return;
+
+          // Find ONLY the location that matches THIS employee's LocationId or location_name
+          let matchedLoc: LocationItem | undefined;
+          if (empLocId) {
+            matchedLoc = locations.find(l => Number(l.id) === Number(empLocId));
+          }
+          if (!matchedLoc && empLocName) {
+            matchedLoc = locations.find(l => (l.name || '').trim().toLowerCase() === empLocName);
+          }
+
+          if (matchedLoc) {
+            // ONLY apply the address if THIS employee's assigned location has an address configured
+            if (matchedLoc.address_line1 && matchedLoc.address_line1.trim()) {
+              this.siteAddress = matchedLoc.address_line1.trim();
+            } else {
+              this.siteAddress = '';
+            }
+
+            if (matchedLoc.phone_number && matchedLoc.phone_number.trim()) {
+              this.sitePhone = matchedLoc.phone_number.trim();
+            }
+          }
+          this.cdr.detectChanges();
+        },
+        error: (err) => {
+          console.warn('Could not load locations for ID Card', err);
+        }
+      });
+
+    // 3. Query Branding Data for company title & website
+    this.brandingService
+      .getBranding()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (brand: CompanyBranding) => {
+          if (brand) {
+            if (brand.legal_name) {
+              this.companyName = brand.legal_name.toUpperCase();
+            } else if (brand.company_name) {
+              this.companyName = brand.company_name.toUpperCase();
+            }
+            if (brand.website) {
+              this.companyWebsite = brand.website.replace(/^https?:\/\//, '');
+            }
+            this.cdr.detectChanges();
+          }
+        },
+        error: (err) => {
+          console.warn('Could not load company branding for ID card', err);
+        }
+      });
   }
 
   dismiss() {

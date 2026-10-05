@@ -46,6 +46,12 @@
       <ng-container *ngIf="log.status === 'on-leave'">
         <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
+      <ng-container *ngIf="log.status === 'half-day'">
+        <span class="badge-leave"
+          style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+          {{ getHalfDayNotation(log) }}
+        </span>
+      </ng-container>
       <ng-container *ngIf="log.status === 'weekend'">
         <span class="badge-woff">W-OFF</span>
       </ng-container>

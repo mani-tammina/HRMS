@@ -149,11 +149,14 @@
 
           <!-- Blue Bottom Footer Banner -->
           <div class="back-footer-banner">
-            <h3 class="footer-org-name">SREE TAMMINA SOFTWARE SOLUTIONS PVT. LTD.</h3>
-            <p class="footer-line"># 49-24-64, Sri Venkata Sai Towers, 3rd Floor,</p>
-            <p class="footer-line">Sankaramatam Road, Madhuranagar, Visakhapatnam</p>
-            <p class="footer-line footer-contact-line">Ph: 0891-2555200 &nbsp; Fax: 0891-2555201</p>
-            <p class="footer-line footer-web">www.techtammina.com</p>
+            <h3 class="footer-org-name">{{ companyNameDisplay }}</h3>
+            <p class="footer-line" *ngFor="let line of locationAddressLines">{{ line }}</p>
+            <p class="footer-line footer-contact-line">
+              <span *ngIf="locationPhone">Ph: {{ locationPhone }}</span>
+              <span *ngIf="locationPhone && locationFax">&nbsp; </span>
+              <span *ngIf="locationFax">Fax: {{ locationFax }}</span>
+            </p>
+            <p class="footer-line footer-web">{{ companyWebsiteDisplay }}</p>
           </div>
         </div>
 

@@ -380,8 +380,8 @@ async function runPayroll(year, month, runBy = null) {
             const isUnpaid = l.type_code === 'LOP' || l.type_code === 'UL' || !l.is_paid;
             if (isUnpaid) lop_from_leaves += weight;
           });
-        } else if (matchingHoliday) {
-          // Holiday is marked as holiday and NOT counted as present, absent, or penalty
+        } else if (matchingHoliday && (!empAtt[dStr] || empAtt[dStr].status === 'absent' || empAtt[dStr].status === 'penalty')) {
+          // Holiday is NOT absent or penalty
           holiday_days++;
         } else if (weekOffDays.includes(weekday)) {
           weekend_days++;

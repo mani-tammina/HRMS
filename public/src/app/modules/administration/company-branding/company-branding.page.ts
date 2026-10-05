@@ -48,7 +48,6 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
 
   // Forms
   identityForm!: FormGroup;
-  locationForm!: FormGroup;
 
   // Logo Preview
   logoPreviewUrl: string | null = null;
@@ -59,42 +58,15 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
   locations: LocationItem[] = [];
   filteredLocations: LocationItem[] = [];
   searchTerm = '';
-  showLocationModal = false;
-  editingLocation: LocationItem | null = null;
-  locationModalTitle = 'Add New Location';
 
-  // Supported Timezones
-  timezones: string[] = [
-    'America/New_York (EST/EDT)',
-    'America/Chicago (CST/CDT)',
-    'America/Denver (MST/MDT)',
-    'America/Los_Angeles (PST/PDT)',
-    'Asia/Kolkata (IST +5:30)',
-    'Europe/London (GMT/BST)',
-    'Europe/Paris (CET/CEST)',
-    'Asia/Dubai (GST +4:00)',
-    'Asia/Singapore (SGT +8:00)',
-    'Asia/Tokyo (JST +9:00)',
-    'Australia/Sydney (AEST/AEDT)',
-  ];
+  // Single Input: Add Location
+  newLocationName = '';
+  isAddingLocation = false;
 
-  // Countries
-  countries: string[] = [
-    'United States',
-    'India',
-    'United Kingdom',
-    'Canada',
-    'Australia',
-    'Germany',
-    'France',
-    'United Arab Emirates',
-    'Singapore',
-    'Japan',
-    'Mexico',
-    'Brazil',
-    'South Africa',
-    'Other',
-  ];
+  // Single Input: Add / Update Location Address
+  editingAddressLocationId: number | null = null;
+  locationAddressInput = '';
+  isSavingAddress = false;
 
   constructor(
     private fb: FormBuilder,
@@ -122,20 +94,6 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
       legal_name: ['', [Validators.maxLength(150)]],
       tagline: ['', [Validators.maxLength(255)]],
       website: ['', [Validators.pattern(/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/)]],
-    });
-
-    this.locationForm = this.fb.group({
-      name: ['', [Validators.required, Validators.maxLength(100)]],
-      country: ['United States', [Validators.required]],
-      address_line1: ['', [Validators.required]],
-      address_line2: [''],
-      city: ['', [Validators.required]],
-      state: ['', [Validators.required]],
-      postal_code: ['', [Validators.required]],
-      phone_number: [''],
-      email: ['', [Validators.email]],
-      timezone: ['America/New_York (EST/EDT)'],
-      is_headquarters: [false],
     });
   }
 
@@ -194,17 +152,8 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
     }
     this.filteredLocations = this.locations.filter((loc) => {
       const name = (loc.name || '').toLowerCase();
-      const city = (loc.city || '').toLowerCase();
-      const state = (loc.state || '').toLowerCase();
-      const country = (loc.country || '').toLowerCase();
-      const address = (loc.address_line1 || '').toLowerCase();
-      return (
-        name.includes(q) ||
-        city.includes(q) ||
-        state.includes(q) ||
-        country.includes(q) ||
-        address.includes(q)
-      );
+      const addr = (loc.address_line1 || '').toLowerCase();
+      return name.includes(q) || addr.includes(q);
     });
   }
 
@@ -300,111 +249,70 @@ export class CompanyBrandingPage implements OnInit, OnDestroy {
       });
   }
 
-
-
   /* ===================== LOCATION ACTIONS ===================== */
-  openAddLocationModal() {
-    this.editingLocation = null;
-    this.locationModalTitle = 'Add Office Location';
-    this.locationForm.reset({
-      name: '',
-      country: 'United States',
-      address_line1: '',
-      address_line2: '',
-      city: '',
-      state: '',
-      postal_code: '',
-      phone_number: '',
-      email: '',
-      timezone: 'America/New_York (EST/EDT)',
-      is_headquarters: false,
-    });
-    this.showLocationModal = true;
-  }
-
-  openEditLocationModal(location: LocationItem) {
-    this.editingLocation = location;
-    this.locationModalTitle = `Edit Location: ${location.name}`;
-    this.locationForm.patchValue({
-      name: location.name || '',
-      country: location.country || 'United States',
-      address_line1: location.address_line1 || '',
-      address_line2: location.address_line2 || '',
-      city: location.city || '',
-      state: location.state || '',
-      postal_code: location.postal_code || '',
-      phone_number: location.phone_number || '',
-      email: location.email || '',
-      timezone: location.timezone || 'America/New_York (EST/EDT)',
-      is_headquarters: !!location.is_headquarters,
-    });
-    this.showLocationModal = true;
-  }
-
-  closeLocationModal() {
-    this.showLocationModal = false;
-    this.editingLocation = null;
-    this.locationForm.reset();
-  }
-
-  saveLocation() {
-    if (this.locationForm.invalid) {
-      this.locationForm.markAllAsTouched();
-      this.toaster.showError('Please fill all mandatory location address fields.');
+  addLocation() {
+    const trimmed = (this.newLocationName || '').trim();
+    if (!trimmed) {
+      this.toaster.showError('Please enter a location name.');
       return;
     }
 
-    this.isSaving = true;
-    const formVal = this.locationForm.value;
-    const payload: LocationItem = {
-      name: formVal.name,
-      country: formVal.country,
-      address_line1: formVal.address_line1,
-      address_line2: formVal.address_line2,
-      city: formVal.city,
-      state: formVal.state,
-      postal_code: formVal.postal_code,
-      phone_number: formVal.phone_number,
-      email: formVal.email,
-      timezone: formVal.timezone,
-      is_headquarters: formVal.is_headquarters ? 1 : 0,
-    };
+    this.isAddingLocation = true;
+    this.brandingService
+      .createLocation({ name: trimmed })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.isAddingLocation = false;
+          this.newLocationName = '';
+          this.toaster.showSuccess(`Location "${trimmed}" added successfully!`);
+          this.loadLocations();
+        },
+        error: (err) => {
+          this.isAddingLocation = false;
+          console.error('Error creating location', err);
+          this.toaster.showError(err.error?.error || 'Failed to create location.');
+        },
+      });
+  }
 
-    if (this.editingLocation && this.editingLocation.id) {
-      this.brandingService
-        .updateLocation(this.editingLocation.id, payload)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: () => {
-            this.isSaving = false;
-            this.toaster.showSuccess('Location address updated successfully!');
-            this.closeLocationModal();
-            this.loadLocations();
-          },
-          error: (err) => {
-            this.isSaving = false;
-            console.error('Error updating location', err);
-            this.toaster.showError(err.error?.error || 'Failed to update location.');
-          },
-        });
-    } else {
-      this.brandingService
-        .createLocation(payload)
-        .pipe(takeUntil(this.destroy$))
-        .subscribe({
-          next: () => {
-            this.isSaving = false;
-            this.toaster.showSuccess('New office location added successfully!');
-            this.closeLocationModal();
-            this.loadLocations();
-          },
-          error: (err) => {
-            this.isSaving = false;
-            console.error('Error creating location', err);
-            this.toaster.showError(err.error?.error || 'Failed to create location.');
-          },
-        });
-    }
+  /* ===================== SINGLE INPUT ADDRESS ACTIONS ===================== */
+  startAddAddress(loc: LocationItem) {
+    this.editingAddressLocationId = loc.id || null;
+    this.locationAddressInput = loc.address_line1 || '';
+  }
+
+  cancelAddAddress() {
+    this.editingAddressLocationId = null;
+    this.locationAddressInput = '';
+  }
+
+  saveLocationAddress(loc: LocationItem) {
+    if (!loc.id) return;
+    const address = (this.locationAddressInput || '').trim();
+
+    this.isSavingAddress = true;
+    this.brandingService
+      .updateLocation(loc.id, {
+        name: loc.name,
+        address_line1: address || '',
+      })
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.isSavingAddress = false;
+          loc.address_line1 = address;
+          this.editingAddressLocationId = null;
+          this.locationAddressInput = '';
+          this.toaster.showSuccess(`Address for "${loc.name}" saved successfully!`);
+          this.loadLocations();
+        },
+        error: (err) => {
+          this.isSavingAddress = false;
+          console.error('Error saving address', err);
+          this.toaster.showError(err.error?.error || 'Failed to save address.');
+        },
+      });
   }
 
   async confirmDeleteLocation(loc: LocationItem) {

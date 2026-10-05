@@ -7,7 +7,7 @@
         <span>Organization Setup</span>
       </div>
       <h1>Company Branding & Profiles</h1>
-      <p>Configure corporate visual identity, upload official logos, set company narratives, and maintain branch office addresses.</p>
+      <p>Configure corporate visual identity, upload official logos, and maintain branch office locations.</p>
     </div>
     <div class="header-right">
       <div class="branding-quick-card">
@@ -55,7 +55,7 @@
           </div>
           <div>
             <h3>Official Company Logo</h3>
-            <p>Upload high-resolution logo for headers, candidate portal, and payslips.</p>
+            <p>Upload high-resolution logo for headers and login portal.</p>
           </div>
         </div>
 
@@ -173,10 +173,44 @@
   </div>
 
   <!-- =========================================================================
-       TAB 2: LOCATIONS & ADDRESSES
+       TAB 2: LOCATIONS MANAGEMENT
   ========================================================================= -->
   <div class="tab-content-area" *ngIf="activeTab === 'locations'">
-    <!-- LOCATIONS TOP BAR -->
+    <!-- ADD LOCATION CARD -->
+    <div class="panel-card add-location-card animate__animated animate__fadeIn">
+      <div class="card-header-styled compact">
+        <div class="header-icon-box">
+          <ion-icon name="business-outline"></ion-icon>
+        </div>
+        <div>
+          <h3>Add Location</h3>
+          <p>Enter the office or branch location name below to add it to your organization.</p>
+        </div>
+      </div>
+
+      <div class="single-input-row">
+        <div class="input-with-icon location-main-input">
+          <ion-icon name="business-outline"></ion-icon>
+          <input 
+            type="text" 
+            [(ngModel)]="newLocationName" 
+            (keyup.enter)="addLocation()" 
+            placeholder="Enter location name (e.g. Site 1 - TSN, Visakhapatnam, US Office)..." 
+            [disabled]="isAddingLocation" />
+        </div>
+        <button 
+          type="button" 
+          class="btn-primary add-location-submit-btn" 
+          (click)="addLocation()" 
+          [disabled]="isAddingLocation || !newLocationName.trim()">
+          <ion-spinner name="crescent" *ngIf="isAddingLocation"></ion-spinner>
+          <ion-icon name="add-circle-outline" *ngIf="!isAddingLocation"></ion-icon>
+          <span>{{ isAddingLocation ? 'Adding...' : 'Add Location' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- LOCATIONS TOOLBAR & SEARCH -->
     <div class="locations-toolbar animate__animated animate__fadeIn">
       <div class="search-box">
         <ion-icon name="search-outline"></ion-icon>
@@ -184,80 +218,95 @@
           type="text" 
           [(ngModel)]="searchTerm" 
           (ngModelChange)="filterLocations()" 
-          placeholder="Search locations by name, city, state, or address..." />
+          placeholder="Search locations or addresses..." />
         <button *ngIf="searchTerm" (click)="searchTerm = ''; filterLocations()" class="clear-search-btn">
           <ion-icon name="close-circle"></ion-icon>
         </button>
       </div>
 
-      <button class="btn-primary add-loc-btn" (click)="openAddLocationModal()">
-        <ion-icon name="add-circle-outline"></ion-icon>
-        <span>Add Office Location</span>
-      </button>
+      <div class="location-count-info">
+        <span>Total: <strong>{{ filteredLocations.length }}</strong> {{ filteredLocations.length === 1 ? 'Location' : 'Locations' }}</span>
+      </div>
     </div>
 
     <!-- LOCATIONS GRID -->
     <div class="locations-grid animate__animated animate__fadeIn" *ngIf="filteredLocations.length > 0">
-      <div class="location-card" *ngFor="let loc of filteredLocations" [class.is-hq]="loc.is_headquarters">
-        <!-- HQ RIBBON -->
-        <div class="hq-badge" *ngIf="loc.is_headquarters">
-          <ion-icon name="star"></ion-icon>
-          <span>HEADQUARTERS</span>
-        </div>
-
+      <div class="location-card" *ngFor="let loc of filteredLocations">
+        <!-- CARD HEADER -->
         <div class="loc-card-header">
           <div class="loc-icon-bubble">
-            <ion-icon [name]="loc.is_headquarters ? 'business' : 'location'"></ion-icon>
+            <ion-icon name="business"></ion-icon>
           </div>
-          <div class="loc-title-meta">
+          <div class="loc-header-info">
             <h3 class="loc-name">{{ loc.name }}</h3>
-            <span class="loc-country">{{ loc.country || 'Not specified' }}</span>
+            <span class="loc-badge" *ngIf="loc.id">Location #{{ loc.id }}</span>
           </div>
         </div>
 
-        <!-- ADDRESS DETAILS -->
-        <div class="loc-address-block">
-          <div class="address-line" *ngIf="loc.address_line1">
-            <ion-icon name="navigate-outline"></ion-icon>
-            <span>{{ loc.address_line1 }}<span *ngIf="loc.address_line2">, {{ loc.address_line2 }}</span></span>
+        <!-- ADDRESS DISPLAY / FORM -->
+        <div class="loc-address-section">
+          <!-- VIEW MODE: WHEN NOT EDITING ADDRESS -->
+          <div *ngIf="editingAddressLocationId !== loc.id" class="address-view-box">
+            <div class="address-content" *ngIf="loc.address_line1">
+              <ion-icon name="location-outline" class="address-icon"></ion-icon>
+              <span class="address-text">{{ loc.address_line1 }}</span>
+            </div>
+            <div class="address-empty-text" *ngIf="!loc.address_line1">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <span>No address added yet. Click <strong>Add Address</strong> below.</span>
+            </div>
           </div>
 
-          <div class="address-line" *ngIf="loc.city || loc.state || loc.postal_code">
-            <ion-icon name="map-outline"></ion-icon>
-            <span>
-              {{ loc.city }}<span *ngIf="loc.city && loc.state">, </span>{{ loc.state }} {{ loc.postal_code }}
-            </span>
-          </div>
+          <!-- EDIT MODE: SINGLE INPUT FORM FOR ADDRESS -->
+          <div *ngIf="editingAddressLocationId === loc.id" class="address-single-input-form animate__animated animate__fadeIn">
+            <div class="address-input-wrapper">
+              <ion-icon name="navigate-outline"></ion-icon>
+              <input 
+                type="text" 
+                [(ngModel)]="locationAddressInput" 
+                (keyup.enter)="saveLocationAddress(loc)" 
+                (keyup.escape)="cancelAddAddress()"
+                placeholder="Enter address (e.g. 13800 Coppermine Road, Suite 300, Herndon, VA)..." 
+                class="address-input-field" 
+                [disabled]="isSavingAddress" 
+                autofocus />
+            </div>
 
-          <div class="address-line fallback-line" *ngIf="!loc.address_line1 && !loc.city">
-            <ion-icon name="alert-circle-outline" color="warning"></ion-icon>
-            <span class="text-muted">Detailed address not yet updated</span>
+            <div class="address-form-actions">
+              <button 
+                type="button" 
+                class="btn-mini-cancel" 
+                (click)="cancelAddAddress()" 
+                [disabled]="isSavingAddress">
+                <ion-icon name="close-outline"></ion-icon>
+                <span>Cancel</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn-mini-save" 
+                (click)="saveLocationAddress(loc)" 
+                [disabled]="isSavingAddress">
+                <ion-spinner name="crescent" *ngIf="isSavingAddress"></ion-spinner>
+                <ion-icon name="checkmark-circle-outline" *ngIf="!isSavingAddress"></ion-icon>
+                <span>{{ isSavingAddress ? 'Saving...' : 'Save Address' }}</span>
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- EXTRA META -->
-        <div class="loc-contact-meta">
-          <div class="meta-pill" *ngIf="loc.phone_number">
-            <ion-icon name="call-outline"></ion-icon>
-            <span>{{ loc.phone_number }}</span>
-          </div>
-          <div class="meta-pill" *ngIf="loc.email">
-            <ion-icon name="mail-outline"></ion-icon>
-            <span>{{ loc.email }}</span>
-          </div>
-          <div class="meta-pill" *ngIf="loc.timezone">
-            <ion-icon name="time-outline"></ion-icon>
-            <span>{{ loc.timezone }}</span>
-          </div>
-        </div>
-
-        <!-- CARD ACTIONS -->
-        <div class="loc-card-actions">
-          <button class="action-btn edit-btn" (click)="openEditLocationModal(loc)">
-            <ion-icon name="create-outline"></ion-icon>
-            <span>Update Address</span>
+        <!-- CARD FOOTER ACTIONS -->
+        <div class="loc-card-actions" *ngIf="editingAddressLocationId !== loc.id">
+          <button 
+            class="action-btn add-address-btn" 
+            (click)="startAddAddress(loc)">
+            <ion-icon [name]="loc.address_line1 ? 'create-outline' : 'add-circle-outline'"></ion-icon>
+            <span>{{ loc.address_line1 ? 'Update Address' : 'Add Address' }}</span>
           </button>
-          <button class="action-btn delete-btn" (click)="confirmDeleteLocation(loc)" title="Delete location">
+          
+          <button 
+            class="action-btn delete-btn" 
+            (click)="confirmDeleteLocation(loc)" 
+            title="Delete location">
             <ion-icon name="trash-outline"></ion-icon>
           </button>
         </div>
@@ -271,129 +320,7 @@
       </div>
       <h3>No Locations Found</h3>
       <p *ngIf="searchTerm">No office locations match your search query "{{ searchTerm }}".</p>
-      <p *ngIf="!searchTerm">No corporate office locations have been set up yet. Add your primary headquarters or branch offices now.</p>
-      <button class="btn-primary" (click)="openAddLocationModal()">
-        <ion-icon name="add-circle-outline"></ion-icon>
-        <span>Add Your First Location</span>
-      </button>
-    </div>
-  </div>
-
-  <!-- =========================================================================
-       LOCATION ADD/EDIT MODAL
-  ========================================================================= -->
-  <div class="custom-modal-backdrop" *ngIf="showLocationModal">
-    <div class="custom-modal-box animate__animated animate__zoomIn">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <ion-icon name="business-outline" class="modal-title-icon"></ion-icon>
-          <h3>{{ locationModalTitle }}</h3>
-        </div>
-        <button class="close-modal-btn" (click)="closeLocationModal()">
-          <ion-icon name="close-outline"></ion-icon>
-        </button>
-      </div>
-
-      <form [formGroup]="locationForm" (ngSubmit)="saveLocation()" class="modal-body-form">
-        <!-- NAME & COUNTRY -->
-        <div class="form-row">
-          <div class="form-group col-7">
-            <label>Location / Office Name <span class="req">*</span></label>
-            <input type="text" formControlName="name" placeholder="e.g. Headquarters - Herndon" />
-            <span class="field-error" *ngIf="locationForm.get('name')?.touched && locationForm.get('name')?.errors?.['required']">
-              Location name is required.
-            </span>
-          </div>
-
-          <div class="form-group col-5">
-            <label>Country <span class="req">*</span></label>
-            <select formControlName="country">
-              <option *ngFor="let c of countries" [value]="c">{{ c }}</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- ADDRESS LINE 1 -->
-        <div class="form-group">
-          <label>Street Address Line 1 <span class="req">*</span></label>
-          <input type="text" formControlName="address_line1" placeholder="e.g. 13800 Coppermine Road, Suite 300" />
-          <span class="field-error" *ngIf="locationForm.get('address_line1')?.touched && locationForm.get('address_line1')?.errors?.['required']">
-            Street address is required.
-          </span>
-        </div>
-
-        <!-- ADDRESS LINE 2 -->
-        <div class="form-group">
-          <label>Street Address Line 2 (Building / Floor / Suite)</label>
-          <input type="text" formControlName="address_line2" placeholder="e.g. Building 4, 2nd Floor" />
-        </div>
-
-        <!-- CITY, STATE, POSTAL -->
-        <div class="form-row">
-          <div class="form-group col-4">
-            <label>City <span class="req">*</span></label>
-            <input type="text" formControlName="city" placeholder="e.g. Herndon" />
-            <span class="field-error" *ngIf="locationForm.get('city')?.touched && locationForm.get('city')?.errors?.['required']">
-              City is required.
-            </span>
-          </div>
-
-          <div class="form-group col-4">
-            <label>State / Province <span class="req">*</span></label>
-            <input type="text" formControlName="state" placeholder="e.g. Virginia" />
-            <span class="field-error" *ngIf="locationForm.get('state')?.touched && locationForm.get('state')?.errors?.['required']">
-              State is required.
-            </span>
-          </div>
-
-          <div class="form-group col-4">
-            <label>Postal / ZIP Code <span class="req">*</span></label>
-            <input type="text" formControlName="postal_code" placeholder="e.g. 20171" />
-            <span class="field-error" *ngIf="locationForm.get('postal_code')?.touched && locationForm.get('postal_code')?.errors?.['required']">
-              Postal code is required.
-            </span>
-          </div>
-        </div>
-
-        <!-- PHONE, EMAIL, TIMEZONE -->
-        <div class="form-row">
-          <div class="form-group col-6">
-            <label>Office Phone Number</label>
-            <input type="text" formControlName="phone_number" placeholder="e.g. +1 (703) 349-1070" />
-          </div>
-
-          <div class="form-group col-6">
-            <label>Office Email</label>
-            <input type="email" formControlName="email" placeholder="e.g. va-office@tammina.com" />
-          </div>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group col-7">
-            <label>Timezone</label>
-            <select formControlName="timezone">
-              <option *ngFor="let tz of timezones" [value]="tz">{{ tz }}</option>
-            </select>
-          </div>
-
-          <div class="form-group col-5 hq-checkbox-group">
-            <label class="checkbox-container">
-              <input type="checkbox" formControlName="is_headquarters" />
-              <span class="checkmark"></span>
-              <span class="cb-label">Set as Primary Headquarters</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-secondary" (click)="closeLocationModal()">Cancel</button>
-          <button type="submit" class="btn-primary" [disabled]="isSaving">
-            <ion-spinner name="crescent" *ngIf="isSaving"></ion-spinner>
-            <ion-icon name="checkmark-circle-outline" *ngIf="!isSaving"></ion-icon>
-            <span>{{ isSaving ? 'Saving...' : 'Save Location Address' }}</span>
-          </button>
-        </div>
-      </form>
+      <p *ngIf="!searchTerm">No office locations added yet. Use the input box above to add your first location.</p>
     </div>
   </div>
 </ion-content>
