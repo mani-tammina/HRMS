@@ -48,32 +48,49 @@ const uploadProfileImage = multer({
 /* ============ DATE FORMATTING HELPER ============ */
 
 /**
- * Convert a Date object or ISO string to a plain YYYY-MM-DD string.
+ * Convert a Date object or ISO string to a plain YYYY-MM-DD string in IST (Asia/Kolkata).
  * Prevents timezone conversion issues when sending date fields to the frontend.
  */
 const formatDateField = function(val) {
   if (!val) return null;
   if (typeof val === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    if (val.includes('T')) return val.split('T')[0];
-    return val;
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (trimmed.includes('T') || trimmed.includes(' ')) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+      }
+      return trimmed.split(/[T ]/)[0];
+    }
+    return trimmed;
   }
   if (val instanceof Date) {
-    const yyyy = val.getFullYear();
-    const mm = String(val.getMonth() + 1).padStart(2, '0');
-    const dd = String(val.getDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(val);
   }
   return null;
 };
 
 /**
  * Normalize date fields in an employee record so they are always
- * plain YYYY-MM-DD strings when sent to the client.
+ * plain YYYY-MM-DD strings in IST when sent to the client.
  */
 const formatEmployeeDates = function(emp) {
   if (!emp) return emp;
-  const dateFields = ['DateOfBirth', 'DateJoined', 'exit_date', 'created_at', 'updated_at'];
+  const dateFields = [
+    'DateOfBirth',
+    'DateJoined',
+    'date_of_birth',
+    'date_of_joining',
+    'joining_date',
+    'exit_date',
+    'resignation_date',
+    'last_working_day',
+    'confirmation_date',
+    'probation_end_date',
+    'created_at',
+    'updated_at'
+  ];
   const result = { ...emp };
   for (const field of dateFields) {
     if (result[field] !== undefined && result[field] !== null) {
@@ -188,7 +205,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       c.end();
       return res.json({
         type: "all_employees",
-        team: allEmployees,
+        team: allEmployees.map(emp => formatEmployeeDates(emp)),
         message: "All Employees (HR/Admin View)",
       });
     }
@@ -218,7 +235,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       console.log("Returning reporting team:", reportingTeam.length, "members");
       return res.json({
         type: "reporting_team",
-        team: reportingTeam,
+        team: reportingTeam.map(emp => formatEmployeeDates(emp)),
         message: "Your reporting team",
       });
     }
@@ -245,7 +262,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       c.end();
       return res.json({
         type: "co_team",
-        team: coTeam,
+        team: coTeam.map(emp => formatEmployeeDates(emp)),
         message: "Your team members",
       });
     }
@@ -949,8 +966,8 @@ router.get("/my-team/reporting", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = reportingTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = reportingTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1002,8 +1019,8 @@ router.get("/my-team/co-team", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = coTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = coTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
