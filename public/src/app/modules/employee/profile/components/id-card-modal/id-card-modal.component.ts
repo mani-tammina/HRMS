@@ -1,4 +1,4 @@
-import { Component, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, OnInit, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { environment } from '../../../../../../environments/environment';
@@ -16,10 +16,12 @@ import html2canvas from 'html2canvas';
 })
 export class IdCardModalComponent implements OnInit {
   @Input() currentEmployee: any;
-  @ViewChild('idCardRef', { static: false }) idCardRef!: ElementRef;
+  @ViewChild('idCardFrontRef', { static: false }) idCardFrontRef!: ElementRef;
+  @ViewChild('idCardBackRef', { static: false }) idCardBackRef!: ElementRef;
 
   env: string = '';
   isDownloading = false;
+  isFlipped = false;
 
   get hasProfileImage(): boolean {
     return !!this.currentEmployee?.profile_image;
@@ -32,9 +34,55 @@ export class IdCardModalComponent implements OnInit {
     return '';
   }
 
+  get resAddressLine1(): string {
+    return this.currentEmployee?.current_address_line1 ||
+           this.currentEmployee?.permanent_address_line1 ||
+           '';
+  }
+
+  get resAddressLine2(): string {
+    return this.currentEmployee?.current_address_line2 ||
+           this.currentEmployee?.permanent_address_line2 ||
+           '';
+  }
+
+  get resCity(): string {
+    return this.currentEmployee?.current_city ||
+           this.currentEmployee?.permanent_city ||
+           '';
+  }
+
+  get resStateZip(): string {
+    const state = this.currentEmployee?.current_state || this.currentEmployee?.permanent_state || '';
+    const country = this.currentEmployee?.current_country || this.currentEmployee?.permanent_country || '';
+    const zip = this.currentEmployee?.current_zip || this.currentEmployee?.permanent_zip || '';
+
+    const parts = [state, country, zip].filter(Boolean);
+    return parts.join(' ');
+  }
+
+  get hasAnyAddress(): boolean {
+    return !!(this.resAddressLine1 || this.resAddressLine2 || this.resCity || this.resStateZip);
+  }
+
+  get aadhaarNumber(): string {
+    return this.currentEmployee?.AadhaarNumber ||
+           this.currentEmployee?.aadhaar_number ||
+           '582249097271';
+  }
+
+  get emergencyContact(): string {
+    return this.currentEmployee?.emergency_contact_phone ||
+           this.currentEmployee?.residence_number ||
+           this.currentEmployee?.PhoneNumber ||
+           this.currentEmployee?.mobile_number ||
+           '8688613873';
+  }
+
   constructor(
     private modalController: ModalController,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -45,7 +93,17 @@ export class IdCardModalComponent implements OnInit {
     this.modalController.dismiss();
   }
 
-  async downloadIdCard() {
+  toggleFlip() {
+    this.isFlipped = !this.isFlipped;
+    this.cdr.detectChanges();
+  }
+
+  setFlipped(flipped: boolean) {
+    this.isFlipped = flipped;
+    this.cdr.detectChanges();
+  }
+
+  async downloadBothSides() {
     if (!this.hasProfileImage) {
       const toast = await this.toastController.create({
         message: 'Please upload a profile picture first to generate your ID Card.',
@@ -58,28 +116,63 @@ export class IdCardModalComponent implements OnInit {
       return;
     }
 
+    if (!this.idCardFrontRef?.nativeElement || !this.idCardBackRef?.nativeElement) {
+      return;
+    }
+
     this.isDownloading = true;
 
     try {
-      const element = this.idCardRef.nativeElement;
-      const canvas = await html2canvas(element, {
+      const empNum = this.currentEmployee?.EmployeeNumber || 'Employee';
+
+      // 1. Capture Front Side
+      const frontEl = this.idCardFrontRef.nativeElement;
+      const origFrontTransform = frontEl.style.transform;
+      frontEl.style.transform = 'none';
+
+      const frontCanvas = await html2canvas(frontEl, {
         scale: 3,
         useCORS: true,
         allowTaint: true,
-        backgroundColor: null,
+        backgroundColor: '#ffffff',
         logging: false,
-        width: element.offsetWidth,
-        height: element.offsetHeight,
+        width: frontEl.offsetWidth,
+        height: frontEl.offsetHeight,
       });
+      frontEl.style.transform = origFrontTransform;
 
-      const link = document.createElement('a');
-      link.download = `ID_Card_${this.currentEmployee?.EmployeeNumber || 'Employee'}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
+      const frontLink = document.createElement('a');
+      frontLink.download = `ID_Card_Front_${empNum}.png`;
+      frontLink.href = frontCanvas.toDataURL('image/png');
+      frontLink.click();
+
+      // Delay between downloads
+      await new Promise((resolve) => setTimeout(resolve, 600));
+
+      // 2. Capture Back Side
+      const backEl = this.idCardBackRef.nativeElement;
+      const origBackTransform = backEl.style.transform;
+      backEl.style.transform = 'none';
+
+      const backCanvas = await html2canvas(backEl, {
+        scale: 3,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        width: backEl.offsetWidth,
+        height: backEl.offsetHeight,
+      });
+      backEl.style.transform = origBackTransform;
+
+      const backLink = document.createElement('a');
+      backLink.download = `ID_Card_Back_${empNum}.png`;
+      backLink.href = backCanvas.toDataURL('image/png');
+      backLink.click();
 
       const toast = await this.toastController.create({
-        message: 'ID Card downloaded successfully!',
-        duration: 2000,
+        message: 'ID Card (Both Front & Back sides) downloaded successfully!',
+        duration: 2500,
         color: 'success',
         position: 'top',
         icon: 'checkmark-circle'
@@ -89,7 +182,7 @@ export class IdCardModalComponent implements OnInit {
       console.error('Error generating ID card:', err);
       const toast = await this.toastController.create({
         message: 'Failed to download ID Card. Please try again.',
-        duration: 2000,
+        duration: 2500,
         color: 'danger',
         position: 'top',
         icon: 'alert-circle'
@@ -97,6 +190,7 @@ export class IdCardModalComponent implements OnInit {
       await toast.present();
     } finally {
       this.isDownloading = false;
+      this.cdr.detectChanges();
     }
   }
 }

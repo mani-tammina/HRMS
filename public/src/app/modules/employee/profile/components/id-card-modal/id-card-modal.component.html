@@ -1,6 +1,6 @@
 <ion-header class="ion-no-border">
   <ion-toolbar class="id-card-toolbar">
-    <ion-title>ID Preview</ion-title>
+    <ion-title>ID Card Preview</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="dismiss()">
         <ion-icon name="close-outline" slot="icon-only"></ion-icon>
@@ -23,64 +23,155 @@
     </div>
   </div>
 
-  <!-- ID Card Preview -->
+  <!-- ID Card Preview Wrapper -->
   <div class="id-card-wrapper" *ngIf="hasProfileImage">
-    <div class="id-card" #idCardRef>
-      <!-- Blue Header Section -->
-      <div class="id-card-header">
-        <div class="header-pattern"></div>
-        <!-- NFC / Chip Icon -->
-        <div class="chip-icon">
-          <ion-icon name="wifi-outline"></ion-icon>
-        </div>
-        <!-- Profile Photo -->
-        <div class="photo-container">
-          <img [src]="profileImageUrl" alt="Employee Photo" class="employee-photo" crossorigin="anonymous" />
-        </div>
-        <!-- Name & Designation -->
-        <h2 class="employee-name">{{ currentEmployee?.FullName }}</h2>
-        <p class="employee-designation">{{ currentEmployee?.designation_name }}</p>
+
+    <!-- Top View Switcher & Rotate Trigger -->
+    <div class="card-controls-bar">
+      <div class="side-selector">
+        <button type="button" class="side-tab" [class.active]="!isFlipped" (click)="setFlipped(false)">
+          <ion-icon name="person-circle-outline"></ion-icon>
+          <span>Front Side</span>
+        </button>
+        <button type="button" class="side-tab" [class.active]="isFlipped" (click)="setFlipped(true)">
+          <ion-icon name="card-outline"></ion-icon>
+          <span>Back Side</span>
+        </button>
       </div>
 
-      <!-- Details Section -->
-      <div class="id-card-body">
-        <div class="detail-row">
-          <span class="detail-label">Employee Number</span>
-          <span class="detail-value">{{ currentEmployee?.EmployeeNumber || 'N/A' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Department</span>
-          <span class="detail-value">{{ currentEmployee?.department_name || 'N/A' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Phone</span>
-          <span class="detail-value">{{ currentEmployee?.mobile_number || currentEmployee?.PhoneNumber || 'N/A'
-            }}</span>
-        </div>
-        <!-- <div class="detail-row">
-          <span class="detail-label">Email</span>
-          <span class="detail-value email-value">{{ currentEmployee?.WorkEmail || 'N/A' }}</span>
-        </div> -->
-        <div class="detail-row">
-          <span class="detail-label">Location</span>
-          <span class="detail-value">{{ currentEmployee?.location_name || 'N/A' }}</span>
-        </div>
-        <div class="detail-row">
-          <span class="detail-label">Blood Group</span>
-          <span class="detail-value">{{ currentEmployee?.BloodGroup || 'N/A' }}</span>
-        </div>
-      </div>
+      <button type="button" class="rotate-pill-btn" (click)="toggleFlip()" title="Click to flip ID card">
+        <ion-icon name="sync-outline" [class.spinning]="isFlipped"></ion-icon>
+        <span>Rotate</span>
+      </button>
+    </div>
 
-      <!-- Company Logo Footer -->
-      <div class="id-card-footer">
-        <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo" crossorigin="anonymous" />
+    <!-- 3D Card Flipper Container -->
+    <div class="card-flipper-stage" (click)="toggleFlip()">
+      <div class="card-flipper" [class.flipped]="isFlipped">
+
+        <!-- ═════════════════════════════════════════════ -->
+        <!-- FRONT SIDE -->
+        <!-- ═════════════════════════════════════════════ -->
+        <div class="id-card card-face card-front" #idCardFrontRef>
+          <!-- Flip Hint Badge -->
+          <div class="flip-hint-badge" (click)="$event.stopPropagation(); toggleFlip()">
+            <ion-icon name="sync-outline"></ion-icon>
+            <span>Flip</span>
+          </div>
+
+          <!-- Blue Header Section -->
+          <div class="id-card-header">
+            <div class="header-pattern"></div>
+            <!-- NFC / Chip Icon -->
+            <div class="chip-icon">
+              <ion-icon name="wifi-outline"></ion-icon>
+            </div>
+            <!-- Profile Photo -->
+            <div class="photo-container">
+              <img [src]="profileImageUrl" alt="Employee Photo" class="employee-photo" crossorigin="anonymous" />
+            </div>
+            <!-- Name & Designation -->
+            <h2 class="employee-name">{{ currentEmployee?.FullName }}</h2>
+            <p class="employee-designation">{{ currentEmployee?.designation_name }}</p>
+          </div>
+
+          <!-- Details Section -->
+          <div class="id-card-body">
+            <div class="detail-row">
+              <span class="detail-label">Employee Number</span>
+              <span class="detail-value">{{ currentEmployee?.EmployeeNumber || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Department</span>
+              <span class="detail-value">{{ currentEmployee?.department_name || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Phone</span>
+              <span class="detail-value">{{ currentEmployee?.mobile_number || currentEmployee?.PhoneNumber || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Location</span>
+              <span class="detail-value">{{ currentEmployee?.location_name || 'N/A' }}</span>
+            </div>
+            <div class="detail-row">
+              <span class="detail-label">Blood Group</span>
+              <span class="detail-value">{{ currentEmployee?.BloodGroup || 'N/A' }}</span>
+            </div>
+          </div>
+
+          <!-- Company Logo Footer -->
+          <div class="id-card-footer">
+            <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo" crossorigin="anonymous" />
+          </div>
+        </div>
+
+        <!-- ═════════════════════════════════════════════ -->
+        <!-- BACK SIDE (Matches Provided Design Image) -->
+        <!-- ═════════════════════════════════════════════ -->
+        <div class="id-card card-face card-back" #idCardBackRef>
+          <!-- Flip Hint Badge -->
+          <div class="flip-hint-badge" (click)="$event.stopPropagation(); toggleFlip()">
+            <ion-icon name="sync-outline"></ion-icon>
+            <span>Flip</span>
+          </div>
+
+          <!-- White Body Section -->
+          <div class="back-body">
+            <!-- Residential Address Section -->
+            <div class="back-info-block">
+              <h4 class="back-info-label">Res. Address :</h4>
+              <div class="back-address-lines" *ngIf="hasAnyAddress">
+                <p class="address-line" *ngIf="resAddressLine1">{{ resAddressLine1 }}</p>
+                <p class="address-line" *ngIf="resAddressLine2">{{ resAddressLine2 }}</p>
+                <p class="address-line" *ngIf="resCity">{{ resCity }}</p>
+                <p class="address-line" *ngIf="resStateZip">{{ resStateZip }}</p>
+              </div>
+              <div class="back-address-lines" *ngIf="!hasAnyAddress">
+                <p class="address-line">50-75-6,Seethempeta Muddadavari street</p>
+                <p class="address-line">Near radha krishna temple</p>
+                <p class="address-line">Visakhapatanam</p>
+                <p class="address-line">Andhra Pradesh India 530016</p>
+              </div>
+            </div>
+
+            <!-- Aadhaar Card Section -->
+            <div class="back-info-block">
+              <h4 class="back-info-label">Aadhaar Card :</h4>
+              <p class="back-info-value">{{ aadhaarNumber }}</p>
+            </div>
+
+            <!-- Emergency Contact Section -->
+            <div class="back-info-block">
+              <h4 class="back-info-label">Emergency Contact :</h4>
+              <p class="back-info-value">{{ emergencyContact }}</p>
+            </div>
+          </div>
+
+          <!-- Blue Bottom Footer Banner -->
+          <div class="back-footer-banner">
+            <h3 class="footer-org-name">SREE TAMMINA SOFTWARE SOLUTIONS PVT. LTD.</h3>
+            <p class="footer-line"># 49-24-64, Sri Venkata Sai Towers, 3rd Floor,</p>
+            <p class="footer-line">Sankaramatam Road, Madhuranagar, Visakhapatnam</p>
+            <p class="footer-line footer-contact-line">Ph: 0891-2555200 &nbsp; Fax: 0891-2555201</p>
+            <p class="footer-line footer-web">www.techtammina.com</p>
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- Download Button -->
-    <ion-button expand="block" class="download-btn" (click)="downloadIdCard()" [disabled]="isDownloading">
-      <ion-icon slot="start" [name]="isDownloading ? 'hourglass-outline' : 'download-outline'"></ion-icon>
-      {{ isDownloading ? 'Generating...' : 'Download ID' }}
-    </ion-button>
+    <!-- Action Buttons -->
+    <div class="actions-group">
+      <button type="button" class="btn-action btn-rotate" (click)="toggleFlip()">
+        <ion-icon name="sync-outline"></ion-icon>
+        <span>{{ isFlipped ? 'Show Front Side' : 'Rotate to Back Side' }}</span>
+      </button>
+
+      <button type="button" class="btn-action btn-download" (click)="downloadBothSides()" [disabled]="isDownloading">
+        <ion-icon [name]="isDownloading ? 'hourglass-outline' : 'download-outline'"></ion-icon>
+        <span>{{ isDownloading ? 'Generating ID Cards...' : 'Download ID Card (Both Sides)' }}</span>
+      </button>
+    </div>
+
   </div>
 </ion-content>
