@@ -29,10 +29,6 @@
       <!-- Blue Header Section -->
       <div class="id-card-header">
         <div class="header-pattern"></div>
-        <!-- Company Logo (Top Left with Background) -->
-        <div class="header-logo-container" *ngIf="companyLogoUrl">
-          <img [src]="companyLogoUrl" [alt]="companyName" class="company-logo" crossorigin="anonymous" (error)="onLogoError($event)" />
-        </div>
         <!-- NFC / Chip Icon -->
         <div class="chip-icon">
           <ion-icon name="wifi-outline"></ion-icon>
@@ -73,6 +69,11 @@
           <span class="detail-label">Blood Group</span>
           <span class="detail-value">{{ currentEmployee?.BloodGroup || 'N/A' }}</span>
         </div>
+      </div>
+
+      <!-- Company Logo Footer -->
+      <div class="id-card-footer">
+        <img src="assets/tt_blue_logo.png" alt="Company Logo" class="company-logo" crossorigin="anonymous" />
       </div>
     </div>
 

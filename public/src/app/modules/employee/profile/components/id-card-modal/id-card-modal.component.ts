@@ -2,7 +2,6 @@ import { Component, Input, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { environment } from '../../../../../../environments/environment';
-import { BrandingService } from 'src/app/core/services/branding.service';
 import html2canvas from 'html2canvas';
 
 @Component({
@@ -18,9 +17,6 @@ import html2canvas from 'html2canvas';
 export class IdCardModalComponent implements OnInit {
   @Input() currentEmployee: any;
   @ViewChild('idCardRef', { static: false }) idCardRef!: ElementRef;
-
-  companyLogoUrl: string = 'assets/tt_blue_logo.png';
-  companyName: string = 'Tech Tammina';
 
   env: string = '';
   isDownloading = false;
@@ -38,22 +34,11 @@ export class IdCardModalComponent implements OnInit {
 
   constructor(
     private modalController: ModalController,
-    private toastController: ToastController,
-    private brandingService: BrandingService
+    private toastController: ToastController
   ) {}
 
   ngOnInit() {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
-    this.brandingService.logoUrl$.subscribe((url) => {
-      if (url) this.companyLogoUrl = url;
-    });
-    this.brandingService.companyName$.subscribe((name) => {
-      if (name) this.companyName = name;
-    });
-  }
-
-  onLogoError(event: any) {
-    event.target.src = 'assets/tt_blue_logo.png';
   }
 
   dismiss() {

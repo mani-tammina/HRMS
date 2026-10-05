@@ -1,8 +1,7 @@
-import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
-import { BrandingService } from 'src/app/core/services/branding.service';
 
 /**
  * Reusable offer letter viewer.
@@ -18,31 +17,13 @@ import { BrandingService } from 'src/app/core/services/branding.service';
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class OfferLetterViewComponent implements OnInit, OnChanges {
+export class OfferLetterViewComponent implements OnChanges {
   @Input() candidate: any = {};
   /** Show the template selector controls (HR side only) */
   @Input() showControls = false;
 
-  companyLogoUrl: string = 'assets/techtammina.webp';
-  companyName: string = 'Tech Tammina';
-
   selectedTemplate = 'SVS';
   previewText = '';
-
-  constructor(private brandingService: BrandingService) {}
-
-  ngOnInit() {
-    this.brandingService.logoUrl$.subscribe((url) => {
-      if (url) this.companyLogoUrl = url;
-    });
-    this.brandingService.companyName$.subscribe((name) => {
-      if (name) this.companyName = name;
-    });
-  }
-
-  onLogoError(event: any) {
-    event.target.src = 'assets/techtammina.webp';
-  }
 
   ngOnChanges(changes: SimpleChanges) {
     if (changes['candidate']) {

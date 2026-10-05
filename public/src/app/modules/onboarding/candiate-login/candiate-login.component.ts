@@ -6,7 +6,6 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClientModule } from '@angular/common/http';
 import { CandidateService } from 'src/app/core/services/candidate.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
-import { BrandingService } from 'src/app/core/services/branding.service';
 
 @Component({
   selector: 'app-candiate-login',
@@ -17,9 +16,6 @@ import { BrandingService } from 'src/app/core/services/branding.service';
 })
 export class CandiateLoginComponent implements OnInit, OnDestroy {
   @ViewChildren('otpInput') otpInputs!: QueryList<ElementRef<HTMLInputElement>>;
-
-  companyLogoUrl: string = 'assets/TamminaLogo.png';
-  companyName: string = 'Tech Tammina';
 
   loginForm!: FormGroup;
   candidateId: string | null = null;
@@ -43,18 +39,10 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
     private route: ActivatedRoute,
     private router: Router,
     private candidateService: CandidateService,
-    private toaster: ToasterService,
-    private brandingService: BrandingService
+    private toaster: ToasterService
   ) {}
 
   ngOnInit() {
-    this.brandingService.logoUrl$.subscribe((url) => {
-      if (url) this.companyLogoUrl = url;
-    });
-    this.brandingService.companyName$.subscribe((name) => {
-      if (name) this.companyName = name;
-    });
-
     this.candidateId = this.route.snapshot.paramMap.get('id');
 
     this.loginForm = this.fb.group({
@@ -302,9 +290,5 @@ export class CandiateLoginComponent implements OnInit, OnDestroy {
     this.clearTimer();
     this.otpDigits = ['', '', '', '', '', ''];
     this.otpError = false;
-  }
-
-  onLogoError(event: any) {
-    event.target.src = 'assets/TamminaLogo.png';
   }
 }
