@@ -1,120 +1,103 @@
-<ion-content [fullscreen]="true" class="admin-dashboard ion-padding">
-  <div class="top-bar">
-    <h1>Manage and maintain organizational master data</h1>
-    <p>Track and manage all organizational information</p>
+<ion-content [fullscreen]="true" class="admin-page-content">
+  <div class="admin-container">
+    
+    <!-- Simple & Clean Page Header -->
+    <header class="admin-header-bar">
+      <div class="header-left">
+        <div class="header-title-row">
+          <h1 class="page-title">Organizational Master Data & Governance</h1>
+          <span class="module-count-badge">{{ filteredModules.length }} Modules</span>
+        </div>
+        <p class="page-subtitle">
+          Track and manage organizational master data, access policies, employee rosters, and administrative tools.
+        </p>
+      </div>
+
+      <div class="header-right">
+        <div class="search-box">
+          <ion-icon name="search-outline" class="search-icon"></ion-icon>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            placeholder="Search administration modules, roles, policies..."
+            class="search-input"
+          />
+          <button *ngIf="searchQuery" class="clear-btn" (click)="clearSearch()" title="Clear search">
+            <ion-icon name="close-circle"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Navigation Filter Tabs -->
+    <section class="filter-section">
+      <div class="category-tabs">
+        <button
+          *ngFor="let cat of categories"
+          class="category-tab-btn"
+          [class.active]="selectedCategory === cat.id"
+          (click)="selectCategory(cat.id)"
+        >
+          <ion-icon [name]="cat.icon"></ion-icon>
+          <span class="tab-label">{{ cat.label }}</span>
+          <span class="tab-badge">{{ getCategoryCount(cat.id) }}</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- Admin Modules Grid -->
+    <section class="modules-grid-section" *ngIf="filteredModules.length > 0">
+      <div class="modules-grid">
+        <div
+          *ngFor="let mod of filteredModules"
+          class="module-card theme-{{ mod.colorTheme }}"
+          (click)="navigateTo(mod.route)"
+          role="button"
+          tabindex="0"
+          (keydown.enter)="navigateTo(mod.route)"
+        >
+          <div class="card-top-accent"></div>
+          
+          <div class="card-body">
+            <div class="card-header-row">
+              <div class="icon-avatar">
+                <ion-icon [name]="mod.icon"></ion-icon>
+              </div>
+              <span class="category-pill" *ngIf="mod.badge">{{ mod.badge }}</span>
+            </div>
+
+            <h3 class="card-title">{{ mod.title }}</h3>
+            <p class="card-desc">{{ mod.description }}</p>
+
+            <div class="card-tags" *ngIf="mod.tags && mod.tags.length">
+              <span *ngFor="let tag of mod.tags" class="tag-chip">{{ tag }}</span>
+            </div>
+          </div>
+
+          <div class="card-footer">
+            <span class="action-text">Configure & Manage</span>
+            <div class="arrow-circle">
+              <ion-icon name="arrow-forward-outline"></ion-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Empty Search State -->
+    <section class="empty-state-section" *ngIf="filteredModules.length === 0">
+      <div class="empty-card">
+        <div class="empty-icon-wrap">
+          <ion-icon name="search-outline"></ion-icon>
+        </div>
+        <h3>No matching administration modules</h3>
+        <p>No tools matched "<strong>{{ searchQuery }}</strong>" in {{ selectedCategory === 'all' ? 'any category' : selectedCategory }}.</p>
+        <button class="reset-search-btn" (click)="clearSearch(); selectCategory('all')">
+          <ion-icon name="refresh-outline"></ion-icon>
+          <span>Reset Filters</span>
+        </button>
+      </div>
+    </section>
+
   </div>
-  <ion-grid class="ion-no-padding">
-    <ion-row>
-      <ion-col size="12" class="manage-block">
-
-        <ion-card (click)="emp()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <img src="assets/icon/emploees_manage.svg" width="48" class="blue-img"
-                onerror="this.src='../../assets/Profile_Picture.png'">
-            </div>
-            <ion-card-title>Employees List</ion-card-title>
-            <p>Monitor and maintain employee records</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Employee Details <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="dep()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <img src="assets/icon/Org-master-data.svg" width="48"
-                onerror="this.src='../../assets/Profile_Picture.png'">
-            </div>
-            <ion-card-title>Organization Master Data</ion-card-title>
-            <p>Access and manage core organizational lists and settings.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Org Setup <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="adminsetup()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <img src="assets/icon/roles-management.svg" width="48"
-                onerror="this.src='../../assets/Profile_Picture.png'">
-            </div>
-            <ion-card-title>Role & Access Management</ion-card-title>
-            <p>Assign roles and permissions for HR, managers and admin</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Roles & Access <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="adminleaves()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <img src="assets/icon/leave-management.svg" width="48"
-                onerror="this.src='../../assets/Profile_Picture.png'">
-            </div>
-            <ion-card-title>Leave Management</ion-card-title>
-            <p>Manage leave types, plans, and balance initialization.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Leave Configuration <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="projectsetup()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <img src="assets/icon/project_blue.svg" width="48" onerror="this.src='../../assets/Profile_Picture.png'">
-            </div>
-            <ion-card-title>Projects Management</ion-card-title>
-            <p>All client, project, and shift information—organized and up to date.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Projects & Shifts <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="documentsSetup()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <ion-icon name="folder-open-outline" style="font-size:44px;color:#2563eb;"></ion-icon>
-            </div>
-            <ion-card-title>Employee Documents Management</ion-card-title>
-            <p>Upload, verify, and bulk process employee identity, payroll & Form 16 documents.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Documents Hub <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="holidaySetup()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <ion-icon name="calendar-outline" style="font-size:44px;color:#2563eb;"></ion-icon>
-            </div>
-            <ion-card-title>Holiday Management</ion-card-title>
-            <p>Upload, configure, and manage holidays as per shift policies and location rosters.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Holidays Hub <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-
-        <ion-card (click)="companyBrandingSetup()" class="clickable-card">
-          <ion-card-header>
-            <div class="card-icon-wrapper">
-              <ion-icon name="color-palette-outline" style="font-size:44px;color:#2563eb;"></ion-icon>
-            </div>
-            <ion-card-title>Company Branding</ion-card-title>
-            <p>Upload corporate logo, manage organization story, and update branch office addresses.</p>
-            <ion-button fill="clear" color="light" class="card-btn">
-              Brand & Locations <ion-icon slot="end" name="arrow-forward-outline"></ion-icon>
-            </ion-button>
-          </ion-card-header>
-        </ion-card>
-      </ion-col>
-    </ion-row>
-  </ion-grid>
 </ion-content>
