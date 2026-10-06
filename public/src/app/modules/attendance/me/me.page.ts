@@ -509,7 +509,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         const endTime = nextPunch ? new Date(nextPunch.punch_time).getTime() : Date.now();
         const durationMin = (endTime - time) / 60000;
         inData.push(Math.round(durationMin));
-        labels.push(`In: ${new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        labels.push(`In: ${new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(time))}`);
       } else if (p.punch_type === 'out') {
         const nextPunch = punches[i + 1];
         if (nextPunch) {

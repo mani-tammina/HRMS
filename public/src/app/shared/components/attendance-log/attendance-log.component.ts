@@ -132,8 +132,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private formatDateOnly(date: string | Date): string {
+    if (!date) return '';
     const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
   }
 
   private reloadAttendance(): void {
@@ -709,10 +711,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const ms = this.parsePunchTimeToMs(dateVal);
       if (ms > 0) {
         const d = new Date(ms);
-        const hours = d.getHours();
-        const mins = String(d.getMinutes()).padStart(2, '0');
-        const secs = String(d.getSeconds()).padStart(2, '0');
-        return `${hours}:${mins}:${secs}`;
+        return new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(d);
       }
       if (typeof dateVal === 'string' && dateVal.includes(':')) {
         const parts = dateVal.split(' ');

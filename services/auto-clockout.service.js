@@ -1,7 +1,7 @@
 /**
  * AUTO CLOCK-OUT SERVICE
  * ============================================
- * Automatically clocks out employees 2 hours after their shift ending time
+ * Automatically clocks out employees 12 hours after their shift ending time
  * if they have not manually clocked out.
  */
 
@@ -53,32 +53,29 @@ class AutoClockOutService {
   }
 
   /**
-   * Helper to format a Date into 'YYYY-MM-DD HH:mm:ss' (MySQL DATETIME format) in local time
+   * Helper to format a Date into 'YYYY-MM-DD HH:mm:ss' (MySQL DATETIME format) in IST time
    */
   formatToMySQLDateTime(dateObj) {
+    if (!dateObj) return null;
     const d = new Date(dateObj);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    const hours = String(d.getHours()).padStart(2, '0');
-    const minutes = String(d.getMinutes()).padStart(2, '0');
-    const seconds = String(d.getSeconds()).padStart(2, '0');
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    if (isNaN(d.getTime())) return null;
+    const dStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+    const tStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(d);
+    return `${dStr} ${tStr}`;
   }
 
   /**
-   * Helper to format a Date into 'YYYY-MM-DD'
+   * Helper to format a Date into 'YYYY-MM-DD' in IST
    */
   formatToDateOnly(dateObj) {
+    if (!dateObj) return null;
     const d = new Date(dateObj);
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    if (isNaN(d.getTime())) return null;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
   }
 
   /**
-   * Calculate shift start, shift end, duration, and auto clock-out cutoff (shift end + 2 hours).
+   * Calculate shift start, shift end, duration, and auto clock-out cutoff (shift end + 12 hours).
    * 
    * @param {Date|string} punchInTime - Time when employee clocked in
    * @param {Object|null} shiftPolicy - Shift policy object with start_time and end_time
@@ -124,8 +121,8 @@ class AutoClockOutService {
       shiftDurationHours = 9;
     }
 
-    // Auto clock-out cutoff is Shift Ending Time + 2 hours
-    const autoClockOutTime = new Date(shiftEnd.getTime() + 2 * 60 * 60 * 1000);
+    // Auto clock-out cutoff is Shift Ending Time + 12 hours
+    const autoClockOutTime = new Date(shiftEnd.getTime() + 12 * 60 * 60 * 1000);
     const now = new Date();
     const isOverdue = now >= autoClockOutTime;
 
@@ -352,7 +349,7 @@ class AutoClockOutService {
 
   /**
    * Main sweeper: Scans all active/unclosed punch-ins across the entire database
-   * and auto-clocks out any that have exceeded (shift end + 2 hours).
+   * and auto-clocks out any that have exceeded (shift end + 12 hours).
    */
   async processAllPendingAutoClockOuts() {
     if (this.isProcessing) return;
@@ -458,7 +455,7 @@ class AutoClockOutService {
       shiftStartTime: timing.shiftStartTime,
       shiftEndTime: timing.shiftEndTime,
       autoClockOutTime: timing.autoClockOutTime,
-      autoClockOutGraceHours: 2,
+      autoClockOutGraceHours: 12,
       targetDate: dateStr
     };
   }

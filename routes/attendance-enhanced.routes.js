@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, manager, roleAuth } = require("../middleware/auth");
-const { findEmployeeByUserId } = require("../utils/helpers");
+const { findEmployeeByUserId, toMySQLDate, toMySQLDateTime } = require("../utils/helpers");
 const autoClockOutService = require("../services/auto-clockout.service");
 
 const ATTENDANCE_LOCK_WAIT_SECONDS = 10;
@@ -251,8 +251,8 @@ router.post("/punch-in", auth, async (req, res) => {
       req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
-    const today = new Date().toISOString().split("T")[0];
-    const now = new Date();
+    const today = toMySQLDate(new Date());
+    const now = toMySQLDateTime(new Date());
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
@@ -454,8 +454,8 @@ router.post("/punch-out", auth, async (req, res) => {
       req.socket?.remoteAddress;
     const device_info = req.headers["user-agent"];
 
-    const today = new Date().toISOString().split("T")[0];
-    const now = new Date();
+    const today = toMySQLDate(new Date());
+    const now = toMySQLDateTime(new Date());
 
     c = await db();
     lockName = await acquireAttendanceLock(c, emp.id, today);
@@ -576,7 +576,7 @@ router.get("/today", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toMySQLDate(new Date());
     const c = await db();
 
     // Auto clock-out check: resolve any overdue active punch for this employee
@@ -643,8 +643,8 @@ router.get("/today", auth, async (req, res) => {
     if (attendance.length > 0) {
       const [webPunches] = await c.query(
         `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type,
-                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time,
-                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+                DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time,
+                DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date,
                 ap.ip_address, ap.device_info, ap.location, ap.notes,
                 a.work_mode, 'web' as source 
          FROM attendance_punches ap
@@ -657,8 +657,8 @@ router.get("/today", auth, async (req, res) => {
     } else {
       const [webPunches] = await c.query(
         `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type,
-                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time,
-                DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+                DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time,
+                DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date,
                 ap.ip_address, ap.device_info, ap.location, ap.notes,
                 'Office' as work_mode, 'web' as source 
          FROM attendance_punches ap
@@ -775,7 +775,7 @@ router.post("/bulk-status", auth, async (req, res) => {
       return res.status(400).json({ error: "employee_ids array is required" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toMySQLDate(new Date());
     const c = await db();
 
     const placeholders = employee_ids.map(() => "?").join(",");
@@ -924,16 +924,15 @@ function toISTFormat(val) {
       const timePart = parts[1].split('.')[0];
       return `${datePart}T${timePart}+05:30`;
     }
+    if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
+      return clean;
+    }
   }
   const d = new Date(val);
   if (isNaN(d.getTime())) return null;
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  const hours = String(d.getHours()).padStart(2, '0');
-  const minutes = String(d.getMinutes()).padStart(2, '0');
-  const seconds = String(d.getSeconds()).padStart(2, '0');
-  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}+05:30`;
+  const dStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+  const tStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(d);
+  return `${dStr}T${tStr}+05:30`;
 }
 
 function calculateAttendanceMetrics(rawPunches, isToday) {
@@ -1078,8 +1077,8 @@ function calculatePunchPairs(punches) {
 async function getUnifiedAttendanceDetails(c, employeeId, date) {
   let [attendance] = await c.query(
     `SELECT a.*,
-            DATE_FORMAT(DATE_ADD(a.first_check_in, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
-            DATE_FORMAT(DATE_ADD(a.last_check_out, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as last_check_out_ist
+            DATE_FORMAT(a.first_check_in, '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
+            DATE_FORMAT(a.last_check_out, '%Y-%m-%d %H:%i:%s') as last_check_out_ist
      FROM attendance a WHERE a.employee_id = ? AND a.attendance_date = ?`,
     [employeeId, date]
   );
@@ -1094,14 +1093,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   let punches = [];
 
-  // 1. Fetch Web/Mobile/Remote Punches (Converted to IST +05:30)
+  // 1. Fetch Web/Mobile/Remote Punches (Stored in IST +05:30)
   const [webPunches] = await c.query(
     `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type, 
-            DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time, 
-            DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date, 
+            DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+            DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date, 
             ap.ip_address, ap.device_info, ap.location, ap.notes, 'web' as source,
             COALESCE(a.work_mode, 'Office') as work_mode,
-            DATE_FORMAT(DATE_ADD(ap.created_at, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as created_at
+            DATE_FORMAT(ap.created_at, '%Y-%m-%d %H:%i:%s') as created_at
      FROM attendance_punches ap
      LEFT JOIN attendance a ON ap.attendance_id = a.id
      WHERE ap.employee_id = ? AND ap.punch_date = ?
@@ -1271,15 +1270,15 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     start = new Date(rYear, rMonth - 1, 1);
     end = new Date(rYear, rMonth, 0);
   }
-  const startStr = start.toISOString().split('T')[0];
-  const endStr = end.toISOString().split('T')[0];
+  const startStr = toMySQLDate(start);
+  const endStr = toMySQLDate(end);
 
   const [attendanceRows] = await c.query(`
     SELECT 
       a.*,
       DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as formatted_date,
-      DATE_FORMAT(DATE_ADD(a.first_check_in, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
-      DATE_FORMAT(DATE_ADD(a.last_check_out, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as last_check_out_ist,
+      DATE_FORMAT(a.first_check_in, '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
+      DATE_FORMAT(a.last_check_out, '%Y-%m-%d %H:%i:%s') as last_check_out_ist,
       (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'in') as web_punch_in_count,
       (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'out') as web_punch_out_count
     FROM attendance a
@@ -1323,8 +1322,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   try {
     const [webRange] = await c.query(`
       SELECT ap.employee_id, 
-             DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d %H:%i:%s') as punch_time, 
-             DATE_FORMAT(DATE_ADD(ap.punch_time, INTERVAL 330 MINUTE), '%Y-%m-%d') as punch_date,
+             DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
+             DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date,
              ap.punch_type, ap.location, ap.notes, 'web' as source
       FROM attendance_punches ap
       WHERE ap.employee_id = ? AND ap.punch_date BETWEEN ? AND ?
@@ -1858,7 +1857,7 @@ router.get("/report/team", auth, async (req, res) => {
     );
 
     const { date } = req.query;
-    const targetDate = date || new Date().toISOString().split("T")[0];
+    const targetDate = date || toMySQLDate(new Date());
     console.log(`Target date: ${targetDate}`);
 
     const c = await db();
@@ -2279,8 +2278,8 @@ router.post("/checkin", auth, async (req, res) => {
 
     await c.beginTransaction();
 
-    const today = new Date().toISOString().split("T")[0];
-    const now = new Date();
+    const today = toMySQLDate(new Date());
+    const now = toMySQLDateTime(new Date());
 
     // Check if there's an active punch-in (no punch-out yet)
     const [activePunch] = await c.query(
@@ -2411,8 +2410,8 @@ router.post("/checkout", auth, async (req, res) => {
 
     await c.beginTransaction();
 
-    const today = new Date().toISOString().split("T")[0];
-    const now = new Date();
+    const today = toMySQLDate(new Date());
+    const now = toMySQLDateTime(new Date());
 
     // Check if there's an active attendance record
     const [attendance] = await c.query(
@@ -2661,7 +2660,7 @@ router.post("/regularization/backdate", auth, manager, async (req, res) => {
       return res.status(400).json({ error: "employee_id and attendance_date are required" });
     }
 
-    const today = new Date().toISOString().split("T")[0];
+    const today = toMySQLDate(new Date());
     if (attendanceDate >= today) {
       return res.status(400).json({ error: "Only previous days attendance can be regularized" });
     }
