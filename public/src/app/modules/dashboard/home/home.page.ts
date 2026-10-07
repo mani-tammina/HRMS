@@ -800,21 +800,30 @@ export class HomePage implements OnInit, OnDestroy {
       this.hasPunchedToday = punches.length > 0;
 
       if (this.hasPunchedToday) {
-        // Build the overview data object with merged metrics matching attendance log component
-        const metrics = this.calculateMetricsFromPunches(punches, true);
+        let effHours = '0.00';
+        let grossHours = '0.00';
+
+        if (res?.attendance && res.attendance.total_work_hours !== null && res.attendance.total_work_hours !== undefined) {
+          effHours = String(res.attendance.total_work_hours);
+          grossHours = String(res.attendance.gross_hours || res.attendance.total_work_hours);
+        } else {
+          const metrics = this.calculateMetricsFromPunches(punches, true);
+          effHours = metrics.totalWorkHours;
+          grossHours = metrics.grossHours;
+        }
 
         this.todayAttendance = {
           ...this.todayAttendance,
           attendance_date: new Date().toISOString().split('T')[0],
           first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
           last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
-          gross_hours: metrics.grossHours,
+          gross_hours: grossHours,
           work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
-          effective_hours: metrics.totalWorkHours,
-          total_work_hours: metrics.totalWorkHours
+          effective_hours: effHours,
+          total_work_hours: effHours
         };
 
-        const eff = parseFloat(metrics.totalWorkHours) || 0;
+        const eff = parseFloat(effHours) || 0;
         this.todayEffectivePercentage = Math.round((eff / 8) * 100);
       }
 
@@ -853,59 +862,48 @@ export class HomePage implements OnInit, OnDestroy {
     }
 
     const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-    const locationPunchesMap = new Map<string, any[]>();
-    for (const p of punches) {
-      const loc = (p.location || p.source || p.work_mode || 'default').trim();
-      if (!locationPunchesMap.has(loc)) {
-        locationPunchesMap.set(loc, []);
-      }
-      locationPunchesMap.get(loc)!.push(p);
-    }
-
     const workIntervals: { start: number; end: number }[] = [];
     let earliestInMs: number | null = null;
     let latestOutMs: number | null = null;
     let hasAnyValidOut = false;
+    let currentInPunch: any = null;
 
-    locationPunchesMap.forEach(streamPunches => {
-      let currentInPunch: any = null;
-      for (let i = 0; i < streamPunches.length; i++) {
-        const p = streamPunches[i];
-        const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
-        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-        const punchType = (p.punch_type || '').toLowerCase();
+    for (let i = 0; i < punches.length; i++) {
+      const p = punches[i];
+      const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
 
-        if (punchType === 'in') {
-          if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
-            earliestInMs = pTimeMs;
-          }
-          currentInPunch = p;
-        } else if (punchType === 'out') {
-          if (currentInPunch && !isAutoOut) {
-            const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-            if (pTimeMs > inTimeMs) {
-              workIntervals.push({ start: inTimeMs, end: pTimeMs });
-              hasAnyValidOut = true;
-              if (latestOutMs === null || pTimeMs > latestOutMs) {
-                latestOutMs = pTimeMs;
-              }
+      if (punchType === 'in') {
+        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+          earliestInMs = pTimeMs;
+        }
+        currentInPunch = p;
+      } else if (punchType === 'out') {
+        if (currentInPunch && !isAutoOut) {
+          const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > inTimeMs) {
+            workIntervals.push({ start: inTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
             }
           }
-          currentInPunch = null;
         }
+        currentInPunch = null;
       }
+    }
 
-      if (currentInPunch && isToday) {
-        const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-        const nowMs = Date.now();
-        if (nowMs > inTimeMs) {
-          workIntervals.push({ start: inTimeMs, end: nowMs });
-          if (latestOutMs === null || nowMs > latestOutMs) {
-            latestOutMs = nowMs;
-          }
+    if (currentInPunch && isToday) {
+      const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+      const nowMs = Date.now();
+      if (nowMs > inTimeMs) {
+        workIntervals.push({ start: inTimeMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) {
+          latestOutMs = nowMs;
         }
       }
-    });
+    }
 
     workIntervals.sort((a, b) => a.start - b.start);
     const mergedIntervals: { start: number; end: number }[] = [];

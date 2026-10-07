@@ -522,9 +522,9 @@ router.post("/punch-out", auth, async (req, res) => {
     // Insert punch out record
     await c.query(
       `INSERT INTO attendance_punches 
-             (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, notes)
-             VALUES (?, ?, 'out', ?, ?, ?, ?, ?)`,
-      [attendanceId, emp.id, now, today, ip_address, device_info, notes]
+             (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+             VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?)`,
+      [attendanceId, emp.id, now, today, ip_address, device_info, attendance[0].location || 'Office', notes]
     );
 
     // Calculate and update hours
@@ -929,56 +929,46 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
     return { totalWorkHours: '0.00', grossHours: '0.00', totalBreakHours: '0.00' };
   }
   const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-  const locationPunchesMap = new Map();
-  for (const p of punches) {
-    const loc = (p.location || p.source || p.work_mode || 'default').trim();
-    if (!locationPunchesMap.has(loc)) {
-      locationPunchesMap.set(loc, []);
-    }
-    locationPunchesMap.get(loc).push(p);
-  }
-
   const workIntervals = [];
   let earliestInMs = null;
   let latestOutMs = null;
+  let currentIn = null;
 
-  locationPunchesMap.forEach(streamPunches => {
-    let currentIn = null;
-    for (let i = 0; i < streamPunches.length; i++) {
-      const p = streamPunches[i];
-      const pTimeMs = new Date(p.punch_time).getTime();
-      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
+  for (let i = 0; i < punches.length; i++) {
+    const p = punches[i];
+    const pTimeMs = new Date(p.punch_time).getTime();
+    const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+    const punchType = (p.punch_type || '').toLowerCase();
 
-      if (punchType === 'in') {
-        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
-          earliestInMs = pTimeMs;
-        }
-        currentIn = p;
-      } else if (punchType === 'out') {
-        if (currentIn && !isAutoOut) {
-          const inTimeMs = new Date(currentIn.punch_time).getTime();
-          if (pTimeMs > inTimeMs) {
-            workIntervals.push({ start: inTimeMs, end: pTimeMs });
-            if (latestOutMs === null || pTimeMs > latestOutMs) {
-              latestOutMs = pTimeMs;
-            }
+    if (punchType === 'in') {
+      if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+        earliestInMs = pTimeMs;
+      }
+      currentIn = p;
+    } else if (punchType === 'out') {
+      if (currentIn && !isAutoOut) {
+        const inTimeMs = new Date(currentIn.punch_time).getTime();
+        if (pTimeMs > inTimeMs) {
+          workIntervals.push({ start: inTimeMs, end: pTimeMs });
+          if (latestOutMs === null || pTimeMs > latestOutMs) {
+            latestOutMs = pTimeMs;
           }
         }
-        currentIn = null;
+      }
+      currentIn = null;
+    }
+  }
+
+  if (currentIn && isToday) {
+    const inTimeMs = new Date(currentIn.punch_time).getTime();
+    const nowMs = Date.now();
+    if (nowMs > inTimeMs) {
+      workIntervals.push({ start: inTimeMs, end: nowMs });
+      if (latestOutMs === null || nowMs > latestOutMs) {
+        latestOutMs = nowMs;
       }
     }
-    if (currentIn && isToday) {
-      const inTimeMs = new Date(currentIn.punch_time).getTime();
-      const nowMs = Date.now();
-      if (nowMs > inTimeMs) {
-        workIntervals.push({ start: inTimeMs, end: nowMs });
-        if (latestOutMs === null || nowMs > latestOutMs) {
-          latestOutMs = nowMs;
-        }
-      }
-    }
-  });
+  }
 
   workIntervals.sort((a, b) => a.start - b.start);
   const merged = [];
@@ -1220,13 +1210,18 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   if (attendanceRecord) {
     attendanceRecord.attendance_date = date;
-    const isToday = toISTFormat(new Date()).substring(0, 10) === date;
-    const metrics = calculateAttendanceMetrics(punches, isToday);
-    if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
-      attendanceRecord.total_work_hours = metrics.totalWorkHours;
-      attendanceRecord.gross_hours = metrics.grossHours;
-      attendanceRecord.total_break_hours = metrics.totalBreakHours;
-      attendanceRecord.effective_hours = metrics.totalWorkHours;
+    const hasStoredHours = attendanceRecord.id !== 0 && attendanceRecord.total_work_hours !== null && attendanceRecord.total_work_hours !== undefined;
+    if (hasStoredHours) {
+      attendanceRecord.effective_hours = attendanceRecord.total_work_hours;
+    } else {
+      const isToday = toISTFormat(new Date()).substring(0, 10) === date;
+      const metrics = calculateAttendanceMetrics(punches, isToday);
+      if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+        attendanceRecord.total_work_hours = metrics.totalWorkHours;
+        attendanceRecord.gross_hours = metrics.grossHours;
+        attendanceRecord.total_break_hours = metrics.totalBreakHours;
+        attendanceRecord.effective_hours = metrics.totalWorkHours;
+      }
     }
   }
 
@@ -1461,18 +1456,23 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     }
   }
 
-  // Recalculate accurate metrics using all punches for each day
+  // Preserve stored attendance table hours from database, only fallback to raw metrics if unpopulated
   const todayDateStr = toISTFormat(now).substring(0, 10);
   combinedAttendanceMap.forEach((val, dStr) => {
-    const dayPunches = allPunchesMap.get(dStr);
-    if (dayPunches && dayPunches.length > 0) {
-      const isToday = dStr === todayDateStr;
-      const metrics = calculateAttendanceMetrics(dayPunches, isToday);
-      if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
-        val.total_work_hours = metrics.totalWorkHours;
-        val.gross_hours = metrics.grossHours;
-        val.total_break_hours = metrics.totalBreakHours;
-        val.effective_hours = metrics.totalWorkHours;
+    const hasStoredHours = typeof val.id === 'number' && val.total_work_hours !== null && val.total_work_hours !== undefined;
+    if (hasStoredHours) {
+      val.effective_hours = val.total_work_hours;
+    } else {
+      const dayPunches = allPunchesMap.get(dStr);
+      if (dayPunches && dayPunches.length > 0) {
+        const isToday = dStr === todayDateStr;
+        const metrics = calculateAttendanceMetrics(dayPunches, isToday);
+        if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+          val.total_work_hours = metrics.totalWorkHours;
+          val.gross_hours = metrics.grossHours;
+          val.total_break_hours = metrics.totalBreakHours;
+          val.effective_hours = metrics.totalWorkHours;
+        }
       }
     }
   });
