@@ -426,18 +426,38 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
 
           if (holiday) {
-            const hasPunches = existing && (
-              (existing.punches && existing.punches.length > 0) ||
-              existing.total_work_hours ||
-              existing.gross_hours ||
-              (existing.status && existing.status !== 'absent' && existing.status !== 'penalty' && existing.status !== 'on-leave')
+            const isToday = this.islogToday(date);
+            let updatedExisting = existing ? { ...existing } : null;
+            if (isToday && this.todayPunches && this.todayPunches.length > 0) {
+              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+              if (!updatedExisting) {
+                updatedExisting = { attendance_date: date };
+              }
+              updatedExisting.total_work_hours = metrics.totalWorkHours;
+              updatedExisting.gross_hours = metrics.grossHours;
+              const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+              const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
+              if (firstInPunch) {
+                updatedExisting.first_check_in = firstInPunch.punch_time;
+              }
+            }
+
+            const hasPunches = updatedExisting && (
+              (updatedExisting.punches && updatedExisting.punches.length > 0) ||
+              updatedExisting.first_check_in ||
+              (updatedExisting.total_work_hours && parseFloat(updatedExisting.total_work_hours) > 0) ||
+              (updatedExisting.gross_hours && parseFloat(updatedExisting.gross_hours) > 0) ||
+              (updatedExisting.status && updatedExisting.status !== 'absent' && updatedExisting.status !== 'penalty' && updatedExisting.status !== 'on-leave' && updatedExisting.status !== 'holiday')
             );
+
             if (hasPunches) {
               return {
-                ...existing,
+                ...updatedExisting,
                 attendance_date: date,
+                status: 'holiday',
                 isHoliday: true,
                 holidayName: holiday.name,
+                leaveType: holiday.name,
                 noLogs: false
               };
             }
@@ -445,6 +465,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               ...(existing || {}),
               attendance_date: date,
               status: 'holiday',
+              isHoliday: true,
               holidayName: holiday.name,
               leaveType: holiday.name,
               total_work_hours: null,
@@ -1000,7 +1021,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const statusMap: { [key: string]: string } = {
       present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
       late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
-      penalty: 'Penalty'
+      penalty: 'Penalty', holiday: 'Holiday', weekend: 'Week Off'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {

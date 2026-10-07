@@ -125,11 +125,15 @@
               style="color:#10B981;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
               style="color:#EF4444;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'Holiday'" name="sparkles"
+              style="color:#10B981;font-size:16px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'Week Off'" name="calendar-outline"
+              style="color:#64748B;font-size:16px;"></ion-icon>
             <ion-icon *ngSwitchDefault name="ellipse-outline" style="color:#64748B;font-size:14px;"></ion-icon>
           </ng-container>
           <div style="display:flex;flex-direction:column;">
             <span
-              [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : 'inherit')"
+              [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : (getArrivalStatus(log) === 'Holiday' ? '#047857' : 'inherit'))"
               style="font-size:13px;font-weight:500;line-height:1;">
               {{ getArrivalStatus(log) }}
             </span>
