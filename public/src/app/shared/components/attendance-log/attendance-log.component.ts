@@ -429,16 +429,16 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             const isToday = this.islogToday(date);
             let updatedExisting = existing ? { ...existing } : null;
             if (isToday && this.todayPunches && this.todayPunches.length > 0) {
-              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
-              if (!updatedExisting) {
-                updatedExisting = { attendance_date: date };
-              }
-              updatedExisting.total_work_hours = metrics.totalWorkHours;
-              updatedExisting.gross_hours = metrics.grossHours;
-              const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-              const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
-              if (firstInPunch) {
-                updatedExisting.first_check_in = firstInPunch.punch_time;
+              const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+              if (inPunches.length > 0) {
+                const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+                if (!updatedExisting) {
+                  updatedExisting = { attendance_date: date };
+                }
+                updatedExisting.total_work_hours = metrics.totalWorkHours;
+                updatedExisting.gross_hours = metrics.grossHours;
+                const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                updatedExisting.first_check_in = sortedInPunches[0].punch_time;
               }
             }
 
@@ -483,13 +483,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             }
             const isToday = this.islogToday(date);
             if (isToday && this.todayPunches && this.todayPunches.length > 0) {
-              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
-              updatedExisting.total_work_hours = metrics.totalWorkHours;
-              updatedExisting.gross_hours = metrics.grossHours;
-              const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-              const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
-              if (firstInPunch) {
-                updatedExisting.first_check_in = firstInPunch.punch_time;
+              const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+              if (inPunches.length > 0) {
+                const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+                updatedExisting.total_work_hours = metrics.totalWorkHours;
+                updatedExisting.gross_hours = metrics.grossHours;
+                const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                updatedExisting.first_check_in = sortedInPunches[0].punch_time;
               }
             }
             return updatedExisting;
@@ -520,18 +520,21 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             const isToday = now.getFullYear() === logD.getFullYear() && now.getMonth() === logD.getMonth() && now.getDate() === logD.getDate();
             if (isToday) {
               if (this.todayPunches && this.todayPunches.length > 0) {
-                const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
-                const sortedPunches = this.todayPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-                const firstInPunch = sortedPunches.find(p => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
-                return {
-                  attendance_date: date,
-                  first_check_in: firstInPunch ? firstInPunch.punch_time : null,
-                  total_work_hours: metrics.totalWorkHours,
-                  gross_hours: metrics.grossHours,
-                  status: 'present',
-                  records: [],
-                  noLogs: false
-                };
+                const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+                if (inPunches.length > 0) {
+                  const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+                  const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                  const firstInPunch = sortedInPunches[0];
+                  return {
+                    attendance_date: date,
+                    first_check_in: firstInPunch ? firstInPunch.punch_time : null,
+                    total_work_hours: metrics.totalWorkHours,
+                    gross_hours: metrics.grossHours,
+                    status: 'present',
+                    records: [],
+                    noLogs: false
+                  };
+                }
               }
               defaultStatus = 'not-in-yet';
             }

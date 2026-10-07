@@ -655,18 +655,7 @@ router.get("/today", auth, async (req, res) => {
       );
       punches = webPunches || [];
     } else {
-      const [webPunches] = await c.query(
-        `SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type,
-                DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time,
-                DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date,
-                ap.ip_address, ap.device_info, ap.location, ap.notes,
-                'Office' as work_mode, 'web' as source 
-         FROM attendance_punches ap
-         WHERE ap.employee_id = ? AND ap.punch_date = ?
-         ORDER BY ap.punch_time ASC`,
-        [emp.id, today]
-      );
-      punches = webPunches || [];
+      punches = [];
     }
 
     // Biometric punches for today

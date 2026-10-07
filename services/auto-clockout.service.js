@@ -324,7 +324,7 @@ class AutoClockOutService {
           att.attendance_id,
           employeeId,
           autoOutTimeMySQL,
-          autoOutDate,
+          attDateStr,
           autoNotes
         ]);
 
