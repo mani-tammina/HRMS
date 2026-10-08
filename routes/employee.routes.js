@@ -722,8 +722,8 @@ router.get("/search/query", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = r.map(emp => maskSensitiveData(emp, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = r.map(emp => formatEmployeeDates(maskSensitiveData(emp, req.user.role, false)));
 
     res.json({ data: maskedData, count: maskedData.length });
   } catch (error) {
@@ -1078,8 +1078,8 @@ router.get("/my-team/reporting/:employeeId", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = reportingTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = reportingTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1149,8 +1149,8 @@ router.get("/my-team/co-team/:employeeId", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = coTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = coTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1205,7 +1205,7 @@ const handleGetOrgTree = async (req, res) => {
         rows[0].reports_count = parseInt(rows[0].reports_count) || 0;
         rows[0].has_reports = rows[0].reports_count > 0;
       }
-      return maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId);
+      return formatEmployeeDates(maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId));
     };
 
     // Helper function to fetch reports (team) for a manager
@@ -1225,7 +1225,7 @@ const handleGetOrgTree = async (req, res) => {
       return rows.map(e => {
         e.reports_count = parseInt(e.reports_count) || 0;
         e.has_reports = e.reports_count > 0;
-        return maskSensitiveData(e, req.user.role, e.id === targetEmployeeId);
+        return formatEmployeeDates(maskSensitiveData(e, req.user.role, e.id === targetEmployeeId));
       });
     };
 

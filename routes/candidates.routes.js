@@ -11,29 +11,35 @@ const { auth, admin, hr } = require("../middleware/auth");
 
 const upload = multer({ dest: "uploads/candidate_docs/" });
 
-// Helper to parse dates in DD/MM/YYYY format to YYYY-MM-DD
+// Helper to parse dates in DD/MM/YYYY or ISO format to YYYY-MM-DD
 function parseDate(val) {
     if (!val) return null;
-    if (typeof val === 'string' && val.includes('/')) {
-        const parts = val.split('/');
-        if (parts.length === 3) {
-            const day = parseInt(parts[0], 10);
-            const month = parseInt(parts[1], 10) - 1;
-            const year = parseInt(parts[2], 10);
-            const date = new Date(year, month, day);
-            if (!isNaN(date.getTime())) {
-                const yyyy = date.getFullYear();
-                const mm = String(date.getMonth() + 1).padStart(2, '0');
-                const dd = String(date.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
+    if (typeof val === 'string') {
+        const trimmed = val.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+        if (trimmed.includes('/')) {
+            const parts = trimmed.split('/');
+            if (parts.length === 3) {
+                const day = parseInt(parts[0], 10);
+                const month = parseInt(parts[1], 10) - 1;
+                const year = parseInt(parts[2], 10);
+                const date = new Date(year, month, day);
+                if (!isNaN(date.getTime())) {
+                    const yyyy = date.getFullYear();
+                    const mm = String(date.getMonth() + 1).padStart(2, '0');
+                    const dd = String(date.getDate()).padStart(2, '0');
+                    return `${yyyy}-${mm}-${dd}`;
+                }
             }
         }
+        if (trimmed.includes('T') || trimmed.includes(' ')) {
+            return trimmed.split(/[T ]/)[0];
+        }
     }
-    const date = new Date(val);
-    if (!isNaN(date.getTime())) {
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, '0');
-        const dd = String(date.getDate()).padStart(2, '0');
+    if (val instanceof Date) {
+        const yyyy = val.getFullYear();
+        const mm = String(val.getMonth() + 1).padStart(2, '0');
+        const dd = String(val.getDate()).padStart(2, '0');
         return `${yyyy}-${mm}-${dd}`;
     }
     return null;

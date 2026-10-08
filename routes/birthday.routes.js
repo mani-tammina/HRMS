@@ -41,32 +41,27 @@ router.get("/", auth, async (req, res) => {
 
   if (period === "today") {
     query +=
-      " AND DAY(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = DAY(CURDATE()) AND MONTH(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = MONTH(CURDATE())";
+      " AND DAY(DateOfBirth) = DAY(CURDATE()) AND MONTH(DateOfBirth) = MONTH(CURDATE())";
   } else if (period === "week") {
-    query += " AND WEEK(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = WEEK(CURDATE())";
+    query += " AND WEEK(DateOfBirth) = WEEK(CURDATE())";
   } else if (period === "month") {
-    query += " AND MONTH(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = MONTH(CURDATE())";
+    query += " AND MONTH(DateOfBirth) = MONTH(CURDATE())";
   } else if (period === "upcoming") {
     // Next 30 days
     query += ` AND (
-            (MONTH(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = MONTH(CURDATE()) AND DAY(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) >= DAY(CURDATE())) 
+            (MONTH(DateOfBirth) = MONTH(CURDATE()) AND DAY(DateOfBirth) >= DAY(CURDATE())) 
             OR 
-            (MONTH(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)) = MONTH(DATE_ADD(CURDATE(), INTERVAL 30 DAY)))
+            (MONTH(DateOfBirth) = MONTH(DATE_ADD(CURDATE(), INTERVAL 30 DAY)))
         )`;
   }
 
-  query += " ORDER BY MONTH(DATE_ADD(DateOfBirth, INTERVAL 1 DAY)), DAY(DATE_ADD(DateOfBirth, INTERVAL 1 DAY))";
+  query += " ORDER BY MONTH(DateOfBirth), DAY(DateOfBirth)";
 
   const [r] = await c.query(query);
   c.end();
 
   const formattedResults = r.map(emp => {
     if (emp.DateOfBirth) {
-      let d = new Date(emp.DateOfBirth);
-      if (!isNaN(d.getTime())) {
-        d.setUTCDate(d.getUTCDate() + 1);
-        emp.DateOfBirth = d;
-      }
       emp.DateOfBirth = formatDateToIST(emp.DateOfBirth);
     }
     return emp;

@@ -6,6 +6,25 @@ import { ReportingTeamComponent } from '../reporting-team/reporting-team.compone
 
 import { RouteGuardService } from '../../../../../core/services/route-guard.service';
 
+export function formatDateDDMMYYYY(val: any): string {
+  if (!val) return '-';
+  const str = String(val).trim();
+  const ymd = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (ymd) {
+    return `${ymd[3].padStart(2, '0')}-${ymd[2].padStart(2, '0')}-${ymd[1]}`;
+  }
+  const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+  if (dmy) {
+    return `${dmy[1].padStart(2, '0')}-${dmy[2].padStart(2, '0')}-${dmy[3]}`;
+  }
+  const d = new Date(str);
+  if (!isNaN(d.getTime())) {
+    const parts = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(d);
+    return parts.replace(/\//g, '-');
+  }
+  return str || '-';
+}
+
 @Component({
   selector: 'app-about-tab',
   templateUrl: './about.component.html',
@@ -35,20 +54,13 @@ export class AboutTabComponent implements OnChanges {
     return role === 'manager' || role === 'hr' || role === 'admin';
   }
 
+  get formattedDOB(): string {
+    return formatDateDDMMYYYY(this.currentEmployee?.DateOfBirth);
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentEmployee']?.currentValue) {
       console.log('✅ AboutTabComponent received employee:', this.currentEmployee);
-      if (this.currentEmployee?.DateOfBirth) {
-        // Normalize DOB to plain YYYY-MM-DD string.
-        // Backend sends plain strings; but if still an ISO timestamp, extract the date part.
-        const dob = this.currentEmployee.DateOfBirth;
-        const dateStr = typeof dob === 'string' && dob.includes('T') ? dob.split('T')[0] : String(dob);
-        // Parse as local-time date to avoid UTC midnight→IST offset shift.
-        const [year, month, day] = dateStr.split('-').map(Number);
-        if (year && month && day) {
-          this.currentEmployee.DateOfBirth = dateStr;
-        }
-      }
     }
   }
 }
