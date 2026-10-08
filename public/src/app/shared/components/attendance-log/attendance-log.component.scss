@@ -439,6 +439,7 @@ ion-modal.daily-activity-modal {
 
   &:hover {
     opacity: 0.85;
+
     .action-text {
       text-decoration: underline;
     }
@@ -458,6 +459,7 @@ ion-modal.daily-activity-modal {
   &::-webkit-scrollbar {
     width: 4px;
   }
+
   &::-webkit-scrollbar-thumb {
     background: #cbd5e1;
     border-radius: 4px;
