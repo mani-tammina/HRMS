@@ -298,14 +298,24 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             this.shiftDuration = `${res.shiftTiming.shiftDurationHours}h 0m`;
           }
         }
-        if (res?.attendance) {
-          this.status = res.attendance.status || 'NOT In Yet';
+        const punches = res?.punches || [];
+        const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
+        const isAutoOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
+
+        if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
+          this.status = 'NOT In Yet';
+        } else if (res?.attendance) {
+          const attStatus = (res.attendance.status || '').toLowerCase();
+          if (attStatus === 'not in yet' || isAutoOut) {
+            this.status = 'NOT In Yet';
+          } else {
+            this.status = res.attendance.status || 'NOT In Yet';
+          }
         } else if (res?.on_leave) {
           this.status = res.leave?.type_name ? `On Leave (${res.leave.type_name})` : 'On Leave';
         } else {
           this.status = 'NOT In Yet';
         }
-        const punches = res?.punches || [];
 
         if (punches && punches.length > 0) {
           const isClockedIn = res.last_punch_type === 'in';

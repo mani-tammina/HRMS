@@ -342,16 +342,17 @@ router.get("/:id", auth, async (req, res) => {
               mgr.LastName as manager_last_name,
               COALESCE(
                 (SELECT CASE 
+                          WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
                           WHEN combined.punch_type = 'in' THEN 'In'
                           WHEN combined.punch_type = 'out' THEN 'Out'
                           ELSE 'In'
                         END
                  FROM (
-                   SELECT punch_type, punch_time
+                   SELECT punch_type, punch_time, notes
                    FROM attendance_punches
                    WHERE employee_id = e.id AND punch_date = CURDATE()
                    UNION ALL
-                   SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time
+                   SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
                    FROM biometric_punches
                    WHERE employee_id = e.id AND punch_date = CURDATE()
                  ) combined

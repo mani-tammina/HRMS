@@ -729,6 +729,12 @@ router.get("/today", auth, async (req, res) => {
     const isWebClockedIn = lastWebPunch ? lastWebPunch.punch_type === 'in' : false;
     const lastWebPunchType = lastWebPunch ? lastWebPunch.punch_type : null;
     const lastOverallPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
+    const lastPunchObj = punches.length > 0 ? punches[punches.length - 1] : null;
+    const isAutoOut = lastPunchObj ? ((lastPunchObj.notes || '').includes('OUT Missing') || (lastPunchObj.notes || '').includes('Auto Clock-Out')) : false;
+
+    if (attendanceRecord && isAutoOut) {
+      attendanceRecord.status = 'Not In Yet';
+    }
 
     res.json({
       has_attendance: true,
@@ -740,6 +746,7 @@ router.get("/today", auth, async (req, res) => {
       can_punch_in: !isWebClockedIn,
       can_punch_out: isWebClockedIn,
       is_web_clocked_in: isWebClockedIn,
+      is_auto_clocked_out: isAutoOut,
       policyPermissions,
       shiftTiming
     });
@@ -838,10 +845,13 @@ router.post("/bulk-status", auth, async (req, res) => {
     const attendanceMap = new Map();
     attendance.forEach((a) => {
       const punch = punchMap.get(a.employee_id);
+      const isAutoOut = punch ? ((punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out')) : false;
       attendanceMap.set(a.employee_id, {
         ...a,
+        status: isAutoOut ? 'Not In Yet' : a.status,
         is_clocked_in: punch ? punch.punch_type === "in" : false,
         last_punch: punch || null,
+        is_auto_out: isAutoOut
       });
     });
 

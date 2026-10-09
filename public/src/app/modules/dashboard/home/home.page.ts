@@ -98,6 +98,7 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= DASHBOARD ================= */
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
   hasPunchedToday: boolean = false;
+  isAutoClockedOut: boolean = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -797,7 +798,9 @@ export class HomePage implements OnInit, OnDestroy {
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
       const punches = res?.punches || [];
-      this.hasPunchedToday = punches.length > 0;
+      const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
+      this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
+      this.hasPunchedToday = punches.length > 0 && !this.isAutoClockedOut;
 
       if (this.hasPunchedToday) {
         let effHours = '0.00';
@@ -1040,7 +1043,8 @@ export class HomePage implements OnInit, OnDestroy {
   getStatusLabel(): string {
     const isClockedIn = this.attendanceApi.getClockState();
     if (isClockedIn) return 'In';
-    return this.hasPunchedToday ? 'Out' : 'Not In Yet';
+    if (!this.hasPunchedToday || this.isAutoClockedOut) return 'Not In Yet';
+    return 'Out';
   }
 
   getStatusClass(): string {
