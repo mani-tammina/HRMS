@@ -6,23 +6,26 @@
     <div class="left-panel">
       <!-- Tech Tammina Logo (top-left) -->
       <div class="left-logo">
-        <img [src]="companyLogoUrl" [alt]="companyName" class="left-logo-img" fetchpriority="high" loading="lazy" (error)="onLogoError($event)" />
+        <img [src]="companyLogoUrl" [alt]="companyName" class="left-logo-img" fetchpriority="high" loading="lazy"
+          (error)="onLogoError($event)" />
       </div>
 
       <!-- Caption Text -->
       <div class="left-caption">
         <h2 class="caption-line1">Manage better.</h2>
-        <h2 class="caption-line2">Empower faster.</h2>
+        <h2 class="caption-line2">Empower fast.</h2>
         <p class="caption-subtitle">A unified platform to manage your workforce,<br />attendance, payroll, and more —
           all in one place.</p>
       </div>
 
       <!-- Illustration Image (3D character + dashboard) -->
       <div class="left-illustration">
-        <img src="assets/innerloginimg.png" alt="Interact illustration" class="illustration-img" fetchpriority="high" loading="eager" />
+        <img src="assets/innerloginimg.png" alt="Interact illustration" class="illustration-img" fetchpriority="high"
+          loading="eager" />
       </div>
       <div class="left-img">
-        <img src="assets/papperrocket.png" alt="Interact illustration" class="papper-rocket" fetchpriority="high" loading="eager" />
+        <img src="assets/papperrocket.png" alt="Interact illustration" class="papper-rocket" fetchpriority="high"
+          loading="eager" />
       </div>
     </div>
 
@@ -33,7 +36,8 @@
 
         <!-- Mobile Logo -->
         <div class="mobile-logo-container">
-          <img [src]="companyLogoUrl" [alt]="companyName" class="mobile-logo" fetchpriority="high" loading="eager" (error)="onLogoError($event)" />
+          <img [src]="companyLogoUrl" [alt]="companyName" class="mobile-logo" fetchpriority="high" loading="eager"
+            (error)="onLogoError($event)" />
         </div>
 
         <!-- LOGIN CARD -->
@@ -95,7 +99,8 @@
                   formControlName="password" placeholder="Create a new password" class="form-input"
                   (focus)="createPwFocused = true; showPwStrength = true"
                   (blur)="createPwFocused = false; showPwStrength = false" />
-                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
+                  (click)="showPasswordText = !showPasswordText" tabindex="-1">
                   <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
@@ -215,12 +220,11 @@
             <div class="field-group pw-field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
               <label class="field-label" for="reset-password">New Password</label>
               <div class="input-with-toggle">
-                <input id="reset-password" [type]="showPasswordText ? 'text' : 'password'"
-                  formControlName="password" placeholder="Enter new password"
-                  class="form-input"
-                  (focus)="showPwStrength = true"
+                <input id="reset-password" [type]="showPasswordText ? 'text' : 'password'" formControlName="password"
+                  placeholder="Enter new password" class="form-input" (focus)="showPwStrength = true"
                   (blur)="showPwStrength = false" />
-                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
+                  (click)="showPasswordText = !showPasswordText" tabindex="-1">
                   <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
                 </button>
               </div>
@@ -265,7 +269,7 @@
 
             <div class="or-divider"><span>or</span></div>
 
-            
+
             <button class="btn-sso" type="button" (click)="toggleForgotPassword()">
               <ion-icon name="arrow-back-outline"></ion-icon>
               Back to Sign In
