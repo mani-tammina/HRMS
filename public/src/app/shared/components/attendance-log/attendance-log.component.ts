@@ -485,6 +485,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
                 const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
                 updatedExisting.first_check_in = sortedInPunches[0].punch_time;
               }
+              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+              if (metrics.grossMinutes > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+                updatedExisting.total_work_hours = metrics.totalWorkHours;
+                updatedExisting.gross_hours = metrics.grossHours;
+                updatedExisting.effective_hours = metrics.totalWorkHours;
+              }
             }
             return updatedExisting;
           }
@@ -511,18 +517,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             defaultStatus = 'penalty';
           } else {
             // If it's today, handle 'not-in-yet' or present from today punches
-            const isToday = now.getFullYear() === logD.getFullYear() && now.getMonth() === logD.getMonth() && now.getDate() === logD.getDate();
+            const isToday = this.islogToday(date);
             if (isToday) {
               if (this.todayPunches && this.todayPunches.length > 0) {
                 const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
                 if (inPunches.length > 0) {
                   const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
                   const firstInPunch = sortedInPunches[0];
+                  const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
                   return {
                     attendance_date: date,
                     first_check_in: firstInPunch ? firstInPunch.punch_time : null,
-                    total_work_hours: existing?.total_work_hours || '0.00',
-                    gross_hours: existing?.gross_hours || '0.00',
+                    total_work_hours: metrics.totalWorkHours || '0.00',
+                    gross_hours: metrics.grossHours || '0.00',
+                    effective_hours: metrics.totalWorkHours || '0.00',
                     status: 'present',
                     records: [],
                     noLogs: false
@@ -1048,7 +1056,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
    *   - If no punch data, fall back to a single proportional work bar.
    */
   getAttendanceSegments(log: any): { type: 'work' | 'break'; widthPct: number }[] {
-    const workH  = parseFloat(log?.total_work_hours);
+    const workH  = parseFloat(log?.total_work_hours !== undefined && log?.total_work_hours !== null ? log?.total_work_hours : log?.effective_hours);
     const grossH = parseFloat(log?.gross_hours);
 
     // Nothing to show
@@ -1080,7 +1088,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   /** Returns break hours = gross - effective */
   getBreakHours(log: any): string {
     const gross = parseFloat(log?.gross_hours);
-    const work  = parseFloat(log?.total_work_hours);
+    const work  = parseFloat(log?.total_work_hours !== undefined && log?.total_work_hours !== null ? log?.total_work_hours : log?.effective_hours);
     if (isNaN(gross) || isNaN(work) || gross <= work) return '';
     const breakH = gross - work;
     const h = Math.floor(breakH);
@@ -1090,8 +1098,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   islogToday(date: string): boolean {
     if (!date) return false;
-    const today = new Date().toISOString().split('T')[0];
-    const logDate = new Date(date).toISOString().split('T')[0];
+    const today = this.formatDateOnly(new Date());
+    const logDate = this.formatDateOnly(date);
     return today === logDate;
   }
 

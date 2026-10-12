@@ -1224,18 +1224,29 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   if (attendanceRecord) {
     attendanceRecord.attendance_date = date;
-    const hasStoredHours = attendanceRecord.id !== 0 && attendanceRecord.total_work_hours !== null && attendanceRecord.total_work_hours !== undefined;
-    if (hasStoredHours) {
+    const isToday = toISTFormat(new Date()).substring(0, 10) === date;
+    const hasStoredPositiveHours = attendanceRecord.id !== 0 &&
+      !isToday &&
+      attendanceRecord.total_work_hours !== null &&
+      attendanceRecord.total_work_hours !== undefined &&
+      parseFloat(attendanceRecord.total_work_hours) > 0;
+
+    if (hasStoredPositiveHours && (!punches || punches.length === 0)) {
       attendanceRecord.effective_hours = attendanceRecord.total_work_hours;
-    } else {
-      const isToday = toISTFormat(new Date()).substring(0, 10) === date;
+    } else if (punches && punches.length > 0) {
       const metrics = calculateAttendanceMetrics(punches, isToday);
       if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
         attendanceRecord.total_work_hours = metrics.totalWorkHours;
         attendanceRecord.gross_hours = metrics.grossHours;
         attendanceRecord.total_break_hours = metrics.totalBreakHours;
         attendanceRecord.effective_hours = metrics.totalWorkHours;
+      } else if (hasStoredPositiveHours) {
+        attendanceRecord.effective_hours = attendanceRecord.total_work_hours;
+      } else {
+        attendanceRecord.effective_hours = attendanceRecord.total_work_hours || '0.00';
       }
+    } else {
+      attendanceRecord.effective_hours = attendanceRecord.total_work_hours || '0.00';
     }
   }
 
@@ -1345,12 +1356,22 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       ORDER BY bp.punch_time ASC
     `, [targetEmpId, startStr, endStr]);
 
-    let bioOpen = false;
-    const mappedBioRange = (bioRange || []).map(p => {
-      let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-      if (pt === 'in') bioOpen = true;
-      else if (pt === 'out') bioOpen = false;
-      return { ...p, punch_type: pt };
+    // Group bioRange by punch_date so alternation resets per day
+    const bioByDate = new Map();
+    for (const bp of (bioRange || [])) {
+      const d = bp.punch_date;
+      if (!bioByDate.has(d)) bioByDate.set(d, []);
+      bioByDate.get(d).push(bp);
+    }
+    const mappedBioRange = [];
+    bioByDate.forEach((dayBioPunches) => {
+      let bioOpen = false;
+      for (const p of dayBioPunches) {
+        let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+        if (pt === 'in') bioOpen = true;
+        else if (pt === 'out') bioOpen = false;
+        mappedBioRange.push({ ...p, punch_type: pt });
+      }
     });
 
     const allPunches = [...(webRange || []), ...mappedBioRange];
@@ -1470,26 +1491,36 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     }
   }
 
-  // Preserve stored attendance table hours from database, only fallback to raw metrics if unpopulated
+  // Compute accurate effective hours, gross hours, and break hours
   const todayDateStr = toISTFormat(now).substring(0, 10);
   combinedAttendanceMap.forEach((val, dStr) => {
-    const hasStoredHours = typeof val.id === 'number' && val.total_work_hours !== null && val.total_work_hours !== undefined;
-    if (hasStoredHours) {
+    const isToday = dStr === todayDateStr;
+    const dayPunches = allPunchesMap.get(dStr);
+
+    const hasStoredPositiveHours = typeof val.id === 'number' &&
+      !isToday &&
+      val.total_work_hours !== null &&
+      val.total_work_hours !== undefined &&
+      parseFloat(val.total_work_hours) > 0;
+
+    if (hasStoredPositiveHours && (!dayPunches || dayPunches.length === 0)) {
       val.effective_hours = val.total_work_hours;
-    } else {
-      const dayPunches = allPunchesMap.get(dStr);
-      if (dayPunches && dayPunches.length > 0) {
-        const isToday = dStr === todayDateStr;
-        const metrics = calculateAttendanceMetrics(dayPunches, isToday);
-        if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
-          val.total_work_hours = metrics.totalWorkHours;
-          val.gross_hours = metrics.grossHours;
-          val.total_break_hours = metrics.totalBreakHours;
-        }
+    } else if (dayPunches && dayPunches.length > 0) {
+      const metrics = calculateAttendanceMetrics(dayPunches, isToday);
+      if (parseFloat(metrics.grossHours) > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+        val.total_work_hours = metrics.totalWorkHours;
+        val.effective_hours = metrics.totalWorkHours;
+        val.gross_hours = metrics.grossHours;
+        val.total_break_hours = metrics.totalBreakHours;
+      } else if (hasStoredPositiveHours) {
+        val.effective_hours = val.total_work_hours;
+      } else {
+        val.effective_hours = val.total_work_hours || '0.00';
       }
+    } else {
+      val.effective_hours = val.total_work_hours || '0.00';
     }
 
-    const dayPunches = allPunchesMap.get(dStr);
     if (dayPunches && dayPunches.length > 0) {
       const lastP = dayPunches[dayPunches.length - 1];
       const isAutoOut = lastP && ((lastP.notes || '').includes('OUT Missing') || (lastP.notes || '').includes('Auto Clock-Out'));
