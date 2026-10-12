@@ -140,20 +140,53 @@ class AutoClockOutService {
    */
   async calculateAndUpdateHours(connection, attendanceId) {
     const [punches] = await connection.query(
-      `SELECT id, punch_type, punch_time, notes FROM attendance_punches
+      `SELECT id, punch_type, punch_time, notes, 'web' as source FROM attendance_punches
        WHERE attendance_id = ? 
        ORDER BY punch_time ASC, id ASC`,
       [attendanceId]
     );
+
+    const [attRows] = await connection.query(
+      `SELECT employee_id, DATE_FORMAT(attendance_date, '%Y-%m-%d') as att_date FROM attendance WHERE id = ?`,
+      [attendanceId]
+    );
+
+    let allPunches = [...punches];
+    if (attRows.length > 0) {
+      const empId = attRows[0].employee_id;
+      const attDate = attRows[0].att_date;
+      try {
+        const [bioPunches] = await connection.query(
+          `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
+           FROM biometric_punches
+           WHERE employee_id = ? AND punch_date = ?
+           ORDER BY punch_time ASC`,
+          [empId, attDate]
+        );
+        if (bioPunches && bioPunches.length > 0) {
+          let bioOpen = false;
+          const mappedBio = bioPunches.map(p => {
+            let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+            if (pt === 'in') bioOpen = true;
+            else if (pt === 'out') bioOpen = false;
+            return { ...p, punch_type: pt };
+          });
+          allPunches = [...allPunches, ...mappedBio];
+        }
+      } catch (_) {}
+    }
+
+    allPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
     let totalWorkMinutes = 0;
     let totalBreakMinutes = 0;
     let lastPunchIn = null;
     let prevValidOut = null;
     let lastValidCheckOut = null;
+    let earliestCheckIn = allPunches.length > 0 ? allPunches[0].punch_time : null;
 
-    for (let i = 0; i < punches.length; i++) {
-      const punch = punches[i];
+    for (let i = 0; i < allPunches.length; i++) {
+      const punch = allPunches[i];
       const punchTime = new Date(punch.punch_time);
       const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
 
@@ -167,9 +200,11 @@ class AutoClockOutService {
             }
           }
         } else {
-          // Another IN without an OUT: if gap > 15 mins, start new session
+          // Another IN without an OUT: if gap >= 5 mins, save work and start new session
           const gap = (punchTime - lastPunchIn) / (1000 * 60);
-          if (gap > 15) {
+          if (gap >= 5) {
+            totalWorkMinutes += gap;
+            prevValidOut = punchTime;
             lastPunchIn = punchTime;
           }
         }
@@ -194,12 +229,13 @@ class AutoClockOutService {
 
     await connection.query(
       `UPDATE attendance 
-       SET last_check_out = ?, 
+       SET first_check_in = COALESCE(?, first_check_in),
+           last_check_out = ?, 
            total_work_hours = ?, 
            total_break_hours = ?, 
            gross_hours = ?
        WHERE id = ?`,
-      [lastValidCheckOut, totalWorkHours, totalBreakHours, grossHours, attendanceId]
+      [earliestCheckIn, lastValidCheckOut, totalWorkHours, totalBreakHours, grossHours, attendanceId]
     );
 
     return { totalWorkHours, totalBreakHours, grossHours };

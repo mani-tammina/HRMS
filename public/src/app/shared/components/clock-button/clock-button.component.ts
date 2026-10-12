@@ -278,8 +278,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
       next: (res) => {
         this.policyPermissions = res?.policyPermissions;
         const allPunches = res?.punches || [];
-        const punches = allPunches.filter((p: any) => p.source !== 'biometric' && p.work_mode !== 'Biometric');
-        if (!punches.length) {
+        const lastOverall = allPunches.length ? allPunches[allPunches.length - 1] : null;
+
+        if (!allPunches.length) {
           this.isClockedIn = false;
           if (wasClockedIn) {
             this.statusChanged.emit({ isClockedIn: false });
@@ -307,7 +308,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const lastPunch = punches[punches.length - 1];
+        const lastPunch = lastOverall!;
         this.isClockedIn = lastPunch.punch_type === 'in';
 
         // Detect if state transitioned from Clocked-In to Clocked-Out
@@ -340,7 +341,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           localStorage.removeItem('remoteActive');
         }
 
-        localStorage.setItem('todayPunches', JSON.stringify(punches));
+        localStorage.setItem('todayPunches', JSON.stringify(allPunches));
       },
       error: () => {
         this.isClockedIn = false;

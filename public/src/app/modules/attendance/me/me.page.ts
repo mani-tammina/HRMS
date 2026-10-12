@@ -430,16 +430,30 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
           earliestInMs = pTimeMs;
         }
-        currentInPunch = p;
+        if (currentInPunch) {
+          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
+          if (gapMinutes >= 5) {
+            // Save preceding work interval before starting new in-session
+            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+            currentInPunch = p;
+          }
+        } else {
+          currentInPunch = p;
+        }
       } else if (punchType === 'out') {
+        if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
+          latestOutMs = pTimeMs;
+        }
         if (currentInPunch && !isAutoOut) {
           const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
           if (pTimeMs > inTimeMs) {
             workIntervals.push({ start: inTimeMs, end: pTimeMs });
             hasAnyValidOut = true;
-            if (latestOutMs === null || pTimeMs > latestOutMs) {
-              latestOutMs = pTimeMs;
-            }
           }
         }
         currentInPunch = null;

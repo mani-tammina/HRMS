@@ -144,12 +144,15 @@ export class HomePage implements OnInit, OnDestroy {
       });
       const isFoundTodayAutoOut = foundToday && (foundToday.is_auto_out || (foundToday.notes || '').includes('OUT Missing') || (foundToday.notes || '').includes('Auto Clock-Out') || (foundToday.status || '').toLowerCase() === 'not in yet');
       if (foundToday && !this.isAutoClockedOut && !isFoundTodayAutoOut) {
+        const liveWorkHours = this.todayAttendance?.total_work_hours;
+        const liveGrossHours = this.todayAttendance?.gross_hours;
+        const hasLiveHours = liveWorkHours && liveWorkHours !== '0.00' && liveWorkHours !== '0' && liveWorkHours !== '-';
         this.todayAttendance = {
-          ...this.todayAttendance,
           ...foundToday,
-          gross_hours: this.todayAttendance?.gross_hours || foundToday.gross_hours,
-          total_work_hours: this.todayAttendance?.total_work_hours || foundToday.total_work_hours || foundToday.effective_hours,
-          effective_hours: this.todayAttendance?.effective_hours || foundToday.effective_hours || foundToday.total_work_hours
+          ...this.todayAttendance,
+          gross_hours: hasLiveHours ? liveGrossHours : (foundToday.gross_hours || this.todayAttendance?.gross_hours),
+          total_work_hours: hasLiveHours ? liveWorkHours : (foundToday.total_work_hours || foundToday.effective_hours || this.todayAttendance?.total_work_hours),
+          effective_hours: hasLiveHours ? liveWorkHours : (foundToday.effective_hours || foundToday.total_work_hours || this.todayAttendance?.effective_hours)
         };
       } else if (this.isAutoClockedOut || isFoundTodayAutoOut) {
         this.todayAttendance = null;
@@ -632,6 +635,9 @@ export class HomePage implements OnInit, OnDestroy {
     if (this.clockInterval) clearInterval(this.clockInterval);
     this.clockInterval = setInterval(() => {
       this.currentTime = new Date().toLocaleTimeString('en-US', { hour12: true });
+      if (this.isClockedIn && this.currentPunches && this.currentPunches.length > 0 && new Date().getSeconds() % 30 === 0) {
+        this.recalculateTodayOverviewMetrics();
+      }
     }, 1000);
   }
 
@@ -813,9 +819,12 @@ export class HomePage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private currentPunches: any[] = [];
+
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
       const punches = res?.punches || [];
+      this.currentPunches = punches;
       const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
       this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
 
@@ -828,36 +837,40 @@ export class HomePage implements OnInit, OnDestroy {
         this.todayAttendance = null;
         this.todayEffectivePercentage = 0;
       } else if (this.hasPunchedToday) {
-        let effHours = '0.00';
-        let grossHours = '0.00';
-
-        if (res?.attendance && res.attendance.total_work_hours !== null && res.attendance.total_work_hours !== undefined) {
-          effHours = String(res.attendance.total_work_hours);
-          grossHours = String(res.attendance.gross_hours || res.attendance.total_work_hours);
-        } else {
-          const metrics = this.calculateMetricsFromPunches(punches, true);
-          effHours = metrics.totalWorkHours;
-          grossHours = metrics.grossHours;
-        }
-
-        const lastActivePunch = punches[punches.length - 1];
-        this.todayAttendance = {
-          ...this.todayAttendance,
-          attendance_date: new Date().toISOString().split('T')[0],
-          first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
-          last_check_out: res.last_check_out || (punches.length > 0 && lastActivePunch.punch_type === 'out' ? lastActivePunch.punch_time : null),
-          gross_hours: grossHours,
-          work_mode: res.work_mode || (lastActivePunch ? lastActivePunch.work_mode : (punches.length > 0 ? punches[0].work_mode : null)),
-          effective_hours: effHours,
-          total_work_hours: effHours
-        };
-
-        const eff = parseFloat(effHours) || 0;
-        this.todayEffectivePercentage = Math.round((eff / 8) * 100);
+        this.recalculateTodayOverviewMetrics(res);
       }
 
       this.cdr.detectChanges();
     });
+  }
+
+  private recalculateTodayOverviewMetrics(res?: any) {
+    if (!this.currentPunches || !this.currentPunches.length || this.isAutoClockedOut) return;
+
+    const metrics = this.calculateMetricsFromPunches(this.currentPunches, true);
+    const effHours = metrics.totalWorkHours;
+    const grossHours = metrics.grossHours;
+
+    const lastActivePunch = this.currentPunches[this.currentPunches.length - 1];
+    const firstActivePunch = this.currentPunches[0];
+
+    const firstCheckIn = res?.attendance?.first_check_in || res?.first_check_in || this.todayAttendance?.first_check_in || firstActivePunch.punch_time;
+    const lastCheckOut = (res?.attendance?.last_check_out || res?.last_check_out) || (lastActivePunch.punch_type === 'out' ? lastActivePunch.punch_time : null);
+
+    this.todayAttendance = {
+      ...this.todayAttendance,
+      attendance_date: new Date().toISOString().split('T')[0],
+      first_check_in: firstCheckIn,
+      last_check_out: lastCheckOut,
+      gross_hours: grossHours,
+      work_mode: res?.attendance?.work_mode || res?.work_mode || this.todayAttendance?.work_mode || (lastActivePunch ? lastActivePunch.work_mode : firstActivePunch.work_mode),
+      effective_hours: effHours,
+      total_work_hours: effHours
+    };
+
+    const eff = parseFloat(effHours) || 0;
+    this.todayEffectivePercentage = Math.round((eff / 8) * 100);
+    this.cdr.detectChanges();
   }
 
   private parsePunchTimeToMs(dateVal: any): number {
@@ -906,6 +919,15 @@ export class HomePage implements OnInit, OnDestroy {
       if (punchType === 'in') {
         if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
           earliestInMs = pTimeMs;
+        }
+        if (currentInPunch) {
+          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > prevInTimeMs && (pTimeMs - prevInTimeMs) >= 5 * 60 * 1000) {
+            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+          }
         }
         currentInPunch = p;
       } else if (punchType === 'out') {

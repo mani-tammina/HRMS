@@ -474,14 +474,40 @@ router.post("/punch-out", auth, async (req, res) => {
       [emp.id, today]
     );
 
-    if (attendance.length === 0) {
-      return res.status(400).json({
-        error: "No attendance record found. Please punch in first.",
-      });
-    }
+    let attendanceId;
+    let workMode = "Office";
 
-    const attendanceId = attendance[0].id;
-    const workMode = attendance[0].work_mode;
+    if (attendance.length === 0) {
+      // Check if employee has biometric punches today to bridge
+      const [bioPunches] = await c.query(
+        `SELECT punch_time FROM biometric_punches 
+         WHERE employee_id = ? AND punch_date = ? 
+         ORDER BY punch_time ASC`,
+        [emp.id, today]
+      );
+      if (bioPunches.length === 0) {
+        return res.status(400).json({
+          error: "No attendance record found. Please punch in first.",
+        });
+      }
+      const firstBioIn = bioPunches[0].punch_time;
+      const [result] = await c.query(
+        `INSERT INTO attendance 
+                 (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status, approval_status)
+                 VALUES (?, ?, ?, ?, 'Office', 'Office', 'present', 'approved')`,
+        [emp.id, today, today, firstBioIn]
+      );
+      attendanceId = result.insertId;
+      await c.query(
+        `INSERT INTO attendance_punches 
+               (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+               VALUES (?, ?, 'in', ?, ?, ?, ?, 'Office', 'Biometric Check-In')`,
+        [attendanceId, emp.id, firstBioIn, today, ip_address, device_info]
+      );
+    } else {
+      attendanceId = attendance[0].id;
+      workMode = attendance[0].work_mode;
+    }
 
     // Validate Time Tracking Policy before proceeding
     // We use the workMode from the attendance record since punch-out doesn't send it.
@@ -497,9 +523,25 @@ router.post("/punch-out", auth, async (req, res) => {
     );
 
     if (lastPunch.length === 0) {
-      return res.status(400).json({
-        error: "No punch-in found. Please punch in first.",
-      });
+      const [bioPunches] = await c.query(
+        `SELECT punch_time FROM biometric_punches 
+         WHERE employee_id = ? AND punch_date = ? 
+         ORDER BY punch_time ASC`,
+        [emp.id, today]
+      );
+      if (bioPunches.length > 0) {
+        const firstBioIn = bioPunches[0].punch_time;
+        await c.query(
+          `INSERT INTO attendance_punches 
+                 (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+                 VALUES (?, ?, 'in', ?, ?, ?, ?, 'Office', 'Biometric Check-In')`,
+          [attendanceId, emp.id, firstBioIn, today, ip_address, device_info]
+        );
+      } else {
+        return res.status(400).json({
+          error: "No punch-in found. Please punch in first.",
+        });
+      }
     }
 
     if (lastPunch[0].punch_type === "out") {
@@ -697,6 +739,16 @@ router.get("/today", auth, async (req, res) => {
 
     punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
+    const todayMetrics = calculateAttendanceMetrics(punches, true);
+
+    const webPunchesList = punches.filter(p => p.source !== 'biometric' && p.work_mode !== 'Biometric');
+    const lastWebPunch = webPunchesList.length > 0 ? webPunchesList[webPunchesList.length - 1] : null;
+    const isWebClockedIn = lastWebPunch ? lastWebPunch.punch_type === 'in' : false;
+    const lastWebPunchType = lastWebPunch ? lastWebPunch.punch_type : null;
+    const lastOverallPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
+    const lastPunchObj = punches.length > 0 ? punches[punches.length - 1] : null;
+    const isAutoOut = lastPunchObj ? ((lastPunchObj.notes || '').includes('OUT Missing') || (lastPunchObj.notes || '').includes('Auto Clock-Out')) : false;
+
     let attendanceRecord = attendance.length > 0 ? attendance[0] : null;
     if (!attendanceRecord && punches.length > 0) {
       attendanceRecord = {
@@ -705,11 +757,27 @@ router.get("/today", auth, async (req, res) => {
         attendance_date: today,
         punch_date: today,
         first_check_in: punches[0].punch_time,
-        last_check_out: punches.length > 1 ? punches[punches.length - 1].punch_time : null,
+        last_check_out: punches.length > 1 && lastOverallPunchType === 'out' ? punches[punches.length - 1].punch_time : null,
         work_mode: punches[0].work_mode || 'Biometric',
         location: punches[0].location || 'Biometric Device',
-        status: 'present'
+        status: isAutoOut ? 'Not In Yet' : 'present',
+        gross_hours: todayMetrics.grossHours,
+        total_work_hours: todayMetrics.totalWorkHours,
+        total_break_hours: todayMetrics.totalBreakHours,
+        effective_hours: todayMetrics.totalWorkHours
       };
+    } else if (attendanceRecord && punches.length > 0) {
+      attendanceRecord.first_check_in = punches[0]?.punch_time || attendanceRecord.first_check_in;
+      if (lastOverallPunchType === 'out') {
+        attendanceRecord.last_check_out = punches[punches.length - 1]?.punch_time;
+      }
+      attendanceRecord.gross_hours = todayMetrics.grossHours;
+      attendanceRecord.total_work_hours = todayMetrics.totalWorkHours;
+      attendanceRecord.total_break_hours = todayMetrics.totalBreakHours;
+      attendanceRecord.effective_hours = todayMetrics.totalWorkHours;
+      if (isAutoOut) {
+        attendanceRecord.status = 'Not In Yet';
+      }
     }
 
     c.end();
@@ -724,23 +792,16 @@ router.get("/today", auth, async (req, res) => {
       });
     }
 
-    const webPunchesList = punches.filter(p => p.source !== 'biometric' && p.work_mode !== 'Biometric');
-    const lastWebPunch = webPunchesList.length > 0 ? webPunchesList[webPunchesList.length - 1] : null;
-    const isWebClockedIn = lastWebPunch ? lastWebPunch.punch_type === 'in' : false;
-    const lastWebPunchType = lastWebPunch ? lastWebPunch.punch_type : null;
-    const lastOverallPunchType = punches.length > 0 ? punches[punches.length - 1].punch_type : null;
-    const lastPunchObj = punches.length > 0 ? punches[punches.length - 1] : null;
-    const isAutoOut = lastPunchObj ? ((lastPunchObj.notes || '').includes('OUT Missing') || (lastPunchObj.notes || '').includes('Auto Clock-Out')) : false;
-
-    if (attendanceRecord && isAutoOut) {
-      attendanceRecord.status = 'Not In Yet';
-    }
-
     const isOverallClockedIn = lastOverallPunchType === 'in';
 
     res.json({
       has_attendance: true,
       attendance: attendanceRecord,
+      metrics: todayMetrics,
+      gross_hours: todayMetrics.grossHours,
+      total_work_hours: todayMetrics.totalWorkHours,
+      effective_hours: todayMetrics.totalWorkHours,
+      total_break_hours: todayMetrics.totalBreakHours,
       punches: punches,
       punch_count: punches.length,
       last_punch_type: lastOverallPunchType || lastWebPunchType,
@@ -958,15 +1019,29 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
       if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
         earliestInMs = pTimeMs;
       }
-      currentIn = p;
+      if (currentIn) {
+        const prevInTimeMs = new Date(currentIn.punch_time).getTime();
+        const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
+        if (gapMinutes >= 5) {
+          // Meaningful gap: previous work session was ongoing. Save it so hours are not lost!
+          workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+          if (latestOutMs === null || pTimeMs > latestOutMs) {
+            latestOutMs = pTimeMs;
+          }
+          currentIn = p;
+        }
+        // Rapid duplicate (< 5 mins): retain the earlier in-punch
+      } else {
+        currentIn = p;
+      }
     } else if (punchType === 'out') {
+      if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
+        latestOutMs = pTimeMs;
+      }
       if (currentIn && !isAutoOut) {
         const inTimeMs = new Date(currentIn.punch_time).getTime();
         if (pTimeMs > inTimeMs) {
           workIntervals.push({ start: inTimeMs, end: pTimeMs });
-          if (latestOutMs === null || pTimeMs > latestOutMs) {
-            latestOutMs = pTimeMs;
-          }
         }
       }
       currentIn = null;
@@ -2220,77 +2295,74 @@ router.get("/report/all", auth, hr, async (req, res) => {
  * Calculate and update attendance hours based on punches
  */
 async function calculateAndUpdateHours(connection, attendanceId) {
-  // Get all punches for this attendance
+  // Get all web punches for this attendance
   const [punches] = await connection.query(
-    `SELECT id, punch_type, punch_time, notes FROM attendance_punches
+    `SELECT id, punch_type, punch_time, notes, 'web' as source FROM attendance_punches
          WHERE attendance_id = ? 
          ORDER BY punch_time ASC, id ASC`,
     [attendanceId]
   );
 
-  let totalWorkMinutes = 0;
-  let totalBreakMinutes = 0;
-  let lastPunchIn = null;
-  let prevValidOut = null;
-  let lastValidCheckOut = null;
+  const [attRows] = await connection.query(
+    `SELECT employee_id, DATE_FORMAT(attendance_date, '%Y-%m-%d') as att_date FROM attendance WHERE id = ?`,
+    [attendanceId]
+  );
 
-  for (let i = 0; i < punches.length; i++) {
-    const punch = punches[i];
-    const punchTime = new Date(punch.punch_time);
-    const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
-
-    if (punch.punch_type === 'in') {
-      if (lastPunchIn === null) {
-        lastPunchIn = punchTime;
-        if (prevValidOut !== null) {
-          const breakMinutes = (punchTime - prevValidOut) / (1000 * 60);
-          if (breakMinutes > 0) {
-            totalBreakMinutes += breakMinutes;
-          }
-        }
-      } else {
-        const gap = (punchTime - lastPunchIn) / (1000 * 60);
-        if (gap > 15) {
-          lastPunchIn = punchTime;
-        }
+  let allPunches = punches.map(p => ({ ...p, punch_time: toMySQLDateTime(new Date(p.punch_time)) }));
+  if (attRows.length > 0) {
+    const empId = attRows[0].employee_id;
+    const attDate = attRows[0].att_date;
+    try {
+      const [bioPunches] = await connection.query(
+        `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
+         FROM biometric_punches
+         WHERE employee_id = ? AND punch_date = ?
+         ORDER BY punch_time ASC`,
+        [empId, attDate]
+      );
+      if (bioPunches && bioPunches.length > 0) {
+        let bioOpen = false;
+        const mappedBio = bioPunches.map(p => {
+          let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+          if (pt === 'in') bioOpen = true;
+          else if (pt === 'out') bioOpen = false;
+          return { ...p, punch_type: pt };
+        });
+        allPunches = [...allPunches, ...mappedBio];
       }
-    } else if (punch.punch_type === 'out') {
-      if (lastPunchIn !== null) {
-        if (!isAutoOut) {
-          const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
-          if (workMinutes > 0) {
-            totalWorkMinutes += workMinutes;
-            prevValidOut = punchTime;
-            lastValidCheckOut = punch.punch_time;
-          }
-        }
-        lastPunchIn = null;
-      }
-    }
+    } catch (_) {}
   }
 
-  const totalWorkHours = (totalWorkMinutes / 60).toFixed(2);
-  const totalBreakHours = (totalBreakMinutes / 60).toFixed(2);
-  const grossHours = (parseFloat(totalWorkHours) + parseFloat(totalBreakHours)).toFixed(2);
+  allPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
-  // Update attendance record
+  const todayStr = toMySQLDate(new Date());
+  const isToday = attRows.length > 0 && attRows[0].att_date === todayStr;
+  const metrics = calculateAttendanceMetrics(allPunches, isToday);
+
+  const earliestPunch = allPunches.length > 0 ? allPunches[0].punch_time : null;
+  const lastPunch = allPunches.length > 0 ? allPunches[allPunches.length - 1] : null;
+  const lastValidOut = lastPunch && lastPunch.punch_type === 'out' ? lastPunch.punch_time : null;
+
+  // Update attendance record with unified metrics
   await connection.query(
     `UPDATE attendance 
-         SET last_check_out = ?, 
+         SET first_check_in = COALESCE(?, first_check_in),
+             last_check_out = ?, 
              total_work_hours = ?, 
              total_break_hours = ?, 
              gross_hours = ?
          WHERE id = ?`,
     [
-      lastValidCheckOut,
-      totalWorkHours,
-      totalBreakHours,
-      grossHours,
+      earliestPunch,
+      lastValidOut,
+      metrics.totalWorkHours,
+      metrics.totalBreakHours,
+      metrics.grossHours,
       attendanceId,
     ]
   );
 
-  return { totalWorkHours, totalBreakHours, grossHours };
+  return { totalWorkHours: metrics.totalWorkHours, totalBreakHours: metrics.totalBreakHours, grossHours: metrics.grossHours };
 }
 
 
