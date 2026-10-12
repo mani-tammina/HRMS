@@ -110,7 +110,7 @@ function excel(file) {
                 r[k] = `${yyyy}-${mm}-${dd}`;
             } else if (typeof v === 'string') {
                 const lower = String(k).toLowerCase();
-                if (lower.includes('date') || lower.includes('_at') || lower.includes('joining') || lower.includes('birth')) {
+                if (lower.includes('date') || lower.includes('_at') || lower.includes('joining') || lower.includes('birth') || lower.includes('dob')) {
                     const parsed = parseTextDate(v);
                     r[k] = parsed || v.trim();
                 }
@@ -124,7 +124,7 @@ function excel(file) {
                 } else {
                     r[k] = v.trim();
                 }
-            } else if (typeof v === 'number' && String(k).toLowerCase().includes('date')) {
+            } else if (typeof v === 'number' && (String(k).toLowerCase().includes('date') || String(k).toLowerCase().includes('dob') || String(k).toLowerCase().includes('birth') || String(k).toLowerCase().includes('joining'))) {
                 // Excel serial → UTC epoch ms. Use UTC date parts since the serial itself is UTC-based.
                 const d = new Date(Math.round((v - 25569) * 86400 * 1000));
                 if (!isNaN(d.getTime())) {
