@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, interval, fromEvent } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
 
@@ -99,6 +99,7 @@ export class HomePage implements OnInit, OnDestroy {
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
   hasPunchedToday: boolean = false;
   isAutoClockedOut: boolean = false;
+  isClockedIn: boolean = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -141,7 +142,8 @@ export class HomePage implements OnInit, OnDestroy {
         const d = r.attendance_date || r.date;
         return d && d.startsWith(todayStr);
       });
-      if (foundToday) {
+      const isFoundTodayAutoOut = foundToday && (foundToday.is_auto_out || (foundToday.notes || '').includes('OUT Missing') || (foundToday.notes || '').includes('Auto Clock-Out') || (foundToday.status || '').toLowerCase() === 'not in yet');
+      if (foundToday && !this.isAutoClockedOut && !isFoundTodayAutoOut) {
         this.todayAttendance = {
           ...this.todayAttendance,
           ...foundToday,
@@ -149,6 +151,9 @@ export class HomePage implements OnInit, OnDestroy {
           total_work_hours: this.todayAttendance?.total_work_hours || foundToday.total_work_hours || foundToday.effective_hours,
           effective_hours: this.todayAttendance?.effective_hours || foundToday.effective_hours || foundToday.total_work_hours
         };
+      } else if (this.isAutoClockedOut || isFoundTodayAutoOut) {
+        this.todayAttendance = null;
+        this.todayEffectivePercentage = 0;
       }
 
       if (report.length) {
@@ -240,8 +245,21 @@ export class HomePage implements OnInit, OnDestroy {
       this.refreshAttendanceState();
     });
 
-    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(isClocked => {
+      if (isClocked) {
+        this.isClockedIn = true;
+      }
       this.cdr.detectChanges();
+    });
+
+    if (typeof window !== 'undefined') {
+      fromEvent(window, 'focus').pipe(takeUntil(this.destroy$)).subscribe(() => {
+        this.refreshAttendanceState();
+      });
+    }
+
+    interval(30000).pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.refreshAttendanceState();
     });
 
     this.loadBirthdays();
@@ -800,9 +818,16 @@ export class HomePage implements OnInit, OnDestroy {
       const punches = res?.punches || [];
       const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
       this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
+
+      const isOverallIn = lastPunch ? lastPunch.punch_type === 'in' : false;
+      const isWebIn = this.attendanceApi.getClockState();
+      this.isClockedIn = isOverallIn || isWebIn;
       this.hasPunchedToday = punches.length > 0 && !this.isAutoClockedOut;
 
-      if (this.hasPunchedToday) {
+      if (this.isAutoClockedOut) {
+        this.todayAttendance = null;
+        this.todayEffectivePercentage = 0;
+      } else if (this.hasPunchedToday) {
         let effHours = '0.00';
         let grossHours = '0.00';
 
@@ -815,13 +840,14 @@ export class HomePage implements OnInit, OnDestroy {
           grossHours = metrics.grossHours;
         }
 
+        const lastActivePunch = punches[punches.length - 1];
         this.todayAttendance = {
           ...this.todayAttendance,
           attendance_date: new Date().toISOString().split('T')[0],
           first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
-          last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
+          last_check_out: res.last_check_out || (punches.length > 0 && lastActivePunch.punch_type === 'out' ? lastActivePunch.punch_time : null),
           gross_hours: grossHours,
-          work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
+          work_mode: res.work_mode || (lastActivePunch ? lastActivePunch.work_mode : (punches.length > 0 ? punches[0].work_mode : null)),
           effective_hours: effHours,
           total_work_hours: effHours
         };
@@ -1041,8 +1067,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   getStatusLabel(): string {
-    const isClockedIn = this.attendanceApi.getClockState();
-    if (isClockedIn) return 'In';
+    if (this.isClockedIn) return 'In';
     if (!this.hasPunchedToday || this.isAutoClockedOut) return 'Not In Yet';
     return 'Out';
   }

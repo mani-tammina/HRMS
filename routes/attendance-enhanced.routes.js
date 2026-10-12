@@ -736,16 +736,20 @@ router.get("/today", auth, async (req, res) => {
       attendanceRecord.status = 'Not In Yet';
     }
 
+    const isOverallClockedIn = lastOverallPunchType === 'in';
+
     res.json({
       has_attendance: true,
       attendance: attendanceRecord,
       punches: punches,
       punch_count: punches.length,
-      last_punch_type: lastWebPunchType || lastOverallPunchType,
+      last_punch_type: lastOverallPunchType || lastWebPunchType,
       last_web_punch_type: lastWebPunchType,
+      last_overall_punch_type: lastOverallPunchType,
       can_punch_in: !isWebClockedIn,
       can_punch_out: isWebClockedIn,
       is_web_clocked_in: isWebClockedIn,
+      is_clocked_in: isOverallClockedIn,
       is_auto_clocked_out: isAutoOut,
       policyPermissions,
       shiftTiming
@@ -1481,7 +1485,18 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
           val.total_work_hours = metrics.totalWorkHours;
           val.gross_hours = metrics.grossHours;
           val.total_break_hours = metrics.totalBreakHours;
-          val.effective_hours = metrics.totalWorkHours;
+        }
+      }
+    }
+
+    const dayPunches = allPunchesMap.get(dStr);
+    if (dayPunches && dayPunches.length > 0) {
+      const lastP = dayPunches[dayPunches.length - 1];
+      const isAutoOut = lastP && ((lastP.notes || '').includes('OUT Missing') || (lastP.notes || '').includes('Auto Clock-Out'));
+      if (isAutoOut) {
+        val.is_auto_out = true;
+        if (dStr === todayDateStr) {
+          val.status = 'Not In Yet';
         }
       }
     }
