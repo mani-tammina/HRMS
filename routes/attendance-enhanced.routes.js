@@ -386,7 +386,7 @@ router.post("/punch-in", auth, async (req, res) => {
         today,
         ip_address,
         device_info,
-        location,
+        location || 'Office',
         notes,
       ]
     );
@@ -468,7 +468,7 @@ router.post("/punch-out", auth, async (req, res) => {
 
     // Lock the daily record while we validate and append the next punch.
     const [attendance] = await c.query(
-      `SELECT id, work_mode FROM attendance
+      `SELECT id, work_mode, location FROM attendance
              WHERE employee_id = ? AND attendance_date = ?
              FOR UPDATE`,
       [emp.id, today]
@@ -476,6 +476,7 @@ router.post("/punch-out", auth, async (req, res) => {
 
     let attendanceId;
     let workMode = "Office";
+    let attendanceLocation = "Office";
 
     if (attendance.length === 0) {
       // Check if employee has biometric punches today to bridge
@@ -498,6 +499,7 @@ router.post("/punch-out", auth, async (req, res) => {
         [emp.id, today, today, firstBioIn]
       );
       attendanceId = result.insertId;
+      attendanceLocation = "Office";
       await c.query(
         `INSERT INTO attendance_punches 
                (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
@@ -507,6 +509,7 @@ router.post("/punch-out", auth, async (req, res) => {
     } else {
       attendanceId = attendance[0].id;
       workMode = attendance[0].work_mode;
+      attendanceLocation = attendance[0].location || "Office";
     }
 
     // Validate Time Tracking Policy before proceeding
@@ -566,7 +569,7 @@ router.post("/punch-out", auth, async (req, res) => {
       `INSERT INTO attendance_punches 
              (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
              VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?)`,
-      [attendanceId, emp.id, now, today, ip_address, device_info, attendance[0].location || 'Office', notes]
+      [attendanceId, emp.id, now, today, ip_address, device_info, attendanceLocation || (attendance[0]?.location) || 'Office', notes]
     );
 
     // Calculate and update hours
@@ -758,8 +761,8 @@ router.get("/today", auth, async (req, res) => {
         punch_date: today,
         first_check_in: punches[0].punch_time,
         last_check_out: punches.length > 1 && lastOverallPunchType === 'out' ? punches[punches.length - 1].punch_time : null,
-        work_mode: punches[0].work_mode || 'Biometric',
-        location: punches[0].location || 'Biometric Device',
+        work_mode: punches[0]?.work_mode || 'Biometric',
+        location: punches[0]?.location || 'Biometric Device',
         status: isAutoOut ? 'Not In Yet' : 'present',
         gross_hours: todayMetrics.grossHours,
         total_work_hours: todayMetrics.totalWorkHours,
@@ -1275,8 +1278,8 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
           gross_hours: calculatedGross,
           first_check_in: firstP.punch_time,
           last_check_out: punches.length > 1 ? lastP.punch_time : null,
-          work_mode: firstP.work_mode || 'Biometric',
-          location: firstP.location || 'Office'
+          work_mode: firstP?.work_mode || 'Biometric',
+          location: firstP?.location || 'Office'
         };
       }
     } catch (_) { }
