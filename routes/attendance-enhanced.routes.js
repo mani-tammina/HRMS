@@ -442,7 +442,7 @@ router.post("/punch-out", auth, async (req, res) => {
     const emp = await findEmployeeByUserId(req.user.id);
     if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-    const { notes } = req.body;
+    const { notes, location } = req.body;
     const ip_address =
       req.headers["cf-connecting-ip"] ||
       req.headers["x-real-ip"] ||
@@ -500,12 +500,6 @@ router.post("/punch-out", auth, async (req, res) => {
       );
       attendanceId = result.insertId;
       attendanceLocation = "Office";
-      await c.query(
-        `INSERT INTO attendance_punches 
-               (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
-               VALUES (?, ?, 'in', ?, ?, ?, ?, 'Office', 'Biometric Check-In')`,
-        [attendanceId, emp.id, firstBioIn, today, ip_address, device_info]
-      );
     } else {
       attendanceId = attendance[0].id;
       workMode = attendance[0].work_mode;
@@ -516,30 +510,29 @@ router.post("/punch-out", auth, async (req, res) => {
     // We use the workMode from the attendance record since punch-out doesn't send it.
     await validateTimeTrackingPolicy(c, emp.id, workMode || "Office", ip_address, notes);
 
-    // Check last punch
-    const [lastPunch] = await c.query(
+    // Check last punch from attendance_punches or biometric_punches
+    const [lastWebPunch] = await c.query(
       `SELECT punch_type, punch_time FROM attendance_punches 
-             WHERE attendance_id = ? 
+             WHERE attendance_id = ? AND (notes IS NULL OR notes != 'Biometric Check-In')
              ORDER BY punch_time DESC, id DESC
              LIMIT 1 FOR UPDATE`,
       [attendanceId]
     );
 
+    let lastPunch = lastWebPunch;
     if (lastPunch.length === 0) {
       const [bioPunches] = await c.query(
-        `SELECT punch_time FROM biometric_punches 
+        `SELECT punch_time, direction FROM biometric_punches 
          WHERE employee_id = ? AND punch_date = ? 
-         ORDER BY punch_time ASC`,
+         ORDER BY punch_time DESC, id DESC
+         LIMIT 1`,
         [emp.id, today]
       );
       if (bioPunches.length > 0) {
-        const firstBioIn = bioPunches[0].punch_time;
-        await c.query(
-          `INSERT INTO attendance_punches 
-                 (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
-                 VALUES (?, ?, 'in', ?, ?, ?, ?, 'Office', 'Biometric Check-In')`,
-          [attendanceId, emp.id, firstBioIn, today, ip_address, device_info]
-        );
+        lastPunch = [{
+          punch_type: bioPunches[0].direction === 'out' ? 'out' : 'in',
+          punch_time: bioPunches[0].punch_time
+        }];
       } else {
         return res.status(400).json({
           error: "No punch-in found. Please punch in first.",
@@ -564,12 +557,18 @@ router.post("/punch-out", auth, async (req, res) => {
       });
     }
 
+    const punchOutLocation = location ||
+      (notes && notes.toLowerCase().includes('remote') ? 'Remote' : null) ||
+      attendanceLocation ||
+      (attendance[0]?.location) ||
+      'Office';
+
     // Insert punch out record
     await c.query(
       `INSERT INTO attendance_punches 
              (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
              VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?)`,
-      [attendanceId, emp.id, now, today, ip_address, device_info, attendanceLocation || (attendance[0]?.location) || 'Office', notes]
+      [attendanceId, emp.id, now, today, ip_address, device_info, punchOutLocation, notes]
     );
 
     // Calculate and update hours
@@ -694,7 +693,7 @@ router.get("/today", auth, async (req, res) => {
                 a.work_mode, 'web' as source 
          FROM attendance_punches ap
          JOIN attendance a ON ap.attendance_id = a.id
-         WHERE ap.attendance_id = ? 
+         WHERE ap.attendance_id = ? AND (ap.notes IS NULL OR ap.notes != 'Biometric Check-In')
          ORDER BY ap.punch_time ASC`,
         [attendance[0].id]
       );
@@ -711,10 +710,10 @@ router.get("/today", auth, async (req, res) => {
                 DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
                 null as ip_address, bp.device_id as device_info,
                 CASE 
-                  WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
-                  WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
-                  WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
-                  ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+                  WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
+                  WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+                  WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
+                  ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
                 END as location,
                 'Biometric Punch' as notes,
                 'biometric' as source,
@@ -736,6 +735,8 @@ router.get("/today", auth, async (req, res) => {
             punch_type: pt
           };
         });
+        const bioTimes = new Set(mappedBio.map(b => b.punch_time));
+        punches = punches.filter(p => !bioTimes.has(p.punch_time));
         punches.push(...mappedBio);
       }
     } catch (_) { }
@@ -875,10 +876,10 @@ router.post("/bulk-status", auth, async (req, res) => {
                   punch_time, 
                   'Biometric' as work_mode, 
                   CASE 
-                    WHEN device_id = '3' THEN 'SVS 4th Floor'
-                    WHEN device_id = '2' THEN 'SVS 1st Floor'
-                    WHEN device_id = '1' THEN 'SVS 3rd Floor'
-                    ELSE CONCAT('SVS Floor (', COALESCE(device_id, 'Reader'), ')')
+                    WHEN device_id = '3' THEN '4th Floor SVS Towers'
+                    WHEN device_id = '2' THEN '1st Floor SVS Towers'
+                    WHEN device_id = '1' THEN '3rd Floor SVS Towers'
+                    ELSE CONCAT(COALESCE(device_id, 'Reader'), ' SVS Towers')
                   END as location, 
                   'Biometric Punch' as notes
            FROM biometric_punches
@@ -1174,7 +1175,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
             DATE_FORMAT(ap.created_at, '%Y-%m-%d %H:%i:%s') as created_at
      FROM attendance_punches ap
      LEFT JOIN attendance a ON ap.attendance_id = a.id
-     WHERE ap.employee_id = ? AND ap.punch_date = ?
+     WHERE ap.employee_id = ? AND ap.punch_date = ? AND (ap.notes IS NULL OR ap.notes != 'Biometric Check-In')
      ORDER BY ap.punch_time ASC`,
     [employeeId, date]
   );
@@ -1191,10 +1192,10 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
               DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
               null as ip_address, bp.device_id as device_info,
               CASE 
-                WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
-                WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
-                WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
-                ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+                WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
+                WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+                WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
+                ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
               END as location,
               'Biometric Punch' as notes,
               'biometric' as source,
@@ -1217,6 +1218,8 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
           punch_type: pt
         };
       });
+      const bioTimes = new Set(mappedBioPunches.map(b => b.punch_time));
+      punches = punches.filter(p => !bioTimes.has(p.punch_time));
       punches.push(...mappedBioPunches);
     }
   } catch (err) {
@@ -1423,10 +1426,10 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
              DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
              bp.direction, bp.device_id,
              CASE 
-               WHEN bp.device_id = '3' THEN 'SVS 4th Floor'
-               WHEN bp.device_id = '2' THEN 'SVS 1st Floor'
-               WHEN bp.device_id = '1' THEN 'SVS 3rd Floor'
-               ELSE CONCAT('SVS Floor (', COALESCE(bp.device_id, 'Reader'), ')')
+               WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
+               WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+               WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
+               ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
              END as location,
              'biometric' as source
       FROM biometric_punches bp
