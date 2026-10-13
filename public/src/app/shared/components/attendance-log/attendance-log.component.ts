@@ -667,9 +667,29 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   private processSelectedLog(punches: any[]): void {
     if (!this.selectedLog) return;
 
-    const rawPunches = Array.isArray(punches)
-      ? punches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time))
-      : [];
+    const sourcePunches = Array.isArray(punches) ? punches : [];
+    const bioPunchSecs = new Set(
+      sourcePunches
+        .filter(p => p.source === 'biometric' || p.work_mode === 'Biometric')
+        .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
+    );
+
+    const cleanList: any[] = [];
+    for (const p of sourcePunches) {
+      if ((p.notes || '').includes('Biometric Check-In')) {
+        continue;
+      }
+      const isWeb = p.source === 'web' || !p.source;
+      if (isWeb) {
+        const pSec = Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000);
+        if (bioPunchSecs.has(pSec)) {
+          continue;
+        }
+      }
+      cleanList.push(p);
+    }
+
+    const rawPunches = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
 
     const isToday = this.islogToday(this.selectedLog.attendance_date);
     const groupsMap = new Map<string, { locationName: string; icon: string; sessions: any[] }>();
@@ -682,52 +702,49 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const dev = p.device_info != null ? String(p.device_info).trim() : '';
       const lowerLoc = loc.toLowerCase();
       const lowerNotes = (p.notes || '').toLowerCase();
+      const lowerDev = dev.toLowerCase();
 
-      // Explicit Device ID Mappings:
-      // Device ID 3 -> SVS 4th Floor
-      // Device ID 2 -> SVS 1st Floor
-      // Device ID 1 -> SVS 3rd Floor
-      if (dev === '3') return 'SVS 4th Floor';
-      if (dev === '2') return 'SVS 1st Floor';
-      if (dev === '1') return 'SVS 3rd Floor';
+      // Detect browser user-agent strings (e.g. Mozilla/5.0, Chrome, Safari, WebKit)
+      const isUserAgent =
+        lowerDev.includes('mozilla') ||
+        lowerDev.includes('applewebkit') ||
+        lowerDev.includes('chrome') ||
+        lowerDev.includes('safari') ||
+        lowerDev.includes('windows nt') ||
+        dev.length > 15;
 
-      // Check if location string specifies device ID or floor
-      if (lowerLoc.includes('device (3)') || lowerLoc.includes('device 3') || lowerLoc.includes('4th floor') || lowerLoc.includes('4th')) {
-        return 'SVS 4th Floor';
-      }
-      if (lowerLoc.includes('device (2)') || lowerLoc.includes('device 2') || lowerLoc.includes('1st floor') || lowerLoc.includes('1st')) {
-        return 'SVS 1st Floor';
-      }
-      if (lowerLoc.includes('device (1)') || lowerLoc.includes('device 1') || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd')) {
-        return 'SVS 3rd Floor';
-      }
-
-      if (source === 'biometric' || mode === 'Biometric' || lowerNotes.includes('biometric')) {
-        if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai')) {
+      // 1. Biometric punches (must NOT be browser user-agent)
+      const isBio = (source === 'biometric' || (!isUserAgent && (lowerLoc.includes('floor') || dev === '1' || dev === '2' || dev === '3')));
+      if (isBio) {
+        if (dev === '3' || lowerLoc.includes('4th floor') || lowerLoc.includes('4th') || lowerLoc.includes('device (3)') || lowerLoc.includes('device 3')) {
+          return '4th Floor SVS Towers';
+        }
+        if (dev === '2' || lowerLoc.includes('1st floor') || lowerLoc.includes('1st') || dev === '2' || lowerLoc.includes('device (2)') || lowerLoc.includes('device 2')) {
+          return '1st Floor SVS Towers';
+        }
+        if (dev === '1' || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd') || dev === '1' || lowerLoc.includes('device (1)') || lowerLoc.includes('device 1')) {
+          return '3rd Floor SVS Towers';
+        }
+        if (dev && /^\d+$/.test(dev)) {
+          return `${dev} Floor SVS Towers`;
+        }
+        if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai') && !lowerLoc.includes('mozilla')) {
           return loc;
         }
-        if (dev) {
-          return `SVS Floor ${dev}`;
-        }
-        return 'SVS Biometric Punch';
+        return '1st Floor SVS Towers';
       }
 
-      if (mode === 'Remote' || lowerLoc.includes('remote') || lowerNotes.includes('remote')) {
+      // 2. Remote punches: check punch-level location or notes first so it separates from Office punches!
+      if (lowerLoc.includes('remote') || lowerNotes.includes('remote') || (mode.toLowerCase() === 'remote' && !lowerLoc.includes('office') && !lowerNotes.includes('office'))) {
         return 'Remote Clock In';
       }
 
-      if (mode === 'WFH' || lowerLoc.includes('home') || lowerNotes.includes('wfh')) {
+      // 3. Work From Home punches: check punch-level location or notes first
+      if (lowerLoc.includes('home') || lowerNotes.includes('wfh') || (mode.toLowerCase() === 'wfh' && !lowerLoc.includes('office') && !lowerNotes.includes('office'))) {
         return 'Work From Home';
       }
 
-      if (mode === 'Office' || lowerLoc.includes('office') || lowerLoc.includes('mumbai') || lowerNotes.includes('office')) {
-        return 'Web Clock In';
-      }
-
-      if (mode) {
-        return `${mode} Clock In`;
-      }
-
+      // 4. Default for Web / Office punches
       return 'Web Clock In';
     };
 
@@ -784,6 +801,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         if (punchType === 'in') {
           if (currentInPunch) {
             sessions.push({
+              rawTime: this.parsePunchTimeToMs(currentInPunch.punch_time),
               inTime: getFormattedTime(currentInPunch.punch_time),
               outTime: 'MISSING',
               isMissingOut: true,
@@ -796,6 +814,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (currentInPunch) {
             if (isAutoOut) {
               sessions.push({
+                rawTime: this.parsePunchTimeToMs(currentInPunch.punch_time),
                 inTime: getFormattedTime(currentInPunch.punch_time),
                 outTime: 'MISSING',
                 isMissingOut: true,
@@ -804,6 +823,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               });
             } else {
               sessions.push({
+                rawTime: this.parsePunchTimeToMs(currentInPunch.punch_time),
                 inTime: getFormattedTime(currentInPunch.punch_time),
                 outTime: getFormattedTime(p.punch_time),
                 isMissingOut: false,
@@ -814,6 +834,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             currentInPunch = null;
           } else {
             sessions.push({
+              rawTime: this.parsePunchTimeToMs(p.punch_time),
               inTime: 'MISSING',
               outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
               isMissingOut: false,
@@ -826,9 +847,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
       if (currentInPunch) {
         sessions.push({
+          rawTime: this.parsePunchTimeToMs(currentInPunch.punch_time),
           inTime: getFormattedTime(currentInPunch.punch_time),
-          outTime: isToday ? 'IN PROGRESS' : 'MISSING',
-          isMissingOut: !isToday,
+          outTime: 'MISSING',
+          isMissingOut: true,
           isAutoOut: false,
           notes: currentInPunch.notes
         });
@@ -852,9 +874,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       this.selectedLog.effective_hours = this.selectedLog.total_work_hours;
     }
 
-    // Sort location groups logically: 1st Floor -> 3rd Floor -> 4th Floor -> Web -> Remote -> WFH
-    const floorOrder = ['SVS 1st Floor', 'SVS 3rd Floor', 'SVS 4th Floor', 'Web Clock In', 'Work From Home', 'Remote Clock In'];
+    // Sort location groups logically: chronological by the earliest punch in each stream,
+    // fallback to preferred order: Web Clock In -> 1st Floor -> 4th Floor -> 3rd Floor
+    const floorOrder = ['Web Clock In', 'Remote Clock In', 'Work From Home', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers'];
     const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
+      const timeA = a.sessions?.[0]?.rawTime || 0;
+      const timeB = b.sessions?.[0]?.rawTime || 0;
+      if (timeA && timeB && timeA !== timeB) {
+        return timeA - timeB;
+      }
       const idxA = floorOrder.indexOf(a.locationName);
       const idxB = floorOrder.indexOf(b.locationName);
       if (idxA !== -1 && idxB !== -1) return idxA - idxB;

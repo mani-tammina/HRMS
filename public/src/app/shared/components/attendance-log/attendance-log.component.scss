@@ -526,46 +526,25 @@ ion-modal.daily-activity-modal {
   }
 }
 
-/* Location Group Box (Each work mode individual section) */
+/* Location / Device Group Box */
 .location-group-box {
-  margin-top: 10px;
-  padding: 10px 12px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  margin-top: 18px;
+  padding: 0;
+  background: transparent;
+  border: none;
 
   &:first-child {
-    margin-top: 4px;
+    margin-top: 12px;
   }
 
   .location-heading {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
     margin-bottom: 8px;
-    padding-bottom: 6px;
-    border-bottom: 1px solid #edf2f7;
-    letter-spacing: -0.2px;
 
-    .heading-left {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-
-      .group-icon {
-        font-size: 15px;
-        color: #0284c7;
-      }
-    }
-
-    .group-session-count {
-      font-size: 11px;
-      font-weight: 500;
-      color: #64748b;
+    .location-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #1e293b;
+      letter-spacing: -0.1px;
     }
   }
 }
@@ -578,22 +557,21 @@ ion-modal.daily-activity-modal {
 }
 
 .session-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 115px 115px;
+  gap: 28px;
   align-items: center;
-  justify-content: flex-start;
-  gap: 20px;
 }
 
 .punch-col {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  flex: 1;
+  gap: 8px;
   min-width: 0;
 
   .punch-arrow {
-    font-size: 14px;
-    font-weight: 900;
+    font-size: 15px;
+    font-weight: 700;
     line-height: 1;
     display: inline-block;
 
@@ -611,17 +589,17 @@ ion-modal.daily-activity-modal {
   }
 
   .punch-time {
-    font-size: 13px;
-    font-weight: 600;
+    font-size: 13.5px;
+    font-weight: 500;
     color: #1e293b;
     letter-spacing: 0.2px;
     white-space: nowrap;
 
     &.missing-text {
-      color: #334155;
-      font-weight: 700;
-      font-size: 12px;
-      letter-spacing: 0.4px;
+      color: #1e293b;
+      font-weight: 500;
+      font-size: 13.5px;
+      letter-spacing: 0.3px;
     }
   }
 }
