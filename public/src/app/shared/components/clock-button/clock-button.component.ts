@@ -13,27 +13,8 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   <div class="attendance-btn-container" [class.mini-layout]="currentUrl === '/Me'">
     <!-- Clock In Button -->
     <div *ngIf="!isClockedIn" class="row-center">
-      <!-- WFH Clock In -->
-      <button *ngIf="workMode === 'WFH'" class="modern-clock-btn wfh" (click)="clockIn('WFH')" [disabled]="loading">
-        <div class="inner-pulse cyan"></div>
-        <div class="btn-content">
-          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
-          <span class="text">{{ loading ? 'Please wait' : 'WFH In' }}</span>
-        </div>
-      </button>
-
-      <!-- Remote Clock In -->
-      <button *ngIf="workMode === 'Remote'" class="modern-clock-btn remote" (click)="clockIn('Remote')" [disabled]="loading">
-        <div class="inner-pulse orange"></div>
-        <div class="btn-content">
-          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
-          <ion-icon name="cloud-done-outline"></ion-icon>
-          <span class="text">{{ loading ? 'Please wait' : 'Remote In' }}</span>
-        </div>
-      </button>
-
       <!-- Standard Clock In -->
-      <button *ngIf="workMode !== 'WFH' && workMode !== 'Remote' && (!policyPermissions || policyPermissions.web_clockin_enabled !== false)" class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
+      <button class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
         <div class="inner-pulse"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
@@ -245,7 +226,11 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe((isClockedIn: boolean) => {
       this.isClockedIn = isClockedIn;
       this.remoteActive = localStorage.getItem('remoteActive') === 'true';
-      if (this.remoteActive) this.workMode = 'Remote';
+      if (this.isClockedIn && this.remoteActive) {
+        this.workMode = 'Remote';
+      } else if (!this.isClockedIn) {
+        this.workMode = 'Office';
+      }
     });
 
     this.attendanceApi.punchRefresh$.pipe(takeUntil(this.destroy$)).subscribe(() => {
@@ -285,26 +270,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           if (wasClockedIn) {
             this.statusChanged.emit({ isClockedIn: false });
           }
-          this.attendanceApi.checkTodayWFH().subscribe({
-            next: (wfhRes) => {
-              if (wfhRes?.has_wfh && wfhRes?.work_mode === 'WFH') {
-                this.workMode = 'WFH';
-              } else if (wfhRes?.has_wfh && wfhRes?.work_mode === 'Remote') {
-                this.workMode = 'Remote';
-                this.remoteActive = true;
-                localStorage.setItem('remoteActive', 'true');
-              } else {
-                this.workMode = 'Office';
-                this.remoteActive = false;
-                localStorage.removeItem('remoteActive');
-              }
-            },
-            error: () => {
-              this.workMode = 'Office';
-              this.remoteActive = false;
-              localStorage.removeItem('remoteActive');
-            }
-          });
+          this.workMode = 'Office';
+          this.remoteActive = false;
+          localStorage.removeItem('remoteActive');
           return;
         }
 
@@ -317,28 +285,36 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.statusChanged.emit({ isClockedIn: false, autoClockedOut: isAutoOut, lastPunch });
         }
 
+        // When clocked in via Remote, main button shows "Remote Out".
+        // When not clocked in (or after Remote Out), main button shows "Clock In".
         if (this.isClockedIn) {
           const lastMode = lastPunch?.work_mode;
           const lastNotes = (lastPunch?.notes || '').toLowerCase();
-
           if (lastMode === 'Remote' || lastNotes.includes('remote')) {
             this.workMode = 'Remote';
             this.remoteActive = true;
-            localStorage.setItem('remoteActive', 'true');
           } else if (lastMode === 'WFH' || lastNotes.includes('wfh')) {
             this.workMode = 'WFH';
             this.remoteActive = false;
-            localStorage.removeItem('remoteActive');
           } else {
             this.workMode = 'Office';
             this.remoteActive = false;
-            localStorage.removeItem('remoteActive');
           }
         } else {
-          // Once employee clocks out (Remote or standard), show standard Clock In button for next punch
           this.workMode = 'Office';
           this.remoteActive = false;
           localStorage.removeItem('remoteActive');
+        }
+
+        const hadRemotePunch = allPunches.some((p: any) =>
+          (p.work_mode || '').toLowerCase() === 'remote' ||
+          (p.notes || '').toLowerCase().includes('remote') ||
+          (p.location || '').toLowerCase() === 'remote'
+        ) || (res?.attendance?.work_mode || '').toLowerCase() === 'remote';
+
+        if (hadRemotePunch) {
+          const todayDateStr = new Date().toISOString().split('T')[0];
+          localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
         }
 
         localStorage.setItem('todayPunches', JSON.stringify(allPunches));
@@ -514,12 +490,14 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     this.attendanceApi.apiPunchOut({ notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
+          const todayDateStr = new Date().toISOString().split('T')[0];
+          localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
           this.showToast(res?.message || 'Remote clocked out successfully', 'success');
           this.isClockedIn = false;
           this.remoteActive = false;
           this.workMode = 'Office';
           localStorage.removeItem('remoteActive');
-          this.statusChanged.emit({ punch_type: 'out', work_mode: 'Remote' });
+          this.statusChanged.emit({ punch_type: 'out', work_mode: 'Remote', isClockedIn: false, hadRemoteWork: true });
         }
       },
       error: (err) => {

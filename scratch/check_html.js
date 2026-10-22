@@ -1,5 +1,6 @@
 const fs = require('fs');
-const content = fs.readFileSync('public/src/app/modules/employee/my-team/my-team.page.html', 'utf8');
+const target = process.argv[2] || 'public/src/app/modules/employee/my-team/my-team.page.html';
+const content = fs.readFileSync(target, 'utf8');
 
 // remove comments across multiple lines
 const noComments = content.replace(/<!--[\s\S]*?-->/g, (match) => {

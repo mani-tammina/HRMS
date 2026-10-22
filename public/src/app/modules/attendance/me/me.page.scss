@@ -1124,6 +1124,26 @@ app-clock-button {
         cursor: not-allowed;
       }
 
+      &.pill-btn--remote {
+        border-color: #f59e0b;
+        color: #d97706;
+        &:hover:not([disabled]) {
+          background: #fffbeb;
+          border-color: #d97706;
+          color: #b45309;
+        }
+      }
+
+      &.pill-btn--out {
+        border-color: #f87171;
+        color: #dc2626;
+        &:hover:not([disabled]) {
+          background: #fef2f2;
+          border-color: #dc2626;
+          color: #b91c1c;
+        }
+      }
+
       &:last-child {
         grid-column: span 2;
         width: 100%;

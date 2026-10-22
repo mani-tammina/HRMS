@@ -2044,14 +2044,48 @@ router.get("/wfh-check-today", auth, async (req, res) => {
       [emp.id, today, today],
     );
 
-    console.log("🔍 Matching WFH request - Approved:", approved, "Pending:", pending);
+    // Check if employee has attendance or punch records with Remote today
+    let hadRemoteWorkToday = false;
+    try {
+      const [remotePunches] = await c.query(
+        `SELECT ap.id 
+         FROM attendance_punches ap 
+         WHERE ap.employee_id = ? AND (ap.punch_date = ? OR DATE(ap.punch_time) = ?) 
+         AND (ap.notes LIKE '%Remote%' OR ap.location = 'Remote')
+         LIMIT 1`,
+        [emp.id, today, today]
+      );
+      const [remoteAtt] = await c.query(
+        `SELECT id FROM attendance 
+         WHERE employee_id = ? AND attendance_date = ? AND work_mode = 'Remote'
+         LIMIT 1`,
+        [emp.id, today]
+      );
+      hadRemoteWorkToday = remotePunches.length > 0 || remoteAtt.length > 0;
+    } catch (checkErr) {
+      console.warn("Could not check remote punches for today:", checkErr.message);
+    }
+
+    console.log("🔍 Matching WFH request - Approved:", approved, "Pending:", pending, "hadRemoteWorkToday:", hadRemoteWorkToday);
+
+    const hasApprovedRemote = approved.some((r) => r.leave_type === "Remote") || hadRemoteWorkToday;
+    const hasPendingRemote = pending.some((r) => r.leave_type === "Remote");
+    const hasApprovedWFH = approved.some((r) => r.leave_type === "WFH");
+    const hasPendingWFH = pending.some((r) => r.leave_type === "WFH");
+    const hasRemote = hasApprovedRemote || hasPendingRemote;
 
     c.end();
     res.json({
       has_wfh: approved.length > 0,
-      work_mode: approved.length > 0 ? approved[0].leave_type : "Office",
+      work_mode: hasRemote ? "Remote" : (approved.length > 0 ? approved[0].leave_type : (hasPendingWFH ? "WFH" : "Office")),
       has_pending: pending.length > 0,
       pending_work_mode: pending.length > 0 ? pending[0].leave_type : null,
+      has_remote: hasRemote,
+      has_approved_remote: hasApprovedRemote,
+      has_pending_remote: hasPendingRemote,
+      remote_status: hasApprovedRemote ? "approved" : (hasPendingRemote ? "pending" : null),
+      has_raised_remote: hasRemote,
+      had_remote_work: hadRemoteWorkToday,
     });
   } catch (error) {
     console.error("Error checking WFH status:", error);

@@ -157,10 +157,11 @@
                     <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
                   </div>
 
-                  <div class="pills-row" *ngIf="!isHRView">
-                    <button *ngIf="(!policyPermissions || policyPermissions.remote_clockin_enabled !== false) && !hasApprovedRemote"
+                  <div class="pills-row" *ngIf="!isHRView && !isClockedIn">
+                    <!-- Before remote request is raised: show "Remote request" button -->
+                    <button *ngIf="(!policyPermissions || policyPermissions.remote_clockin_enabled !== false) && !hasRemoteToday"
                       class="pill-btn outlined" (click)="openRemoteClockinModal()"
-                      [disabled]="clockButton?.isClockedIn || clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
+                      [disabled]="clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round"
                         style="margin-right: 4px; vertical-align: middle;">
@@ -171,11 +172,13 @@
                       </svg>
                       <span>Remote request</span>
                     </button>
-                    <button *ngIf="hasApprovedRemote" class="pill-btn outlined" (click)="remoteClockIn()"
-                      [disabled]="clockButton?.isClockedIn || clockButton?.loading || remoteClockInLoading || wfhClockInLoading">
+
+                    <!-- In the Remote request button place: show "Remote In" button when remote request is raised for that day -->
+                    <button *ngIf="hasRemoteToday" class="pill-btn outlined pill-btn--remote" (click)="remoteClockIn()"
+                      [disabled]="clockButton?.loading || remoteClockInLoading || wfhClockInLoading">
                       <ion-spinner *ngIf="remoteClockInLoading" name="crescent"
                         style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;"></ion-spinner>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                      <svg *ngIf="!remoteClockInLoading" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round"
                         style="margin-right: 4px; vertical-align: middle;">
                         <path d="M5 12.55a11 11 0 0 1 14.08 0" />
