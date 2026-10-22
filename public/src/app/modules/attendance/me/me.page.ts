@@ -998,10 +998,16 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitRemoteRequest() {
+    if ((this.policyPermissions?.remote_clockin_comment_required === 'yes' || !this.remoteReason) && !this.remoteReason.trim()) {
+      this.showToast('Please provide a reason for the remote request', 'warning');
+      return;
+    }
+
     this.remoteLoading = true;
     const today = new Date().toISOString().split('T')[0];
 
-    const doPunchIn = () => {
+    // If policy explicitly allows direct clock-in without manager approval (approval_required === 'no')
+    if (this.policyPermissions?.remote_clockin_approval_required === 'no') {
       this.attendanceApi.apiPunchIn({
         work_mode: 'Remote',
         location: 'Remote',
@@ -1019,16 +1025,23 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       });
-    };
-
-    if (this.policyPermissions?.remote_clockin_approval_required === 'yes') {
-      this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
-        next: () => doPunchIn(),
-        error: () => doPunchIn()
-      });
-    } else {
-      doPunchIn();
+      return;
     }
+
+    // Default flow: Submit Remote Request to manager for approval
+    this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
+      next: () => {
+        this.remoteLoading = false;
+        this.showRemotePanel = false;
+        this.showToast('Remote request submitted to your manager for approval!', 'success');
+        this.loadTodayAttendance();
+      },
+      error: (err) => {
+        this.remoteLoading = false;
+        const msg = err?.error?.message || err?.error?.error || 'Failed to submit Remote request';
+        this.showToast(msg, 'danger');
+      }
+    });
   }
 
   private finalizeRemote() {

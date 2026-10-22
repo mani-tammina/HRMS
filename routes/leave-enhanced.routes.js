@@ -2020,24 +2020,38 @@ router.get("/wfh-check-today", auth, async (req, res) => {
     );
     console.log("🔍 All WFH/Remote requests for employee:", allRequests);
 
-    const [r] = await c.query(
+    const [approved] = await c.query(
       `SELECT leave_type, start_date, end_date, status 
              FROM leaves 
              WHERE employee_id = ? 
              AND DATE(start_date) <= DATE(?) 
              AND DATE(end_date) >= DATE(?)
              AND leave_type IN ('WFH', 'Remote') 
-             AND status IN ('approved', 'pending') 
+             AND status = 'approved' 
              LIMIT 1`,
       [emp.id, today, today],
     );
 
-    console.log("🔍 Matching WFH request:", r);
+    const [pending] = await c.query(
+      `SELECT leave_type, start_date, end_date, status 
+             FROM leaves 
+             WHERE employee_id = ? 
+             AND DATE(start_date) <= DATE(?) 
+             AND DATE(end_date) >= DATE(?)
+             AND leave_type IN ('WFH', 'Remote') 
+             AND status = 'pending' 
+             LIMIT 1`,
+      [emp.id, today, today],
+    );
+
+    console.log("🔍 Matching WFH request - Approved:", approved, "Pending:", pending);
 
     c.end();
     res.json({
-      has_wfh: r.length > 0,
-      work_mode: r.length > 0 ? r[0].leave_type : "Office",
+      has_wfh: approved.length > 0,
+      work_mode: approved.length > 0 ? approved[0].leave_type : "Office",
+      has_pending: pending.length > 0,
+      pending_work_mode: pending.length > 0 ? pending[0].leave_type : null,
     });
   } catch (error) {
     console.error("Error checking WFH status:", error);
@@ -2163,11 +2177,12 @@ router.post("/wfh-request", auth, async (req, res) => {
     );
 
     // Create Inbox Notification for WFH/Remote
+    const notifRequestType = work_mode === "Remote" ? "Remote Login" : "Attendance Regularization";
     await createInboxNotification(
       c,
       emp.id,
       emp.reporting_manager_id,
-      "Attendance Regularization",
+      notifRequestType,
       result.insertId,
       `${work_mode} Request - ${emp.FullName || 'Employee'}`,
       `Requested ${work_mode} from ${finalStartDate} to ${finalEndDate}. Reason: ${reason || 'N/A'}`,

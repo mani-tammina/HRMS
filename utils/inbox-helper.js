@@ -32,7 +32,22 @@ async function createInboxNotification(connection, employeeId, managerId, reques
         }
 
         if (!finalManagerId) {
-            console.log(`[Inbox Notification] No reporting manager found for employee ID ${employeeId}. Notification skipped.`);
+            // Fallback: If no direct manager is assigned, route to an active Manager/HR so requests aren't lost
+            const [fallback] = await connection.query(`
+                SELECT e.id FROM employees e 
+                JOIN users u ON (u.username = e.WorkEmail OR u.username = e.EmployeeNumber)
+                WHERE u.role IN ('manager', 'hr', 'admin') 
+                ORDER BY CASE WHEN u.role = 'manager' THEN 1 WHEN u.role = 'hr' THEN 2 ELSE 3 END 
+                LIMIT 1
+            `);
+            if (fallback.length > 0) {
+                finalManagerId = fallback[0].id;
+                console.log(`[Inbox Notification] Employee ID ${employeeId} has no reporting manager. Fallback to manager ID ${finalManagerId}`);
+            }
+        }
+
+        if (!finalManagerId) {
+            console.log(`[Inbox Notification] No reporting manager or fallback found for employee ID ${employeeId}. Notification skipped.`);
             return null;
         }
 
@@ -86,9 +101,13 @@ async function createInboxNotification(connection, employeeId, managerId, reques
 async function updateNotificationStatus(connection, requestType, requestId, status, actionTakenBy, rejectionReason = null) {
     try {
         let metaObj = {};
+        const typeList = ['Attendance Regularization', 'Remote Login', 'Work From Home'].includes(requestType)
+            ? ['Attendance Regularization', 'Remote Login', 'Work From Home']
+            : [requestType];
+
         const [existing] = await connection.query(
-            "SELECT metadata FROM inbox_notifications WHERE request_type = ? AND request_id = ?",
-            [requestType, requestId]
+            "SELECT metadata FROM inbox_notifications WHERE request_type IN (?) AND request_id = ?",
+            [typeList, requestId]
         );
 
         if (existing.length > 0 && existing[0].metadata) {
@@ -116,8 +135,8 @@ async function updateNotificationStatus(connection, requestType, requestId, stat
         const [result] = await connection.query(
             `UPDATE inbox_notifications 
              SET status = ?, is_read = 1, action_taken_by = ?, action_taken_on = NOW(), metadata = COALESCE(?, metadata), updated_at = NOW() 
-             WHERE request_type = ? AND request_id = ?`,
-            [status, actionTakenBy || null, metadataStr, requestType, requestId]
+             WHERE request_type IN (?) AND request_id = ?`,
+            [status, actionTakenBy || null, metadataStr, typeList, requestId]
         );
         console.log(`[Inbox Notification] Updated status of ${requestType} ID ${requestId} to ${status}. Affected rows: ${result.affectedRows}`);
     } catch (err) {

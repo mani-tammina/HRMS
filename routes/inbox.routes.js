@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const xlsx = require("xlsx");
 const { db } = require("../config/database");
 const { auth } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
@@ -235,6 +236,131 @@ router.get("/diagnose-leaves-join", async (req, res) => {
         res.json({ success: true, data: rows });
     } catch (err) {
         res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// GET /api/inbox/timesheets/export - Export employee timesheets between startDate and endDate
+router.get("/timesheets/export", auth, async (req, res) => {
+    let c = null;
+    try {
+        const userRole = (req.user.role || "").toLowerCase();
+        if (!["admin", "hr", "manager"].includes(userRole)) {
+            return res.status(403).json({ error: "Access denied. Only HR, Admin, and Managers can export timesheets." });
+        }
+
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        if (!currentEmp) {
+            return res.status(404).json({ error: "Employee profile not found" });
+        }
+
+        const { startDate, endDate, employeeId, status } = req.query;
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: "startDate and endDate are required query parameters" });
+        }
+
+        c = await db();
+
+        let query = `
+            SELECT 
+                t.id as timesheet_id,
+                t.employee_id,
+                e.FullName as employee_name,
+                e.EmployeeNumber as employee_number,
+                e.WorkEmail as employee_email,
+                d.name as department_name,
+                m.FullName as manager_name,
+                t.date as timesheet_date,
+                t.week_start_date,
+                t.week_end_date,
+                t.timesheet_type,
+                t.total_hours,
+                t.notes,
+                t.status,
+                t.submission_date,
+                t.verified_at,
+                v_user.full_name as verified_by_name,
+                t.validation_remarks,
+                t.rejection_reason
+            FROM timesheets t
+            JOIN employees e ON t.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN employees m ON e.reporting_manager_id = m.id
+            LEFT JOIN users v_user ON t.verified_by = v_user.id
+            WHERE t.date >= ? AND t.date <= ?
+        `;
+        const params = [startDate, endDate];
+
+        // Scoping: Manager sees team reports; Admin/HR sees all employees
+        if (userRole === "manager") {
+            query += " AND (e.reporting_manager_id = ? OR e.id = ?)";
+            params.push(currentEmp.id, currentEmp.id);
+        } else if (employeeId) {
+            query += " AND t.employee_id = ?";
+            params.push(employeeId);
+        }
+
+        if (status && status !== "all") {
+            query += " AND t.status = ?";
+            params.push(status);
+        }
+
+        query += " ORDER BY t.date DESC, e.FullName ASC";
+
+        const [rows] = await c.query(query, params);
+
+        const exportData = rows.map(r => ({
+            "Employee ID": r.employee_number || `EMP-${r.employee_id}`,
+            "Employee Name": r.employee_name || "N/A",
+            "Department": r.department_name || "N/A",
+            "Reporting Manager": r.manager_name || "N/A",
+            "Timesheet Date": r.timesheet_date ? String(r.timesheet_date).substring(0, 10) : "N/A",
+            "Week Range": (r.week_start_date && r.week_end_date)
+                ? `${String(r.week_start_date).substring(0, 10)} to ${String(r.week_end_date).substring(0, 10)}`
+                : (r.timesheet_date ? String(r.timesheet_date).substring(0, 10) : "N/A"),
+            "Total Hours": parseFloat(r.total_hours || 0).toFixed(2),
+            "Timesheet Type": r.timesheet_type || "regular",
+            "Status": (r.status || "submitted").toUpperCase(),
+            "Tasks / Notes": r.notes || "N/A",
+            "Submitted On": r.submission_date ? String(r.submission_date).substring(0, 19).replace("T", " ") : "N/A",
+            "Verified / Approved By": r.verified_by_name || "N/A",
+            "Validation / Rejection Remarks": r.validation_remarks || r.rejection_reason || ""
+        }));
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(exportData.length > 0 ? exportData : [
+            { "Employee ID": "N/A", "Employee Name": "No timesheet records found for this period", "Department": "", "Reporting Manager": "", "Timesheet Date": "", "Week Range": "", "Total Hours": "", "Timesheet Type": "", "Status": "", "Tasks / Notes": "", "Submitted On": "", "Verified / Approved By": "", "Validation / Rejection Remarks": "" }
+        ]);
+
+        // Auto column widths
+        const colWidths = [
+            { wch: 15 },
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 15 },
+            { wch: 25 },
+            { wch: 12 },
+            { wch: 15 },
+            { wch: 15 },
+            { wch: 40 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 30 }
+        ];
+        ws['!cols'] = colWidths;
+
+        xlsx.utils.book_append_sheet(wb, ws, "Employee Timesheets");
+        const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename=Employee_Timesheets_${startDate}_to_${endDate}.xlsx`);
+        return res.send(buf);
+
+    } catch (err) {
+        console.error("[Inbox API] Error exporting timesheets:", err);
+        return res.status(500).json({ error: err.message });
     } finally {
         if (c) await c.end();
     }

@@ -54,6 +54,9 @@ export class InboxPage implements OnInit {
   selectedMonth: string = '';
   monthOptions: { label: string; value: string }[] = [];
   isEmployee = false;
+  isHR = false;
+  isManager = false;
+  isManagerOrHR = false;
   rejectedCount = 0;
 
   isModalOpen = false;
@@ -167,9 +170,7 @@ export class InboxPage implements OnInit {
   }
 
   ngOnInit() {
-    const role = this.auth.userRole?.toLowerCase() || '';
-    this.isEmployee = role === 'employee';
-    this.showViewAll = ['admin', 'hr', 'manager'].includes(role);
+    this.initRoleAccess();
     if (this.isEmployee) {
       this.selectedTab = 'Rejected';
       this.loadRejectedCount();
@@ -179,10 +180,20 @@ export class InboxPage implements OnInit {
   }
 
   ionViewWillEnter() {
+    this.initRoleAccess();
     if (this.isEmployee) {
       this.loadRejectedCount();
     }
     this.loadNotifications();
+  }
+
+  private initRoleAccess() {
+    const role = this.auth.userRole?.toLowerCase() || '';
+    this.isEmployee = role === 'employee';
+    this.isHR = ['admin', 'hr'].includes(role);
+    this.isManager = role === 'manager';
+    this.isManagerOrHR = ['admin', 'hr', 'manager'].includes(role);
+    this.showViewAll = this.isManagerOrHR;
   }
 
   loadRejectedCount() {
@@ -1100,6 +1111,79 @@ export class InboxPage implements OnInit {
         loading.dismiss();
         console.error('Leave balances export failed', err);
         this.toaster.showError('Failed to export yearly leave balances report');
+      }
+    });
+  }
+
+  async triggerExportTimesheets() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const defaultStart = `${y}-${m}-01`;
+    const defaultEnd = today.toISOString().split('T')[0];
+
+    const alert = await this.alertCtrl.create({
+      header: 'Download Timesheets',
+      subHeader: this.isHR ? 'Download timesheets for all employees' : 'Download timesheets for your reporting team',
+      inputs: [
+        {
+          name: 'startDate',
+          type: 'date',
+          label: 'From Date',
+          value: defaultStart
+        },
+        {
+          name: 'endDate',
+          type: 'date',
+          label: 'To Date',
+          value: defaultEnd
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Download',
+          handler: (data) => {
+            if (!data.startDate || !data.endDate) {
+              this.toaster.showError('Both From Date and To Date are required');
+              return false;
+            }
+            if (new Date(data.startDate) > new Date(data.endDate)) {
+              this.toaster.showError('From Date cannot be later than To Date');
+              return false;
+            }
+            this.executeExportTimesheets(data.startDate, data.endDate);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private async executeExportTimesheets(startDate: string, endDate: string) {
+    const loading = await this.loadingCtrl.create({
+      message: 'Generating timesheets report...',
+    });
+    await loading.present();
+
+    this.inboxService.exportTimesheets({ startDate, endDate }).subscribe({
+      next: (blob: Blob) => {
+        loading.dismiss();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Employee_Timesheets_${startDate}_to_${endDate}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toaster.showSuccess('Timesheets downloaded successfully');
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.error('Timesheets export failed', err);
+        this.toaster.showError('Failed to download employee timesheets');
       }
     });
   }

@@ -37,7 +37,8 @@
         <!-- Action buttons on Right side (No search box) -->
         <div class="header-right">
           <!-- Action buttons for HR/Manager -->
-          <ng-container *ngIf="showViewAll">
+          <!-- HR-Only Upload Actions -->
+          <ng-container *ngIf="isHR">
             <button class="btn btn-header-outline" (click)="triggerUpload()" title="Upload Monthly Attendance">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" class="btn-icon">
@@ -58,34 +59,51 @@
               Upload Leave Balance
             </button>
 
-            <!-- Reports Dropdown Menu -->
-            <div class="reports-dropdown-wrapper">
-              <button class="btn btn-header-outline" (click)="toggleReportsDropdown($event)">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" class="btn-icon">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
-                Reports
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" class="chevron-icon">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-              <div class="reports-dropdown-menu" *ngIf="showReportsDropdown">
-                <button class="dropdown-item" (click)="triggerExport(); showReportsDropdown = false">Export
-                  Attendance</button>
-                <button class="dropdown-item" (click)="exportLeaves(); showReportsDropdown = false">Export
-                  Leaves</button>
-              </div>
-            </div>
-
             <!-- Hidden File Inputs -->
             <input type="file" id="attendanceFileInput" style="display: none;" accept=".xlsx, .xls"
               (change)="onFileSelected($event)">
             <input type="file" id="leaveBalanceFileInput" style="display: none;" accept=".xlsx, .xls, .csv"
               (change)="onLeaveBalanceFileSelected($event)">
           </ng-container>
+
+          <!-- HR & Manager Action: Download Timesheets -->
+          <button class="btn btn-header-outline" (click)="triggerExportTimesheets()" title="Download Employee Timesheets"
+            *ngIf="isManagerOrHR">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="btn-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Timesheets
+          </button>
+
+          <!-- Reports Dropdown Menu (Manager & HR) -->
+          <div class="reports-dropdown-wrapper" *ngIf="isManagerOrHR">
+            <button class="btn btn-header-outline" (click)="toggleReportsDropdown($event)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" class="btn-icon">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Reports
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" class="chevron-icon">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="reports-dropdown-menu" *ngIf="showReportsDropdown">
+              <button class="dropdown-item" (click)="triggerExportTimesheets(); showReportsDropdown = false">
+                Download Timesheets (From Date - To Date)
+              </button>
+              <button class="dropdown-item" *ngIf="isHR" (click)="triggerExport(); showReportsDropdown = false">
+                Export Attendance
+              </button>
+              <button class="dropdown-item" *ngIf="isHR" (click)="exportLeaves(); showReportsDropdown = false">
+                Export Leaves
+              </button>
+            </div>
+          </div>
 
           <button class="btn btn-header-outline" (click)="markAllAsRead()">Mark all as read</button>
           <button class="btn btn-header-primary" (click)="loadNotifications(null, true)">Refresh</button>

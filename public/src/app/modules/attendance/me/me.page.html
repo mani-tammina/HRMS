@@ -315,7 +315,7 @@
   <div class="sp-body">
 
     <!-- How it works strip -->
-    <div class="sp-flow-strip" *ngIf="policyPermissions?.remote_clockin_approval_required === 'yes'">
+    <div class="sp-flow-strip" *ngIf="policyPermissions?.remote_clockin_approval_required !== 'no'">
       <div class="sp-flow-step">
         <div class="sp-flow-dot sp-dot-blue">1</div>
         <span>Fill reason</span>
@@ -333,7 +333,7 @@
     </div>
 
     <!-- Notice card -->
-    <div class="sp-notice-card" *ngIf="policyPermissions?.remote_clockin_approval_required === 'yes'">
+    <div class="sp-notice-card" *ngIf="policyPermissions?.remote_clockin_approval_required !== 'no'">
       <div class="sp-notice-icon">
         <ion-icon name="shield-checkmark-outline"></ion-icon>
       </div>
@@ -354,10 +354,10 @@
           {{ remoteReason.length }}/250
         </span>
       </div>
-      <div *ngIf="(policyPermissions?.remote_clockin_comment_required) === 'yes'" class="sp-textarea-wrap"
+      <div *ngIf="(policyPermissions?.remote_clockin_comment_required) !== 'no'" class="sp-textarea-wrap"
         [class.sp-textarea-focused]="remoteReason.length > 0">
         <textarea class="sp-textarea" [(ngModel)]="remoteReason"
-          placeholder="Explain why you are clocking in remotely today…" rows="5" maxlength="250"
+          placeholder="Explain why you are requesting to work remotely today…" rows="5" maxlength="250"
           [disabled]="remoteLoading"></textarea>
       </div>
     </div>

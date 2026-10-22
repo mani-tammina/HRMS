@@ -88,6 +88,11 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4203')
 console.log('🌐 Allowed CORS origins:', allowedOrigins);
 console.log('✅ Finance Master Configuration Engine integrated'); // Integration confirmation
 
+const compression = require("compression");
+
+// Compression middleware (Gzip / Brotli) - reduces bundle transfer sizes significantly
+app.use(compression());
+
 // Middleware
 app.use(bodyParser.json());
 
@@ -100,17 +105,17 @@ app.use(
 // Serve static files from public/www/browser folder (where Angular build outputs)
 // IMPORTANT: This must come BEFORE the catch-all route
 app.use(express.static(path.join(__dirname, 'public', 'www', 'browser'), {
-    maxAge: process.env.NODE_ENV === 'production' ? '1d' : '0', // No cache in dev, 1d in prod
-    etag: false,   // Disable ETag for better caching
-    setHeaders: (res, path) => {
-        // ✅ Ensure CSS files load immediately (not deferred)
-        if (path.endsWith('.css')) {
-            res.setHeader('Content-Type', 'text/css; charset=UTF-8');
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+    etag: true,
+    setHeaders: (res, filePath) => {
+        // Hashed bundle files can be cached permanently (immutable)
+        if (filePath.match(/\.[a-f0-9]{8,}\.(js|css)$/) || filePath.match(/chunk-[A-Za-z0-9_-]+\.js$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.html')) {
+            // HTML must not be cached aggressively to pick up new chunk hashes on deployment
             res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        }
-        // ✅ Ensure JS loads properly  
-        if (path.endsWith('.js')) {
-            res.setHeader('Content-Type', 'application/javascript; charset=UTF-8');
+        } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
         }
     }
 }));
@@ -204,20 +209,22 @@ async function initializeDatabase() {
     try {
         const schemaPath = path.join(__dirname, 'schema.sql');
 
+        const targetDb = process.env.DB_NAME || 'hrms_db_new';
+        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
+        await conn.query(`USE \`${targetDb}\``);
+
+        // Check if database tables already exist to avoid re-running all 150+ SQL statements on every restart
+        const [existingTables] = await conn.query("SHOW TABLES LIKE 'users'");
+        const isDbInitialized = existingTables && existingTables.length > 0;
+
         if (!fs.existsSync(schemaPath)) {
             console.warn('⚠️ schema.sql not found, skipping file-based initialization');
-            const targetDb = process.env.DB_NAME || 'hrms_db_new';
-            await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
-            await conn.query(`USE \`${targetDb}\``);
-            console.log(`✅ Database ${targetDb} created/verified (minimal setup)`);
+            console.log(`✅ Database ${targetDb} verified (minimal setup)`);
+        } else if (isDbInitialized && process.env.FORCE_DB_INIT !== 'true') {
+            console.log(`✅ Database ${targetDb} schema already initialized. Skipping full schema.sql execution.`);
         } else {
             console.log('📄 Reading schema from schema.sql...');
             const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-
-            const targetDb = process.env.DB_NAME || 'hrms_db_new';
-            await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
-            console.log(`✅ Database ${targetDb} created/verified`);
-            await conn.query(`USE \`${targetDb}\``);
             console.log(`✅ Using database ${targetDb}`);
 
             const sqlWithoutComments = schemaSQL

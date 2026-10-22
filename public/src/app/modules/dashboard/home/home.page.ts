@@ -23,6 +23,7 @@ import { HolidayService } from '../../../core/services/holiday.service';
 export class HomePage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private clockInterval: any;
+  private lastDashboardFetchTime = 0;
 
   // Birthday wishes UI state
   activeWishEmployeeId: number | null = null;
@@ -118,9 +119,11 @@ export class HomePage implements OnInit, OnDestroy {
   ) { }
 
   ngOnInit() {
+    this.lastDashboardFetchTime = Date.now();
     this.setupEnvironment();
     this.setupGreetingAndDate();
     this.setupClock();
+    this.loadEmployeeProfile();
     this.loadLeaveBalance();
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
@@ -283,6 +286,13 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
+    const now = Date.now();
+    // Prevent duplicate API storm if ngOnInit already fetched data within the last 30 seconds
+    if (now - this.lastDashboardFetchTime < 30000) {
+      return;
+    }
+    this.lastDashboardFetchTime = now;
+
     this.loadEmployeeProfile();
     this.loadBirthdays();
     this.loadLeaveBalance();

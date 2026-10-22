@@ -149,4 +149,22 @@ export class InboxService {
       responseType: 'blob'
     });
   }
+
+  exportTimesheets(params: { startDate: string; endDate: string; employeeId?: number }): Observable<Blob> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+    let httpParams = new HttpParams()
+      .set('startDate', params.startDate)
+      .set('endDate', params.endDate);
+    if (params.employeeId) {
+      httpParams = httpParams.set('employeeId', params.employeeId.toString());
+    }
+    return this.http.get(`${this.BASE_URL}/timesheets/export`, {
+      headers,
+      params: httpParams,
+      responseType: 'blob'
+    });
+  }
 }

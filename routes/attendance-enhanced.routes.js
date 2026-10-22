@@ -1368,9 +1368,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       a.*,
       DATE_FORMAT(a.attendance_date, '%Y-%m-%d') as formatted_date,
       DATE_FORMAT(a.first_check_in, '%Y-%m-%d %H:%i:%s') as first_check_in_ist,
-      DATE_FORMAT(a.last_check_out, '%Y-%m-%d %H:%i:%s') as last_check_out_ist,
-      (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'in') as web_punch_in_count,
-      (SELECT COUNT(*) FROM attendance_punches WHERE (attendance_id = a.id OR (employee_id = a.employee_id AND punch_date = a.attendance_date)) AND punch_type = 'out') as web_punch_out_count
+      DATE_FORMAT(a.last_check_out, '%Y-%m-%d %H:%i:%s') as last_check_out_ist
     FROM attendance a
     WHERE a.employee_id = ? AND a.attendance_date BETWEEN ? AND ?
     ORDER BY a.attendance_date DESC
@@ -1381,9 +1379,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     const [bda] = await c.query(`
       SELECT 
         bda.*,
-        DATE_FORMAT(bda.attendance_date, '%Y-%m-%d') as formatted_date,
-        (SELECT COUNT(*) FROM biometric_punches WHERE employee_id = bda.employee_id AND punch_date = bda.attendance_date AND (direction = 'in' OR direction = 'auto')) as bio_punch_in_count,
-        (SELECT COUNT(*) FROM biometric_punches WHERE employee_id = bda.employee_id AND punch_date = bda.attendance_date AND direction = 'out') as bio_punch_out_count
+        DATE_FORMAT(bda.attendance_date, '%Y-%m-%d') as formatted_date
       FROM biometric_daily_attendance bda
       WHERE bda.employee_id = ? AND bda.attendance_date BETWEEN ? AND ?
     `, [targetEmpId, startStr, endStr]);
@@ -1409,8 +1405,9 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
 
   // Fetch all individual punches for range to accurately calculate effective work hours & gross hours
   let allPunchesMap = new Map();
+  let webRange = [];
   try {
-    const [webRange] = await c.query(`
+    const [wRange] = await c.query(`
       SELECT ap.employee_id, 
              DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
              DATE_FORMAT(ap.punch_time, '%Y-%m-%d') as punch_date,
@@ -1419,6 +1416,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       WHERE ap.employee_id = ? AND ap.punch_date BETWEEN ? AND ?
       ORDER BY ap.punch_time ASC
     `, [targetEmpId, startStr, endStr]);
+    webRange = wRange || [];
 
     const [bioRange] = await c.query(`
       SELECT bp.employee_id, 
@@ -1467,28 +1465,51 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     console.warn("Error fetching range punches:", err.message);
   }
 
+  // Pre-calculate web punch counts per date in memory for fast lookup
+  const webPunchesByDate = new Map();
+  for (const wp of webRange) {
+    const d = wp.punch_date;
+    if (!webPunchesByDate.has(d)) {
+      webPunchesByDate.set(d, { in: 0, out: 0 });
+    }
+    const counts = webPunchesByDate.get(d);
+    if (wp.punch_type === 'in') counts.in++;
+    else if (wp.punch_type === 'out') counts.out++;
+  }
+
+  // Pre-calculate bio punch counts per date in memory for fast lookup
+  const bioCountsByDate = new Map();
+  for (const bp of bioPunchSummary) {
+    bioCountsByDate.set(bp.formatted_date, {
+      in: Number(bp.bio_punch_in_count) || 0,
+      out: Number(bp.bio_punch_out_count) || 0
+    });
+  }
+
   const combinedAttendanceMap = new Map();
 
   for (const a of attendanceRows) {
     const dStr = a.formatted_date || String(a.attendance_date).substring(0, 10);
+    const webCounts = webPunchesByDate.get(dStr) || { in: 0, out: 0 };
     combinedAttendanceMap.set(dStr, {
       ...a,
       attendance_date: dStr,
       punch_date: a.punch_date ? String(a.punch_date).substring(0, 10) : dStr,
       first_check_in: a.first_check_in_ist || a.first_check_in,
       last_check_out: a.last_check_out_ist || a.last_check_out,
-      punch_in_count: Number(a.web_punch_in_count) || 0,
-      punch_out_count: Number(a.web_punch_out_count) || 0,
+      punch_in_count: webCounts.in,
+      punch_out_count: webCounts.out,
       work_mode: a.work_mode || 'Office'
     });
   }
 
   for (const bd of bioDailyRows) {
     const dStr = bd.formatted_date || String(bd.attendance_date).substring(0, 10);
+    const bCounts = bioCountsByDate.get(dStr) || { in: 0, out: 0 };
     if (combinedAttendanceMap.has(dStr)) {
       const existing = combinedAttendanceMap.get(dStr);
-      existing.punch_in_count += (Number(bd.bio_punch_in_count) || 0);
-      existing.punch_out_count += (Number(bd.bio_punch_out_count) || 0);
+      existing.punch_in_count += bCounts.in;
+      existing.punch_out_count += bCounts.out;
       if (bd.first_punch_in) {
         const bioFirstIn = `${dStr} ${bd.first_punch_in}`;
         if (!existing.first_check_in || new Date(bioFirstIn).getTime() < new Date(existing.first_check_in).getTime()) {
@@ -1520,8 +1541,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         location: 'Biometric Device',
         status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
         approval_status: 'approved',
-        punch_in_count: Number(bd.bio_punch_in_count) || Number(bd.total_punches) || 1,
-        punch_out_count: Number(bd.bio_punch_out_count) || (bd.total_punches > 1 ? 1 : 0),
+        punch_in_count: bCounts.in || Number(bd.total_punches) || 1,
+        punch_out_count: bCounts.out || (bd.total_punches > 1 ? 1 : 0),
         notes: 'Biometric Attendance'
       });
     }
