@@ -457,7 +457,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         if (res?.success) {
           this.showToast(res?.message || 'Clocked out successfully', 'success');
           this.isClockedIn = false;
-          this.statusChanged.emit({ punch_type: 'out', work_mode: this.workMode });
+          const prevMode = this.workMode;
+          this.workMode = 'Office';
+          this.statusChanged.emit({ punch_type: 'out', work_mode: prevMode, isClockedIn: false });
         }
       },
       error: (err) => {

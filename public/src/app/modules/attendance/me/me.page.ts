@@ -178,11 +178,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       if (queryParams['action'] === 'wfh') {
         this.openWFHModal();
       } else if (queryParams['action'] === 'remote') {
-        if (this.hasRemoteToday) {
-          this.showToast('Remote request has already been raised for today', 'warning');
-        } else {
-          this.openRemoteClockinModal();
-        }
+        this.openRemoteClockinModal();
       }
     });
 
@@ -1081,10 +1077,6 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   // ── Remote Clock-In Panel ──
   openRemoteClockinModal() {
-    if (this.hasRemoteToday) {
-      this.showToast('Remote request has already been raised for today', 'warning');
-      return;
-    }
     this.remoteReason = '';
     this.remoteLoading = false;
     this.showRemotePanel = true;

@@ -158,22 +158,7 @@
                   </div>
 
                   <div class="pills-row" *ngIf="!isHRView && !isClockedIn">
-                    <!-- Before remote request is raised: show "Remote request" button -->
-                    <button *ngIf="(!policyPermissions || policyPermissions.remote_clockin_enabled !== false) && !hasRemoteToday"
-                      class="pill-btn outlined" (click)="openRemoteClockinModal()"
-                      [disabled]="clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round"
-                        style="margin-right: 4px; vertical-align: middle;">
-                        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                        <line x1="12" y1="20" x2="12.01" y2="20" />
-                      </svg>
-                      <span>Remote request</span>
-                    </button>
-
-                    <!-- In the Remote request button place: show "Remote In" button when remote request is raised for that day -->
+                    <!-- Remote In button: shown when remote request / punch has occurred for today -->
                     <button *ngIf="hasRemoteToday" class="pill-btn outlined pill-btn--remote" (click)="remoteClockIn()"
                       [disabled]="clockButton?.loading || remoteClockInLoading || wfhClockInLoading">
                       <ion-spinner *ngIf="remoteClockInLoading" name="crescent"
@@ -188,6 +173,8 @@
                       </svg>
                       <span>{{ remoteClockInLoading ? 'Please wait...' : 'Remote In' }}</span>
                     </button>
+
+                    <!-- WFH In button -->
                     <button class="pill-btn outlined" (click)="wfhClockIn()"
                       [disabled]="clockButton?.isClockedIn || clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
                       <ion-spinner *ngIf="wfhClockInLoading" name="crescent"
@@ -200,7 +187,24 @@
                       </svg>
                       <span>{{ wfhClockInLoading ? 'Please wait...' : 'WFH In' }}</span>
                     </button>
-                    <button class="pill-btn outlined" (click)="openWFHModal()">
+
+                    <!-- Remote request button: shown even in out state -->
+                    <button *ngIf="!policyPermissions || policyPermissions.remote_clockin_enabled !== false"
+                      class="pill-btn outlined" (click)="openRemoteClockinModal()"
+                      [disabled]="clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        style="margin-right: 4px; vertical-align: middle;">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                        <line x1="12" y1="20" x2="12.01" y2="20" />
+                      </svg>
+                      <span>Remote request</span>
+                    </button>
+
+                    <!-- WFH Request button: shown even in out state -->
+                    <button class="pill-btn outlined" [class.pill-btn--full]="!hasRemoteToday" (click)="openWFHModal()">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round"
                         style="margin-right: 4px; vertical-align: middle;">

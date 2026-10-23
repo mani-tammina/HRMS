@@ -496,7 +496,7 @@
 
     .log-cards-header {
       display: grid;
-      grid-template-columns: 15% 65% 10% 10%;
+      grid-template-columns: 19% 49% 22% 10%;
       padding: 0 16px 8px;
       
       div {
@@ -513,7 +513,7 @@
 
     .log-card-row {
       display: grid;
-      grid-template-columns: 15% 65% 10% 10%;
+      grid-template-columns: 19% 49% 22% 10%;
       gap: 12px;
       align-items: center;
       background: vars.$color-white;
@@ -595,7 +595,9 @@
         text-align: center;
         font-weight: vars.$fw-bold;
         color: vars.$color-primary;
-        font-size: vars.$fs-body;
+        font-size: vars.$fs-small;
+        white-space: nowrap;
+        padding: 10px 8px;
         
         @media (max-width: 768px) {
           text-align: left;

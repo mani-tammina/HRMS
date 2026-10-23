@@ -342,7 +342,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       this.fb.group({
         hour: [firstTimeSlot, Validators.required],
         task: ['', Validators.required],
-        hours: [1, [Validators.required, Validators.min(0.1)]],
+        hours: ['1hr', Validators.required],
       })
     );
   }
@@ -446,25 +446,211 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     this.modalCtrl.dismiss();
   }
 
+  /* Parse single time string into hours and minutes, handling AM/PM, dots, and 24-hr formats */
+  parseSingleTimeString(tStr: string): { hours: number, minutes: number, hasMeridiem: boolean, isPM: boolean } | null {
+    if (!tStr || !tStr.trim()) return null;
+
+    const clean = tStr.trim().toUpperCase();
+    const isPM = clean.includes('PM');
+    const isAM = clean.includes('AM');
+    const hasMeridiem = isPM || isAM;
+
+    // Normalize dots between digits to colons (e.g. 10.30 -> 10:30)
+    const normalized = clean.replace(/(\d{1,2})\.(\d{1,2})/, '$1:$2');
+    const match = normalized.match(/(\d{1,2})(?::(\d{1,2}))?/);
+    if (!match) return null;
+
+    let h = parseInt(match[1], 10);
+    const m = match[2] ? parseInt(match[2], 10) : 0;
+
+    if (isNaN(h) || isNaN(m) || m < 0 || m >= 60) return null;
+    if (h < 0 || h > 24) return null;
+
+    if (hasMeridiem) {
+      if (h > 12) return null;
+      if (isPM && h < 12) {
+        h += 12;
+      } else if (isAM && h === 12) {
+        h = 0;
+      }
+    }
+
+    return { hours: h, minutes: m, hasMeridiem, isPM };
+  }
+
   /* Parse time string (handles both AM/PM and 24-hour formats) */
   parseTimeToHoursMinutes(timeStr: string): { hours: number, minutes: number } {
     if (!timeStr) return { hours: 9, minutes: 0 };
-    
-    const cleanStr = timeStr.trim().toUpperCase();
-    const isPM = cleanStr.includes('PM');
-    const isAM = cleanStr.includes('AM');
-    
-    const digitsOnly = cleanStr.replace(/[A-Z\s]/g, '');
-    const [hStr, mStr] = digitsOnly.split(':');
-    let hours = Number(hStr) || 0;
-    const minutes = Number(mStr) || 0;
-
-    if (isPM && hours < 12) {
-      hours += 12;
-    } else if (isAM && hours === 12) {
-      hours = 0;
+    const parsed = this.parseSingleTimeString(timeStr);
+    if (parsed) {
+      return { hours: parsed.hours, minutes: parsed.minutes };
     }
-    return { hours, minutes };
+    return { hours: 9, minutes: 0 };
+  }
+
+  /* Format minutes into exact hours and minutes string (e.g. 92 -> "1hr 32 minutes", 60 -> "1hr", 32 -> "32 minutes") */
+  formatMinutesToHoursString(totalMins: number): string {
+    if (!totalMins || isNaN(totalMins) || totalMins <= 0) return '0hr';
+    const h = Math.floor(totalMins / 60);
+    const m = Math.round(totalMins % 60);
+
+    if (h > 0 && m > 0) {
+      return `${h}hr ${m} minutes`;
+    } else if (h > 0) {
+      return `${h}hr`;
+    } else {
+      return `${m} minutes`;
+    }
+  }
+
+  /* Parse duration from any input (e.g. "1hr 32 minutes", "1.5", "90 minutes", 2) into total minutes */
+  parseDurationToMinutes(val: any): number {
+    if (val === undefined || val === null) return 0;
+    if (typeof val === 'number') {
+      return Math.round(val * 60);
+    }
+
+    const str = String(val).trim().toLowerCase();
+    if (!str) return 0;
+
+    // Pattern 1: e.g. "1hr 32 minutes", "1h 32m", "1 hr 32 mins", "2hr"
+    const hrMinMatch = str.match(/(\d+(?:\.\d+)?)\s*(?:hr|hour|h)s?(?:\s*(\d+)\s*(?:min|minute|m)s?)?/i);
+    if (hrMinMatch) {
+      const h = parseFloat(hrMinMatch[1]) || 0;
+      const m = parseInt(hrMinMatch[2], 10) || 0;
+      return Math.round(h * 60 + m);
+    }
+
+    // Pattern 2: e.g. "32 minutes", "45 mins", "30m"
+    const minOnlyMatch = str.match(/^(\d+)\s*(?:min|minute|m)s?$/i);
+    if (minOnlyMatch) {
+      return parseInt(minOnlyMatch[1], 10) || 0;
+    }
+
+    // Pattern 3: e.g. "01:32"
+    const colonMatch = str.match(/^(\d{1,2}):(\d{2})$/);
+    if (colonMatch) {
+      return parseInt(colonMatch[1], 10) * 60 + parseInt(colonMatch[2], 10);
+    }
+
+    // Pattern 4: raw number string like "1.5" or "2"
+    const num = parseFloat(str);
+    if (!isNaN(num) && num > 0) {
+      return Math.round(num * 60);
+    }
+
+    return 0;
+  }
+
+  /* Calculate duration in exact minutes from a time slot string */
+  calculateMinutesFromTimeSlot(slotStr: string): number | null {
+    if (!slotStr || typeof slotStr !== 'string') return null;
+
+    const parts = slotStr.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+    if (parts.length !== 2) return null;
+
+    const startParsed = this.parseSingleTimeString(parts[0]);
+    const endParsed = this.parseSingleTimeString(parts[1]);
+
+    if (!startParsed || !endParsed) return null;
+
+    let startH = startParsed.hours;
+    let startM = startParsed.minutes;
+    let endH = endParsed.hours;
+    let endM = endParsed.minutes;
+
+    // Context inference when one or both sides lack AM/PM:
+    if (startParsed.hasMeridiem && !endParsed.hasMeridiem) {
+      if (startParsed.isPM) {
+        if (endH < 12) endH += 12;
+      } else {
+        if (endH < startH && endH < 12) {
+          endH += 12;
+        }
+      }
+    } else if (!startParsed.hasMeridiem && endParsed.hasMeridiem) {
+      if (endParsed.isPM && startH <= endParsed.hours - 12) {
+        startH += 12;
+      }
+    } else if (!startParsed.hasMeridiem && !endParsed.hasMeridiem) {
+      if (endH < startH && endH < 12 && startH <= 12) {
+        endH += 12;
+      }
+    }
+
+    const startTotalMins = startH * 60 + startM;
+    let endTotalMins = endH * 60 + endM;
+
+    if (endTotalMins < startTotalMins) {
+      // Overnight shift
+      endTotalMins += 24 * 60;
+    }
+
+    const diffMins = endTotalMins - startTotalMins;
+
+    // Must be positive duration and reasonable workday length (<= 16 hours)
+    if (diffMins <= 0 || diffMins > 16 * 60) {
+      return null;
+    }
+
+    return diffMins;
+  }
+
+  /* Calculate duration in hours as decimal number (e.g. 1.53) */
+  calculateDurationFromTimeSlot(slotStr: string): number | null {
+    const mins = this.calculateMinutesFromTimeSlot(slotStr);
+    if (mins === null) return null;
+    return Math.round((mins / 60) * 100) / 100;
+  }
+
+  /* Format time slot nicely into standard "HH:mm AM/PM - HH:mm AM/PM" format */
+  formatTimeSlotNicely(slotStr: string): string | null {
+    if (!slotStr || typeof slotStr !== 'string') return null;
+
+    const parts = slotStr.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+    if (parts.length !== 2) return null;
+
+    const startParsed = this.parseSingleTimeString(parts[0]);
+    const endParsed = this.parseSingleTimeString(parts[1]);
+
+    if (!startParsed || !endParsed) return null;
+
+    let startH = startParsed.hours;
+    let startM = startParsed.minutes;
+    let endH = endParsed.hours;
+    let endM = endParsed.minutes;
+
+    if (startParsed.hasMeridiem && !endParsed.hasMeridiem) {
+      if (startParsed.isPM) {
+        if (endH < 12) endH += 12;
+      } else {
+        if (endH < startH && endH < 12) {
+          endH += 12;
+        }
+      }
+    } else if (!startParsed.hasMeridiem && endParsed.hasMeridiem) {
+      if (endParsed.isPM && startH <= endParsed.hours - 12) {
+        startH += 12;
+      }
+    } else if (!startParsed.hasMeridiem && !endParsed.hasMeridiem) {
+      if (endH < startH && endH < 12 && startH <= 12) {
+        endH += 12;
+      }
+    }
+
+    const startDate = new Date();
+    startDate.setHours(startH, startM, 0, 0);
+
+    const endDate = new Date(startDate);
+    let endMins = endH * 60 + endM;
+    let startMins = startH * 60 + startM;
+    if (endMins < startMins) {
+      endMins += 24 * 60;
+    }
+    const diff = endMins - startMins;
+    endDate.setMinutes(startDate.getMinutes() + diff);
+
+    return `${this.formatTime(startDate)} - ${this.formatTime(endDate)}`;
   }
 
   /* Generate time slot from start time (e.g., "09:00" -> "09:00 AM - 10:00 AM") */
@@ -509,11 +695,13 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       const lastRow = this.breakdowns.at(this.breakdowns.length - 1);
       const lastTimeSlot = lastRow.get('hour')?.value;
 
-      if (lastTimeSlot && lastTimeSlot.includes('-')) {
-        // Extract END time from last slot as the START time for the new slot
-        const endTime = lastTimeSlot.split('-')[1].trim();
-        // Calculate next slot with 1 hour duration
-        nextTimeSlot = this.generateTimeSlotWithDuration(endTime, 1);
+      if (lastTimeSlot) {
+        const parts = lastTimeSlot.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+        const endTime = parts[1]?.trim();
+        if (endTime) {
+          // Calculate next slot with 1 hour duration
+          nextTimeSlot = this.generateTimeSlotWithDuration(endTime, '1hr');
+        }
       }
     }
 
@@ -521,39 +709,93 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       this.fb.group({
         hour: [nextTimeSlot, Validators.required],
         task: ['', Validators.required],
-        hours: [1, [Validators.required, Validators.min(0.1)]],
+        hours: ['1hr', Validators.required],
       })
     );
   }
 
-  /* Update time slots when hours change */
+  /* Handle user adjusting Time Slot: recalculate duration and display in HR field as exact hours & minutes */
+  onTimeSlotChange(index: number, event?: any) {
+    const currentRow = this.breakdowns.at(index);
+    if (!currentRow) return;
+
+    const rawValue = event?.target?.value !== undefined ? event.target.value : currentRow.get('hour')?.value;
+    const timeSlot = String(rawValue || '').trim();
+
+    if (!timeSlot) return;
+
+    const diffMins = this.calculateMinutesFromTimeSlot(timeSlot);
+
+    if (diffMins !== null && diffMins > 0) {
+      // Format as exact hours and minutes e.g. "1hr 32 minutes"
+      const formattedDuration = this.formatMinutesToHoursString(diffMins);
+      currentRow.patchValue({ hours: formattedDuration }, { emitEvent: false });
+
+      // Update all subsequent rows so their start times match the adjusted end time
+      this.updateSubsequentRows(index);
+
+      this.cdr.markForCheck();
+    }
+  }
+
+  /* On blur, nicely format the time slot if it represents a valid time range */
+  onTimeSlotBlur(index: number) {
+    const currentRow = this.breakdowns.at(index);
+    if (!currentRow) return;
+
+    const timeSlot = String(currentRow.get('hour')?.value || '').trim();
+    if (!timeSlot) return;
+
+    const diffMins = this.calculateMinutesFromTimeSlot(timeSlot);
+    if (diffMins !== null && diffMins > 0) {
+      const formattedDuration = this.formatMinutesToHoursString(diffMins);
+      currentRow.patchValue({ hours: formattedDuration }, { emitEvent: false });
+
+      const nicelyFormatted = this.formatTimeSlotNicely(timeSlot);
+      if (nicelyFormatted && nicelyFormatted !== timeSlot) {
+        currentRow.patchValue({ hour: nicelyFormatted }, { emitEvent: false });
+      }
+      this.updateSubsequentRows(index);
+      this.cdr.markForCheck();
+    }
+  }
+
+  /* Update time slots when hours/minutes change */
   onHoursChange(index: number, event?: any) {
     const currentRow = this.breakdowns.at(index);
-    const targetVal = event?.target?.value;
+    if (!currentRow) return;
 
-    if (targetVal !== undefined && targetVal !== null) {
-      const strVal = String(targetVal).trim();
-      // If user is currently typing a decimal (e.g. "1." or empty string while editing), don't force-override value
-      if (strVal === '' || strVal.endsWith('.')) {
-        return;
-      }
-    }
+    const targetVal = event?.target?.value !== undefined ? event.target.value : currentRow.get('hours')?.value;
+    const minutes = this.parseDurationToMinutes(targetVal);
 
-    const hours = Number(currentRow.get('hours')?.value || 0);
-    if (isNaN(hours) || hours <= 0) {
-      return;
-    }
+    if (minutes <= 0) return;
 
     const currentTimeSlot = currentRow.get('hour')?.value;
 
-    if (currentTimeSlot && currentTimeSlot.includes('-')) {
-      // Extract start time and recalculate end time based on hours
-      const startTime = currentTimeSlot.split('-')[0].trim();
-      const newTimeSlot = this.generateTimeSlotWithDuration(startTime, hours);
-      currentRow.patchValue({ hour: newTimeSlot }, { emitEvent: false });
+    if (currentTimeSlot) {
+      const parts = currentTimeSlot.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+      const startTime = parts[0]?.trim();
+      if (startTime) {
+        const newTimeSlot = this.generateTimeSlotWithDuration(startTime, minutes);
+        currentRow.patchValue({ hour: newTimeSlot }, { emitEvent: false });
 
-      // Update all subsequent rows
-      this.updateSubsequentRows(index);
+        // Update all subsequent rows
+        this.updateSubsequentRows(index);
+        this.cdr.markForCheck();
+      }
+    }
+  }
+
+  /* Format hours input on blur into standard "1hr 32 minutes" format */
+  onHoursBlur(index: number) {
+    const currentRow = this.breakdowns.at(index);
+    if (!currentRow) return;
+
+    const val = currentRow.get('hours')?.value;
+    const minutes = this.parseDurationToMinutes(val);
+    if (minutes > 0) {
+      const formatted = this.formatMinutesToHoursString(minutes);
+      currentRow.patchValue({ hours: formatted }, { emitEvent: false });
     }
   }
 
@@ -565,19 +807,21 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
       const prevTimeSlot = prevRow.get('hour')?.value;
 
-      if (prevTimeSlot && prevTimeSlot.includes('-')) {
-        // Get end time from previous slot as start time for current
-        const prevEndTime = prevTimeSlot.split('-')[1].trim();
-        const currentHours = Number(currentRow.get('hours')?.value || 1);
-        const newTimeSlot = this.generateTimeSlotWithDuration(prevEndTime, currentHours);
+      if (prevTimeSlot) {
+        const parts = prevTimeSlot.split(/\s*(?:-|–|—|\bto\b)\s*/i);
+        const prevEndTime = parts[1]?.trim();
+        if (prevEndTime) {
+          const currentDuration = currentRow.get('hours')?.value || '1hr';
+          const newTimeSlot = this.generateTimeSlotWithDuration(prevEndTime, currentDuration);
 
-        currentRow.patchValue({ hour: newTimeSlot }, { emitEvent: false });
+          currentRow.patchValue({ hour: newTimeSlot }, { emitEvent: false });
+        }
       }
     }
   }
 
-  /* Generate time slot with custom duration */
-  generateTimeSlotWithDuration(startTime: string, hours: number): string {
+  /* Generate time slot with custom duration (accepts minutes, hours decimal, or formatted string) */
+  generateTimeSlotWithDuration(startTime: string, duration: number | string): string {
     if (!startTime) return '';
 
     try {
@@ -586,9 +830,15 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       const startDate = new Date();
       startDate.setHours(startHours, startMinutes, 0, 0);
 
+      let minutesToAdd = 0;
+      if (typeof duration === 'number') {
+        minutesToAdd = duration <= 24 ? Math.round(duration * 60) : Math.round(duration);
+      } else {
+        minutesToAdd = this.parseDurationToMinutes(duration);
+      }
+
       const endDate = new Date(startDate);
-      // Add hours (convert to minutes for precision)
-      endDate.setMinutes(startDate.getMinutes() + Math.round(hours * 60));
+      endDate.setMinutes(startDate.getMinutes() + minutesToAdd);
 
       const startStr = this.formatTime(startDate);
       const endStr = this.formatTime(endDate);
@@ -607,11 +857,19 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   }
 
   calculateTotalHours(): number {
-    const total = this.breakdowns.controls.reduce(
-      (sum, row) => sum + Number(row.get('hours')?.value || 0),
+    const totalMinutes = this.breakdowns.controls.reduce(
+      (sum, row) => sum + this.parseDurationToMinutes(row.get('hours')?.value),
       0
     );
-    return Math.round(total * 100) / 100;
+    return Math.round((totalMinutes / 60) * 100) / 100;
+  }
+
+  calculateTotalHoursFormatted(): string {
+    const totalMinutes = this.breakdowns.controls.reduce(
+      (sum, row) => sum + this.parseDurationToMinutes(row.get('hours')?.value),
+      0
+    );
+    return this.formatMinutesToHoursString(totalMinutes);
   }
 
   /* ================= SUBMIT ================= */
@@ -772,7 +1030,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
       bd.forEach((b: any, idx: number) => {
         let hourVal = '';
         let taskVal = '';
-        let hoursVal = 1;
+        let hoursVal: any = '1hr';
 
         if (typeof b === 'string') {
           const parsed = this.parseTaskStringForEdit(b, idx + 1, Number(t.total_hours || 1) / bd.length);
@@ -782,18 +1040,26 @@ export class WorkTrackPage implements OnInit, OnDestroy {
         } else {
           hourVal = b.hour || b.time_slot || b.time || b.slot || b.timeSlot || '';
           taskVal = b.task || b.task_description || b.notes || b.description || b.work_description || b.details || '';
-          hoursVal = b.hours !== undefined && b.hours !== null ? Number(b.hours) : (b.hours_worked !== undefined ? Number(b.hours_worked) : 1);
+          if (b.hours !== undefined && b.hours !== null) {
+            hoursVal = typeof b.hours === 'string' && (b.hours.includes('hr') || b.hours.includes('min'))
+              ? b.hours
+              : this.formatMinutesToHoursString(Number(b.hours) * 60);
+          } else if (hourVal) {
+            const mins = this.calculateMinutesFromTimeSlot(hourVal);
+            hoursVal = mins ? this.formatMinutesToHoursString(mins) : '1hr';
+          }
         }
 
         if (!hourVal) {
-          hourVal = this.generateSlotForIndex(idx, hoursVal);
+          const mins = this.parseDurationToMinutes(hoursVal) || 60;
+          hourVal = this.generateSlotForIndex(idx, mins / 60);
         }
 
         this.breakdowns.push(
           this.fb.group({
             hour: [hourVal, Validators.required],
             task: [taskVal, Validators.required],
-            hours: [hoursVal, [Validators.required, Validators.min(0.1)]],
+            hours: [hoursVal, Validators.required],
           })
         );
       });
@@ -810,7 +1076,7 @@ export class WorkTrackPage implements OnInit, OnDestroy {
             this.fb.group({
               hour: [slot.hour, Validators.required],
               task: [slot.task, Validators.required],
-              hours: [slot.hours, [Validators.required, Validators.min(0.1)]],
+              hours: [slot.hours, Validators.required],
             })
           );
         });
@@ -859,15 +1125,16 @@ export class WorkTrackPage implements OnInit, OnDestroy {
     if (slotMatch) {
       const timeSlot = (slotMatch[1] || slotMatch[2] || '').trim();
       const taskDesc = slotMatch[3].trim();
+      const calculatedMins = this.calculateMinutesFromTimeSlot(timeSlot);
       return {
         hour: timeSlot,
-        hours: defaultHours,
+        hours: calculatedMins ? this.formatMinutesToHoursString(calculatedMins) : this.formatMinutesToHoursString(defaultHours * 60),
         task: taskDesc
       };
     }
     return {
       hour: '',
-      hours: defaultHours,
+      hours: this.formatMinutesToHoursString(defaultHours * 60),
       task: trimmed
     };
   }
