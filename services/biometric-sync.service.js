@@ -9,6 +9,7 @@
 
 const { db } = require('../config/database');
 const { getBiometricPool } = require('./biometric-sql.service');
+const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour } = require('../utils/shift-helper');
 
 const SOURCE_SYSTEM = 'ETIMETRACK_MSSQL';
 let isSyncRunning = false;
@@ -87,6 +88,37 @@ async function getEmployeeLookupMap() {
   return map;
 }
 
+async function getEmployeeShiftMap() {
+  const map = new Map();
+  try {
+    const [rows] = await db.query(`
+      SELECT 
+        e.id AS employee_id,
+        sp.start_time,
+        sp.end_time,
+        ps.start_time AS project_start_time,
+        ps.end_time AS project_end_time
+      FROM employees e
+      LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+      LEFT JOIN project_assignments pa ON e.id = pa.employee_id AND pa.status = 'active'
+      LEFT JOIN project_shifts ps ON pa.shift_id = ps.id
+    `);
+    for (const r of rows) {
+      const s = r.project_start_time || r.start_time || '09:00:00';
+      const e = r.project_end_time || r.end_time || '18:00:00';
+      const isOvernight = isOvernightShift(s, e);
+      const cutoff = isOvernight ? getOvernightCutoffHour(s, e) : 12;
+      map.set(r.employee_id, {
+        start_time: s,
+        end_time: e,
+        is_overnight: isOvernight,
+        cutoff_hour: cutoff
+      });
+    }
+  } catch (_) {}
+  return map;
+}
+
 async function autoRegisterMappings(mappingList) {
   if (!mappingList || mappingList.length === 0) return;
   const chunkSize = 200;
@@ -120,7 +152,15 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     [employeeId, punchDate]
   );
 
-  if (punches.length === 0) return;
+  if (punches.length === 0) {
+    try {
+      await db.query(
+        `DELETE FROM biometric_daily_attendance WHERE employee_id = ? AND attendance_date = ?`,
+        [employeeId, punchDate]
+      );
+    } catch (_) {}
+    return;
+  }
 
   const firstPunch = punches[0];
   const lastPunch = punches[punches.length - 1];
@@ -139,6 +179,26 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
   let status = 'present';
   if (grossHours > 0 && grossHours < 4.0) {
     status = 'half_day';
+  } else if (punches.length === 1 && grossHours === 0) {
+    try {
+      const [empShifts] = await db.query(
+        `SELECT sp.start_time, sp.end_time FROM employees e LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id WHERE e.id = ?`,
+        [employeeId]
+      );
+      if (empShifts.length > 0 && isOvernightShift(empShifts[0].start_time, empShifts[0].end_time)) {
+        const pDate = new Date(firstPunch.punch_time_str.replace(' ', 'T'));
+        if (pDate.getHours() < 12) {
+          // Orphan morning punch for overnight shift: do NOT mark next day present
+          try {
+            await db.query(
+              `DELETE FROM biometric_daily_attendance WHERE employee_id = ? AND attendance_date = ?`,
+              [employeeId, punchDate]
+            );
+          } catch (_) {}
+          return;
+        }
+      }
+    } catch (_) {}
   }
 
   const detailJson = JSON.stringify(punches.map(p => ({
@@ -222,6 +282,7 @@ async function syncBiometricLogs(options = {}) {
     let batchCount = 0;
     const affectedEmpDates = new Set();
     let employeeMap = await getEmployeeLookupMap();
+    let employeeShiftMap = await getEmployeeShiftMap();
 
     console.log(`🚀 [BiometricSync] Starting sync: StartDate=${startDateStr}, Watermark=${watermarkBefore}, BatchSize=${batchSize}, SyncAll=${syncAll}`);
 
@@ -278,10 +339,11 @@ async function syncBiometricLogs(options = {}) {
           continue;
         }
 
-        const punchDate = logDateStr.substring(0, 10);
         const formattedLogDate = logDateStr;
         const empKey = userId.toUpperCase();
         const employeeId = employeeMap.get(empKey) || null;
+        const empShift = employeeId ? employeeShiftMap.get(employeeId) : null;
+        const punchDate = getShiftDateForPunch(empShift, formattedLogDate);
 
         rawInsertRows.push({
           source_system: SOURCE_SYSTEM,
