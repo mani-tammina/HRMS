@@ -26,7 +26,7 @@
     </div>
 
     <div class="view-all-container" *ngIf="showViewAll">
-      <ion-label class="toggle-label">View All requests</ion-label>
+      <ion-label class="toggle-label">{{ viewAll ? 'All Organization Requests' : 'My Direct Reports Only' }}</ion-label>
       <ion-toggle [checked]="viewAll" (ionChange)="onViewAllChange($event)" color="primary"></ion-toggle>
     </div>
   </div>

@@ -194,6 +194,9 @@ export class InboxPage implements OnInit {
     this.isManager = role === 'manager';
     this.isManagerOrHR = ['admin', 'hr', 'manager'].includes(role);
     this.showViewAll = this.isManagerOrHR;
+    if (this.isHR) {
+      this.viewAll = true;
+    }
   }
 
   loadRejectedCount() {

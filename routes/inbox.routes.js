@@ -67,9 +67,8 @@ router.get("/", auth, async (req, res) => {
 
         // Scope filter
         if (userRole === "admin" || userRole === "hr") {
-            if (req.query.viewAll === "true") {
-                // Admin/HR viewing all notifications
-            } else {
+            // Admin and HR receive all employee requests across the organization in their inbox by default
+            if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
                 query += " AND n.manager_id = ?";
                 params.push(emp ? emp.id : 0);
             }
@@ -173,7 +172,13 @@ router.get("/", auth, async (req, res) => {
         if (userRole === "employee") {
             statsQuery += " AND n.employee_id = ?";
             statsParams.push(emp ? emp.id : 0);
-        } else if (!(userRole === "admin" || userRole === "hr") || req.query.viewAll !== "true") {
+        } else if (userRole === "admin" || userRole === "hr") {
+            // Admin and HR receive full organization request statistics by default
+            if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
+                statsQuery += " AND manager_id = ?";
+                statsParams.push(emp ? emp.id : 0);
+            }
+        } else {
             statsQuery += " AND manager_id = ?";
             statsParams.push(emp ? emp.id : 0);
         }

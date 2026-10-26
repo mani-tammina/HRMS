@@ -57,8 +57,8 @@ export class InboxService {
     if (params.sortOrder) {
       httpParams = httpParams.set('sortOrder', params.sortOrder);
     }
-    if (params.viewAll) {
-      httpParams = httpParams.set('viewAll', 'true');
+    if (params.viewAll !== undefined) {
+      httpParams = httpParams.set('viewAll', params.viewAll ? 'true' : 'false');
     }
 
     return this.http.get<{ success: boolean; data: InboxNotification[]; total: number; unreadCount: number; stats?: any }>(
