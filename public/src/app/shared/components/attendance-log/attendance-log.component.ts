@@ -64,6 +64,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   shiftPolicy: any = null;
   todayPunches: any[] = [];
+  todayResponse: any = null;
 
   private destroy$ = new Subject<void>();
   private reloadInProgress = false;
@@ -116,7 +117,48 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   ngOnInit(): void { this.reloadAttendance(); }
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  private getAllDatesBetween(start: string, end: string): string[] {
+  private shouldHideNextDay(attendanceMap?: Map<string, any>): boolean {
+    const today = new Date();
+    const todayStr = this.formatDateOnly(today);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = this.formatDateOnly(yesterday);
+
+    // 1. Calculate auto clock-out cutoff time for yesterday's shift
+    let autoOutMs = 0;
+    if (this.todayResponse?.shiftTiming?.autoClockOutTime) {
+      autoOutMs = new Date(this.todayResponse.shiftTiming.autoClockOutTime).getTime();
+    } else {
+      const endTimeStr = this.shiftPolicy?.end_time || '18:00:00';
+      const [eH, eM, eS] = endTimeStr.split(':').map(Number);
+      const [yY, yM, yD] = yesterdayStr.split('-').map(Number);
+      const shiftEnd = new Date(yY, yM - 1, yD, eH || 18, eM || 0, eS || 0);
+      const startTimeStr = this.shiftPolicy?.start_time || '09:00:00';
+      if (startTimeStr > endTimeStr) {
+        shiftEnd.setDate(shiftEnd.getDate() + 1);
+      }
+      autoOutMs = shiftEnd.getTime() + 12 * 60 * 60 * 1000;
+    }
+
+    const now = Date.now();
+    const isBeforeAutoClockOut = autoOutMs > 0 ? now < autoOutMs : false;
+
+    // Check if employee clocked in on yesterday (e.g. 27/10/2026)
+    const yesterdayRecord = attendanceMap?.get(yesterdayStr);
+    const hasYesterdayShift = !!(
+      (yesterdayRecord && (yesterdayRecord.first_check_in || (yesterdayRecord.punches && yesterdayRecord.punches.length > 0))) ||
+      (this.todayResponse?.attendance && this.formatDateOnly(this.todayResponse.attendance.attendance_date) === yesterdayStr)
+    );
+
+    // If user clocked in on yesterday, even if they clocked out on the next day,
+    // show ONLY yesterday in the attendance log until the auto clock out!
+    if (hasYesterdayShift && isBeforeAutoClockOut) {
+      return true;
+    }
+
+    return false;
+  }
+
+  private getAllDatesBetween(start: string, end: string, attendanceMap?: Map<string, any>): string[] {
     const dates: string[] = [];
     const [sy, sm, sd] = start.split('-').map(Number);
     const startDate = new Date(sy, sm - 1, sd);
@@ -124,7 +166,17 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     today.setHours(0, 0, 0, 0);
     const [ey, em, ed] = end.split('-').map(Number);
     const endDate = new Date(ey, em - 1, ed);
-    const finalEndDate = endDate > today ? today : endDate;
+    let finalEndDate = endDate > today ? today : endDate;
+
+    // Until the auto clock-out triggers, hide the next day (today) in attendance log
+    if (this.shouldHideNextDay(attendanceMap)) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (finalEndDate >= today) {
+        finalEndDate = yesterday;
+      }
+    }
+
     for (let d = new Date(startDate); d <= finalEndDate; d.setDate(d.getDate() + 1)) {
       dates.push(this.formatDateOnly(new Date(d)));
     }
@@ -183,6 +235,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
+          this.todayResponse = res.today;
           this.todayPunches = res.today?.punches || [];
           this.missingLogConfigs = res.missingLogs || [];
           const leaves = Array.isArray(res.leaves) ? res.leaves : (res.leaves.data || res.leaves.leaves || []);
@@ -428,7 +481,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         apiAttendance.forEach((item: any) => {
           attendanceMap.set(this.formatDateOnly(item.attendance_date), item);
         });
-        const allDates = this.getAllDatesBetween(this.startDate, this.endDate);
+        const allDates = this.getAllDatesBetween(this.startDate, this.endDate, attendanceMap);
 
         const weekOffDays: number[] = [];
         if (this.weeklyOffPolicy) {
@@ -535,7 +588,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               updatedExisting.leaveType = existing.notes || 'Leave';
             }
             const isToday = this.islogToday(date);
-            if (isToday && this.todayPunches && this.todayPunches.length > 0) {
+            const isOngoing = isToday || this.isOngoingOvernight(date);
+            if (isOngoing && this.todayPunches && this.todayPunches.length > 0) {
               const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
               if (inPunches.length > 0 && !updatedExisting.first_check_in) {
                 const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
@@ -575,7 +629,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             // If it's today, handle 'not-in-yet' or present from today punches
             const isToday = this.islogToday(date);
             if (isToday) {
-              if (this.todayPunches && this.todayPunches.length > 0) {
+              const targetDate = this.todayResponse?.attendance?.attendance_date
+                ? this.formatDateOnly(this.todayResponse.attendance.attendance_date)
+                : (this.todayPunches && this.todayPunches.length > 0 ? this.formatDateOnly(this.todayPunches[0].punch_date || this.todayPunches[0].punch_time) : '');
+              const isDateMatch = !targetDate || targetDate === date;
+              if (isDateMatch && this.todayPunches && this.todayPunches.length > 0) {
                 const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
                 if (inPunches.length > 0) {
                   const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
@@ -599,6 +657,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           return { attendance_date: date, total_work_hours: null, gross_hours: null, status: defaultStatus, records: [], noLogs: true };
         });
 
+        if (this.shouldHideNextDay(attendanceMap)) {
+          const todayStr = this.formatDateOnly(new Date());
+          this.currentMonthreport = this.currentMonthreport.filter(r => this.formatDateOnly(r.attendance_date) !== todayStr);
+        }
         this.currentMonthreport.reverse();
         this.attendanceService.setMonthlyReport(this.currentMonthreport);
       },
@@ -730,10 +792,21 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
     );
 
+    const isToday = this.islogToday(this.selectedLog.attendance_date);
+    const isOngoing = isToday || this.isOngoingOvernight(this.selectedLog.attendance_date);
+
     const cleanList: any[] = [];
-    for (const p of sourcePunches) {
+    for (let i = 0; i < sourcePunches.length; i++) {
+      const p = sourcePunches[i];
       if ((p.notes || '').includes('Biometric Check-In')) {
         continue;
+      }
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAutoOut) {
+        const hasLaterPunches = sourcePunches.slice(i + 1).some(laterP => !(laterP.notes || '').includes('OUT Missing'));
+        if (hasLaterPunches || isOngoing) {
+          continue; // Obsolete or premature auto-out: drop so session continues seamlessly!
+        }
       }
       const isWeb = p.source === 'web' || !p.source;
       if (isWeb) {
@@ -747,7 +820,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
     const rawPunches = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
 
-    const isToday = this.islogToday(this.selectedLog.attendance_date);
     const groupsMap = new Map<string, { locationName: string; icon: string; sessions: any[] }>();
 
     const getCleanLocationName = (p: any): string => {
@@ -770,8 +842,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         dev.length > 15;
 
       // 1. Biometric punches (must NOT be browser user-agent)
-      const isBio = (source === 'biometric' || (!isUserAgent && (lowerLoc.includes('floor') || dev === '1' || dev === '2' || dev === '3')));
+      const isBio = (source === 'biometric' || (!isUserAgent && (lowerLoc.includes('floor') || dev === '1' || dev === '2' || dev === '3' || lowerLoc.includes('door'))));
       if (isBio) {
+        if (loc && (lowerLoc.includes('main door') || lowerLoc.includes('door'))) {
+          return loc;
+        }
         if (dev === '3' || lowerLoc.includes('4th floor') || lowerLoc.includes('4th') || lowerLoc.includes('device (3)') || lowerLoc.includes('device 3')) {
           return '4th Floor SVS Towers';
         }
@@ -905,8 +980,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         sessions.push({
           rawTime: this.parsePunchTimeToMs(currentInPunch.punch_time),
           inTime: getFormattedTime(currentInPunch.punch_time),
-          outTime: 'MISSING',
-          isMissingOut: true,
+          outTime: isOngoing ? 'In Progress' : 'MISSING',
+          isMissingOut: !isOngoing,
           isAutoOut: false,
           notes: currentInPunch.notes
         });
@@ -920,7 +995,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     });
 
     if (this.selectedLog.total_work_hours === null || this.selectedLog.total_work_hours === undefined || this.selectedLog.total_work_hours === '0.00' || this.selectedLog.total_work_hours === 0) {
-      const metrics = this.calculateMetricsFromPunches(rawPunches, isToday);
+      const metrics = this.calculateMetricsFromPunches(rawPunches, isOngoing);
       if (metrics.hasAnyValidOut || isToday || metrics.grossMinutes > 0) {
         this.selectedLog.total_work_hours = metrics.totalWorkHours;
         this.selectedLog.gross_hours = metrics.grossHours;
@@ -1195,6 +1270,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     const h = Math.floor(breakH);
     const m = Math.round((breakH - h) * 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  isOngoingOvernight(attDate: any): boolean {
+    if (!attDate) return false;
+    const logDateStr = this.formatDateOnly(attDate);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = this.formatDateOnly(yesterday);
+    if (logDateStr === yesterdayStr) {
+      const curHour = new Date().getHours() + new Date().getMinutes() / 60;
+      return curHour < 12.0; // Early morning hours: shift from yesterday is still ongoing!
+    }
+    return false;
   }
 
   islogToday(date: string): boolean {

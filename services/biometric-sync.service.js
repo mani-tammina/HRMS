@@ -9,7 +9,7 @@
 
 const { db } = require('../config/database');
 const { getBiometricPool } = require('./biometric-sql.service');
-const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour } = require('../utils/shift-helper');
+const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour, getMorningCutoffHour } = require('../utils/shift-helper');
 
 const SOURCE_SYSTEM = 'ETIMETRACK_MSSQL';
 let isSyncRunning = false;
@@ -94,8 +94,10 @@ async function getEmployeeShiftMap() {
     const [rows] = await db.query(`
       SELECT 
         e.id AS employee_id,
+        sp.name AS shift_policy_name,
         sp.start_time,
         sp.end_time,
+        ps.shift_name AS project_shift_name,
         ps.start_time AS project_start_time,
         ps.end_time AS project_end_time
       FROM employees e
@@ -104,15 +106,19 @@ async function getEmployeeShiftMap() {
       LEFT JOIN project_shifts ps ON pa.shift_id = ps.id
     `);
     for (const r of rows) {
+      const shiftName = r.project_shift_name || r.shift_policy_name || '';
       const s = r.project_start_time || r.start_time || '09:00:00';
       const e = r.project_end_time || r.end_time || '18:00:00';
-      const isOvernight = isOvernightShift(s, e);
-      const cutoff = isOvernight ? getOvernightCutoffHour(s, e) : 12;
+      const isOvernight = isOvernightShift(s, e, shiftName);
+      const cutoff = isOvernight ? getOvernightCutoffHour(s, e, shiftName) : 12;
+      const morningCutoff = getMorningCutoffHour(s);
       map.set(r.employee_id, {
+        shift_name: shiftName,
         start_time: s,
         end_time: e,
         is_overnight: isOvernight,
-        cutoff_hour: cutoff
+        cutoff_hour: cutoff,
+        morning_cutoff_hour: morningCutoff
       });
     }
   } catch (_) {}
@@ -182,13 +188,15 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
   } else if (punches.length === 1 && grossHours === 0) {
     try {
       const [empShifts] = await db.query(
-        `SELECT sp.start_time, sp.end_time FROM employees e LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id WHERE e.id = ?`,
+        `SELECT sp.name, sp.start_time, sp.end_time FROM employees e LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id WHERE e.id = ?`,
         [employeeId]
       );
-      if (empShifts.length > 0 && isOvernightShift(empShifts[0].start_time, empShifts[0].end_time)) {
+      if (empShifts.length > 0) {
+        const isOv = isOvernightShift(empShifts[0].start_time, empShifts[0].end_time, empShifts[0].name);
         const pDate = new Date(firstPunch.punch_time_str.replace(' ', 'T'));
-        if (pDate.getHours() < 12) {
-          // Orphan morning punch for overnight shift: do NOT mark next day present
+        const morningLimit = isOv ? 12 : 7;
+        if (pDate.getHours() < morningLimit) {
+          // Orphan morning punch: do NOT mark next day present
           try {
             await db.query(
               `DELETE FROM biometric_daily_attendance WHERE employee_id = ? AND attendance_date = ?`,
