@@ -10,21 +10,40 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   standalone: true,
   imports: [CommonModule, IonicModule],
   template: `
-  <div class="attendance-btn-container" [class.mini-layout]="currentUrl === '/Me'">
-    <!-- Clock In Button -->
+  <div class="attendance-btn-container" [class.mini-layout]="isMePage">
+    <!-- Clock In Button Group (when not clocked in) -->
     <div *ngIf="!isClockedIn" class="row-center">
-      <button class="modern-clock-btn" [ngClass]="getClockInButtonClass()" (click)="clockIn()" [disabled]="loading">
-        <div class="inner-pulse" [ngClass]="getPulseClass()"></div>
+      <!-- Standard Clock In (Office) -->
+      <button class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
+        <div class="inner-pulse"></div>
         <div class="btn-content">
-          <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
-          <ion-icon *ngIf="!loading && todayRequestedMode === 'Remote'" name="cloud-outline"></ion-icon>
-          <ion-icon *ngIf="!loading && todayRequestedMode === 'WFH'" name="home-outline"></ion-icon>
-          <span class="text">{{ getClockInButtonText() }}</span>
+          <ion-spinner *ngIf="loading && clockingInMode === 'Office'" name="crescent" class="btn-spinner"></ion-spinner>
+          <span class="text">Clock In</span>
+        </div>
+      </button>
+
+      <!-- Remote In (shown on Dashboard when remote privilege / punches exist) -->
+      <button *ngIf="!isMePage && hasRemotePrivilege" class="modern-clock-btn in remote" (click)="clockIn('Remote')" [disabled]="loading">
+        <div class="inner-pulse orange"></div>
+        <div class="btn-content">
+          <ion-spinner *ngIf="loading && clockingInMode === 'Remote'" name="crescent" class="btn-spinner"></ion-spinner>
+          <ion-icon *ngIf="!(loading && clockingInMode === 'Remote')" name="cloud-outline"></ion-icon>
+          <span class="text">Remote In</span>
+        </div>
+      </button>
+
+      <!-- WFH In (shown on Dashboard when WFH privilege / punches exist) -->
+      <button *ngIf="!isMePage && hasWFHPrivilege" class="modern-clock-btn in wfh" (click)="clockIn('WFH')" [disabled]="loading">
+        <div class="inner-pulse cyan"></div>
+        <div class="btn-content">
+          <ion-spinner *ngIf="loading && clockingInMode === 'WFH'" name="crescent" class="btn-spinner"></ion-spinner>
+          <ion-icon *ngIf="!(loading && clockingInMode === 'WFH')" name="home-outline"></ion-icon>
+          <span class="text">WFH In</span>
         </div>
       </button>
     </div>
 
-    <!-- Clock Out Button Group -->
+    <!-- Clock Out Button Group (when clocked in) -->
     <div *ngIf="isClockedIn" class="row-center">
       <!-- Office Out -->
       <button *ngIf="workMode === 'Office' && (!policyPermissions || policyPermissions.web_clockin_enabled !== false)" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading">
@@ -59,8 +78,11 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   styles: [`
     .attendance-btn-container {
       &.mini-layout {
+        .row-center {
+          justify-content: center;
+        }
         .modern-clock-btn {
-          height: 44px;
+          height: 38px;
           padding: 0 16px;
           .btn-content {
             gap: 8px;
@@ -71,9 +93,16 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       }
     }
 
+    .row-center {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
     .modern-clock-btn {
       position: relative;
-      // min-width: 188px;
       height: 38px;
       border: none;
       border-radius: 64px;
@@ -81,7 +110,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 0 32px;
+      padding: 0 22px;
       background: #f8fafc;
       transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       overflow: hidden;
@@ -191,12 +220,6 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
       0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.1; }
       50% { transform: translate(-50%, -50%) scale(1.1); opacity: 0.3; }
     }
-
-    .row-center {
-      display: flex;
-      justify-content: left;
-      align-items: center;
-    }
   `]
 
 
@@ -211,8 +234,29 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   todayRequestedMode: 'Office' | 'Remote' | 'WFH' = 'Office';
   remoteActive = false;
   loading = false;
+  clockingInMode: 'Office' | 'Remote' | 'WFH' | null = null;
+  hasDoneWFHOut = false;
+  hasDoneRemoteOut = false;
   policyPermissions: any;
   private destroy$ = new Subject<void>();
+
+  get isMePage(): boolean {
+    return (this.router.url || '').toLowerCase().includes('/me');
+  }
+
+  get hasRemotePrivilege(): boolean {
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    return this.todayRequestedMode === 'Remote' ||
+      this.hasDoneRemoteOut ||
+      localStorage.getItem('hasRemoteToday_' + todayDateStr) === 'true';
+  }
+
+  get hasWFHPrivilege(): boolean {
+    const todayDateStr = new Date().toISOString().split('T')[0];
+    return this.todayRequestedMode === 'WFH' ||
+      this.hasDoneWFHOut ||
+      localStorage.getItem('hasWFHToday_' + todayDateStr) === 'true';
+  }
 
   constructor(
     private attendanceApi: AttendanceApiService,
@@ -285,6 +329,24 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         const allPunches = res?.punches || [];
         const lastOverall = allPunches.length ? allPunches[allPunches.length - 1] : null;
 
+        const todayDateStr = new Date().toISOString().split('T')[0];
+        const hasDoneWFHPunch = allPunches.some((p: any) =>
+          p.punch_type === 'out' && (
+            (p.work_mode || '').toLowerCase() === 'wfh' ||
+            (p.notes || '').toLowerCase().includes('wfh') ||
+            (p.location || '').toLowerCase() === 'home'
+          )
+        );
+        const hasDoneRemotePunch = allPunches.some((p: any) =>
+          p.punch_type === 'out' && (
+            (p.work_mode || '').toLowerCase() === 'remote' ||
+            (p.notes || '').toLowerCase().includes('remote') ||
+            (p.location || '').toLowerCase() === 'remote'
+          )
+        );
+        this.hasDoneWFHOut = hasDoneWFHPunch || localStorage.getItem('hasDoneWFHOut_' + todayDateStr) === 'true';
+        this.hasDoneRemoteOut = hasDoneRemotePunch || localStorage.getItem('hasDoneRemoteOut_' + todayDateStr) === 'true';
+
         if (!allPunches.length) {
           this.isClockedIn = false;
           if (wasClockedIn) {
@@ -334,8 +396,17 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         ) || (res?.attendance?.work_mode || '').toLowerCase() === 'remote';
 
         if (hadRemotePunch) {
-          const todayDateStr = new Date().toISOString().split('T')[0];
           localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        }
+
+        const hadWFHPunch = allPunches.some((p: any) =>
+          (p.work_mode || '').toLowerCase() === 'wfh' ||
+          (p.notes || '').toLowerCase().includes('wfh') ||
+          (p.location || '').toLowerCase() === 'home'
+        ) || (res?.attendance?.work_mode || '').toLowerCase() === 'wfh';
+
+        if (hadWFHPunch) {
+          localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
         }
 
         localStorage.setItem('todayPunches', JSON.stringify(allPunches));
@@ -369,8 +440,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
   async clockIn(mode?: 'Office' | 'Remote' | 'WFH'): Promise<void> {
     if (this.isClockedIn || this.loading) return;
-    const targetMode = mode || this.todayRequestedMode || 'Office';
+    const targetMode = mode || (this.isMePage ? 'Office' : (this.todayRequestedMode || 'Office'));
     this.loading = true;
+    this.clockingInMode = targetMode;
     let location = 'Mumbai Office';
     let notes = 'Office Clock-In';
     if (targetMode === 'Remote') { location = 'Remote'; notes = 'Remote Clock-In'; this.workMode = 'Remote'; this.remoteActive = true; }
@@ -380,10 +452,11 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     if (targetMode === 'WFH') {
       this.attendanceApi.checkTodayWFH().subscribe({
         next: (wfhRes: any) => {
-          const canWFH = !!(wfhRes?.has_wfh || wfhRes?.has_pending_wfh || wfhRes?.has_approved_wfh || wfhRes?.work_mode === 'WFH' || wfhRes?.pending_work_mode === 'WFH');
+          const canWFH = !!(wfhRes?.has_wfh || wfhRes?.has_pending_wfh || wfhRes?.has_approved_wfh || wfhRes?.work_mode === 'WFH' || wfhRes?.pending_work_mode === 'WFH' || this.hasWFHPrivilege);
           if (!canWFH) {
             this.showToast('No WFH request found for today. Please submit a WFH request first.', 'warning');
             this.loading = false;
+            this.clockingInMode = null;
             return;
           }
           this.proceedClockIn(targetMode, location, notes);
@@ -391,6 +464,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         error: () => {
           this.showToast('WFH check failed.', 'danger');
           this.loading = false;
+          this.clockingInMode = null;
         }
       });
       return;
@@ -408,7 +482,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         message: 'Please provide a comment for your web clock-in as per policy.',
         inputs: [{ name: 'comment', type: 'text', placeholder: 'Enter your comment here...' }],
         buttons: [
-          { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; } },
+          { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; this.clockingInMode = null; } },
           { text: 'Clock In', handler: (data) => {
               if (!data.comment || data.comment.trim() === '') {
                 this.showToast('A comment is mandatory to clock in.', 'warning');
@@ -460,6 +534,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
       }
     }).add(() => {
       this.loading = false;
+      this.clockingInMode = null;
     });
   }
 
@@ -497,14 +572,21 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
   private executeClockOut(notes: string) {
     const comment = notes || 'Clock-Out';
+    const wasWFH = this.workMode === 'WFH' || (notes || '').includes('WFH');
     this.attendanceApi.apiPunchOut({ notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
+          const todayDateStr = new Date().toISOString().split('T')[0];
+          if (wasWFH) {
+            this.hasDoneWFHOut = true;
+            localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+            localStorage.setItem('hasDoneWFHOut_' + todayDateStr, 'true');
+          }
           this.showToast(res?.message || 'Clocked out successfully', 'success');
           this.isClockedIn = false;
           const prevMode = this.workMode;
           this.workMode = 'Office';
-          this.statusChanged.emit({ punch_type: 'out', work_mode: prevMode, isClockedIn: false });
+          this.statusChanged.emit({ punch_type: 'out', work_mode: prevMode, isClockedIn: false, hadWFHWork: wasWFH });
         }
       },
       error: (err) => {
@@ -538,7 +620,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
       next: (res: any) => {
         if (res?.success) {
           const todayDateStr = new Date().toISOString().split('T')[0];
+          this.hasDoneRemoteOut = true;
           localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+          localStorage.setItem('hasDoneRemoteOut_' + todayDateStr, 'true');
           this.showToast(res?.message || 'Remote clocked out successfully', 'success');
           this.isClockedIn = false;
           this.remoteActive = false;

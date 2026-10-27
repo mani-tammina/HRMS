@@ -1453,6 +1453,10 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.hasRemoteToday = true;
       localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
     }
+    if (record?.work_mode === 'WFH' || record?.isWFH || record?.hadWFHWork) {
+      this.hasWFHToday = true;
+      localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+    }
     if (record?.isClockedIn !== undefined) {
       this.isClockedIn = record.isClockedIn;
     } else if (record?.punch_type === 'in' || record?.isClockedIn === true) {
