@@ -1954,7 +1954,10 @@ CREATE TABLE IF NOT EXISTS inbox_notifications (
   INDEX idx_is_read (is_read),
   INDEX idx_is_archived (is_archived),
   INDEX idx_request_type (request_type),
-  INDEX idx_created_at (created_at)
+  INDEX idx_created_at (created_at),
+  INDEX idx_mgr_arch_stat_created (manager_id, is_archived, status, created_at),
+  INDEX idx_emp_arch_stat_created (employee_id, is_archived, status, created_at),
+  INDEX idx_arch_stat_created (is_archived, status, created_at)
 );
 
 -- ============================================

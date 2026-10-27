@@ -25,4 +25,14 @@ export interface InboxNotification {
   manager_name?: string;
   leave_type_name?: string;
   imageFailed?: boolean;
+
+  // Pre-computed / memoized UI properties for fast rendering
+  _parsedMeta?: any;
+  _displayType?: string;
+  _shortSummary?: string;
+  _timeAgo?: string;
+  _cardBorderClass?: string;
+  _statusBadgeClass?: string;
+  _initials?: string;
+  _avatarUrl?: string;
 }

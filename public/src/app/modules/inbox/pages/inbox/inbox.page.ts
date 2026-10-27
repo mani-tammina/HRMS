@@ -14,9 +14,6 @@ import { ToasterService } from 'src/app/core/services/toaster.service';
 import { RouteGuardService } from 'src/app/core/services/route-guard.service';
 import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
 import { environment } from 'src/environments/environment';
-
-import { NotificationCardComponent } from '../../components/notification-card/notification-card.component';
-import { NotificationFilterComponent } from '../../components/notification-filter/notification-filter.component';
 import { NotificationEmptyComponent } from '../../components/notification-empty/notification-empty.component';
 
 @Component({
@@ -36,7 +33,6 @@ export class InboxPage implements OnInit {
   page = 1;
   limit = 10;
   total = 0;
-  unreadCount = 0;
   
   searchQuery = '';
   selectedTab = 'All';
@@ -47,6 +43,7 @@ export class InboxPage implements OnInit {
   viewAll = false;
   loading = false;
   showReportsDropdown = false;
+  showFilters = false;
 
   filterRequestType = '';
   filterStatus = '';
@@ -62,6 +59,9 @@ export class InboxPage implements OnInit {
 
   isModalOpen = false;
   selectedNotification: InboxNotification | null = null;
+  rejectReasonText = '';
+
+  private hasInitialized = false;
 
   stats: any = {
     totalRequests: 0,
@@ -78,73 +78,7 @@ export class InboxPage implements OnInit {
     remoteCount: 0
   };
 
-  tabs = ['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation', 'Unread', 'Approved', 'Rejected', 'Archived'];
-  rejectReasonText = '';
-
-  getDateParts(dateStr: string): { month: string; day: string; weekday: string } {
-    if (!dateStr) return { month: 'AUG', day: '10', weekday: 'MON' };
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return { month: 'AUG', day: '10', weekday: 'MON' };
-    const months = ['AUG', 'JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
-    const month = months[d.getMonth() + 1] || 'AUG';
-    const day = d.getDate().toString().padStart(2, '0');
-    const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
-    const weekday = weekdays[d.getDay()] || 'MON';
-    return { month, day, weekday };
-  }
-
-  getRelativeLeaveStatus(notification: InboxNotification | null): string {
-    if (!notification) return 'Leave starting soon';
-    if (notification.request_type === 'Timesheet Request') {
-      const meta = this.getParsedMetadata(notification.metadata);
-      const hours = meta.total_hours || 8;
-      if (notification.status === 'Rejected') {
-        return `${hours} Hours Logged - Timesheet Rejected`;
-      }
-      return `${hours} Hours Logged - Timesheet submitted for review`;
-    }
-    const dates = this.getFallbackLeaveDates(notification);
-    if (!dates.start) return 'Leave starting soon';
-    const start = new Date(dates.start);
-    const now = new Date();
-    const diffDays = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays > 0) return `Leave starting ${diffDays} day${diffDays > 1 ? 's' : ''} from now`;
-    if (diffDays === 0) return 'Leave starting today';
-    return `Leave started ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago`;
-  }
-
-  getLeaveTypeTitle(notification: InboxNotification | null): string {
-    if (!notification) return 'Request Details';
-    if (notification.request_type === 'Timesheet Request') {
-      const meta = this.getParsedMetadata(notification.metadata);
-      if (meta.week_range) {
-        return `Weekly Timesheet: ${meta.week_range}`;
-      }
-      if (meta.week_start && meta.week_end) {
-        return `Weekly Timesheet: ${this.formatDate(meta.week_start)} – ${this.formatDate(meta.week_end)}`;
-      }
-      return `Timesheet Submission`;
-    }
-    if (notification.request_type === 'Resignation Request') {
-      return `Exit / Resignation Request`;
-    }
-    if (notification.request_type === 'Attendance Regularization' && !this.isWfhRemoteRequest(notification)) {
-      return `Attendance Regularization`;
-    }
-    const meta = this.getParsedMetadata(notification.metadata);
-    const days = meta.total_days || this.getCalculatedDays(notification) || 1;
-    if (this.isWfh(notification)) {
-      return `${days} day${days > 1 ? 's' : ''} of Work From Home`;
-    }
-    if (this.isRemote(notification)) {
-      return `${days} day${days > 1 ? 's' : ''} of Remote Login`;
-    }
-    if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
-      return `${days} day${days > 1 ? 's' : ''} of Compensatory Off`;
-    }
-    const typeName = notification.leave_type_name || 'Leaves';
-    return `${days} day${days > 1 ? 's' : ''} of ${typeName}`;
-  }
+  tabs = ['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
 
   constructor(
     private inboxService: InboxService,
@@ -159,41 +93,22 @@ export class InboxPage implements OnInit {
     private router: Router
   ) {}
 
-  showFilters = false;
-
-  toggleReportsDropdown(event?: Event) {
-    if (event) {
-      event.stopPropagation();
-    }
-    this.showReportsDropdown = !this.showReportsDropdown;
-  }
-
-  @HostListener('document:click', ['$event'])
-  onDocumentClick(event: Event) {
-    if (this.showReportsDropdown) {
-      const target = event.target as HTMLElement;
-      if (!target.closest('.reports-dropdown-wrapper')) {
-        this.showReportsDropdown = false;
-      }
-    }
-  }
-
   ngOnInit() {
     this.initRoleAccess();
     if (this.isEmployee) {
       this.selectedTab = 'Rejected';
-      this.loadRejectedCount();
     }
     this.generateMonthOptions();
     this.loadNotifications();
+    this.hasInitialized = true;
   }
 
   ionViewWillEnter() {
     this.initRoleAccess();
-    if (this.isEmployee) {
-      this.loadRejectedCount();
+    if (this.hasInitialized) {
+      // Reload on re-entering view
+      this.loadNotifications(null, true);
     }
-    this.loadNotifications();
   }
 
   private initRoleAccess() {
@@ -206,17 +121,6 @@ export class InboxPage implements OnInit {
     if (this.isHR) {
       this.viewAll = true;
     }
-  }
-
-  loadRejectedCount() {
-    this.inboxService.getNotifications({ page: 1, limit: 1, tab: 'Rejected' }).subscribe({
-      next: (res) => {
-        if (res.success) {
-          this.rejectedCount = res.total || 0;
-        }
-      },
-      error: () => { this.rejectedCount = 0; }
-    });
   }
 
   generateMonthOptions() {
@@ -242,7 +146,7 @@ export class InboxPage implements OnInit {
 
   getSidebarHeaderTitle(): string {
     if (this.isEmployee) {
-      return 'MY NOTIFICATIONS';
+      return 'MY REQUESTS';
     }
     if (this.selectedMonth && this.selectedMonth !== '') {
       const match = this.monthOptions.find((m: any) => m.value === this.selectedMonth);
@@ -252,6 +156,23 @@ export class InboxPage implements OnInit {
       return `${this.selectedMonth} REQUESTS`;
     }
     return 'PENDING TASKS';
+  }
+
+  toggleReportsDropdown(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.showReportsDropdown = !this.showReportsDropdown;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event) {
+    if (this.showReportsDropdown) {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.reports-dropdown-wrapper')) {
+        this.showReportsDropdown = false;
+      }
+    }
   }
 
   toggleInlineFilters() {
@@ -292,6 +213,10 @@ export class InboxPage implements OnInit {
   onFilterSearch(event: any) {
     this.searchQuery = event.target.value || '';
     this.loadNotifications(null, true);
+  }
+
+  trackByNotificationId(index: number, item: InboxNotification): number {
+    return item.notification_id;
   }
 
   getInitials(name?: string): string {
@@ -335,7 +260,6 @@ export class InboxPage implements OnInit {
     try {
       return JSON.parse(metadataStr);
     } catch (e) {
-      console.warn('Failed to parse metadata JSON:', e);
       return {};
     }
   }
@@ -388,118 +312,36 @@ export class InboxPage implements OnInit {
     if (this.isRemote(n)) return 'border-remote';
     const type = typeof n === 'string' ? n : n?.request_type;
     switch (type) {
-      case 'Leave Request':
-        return 'border-leave';
-      case 'Work From Home':
-        return 'border-wfh';
-      case 'Remote Login':
-        return 'border-remote';
+      case 'Leave Request': return 'border-leave';
+      case 'Work From Home': return 'border-wfh';
+      case 'Remote Login': return 'border-remote';
       case 'Comp Off Request':
-      case 'Comp Off':
-        return 'border-compoff';
-      case 'Attendance Regularization':
-        return 'border-attendance';
-      case 'Timesheet Request':
-        return 'border-timesheet';
-      case 'Resignation Request':
-        return 'border-resignation';
-      default:
-        return '';
-    }
-  }
-
-  getIconPath(requestType: string): string {
-    switch (requestType) {
-      case 'Leave Request':
-        return 'assets/icons/menu/leave.svg';
-      case 'Work From Home':
-        return 'assets/icons/menu/leave.svg';
-      case 'Remote Login':
-        return 'assets/icons/menu/attendance.svg';
-      case 'Comp Off Request':
-      case 'Comp Off':
-        return 'assets/icons/menu/leave.svg';
-      case 'Attendance Regularization':
-        return 'assets/icons/menu/attendance.svg';
-      case 'Timesheet Request':
-        return 'assets/icons/menu/worktrack.svg';
-      case 'Resignation Request':
-        return 'assets/icons/menu/logout.svg';
-      default:
-        return 'assets/icons/menu/inbox-outline.svg';
-    }
-  }
-
-  getIconName(requestType: string): string {
-    switch (requestType) {
-      case 'Leave Request':
-        return 'calendar-outline';
-      case 'Work From Home':
-        return 'home-outline';
-      case 'Remote Login':
-        return 'laptop-outline';
-      case 'Comp Off Request':
-      case 'Comp Off':
-        return 'calendar-outline';
-      case 'Attendance Regularization':
-        return 'time-outline';
-      case 'Timesheet Request':
-        return 'document-text-outline';
-      case 'Resignation Request':
-        return 'exit-outline';
-      default:
-        return 'notifications-outline';
-    }
-  }
-
-  getIconColor(requestType: string): string {
-    switch (requestType) {
-      case 'Leave Request':
-        return 'leave';
-      case 'Work From Home':
-        return 'wfh';
-      case 'Remote Login':
-        return 'remote';
-      case 'Comp Off Request':
-      case 'Comp Off':
-        return 'compoff';
-      case 'Attendance Regularization':
-        return 'attendance';
-      case 'Timesheet Request':
-        return 'timesheet';
-      case 'Resignation Request':
-        return 'resignation';
-      default:
-        return 'medium';
+      case 'Comp Off': return 'border-compoff';
+      case 'Attendance Regularization': return 'border-attendance';
+      case 'Timesheet Request': return 'border-timesheet';
+      case 'Resignation Request': return 'border-resignation';
+      default: return '';
     }
   }
 
   getPriorityColor(priority: string): string {
     switch (priority?.toLowerCase()) {
-      case 'urgent':
-        return 'danger';
-      case 'high':
-        return 'warning';
-      case 'medium':
-        return 'primary';
+      case 'urgent': return 'danger';
+      case 'high': return 'warning';
+      case 'medium': return 'primary';
       case 'low':
-      default:
-        return 'medium';
+      default: return 'medium';
     }
   }
 
   getStatusColor(status: string): string {
     switch (status?.toLowerCase()) {
       case 'approved':
-      case 'verified':
-        return 'success';
-      case 'rejected':
-        return 'danger';
-      case 'cancelled':
-        return 'medium';
+      case 'verified': return 'success';
+      case 'rejected': return 'danger';
+      case 'cancelled': return 'medium';
       case 'pending':
-      default:
-        return 'warning';
+      default: return 'warning';
     }
   }
 
@@ -522,7 +364,7 @@ export class InboxPage implements OnInit {
 
   getRejectionReason(n: InboxNotification): string {
     if (!n) return '';
-    const meta = this.getParsedMetadata(n.metadata);
+    const meta = n._parsedMeta || this.getParsedMetadata(n.metadata);
     const reason = meta.rejection_reason || 
                    meta.reason || 
                    meta.remarks || 
@@ -537,12 +379,12 @@ export class InboxPage implements OnInit {
 
   getRejectedBy(n: InboxNotification): string {
     if (!n) return '';
-    const meta = this.getParsedMetadata(n.metadata);
+    const meta = n._parsedMeta || this.getParsedMetadata(n.metadata);
     return meta.rejected_by || n.manager_name || 'Your Manager';
   }
 
   getFallbackLeaveDates(notification: InboxNotification): { start: string, end: string } {
-    const meta = this.getParsedMetadata(notification.metadata);
+    const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
     if (notification.request_type === 'Timesheet Request') {
       if (meta.week_start && meta.week_end) {
         return { start: meta.week_start, end: meta.week_end };
@@ -556,7 +398,6 @@ export class InboxPage implements OnInit {
     }
     
     const desc = notification.description || '';
-    // Match date formats like "2026-07-23" or similar ISO date patterns
     const dateRegex = /(\d{4}-\d{2}-\d{2})/g;
     const matches = desc.match(dateRegex);
     if (matches && matches.length >= 2) {
@@ -570,7 +411,7 @@ export class InboxPage implements OnInit {
   }
 
   getFallbackCompOffDate(notification: InboxNotification): string {
-    const meta = this.getParsedMetadata(notification.metadata);
+    const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
     if (meta.date_worked) return meta.date_worked;
     
     const desc = notification.description || '';
@@ -580,7 +421,7 @@ export class InboxPage implements OnInit {
   }
 
   getFallbackAttendanceDate(notification: InboxNotification): string {
-    const meta = this.getParsedMetadata(notification.metadata);
+    const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
     if (meta.date) return meta.date;
     
     const desc = notification.description || '';
@@ -600,17 +441,8 @@ export class InboxPage implements OnInit {
     return 1;
   }
 
-  getFallbackReason(notification: InboxNotification): string {
-    const desc = notification.description || '';
-    const idx = desc.indexOf('Reason:');
-    if (idx !== -1) {
-      return desc.substring(idx + 7).trim();
-    }
-    return 'N/A';
-  }
-
-  getCardShortSummary(notification: InboxNotification): string {
-    const meta = this.getParsedMetadata(notification.metadata);
+  getCardShortSummary(notification: InboxNotification, parsedMeta?: any): string {
+    const meta = parsedMeta || notification._parsedMeta || this.getParsedMetadata(notification.metadata);
     if (this.isWfh(notification)) {
       const dates = this.getFallbackLeaveDates(notification);
       const days = meta.total_days || this.getCalculatedDays(notification);
@@ -656,18 +488,72 @@ export class InboxPage implements OnInit {
     return `${day} ${month} ${year}`;
   }
 
-  selectNotification(notification: InboxNotification) {
-    if (notification.is_read === 0) {
-      this.inboxService.markAsRead(notification.notification_id).subscribe({
-        next: () => {
-          notification.is_read = 1;
-          this.unreadCount = Math.max(0, this.unreadCount - 1);
-          if (this.stats && this.stats.unread > 0) {
-            this.stats.unread--;
-          }
-        }
-      });
+  getDateParts(dateStr: string): { month: string; day: string; weekday: string } {
+    if (!dateStr) return { month: 'AUG', day: '10', weekday: 'MON' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { month: 'AUG', day: '10', weekday: 'MON' };
+    const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const month = months[d.getMonth()] || 'AUG';
+    const day = d.getDate().toString().padStart(2, '0');
+    const weekdays = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+    const weekday = weekdays[d.getDay()] || 'MON';
+    return { month, day, weekday };
+  }
+
+  getRelativeLeaveStatus(notification: InboxNotification | null): string {
+    if (!notification) return 'Leave starting soon';
+    if (notification.request_type === 'Timesheet Request') {
+      const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
+      const hours = meta.total_hours || 8;
+      if (notification.status === 'Rejected') {
+        return `${hours} Hours Logged - Timesheet Rejected`;
+      }
+      return `${hours} Hours Logged - Timesheet submitted for review`;
     }
+    const dates = this.getFallbackLeaveDates(notification);
+    if (!dates.start) return 'Leave starting soon';
+    const start = new Date(dates.start);
+    const now = new Date();
+    const diffDays = Math.ceil((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 0) return `Leave starting ${diffDays} day${diffDays > 1 ? 's' : ''} from now`;
+    if (diffDays === 0) return 'Leave starting today';
+    return `Leave started ${Math.abs(diffDays)} day${Math.abs(diffDays) > 1 ? 's' : ''} ago`;
+  }
+
+  getLeaveTypeTitle(notification: InboxNotification | null): string {
+    if (!notification) return 'Request Details';
+    if (notification.request_type === 'Timesheet Request') {
+      const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
+      if (meta.week_range) {
+        return `Weekly Timesheet: ${meta.week_range}`;
+      }
+      if (meta.week_start && meta.week_end) {
+        return `Weekly Timesheet: ${this.formatDate(meta.week_start)} – ${this.formatDate(meta.week_end)}`;
+      }
+      return `Timesheet Submission`;
+    }
+    if (notification.request_type === 'Resignation Request') {
+      return `Exit / Resignation Request`;
+    }
+    if (notification.request_type === 'Attendance Regularization' && !this.isWfhRemoteRequest(notification)) {
+      return `Attendance Regularization`;
+    }
+    const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
+    const days = meta.total_days || this.getCalculatedDays(notification) || 1;
+    if (this.isWfh(notification)) {
+      return `${days} day${days > 1 ? 's' : ''} of Work From Home`;
+    }
+    if (this.isRemote(notification)) {
+      return `${days} day${days > 1 ? 's' : ''} of Remote Login`;
+    }
+    if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      return `${days} day${days > 1 ? 's' : ''} of Compensatory Off`;
+    }
+    const typeName = notification.leave_type_name || 'Leaves';
+    return `${days} day${days > 1 ? 's' : ''} of ${typeName}`;
+  }
+
+  selectNotification(notification: InboxNotification) {
     this.selectedNotification = notification;
     if (window.innerWidth <= 768) {
       this.isModalOpen = true;
@@ -679,22 +565,11 @@ export class InboxPage implements OnInit {
       header: 'Actions',
       buttons: [
         {
-          text: notification.is_read === 0 ? 'Mark as Read' : 'Mark as Unread',
-          handler: () => {
-            this.inboxService.markAsRead(notification.notification_id).subscribe({
-              next: () => {
-                notification.is_read = notification.is_read === 0 ? 1 : 0;
-                this.loadNotifications(null, true);
-              }
-            });
-          }
-        },
-        {
           text: 'Archive Request',
           handler: () => {
             this.inboxService.archiveNotification(notification.notification_id).subscribe({
               next: () => {
-                this.toaster.showSuccess('Notification archived');
+                this.toaster.showSuccess('Request archived');
                 this.loadNotifications(null, true);
               }
             });
@@ -706,7 +581,7 @@ export class InboxPage implements OnInit {
           handler: () => {
             this.inboxService.deleteNotification(notification.notification_id).subscribe({
               next: () => {
-                this.toaster.showSuccess('Notification deleted');
+                this.toaster.showSuccess('Request deleted');
                 this.loadNotifications(null, true);
               }
             });
@@ -716,6 +591,18 @@ export class InboxPage implements OnInit {
       ]
     });
     await alert.present();
+  }
+
+  private memoizeNotification(n: InboxNotification): InboxNotification {
+    n._parsedMeta = this.getParsedMetadata(n.metadata);
+    n._displayType = this.getDisplayRequestType(n);
+    n._shortSummary = this.getCardShortSummary(n, n._parsedMeta);
+    n._timeAgo = this.getTimeAgo(n.created_at);
+    n._cardBorderClass = this.getCardBorderClass(n);
+    n._statusBadgeClass = this.getStatusBadgeClass(n.status);
+    n._initials = this.getInitials(n.employee_name);
+    n._avatarUrl = this.getProfileImage(n);
+    return n;
   }
 
   loadNotifications(event?: any, forceRefresh = false) {
@@ -734,24 +621,26 @@ export class InboxPage implements OnInit {
       month: this.selectedMonth,
       sortField: this.sortField,
       sortOrder: this.sortOrder,
-      viewAll: this.viewAll
+      viewAll: this.viewAll,
+      skipStats: this.page > 1
     }).subscribe({
       next: (res) => {
         if (res.success) {
+          const processed = (res.data || []).map(item => this.memoizeNotification(item));
           if (this.page === 1) {
-            this.notifications = res.data;
+            this.notifications = processed;
             if (this.notifications.length > 0) {
               this.selectedNotification = this.notifications[0];
             } else {
               this.selectedNotification = null;
             }
           } else {
-            this.notifications = [...this.notifications, ...res.data];
+            this.notifications = [...this.notifications, ...processed];
           }
           this.total = res.total;
-          this.unreadCount = res.unreadCount;
           if (res.stats) {
             this.stats = res.stats;
+            this.rejectedCount = res.stats.rejected || 0;
           }
         }
         this.loading = false;
@@ -760,9 +649,9 @@ export class InboxPage implements OnInit {
         }
       },
       error: (err: any) => {
-        console.error('Failed to load notifications', err);
+        console.error('Failed to load requests', err);
         this.loading = false;
-        this.toaster.showError('Failed to load inbox notifications');
+        this.toaster.showError('Failed to load inbox requests');
         if (event) {
           event.target.complete();
         }
@@ -787,14 +676,6 @@ export class InboxPage implements OnInit {
     this.loadNotifications(null, true);
   }
 
-  onFilterChanged(filters: { search: string; sortField: string; sortOrder: 'ASC' | 'DESC'; viewAll: boolean }) {
-    this.searchQuery = filters.search;
-    this.sortField = filters.sortField;
-    this.sortOrder = filters.sortOrder;
-    this.viewAll = filters.viewAll;
-    this.loadNotifications(null, true);
-  }
-
   refresh(event: any) {
     this.loadNotifications(event, true);
   }
@@ -808,6 +689,10 @@ export class InboxPage implements OnInit {
     this.loadNotifications(event);
   }
 
+  MathMin(a: number, b: number): number {
+    return Math.min(a, b);
+  }
+
   async approveRequest(notification: InboxNotification) {
     const loading = await this.loadingCtrl.create({
       message: 'Approving request...',
@@ -818,7 +703,6 @@ export class InboxPage implements OnInit {
     const isWfhRemote = this.isWfhRemoteRequest(notification);
 
     if (isWfhRemote || notification.request_type === 'Work From Home' || notification.request_type === 'Remote Login') {
-      // WFH/Remote request is structurally a Leave record in DB, call approveLeave
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
     } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
@@ -905,7 +789,6 @@ export class InboxPage implements OnInit {
     const isWfhRemote = this.isWfhRemoteRequest(notification);
 
     if (isWfhRemote || notification.request_type === 'Work From Home' || notification.request_type === 'Remote Login') {
-      // WFH/Remote request is structurally a Leave record in DB, call rejectLeave
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
     } else if (notification.request_type === 'Leave Request') {
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
@@ -977,7 +860,7 @@ export class InboxPage implements OnInit {
 
   navigateToResubmitWorkTrack(n: InboxNotification) {
     if (!n) return;
-    const meta = this.getParsedMetadata(n.metadata);
+    const meta = n._parsedMeta || this.getParsedMetadata(n.metadata);
     const date = meta.date || meta.week_start || (n as any).date || (n.created_at ? n.created_at.substring(0, 10) : '');
     const id = n.request_id;
     this.router.navigate(['/workTrack'], {
@@ -985,40 +868,6 @@ export class InboxPage implements OnInit {
         date: date,
         id: id,
         action: 'edit'
-      }
-    });
-  }
-
-  MathMin(a: number, b: number): number {
-    return Math.min(a, b);
-  }
-
-  markAsRead(notification: InboxNotification) {
-    this.inboxService.markAsRead(notification.notification_id).subscribe({
-      next: () => {
-        notification.is_read = 1;
-        this.unreadCount = Math.max(0, this.unreadCount - 1);
-        this.toaster.showSuccess('Notification marked as read');
-        if (this.selectedTab === 'Unread') {
-          this.loadNotifications(null, true);
-        }
-      },
-      error: (err: any) => {
-        console.error('Failed to mark read', err);
-        this.toaster.showError('Failed to mark notification as read');
-      }
-    });
-  }
-
-  markAllAsRead() {
-    this.inboxService.markAllAsRead().subscribe({
-      next: () => {
-        this.toaster.showSuccess('All notifications marked as read');
-        this.loadNotifications(null, true);
-      },
-      error: (err: any) => {
-        console.error('Failed to mark all as read', err);
-        this.toaster.showError('Failed to mark all notifications as read');
       }
     });
   }

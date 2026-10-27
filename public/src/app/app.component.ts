@@ -140,26 +140,24 @@ export class AppComponent implements OnInit, OnDestroy {
   }
 
   private fetchUnreadInboxCount() {
-    if (!this.isLoginPage && this.routeGuardService.isLoggedIn) {
+    if (!this.isLoginPage && this.routeGuardService.isLoggedIn && !this.currentUrl.includes('/inbox')) {
       this.inboxService.getNotifications({ page: 1, limit: 1 }).subscribe({
         next: (res) => {
           if (res && res.success) {
             const role = (this.userRole || '').toLowerCase();
             if (role === 'employee') {
-              const rejected = res.stats?.rejected || 0;
-              const unread = res.unreadCount || 0;
-              this.unreadInboxCount = Math.max(unread, rejected);
+              this.unreadInboxCount = res.stats?.rejected || 0;
             } else {
-              this.unreadInboxCount = res.unreadCount || 0;
+              this.unreadInboxCount = res.stats?.pending || 0;
             }
             this.cdr.detectChanges();
           }
         },
         error: (err) => {
-          console.warn('Could not fetch inbox unread count:', err);
+          console.warn('Could not fetch inbox count:', err);
         }
       });
-    } else {
+    } else if (this.isLoginPage || !this.routeGuardService.isLoggedIn) {
       this.unreadInboxCount = 0;
     }
   }
@@ -196,7 +194,6 @@ export class AppComponent implements OnInit, OnDestroy {
       return this.currentUrl.toLowerCase().includes(child.url.toLowerCase());
     });
   }
-
 
   /**
    * Get custom SVG icon path for a menu item

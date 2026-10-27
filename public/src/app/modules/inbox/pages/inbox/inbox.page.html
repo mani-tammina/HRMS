@@ -8,18 +8,12 @@
     <!-- Top Header Bar with Brand & Actions -->
     <div class="HRMS-inbox-header">
       <div class="header-top-row">
-        <!-- Top Primary Tabs Bar on Left (TAKE ACTION, NOTIFICATIONS, ARCHIVE) -->
+        <!-- Top Primary Tabs Bar on Left (TAKE ACTION, ARCHIVE / REJECTED REQUESTS) -->
         <div class="top-navigation-tabs">
           <button class="top-nav-tab" *ngIf="!isEmployee"
-            [class.active]="selectedTab !== 'Unread' && selectedTab !== 'Archived'" (click)="selectTab('All')">
+            [class.active]="selectedTab !== 'Archived'" (click)="selectTab('All')">
             TAKE ACTION <span class="tab-badge-text">({{ stats.pending || stats.totalRequests || 0 }})</span>
-            <div class="tab-indicator" *ngIf="selectedTab !== 'Unread' && selectedTab !== 'Archived'"></div>
-          </button>
-
-          <button class="top-nav-tab" *ngIf="!isEmployee" [class.active]="selectedTab === 'Unread'"
-            (click)="selectTab('Unread')">
-            NOTIFICATIONS <span class="tab-badge-text" *ngIf="unreadCount > 0">({{ unreadCount }})</span>
-            <div class="tab-indicator" *ngIf="selectedTab === 'Unread'"></div>
+            <div class="tab-indicator" *ngIf="selectedTab !== 'Archived'"></div>
           </button>
 
           <button class="top-nav-tab" *ngIf="isEmployee" [class.active]="selectedTab === 'Rejected'"
@@ -34,7 +28,7 @@
           </button>
         </div>
 
-        <!-- Action buttons on Right side (No search box) -->
+        <!-- Action buttons on Right side -->
         <div class="header-right">
           <!-- Action buttons for HR/Manager -->
           <!-- HR-Only Upload Actions -->
@@ -105,7 +99,6 @@
             </div>
           </div>
 
-          <button class="btn btn-header-outline" (click)="markAllAsRead()">Mark all as read</button>
           <button class="btn btn-header-primary" (click)="loadNotifications(null, true)">Refresh</button>
         </div>
       </div>
@@ -120,7 +113,7 @@
 
         <!-- Employee View Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="isEmployee">
-          <!-- Rejected Requests (employee-facing rejection notifications) -->
+          <!-- Rejected Requests -->
           <div class="sidebar-menu-item sidebar-menu-item--rejected" [class.active]="selectedTab === 'Rejected'"
             (click)="selectTab('Rejected')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -250,7 +243,7 @@
 
       <!-- Column 2: Items List -->
       <div class="column-items-list">
-        <!-- Top bar of Column 2 (No checkboxes) -->
+        <!-- Top bar of Column 2 -->
         <div class="list-column-header">
           <div class="header-title-left">
             <span class="list-title-text">
@@ -263,7 +256,6 @@
                 <ng-container *ngSwitchCase="'Attendance'">ATTENDANCE REGULARIZATION</ng-container>
                 <ng-container *ngSwitchCase="'Timesheet'">TIMESHEET REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Resignation'">EXIT REQUESTS</ng-container>
-                <ng-container *ngSwitchCase="'Unread'">UNREAD NOTIFICATIONS</ng-container>
                 <ng-container *ngSwitchCase="'Archived'">ARCHIVED REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Approved'">APPROVED REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Rejected'">REJECTED REQUESTS</ng-container>
@@ -294,7 +286,7 @@
           <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search requests..." />
         </div>
 
-        <!-- Scrollable List of Cards (No checkboxes on cards) -->
+        <!-- Scrollable List of Cards -->
         <div class="scrollable-cards-wrapper">
           <div class="skeleton-list" *ngIf="loading && page === 1">
             <div class="skeleton-card" *ngFor="let item of [1, 2, 3]">
@@ -310,17 +302,17 @@
           </app-notification-empty>
 
           <div class="request-cards-stack" *ngIf="notifications.length > 0">
-            <div class="request-card-item" *ngFor="let notification of notifications"
+            <div class="request-card-item" *ngFor="let notification of notifications; trackBy: trackByNotificationId"
               [class.active]="selectedNotification?.notification_id === notification.notification_id"
-              [class.unread]="notification.is_read === 0"
-              [ngClass]="getCardBorderClass(notification)"
+              [ngClass]="notification._cardBorderClass || getCardBorderClass(notification)"
               (click)="selectNotification(notification)">
 
               <div class="card-avatar-wrapper">
-                <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)"
+                <img *ngIf="notification._avatarUrl || getProfileImage(notification)"
+                  [src]="notification._avatarUrl || getProfileImage(notification)"
                   (error)="onProfileImageError(notification)" class="avatar-img" />
-                <div *ngIf="!getProfileImage(notification)" class="avatar-circle">
-                  {{ getInitials(notification.employee_name) }}
+                <div *ngIf="!(notification._avatarUrl || getProfileImage(notification))" class="avatar-circle">
+                  {{ notification._initials || getInitials(notification.employee_name) }}
                 </div>
               </div>
 
@@ -328,17 +320,17 @@
                 <div class="card-header-line">
                   <span class="employee-name">{{ notification.employee_name }}</span>
                   <div class="card-meta-right">
-                    <span class="card-status-badge" [ngClass]="getStatusBadgeClass(notification.status)">
+                    <span class="card-status-badge" [ngClass]="notification._statusBadgeClass || getStatusBadgeClass(notification.status)">
                       {{ notification.status || 'Pending' }}
                     </span>
-                    <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+                    <span class="time-ago">{{ notification._timeAgo || getTimeAgo(notification.created_at) }}</span>
                   </div>
                 </div>
                 <div class="request-title-line">
-                  {{ getDisplayRequestType(notification) }}: {{ getCardShortSummary(notification) }}
+                  {{ notification._displayType || getDisplayRequestType(notification) }}: {{ notification._shortSummary || getCardShortSummary(notification) }}
                 </div>
                 <div class="request-desc-snippet">
-                  {{ getParsedMetadata(notification.metadata).reason || notification.description || 'No additional details provided' }}
+                  {{ (notification._parsedMeta || getParsedMetadata(notification.metadata)).reason || notification.description || 'No additional details provided' }}
                 </div>
               </div>
             </div>
@@ -389,7 +381,7 @@
                     </button>
                   </div>
                   <span class="sub-timestamp">Requested by {{ selectedNotification.employee_name }} on {{
-                    formatDate(selectedNotification.created_at) }} 06:31 pm</span>
+                    formatDate(selectedNotification.created_at) }}</span>
                 </div>
               </div>
             </div>
@@ -504,18 +496,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Bottom Action Bar for Rejected Timesheets -->
-          <!-- <div class="reader-bottom-action-bar resubmit-action-bar" *ngIf="selectedNotification.status === 'Rejected' && selectedNotification.request_type === 'Timesheet Request'">
-            <div class="action-status-hint">
-              <ion-icon name="alert-circle-outline"></ion-icon>
-              <span>Modify your work log and resubmit report for this date.</span>
-            </div>
-            <button class="btn-primary-resubmit" (click)="navigateToResubmitWorkTrack(selectedNotification)">
-              <ion-icon name="create-outline"></ion-icon>
-              <span>Edit & Resubmit Report</span>
-            </button>
-          </div> -->
 
           <!-- Bottom Action & Comment Footer Bar -->
           <div class="reader-bottom-action-bar" *ngIf="selectedNotification.status === 'Pending'">

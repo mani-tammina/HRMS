@@ -37,6 +37,7 @@ export class InboxService {
     sortField?: string;
     sortOrder?: 'ASC' | 'DESC';
     viewAll?: boolean;
+    skipStats?: boolean;
   }): Observable<{ success: boolean; data: InboxNotification[]; total: number; unreadCount: number; stats?: any }> {
     let httpParams = new HttpParams()
       .set('page', params.page.toString())
@@ -59,6 +60,9 @@ export class InboxService {
     }
     if (params.viewAll !== undefined) {
       httpParams = httpParams.set('viewAll', params.viewAll ? 'true' : 'false');
+    }
+    if (params.skipStats !== undefined) {
+      httpParams = httpParams.set('skipStats', params.skipStats ? 'true' : 'false');
     }
 
     return this.http.get<{ success: boolean; data: InboxNotification[]; total: number; unreadCount: number; stats?: any }>(
@@ -93,7 +97,9 @@ export class InboxService {
   }
 
   deleteNotification(id: number): Observable<any> {
-    return this.http.delete(`${this.BASE_URL}/${id}`, { headers: this.getHeaders() });
+    return this.http.delete(`${this.BASE_URL}/${id}`, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   actionAttendanceRegularization(payload: {
@@ -101,7 +107,9 @@ export class InboxService {
     action: 'Approve' | 'Reject';
     remarks?: string;
   }): Observable<any> {
-    return this.http.post(`${this.BASE_URL}/attendance/action`, payload, { headers: this.getHeaders() });
+    return this.http.post(`${this.BASE_URL}/attendance/action`, payload, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   uploadMonthlyAttendance(formData: FormData): Observable<any> {
