@@ -240,13 +240,40 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     });
   }
 
-  private leaveDetailsMap: Map<string, { leaveType: string; isHalfDay: boolean; halfDaySession: string; typeCode: string; halfCode: string }> = new Map();
+  private leaveDetailsMap: Map<string, {
+    leaveType: string;
+    isHalfDay: boolean;
+    halfDaySession: string;
+    typeCode: string;
+    halfCode: string;
+    status: string;
+    isPending: boolean;
+  }> = new Map();
 
   private processLeavesIntoMap(leaves: MyLeave[]) {
     this.leaveDaysMap = new Map();
     this.leaveDetailsMap = new Map();
-    const approvedLeaves = leaves.filter(l => (l.status || '').toUpperCase() === 'APPROVED');
-    approvedLeaves.forEach(leave => {
+    if (!Array.isArray(leaves)) return;
+
+    // Filter valid leaves: include both APPROVED and PENDING, exclude REJECTED and CANCELLED
+    const validLeaves = leaves.filter(l => {
+      const s = (l.status || '').toUpperCase();
+      const rawType = (l as any).type_code || (l as any).type_name || l.leave_type || '';
+      const upper = String(rawType).toUpperCase();
+      if (upper === 'WFH' || upper === 'REMOTE') return false;
+      return s === 'APPROVED' || s === 'PENDING';
+    });
+
+    // Sort: PENDING first, APPROVED last so that APPROVED takes precedence if both coincide
+    validLeaves.sort((a, b) => {
+      const sA = (a.status || '').toUpperCase();
+      const sB = (b.status || '').toUpperCase();
+      if (sA === 'PENDING' && sB === 'APPROVED') return -1;
+      if (sA === 'APPROVED' && sB === 'PENDING') return 1;
+      return 0;
+    });
+
+    validLeaves.forEach(leave => {
       let rawType = (leave as any).type_code || (leave as any).type_name || leave.leave_type || 'Leave';
       let code = String(rawType).trim().toUpperCase();
       if (code.includes('SICK') || code === 'SL') code = 'SL';
@@ -266,6 +293,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const leaveType = (leave as any).type_name || leave.leave_type || code;
       const isHalfDay = !!(leave.is_half_day || (leave as any).is_half_day);
       const halfDaySession = leave.half_day_session || (leave as any).half_day_session || '';
+      const leaveStatus = (leave.status || '').toUpperCase();
+      const isPending = leaveStatus === 'PENDING';
 
       const fromRaw = leave.start_date || leave.from_date;
       const toRaw = leave.end_date || leave.to_date || fromRaw;
@@ -289,7 +318,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           halfCode = 'HD';
         }
         this.leaveDaysMap.set(dStr, leaveType);
-        this.leaveDetailsMap.set(dStr, { leaveType, isHalfDay, halfDaySession, typeCode: code, halfCode });
+        this.leaveDetailsMap.set(dStr, {
+          leaveType,
+          isHalfDay,
+          halfDaySession,
+          typeCode: code,
+          halfCode,
+          status: leaveStatus,
+          isPending
+        });
         d.setDate(d.getDate() + 1);
       }
     });
@@ -412,6 +449,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const isWeekOff = weekOffDays.includes(day);
           const holiday = this.holidaysMap.get(date);
 
+          const hasRealLogs = existing && (
+            (existing.punches && existing.punches.length > 0) ||
+            existing.first_check_in ||
+            (existing.total_work_hours && parseFloat(existing.total_work_hours) > 0) ||
+            (existing.gross_hours && parseFloat(existing.gross_hours) > 0)
+          );
+
           if (leaveDetail && leaveDetail.isHalfDay) {
             return {
               ...(existing || {}),
@@ -419,11 +463,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               status: 'half-day',
               leaveType: leaveDetail.leaveType,
               halfCode: leaveDetail.halfCode,
-              noLogs: !existing
+              leaveStatus: leaveDetail.status,
+              isLeavePending: leaveDetail.isPending,
+              noLogs: !hasRealLogs
             };
           }
 
-          if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
+          if (leaveType) {
+            return {
+              ...(existing || {}),
+              attendance_date: date,
+              status: 'on-leave',
+              leaveType,
+              leaveStatus: leaveDetail?.status,
+              isLeavePending: leaveDetail?.isPending,
+              noLogs: !hasRealLogs
+            };
+          }
 
           if (holiday) {
             const isToday = this.islogToday(date);
@@ -1058,8 +1114,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     const statusMap: { [key: string]: string } = {
-      present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
-      late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
+      present: 'On Time', absent: 'Absent',
+      'half-day': log.isLeavePending ? 'Half Day (Pending)' : 'Half Day',
+      late: 'Late Arrival',
+      'on-leave': log.isLeavePending ? 'On Leave (Pending)' : 'On Leave',
+      'not-in-yet': 'NOT-IN-YET',
       penalty: 'Penalty', holiday: 'Holiday', weekend: 'Week Off'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {

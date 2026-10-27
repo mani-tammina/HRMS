@@ -276,9 +276,18 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   }
 
   processLeaves(leaves: MyLeave[]) {
-    const approvedLeaves = leaves.filter(l => (l.status || '').toUpperCase() === 'APPROVED');
-    approvedLeaves.forEach(leave => {
-      const leaveType = leave.type_name || leave.type_code || leave.leave_type || 'Leave';
+    if (!Array.isArray(leaves)) return;
+    const activeLeaves = leaves.filter(l => {
+      const s = (l.status || '').toUpperCase();
+      const rawType = (l as any).type_code || (l as any).type_name || l.leave_type || '';
+      const upper = String(rawType).toUpperCase();
+      if (upper === 'WFH' || upper === 'REMOTE') return false;
+      return s === 'APPROVED' || s === 'PENDING';
+    });
+    activeLeaves.forEach(leave => {
+      const isPending = (leave.status || '').toUpperCase() === 'PENDING';
+      const baseType = leave.type_name || leave.type_code || leave.leave_type || 'Leave';
+      const leaveType = isPending ? `${baseType} (Pending Approval)` : baseType;
       const fromRaw = leave.start_date || leave.from_date;
       const toRaw = leave.end_date || leave.to_date || fromRaw;
       if (!fromRaw) return;

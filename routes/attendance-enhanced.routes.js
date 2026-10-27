@@ -1222,7 +1222,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     `SELECT l.*, lt.type_name, lt.type_code 
      FROM leaves l 
      JOIN leave_types lt ON l.leave_type_id = lt.id 
-     WHERE l.employee_id = ? AND l.status = 'approved' AND ? BETWEEN l.start_date AND l.end_date`,
+     WHERE l.employee_id = ? AND l.status IN ('approved', 'pending') AND ? BETWEEN l.start_date AND l.end_date`,
     [employeeId, date]
   );
 
@@ -1770,7 +1770,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     SELECT l.*, lt.type_code, lt.is_paid 
     FROM leaves l 
     INNER JOIN leave_types lt ON l.leave_type_id = lt.id 
-    WHERE l.employee_id = ? AND l.status = 'approved'
+    WHERE l.employee_id = ? AND l.status IN ('approved', 'pending')
   `, [targetEmpId]);
 
   const attMap = new Map();
@@ -1849,13 +1849,12 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     });
 
     if (todaysLeaves.length > 0) {
-      todaysLeaves.forEach(l => {
-        const weight = l.is_half_day ? 0.5 : 1.0;
-        leave_days += weight;
-        if (l.type_code === 'LOP' || l.type_code === 'UL') {
-          lop_from_leaves += weight;
-        }
-      });
+      const activeLeave = todaysLeaves.find(l => (l.status || '').toLowerCase() === 'approved') || todaysLeaves[0];
+      const weight = activeLeave.is_half_day ? 0.5 : 1.0;
+      leave_days += weight;
+      if (activeLeave.type_code === 'LOP' || activeLeave.type_code === 'UL') {
+        lop_from_leaves += weight;
+      }
     } else if (matchingHoliday) {
       holiday_days++;
     } else if (weekOffDays.includes(weekday)) {
@@ -2247,7 +2246,7 @@ router.get("/report/team", auth, async (req, res) => {
         FROM leaves l
         INNER JOIN employees e ON l.employee_id = e.id
         WHERE l.employee_id IN (?)
-          AND l.status = 'approved'
+          AND l.status IN ('approved', 'pending')
           AND ? BETWEEN l.start_date AND l.end_date`,
       [teamIds, targetDate]
     );

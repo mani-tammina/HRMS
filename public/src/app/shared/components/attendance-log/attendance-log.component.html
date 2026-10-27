@@ -37,18 +37,22 @@
 
   <!-- Rows -->
   <ion-row *ngFor="let log of currentMonthreport" class="table-row"
-    [ngClass]="{'weekoff-row': log.status === 'weekend', 'holiday-row': log.status === 'holiday', 'leave-row': log.status === 'on-leave', 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
+    [ngClass]="{'weekoff-row': log.status === 'weekend', 'holiday-row': log.status === 'holiday', 'leave-row': log.status === 'on-leave', 'leave-pending-row': log.status === 'on-leave' && log.isLeavePending, 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
       <ng-container *ngIf="log.status === 'holiday'">
         <span class="badge-holiday" [title]="log.holidayName || 'Holiday'">HOLIDAY</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'on-leave'">
-        <span class="badge-leave">{{ getLeaveBadgeText(log) }}</span>
+        <span class="badge-leave" [class.badge-pending]="log.isLeavePending" [title]="log.isLeavePending ? ((log.leaveType || 'Leave') + ' (Pending Approval)') : (log.leaveType || 'Leave')">{{ getLeaveBadgeText(log) }}</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'half-day'">
         <span class="badge-leave"
-          style="background: #e2e8f0; color: #0f172a; font-weight: 700; border: 1px solid #cbd5e1;">
+          [style.background]="log.isLeavePending ? '#fef3c7' : '#e2e8f0'"
+          [style.color]="log.isLeavePending ? '#b45309' : '#0f172a'"
+          [style.borderColor]="log.isLeavePending ? '#fde68a' : '#cbd5e1'"
+          [title]="log.isLeavePending ? ((log.leaveType || 'Half Day') + ' (Pending Approval)') : (log.leaveType || 'Half Day')"
+          style="font-weight: 700; border: 1px solid;">
           {{ getHalfDayNotation(log) }}
         </span>
       </ng-container>
@@ -76,8 +80,10 @@
         <ion-icon name="sparkles" style="color:#10b981;font-size:13px;"></ion-icon>
         {{ log.holidayName || 'Holiday' }}
       </p>
-      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;">{{ log.leaveType
-        || log.notes || 'Leave' }}</p>
+      <p *ngIf="log.status === 'on-leave'" style="color:#333;font-size:11px;font-weight:550;margin:0;display:flex;align-items:center;gap:6px;">
+        <span>{{ log.leaveType || log.notes || 'Leave' }}</span>
+        <span *ngIf="log.isLeavePending" style="color:#d97706;font-size:10px;font-weight:600;background:#fef3c7;padding:2px 6px;border-radius:4px;border:1px solid #fde68a;">Pending Approval</span>
+      </p>
     </ion-col>
 
     <ion-col size="3"

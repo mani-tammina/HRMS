@@ -142,6 +142,11 @@
     &.leave-row {
       background: vars.$color-primary-light;
       border-left: 4px solid vars.$color-primary;
+
+      &.leave-pending-row {
+        background: #fffbeb;
+        border-left: 4px solid #f59e0b;
+      }
     }
 
     &.penalty-row {
@@ -173,6 +178,11 @@
   margin-left: 8px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  &.badge-pending {
+    background: #d97706;
+    color: #fff;
+  }
 }
 
 .badge-woff {
