@@ -166,20 +166,14 @@ function getShiftDateForPunch(shift, punchDateOrTime) {
   const [h, m] = timeStr.split(':').map(Number);
   const hourVal = h + (m || 0) / 60;
 
-  // Determine cutoff hour: for overnight shifts, cutoff is midday (~12:00); for day shifts, morning cutoff (~07:00)
-  let cutoff = 7.0;
+  // Determine cutoff hour ONLY for overnight shifts (e.g. shifts spanning midnight)
   if (shift && shift.is_overnight) {
-    cutoff = shift.cutoff_hour || 12.0;
-  } else if (shift && shift.morning_cutoff_hour) {
-    cutoff = shift.morning_cutoff_hour;
-  } else if (shift && shift.start_time) {
-    cutoff = getMorningCutoffHour(shift.start_time);
-  }
-
-  if (hourVal < cutoff) {
-    // Early morning punch belonging to shift that started on previous day
-    const prev = new Date(d.getTime() - 24 * 60 * 60 * 1000);
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(prev);
+    const cutoff = shift.cutoff_hour || 12.0;
+    if (hourVal < cutoff) {
+      // Early morning punch belonging to overnight shift that started on previous day
+      const prev = new Date(d.getTime() - 24 * 60 * 60 * 1000);
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(prev);
+    }
   }
 
   return calDateStr;

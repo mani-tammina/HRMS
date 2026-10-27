@@ -118,43 +118,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
   private shouldHideNextDay(attendanceMap?: Map<string, any>): boolean {
-    const today = new Date();
-    const todayStr = this.formatDateOnly(today);
-    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const yesterdayStr = this.formatDateOnly(yesterday);
-
-    // 1. Calculate auto clock-out cutoff time for yesterday's shift
-    let autoOutMs = 0;
-    if (this.todayResponse?.shiftTiming?.autoClockOutTime) {
-      autoOutMs = new Date(this.todayResponse.shiftTiming.autoClockOutTime).getTime();
-    } else {
-      const endTimeStr = this.shiftPolicy?.end_time || '18:00:00';
-      const [eH, eM, eS] = endTimeStr.split(':').map(Number);
-      const [yY, yM, yD] = yesterdayStr.split('-').map(Number);
-      const shiftEnd = new Date(yY, yM - 1, yD, eH || 18, eM || 0, eS || 0);
-      const startTimeStr = this.shiftPolicy?.start_time || '09:00:00';
-      if (startTimeStr > endTimeStr) {
-        shiftEnd.setDate(shiftEnd.getDate() + 1);
-      }
-      autoOutMs = shiftEnd.getTime() + 12 * 60 * 60 * 1000;
-    }
-
-    const now = Date.now();
-    const isBeforeAutoClockOut = autoOutMs > 0 ? now < autoOutMs : false;
-
-    // Check if employee clocked in on yesterday (e.g. 27/10/2026)
-    const yesterdayRecord = attendanceMap?.get(yesterdayStr);
-    const hasYesterdayShift = !!(
-      (yesterdayRecord && (yesterdayRecord.first_check_in || (yesterdayRecord.punches && yesterdayRecord.punches.length > 0))) ||
-      (this.todayResponse?.attendance && this.formatDateOnly(this.todayResponse.attendance.attendance_date) === yesterdayStr)
-    );
-
-    // If user clocked in on yesterday, even if they clocked out on the next day,
-    // show ONLY yesterday in the attendance log until the auto clock out!
-    if (hasYesterdayShift && isBeforeAutoClockOut) {
-      return true;
-    }
-
+    // Keep today visible at all times so current punches and logs are always accessible
     return false;
   }
 
@@ -865,17 +829,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         return '1st Floor SVS Towers';
       }
 
-      // 2. Remote punches: check punch-level location or notes first so it separates from Office punches!
-      if (lowerLoc.includes('remote') || lowerNotes.includes('remote') || (mode.toLowerCase() === 'remote' && !lowerLoc.includes('office') && !lowerNotes.includes('office'))) {
-        return 'Remote Clock In';
-      }
-
-      // 3. Work From Home punches: check punch-level location or notes first
-      if (lowerLoc.includes('home') || lowerNotes.includes('wfh') || (mode.toLowerCase() === 'wfh' && !lowerLoc.includes('office') && !lowerNotes.includes('office'))) {
-        return 'Work From Home';
-      }
-
-      // 4. Default for Web / Office punches
+      // All Web / Remote / WFH punches unify under 'Web Clock In' so that
+      // Clock In (Office/WFH) and Clock Out (Office/Remote/WFH) pair together properly
       return 'Web Clock In';
     };
 

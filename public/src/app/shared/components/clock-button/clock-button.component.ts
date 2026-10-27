@@ -46,7 +46,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     <!-- Clock Out Button Group (when clocked in) -->
     <div *ngIf="isClockedIn" class="row-center">
       <!-- Office Out -->
-      <button *ngIf="workMode === 'Office' && (!policyPermissions || policyPermissions.web_clockin_enabled !== false)" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading || initialLoading">
+      <button *ngIf="workMode === 'Office' || (!workMode && workMode !== 'Remote' && workMode !== 'WFH')" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading || initialLoading">
         <div class="inner-pulse red"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>

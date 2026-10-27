@@ -277,10 +277,13 @@ router.post("/punch-in", auth, async (req, res) => {
       );
       if (openPunch.length > 0 && openPunch[0].punch_type === 'in' && openPunch[0].attendance_date) {
         const openDate = toMySQLDate(openPunch[0].attendance_date);
-        const cutoffH = effectiveShift?.is_overnight ? (effectiveShift?.cutoff_hour || 12) : (effectiveShift?.morning_cutoff_hour || 7);
-        const curH = new Date().getHours() + new Date().getMinutes() / 60;
-        if (openDate < shiftDate && curH < cutoffH) {
-          shiftDate = openDate;
+        // Only bind to previous date if employee is on an actual overnight shift
+        if (effectiveShift?.is_overnight) {
+          const cutoffH = effectiveShift?.cutoff_hour || 12;
+          const curH = new Date().getHours() + new Date().getMinutes() / 60;
+          if (openDate < shiftDate && curH < cutoffH) {
+            shiftDate = openDate;
+          }
         }
       }
     } catch (_) {}
@@ -342,7 +345,7 @@ router.post("/punch-in", auth, async (req, res) => {
       if (prevAttDate && prevAttDate < shiftDate) {
         // Auto-close past day's open session so employee can clock into their new day
         try {
-          await autoClockOutService.processAutoClockOutForEmployee(c, emp.id, prevAttDate);
+          await autoClockOutService.processAutoClockOutForEmployee(c, emp.id, prevAttDate, true);
         } catch (pastErr) {
           console.warn("[PunchIn] Auto-close past attendance warning:", pastErr.message);
         }
@@ -819,10 +822,13 @@ router.get("/today", auth, async (req, res) => {
       );
       if (openPunch.length > 0 && openPunch[0].punch_type === 'in' && openPunch[0].attendance_date) {
         const openDate = toMySQLDate(openPunch[0].attendance_date);
-        const cutoffH = effectiveShift?.is_overnight ? (effectiveShift?.cutoff_hour || 12) : (effectiveShift?.morning_cutoff_hour || 7);
-        const curH = new Date().getHours() + new Date().getMinutes() / 60;
-        if (openDate < shiftDate && curH < cutoffH) {
-          shiftDate = openDate;
+        // Only bind to previous date if employee is on an actual overnight shift
+        if (effectiveShift?.is_overnight) {
+          const cutoffH = effectiveShift?.cutoff_hour || 12;
+          const curH = new Date().getHours() + new Date().getMinutes() / 60;
+          if (openDate < shiftDate && curH < cutoffH) {
+            shiftDate = openDate;
+          }
         }
       }
     } catch (_) {}
@@ -978,6 +984,8 @@ router.get("/today", auth, async (req, res) => {
       attendanceRecord.first_check_in = punches[0]?.punch_time || attendanceRecord.first_check_in;
       if (lastOverallPunchType === 'out') {
         attendanceRecord.last_check_out = punches[punches.length - 1]?.punch_time;
+      } else {
+        attendanceRecord.last_check_out = null;
       }
       attendanceRecord.gross_hours = todayMetrics.grossHours;
       attendanceRecord.total_work_hours = todayMetrics.totalWorkHours;

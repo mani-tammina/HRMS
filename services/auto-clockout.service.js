@@ -127,7 +127,10 @@ class AutoClockOutService {
     // Auto clock-out cutoff is Shift Ending Time + 12 hours
     const autoClockOutTime = new Date(shiftEnd.getTime() + 12 * 60 * 60 * 1000);
     const now = new Date();
-    const isOverdue = now >= autoClockOutTime;
+    // Safety guard: A punch must have been active for at least 4 hours before it can ever be considered overdue.
+    // This ensures freshly created clock-ins are NEVER auto-clocked out immediately.
+    const activeDurationMs = now.getTime() - pIn.getTime();
+    const isOverdue = now >= autoClockOutTime && activeDurationMs >= (4 * 60 * 60 * 1000);
 
     return {
       shiftStartTime: shiftStart,
@@ -256,7 +259,7 @@ class AutoClockOutService {
    * @param {string|Date} [targetDate] - Optional specific date (YYYY-MM-DD)
    * @returns {Promise<Object|null>} Auto clock-out result or null
    */
-  async processAutoClockOutForEmployee(connection, employeeId, targetDate = null) {
+  async processAutoClockOutForEmployee(connection, employeeId, targetDate = null, forcePastClose = false) {
     // 1. Fetch employee shift policy and project shift if any
     const [empRows] = await connection.query(`
       SELECT 
@@ -336,12 +339,13 @@ class AutoClockOutService {
       const isPastDate = attDateStr < this.formatToDateOnly(new Date());
 
       const timing = this.calculateShiftAndAutoClockOut(punchInTime, effectiveShift, attDateStr);
+      const shouldAutoClockOut = timing.isOverdue || (forcePastClose && isPastDate);
 
-      if (timing.isOverdue) {
-        // Automatically clock out only after 12-hour grace period after shift end has passed!
+      if (shouldAutoClockOut) {
+        // Automatically clock out past overdue punch or unclosed past shift
         let autoOutDateObj = timing.autoClockOutTime;
-        if (autoOutDateObj <= punchInTime) {
-          autoOutDateObj = new Date(punchInTime.getTime() + 1000);
+        if (autoOutDateObj <= punchInTime || (forcePastClose && autoOutDateObj > new Date())) {
+          autoOutDateObj = timing.shiftEndTime > punchInTime ? timing.shiftEndTime : new Date(punchInTime.getTime() + 1000);
         }
         const autoOutTimeMySQL = this.formatToMySQLDateTime(autoOutDateObj);
         const autoOutDate = this.formatToDateOnly(autoOutDateObj);
