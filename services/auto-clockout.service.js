@@ -7,6 +7,7 @@
 
 const { db } = require('../config/database');
 const cron = require('node-cron');
+const { isOvernightShift } = require('../utils/shift-helper');
 
 class AutoClockOutService {
   constructor() {
@@ -105,9 +106,11 @@ class AutoClockOutService {
       shiftStart = new Date(year, month - 1, day, sH || 0, sM || 0, sS || 0);
       shiftEnd = new Date(year, month - 1, day, eH || 0, eM || 0, eS || 0);
 
-      // Handle night/overnight shift where end_time <= start_time (e.g. 21:00 to 06:00 next day)
-      if (shiftEnd <= shiftStart) {
-        shiftEnd.setDate(shiftEnd.getDate() + 1);
+      const isOvernight = isOvernightShift(shiftPolicy.start_time, shiftPolicy.end_time, shiftPolicy.shift_name);
+      if (shiftEnd <= shiftStart || isOvernight) {
+        if (shiftEnd <= shiftStart) {
+          shiftEnd.setDate(shiftEnd.getDate() + 1);
+        }
       }
 
       // Calculate shift duration in hours
@@ -159,9 +162,13 @@ class AutoClockOutService {
         const [bioPunches] = await connection.query(
           `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
            FROM biometric_punches
-           WHERE employee_id = ? AND punch_date = ?
+           WHERE employee_id = ? AND (
+             punch_date = ? 
+             OR (DATE(punch_time) = DATE_ADD(?, INTERVAL 1 DAY) AND HOUR(punch_time) < 7)
+           )
+           AND NOT (DATE(punch_time) = ? AND HOUR(punch_time) < 7 AND punch_date < ?)
            ORDER BY punch_time ASC`,
-          [empId, attDate]
+          [empId, attDate, attDate, attDate, attDate]
         );
         if (bioPunches && bioPunches.length > 0) {
           let bioOpen = false;
@@ -330,12 +337,10 @@ class AutoClockOutService {
 
       const timing = this.calculateShiftAndAutoClockOut(punchInTime, effectiveShift, attDateStr);
 
-      if (timing.isOverdue || isPastDate) {
-        // Automatically clock out!
+      if (timing.isOverdue) {
+        // Automatically clock out only after 12-hour grace period after shift end has passed!
         let autoOutDateObj = timing.autoClockOutTime;
-        if (isPastDate && (autoOutDateObj > new Date() || autoOutDateObj <= punchInTime)) {
-          autoOutDateObj = timing.shiftEndTime > punchInTime ? timing.shiftEndTime : new Date(punchInTime.getTime() + 1000);
-        } else if (autoOutDateObj <= punchInTime) {
+        if (autoOutDateObj <= punchInTime) {
           autoOutDateObj = new Date(punchInTime.getTime() + 1000);
         }
         const autoOutTimeMySQL = this.formatToMySQLDateTime(autoOutDateObj);
@@ -436,7 +441,10 @@ class AutoClockOutService {
       console.error('❌ [AutoClockOut] Error during sweeping pending punches:', err.message);
     } finally {
       if (connection) {
-        try { await connection.end(); } catch (e) { }
+        try {
+          if (typeof connection.release === 'function') connection.release();
+          else if (typeof connection.end === 'function') await connection.end();
+        } catch (e) { }
       }
       this.isProcessing = false;
     }

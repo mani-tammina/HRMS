@@ -8,12 +8,17 @@
 /**
  * Check if a shift is an overnight shift (crosses midnight)
  * E.g., start_time: "19:30:00", end_time: "04:30:00" -> start_time > end_time
+ * Also checks shiftName/shiftType for night/graveyard/overnight keywords.
  *
  * @param {string} startTime - 'HH:mm:ss'
  * @param {string} endTime - 'HH:mm:ss'
+ * @param {string} [shiftName] - Optional shift name
  * @returns {boolean}
  */
-function isOvernightShift(startTime, endTime) {
+function isOvernightShift(startTime, endTime, shiftName = '') {
+  if (shiftName && /night|graveyard|overnight|\bns\b/i.test(shiftName)) {
+    return true;
+  }
   if (!startTime || !endTime) return false;
   const s = String(startTime).slice(0, 5);
   const e = String(endTime).slice(0, 5);
@@ -26,19 +31,41 @@ function isOvernightShift(startTime, endTime) {
  *
  * @param {string} startTime
  * @param {string} endTime
+ * @param {string} [shiftName]
  * @returns {number} cutoff hour (e.g. 12.0)
  */
-function getOvernightCutoffHour(startTime, endTime) {
+function getOvernightCutoffHour(startTime, endTime, shiftName = '') {
   if (!startTime || !endTime) return 12;
   const [sH, sM] = String(startTime).split(':').map(Number);
   const [eH, eM] = String(endTime).split(':').map(Number);
   const startMins = (sH || 0) * 60 + (sM || 0);
   const endMins = (eH || 0) * 60 + (eM || 0);
-  if (startMins <= endMins) return 12; // Not overnight
-  // Daytime gap between end_time and start_time
-  const gap = startMins - endMins;
-  const midMins = endMins + gap / 2;
-  return midMins / 60;
+  if (startMins > endMins) {
+    const gap = startMins - endMins;
+    const midMins = endMins + gap / 2;
+    return midMins / 60;
+  }
+  if (isOvernightShift(startTime, endTime, shiftName)) {
+    return 12;
+  }
+  return 12;
+}
+
+/**
+ * Calculate morning cutoff hour for day shifts.
+ * Punches before this cutoff (e.g. 05:00 AM) belong to the previous day's shift.
+ *
+ * @param {string} startTime
+ * @returns {number} morning cutoff hour (e.g. 7.0 for 07:00 AM)
+ */
+function getMorningCutoffHour(startTime) {
+  if (!startTime) return 7.0;
+  const [sH, sM] = String(startTime).split(':').map(Number);
+  const startHourVal = (sH || 9) + (sM || 0) / 60;
+  if (startHourVal < 7.0) {
+    return Math.max(0, startHourVal - 1.5);
+  }
+  return 7.0;
 }
 
 /**
@@ -72,17 +99,20 @@ async function getEmployeeEffectiveShift(connection, employeeId) {
 
   if (!rows || rows.length === 0) return null;
   const emp = rows[0];
+  const shiftName = emp.project_shift_name || emp.shift_policy_name || 'Standard Day Shift';
   const startTime = emp.project_start_time || emp.start_time || '09:00:00';
   const endTime = emp.project_end_time || emp.end_time || '18:00:00';
-  const isOvernight = isOvernightShift(startTime, endTime);
-  const cutoffHour = isOvernight ? getOvernightCutoffHour(startTime, endTime) : 12;
+  const isOvernight = isOvernightShift(startTime, endTime, shiftName);
+  const cutoffHour = isOvernight ? getOvernightCutoffHour(startTime, endTime, shiftName) : 12;
+  const morningCutoffHour = getMorningCutoffHour(startTime);
 
   return {
-    shift_name: emp.project_shift_name || emp.shift_policy_name || 'Standard Day Shift',
+    shift_name: shiftName,
     start_time: startTime,
     end_time: endTime,
     is_overnight: isOvernight,
     cutoff_hour: cutoffHour,
+    morning_cutoff_hour: morningCutoffHour,
     break_duration_minutes: emp.break_duration_minutes || 60
   };
 }
@@ -90,11 +120,15 @@ async function getEmployeeEffectiveShift(connection, employeeId) {
 /**
  * Determine the shift date ('YYYY-MM-DD') for a given punch timestamp and shift policy.
  *
- * If shift is overnight (e.g. 19:30 to 04:30):
- * - If punch time is before the morning cutoff (e.g. < 12:00:00), it belongs to previous calendar day!
+ * For overnight shifts:
+ * - If punch time is before midday cutoff (e.g. < 12:00:00), it belongs to previous calendar day!
  * - If punch time is after cutoff (>= 12:00:00), it belongs to current calendar day!
  *
- * @param {Object|null} shift - Shift policy object with is_overnight and cutoff_hour
+ * For day shifts (e.g. 10:00 AM to 7:00 PM):
+ * - If employee worked late into next day morning (e.g. punch at 04:42 AM or 05:00 AM < 07:00:00),
+ *   it belongs to previous calendar day!
+ *
+ * @param {Object|null} shift - Shift policy object with is_overnight, cutoff_hour, morning_cutoff_hour
  * @param {Date|string} punchDateOrTime - Timestamp or Date object
  * @returns {string} 'YYYY-MM-DD'
  */
@@ -120,9 +154,6 @@ function getShiftDateForPunch(shift, punchDateOrTime) {
   }
 
   const calDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
-  if (!shift || !shift.is_overnight) {
-    return calDateStr;
-  }
 
   const timeStr = new Intl.DateTimeFormat('en-GB', {
     timeZone: 'Asia/Kolkata',
@@ -134,7 +165,16 @@ function getShiftDateForPunch(shift, punchDateOrTime) {
 
   const [h, m] = timeStr.split(':').map(Number);
   const hourVal = h + (m || 0) / 60;
-  const cutoff = shift.cutoff_hour || 12;
+
+  // Determine cutoff hour: for overnight shifts, cutoff is midday (~12:00); for day shifts, morning cutoff (~07:00)
+  let cutoff = 7.0;
+  if (shift && shift.is_overnight) {
+    cutoff = shift.cutoff_hour || 12.0;
+  } else if (shift && shift.morning_cutoff_hour) {
+    cutoff = shift.morning_cutoff_hour;
+  } else if (shift && shift.start_time) {
+    cutoff = getMorningCutoffHour(shift.start_time);
+  }
 
   if (hourVal < cutoff) {
     // Early morning punch belonging to shift that started on previous day
@@ -157,6 +197,7 @@ function addDaysToDate(dateStr, days) {
 module.exports = {
   isOvernightShift,
   getOvernightCutoffHour,
+  getMorningCutoffHour,
   getEmployeeEffectiveShift,
   getShiftDateForPunch,
   addDaysToDate
