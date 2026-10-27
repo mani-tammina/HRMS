@@ -315,22 +315,35 @@ router.post("/punch-in", auth, async (req, res) => {
 
     if (attendance.length === 0) {
       let approvalStatus = 'approved';
-      if (work_mode === 'Remote') {
-        // check if policy requires approval for remote punch
-        const [empRows] = await c.query(
-          "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
-          [emp.id]
+      if (['Remote', 'WFH'].includes(work_mode)) {
+        const [leaveRows] = await c.query(
+          `SELECT status FROM leaves 
+           WHERE employee_id = ? 
+             AND leave_type = ? 
+             AND DATE(start_date) <= ? 
+             AND DATE(end_date) >= ? 
+           ORDER BY id DESC LIMIT 1`,
+          [emp.id, work_mode, shiftDate, shiftDate]
         );
-        if (empRows.length > 0 && empRows[0].attendance_capture_scheme_id) {
-          const [policyRows] = await c.query(
-            "SELECT remote_punch_settings FROM attendance_capture_schemes WHERE id = ?",
-            [empRows[0].attendance_capture_scheme_id]
+        if (leaveRows.length > 0) {
+          approvalStatus = leaveRows[0].status === 'approved' ? 'approved' : 'pending';
+        } else {
+          // If no leave request found, check policy or set pending
+          const [empRows] = await c.query(
+            "SELECT attendance_capture_scheme_id FROM employees WHERE id = ?",
+            [emp.id]
           );
-          if (policyRows.length > 0) {
-            let remote = {};
-            try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) { }
-            if (remote.remote_clockin_approval_required === 'yes') {
-              approvalStatus = 'pending';
+          if (empRows.length > 0 && empRows[0].attendance_capture_scheme_id) {
+            const [policyRows] = await c.query(
+              "SELECT remote_punch_settings, wfh_settings FROM attendance_capture_schemes WHERE id = ?",
+              [empRows[0].attendance_capture_scheme_id]
+            );
+            if (policyRows.length > 0) {
+              let remote = {};
+              try { remote = JSON.parse(policyRows[0].remote_punch_settings); } catch (e) { }
+              if (work_mode === 'Remote' && remote.remote_clockin_approval_required === 'yes') {
+                approvalStatus = 'pending';
+              }
             }
           }
         }
@@ -346,7 +359,7 @@ router.post("/punch-in", auth, async (req, res) => {
       attendanceId = result.insertId;
 
       if (approvalStatus === 'pending') {
-        // Trigger inbox notification for approver (we'll notify RM for simplicity)
+        // Trigger inbox notification for approver
         const [rmRows] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [emp.id]);
         if (rmRows.length > 0 && rmRows[0].reporting_manager_id) {
           const approverId = rmRows[0].reporting_manager_id;
@@ -354,7 +367,7 @@ router.post("/punch-in", auth, async (req, res) => {
           if (approverUser.length > 0 && approverUser[0].user_id) {
             await c.query(
               `INSERT INTO inbox_notifications (user_id, sender_id, type, title, message, action_url)
-               VALUES (?, ?, 'approval', 'Remote Punch Approval Request', 'An employee requested remote punch approval.', '/inbox/approvals')`,
+               VALUES (?, ?, 'approval', '${work_mode} Punch Approval Request', 'An employee punched in under ${work_mode} pending approval.', '/inbox/approvals')`,
               [approverUser[0].user_id, req.user.id]
             );
           }
@@ -362,6 +375,22 @@ router.post("/punch-in", auth, async (req, res) => {
       }
     } else {
       attendanceId = attendance[0].id;
+
+      let updateApproval = null;
+      if (['Remote', 'WFH'].includes(work_mode)) {
+        const [leaveRows] = await c.query(
+          `SELECT status FROM leaves 
+           WHERE employee_id = ? 
+             AND leave_type = ? 
+             AND DATE(start_date) <= ? 
+             AND DATE(end_date) >= ? 
+           ORDER BY id DESC LIMIT 1`,
+          [emp.id, work_mode, shiftDate, shiftDate]
+        );
+        if (leaveRows.length > 0) {
+          updateApproval = leaveRows[0].status === 'approved' ? 'approved' : 'pending';
+        }
+      }
 
       // Update first_check_in if this is the actual first punch
       const [punchCount] = await c.query(
@@ -371,13 +400,13 @@ router.post("/punch-in", auth, async (req, res) => {
 
       if (punchCount[0].count === 0) {
         await c.query(
-          `UPDATE attendance SET first_check_in = ?, work_mode = ?, location = ? WHERE id = ?`,
-          [now, work_mode || "Office", location || "Office", attendanceId]
+          `UPDATE attendance SET first_check_in = ?, work_mode = ?, location = ?, approval_status = COALESCE(?, approval_status) WHERE id = ?`,
+          [now, work_mode || "Office", location || "Office", updateApproval, attendanceId]
         );
       } else {
         await c.query(
-          `UPDATE attendance SET work_mode = ?, location = ? WHERE id = ?`,
-          [work_mode || "Office", location || "Office", attendanceId]
+          `UPDATE attendance SET work_mode = ?, location = ?, approval_status = COALESCE(?, approval_status) WHERE id = ?`,
+          [work_mode || "Office", location || "Office", updateApproval, attendanceId]
         );
       }
     }

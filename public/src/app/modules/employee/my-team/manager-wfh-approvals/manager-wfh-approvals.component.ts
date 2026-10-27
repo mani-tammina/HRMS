@@ -41,7 +41,7 @@ export class ManagerWfhApprovalsComponent implements OnInit {
           // Normalize response
           this.pendingWFHRequests = requests.map(req => ({
             ...req,
-            work_mode: req.leave_type === 'WFH' ? 'WFH' : 'WFO'
+            work_mode: req.leave_type === 'WFH' ? 'WFH' : (req.leave_type === 'Remote' ? 'Remote' : req.leave_type || 'WFH')
           }));
         } else {
           this.pendingWFHRequests = [];
@@ -52,7 +52,7 @@ export class ManagerWfhApprovalsComponent implements OnInit {
       },
       error: (error) => {
         console.error('[WFH-APPROVALS] Error:', error);
-        this.showToast('Failed to load pending WFH requests', 'danger');
+        this.showToast('Failed to load pending attendance requests', 'danger');
         this.isLoading = false;
       }
     });
@@ -76,9 +76,10 @@ export class ManagerWfhApprovalsComponent implements OnInit {
   }
 
   async approveWFH(request: any) {
+    const type = request.leave_type || request.work_mode || 'WFH';
     const alert = await this.alertController.create({
-      header: 'Approve WFH Request',
-      message: `Approve ${request.FirstName} ${request.LastName}'s request?`,
+      header: `Approve ${type} Request`,
+      message: `Approve ${request.FirstName} ${request.LastName}'s ${type} request?`,
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         { text: 'Approve', handler: () => this.performApprove(request) }
@@ -88,9 +89,10 @@ export class ManagerWfhApprovalsComponent implements OnInit {
   }
 
   async rejectWFH(request: any) {
+    const type = request.leave_type || request.work_mode || 'WFH';
     const alert = await this.alertController.create({
-      header: 'Reject WFH Request',
-      message: `Are you sure you want to reject this WFH request?`,
+      header: `Reject ${type} Request`,
+      message: `Are you sure you want to reject this ${type} request?`,
       inputs: [{ name: 'remarks', type: 'textarea', placeholder: 'Enter rejection reason' }],
       buttons: [
         { text: 'Cancel', role: 'cancel' },
@@ -111,10 +113,11 @@ export class ManagerWfhApprovalsComponent implements OnInit {
   }
 
   performApprove(request: any) {
+    const type = request.leave_type || request.work_mode || 'WFH';
     this.isLoading = true;
     this.wfhService.approveWFHRequest(request.id, 'Approved').subscribe({
       next: () => {
-        this.showToast('WFH request approved', 'success');
+        this.showToast(`${type} request approved successfully`, 'success');
         this.loadPendingWFHRequests();
       },
       error: () => {
@@ -125,10 +128,11 @@ export class ManagerWfhApprovalsComponent implements OnInit {
   }
 
   performReject(request: any, remarks: string) {
+    const type = request.leave_type || request.work_mode || 'WFH';
     this.isLoading = true;
     this.wfhService.rejectWFHRequest(request.id, remarks).subscribe({
       next: () => {
-        this.showToast('WFH request rejected', 'success');
+        this.showToast(`${type} request rejected`, 'success');
         this.loadPendingWFHRequests();
       },
       error: () => {

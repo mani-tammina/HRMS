@@ -13,12 +13,13 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
   <div class="attendance-btn-container" [class.mini-layout]="currentUrl === '/Me'">
     <!-- Clock In Button -->
     <div *ngIf="!isClockedIn" class="row-center">
-      <!-- Standard Clock In -->
-      <button class="modern-clock-btn in" (click)="clockIn('Office')" [disabled]="loading">
-        <div class="inner-pulse"></div>
+      <button class="modern-clock-btn" [ngClass]="getClockInButtonClass()" (click)="clockIn()" [disabled]="loading">
+        <div class="inner-pulse" [ngClass]="getPulseClass()"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
-          <span class="text">Clock In</span>
+          <ion-icon *ngIf="!loading && todayRequestedMode === 'Remote'" name="cloud-outline"></ion-icon>
+          <ion-icon *ngIf="!loading && todayRequestedMode === 'WFH'" name="home-outline"></ion-icon>
+          <span class="text">{{ getClockInButtonText() }}</span>
         </div>
       </button>
     </div>
@@ -207,6 +208,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
 
   isClockedIn = false;
   workMode: string = 'Office';
+  todayRequestedMode: 'Office' | 'Remote' | 'WFH' = 'Office';
   remoteActive = false;
   loading = false;
   policyPermissions: any;
@@ -257,7 +259,25 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  private loadLastPunch(): void {
+  getClockInButtonClass(): string {
+    if (this.todayRequestedMode === 'Remote') return 'in remote';
+    if (this.todayRequestedMode === 'WFH') return 'in wfh';
+    return 'in';
+  }
+
+  getPulseClass(): string {
+    if (this.todayRequestedMode === 'Remote') return 'orange';
+    if (this.todayRequestedMode === 'WFH') return 'cyan';
+    return '';
+  }
+
+  getClockInButtonText(): string {
+    if (this.todayRequestedMode === 'Remote') return 'Remote In';
+    if (this.todayRequestedMode === 'WFH') return 'WFH In';
+    return 'Clock In';
+  }
+
+  loadLastPunch(): void {
     const wasClockedIn = this.isClockedIn;
     this.attendanceApi.getTodayAttendance(true).subscribe({
       next: (res) => {
@@ -273,6 +293,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.workMode = 'Office';
           this.remoteActive = false;
           localStorage.removeItem('remoteActive');
+          this.checkTodayWorkMode();
           return;
         }
 
@@ -318,33 +339,54 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         }
 
         localStorage.setItem('todayPunches', JSON.stringify(allPunches));
+        this.checkTodayWorkMode();
       },
       error: () => {
         this.isClockedIn = false;
         this.workMode = 'Office';
         this.remoteActive = false;
+        this.checkTodayWorkMode();
       }
     });
   }
 
-  async clockIn(mode: 'Office' | 'Remote' | 'WFH'): Promise<void> {
+  private checkTodayWorkMode(): void {
+    this.attendanceApi.checkTodayWFH().subscribe({
+      next: (wfhRes: any) => {
+        if (wfhRes?.has_remote || wfhRes?.has_pending_remote || wfhRes?.work_mode === 'Remote') {
+          this.todayRequestedMode = 'Remote';
+        } else if (wfhRes?.has_wfh || wfhRes?.has_pending_wfh || wfhRes?.work_mode === 'WFH') {
+          this.todayRequestedMode = 'WFH';
+        } else {
+          this.todayRequestedMode = 'Office';
+        }
+      },
+      error: () => {
+        this.todayRequestedMode = 'Office';
+      }
+    });
+  }
+
+  async clockIn(mode?: 'Office' | 'Remote' | 'WFH'): Promise<void> {
     if (this.isClockedIn || this.loading) return;
+    const targetMode = mode || this.todayRequestedMode || 'Office';
     this.loading = true;
     let location = 'Mumbai Office';
     let notes = 'Office Clock-In';
-    if (mode === 'Remote') { location = 'Remote'; notes = 'Remote Clock-In'; this.workMode = 'Remote'; this.remoteActive = true; }
-    else if (mode === 'WFH') { location = 'Home'; notes = 'WFH Clock-In'; this.workMode = 'WFH'; }
+    if (targetMode === 'Remote') { location = 'Remote'; notes = 'Remote Clock-In'; this.workMode = 'Remote'; this.remoteActive = true; }
+    else if (targetMode === 'WFH') { location = 'Home'; notes = 'WFH Clock-In'; this.workMode = 'WFH'; }
     else { this.workMode = 'Office'; }
 
-    if (mode === 'WFH') {
+    if (targetMode === 'WFH') {
       this.attendanceApi.checkTodayWFH().subscribe({
         next: (wfhRes: any) => {
-          if (!wfhRes?.has_wfh || wfhRes?.work_mode !== 'WFH') {
-            this.showToast('WFH not approved for today.', 'warning');
+          const canWFH = !!(wfhRes?.has_wfh || wfhRes?.has_pending_wfh || wfhRes?.has_approved_wfh || wfhRes?.work_mode === 'WFH' || wfhRes?.pending_work_mode === 'WFH');
+          if (!canWFH) {
+            this.showToast('No WFH request found for today. Please submit a WFH request first.', 'warning');
             this.loading = false;
             return;
           }
-          this.proceedClockIn(mode, location, notes);
+          this.proceedClockIn(targetMode, location, notes);
         },
         error: () => {
           this.showToast('WFH check failed.', 'danger');
@@ -354,7 +396,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.proceedClockIn(mode, location, notes);
+    this.proceedClockIn(targetMode, location, notes);
   }
 
   private async proceedClockIn(mode: 'Office' | 'Remote' | 'WFH', location: string, notes: string): Promise<void> {
@@ -385,17 +427,20 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
   }
 
   private executeClockIn(mode: string, location: string, notes: string) {
-    const comment = notes || (mode === 'Remote' ? 'Remote Clock-In' : 'Clock-In');
+    const comment = notes || (mode === 'Remote' ? 'Remote Clock-In' : (mode === 'WFH' ? 'WFH Clock-In' : 'Clock-In'));
     this.attendanceApi.apiPunchIn({ work_mode: mode, location, notes, comment } as any).subscribe({
       next: (res: any) => {
         if (res?.success) {
-          if (mode === 'Remote' && this.policyPermissions?.remote_clockin_approval_required === 'yes') {
-            this.showToast('Remote clock-in submitted for approval.', 'success');
+          if (mode === 'Remote') {
+            this.showToast('Remote clock-in recorded (pending approval).', 'success');
+          } else if (mode === 'WFH') {
+            this.showToast('WFH clock-in recorded (pending approval).', 'success');
           } else {
             this.showToast(res?.message || 'Clocked in successfully', 'success');
           }
           this.isClockedIn = true;
-          this.statusChanged.emit({ punch_type: 'in', work_mode: mode });
+          this.workMode = mode;
+          this.statusChanged.emit({ punch_type: 'in', work_mode: mode, isClockedIn: true });
         }
       },
       error: (err: any) => {

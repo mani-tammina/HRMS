@@ -7,7 +7,7 @@ const express = require("express");
 const router = express.Router();
 const { db } = require("../config/database");
 const { auth, admin, hr, manager, roleAuth } = require("../middleware/auth");
-const { findEmployeeByUserId } = require("../utils/helpers");
+const { findEmployeeByUserId, toMySQLDate, toMySQLDateTime } = require("../utils/helpers");
 const { createInboxNotification, updateNotificationStatus } = require("../utils/inbox-helper");
 const multer = require("multer");
 const path = require("path");
@@ -1599,6 +1599,17 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
       [req.user.id, req.params.leaveId],
     );
 
+    // If Remote or WFH, update attendance approval_status to 'approved'
+    if (["Remote", "WFH"].includes(leave.leave_type)) {
+      await c.query(
+        `UPDATE attendance
+         SET approval_status = 'approved', work_mode = ?
+         WHERE employee_id = ?
+         AND attendance_date >= DATE(?) AND attendance_date <= DATE(?)`,
+        [leave.leave_type, leave.employee_id, leave.start_date, leave.end_date],
+      );
+    }
+
     // Update employee leave balance
     const ltcode = (leave.type_code || "").toUpperCase();
     if (ltcode === "CL") {
@@ -1680,6 +1691,17 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
              WHERE id = ?`,
       [req.user.id, rejection_reason, req.params.leaveId],
     );
+
+    // If Remote or WFH, update attendance approval_status to 'rejected'
+    if (["Remote", "WFH"].includes(leave.leave_type)) {
+      await c.query(
+        `UPDATE attendance
+         SET approval_status = 'rejected'
+         WHERE employee_id = ?
+         AND attendance_date >= DATE(?) AND attendance_date <= DATE(?)`,
+        [leave.employee_id, leave.start_date, leave.end_date],
+      );
+    }
 
     // Update Inbox Notification
     const rejectNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
@@ -2073,17 +2095,21 @@ router.get("/wfh-check-today", auth, async (req, res) => {
     const hasApprovedWFH = approved.some((r) => r.leave_type === "WFH");
     const hasPendingWFH = pending.some((r) => r.leave_type === "WFH");
     const hasRemote = hasApprovedRemote || hasPendingRemote;
+    const hasWFH = hasApprovedWFH || hasPendingWFH;
 
     c.end();
     res.json({
-      has_wfh: approved.length > 0,
-      work_mode: hasRemote ? "Remote" : (approved.length > 0 ? approved[0].leave_type : (hasPendingWFH ? "WFH" : "Office")),
-      has_pending: pending.length > 0,
-      pending_work_mode: pending.length > 0 ? pending[0].leave_type : null,
+      has_wfh: hasWFH,
+      has_approved_wfh: hasApprovedWFH,
+      has_pending_wfh: hasPendingWFH,
+      wfh_status: hasApprovedWFH ? "approved" : (hasPendingWFH ? "pending" : null),
       has_remote: hasRemote,
       has_approved_remote: hasApprovedRemote,
       has_pending_remote: hasPendingRemote,
       remote_status: hasApprovedRemote ? "approved" : (hasPendingRemote ? "pending" : null),
+      work_mode: hasRemote ? "Remote" : (hasWFH ? "WFH" : (approved.length > 0 ? approved[0].leave_type : "Office")),
+      has_pending: pending.length > 0,
+      pending_work_mode: pending.length > 0 ? pending[0].leave_type : null,
       has_raised_remote: hasRemote,
       had_remote_work: hadRemoteWorkToday,
     });
@@ -2160,20 +2186,20 @@ router.post("/wfh-request", auth, async (req, res) => {
     const c = await db();
     await c.beginTransaction();
 
-    // CHECK FOR DUPLICATE/OVERLAPPING WFH REQUESTS (pending or approved only)
-    console.log("[WFH-DEBUG] Checking for overlapping WFH requests...");
+    // CHECK FOR DUPLICATE/OVERLAPPING REQUESTS (pending or approved only)
+    console.log(`[WFH-DEBUG] Checking for overlapping ${work_mode} requests...`);
     const [existingWFH] = await c.query(
       `SELECT id, start_date, end_date, status, leave_type 
        FROM leaves 
        WHERE employee_id = ? 
-       AND leave_type = 'WFH'
+       AND leave_type = ?
        AND (status = 'pending' OR status = 'approved')
        AND DATE(start_date) <= ? 
        AND DATE(end_date) >= ?`,
-      [emp.id, finalEndDate, finalStartDate],
+      [emp.id, work_mode, finalEndDate, finalStartDate],
     );
 
-    console.log("[WFH-DEBUG] Found existing WFH requests:", existingWFH.length);
+    console.log(`[WFH-DEBUG] Found existing ${work_mode} requests:`, existingWFH.length);
     if (existingWFH.length > 0) {
       existingWFH.forEach((req) => {
         console.log(
@@ -2186,7 +2212,7 @@ router.post("/wfh-request", auth, async (req, res) => {
 
       const conflictingReq = existingWFH[0];
       return res.status(400).json({
-        error: `You already have a ${conflictingReq.status} WFH request from ${conflictingReq.start_date} to ${conflictingReq.end_date}. You cannot apply for WFH on overlapping dates.`,
+        error: `You already have a ${conflictingReq.status} ${work_mode} request from ${conflictingReq.start_date} to ${conflictingReq.end_date}. You cannot apply for ${work_mode} on overlapping dates.`,
         conflictingRequest: {
           id: conflictingReq.id,
           start_date: conflictingReq.start_date,
@@ -2224,6 +2250,81 @@ router.post("/wfh-request", auth, async (req, res) => {
       { start_date: finalStartDate, end_date: finalEndDate, total_days: finalTotalDays, reason: reason || `${work_mode} request`, work_mode }
     );
 
+    // Automatic clock-in punch if employee requested Remote or WFH work covering today
+    const today = toMySQLDate(new Date()) || new Date().toISOString().split("T")[0];
+    const now = toMySQLDateTime(new Date());
+    const isTodayCovered = (finalStartDate <= today && finalEndDate >= today);
+    let autoClockedIn = false;
+
+    if (["Remote", "WFH"].includes(work_mode) && isTodayCovered) {
+      const ip_address =
+        req.headers["cf-connecting-ip"] ||
+        req.headers["x-real-ip"] ||
+        req.headers["x-client-ip"] ||
+        req.headers["x-forwarded-for"] ||
+        req.ip ||
+        req.socket?.remoteAddress;
+      const device_info = req.headers["user-agent"];
+      const location = work_mode === "Remote" ? "Remote" : "Home";
+      const punchNote = reason ? `${work_mode} Clock-In: ${reason}` : `${work_mode} Clock-In`;
+
+      // Check if employee already has an active punch-in right now
+      const [lastPunch] = await c.query(
+        `SELECT punch_type, punch_time
+         FROM attendance_punches
+         WHERE employee_id = ?
+         ORDER BY punch_time DESC, id DESC
+         LIMIT 1`,
+        [emp.id]
+      );
+
+      // Check or create daily attendance row for today
+      let [attRows] = await c.query(
+        `SELECT id, first_check_in FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+        [emp.id, today]
+      );
+      let attendanceId;
+      if (attRows.length === 0) {
+        const [newAtt] = await c.query(
+          `INSERT INTO attendance
+           (employee_id, attendance_date, punch_date, first_check_in, work_mode, location, status, approval_status, notes)
+           VALUES (?, ?, ?, ?, ?, ?, 'present', 'pending', ?)`,
+          [emp.id, today, today, now, work_mode, location, reason || `${work_mode} Request`]
+        );
+        attendanceId = newAtt.insertId;
+      } else {
+        attendanceId = attRows[0].id;
+        await c.query(
+          `UPDATE attendance
+           SET work_mode = ?, location = ?, approval_status = 'pending',
+               status = 'present',
+               first_check_in = COALESCE(first_check_in, ?)
+           WHERE id = ?`,
+          [work_mode, location, now, attendanceId]
+        );
+      }
+
+      // If employee is not already punched in, automatically record punch
+      if (lastPunch.length === 0 || lastPunch[0].punch_type !== 'in') {
+        await c.query(
+          `INSERT INTO attendance_punches
+           (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+           VALUES (?, ?, 'in', ?, ?, ?, ?, ?, ?)`,
+          [
+            attendanceId,
+            emp.id,
+            now,
+            today,
+            ip_address ? String(ip_address).substring(0, 50) : null,
+            device_info ? String(device_info).substring(0, 255) : null,
+            location,
+            punchNote
+          ]
+        );
+      }
+      autoClockedIn = true;
+    }
+
     await c.commit();
     c.end();
 
@@ -2236,12 +2337,17 @@ router.post("/wfh-request", auth, async (req, res) => {
       finalEndDate,
       "days:",
       finalTotalDays,
+      "autoClockedIn:",
+      autoClockedIn
     );
 
     res.json({
       success: true,
       id: result.insertId,
-      message: `${work_mode} request submitted successfully`,
+      message: autoClockedIn
+        ? `${work_mode} request submitted and ${work_mode} Clock-In recorded successfully. Pending manager/HR approval.`
+        : `${work_mode} request submitted successfully. Pending manager/HR approval.`,
+      clocked_in: autoClockedIn,
     });
   } catch (error) {
     console.error("[WFH-DEBUG] Error submitting WFH request:", error);

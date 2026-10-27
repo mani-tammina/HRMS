@@ -101,6 +101,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   hasApprovedRemote = false;
   hasPendingRemote = false;
   hasApprovedWFH = false;
+  hasPendingWFH = false;
+  hasWFHToday = false;
   isClockedIn = false;
   remoteClockInLoading = false;
   wfhClockInLoading = false;
@@ -925,19 +927,22 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   checkApprovedWorkMode() {
     const todayDateStr = this.formatDateOnly(new Date());
     const storedRemote = localStorage.getItem('hasRemoteToday_' + todayDateStr) === 'true';
+    const storedWFH = localStorage.getItem('hasWFHToday_' + todayDateStr) === 'true';
 
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
         const isRemoteFromApi = !!(
           res?.has_remote ||
           res?.has_raised_remote ||
+          res?.has_approved_remote ||
+          res?.has_pending_remote ||
           res?.had_remote_work ||
           (res?.has_wfh && res?.work_mode === 'Remote')
         );
 
         if (isRemoteFromApi || storedRemote || this.hasRemoteToday) {
           this.hasRemoteToday = true;
-          this.hasApprovedRemote = true;
+          this.hasApprovedRemote = !!res?.has_approved_remote;
           localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
         } else {
           this.hasRemoteToday = false;
@@ -946,16 +951,34 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
         this.hasPendingRemote = !!res?.has_pending_remote;
 
-        if (this.hasRemoteToday && this.clockButton && this.isClockedIn) {
-          this.clockButton.workMode = 'Remote';
-          this.clockButton.remoteActive = true;
-          localStorage.setItem('remoteActive', 'true');
+        const isWFHFromApi = !!(
+          res?.has_wfh ||
+          res?.has_approved_wfh ||
+          res?.has_pending_wfh ||
+          res?.work_mode === 'WFH' ||
+          res?.pending_work_mode === 'WFH'
+        );
+
+        if (isWFHFromApi || storedWFH || this.hasWFHToday) {
+          this.hasWFHToday = true;
+          this.hasApprovedWFH = !!res?.has_approved_wfh;
+          this.hasPendingWFH = !!res?.has_pending_wfh;
+          localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+        } else {
+          this.hasWFHToday = false;
+          this.hasApprovedWFH = false;
+          this.hasPendingWFH = false;
         }
 
-        if (res?.has_wfh && res?.work_mode === 'WFH') {
-          this.hasApprovedWFH = true;
-        } else {
-          this.hasApprovedWFH = false;
+        if (this.clockButton && this.isClockedIn) {
+          if (this.hasRemoteToday) {
+            this.clockButton.workMode = 'Remote';
+            this.clockButton.remoteActive = true;
+            localStorage.setItem('remoteActive', 'true');
+          } else if (this.hasWFHToday) {
+            this.clockButton.workMode = 'WFH';
+            this.clockButton.remoteActive = false;
+          }
         }
       },
       error: () => {
@@ -963,8 +986,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.hasRemoteToday = true;
           this.hasApprovedRemote = true;
         }
+        if (storedWFH) {
+          this.hasWFHToday = true;
+        }
         this.hasPendingRemote = false;
         this.hasApprovedWFH = false;
+        this.hasPendingWFH = false;
       }
     });
   }
@@ -1047,18 +1074,35 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.wfhClockInLoading = true;
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh || res?.work_mode !== 'WFH') {
-          this.showToast('WFH not approved for today', 'warning');
+        const canWFH = !!(
+          res?.has_wfh ||
+          res?.has_pending_wfh ||
+          res?.has_approved_wfh ||
+          res?.work_mode === 'WFH' ||
+          res?.pending_work_mode === 'WFH' ||
+          this.hasWFHToday
+        );
+        if (!canWFH) {
+          this.showToast('No WFH request found for today. Please submit a WFH request first.', 'warning');
           this.wfhClockInLoading = false;
           return;
         }
         this.attendanceApi.apiPunchIn({ work_mode: 'WFH', location: 'Home', notes: 'WFH Clock-In' }).subscribe({
           next: () => {
             this.wfhClockInLoading = false;
-            this.showToast('WFH Clock-In successful', 'success');
-            this.loadTodayAttendance();
-            if (this.clockButton) { this.clockButton.workMode = 'WFH'; this.clockButton.isClockedIn = true; }
+            this.isClockedIn = true;
+            this.hasWFHToday = true;
+            const todayDateStr = this.formatDateOnly(new Date());
+            localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+            this.showToast('WFH Clock-In recorded (pending approval)', 'success');
+            if (this.clockButton) {
+              this.clockButton.workMode = 'WFH';
+              this.clockButton.isClockedIn = true;
+              this.clockButton.loadLastPunch();
+            }
+            this.attendanceApi.setClockState(true);
             this.attendanceRefresh = Date.now();
+            this.loadTodayAttendance();
           },
           error: err => {
             this.wfhClockInLoading = false;
@@ -1095,41 +1139,29 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.remoteLoading = true;
     const today = new Date().toISOString().split('T')[0];
 
-    // If policy explicitly allows direct clock-in without manager approval (approval_required === 'no')
-    if (this.policyPermissions?.remote_clockin_approval_required === 'no') {
-      this.attendanceApi.apiPunchIn({
-        work_mode: 'Remote',
-        location: 'Remote',
-        notes: this.remoteReason ? 'Remote Clock-In: ' + this.remoteReason : 'Remote Clock-In'
-      }).subscribe({
-        next: () => this.finalizeRemote(),
-        error: (err) => {
-          this.remoteLoading = false;
-          const msg = err?.error?.message || '';
-          if (msg.includes('active punch-in') || msg.includes('Already punched in') || msg.includes('already being processed')) {
-            this.finalizeRemote();
-            this.loadTodayAttendance();
-          } else {
-            this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
-          }
-        }
-      });
-      return;
-    }
-
-    // Default flow: Submit Remote Request to manager for approval
+    // Submit Remote Request to manager/HR for approval and automatically record Remote In
     this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.remoteLoading = false;
         this.showRemotePanel = false;
+        this.isClockedIn = true;
         this.hasRemoteToday = true;
         this.hasPendingRemote = true;
+
+        const todayDateStr = this.formatDateOnly(new Date());
+        localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        localStorage.setItem('remoteActive', 'true');
+
         if (this.clockButton) {
           this.clockButton.workMode = 'Remote';
+          this.clockButton.isClockedIn = true;
           this.clockButton.remoteActive = true;
-          localStorage.setItem('remoteActive', 'true');
+          this.clockButton.loadLastPunch();
         }
-        this.showToast('Remote request submitted to your manager for approval!', 'success');
+
+        this.attendanceApi.setClockState(true);
+        this.attendanceRefresh = Date.now();
+        this.showToast('Remote request submitted and Remote Clock-In recorded! Pending manager/HR approval.', 'success');
         this.checkApprovedWorkMode();
         this.loadTodayAttendance();
       },
@@ -1144,6 +1176,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   private finalizeRemote() {
     this.remoteLoading = false;
     this.showRemotePanel = false;
+    this.isClockedIn = true;
     this.hasApprovedRemote = true;
     this.hasRemoteToday = true;
     const todayDateStr = this.formatDateOnly(new Date());
@@ -1341,9 +1374,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.wfhLoading = true;
+    const startDateStr = this.wfhFromDate.split('T')[0];
+    const endDateStr = this.wfhDayType === 'half' ? startDateStr : this.wfhToDate.split('T')[0];
     const payload = {
-      start_date: this.wfhFromDate.split('T')[0],
-      end_date: this.wfhDayType === 'half' ? this.wfhFromDate.split('T')[0] : this.wfhToDate.split('T')[0],
+      start_date: startDateStr,
+      end_date: endDateStr,
       total_days: this.wfhTotalDays,
       day_type: this.wfhDayType,
       half_day_type: this.wfhDayType === 'half' ? this.wfhHalfDayType : null,
@@ -1352,10 +1387,33 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       reason: this.wfhReason
     };
     this.wfhService.wfh(payload).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.wfhLoading = false;
         this.showWFHPanel = false;
-        this.showToast('WFH Request submitted successfully!', 'success');
+
+        const todayDateStr = this.formatDateOnly(new Date());
+        const isTodayCovered = (startDateStr <= todayDateStr && endDateStr >= todayDateStr);
+
+        if (res?.clocked_in || isTodayCovered) {
+          this.isClockedIn = true;
+          this.hasWFHToday = true;
+          this.hasPendingWFH = true;
+          localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+
+          if (this.clockButton) {
+            this.clockButton.workMode = 'WFH';
+            this.clockButton.isClockedIn = true;
+            this.clockButton.loadLastPunch();
+          }
+
+          this.attendanceApi.setClockState(true);
+          this.showToast('WFH request submitted and WFH Clock-In recorded! Pending manager/HR approval.', 'success');
+        } else {
+          this.showToast('WFH request submitted successfully! Pending manager/HR approval.', 'success');
+        }
+
+        this.attendanceRefresh = Date.now();
+        this.checkApprovedWorkMode();
         this.loadTodayAttendance();
       },
       error: (err: any) => {

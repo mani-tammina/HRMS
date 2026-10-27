@@ -51,7 +51,10 @@
               <p class="employee-number">{{ request.EmployeeNumber }}</p>
             </div>
           </div>
-          <div class="badges">
+          <div class="badges" style="display: flex; gap: 6px; align-items: center;">
+            <ion-badge color="primary">
+              {{ request.leave_type || request.work_mode || 'WFH' }}
+            </ion-badge>
             <ion-badge [ngClass]="getStatusColor(request.status)">
               {{ request.status || 'pending' }}
             </ion-badge>
