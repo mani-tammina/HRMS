@@ -262,28 +262,7 @@ router.post("/punch-in", auth, async (req, res) => {
 
     c = await db();
     const effectiveShift = await getEmployeeEffectiveShift(c, emp.id);
-    let shiftDate = getShiftDateForPunch(effectiveShift, new Date());
-
-    // If employee is punched in on an active session from yesterday, stick to that shiftDate so they can punch out
-    try {
-      const [openPunch] = await c.query(
-        `SELECT ap.attendance_id, a.attendance_date, ap.punch_type
-         FROM attendance_punches ap
-         JOIN attendance a ON ap.attendance_id = a.id
-         WHERE ap.employee_id = ?
-         ORDER BY ap.punch_time DESC, ap.id DESC
-         LIMIT 1`,
-        [emp.id]
-      );
-      if (openPunch.length > 0 && openPunch[0].punch_type === 'in' && openPunch[0].attendance_date) {
-        const openDate = toMySQLDate(openPunch[0].attendance_date);
-        const cutoffH = effectiveShift?.is_overnight ? (effectiveShift?.cutoff_hour || 12) : (effectiveShift?.morning_cutoff_hour || 7);
-        const curH = new Date().getHours() + new Date().getMinutes() / 60;
-        if (openDate < shiftDate && curH < cutoffH) {
-          shiftDate = openDate;
-        }
-      }
-    } catch (_) {}
+    const shiftDate = getShiftDateForPunch(effectiveShift, new Date());
     lockName = await acquireAttendanceLock(c, emp.id, shiftDate);
 
     // Auto clock-out check: resolve any overdue active punch for this employee
@@ -744,12 +723,6 @@ router.post("/punch-out", auth, async (req, res) => {
       attendanceLocation ||
       'Office';
 
-    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
-    await c.query(
-      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
-      [attendanceId]
-    );
-
     // Insert punch out record
     await c.query(
       `INSERT INTO attendance_punches 
@@ -809,23 +782,7 @@ router.get("/today", auth, async (req, res) => {
 
     const c = await db();
     const effectiveShift = await getEmployeeEffectiveShift(c, emp.id);
-    let shiftDate = getShiftDateForPunch(effectiveShift, new Date());
-
-    // If employee is punched in on an active session from yesterday, stick to that shiftDate so they can punch out
-    try {
-      const [openPunch] = await c.query(
-        "SELECT ap.attendance_id, a.attendance_date, ap.punch_type FROM attendance_punches ap JOIN attendance a ON ap.attendance_id = a.id WHERE ap.employee_id = ? ORDER BY ap.punch_time DESC, ap.id DESC LIMIT 1",
-        [emp.id]
-      );
-      if (openPunch.length > 0 && openPunch[0].punch_type === 'in' && openPunch[0].attendance_date) {
-        const openDate = toMySQLDate(openPunch[0].attendance_date);
-        const cutoffH = effectiveShift?.is_overnight ? (effectiveShift?.cutoff_hour || 12) : (effectiveShift?.morning_cutoff_hour || 7);
-        const curH = new Date().getHours() + new Date().getMinutes() / 60;
-        if (openDate < shiftDate && curH < cutoffH) {
-          shiftDate = openDate;
-        }
-      }
-    } catch (_) {}
+    const shiftDate = getShiftDateForPunch(effectiveShift, new Date());
 
     // Auto clock-out check: resolve any overdue active punch for this employee
     try {
@@ -1292,83 +1249,68 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
 }
 
 function calculatePunchPairs(punches) {
-  if (!punches || !punches.length) return [];
+  const pairs = [];
+  let currentPair = {};
 
-  // Partition punches by source stream (Biometric vs Web/Mobile) so cross-source punches don't interrupt each other
-  const streamMap = new Map();
-  for (const punch of punches) {
-    const key = (punch.source === 'biometric' || punch.work_mode === 'Biometric') ? 'biometric' : 'web';
-    if (!streamMap.has(key)) streamMap.set(key, []);
-    streamMap.get(key).push(punch);
-  }
+  for (let i = 0; i < punches.length; i++) {
+    const punch = punches[i];
+    const formattedTime = toISTFormat(punch.punch_time);
+    let punchType = (punch.punch_type || '').toLowerCase();
+    if (punchType === 'auto' || !punchType) {
+      punchType = currentPair.punch_in ? 'out' : 'in';
+    }
 
-  const allPairs = [];
-
-  streamMap.forEach((streamPunches) => {
-    let currentPair = {};
-    for (let i = 0; i < streamPunches.length; i++) {
-      const punch = streamPunches[i];
-      const formattedTime = toISTFormat(punch.punch_time);
-      let punchType = (punch.punch_type || '').toLowerCase();
-      if (punchType === 'auto' || !punchType) {
-        punchType = currentPair.punch_in ? 'out' : 'in';
-      }
-
-      if (punchType === "in") {
-        if (currentPair.punch_in) {
-          currentPair.punch_out = null;
-          currentPair.punch_out_display = 'In Progress';
-          currentPair.hours_worked = null;
-          currentPair.status = "In Progress";
-          allPairs.push({ ...currentPair });
-          currentPair = {};
-        }
-        currentPair = {
-          punch_in: formattedTime,
-          punch_in_location: punch.location,
-          punch_in_notes: punch.notes,
-          work_mode: punch.work_mode || 'Office',
-          source: punch.source || 'web'
-        };
-      } else if (punchType === "out" && currentPair.punch_in) {
-        const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
-        currentPair.punch_out = isMissingOut ? null : formattedTime;
-        currentPair.punch_out_raw = formattedTime;
-        currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : formattedTime;
-        currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
-        currentPair.punch_out_notes = punch.notes;
-        currentPair.is_missing_out = isMissingOut;
-
-        const punchIn = new Date(currentPair.punch_in);
-        const punchOut = new Date(formattedTime);
-        const hours = isMissingOut ? '0.00' : Math.max(0, ((punchOut - punchIn) / (1000 * 60 * 60))).toFixed(2);
-
-        currentPair.hours_worked = hours;
-        currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
-        allPairs.push({ ...currentPair });
+    if (punchType === "in") {
+      if (currentPair.punch_in) {
+        currentPair.punch_out = null;
+        currentPair.punch_out_display = 'In Progress';
+        currentPair.hours_worked = null;
+        currentPair.status = "In Progress";
+        pairs.push({ ...currentPair });
         currentPair = {};
       }
-    }
+      currentPair = {
+        punch_in: formattedTime,
+        punch_in_location: punch.location,
+        punch_in_notes: punch.notes,
+        work_mode: punch.work_mode || 'Office',
+        source: punch.source || 'web'
+      };
+    } else if (punchType === "out" && currentPair.punch_in) {
+      const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
+      currentPair.punch_out = isMissingOut ? null : formattedTime;
+      currentPair.punch_out_raw = formattedTime;
+      currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : formattedTime;
+      currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
+      currentPair.punch_out_notes = punch.notes;
+      currentPair.is_missing_out = isMissingOut;
 
-    if (currentPair.punch_in) {
-      currentPair.punch_out = null;
-      currentPair.punch_out_display = 'In Progress';
-      currentPair.hours_worked = null;
-      currentPair.status = "In Progress";
-      allPairs.push(currentPair);
-    }
-  });
+      const punchIn = new Date(currentPair.punch_in);
+      const punchOut = new Date(formattedTime);
+      const hours = isMissingOut ? '0.00' : Math.max(0, ((punchOut - punchIn) / (1000 * 60 * 60))).toFixed(2);
 
-  // Sort pairs chronologically by punch_in
-  return allPairs.sort((a, b) => new Date(a.punch_in).getTime() - new Date(b.punch_in).getTime());
+      currentPair.hours_worked = hours;
+      currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
+      pairs.push({ ...currentPair });
+      currentPair = {};
+    }
+  }
+
+  if (currentPair.punch_in) {
+    currentPair.punch_out = null;
+    currentPair.punch_out_display = 'In Progress';
+    currentPair.hours_worked = null;
+    currentPair.status = "In Progress";
+    pairs.push(currentPair);
+  }
+
+  return pairs;
 }
 
 async function getUnifiedAttendanceDetails(c, employeeId, date) {
   const effectiveShift = await getEmployeeEffectiveShift(c, employeeId);
   const isOvernight = effectiveShift && effectiveShift.is_overnight;
   const cutoffHour = (effectiveShift && effectiveShift.cutoff_hour) || 12;
-  const morningCutoff = (effectiveShift && effectiveShift.morning_cutoff_hour) || 7;
-  const effectiveCutoff = isOvernight ? cutoffHour : morningCutoff;
   const nextDate = addDaysToDate(date, 1);
 
   let [attendance] = await c.query(
@@ -1390,8 +1332,6 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
   let punches = [];
 
   // 1. Fetch Web/Mobile/Remote Punches (Stored in IST +05:30)
-  // Fetches Day 1 punches AND any next-day morning punches (< effectiveCutoff) completing Day 1's work;
-  // Excludes early morning punches on 'date' that belong to the previous day's shift.
   let webQuery = `
     SELECT ap.id, ap.attendance_id, ap.employee_id, ap.punch_type, 
            DATE_FORMAT(ap.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
@@ -1402,13 +1342,19 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     FROM attendance_punches ap
     LEFT JOIN attendance a ON ap.attendance_id = a.id
     WHERE ap.employee_id = ? AND (ap.notes IS NULL OR ap.notes != 'Biometric Check-In')
-      AND (
-        (ap.punch_date = ? OR a.attendance_date = ? OR (DATE(ap.punch_time) = ? AND HOUR(ap.punch_time) < ?))
-        AND NOT (DATE(ap.punch_time) = ? AND HOUR(ap.punch_time) < ? AND (ap.punch_date < ? OR (a.attendance_date IS NOT NULL AND a.attendance_date < ?)))
-      )
-    ORDER BY ap.punch_time ASC
   `;
-  let webParams = [employeeId, date, date, nextDate, effectiveCutoff, date, effectiveCutoff, date, date];
+  let webParams = [employeeId];
+  if (isOvernight) {
+    webQuery += ` AND (
+      (ap.punch_date = ? OR a.attendance_date = ? OR (DATE(ap.punch_time) = ? AND HOUR(ap.punch_time) < ?))
+      AND NOT (DATE(ap.punch_time) = ? AND HOUR(ap.punch_time) < ?)
+    )`;
+    webParams.push(date, date, nextDate, cutoffHour, date, cutoffHour);
+  } else {
+    webQuery += ` AND (ap.punch_date = ? OR a.attendance_date = ?)`;
+    webParams.push(date, date);
+  }
+  webQuery += ` ORDER BY ap.punch_time ASC`;
   const [webPunches] = await c.query(webQuery, webParams);
 
   if (webPunches && webPunches.length > 0) {
@@ -1416,8 +1362,6 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
   }
 
   // 2. Fetch Biometric Punches
-  // Fetches Day 1 punches AND any next-day morning punches (< effectiveCutoff) completing Day 1's work;
-  // Excludes early morning punches on 'date' that belong to the previous day's shift.
   try {
     let bioQuery = `
       SELECT bp.id, 0 as attendance_id, bp.employee_id, bp.direction,
@@ -1436,13 +1380,19 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
              bp.created_at
       FROM biometric_punches bp
       WHERE bp.employee_id = ?
-        AND (
-          (bp.punch_date = ? OR (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < ?))
-          AND NOT (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < ? AND bp.punch_date < ?)
-        )
-      ORDER BY bp.punch_time ASC
     `;
-    let bioParams = [employeeId, date, nextDate, effectiveCutoff, date, effectiveCutoff, date];
+    let bioParams = [employeeId];
+    if (isOvernight) {
+      bioQuery += ` AND (
+        (bp.punch_date = ? OR (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < ?))
+        AND NOT (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < ?)
+      )`;
+      bioParams.push(date, nextDate, cutoffHour, date, cutoffHour);
+    } else {
+      bioQuery += ` AND bp.punch_date = ?`;
+      bioParams.push(date);
+    }
+    bioQuery += ` ORDER BY bp.punch_time ASC`;
     const [bioPunches] = await c.query(bioQuery, bioParams);
 
     if (bioPunches && bioPunches.length > 0) {
@@ -1466,25 +1416,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
-  // Filter out any obsolete auto-out punches if the employee continued working with later punches
-  punches = punches.filter((p, idx) => {
-    const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-    if (isAutoOut) {
-      const hasLater = punches.slice(idx + 1).some(lp => !(lp.notes || '').includes('OUT Missing'));
-      if (hasLater) return false;
-    }
-    return true;
-  });
-
-  // Deduplicate rapid consecutive duplicate punches of the same type (e.g. double tap within 5 seconds)
+  // Deduplicate punches that are within 5 seconds of each other
   const uniquePunches = [];
   punches.forEach(p => {
     const pTime = new Date(p.punch_time).getTime();
-    const lastPunch = uniquePunches.length > 0 ? uniquePunches[uniquePunches.length - 1] : null;
-    const isDupe = lastPunch &&
-      lastPunch.punch_type === p.punch_type &&
-      lastPunch.source === p.source &&
-      Math.abs(pTime - new Date(lastPunch.punch_time).getTime()) < 5000;
+    const isDupe = uniquePunches.some(existing => {
+      const exTime = new Date(existing.punch_time).getTime();
+      return Math.abs(exTime - pTime) < 5000 && existing.punch_type === p.punch_type;
+    });
     if (!isDupe) {
       uniquePunches.push(p);
     }
@@ -1711,7 +1650,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
 
     const allPunches = [...(webRange || []), ...mappedBioRange];
     for (const p of allPunches) {
-      const dStr = getShiftDateForPunch(effectiveShift, p.punch_time);
+      const dStr = isOvernight ? getShiftDateForPunch(effectiveShift, p.punch_time) : p.punch_date;
       if (!allPunchesMap.has(dStr)) {
         allPunchesMap.set(dStr, []);
       }
@@ -1724,7 +1663,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   // Pre-calculate web punch counts per date in memory for fast lookup
   const webPunchesByDate = new Map();
   for (const wp of webRange) {
-    const d = getShiftDateForPunch(effectiveShift, wp.punch_time);
+    const d = isOvernight ? getShiftDateForPunch(effectiveShift, wp.punch_time) : wp.punch_date;
     if (!webPunchesByDate.has(d)) {
       webPunchesByDate.set(d, { in: 0, out: 0 });
     }
@@ -2650,13 +2589,9 @@ async function calculateAndUpdateHours(connection, attendanceId) {
       const [bioPunches] = await connection.query(
         `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
          FROM biometric_punches
-         WHERE employee_id = ? AND (
-           punch_date = ? 
-           OR (DATE(punch_time) = DATE_ADD(?, INTERVAL 1 DAY) AND HOUR(punch_time) < 7)
-         )
-         AND NOT (DATE(punch_time) = ? AND HOUR(punch_time) < 7 AND punch_date < ?)
+         WHERE employee_id = ? AND punch_date = ?
          ORDER BY punch_time ASC`,
-        [empId, attDate, attDate, attDate, attDate]
+        [empId, attDate]
       );
       if (bioPunches && bioPunches.length > 0) {
         let bioOpen = false;
@@ -2868,43 +2803,22 @@ router.post("/checkout", auth, async (req, res) => {
     const today = toMySQLDate(new Date());
     const now = toMySQLDateTime(new Date());
 
-    // Check if employee has an active open punch-in across recent sessions (including yesterday)
-    const [latestWebPunch] = await c.query(
-      `SELECT ap.id, ap.attendance_id, ap.punch_type, ap.punch_time, ap.punch_date, a.attendance_date, a.work_mode
-       FROM attendance_punches ap
-       JOIN attendance a ON ap.attendance_id = a.id
-       WHERE ap.employee_id = ?
-       ORDER BY ap.punch_time DESC, ap.id DESC
-       LIMIT 1`,
-      [emp.id]
+    // Check if there's an active attendance record
+    const [attendance] = await c.query(
+      `SELECT id, work_mode FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
+      [emp.id, today]
     );
 
-    let attendanceId = null;
-    let workMode = "Office";
-    let shiftDate = today;
-
-    if (latestWebPunch.length > 0 && latestWebPunch[0].punch_type === 'in') {
-      attendanceId = latestWebPunch[0].attendance_id;
-      shiftDate = latestWebPunch[0].attendance_date ? toMySQLDate(latestWebPunch[0].attendance_date) : today;
-      workMode = latestWebPunch[0].work_mode || "Office";
-    } else {
-      const [attendance] = await c.query(
-        `SELECT id, work_mode FROM attendance WHERE employee_id = ? AND attendance_date = ?`,
-        [emp.id, today]
-      );
-      if (attendance.length > 0) {
-        attendanceId = attendance[0].id;
-        workMode = attendance[0].work_mode;
-      }
-    }
-
-    if (!attendanceId) {
+    if (attendance.length === 0) {
       await c.rollback();
       c.end();
       return res.status(400).json({
         error: "No attendance record found. Please check in first.",
       });
     }
+
+    const attendanceId = attendance[0].id;
+    const workMode = attendance[0].work_mode;
 
     // Check last punch
     const [lastPunch] = await c.query(
@@ -2932,18 +2846,12 @@ router.post("/checkout", auth, async (req, res) => {
       });
     }
 
-    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
-    await c.query(
-      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
-      [attendanceId]
-    );
-
     // Insert punch out record
     await c.query(
       `INSERT INTO attendance_punches 
              (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, notes)
              VALUES (?, ?, 'out', ?, ?, ?, ?, ?)`,
-      [attendanceId, emp.id, now, shiftDate, ip_address, device_info, notes]
+      [attendanceId, emp.id, now, today, ip_address, device_info, notes]
     );
 
     // Calculate and update hours
