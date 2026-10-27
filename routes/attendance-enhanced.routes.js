@@ -276,7 +276,7 @@ router.post("/punch-in", auth, async (req, res) => {
 
     // The named lock serializes all punch requests for this employee.
     const [lastPunch] = await c.query(
-      `SELECT punch_type, punch_time
+      `SELECT id, attendance_id, punch_type, punch_time, punch_date
              FROM attendance_punches
              WHERE employee_id = ?
              ORDER BY punch_time DESC, id DESC
@@ -284,23 +284,122 @@ router.post("/punch-in", auth, async (req, res) => {
       [emp.id]
     );
 
-    if (lastPunch[0]?.punch_type === "in") {
+    let isEffectivelyIn = lastPunch.length > 0 && lastPunch[0].punch_type === "in";
+
+    // 1. Biometric check: Check if employee has a newer punch in biometric_punches
+    if (isEffectivelyIn) {
+      try {
+        const [latestBio] = await c.query(
+          `SELECT punch_time, direction FROM biometric_punches
+           WHERE employee_id = ?
+           ORDER BY punch_time DESC, id DESC
+           LIMIT 1`,
+          [emp.id]
+        );
+        if (latestBio.length > 0) {
+          const lastWebTime = new Date(lastPunch[0].punch_time).getTime();
+          const lastBioTime = new Date(latestBio[0].punch_time).getTime();
+          if (lastBioTime >= lastWebTime && latestBio[0].direction === "out") {
+            isEffectivelyIn = false;
+          }
+        }
+      } catch (bioErr) {
+        console.warn("[PunchIn] Biometric check warning:", bioErr.message);
+      }
+    }
+
+    // 2. Cross-day check: Check if the active punch belongs to a previous shift date
+    if (isEffectivelyIn && lastPunch[0].attendance_id) {
+      const [attRows] = await c.query(
+        `SELECT a.id, a.attendance_date, a.work_mode FROM attendance a WHERE a.id = ?`,
+        [lastPunch[0].attendance_id]
+      );
+      const prevAttDate = attRows.length > 0 && attRows[0].attendance_date
+        ? toMySQLDate(attRows[0].attendance_date)
+        : null;
+
+      if (prevAttDate && prevAttDate < shiftDate) {
+        // Auto-close past day's open session so employee can clock into their new day
+        try {
+          await autoClockOutService.processAutoClockOutForEmployee(c, emp.id, prevAttDate);
+        } catch (pastErr) {
+          console.warn("[PunchIn] Auto-close past attendance warning:", pastErr.message);
+        }
+        // Refresh last punch
+        const [refreshedLastPunch] = await c.query(
+          `SELECT id, attendance_id, punch_type, punch_time, punch_date
+           FROM attendance_punches
+           WHERE employee_id = ?
+           ORDER BY punch_time DESC, id DESC
+           LIMIT 1 FOR UPDATE`,
+          [emp.id]
+        );
+        isEffectivelyIn = refreshedLastPunch.length > 0 && refreshedLastPunch[0].punch_type === "in";
+        if (!isEffectivelyIn && refreshedLastPunch.length > 0) {
+          lastPunch[0] = refreshedLastPunch[0];
+        }
+      }
+    }
+
+    // 3. If STILL effectively clocked in today
+    if (isEffectivelyIn) {
       const punchTime = lastPunch[0].punch_time ? new Date(lastPunch[0].punch_time).getTime() : 0;
       const secondsAgo = (Date.now() - punchTime) / 1000;
-      if (secondsAgo >= 0 && secondsAgo <= 15) {
+
+      // Accidental rapid double-click (within 60 seconds)
+      if (secondsAgo >= 0 && secondsAgo <= 60) {
         return res.json({
           success: true,
-          message: "Punched in successfully",
+          message: "Clocked in successfully",
           punch_time: lastPunch[0].punch_time,
           work_mode: work_mode || "Office",
           alreadyProcessed: true
         });
       }
-      return res.status(400).json({
-        error: "Already punched in. Please punch out first.",
-        message:
-          "You have an active punch-in. Punch out before punching in again.",
-      });
+
+      // Check current mode vs requested mode
+      let currentMode = "Office";
+      if (lastPunch[0].attendance_id) {
+        const [currAtt] = await c.query(
+          `SELECT a.id, a.work_mode FROM attendance a WHERE a.id = ?`,
+          [lastPunch[0].attendance_id]
+        );
+        if (currAtt.length > 0 && currAtt[0].work_mode) {
+          currentMode = currAtt[0].work_mode;
+        }
+      }
+      const requestedMode = work_mode || "Office";
+
+      if (currentMode !== requestedMode) {
+        // Mode switch (e.g. Office -> Remote, or Remote -> Office, or WFH):
+        // Automatically close the previous mode session and proceed with the new mode punch in
+        await c.query(
+          `INSERT INTO attendance_punches 
+           (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+           VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?)`,
+          [
+            lastPunch[0].attendance_id,
+            emp.id,
+            now,
+            shiftDate,
+            ip_address,
+            device_info,
+            location || 'System',
+            `Switching work mode from ${currentMode} to ${requestedMode}`
+          ]
+        );
+        await c.query(`UPDATE attendance SET work_mode = ? WHERE id = ?`, [requestedMode, lastPunch[0].attendance_id]);
+        // Closed previous mode; allow new punch in below to proceed!
+      } else {
+        // Same mode already active today: smoothly return success instead of error!
+        return res.json({
+          success: true,
+          message: `You are already clocked in (${requestedMode})`,
+          punch_time: lastPunch[0].punch_time,
+          work_mode: requestedMode,
+          alreadyActive: true
+        });
+      }
     }
 
     // Get or create attendance record for shiftDate
@@ -601,7 +700,7 @@ router.post("/punch-out", auth, async (req, res) => {
     if (lastPunch[0].punch_type === "out") {
       const punchTime = lastPunch[0].punch_time ? new Date(lastPunch[0].punch_time).getTime() : 0;
       const secondsAgo = (Date.now() - punchTime) / 1000;
-      if (secondsAgo >= 0 && secondsAgo <= 15) {
+      if (secondsAgo >= 0 && secondsAgo <= 60) {
         return res.json({
           success: true,
           message: "Punched out successfully",
@@ -610,8 +709,12 @@ router.post("/punch-out", auth, async (req, res) => {
           alreadyProcessed: true
         });
       }
-      return res.status(400).json({
-        error: "Already punched out. Punch in first to punch out again.",
+      return res.json({
+        success: true,
+        message: "You are already clocked out",
+        punch_time: lastPunch[0].punch_time,
+        attendance_id: attendanceId,
+        alreadyActive: true
       });
     }
 
@@ -2545,10 +2648,10 @@ router.post("/checkin", auth, async (req, res) => {
       if (lastPunch[0].punch_type === "in") {
         await c.rollback();
         c.end();
-        return res.status(400).json({
-          error: "Already checked in. Please check out first.",
-          message:
-            "You have an active check-in. Check out before checking in again.",
+        return res.json({
+          success: true,
+          message: "You are already checked in",
+          alreadyActive: true
         });
       }
     }
@@ -2695,8 +2798,10 @@ router.post("/checkout", auth, async (req, res) => {
     if (lastPunch[0].punch_type === "out") {
       await c.rollback();
       c.end();
-      return res.status(400).json({
-        error: "Already checked out. Check in first to check out again.",
+      return res.json({
+        success: true,
+        message: "You are already checked out",
+        alreadyActive: true
       });
     }
 

@@ -326,13 +326,16 @@ class AutoClockOutService {
       const activePunch = lastPunchRows[0];
       const punchInTime = new Date(activePunch.punch_time);
       const attDateStr = this.formatToDateOnly(att.attendance_date);
+      const isPastDate = attDateStr < this.formatToDateOnly(new Date());
 
       const timing = this.calculateShiftAndAutoClockOut(punchInTime, effectiveShift, attDateStr);
 
-      if (timing.isOverdue) {
+      if (timing.isOverdue || isPastDate) {
         // Automatically clock out!
         let autoOutDateObj = timing.autoClockOutTime;
-        if (autoOutDateObj <= punchInTime) {
+        if (isPastDate && (autoOutDateObj > new Date() || autoOutDateObj <= punchInTime)) {
+          autoOutDateObj = timing.shiftEndTime > punchInTime ? timing.shiftEndTime : new Date(punchInTime.getTime() + 1000);
+        } else if (autoOutDateObj <= punchInTime) {
           autoOutDateObj = new Date(punchInTime.getTime() + 1000);
         }
         const autoOutTimeMySQL = this.formatToMySQLDateTime(autoOutDateObj);

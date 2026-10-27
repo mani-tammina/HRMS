@@ -2,198 +2,241 @@
   <ion-toolbar class="home-toolbar">
     <ion-title>My Profile</ion-title>
     <ion-buttons slot="end">
-      <ion-button color="primary" (click)="loadProfile()">
+      <ion-button color="primary" class="header-refresh-btn" (click)="loadProfile()" title="Refresh Profile">
         <ion-icon name="refresh-outline" slot="icon-only"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
-
-  <ion-toolbar class="header-segment-toolbar">
-    <ion-segment [(ngModel)]="selectedSegment" (ionChange)="segmentChanged($event)" mode="md" class="profile-segment"
-      scrollable="true">
-      <ion-segment-button value="about">
-        <ion-label>ABOUT</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="profile" *ngIf="canViewPrivateTabs">
-        <ion-label>PROFILE</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="job" *ngIf="canViewPrivateTabs">
-        <ion-label>JOB</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="documents" *ngIf="canViewPrivateTabs">
-        <ion-label>Documents</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="assets" *ngIf="canViewPrivateTabs">
-        <ion-label>Assets</ion-label>
-      </ion-segment-button>
-      <ion-segment-button value="leaves" *ngIf="canViewLeaves" (click)="onLeavesSegmentClick($event)">
-        <ion-label>Leaves</ion-label>
-      </ion-segment-button>
-    </ion-segment>
-  </ion-toolbar>
 </ion-header>
 
 <ion-content class="profile-page-content" #ionContentRef>
-  <div class="header-banner"></div>
+  <!-- Animated Background Layer (Clean, Elegant Ambient Aurora & Abstract Floating Accents) -->
+  <div class="animated-bg-layer" aria-hidden="true">
+    <!-- Subtle Blueprint Tech Dot Matrix Mesh -->
+    <div class="bg-grid-mesh"></div>
 
-  <div class="profile-top-section ion-padding animate__animated animate__fadeIn">
-    <!-- Top Right Action Icons -->
-    <div class="card-top-actions">
-      <button class="top-action-btn" title="Rewards & Badges" (click)="onMenuAction('badges')">
-        <img src="assets/reward.png" alt="rewards" />
-      </button>
-      <button class="top-action-btn" title="Internal Note" (click)="onMenuAction('write_note')">
-        <ion-icon name="create-outline"></ion-icon>
-      </button>
-      <button class="top-action-btn more-btn" id="profile-more-actions-trigger" title="More Actions">
-        <img src="assets/three-dots.png" alt="rewards" />
-      </button>
+    <!-- Ambient Glowing Aurora Orbs -->
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+    <div class="ambient-orb orb-4"></div>
+
+    <!-- Abstract Floating Glassmorphic Prisms & Geometric Accents (Purely decorative - zero mock data to avoid user confusion) -->
+    <div class="abstract-shape shape-orb-ring shape-pos-1">
+      <div class="ring-core"></div>
     </div>
+    <div class="abstract-shape shape-pill-glow shape-pos-2">
+      <div class="pill-accent"></div>
+    </div>
+    <div class="abstract-shape shape-concentric-circles shape-pos-3">
+      <div class="circle-outer">
+        <div class="circle-inner"></div>
+      </div>
+    </div>
+    <div class="abstract-shape shape-glass-prism shape-pos-4"></div>
+    <div class="abstract-shape shape-orbit-ring shape-pos-5"></div>
+    <div class="abstract-shape shape-soft-flare shape-pos-6"></div>
 
-    <!-- Profile Actions Popover (3-Dots Dropdown) -->
-    <ion-popover trigger="profile-more-actions-trigger" class="profile-actions-popover" dismissOnSelect="true">
-      <ng-template>
-        <div class="actions-menu-list">
-          <button class="menu-item" (click)="onMenuAction('id_card')">
-            <ion-icon name="id-card-outline" class="item-icon"></ion-icon>
-            <span>ID Card</span>
+    <!-- Gentle Shimmer Micro-Sparks -->
+    <div class="micro-spark spark-1"></div>
+    <div class="micro-spark spark-2"></div>
+    <div class="micro-spark spark-3"></div>
+    <div class="micro-spark spark-4"></div>
+  </div>
+
+  <div class="profile-header-wrapper">
+    <!-- Top Decorative Banner -->
+    <div class="header-banner"></div>
+
+    <!-- Compact Modern Profile Header Card -->
+    <div class="profile-card-container">
+      <div class="profile-top-card animated-profile-card">
+        <!-- Top Right Actions Group -->
+        <div class="card-top-actions">
+          <button class="action-circle-btn" title="Rewards & Badges" (click)="onMenuAction('badges')">
+            <img src="assets/reward.png" alt="Rewards" />
           </button>
-
-          <button class="menu-item" (click)="onMenuAction('leaves')" *ngIf="canViewLeaves">
-            <ion-icon name="calendar-outline" class="item-icon"></ion-icon>
-            <span>Leaves</span>
+          <button class="action-circle-btn" title="Internal Note" (click)="onMenuAction('write_note')">
+            <ion-icon name="create-outline"></ion-icon>
           </button>
-
-          <button class="menu-item" (click)="onMenuAction('write_note')">
-            <ion-icon name="document-text-outline" class="item-icon"></ion-icon>
-            <span>Write Internal Note</span>
-          </button>
-
-          <button class="menu-item" (click)="onMenuAction('request_feedback')">
-            <ion-icon name="chatbox-ellipses-outline" class="item-icon"></ion-icon>
-            <span>Request Feedback</span>
-          </button>
-
-          <button class="menu-item exit-item" (click)="onInitiateExit()">
-            <ion-icon name="exit-outline" class="item-icon"></ion-icon>
-            <span>Initiate Exit</span>
-          </button>
-
-          <button class="menu-item" (click)="onMenuAction('disable_login')">
-            <ion-icon name="person-remove-outline" class="item-icon"></ion-icon>
-            <span>Disable Login</span>
-          </button>
-
-          <button class="menu-item" (click)="onMenuAction('disable_mobile_login')">
-            <ion-icon name="lock-closed-outline" class="item-icon"></ion-icon>
-            <span>Disable Mobile App Login</span>
-          </button>
-
-          <button class="menu-item" (click)="onMenuAction('reset_password')">
-            <ion-icon name="key-outline" class="item-icon"></ion-icon>
-            <span>Reset Password</span>
-          </button>
-
-          <button class="menu-item" (click)="onMenuAction('pip')">
-            <ion-icon name="flag-outline" class="item-icon"></ion-icon>
-            <span>Add Employee to PIP</span>
+          <button class="action-circle-btn more-btn" id="profile-more-actions-trigger" title="More Actions">
+            <img src="assets/three-dots.png" alt="More" />
           </button>
         </div>
-      </ng-template>
-    </ion-popover>
 
-    <ion-grid class="ion-no-padding">
-      <ion-row class="ion-align-items-center">
-        <!-- LEFT: Profile Picture -->
-        <ion-col size="12" size-md="4" class="ion-text-center">
-          <div class="avatar-block">
-            <img class="profile-pic"
-              [src]="currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : '../../assets/user.png'"
-              alt="Profile Picture" />
+        <!-- 3-Dots Dropdown Popover -->
+        <ion-popover trigger="profile-more-actions-trigger" class="profile-actions-popover" dismissOnSelect="true">
+          <ng-template>
+            <div class="actions-menu-list">
+              <button class="menu-item" (click)="onMenuAction('id_card')">
+                <ion-icon name="id-card-outline" class="item-icon"></ion-icon>
+                <span>ID Card</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('leaves')" *ngIf="canViewLeaves">
+                <ion-icon name="calendar-outline" class="item-icon"></ion-icon>
+                <span>Leaves</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('write_note')">
+                <ion-icon name="document-text-outline" class="item-icon"></ion-icon>
+                <span>Write Internal Note</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('request_feedback')">
+                <ion-icon name="chatbox-ellipses-outline" class="item-icon"></ion-icon>
+                <span>Request Feedback</span>
+              </button>
+
+              <button class="menu-item exit-item" (click)="onInitiateExit()">
+                <ion-icon name="exit-outline" class="item-icon"></ion-icon>
+                <span>Initiate Exit</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('disable_login')">
+                <ion-icon name="person-remove-outline" class="item-icon"></ion-icon>
+                <span>Disable Login</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('disable_mobile_login')">
+                <ion-icon name="lock-closed-outline" class="item-icon"></ion-icon>
+                <span>Disable Mobile App Login</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('reset_password')">
+                <ion-icon name="key-outline" class="item-icon"></ion-icon>
+                <span>Reset Password</span>
+              </button>
+
+              <button class="menu-item" (click)="onMenuAction('pip')">
+                <ion-icon name="flag-outline" class="item-icon"></ion-icon>
+                <span>Add Employee to PIP</span>
+              </button>
+            </div>
+          </ng-template>
+        </ion-popover>
+
+        <!-- Profile Header Body -->
+        <div class="profile-hero-body">
+          <!-- Profile Photo -->
+          <div class="avatar-wrapper">
+            <div class="avatar-ring animated-avatar">
+              <img class="profile-pic"
+                [src]="currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : 'assets/user.png'"
+                alt="Profile Picture" />
+            </div>
           </div>
-        </ion-col>
 
-        <!-- RIGHT: Employee Basic Info -->
-        <ion-col size="12" size-md="8">
-          <div class="content-block">
-            <h1 class="employee-name">{{currentEmployee?.FullName}}</h1>
-            <p class="employee-designation">
-              {{currentEmployee?.designation_name}}
-              <span class="employee-id">({{currentEmployee?.EmployeeNumber}})</span>
-            </p>
+          <!-- Employee Details Information -->
+          <div class="info-content-wrapper">
+            <div class="name-row stagger-fade-1">
+              <h1 class="employee-name">{{ currentEmployee?.FullName || 'Employee' }}</h1>
+            </div>
 
-            <div class="basic-info">
-              <div class="info-row">
-                <ion-icon name="location-outline"></ion-icon>
-                <span>{{currentEmployee?.location_name || 'Global HQ'}}</span>
+            <div class="role-row stagger-fade-2">
+              <span class="employee-designation">{{ currentEmployee?.designation_name || 'Designation' }}</span>
+              <span class="role-separator" *ngIf="currentEmployee?.EmployeeNumber">•</span>
+              <span class="employee-id-badge" *ngIf="currentEmployee?.EmployeeNumber">
+                <ion-icon name="finger-print-outline"></ion-icon>
+                {{ currentEmployee?.EmployeeNumber }}
+              </span>
+            </div>
+
+            <div class="meta-row stagger-fade-3">
+              <div class="meta-item">
+                <ion-icon name="location-outline" class="meta-icon"></ion-icon>
+                <span>{{ currentEmployee?.location_name || 'Global HQ' }}</span>
               </div>
-              <div class="info-row">
-                <ion-icon name="mail-outline"></ion-icon>
-                <span>{{currentEmployee?.WorkEmail}}</span>
+
+              <div class="meta-item" *ngIf="currentEmployee?.WorkEmail">
+                <ion-icon name="mail-outline" class="meta-icon"></ion-icon>
+                <span>{{ currentEmployee?.WorkEmail }}</span>
               </div>
-              <!-- <div class="info-row" *ngIf="currentEmployee?.manager_first_name">
-                <ion-icon name="people-outline"></ion-icon>
-                <span>Reporting Manager: <strong>{{currentEmployee?.manager_first_name}} {{currentEmployee?.manager_last_name}}</strong></span>
-              </div> -->
-              <div class="info-row" *ngIf="currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus">
-                <ion-icon name="time-outline"></ion-icon>
-                <span>Status: </span>
-                <span class="status-badge"
+
+              <div class="meta-item" *ngIf="currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus">
+                <ion-icon name="time-outline" class="meta-icon"></ion-icon>
+                <span class="status-pill"
                   [class.status-in]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'In'"
                   [class.status-out]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Out'"
                   [class.status-leave]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'On Leave' || (currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Leave'"
                   [class.status-not-in]="(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus) === 'Not In Yet' || !(currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus)">
+                  <span class="dot-indicator"></span>
                   {{ currentEmployee?.attendance_status || currentEmployee?.AttendanceStatus || 'Not In Yet' }}
                 </span>
               </div>
             </div>
 
-            <div class="action-buttons" *ngIf="isOwnProfile">
-              <ion-button fill="outline" color="primary" id="image-upload-trigger" class="upload-btn">
-                <ion-icon slot="start" name="cloud-upload-outline"></ion-icon>
-                Upload Image
-              </ion-button>
+            <!-- Action Buttons (Upload Photo, Track Resignation) -->
+            <div class="header-action-buttons stagger-fade-4" *ngIf="isOwnProfile || (myResignation && myResignation.status !== 'Rejected' && myResignation.status !== 'Relieved')">
+              <button class="btn-profile-cta upload-cta" id="image-upload-trigger" *ngIf="isOwnProfile">
+                <ion-icon name="cloud-upload-outline" class="cta-icon"></ion-icon>
+                <span>Upload Image</span>
+              </button>
 
-              <ion-button
+              <button class="btn-profile-cta resignation-cta"
                 *ngIf="myResignation && myResignation.status !== 'Rejected' && myResignation.status !== 'Relieved'"
-                fill="solid" color="warning" (click)="openTrackingModal()" class="upload-btn">
-                <ion-icon slot="start" name="time-outline"></ion-icon>
-                Track Resignation
-              </ion-button>
+                (click)="openTrackingModal()">
+                <ion-icon name="time-outline" class="cta-icon"></ion-icon>
+                <span>Track Resignation</span>
+              </button>
             </div>
           </div>
+        </div>
 
-          <!-- Image Upload Popover -->
-          <ion-popover trigger="image-upload-trigger" class="upload-popover">
-            <ng-template>
-              <div class="ion-padding popover-content">
-                <p class="popover-title">Choose profile photo</p>
-                <div class="preview-box">
-                  <img
-                    [src]="previewImageUrl || (currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : 'assets/user.svg')"
-                    class="preview-img" />
-                  <p *ngIf="previewImageUrl" class="preview-text">Preview</p>
-                </div>
-
-                <label class="file-upload-label">
-                  <input type="file" accept="image/*" (change)="onFileSelected($event)">
-                  <span>Browse files</span>
-                </label>
-
-                <ion-button expand="block" (click)="uploadProfilePic()" [disabled]="!selectedFile || isUploading"
-                  class="upload-submit">
-                  {{ isUploading ? 'Uploading...' : 'Upload Profile' }}
-                </ion-button>
+        <!-- Image Upload Popover -->
+        <ion-popover trigger="image-upload-trigger" class="upload-popover">
+          <ng-template>
+            <div class="ion-padding popover-content">
+              <p class="popover-title">Choose profile photo</p>
+              <div class="preview-box">
+                <img
+                  [src]="previewImageUrl || (currentEmployee?.profile_image ? (env + currentEmployee.profile_image) : 'assets/user.png')"
+                  class="preview-img" />
+                <p *ngIf="previewImageUrl" class="preview-text">Preview</p>
               </div>
-            </ng-template>
-          </ion-popover>
-        </ion-col>
-      </ion-row>
-    </ion-grid>
+
+              <label class="file-upload-label">
+                <input type="file" accept="image/*" (change)="onFileSelected($event)">
+                <span>Browse files</span>
+              </label>
+
+              <ion-button expand="block" (click)="uploadProfilePic()" [disabled]="!selectedFile || isUploading"
+                class="upload-submit">
+                {{ isUploading ? 'Uploading...' : 'Upload Profile' }}
+              </ion-button>
+            </div>
+          </ng-template>
+        </ion-popover>
+      </div>
+
+      <!-- Compact Navigation Tabs Bar (Directly beneath the Profile Header) -->
+      <div class="profile-nav-tabs-wrapper">
+        <ion-segment [(ngModel)]="selectedSegment" (ionChange)="segmentChanged($event)" mode="md" class="profile-nav-segment" [scrollable]="true">
+          <ion-segment-button value="about">
+            <ion-label>About</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="profile" *ngIf="canViewPrivateTabs">
+            <ion-label>Profile</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="job" *ngIf="canViewPrivateTabs">
+            <ion-label>Job</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="documents" *ngIf="canViewPrivateTabs">
+            <ion-label>Documents</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="assets" *ngIf="canViewPrivateTabs">
+            <ion-label>Assets</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="leaves" *ngIf="canViewLeaves" (click)="onLeavesSegmentClick($event)">
+            <ion-label>Leaves</ion-label>
+          </ion-segment-button>
+        </ion-segment>
+      </div>
+    </div>
   </div>
 
   <!-- TAB CONTENT -->
-  <div class="tab-content-container ion-padding" #tabContentRef>
+  <div class="tab-content-container" #tabContentRef>
     <div [ngSwitch]="selectedSegment">
       <app-about-tab *ngSwitchCase="'about'" [currentEmployee]="currentEmployee"
         [isOwnProfile]="isOwnProfile"></app-about-tab>

@@ -58,6 +58,14 @@ export class AboutTabComponent implements OnChanges {
     return formatDateDDMMYYYY(this.currentEmployee?.DateOfBirth);
   }
 
+  get managerInitials(): string {
+    const first = (this.currentEmployee?.manager_first_name || '').trim();
+    const last = (this.currentEmployee?.manager_last_name || '').trim();
+    const f = first ? first[0].toUpperCase() : '';
+    const l = last ? last[0].toUpperCase() : '';
+    return (f + l) || (first ? first.slice(0, 2).toUpperCase() : 'M');
+  }
+
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['currentEmployee']?.currentValue) {
       console.log('✅ AboutTabComponent received employee:', this.currentEmployee);

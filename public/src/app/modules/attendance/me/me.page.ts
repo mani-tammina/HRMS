@@ -1002,13 +1002,17 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.remoteClockInLoading || this.clockButton?.loading) return;
     this.remoteClockInLoading = true;
     this.attendanceApi.apiPunchIn({ work_mode: 'Remote', location: 'Remote', notes: 'Remote Clock-In' }).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.remoteClockInLoading = false;
         this.isClockedIn = true;
         this.hasRemoteToday = true;
         const todayDateStr = this.formatDateOnly(new Date());
         localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
-        this.showToast('Remote Clock-In successful', 'success');
+        if (res?.alreadyActive) {
+          this.showToast(res?.message || 'You are currently clocked in', 'primary');
+        } else {
+          this.showToast('Remote Clock-In successful', 'success');
+        }
         if (this.clockButton) {
           this.clockButton.workMode = 'Remote';
           this.clockButton.isClockedIn = true;
@@ -1025,7 +1029,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         const msg = err?.error?.message || err?.message || 'Remote Clock-In failed';
         if (msg.includes('active punch-in') || msg.includes('Already punched in')) {
           this.isClockedIn = true;
-          this.showToast('You are already clocked in', 'warning');
+          this.showToast('You are currently clocked in', 'primary');
+          this.loadTodayAttendance();
         } else {
           this.showToast(msg, 'danger');
         }
@@ -1037,13 +1042,17 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (this.remoteClockInLoading || this.clockButton?.loading) return;
     this.remoteClockInLoading = true;
     this.attendanceApi.apiPunchOut({ notes: 'Remote Clock-Out', comment: 'Remote Clock-Out' } as any).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.remoteClockInLoading = false;
         this.isClockedIn = false;
         this.hasRemoteToday = true;
         const todayDateStr = this.formatDateOnly(new Date());
         localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
-        this.showToast('Remote Clock-Out successful', 'success');
+        if (res?.alreadyActive) {
+          this.showToast(res?.message || 'You are already clocked out', 'primary');
+        } else {
+          this.showToast('Remote Clock-Out successful', 'success');
+        }
         if (this.clockButton) {
           this.clockButton.workMode = 'Office';
           this.clockButton.isClockedIn = false;
@@ -1060,7 +1069,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         const msg = err?.error?.message || err?.message || 'Remote Clock-Out failed';
         if (msg.includes('already punched out') || msg.includes('no punch-in')) {
           this.isClockedIn = false;
-          this.showToast('You are already clocked out', 'warning');
+          this.showToast('You are already clocked out', 'primary');
         } else {
           this.showToast(msg, 'danger');
         }
@@ -1088,13 +1097,17 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           return;
         }
         this.attendanceApi.apiPunchIn({ work_mode: 'WFH', location: 'Home', notes: 'WFH Clock-In' }).subscribe({
-          next: () => {
+          next: (punchRes: any) => {
             this.wfhClockInLoading = false;
             this.isClockedIn = true;
             this.hasWFHToday = true;
             const todayDateStr = this.formatDateOnly(new Date());
             localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
-            this.showToast('WFH Clock-In recorded (pending approval)', 'success');
+            if (punchRes?.alreadyActive) {
+              this.showToast(punchRes?.message || 'You are currently clocked in', 'primary');
+            } else {
+              this.showToast('WFH Clock-In recorded (pending approval)', 'success');
+            }
             if (this.clockButton) {
               this.clockButton.workMode = 'WFH';
               this.clockButton.isClockedIn = true;
@@ -1106,7 +1119,14 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           },
           error: err => {
             this.wfhClockInLoading = false;
-            this.showToast(err?.error?.message || 'WFH Clock-In failed', 'danger');
+            const msg = err?.error?.message || err?.message || 'WFH Clock-In failed';
+            if (msg.includes('active punch-in') || msg.includes('Already punched in')) {
+              this.isClockedIn = true;
+              this.showToast('You are currently clocked in', 'primary');
+              this.loadTodayAttendance();
+            } else {
+              this.showToast(msg, 'danger');
+            }
           },
         });
       },
@@ -1474,7 +1494,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (tab === 'log') this.attendanceRefresh = Date.now();
   }
 
-  async showToast(message: string, color: 'success' | 'warning' | 'danger') {
+  async showToast(message: string, color: 'success' | 'warning' | 'danger' | 'primary' = 'success') {
     const toast = await this.toastCtrl.create({ message, duration: 2500, position: 'top', color });
     await toast.present();
   }
