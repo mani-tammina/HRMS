@@ -978,21 +978,27 @@ export class InboxPage implements OnInit {
   }
 
   async triggerExport() {
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth() + 1).padStart(2, '0');
+    const defaultStart = `${y}-${m}-01`;
+    const defaultEnd = today.toISOString().split('T')[0];
+
     const alert = await this.alertCtrl.create({
       header: 'Export Attendance',
-      message: 'Enter the target year and month to export:',
+      subHeader: this.isHR ? 'Download attendance report for all employees' : 'Download attendance report for your reporting team',
       inputs: [
         {
-          name: 'year',
-          type: 'number',
-          placeholder: 'Year (e.g. 2026)',
-          value: new Date().getFullYear().toString()
+          name: 'startDate',
+          type: 'date',
+          label: 'From Date',
+          value: defaultStart
         },
         {
-          name: 'month',
-          type: 'number',
-          placeholder: 'Month (1-12, e.g. 6)',
-          value: (new Date().getMonth() + 1).toString()
+          name: 'endDate',
+          type: 'date',
+          label: 'To Date',
+          value: defaultEnd
         }
       ],
       buttons: [
@@ -1000,17 +1006,15 @@ export class InboxPage implements OnInit {
         {
           text: 'Export',
           handler: (data) => {
-            if (!data.year || !data.month) {
-              this.toaster.showError('Both year and month are required');
+            if (!data.startDate || !data.endDate) {
+              this.toaster.showError('Both From Date and To Date are required');
               return false;
             }
-            const y = parseInt(data.year, 10);
-            const m = parseInt(data.month, 10);
-            if (isNaN(y) || isNaN(m) || m < 1 || m > 12) {
-              this.toaster.showError('Please enter a valid year and month');
+            if (new Date(data.startDate) > new Date(data.endDate)) {
+              this.toaster.showError('From Date cannot be later than To Date');
               return false;
             }
-            this.executeExport(y, m);
+            this.executeExport(data.startDate, data.endDate);
             return true;
           }
         }
@@ -1019,24 +1023,19 @@ export class InboxPage implements OnInit {
     await alert.present();
   }
 
-  private async executeExport(year: number, month: number) {
+  private async executeExport(startDate: string, endDate: string) {
     const loading = await this.loadingCtrl.create({
       message: 'Generating attendance report...',
     });
     await loading.present();
 
-    const monthStr = month.toString().padStart(2, '0');
-    const startDate = `${year}-${monthStr}-01`;
-    const lastDay = new Date(year, month, 0).getDate();
-    const endDate = `${year}-${monthStr}-${String(lastDay).padStart(2, '0')}`;
-
-    this.inboxService.exportMonthlyAttendance({ startDate, endDate, month, year }).subscribe({
+    this.inboxService.exportMonthlyAttendance({ startDate, endDate }).subscribe({
       next: (blob: Blob) => {
         loading.dismiss();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Monthly_Attendance_${year}_${monthStr}.xlsx`;
+        a.download = `Attendance_Report_${startDate}_to_${endDate}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1046,7 +1045,7 @@ export class InboxPage implements OnInit {
       error: (err: any) => {
         loading.dismiss();
         console.error('Attendance export failed', err);
-        this.toaster.showError('Failed to export monthly attendance');
+        this.toaster.showError('Failed to export attendance report');
       }
     });
   }

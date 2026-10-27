@@ -8,7 +8,7 @@ const router = express.Router();
 const multer = require("multer");
 const { db } = require("../config/database");
 const { auth, admin, hr, roleAuth } = require("../middleware/auth");
-const { getOrCreateMaster } = require("../utils/helpers");
+const { getOrCreateMaster, findEmployeeByUserId } = require("../utils/helpers");
 const { excel } = require("../utils/excelReader");
 
 const upload = multer({ dest: "uploads/" });
@@ -1094,315 +1094,328 @@ router.post("/monthly-attendance", auth, roleAuth(["hr", "manager"]), upload.sin
 });
 
 
-/* ============ EXPORT MONTHLY ATTENDANCE ============ */
-// Access: HR and Manager only (not admin)
-
-router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), async (req, res) => {
-    const c = await db();
+/* ============ EXPORT ATTENDANCE (DATE RANGE OR MONTHLY) ============ */
+// Access: Admin, HR and Manager
+router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager"]), async (req, res) => {
+    let c = null;
     try {
+        c = await db();
         let month = req.query.month;
         let year = req.query.year;
         let startDateStr = req.query.startDate;
         let endDateStr = req.query.endDate;
 
-        let attendanceMonth = month;
-        if (month && year) {
-            const paddedMonth = month.toString().padStart(2, '0');
-            attendanceMonth = `${year}-${paddedMonth}`;
-        } else if (month && month.toString().includes('-')) {
-            attendanceMonth = month;
-        } else if (startDateStr) {
-            attendanceMonth = startDateStr.substring(0, 7);
-        } else {
-            const today = new Date();
-            attendanceMonth = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
-        }
-
-        // Derive per-month table name: monthly_attendance_YYYY_MM
-        const [amYear, amMonth] = attendanceMonth.split('-');
-        const perMonthTable = `monthly_attendance_${amYear}_${amMonth}`;
-
-        // Check if the per-month isolated table exists (created on upload)
-        const [tableCheck] = await c.query(
-            `SELECT TABLE_NAME FROM information_schema.TABLES
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-            [perMonthTable]
-        );
-        const perMonthTableExists = tableCheck.length > 0;
-
-        let rowsToExport = [];
-
-        if (perMonthTableExists) {
-            console.log(`[EXPORT] Checking per-month table: ${perMonthTable}`);
-            const [rows] = await c.query(`SELECT * FROM \`${perMonthTable}\``);
-            const hasDateCols = rows.length > 0 && Object.keys(rows[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k));
-            if (hasDateCols) {
-                console.log(`[EXPORT] Exporting from per-month table: ${perMonthTable}`);
-                rowsToExport = rows.map(r => {
-                    const cleaned = { ...r };
-                    delete cleaned.id;
-                    delete cleaned.created_at;
-                    delete cleaned.updated_at;
-                    delete cleaned.attendance_month;
-
-                    // Convert UL → LOP and normalize any legacy BA:P marks in all day-column cells (date columns like "01-Jun-2026")
-                    for (const key of Object.keys(cleaned)) {
-                        if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
-                            const cellVal = String(cleaned[key] || '').trim().toUpperCase();
-                            if (cellVal === 'UL') cleaned[key] = 'LOP';
-                            if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
-                            if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
-                            if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cleaned[key] = 'P';
-                        }
-                    }
-
-                    return cleaned;
-                });
+        // Resolve startDateStr and endDateStr
+        if (!startDateStr || !endDateStr) {
+            if (month && year) {
+                const paddedMonth = month.toString().padStart(2, '0');
+                const lastDay = new Date(parseInt(year, 10), parseInt(month, 10), 0).getDate();
+                startDateStr = `${year}-${paddedMonth}-01`;
+                endDateStr = `${year}-${paddedMonth}-${String(lastDay).padStart(2, '0')}`;
+            } else if (month && month.toString().includes('-')) {
+                const [mY, mM] = month.toString().split('-');
+                const lastDay = new Date(parseInt(mY, 10), parseInt(mM, 10), 0).getDate();
+                startDateStr = `${mY}-${mM.padStart(2, '0')}-01`;
+                endDateStr = `${mY}-${mM.padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            } else {
+                const today = new Date();
+                const curYear = today.getFullYear();
+                const curMonth = String(today.getMonth() + 1).padStart(2, '0');
+                startDateStr = `${curYear}-${curMonth}-01`;
+                endDateStr = today.toISOString().split('T')[0];
             }
         }
 
-        if (rowsToExport.length === 0) {
-            // Fallback: check legacy shared monthly_attendance table
-            const [legacyRows] = await c.query(
-                "SELECT * FROM monthly_attendance WHERE attendance_month = ?",
-                [attendanceMonth]
-            );
-
-            const hasLegacyDateCols = legacyRows.length > 0 && Object.keys(legacyRows[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k));
-
-            if (hasLegacyDateCols) {
-                console.log(`[EXPORT] Reading from legacy shared table for month: ${attendanceMonth}`);
-                rowsToExport = legacyRows.map(r => {
-                    const cleaned = { ...r };
-                    delete cleaned.id;
-                    delete cleaned.created_at;
-                    delete cleaned.updated_at;
-                    delete cleaned.attendance_month;
-
-                    // Convert UL → LOP and normalize any legacy BA:P marks in all day-column cells
-                    for (const key of Object.keys(cleaned)) {
-                        if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(key)) {
-                            const cellVal = String(cleaned[key] || '').trim().toUpperCase();
-                            if (cellVal === 'UL') cleaned[key] = 'LOP';
-                            if (cellVal === 'UL:P') cleaned[key] = 'LOP:P';
-                            if (cellVal === 'P:UL') cleaned[key] = 'P:LOP';
-                            if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cleaned[key] = 'P';
-                        }
-                    }
-
-                    return cleaned;
-                });
-            }
+        // Validate date format and ordering
+        if (startDateStr > endDateStr) {
+            const temp = startDateStr;
+            startDateStr = endDateStr;
+            endDateStr = temp;
         }
 
-        if (rowsToExport.length === 0) {
-            console.log(`[EXPORT] Generating dynamic daily attendance for month: ${attendanceMonth}`);
-            // Generate dynamically in exact upload sheet format
-            const [yearStr, monthStr] = attendanceMonth.split('-');
-            const yNum = parseInt(yearStr, 10);
-            const mNum = parseInt(monthStr, 10);
-            const lastDay = new Date(yNum, mNum, 0).getDate();
+        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const dates = [];
+        const dateHeaders = [];
 
-            const dates = [];
-            const dateHeaders = [];
-            const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const [sY, sM, sD] = startDateStr.split('-').map(Number);
+        const [eY, eM, eD] = endDateStr.split('-').map(Number);
+        const curr = new Date(sY, sM - 1, sD);
+        const end = new Date(eY, eM - 1, eD);
+
+        while (curr <= end) {
+            const yNum = curr.getFullYear();
+            const mNum = curr.getMonth() + 1;
+            const dNum = curr.getDate();
+            const dayStr = String(dNum).padStart(2, '0');
+            const monthStr = String(mNum).padStart(2, '0');
             const monthName = monthNames[mNum - 1];
 
-            for (let d = 1; d <= lastDay; d++) {
-                const dayStr = String(d).padStart(2, '0');
-                dates.push(`${yNum}-${monthStr}-${dayStr}`);
-                dateHeaders.push(`${dayStr}-${monthName}-${yNum}`);
+            dates.push(`${yNum}-${monthStr}-${dayStr}`);
+            dateHeaders.push(`${dayStr}-${monthName}-${yNum}`);
+
+            curr.setDate(curr.getDate() + 1);
+        }
+
+        // Role-based scoping: Manager exports reporting team + self; Admin/HR exports all active employees
+        const userRole = (req.user.role || '').toLowerCase().trim();
+        let empWhere = "WHERE (e.exit_status IS NULL OR e.exit_status <> 'separated')";
+        const empParams = [];
+
+        if (userRole === "manager") {
+            const currentEmp = await findEmployeeByUserId(req.user.id);
+            if (currentEmp) {
+                empWhere += " AND (e.reporting_manager_id = ? OR e.id = ?)";
+                empParams.push(currentEmp.id, currentEmp.id);
             }
+        }
 
-            const [employees] = await c.query(`
-                SELECT 
-                    e.id,
-                    e.EmployeeNumber,
-                    CONCAT(e.FirstName, ' ', IFNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
-                    ds.name AS JobTitle,
-                    bu.name AS BusinessUnit,
-                    dept.name AS Department,
-                    sdept.name AS SubDepartment,
-                    loc.name AS Location,
-                    cc.code AS CostCenter,
-                    CONCAT(m.FirstName, ' ', m.LastName) AS ReportingManager,
-                    e.weekly_off_policy_id,
-                    e.leave_plan_id
-                FROM employees e
-                LEFT JOIN designations ds ON e.DesignationId = ds.id
-                LEFT JOIN departments dept ON e.DepartmentId = dept.id
-                LEFT JOIN sub_departments sdept ON e.SubDepartmentId = sdept.id
-                LEFT JOIN locations loc ON e.LocationId = loc.id
-                LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
-                LEFT JOIN cost_centers cc ON e.CostCenterId = cc.id
-                LEFT JOIN employees m ON e.reporting_manager_id = m.id
-                WHERE e.exit_status IS NULL OR e.exit_status <> 'separated'
-                ORDER BY e.EmployeeNumber ASC
-            `);
+        const [employees] = await c.query(`
+            SELECT 
+                e.id,
+                e.EmployeeNumber,
+                CONCAT(e.FirstName, ' ', IFNULL(e.MiddleName, ''), ' ', e.LastName) AS EmployeeName,
+                ds.name AS JobTitle,
+                bu.name AS BusinessUnit,
+                dept.name AS Department,
+                sdept.name AS SubDepartment,
+                loc.name AS Location,
+                cc.code AS CostCenter,
+                CONCAT(m.FirstName, ' ', m.LastName) AS ReportingManager,
+                e.weekly_off_policy_id,
+                e.leave_plan_id
+            FROM employees e
+            LEFT JOIN designations ds ON e.DesignationId = ds.id
+            LEFT JOIN departments dept ON e.DepartmentId = dept.id
+            LEFT JOIN sub_departments sdept ON e.SubDepartmentId = sdept.id
+            LEFT JOIN locations loc ON e.LocationId = loc.id
+            LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+            LEFT JOIN cost_centers cc ON e.CostCenterId = cc.id
+            LEFT JOIN employees m ON e.reporting_manager_id = m.id
+            ${empWhere}
+            ORDER BY e.EmployeeNumber ASC
+        `, empParams);
 
-            // Clean EmployeeName spacing
-            employees.forEach(emp => {
-                if (emp.EmployeeName) {
-                    emp.EmployeeName = emp.EmployeeName.replace(/\s+/g, ' ').trim();
-                }
-            });
+        employees.forEach(emp => {
+            if (emp.EmployeeName) {
+                emp.EmployeeName = emp.EmployeeName.replace(/\s+/g, ' ').trim();
+            }
+        });
 
-            const [weekOffs] = await c.query("SELECT * FROM weekly_off_policies");
-            const weekOffMap = new Map(weekOffs.map(w => [w.id, w]));
+        // Check if any uploaded monthly attendance tables exist for the months in range
+        const uniqueMonths = [...new Set(dates.map(d => d.substring(0, 7)))];
+        const uploadedDataMap = new Map();
 
-            // Fetch public holidays
-            let holidayDates = new Set();
+        for (const ym of uniqueMonths) {
+            const [amYear, amMonth] = ym.split('-');
+            const perMonthTable = `monthly_attendance_${amYear}_${amMonth}`;
+            let tableRows = [];
+
             try {
-                const [hList] = await c.query(
-                    "SELECT holiday_date FROM holidays WHERE holiday_date BETWEEN ? AND ?",
-                    [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]
+                const [tableCheck] = await c.query(
+                    `SELECT TABLE_NAME FROM information_schema.TABLES
+                     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+                    [perMonthTable]
                 );
-                hList.forEach(h => {
-                    if (h.holiday_date) {
-                        const hStr = new Date(h.holiday_date).toISOString().split('T')[0];
-                        holidayDates.add(hStr);
+
+                if (tableCheck.length > 0) {
+                    const [rList] = await c.query(`SELECT * FROM \`${perMonthTable}\``);
+                    if (rList.length > 0 && Object.keys(rList[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k))) {
+                        tableRows = rList;
                     }
-                });
-            } catch (hErr) {
-                console.warn("[EXPORT] No holidays table found or query failed:", hErr.message);
+                }
+
+                if (tableRows.length === 0) {
+                    const [legacyRows] = await c.query(
+                        "SELECT * FROM monthly_attendance WHERE attendance_month = ?",
+                        [ym]
+                    );
+                    if (legacyRows.length > 0 && Object.keys(legacyRows[0]).some(k => /^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k))) {
+                        tableRows = legacyRows;
+                    }
+                }
+            } catch (tblErr) {
+                console.warn(`[EXPORT] Failed checking uploaded table for ${ym}:`, tblErr.message);
             }
 
-            // Fetch approved leaves
-            const [leavesList] = await c.query(`
-                SELECT l.employee_id, l.start_date, l.end_date, l.leave_type, l.is_half_day, l.half_day_session, lt.type_code
-                FROM leaves l
-                LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
-                WHERE l.status = 'approved' AND NOT (l.end_date < ? OR l.start_date > ?)
-            `, [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]);
-
-            const leaveMap = new Map();
-            leavesList.forEach(l => {
-                const from = new Date(l.start_date);
-                const to = new Date(l.end_date);
-                let d = new Date(from.getFullYear(), from.getMonth(), from.getDate());
-                const end = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-
-                let lCode = (l.type_code || l.leave_type || 'CL').toUpperCase();
-                const lType = String(l.leave_type || '').toUpperCase();
-                if (lType.includes('SICK') || lType === 'SL') lCode = 'SL';
-                else if (lType.includes('CASUAL') || lType === 'CL') lCode = 'CL';
-                else if (lType.includes('MATERNITY') || lType === 'ML') lCode = 'ML';
-                else if (lType.includes('MARRIAGE') || lType === 'MRL') lCode = 'MRL';
-                else if (lType.includes('PRIVILEGE') || lType === 'PL') lCode = 'PL';
-                else if (lType.includes('EARNED') || lType === 'EL') lCode = 'EL';
-                else if (lType.includes('UNPAID') || lType.includes('LOSS OF PAY') || lType === 'LOP') lCode = 'LOP';
-                else if (lType.includes('BEREAVEMENT') || lType === 'BL' || lType === 'BA') lCode = 'BL';
-                if (lCode === 'BA') lCode = 'BL';
-
-                const isHalf = Number(l.is_half_day) === 1 || String(l.is_half_day) === 'true';
-                const sess = String(l.half_day_session || '').toLowerCase();
-
-                let finalCode = lCode;
-                if (isHalf) {
-                    if (sess.includes('first') || sess.includes('1st')) {
-                        finalCode = `${lCode}:P`;
-                    } else {
-                        finalCode = `P:${lCode}`;
+            for (const r of tableRows) {
+                const empNum = String(r.EmployeeNumber || '').trim().toUpperCase();
+                if (!empNum) continue;
+                if (!uploadedDataMap.has(empNum)) {
+                    uploadedDataMap.set(empNum, new Map());
+                }
+                const empDates = uploadedDataMap.get(empNum);
+                for (const k of Object.keys(r)) {
+                    if (/^\d{2}-[A-Za-z]{3}-\d{4}$/.test(k)) {
+                        let cellVal = String(r[k] || '').trim().toUpperCase();
+                        if (cellVal === 'UL') cellVal = 'LOP';
+                        if (cellVal === 'UL:P') cellVal = 'LOP:P';
+                        if (cellVal === 'P:UL') cellVal = 'P:LOP';
+                        if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cellVal = 'P';
+                        empDates.set(k, cellVal);
                     }
                 }
-                if (finalCode === 'BA:P' || finalCode === 'P:BA' || finalCode === 'BA') {
-                    finalCode = 'P';
-                }
+            }
+        }
 
-                while (d <= end) {
-                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                    leaveMap.set(`${l.employee_id}_${dateStr}`, finalCode);
-                    d.setDate(d.getDate() + 1);
-                }
+        // Fetch Weekly Off policies
+        const [weekOffs] = await c.query("SELECT * FROM weekly_off_policies");
+        const weekOffMap = new Map(weekOffs.map(w => [w.id, w]));
+
+        // Fetch Public Holidays
+        let holidayDates = new Set();
+        try {
+            const [hList] = await c.query(
+                "SELECT DATE_FORMAT(holiday_date, '%Y-%m-%d') AS h_date FROM holidays WHERE holiday_date BETWEEN ? AND ?",
+                [startDateStr, endDateStr]
+            );
+            hList.forEach(h => {
+                if (h.h_date) holidayDates.add(h.h_date);
             });
+        } catch (hErr) {
+            console.warn("[EXPORT] No holidays table found or query failed:", hErr.message);
+        }
 
-            // Fetch actual attendance logs
-            const [attendanceList] = await c.query(`
-                SELECT employee_id, attendance_date, status, work_mode, notes
-                FROM attendance
-                WHERE attendance_date BETWEEN ? AND ?
-            `, [`${yNum}-${monthStr}-01`, `${yNum}-${monthStr}-${String(lastDay).padStart(2, '0')}`]);
+        // Fetch Approved Leaves
+        const [leavesList] = await c.query(`
+            SELECT l.employee_id, 
+                   DATE_FORMAT(l.start_date, '%Y-%m-%d') AS start_date, 
+                   DATE_FORMAT(l.end_date, '%Y-%m-%d') AS end_date, 
+                   l.leave_type, l.is_half_day, l.half_day_session, lt.type_code
+            FROM leaves l
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE l.status = 'approved' AND NOT (l.end_date < ? OR l.start_date > ?)
+        `, [startDateStr, endDateStr]);
 
-            const attMap = new Map();
-            attendanceList.forEach(a => {
-                const d = new Date(a.attendance_date);
-                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-                attMap.set(`${a.employee_id}_${dateStr}`, { status: a.status, work_mode: a.work_mode, notes: a.notes });
-            });
+        const leaveMap = new Map();
+        leavesList.forEach(l => {
+            if (!l.start_date || !l.end_date) return;
+            const [fsY, fsM, fsD] = l.start_date.split('-').map(Number);
+            const [feY, feM, feD] = l.end_date.split('-').map(Number);
+            let d = new Date(fsY, fsM - 1, fsD);
+            const endD = new Date(feY, feM - 1, feD);
 
-            rowsToExport = employees.map(e => {
-                const row = {
-                    EmployeeNumber: e.EmployeeNumber || '',
-                    EmployeeName: e.EmployeeName || '',
-                    JobTitle: e.JobTitle || '',
-                    BusinessUnit: e.BusinessUnit || '',
-                    Department: e.Department || '',
-                    SubDepartment: e.SubDepartment || '',
-                    Location: e.Location || '',
-                    CostCenter: e.CostCenter || '',
-                    ReportingManager: e.ReportingManager || ''
-                };
+            let lCode = (l.type_code || l.leave_type || 'CL').toUpperCase();
+            const lType = String(l.leave_type || '').toUpperCase();
+            if (lType.includes('SICK') || lType === 'SL') lCode = 'SL';
+            else if (lType.includes('CASUAL') || lType === 'CL') lCode = 'CL';
+            else if (lType.includes('MATERNITY') || lType === 'ML') lCode = 'ML';
+            else if (lType.includes('MARRIAGE') || lType === 'MRL') lCode = 'MRL';
+            else if (lType.includes('PRIVILEGE') || lType === 'PL') lCode = 'PL';
+            else if (lType.includes('EARNED') || lType === 'EL') lCode = 'EL';
+            else if (lType.includes('UNPAID') || lType.includes('LOSS OF PAY') || lType === 'LOP') lCode = 'LOP';
+            else if (lType.includes('BEREAVEMENT') || lType === 'BL' || lType === 'BA') lCode = 'BL';
+            if (lCode === 'BA') lCode = 'BL';
 
-                const wop = weekOffMap.get(e.weekly_off_policy_id);
-                const weekOffDays = [];
-                if (wop) {
-                    if (Number(wop.sunday_off) === 1) weekOffDays.push(0);
-                    if (Number(wop.monday_off) === 1) weekOffDays.push(1);
-                    if (Number(wop.tuesday_off) === 1) weekOffDays.push(2);
-                    if (Number(wop.wednesday_off) === 1) weekOffDays.push(3);
-                    if (Number(wop.thursday_off) === 1) weekOffDays.push(4);
-                    if (Number(wop.friday_off) === 1) weekOffDays.push(5);
-                    if (Number(wop.saturday_off) === 1) weekOffDays.push(6);
+            const isHalf = Number(l.is_half_day) === 1 || String(l.is_half_day) === 'true';
+            const sess = String(l.half_day_session || '').toLowerCase();
+
+            let finalCode = lCode;
+            if (isHalf) {
+                if (sess.includes('first') || sess.includes('1st')) {
+                    finalCode = `${lCode}:P`;
                 } else {
-                    weekOffDays.push(0, 6);
+                    finalCode = `P:${lCode}`;
+                }
+            }
+            if (finalCode === 'BA:P' || finalCode === 'P:BA' || finalCode === 'BA') {
+                finalCode = 'P';
+            }
+
+            while (d <= endD) {
+                const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                leaveMap.set(`${l.employee_id}_${dateStr}`, finalCode);
+                d.setDate(d.getDate() + 1);
+            }
+        });
+
+        // Fetch Live Attendance Logs
+        const [attendanceList] = await c.query(`
+            SELECT employee_id, DATE_FORMAT(attendance_date, '%Y-%m-%d') AS att_date, status, work_mode, notes
+            FROM attendance
+            WHERE attendance_date BETWEEN ? AND ?
+        `, [startDateStr, endDateStr]);
+
+        const attMap = new Map();
+        attendanceList.forEach(a => {
+            if (a.att_date) {
+                attMap.set(`${a.employee_id}_${a.att_date}`, { status: a.status, work_mode: a.work_mode, notes: a.notes });
+            }
+        });
+
+        const rowsToExport = employees.map(e => {
+            const row = {
+                EmployeeNumber: e.EmployeeNumber || '',
+                EmployeeName: e.EmployeeName || '',
+                JobTitle: e.JobTitle || '',
+                BusinessUnit: e.BusinessUnit || '',
+                Department: e.Department || '',
+                SubDepartment: e.SubDepartment || '',
+                Location: e.Location || '',
+                CostCenter: e.CostCenter || '',
+                ReportingManager: e.ReportingManager || ''
+            };
+
+            const wop = weekOffMap.get(e.weekly_off_policy_id);
+            const weekOffDays = [];
+            if (wop) {
+                if (Number(wop.sunday_off) === 1) weekOffDays.push(0);
+                if (Number(wop.monday_off) === 1) weekOffDays.push(1);
+                if (Number(wop.tuesday_off) === 1) weekOffDays.push(2);
+                if (Number(wop.wednesday_off) === 1) weekOffDays.push(3);
+                if (Number(wop.thursday_off) === 1) weekOffDays.push(4);
+                if (Number(wop.friday_off) === 1) weekOffDays.push(5);
+                if (Number(wop.saturday_off) === 1) weekOffDays.push(6);
+            } else {
+                weekOffDays.push(0, 6);
+            }
+
+            let presentCount = 0;
+            let absentCount = 0;
+            let woCount = 0;
+            let holidayCount = 0;
+            let wfhCount = 0;
+            let onDutyCount = 0;
+            let wowCount = 0;
+            let wohCount = 0;
+            let missingSwipeCount = 0;
+            let lateArrivalCount = 0;
+            let paidLeaveCount = 0;
+            let unpaidLeaveCount = 0;
+
+            const empNumKey = String(e.EmployeeNumber || '').trim().toUpperCase();
+            const uploadedDates = uploadedDataMap.get(empNumKey);
+
+            for (let i = 0; i < dates.length; i++) {
+                const dateStr = dates[i];
+                const header = dateHeaders[i];
+                let code = '';
+
+                // 1. Check if uploaded data has this date
+                if (uploadedDates && uploadedDates.has(header)) {
+                    code = uploadedDates.get(header);
                 }
 
-                // Summary Counters
-                let presentCount = 0;
-                let absentCount = 0;
-                let woCount = 0;
-                let holidayCount = 0;
-                let wfhCount = 0;
-                let onDutyCount = 0;
-                let wowCount = 0;
-                let wohCount = 0;
-                let missingSwipeCount = 0;
-                let lateArrivalCount = 0;
-                let paidLeaveCount = 0;
-                let unpaidLeaveCount = 0;
-
-                for (let i = 0; i < dates.length; i++) {
-                    const dateStr = dates[i];
-                    const header = dateHeaders[i];
+                // 2. Dynamic generation if not found in uploaded table
+                if (!code) {
                     const key = `${e.id}_${dateStr}`;
-
                     const att = attMap.get(key);
                     const leaveCode = leaveMap.get(key);
-                    const dayOfWeek = new Date(dateStr).getDay();
+                    const [dy, dm, dd] = dateStr.split('-').map(Number);
+                    const dayOfWeek = new Date(dy, dm - 1, dd).getDay();
                     const isWeekOff = weekOffDays.includes(dayOfWeek);
                     const isHoliday = holidayDates.has(dateStr);
-
-                    let code = 'A'; // Default
 
                     if (att) {
                         if (att.notes === 'LOP' || att.notes === 'Loss of Pay') {
                             code = 'LOP';
-                            unpaidLeaveCount++;
                         } else if (att.status === 'present') {
                             if (att.work_mode === 'WFH') {
                                 code = 'WFH';
-                                wfhCount++;
-                                presentCount++;
                             } else if (att.work_mode === 'Remote') {
                                 code = 'OD';
-                                onDutyCount++;
-                                presentCount++;
                             } else {
                                 code = 'P';
-                                presentCount++;
                             }
-                            if (isWeekOff) wowCount++;
-                            if (isHoliday) wohCount++;
                         } else if (att.status === 'half-day') {
                             let halfCode = leaveCode;
                             if (!halfCode || (!halfCode.includes(':P') && !halfCode.includes('P:'))) {
@@ -1445,90 +1458,114 @@ router.get("/monthly-attendance/export", auth, roleAuth(["hr", "manager"]), asyn
                                 }
                             }
                             code = halfCode;
-                            presentCount += 0.5;
-                            paidLeaveCount += 0.5;
                         } else if (att.status === 'on-leave') {
                             code = leaveCode || 'CL';
-                            if (code.includes(':P') || code.includes('P:')) {
-                                presentCount += 0.5;
-                                paidLeaveCount += 0.5;
-                            } else {
-                                paidLeaveCount++;
-                            }
                         } else if (att.status === 'absent') {
                             code = 'A';
-                            absentCount++;
                         } else {
                             code = 'P';
-                            presentCount++;
                         }
                     } else if (leaveCode) {
                         code = leaveCode;
-                        if (code.includes(':P') || code.includes('P:')) {
-                            presentCount += 0.5;
-                            paidLeaveCount += 0.5;
-                        } else if (code === 'LOP') {
-                            unpaidLeaveCount++;
-                        } else {
-                            paidLeaveCount++;
-                        }
                     } else if (isHoliday) {
                         code = 'H';
-                        holidayCount++;
                     } else if (isWeekOff) {
                         code = 'WO';
-                        woCount++;
                     } else {
-                        const dDate = new Date(dateStr);
+                        const dDate = new Date(dy, dm - 1, dd);
                         const todayNoon = new Date();
                         todayNoon.setHours(12, 0, 0, 0);
                         if (dDate > todayNoon) {
                             code = '-';
                         } else {
                             code = 'A';
-                            absentCount++;
                         }
                     }
-                    if (code === 'BA:P' || code === 'P:BA' || code === 'BA') {
-                        code = 'P';
-                    }
-                    row[header] = code;
                 }
 
-                // Summary columns matching upload sheet format
-                row['Total Days'] = lastDay;
-                row['Present'] = presentCount;
-                row['Absent'] = absentCount;
-                row['WO'] = woCount;
-                row['Holidays'] = holidayCount;
-                row['WFH'] = wfhCount;
-                row['On Duty'] = onDutyCount;
-                row['WOW'] = wowCount;
-                row['WOH'] = wohCount;
-                row['Missing Swipe'] = missingSwipeCount;
-                row['Late Arrivals'] = lateArrivalCount;
-                row['Paid Leaves'] = paidLeaveCount;
-                row['Unpaid Leaves'] = unpaidLeaveCount;
+                if (code === 'BA:P' || code === 'P:BA' || code === 'BA') {
+                    code = 'P';
+                }
 
-                return row;
-            });
-        }
+                // Update summary counters
+                const codeUpper = (code || '').toUpperCase();
+                const [cdy, cdm, cdd] = dateStr.split('-').map(Number);
+                const dayOfWeek = new Date(cdy, cdm - 1, cdd).getDay();
+                const isWeekOff = weekOffDays.includes(dayOfWeek);
+                const isHoliday = holidayDates.has(dateStr);
+
+                if (codeUpper === 'P') {
+                    presentCount++;
+                    if (isWeekOff) wowCount++;
+                    if (isHoliday) wohCount++;
+                } else if (codeUpper === 'WFH') {
+                    wfhCount++;
+                    presentCount++;
+                    if (isWeekOff) wowCount++;
+                    if (isHoliday) wohCount++;
+                } else if (codeUpper === 'OD') {
+                    onDutyCount++;
+                    presentCount++;
+                    if (isWeekOff) wowCount++;
+                    if (isHoliday) wohCount++;
+                } else if (codeUpper === 'A') {
+                    absentCount++;
+                } else if (codeUpper === 'WO') {
+                    woCount++;
+                } else if (codeUpper === 'H') {
+                    holidayCount++;
+                } else if (codeUpper === 'LOP') {
+                    unpaidLeaveCount++;
+                } else if (codeUpper === 'P:LOP' || codeUpper === 'LOP:P') {
+                    presentCount += 0.5;
+                    unpaidLeaveCount += 0.5;
+                } else if (codeUpper.includes(':P') || codeUpper.includes('P:')) {
+                    presentCount += 0.5;
+                    paidLeaveCount += 0.5;
+                } else if (['CL', 'SL', 'PL', 'EL', 'ML', 'MRL', 'BL'].includes(codeUpper)) {
+                    paidLeaveCount++;
+                }
+
+                row[header] = code;
+            }
+
+            // Summary columns matching format
+            row['Total Days'] = dates.length;
+            row['Present'] = presentCount;
+            row['Absent'] = absentCount;
+            row['WO'] = woCount;
+            row['Holidays'] = holidayCount;
+            row['WFH'] = wfhCount;
+            row['On Duty'] = onDutyCount;
+            row['WOW'] = wowCount;
+            row['WOH'] = wohCount;
+            row['Missing Swipe'] = missingSwipeCount;
+            row['Late Arrivals'] = lateArrivalCount;
+            row['Paid Leaves'] = paidLeaveCount;
+            row['Unpaid Leaves'] = unpaidLeaveCount;
+
+            return row;
+        });
 
         const XLSX = require('xlsx');
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Monthly Attendance');
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Attendance Report');
 
         const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
+        const downloadFileName = startDateStr === endDateStr
+            ? `Attendance_Report_${startDateStr}.xlsx`
+            : `Attendance_Report_${startDateStr}_to_${endDateStr}.xlsx`;
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Monthly_Attendance_${attendanceMonth}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename="${downloadFileName}"`);
         res.send(buffer);
     } catch (error) {
-        console.error("❌ Export monthly attendance failed:", error);
+        console.error("❌ Export attendance failed:", error);
         res.status(500).json({ success: false, error: error.message });
     } finally {
-        c.end();
+        if (c) c.end();
     }
 });
 

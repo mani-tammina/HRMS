@@ -96,8 +96,8 @@
               <button class="dropdown-item" (click)="triggerExportTimesheets(); showReportsDropdown = false">
                 Download Timesheets (From Date - To Date)
               </button>
-              <button class="dropdown-item" *ngIf="isHR" (click)="triggerExport(); showReportsDropdown = false">
-                Export Attendance
+              <button class="dropdown-item" *ngIf="isManagerOrHR" (click)="triggerExport(); showReportsDropdown = false">
+                Export Attendance (From Date - To Date)
               </button>
               <button class="dropdown-item" *ngIf="isHR" (click)="exportLeaves(); showReportsDropdown = false">
                 Export Leaves

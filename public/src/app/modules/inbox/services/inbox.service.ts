@@ -113,16 +113,20 @@ export class InboxService {
     return this.http.post(`${this.env.apiURL}/api/upload/monthly-attendance`, formData, { headers });
   }
 
-  exportMonthlyAttendance(params: { startDate: string; endDate: string; month: number; year: number }): Observable<Blob> {
+  exportMonthlyAttendance(params: { startDate: string; endDate: string; month?: number; year?: number }): Observable<Blob> {
     const token = localStorage.getItem('token') || '';
     const headers = new HttpHeaders({
       Authorization: `Bearer ${token}`
     });
-    const httpParams = new HttpParams()
+    let httpParams = new HttpParams()
       .set('startDate', params.startDate)
-      .set('endDate', params.endDate)
-      .set('month', params.month.toString())
-      .set('year', params.year.toString());
+      .set('endDate', params.endDate);
+    if (params.month !== undefined && params.month !== null) {
+      httpParams = httpParams.set('month', params.month.toString());
+    }
+    if (params.year !== undefined && params.year !== null) {
+      httpParams = httpParams.set('year', params.year.toString());
+    }
     return this.http.get(`${this.env.apiURL}/api/upload/monthly-attendance/export`, {
       headers,
       params: httpParams,
