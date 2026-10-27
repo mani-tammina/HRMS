@@ -146,9 +146,20 @@
 
         <!-- Manager / HR View Pending Tasks Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="!isEmployee">
-          <!-- 1. Leave Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.leaveCount > 0"
-            [class.active]="selectedTab === 'Leave' || selectedTab === 'All'" (click)="selectTab('Leave')">
+          <!-- 1. All Pending Requests -->
+          <div class="sidebar-menu-item"
+            [class.active]="selectedTab === 'All'" (click)="selectTab('All')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <path d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+            <span class="item-text">All Requests</span>
+            <span class="item-count">({{ stats.pending || 0 }})</span>
+          </div>
+
+          <!-- 2. Leave Requests -->
+          <div class="sidebar-menu-item"
+            [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -160,8 +171,8 @@
             <span class="item-count">({{ stats.leaveCount || 0 }})</span>
           </div>
 
-          <!-- 2. Work From Home Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.wfhCount > 0"
+          <!-- 3. Work From Home Requests -->
+          <div class="sidebar-menu-item"
             [class.active]="selectedTab === 'WFH'" (click)="selectTab('WFH')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -172,8 +183,8 @@
             <span class="item-count">({{ stats.wfhCount || 0 }})</span>
           </div>
 
-          <!-- 3. Remote Login Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.remoteCount > 0"
+          <!-- 4. Remote Login Requests -->
+          <div class="sidebar-menu-item"
             [class.active]="selectedTab === 'Remote'" (click)="selectTab('Remote')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -185,21 +196,33 @@
             <span class="item-count">({{ stats.remoteCount || 0 }})</span>
           </div>
 
-          <!-- 4. Exit Request -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.resignationCount > 0"
-            [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
+          <!-- 5. Attendance Regularization Requests -->
+          <div class="sidebar-menu-item"
+            [class.active]="selectedTab === 'Attendance'" (click)="selectTab('Attendance')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            <span class="item-text">Exit Request</span>
-            <span class="item-count">({{ stats.resignationCount || 0 }})</span>
+            <span class="item-text">Attendance Regularization</span>
+            <span class="item-count">({{ stats.attendanceCount || 0 }})</span>
           </div>
 
-          <!-- 5. Timesheet Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.timesheetCount > 0"
+          <!-- 6. Comp Off Requests -->
+          <div class="sidebar-menu-item"
+            [class.active]="selectedTab === 'CompOff'" (click)="selectTab('CompOff')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <span class="item-text">Comp Off</span>
+            <span class="item-count">({{ stats.compOffCount || 0 }})</span>
+          </div>
+
+          <!-- 7. Timesheet Requests -->
+          <div class="sidebar-menu-item"
             [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -210,10 +233,17 @@
             <span class="item-count">({{ stats.timesheetCount || 0 }})</span>
           </div>
 
-          <!-- Fallback when no pending tasks -->
-          <div class="sidebar-empty-msg"
-            *ngIf="!selectedMonth && !stats.leaveCount && !stats.wfhCount && !stats.remoteCount && !stats.resignationCount && !stats.timesheetCount">
-            No pending tasks
+          <!-- 8. Exit / Resignation Requests -->
+          <div class="sidebar-menu-item"
+            [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="item-text">Exit Request</span>
+            <span class="item-count">({{ stats.resignationCount || 0 }})</span>
           </div>
         </div>
       </div>
@@ -225,17 +255,33 @@
           <div class="header-title-left">
             <span class="list-title-text">
               <ng-container [ngSwitch]="selectedTab">
+                <ng-container *ngSwitchCase="'All'">ALL REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'WFH'">WORK FROM HOME REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Remote'">REMOTE LOGIN REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Leave'">LEAVE REQUESTS</ng-container>
-                <ng-container *ngSwitchCase="'Resignation'">EXIT REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'CompOff'">COMP OFF REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Attendance'">ATTENDANCE REGULARIZATION</ng-container>
                 <ng-container *ngSwitchCase="'Timesheet'">TIMESHEET REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Resignation'">EXIT REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Unread'">UNREAD NOTIFICATIONS</ng-container>
+                <ng-container *ngSwitchCase="'Archived'">ARCHIVED REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Approved'">APPROVED REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Rejected'">REJECTED REQUESTS</ng-container>
                 <ng-container *ngSwitchDefault>PENDING REQUESTS</ng-container>
               </ng-container>
             </span>
           </div>
           <div class="header-sort-right">
+            <select [(ngModel)]="selectedTypeFilter" (change)="onTypeFilterChange()" class="type-select-dropdown" *ngIf="!isEmployee">
+              <option value="All">All Types</option>
+              <option value="Leave">Leave Requests</option>
+              <option value="WFH">Work From Home</option>
+              <option value="Remote">Remote Login</option>
+              <option value="Attendance">Attendance Regularization</option>
+              <option value="CompOff">Comp Off</option>
+              <option value="Timesheet">Timesheets</option>
+              <option value="Resignation">Exit Requests</option>
+            </select>
             <select [(ngModel)]="selectedMonth" (change)="onMonthChange()" class="month-select-dropdown">
               <option value="">All Months</option>
               <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
@@ -245,7 +291,7 @@
 
         <!-- Search input box in Column 2 -->
         <div class="list-search-wrapper">
-          <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search" />
+          <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search requests..." />
         </div>
 
         <!-- Scrollable List of Cards (No checkboxes on cards) -->
@@ -259,14 +305,16 @@
           </div>
 
           <app-notification-empty *ngIf="!loading && notifications.length === 0"
-            [message]="'No ' + (selectedTab === 'WFH' ? 'Work From Home' : selectedTab === 'Remote' ? 'Remote Login' : selectedTab) + ' requests found'"
+            [message]="'No ' + getTabEmptyTitle() + ' requests found'"
             [subMessage]="'You have no pending requests in this list.'">
           </app-notification-empty>
 
           <div class="request-cards-stack" *ngIf="notifications.length > 0">
             <div class="request-card-item" *ngFor="let notification of notifications"
               [class.active]="selectedNotification?.notification_id === notification.notification_id"
-              [class.unread]="notification.is_read === 0" (click)="selectNotification(notification)">
+              [class.unread]="notification.is_read === 0"
+              [ngClass]="getCardBorderClass(notification)"
+              (click)="selectNotification(notification)">
 
               <div class="card-avatar-wrapper">
                 <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)"
@@ -287,11 +335,10 @@
                   </div>
                 </div>
                 <div class="request-title-line">
-                  {{ notification.request_type }}: {{ getCardShortSummary(notification) }}
+                  {{ getDisplayRequestType(notification) }}: {{ getCardShortSummary(notification) }}
                 </div>
                 <div class="request-desc-snippet">
-                  {{ getParsedMetadata(notification.metadata).reason || notification.description || 'No additional
-                  details provided' }}
+                  {{ getParsedMetadata(notification.metadata).reason || notification.description || 'No additional details provided' }}
                 </div>
               </div>
             </div>

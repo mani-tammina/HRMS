@@ -163,30 +163,61 @@ export class MyTeamPage implements OnInit, OnDestroy {
   processAttendanceData(res: any) {
     const attendanceList = res.attendance || [];
     const leaveList = res.on_leave || [];
+    const wfhRemoteList = res.wfh_remote || [];
     const newStatuses: any = {};
     const isToday = this.isTodaySelected();
 
+    const isWfhOrRemote = (type: string) => {
+      if (!type) return false;
+      const lower = String(type).toLowerCase();
+      return lower.includes('wfh') || lower.includes('remote') || lower.includes('work from home');
+    };
+
+    // 1. Initialize all team members as not_punched (today) or absent (past date)
     this.teamMembers.forEach(m => {
       newStatuses[m.id] = {
-        status: isToday ? 'not_punched' : 'absent'
+        status: isToday ? 'not_punched' : 'absent',
+        work_mode: null
       };
     });
 
-    attendanceList.forEach((att: any) => {
-      newStatuses[att.employee_id] = {
-        status: 'present',
-        first_in: att.first_in || att.first_check_in,
-        last_out: att.last_out || att.last_check_out,
-        total_hours: att.total_hours || att.total_work_hours,
-        work_mode: att.work_mode
-      };
+    // 2. Attach WFH / Remote scheduled requests (they are NOT on leave!)
+    wfhRemoteList.forEach((wr: any) => {
+      const empId = wr.employee_id;
+      if (newStatuses[empId]) {
+        newStatuses[empId].work_mode = wr.leave_type;
+      }
     });
 
+    // 3. Process actual leaves (defensively filter out any WFH or Remote)
     leaveList.forEach((leave: any) => {
-      newStatuses[leave.employee_id] = {
-        status: 'on_leave',
-        leave_type: leave.leave_type
-      };
+      if (!isWfhOrRemote(leave.leave_type)) {
+        newStatuses[leave.employee_id] = {
+          status: 'on_leave',
+          leave_type: leave.leave_type || 'Leave'
+        };
+      } else {
+        if (newStatuses[leave.employee_id]) {
+          newStatuses[leave.employee_id].work_mode = leave.leave_type;
+        }
+      }
+    });
+
+    // 4. Process Attendance records (PUNCHED IN).
+    // PUNCH-IN ALWAYS OVERRIDES LEAVE!
+    // Any employee with attendance / punch is PRESENT (Office, WFH, Remote, Biometric)
+    attendanceList.forEach((att: any) => {
+      const attStatus = (att.status || '').toLowerCase();
+      const isAttLeave = attStatus === 'on-leave' || attStatus === 'on_leave';
+      if (!isAttLeave) {
+        newStatuses[att.employee_id] = {
+          status: 'present',
+          first_in: att.first_in || att.first_check_in,
+          last_out: att.last_out || att.last_check_out,
+          total_hours: att.total_hours || att.total_work_hours,
+          work_mode: att.work_mode || newStatuses[att.employee_id]?.work_mode || 'Office'
+        };
+      }
     });
 
     this.attendanceStatuses = newStatuses;
@@ -284,7 +315,7 @@ export class MyTeamPage implements OnInit, OnDestroy {
       return 'rgb(187, 44, 31)';     // Absent — Red
     }
     if (status === 'not_punched' || status === 'not_checked_in') {
-      return '#1f74bb';              // Not Punched — Blue
+      return '#8099b0';              // Not Punched — Slate/Gray
     }
     // Any employee with attendance / punch is Present
     return 'rgb(0, 152, 61)';        // Present — Green
@@ -377,20 +408,46 @@ export class MyTeamPage implements OnInit, OnDestroy {
   }
 
   getDisplayStatusText(employeeId: number): string {
-    const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
+    const stats = this.getRealTimeStatus(employeeId);
+    const status = (stats.status || '').toLowerCase();
+    const workMode = (stats.work_mode || '').toUpperCase();
+
     if (status.includes('leave') || status === 'on_leave') return 'ON LEAVE';
     if (status === 'absent') return 'ABSENT';
-    if (status === 'not_punched' || status === 'not_checked_in') return 'NOT PUNCHED';
+    if (status === 'not_punched' || status === 'not_checked_in') {
+      if (workMode.includes('WFH') || workMode.includes('HOME')) return 'NOT PUNCHED (WFH)';
+      if (workMode.includes('REMOTE')) return 'NOT PUNCHED (REMOTE)';
+      return 'NOT PUNCHED';
+    }
     // Any employee with attendance / punch (biometric, web, remote, wfh) is PRESENT
+    if (workMode.includes('WFH') || workMode.includes('HOME')) return 'PRESENT (WFH)';
+    if (workMode.includes('REMOTE')) return 'PRESENT (REMOTE)';
     return 'PRESENT';
   }
 
   getDisplayStatusClass(employeeId: number): string {
-    const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
+    const stats = this.getRealTimeStatus(employeeId);
+    const status = (stats.status || '').toLowerCase();
     if (status.includes('leave') || status === 'on_leave') return 'leave-status';
     if (status === 'absent') return 'absent';
     if (status === 'not_punched' || status === 'not_checked_in') return 'not-punched-status';
     return 'present';
+  }
+
+  getWorkModeText(member: any): string {
+    const stats = this.getRealTimeStatus(member.id);
+    const mode = (stats.work_mode || '').toUpperCase();
+    if (mode.includes('WFH') || mode.includes('HOME')) return 'Work From Home';
+    if (mode.includes('REMOTE')) return 'Remote Login';
+    return member.LocationName || 'Site 1 - TSN';
+  }
+
+  getWorkModeIcon(member: any): string {
+    const stats = this.getRealTimeStatus(member.id);
+    const mode = (stats.work_mode || '').toUpperCase();
+    if (mode.includes('WFH') || mode.includes('HOME')) return 'home-outline';
+    if (mode.includes('REMOTE')) return 'globe-outline';
+    return 'location-outline';
   }
 
   // ================= HR ACTIONS =================

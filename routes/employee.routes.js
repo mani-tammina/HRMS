@@ -361,6 +361,7 @@ router.get("/:id", auth, async (req, res) => {
                 (SELECT 'On Leave'
                  FROM leaves lv
                  WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                   AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
                  LIMIT 1),
                 'Not In Yet'
               ) AS attendance_status,
@@ -489,6 +490,7 @@ router.get("/:id/details", auth, async (req, res) => {
       `SELECT leave_type, COUNT(*) as used 
            FROM leaves 
            WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = YEAR(CURDATE())
+             AND (leave_type IS NULL OR (leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND leave_type NOT LIKE '%WFH%' AND leave_type NOT LIKE '%Remote%'))
            GROUP BY leave_type`,
       [requestedEmployeeId],
     );

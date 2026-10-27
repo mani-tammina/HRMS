@@ -752,19 +752,24 @@ app.get("/api/health", (req, res) => {
         await ensureAdminUser();
         console.log("✅ Admin user ready\n");
 
-        // Migrate existing WFH/Remote notifications to Attendance Regularization
+        // Ensure proper separation of WFH and Remote notifications in inbox
         try {
             const conn = await db();
             await conn.query(
                 `UPDATE inbox_notifications 
-                 SET request_type = 'Attendance Regularization' 
-                 WHERE request_type = 'Leave Request' 
-                 AND (title LIKE '%Work From Home%' OR title LIKE '%Remote%' OR description LIKE '%Requested WFH%' OR description LIKE '%Requested Remote%')`
+                 SET request_type = 'Work From Home' 
+                 WHERE (title LIKE '%WFH%' OR title LIKE '%Work From Home%' OR description LIKE '%Requested WFH%' OR description LIKE '%Work From Home%')`
+            );
+            await conn.query(
+                `UPDATE inbox_notifications 
+                 SET request_type = 'Remote Login' 
+                 WHERE (title LIKE '%Remote%' OR description LIKE '%Requested Remote%' OR description LIKE '%Remote%')
+                 AND request_type != 'Work From Home'`
             );
             await conn.end();
-            console.log("✅ Existing WFH/Remote notifications migrated to Attendance Regularization\n");
+            console.log("✅ WFH and Remote notifications separated and maintained\n");
         } catch (migErr) {
-            console.warn("⚠️  Error migrating WFH/Remote notifications on startup:", migErr.message);
+            console.warn("⚠️  Error separating WFH/Remote notifications on startup:", migErr.message);
         }
 
         const PORT = process.env.PORT || 3000;

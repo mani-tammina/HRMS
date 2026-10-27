@@ -40,6 +40,7 @@ export class InboxPage implements OnInit {
   
   searchQuery = '';
   selectedTab = 'All';
+  selectedTypeFilter = 'All';
   sortField = 'created_at';
   sortOrder: 'ASC' | 'DESC' = 'DESC';
   showViewAll = false;
@@ -69,6 +70,7 @@ export class InboxPage implements OnInit {
     approved: 0,
     rejected: 0,
     leaveCount: 0,
+    compOffCount: 0,
     attendanceCount: 0,
     timesheetCount: 0,
     resignationCount: 0,
@@ -76,7 +78,7 @@ export class InboxPage implements OnInit {
     remoteCount: 0
   };
 
-  tabs = ['All', 'Unread', 'Leave', 'WFH', 'Remote', 'Attendance', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
+  tabs = ['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation', 'Unread', 'Approved', 'Rejected', 'Archived'];
   rejectReasonText = '';
 
   getDateParts(dateStr: string): { month: string; day: string; weekday: string } {
@@ -112,7 +114,7 @@ export class InboxPage implements OnInit {
   }
 
   getLeaveTypeTitle(notification: InboxNotification | null): string {
-    if (!notification) return '1 day of Leave';
+    if (!notification) return 'Request Details';
     if (notification.request_type === 'Timesheet Request') {
       const meta = this.getParsedMetadata(notification.metadata);
       if (meta.week_range) {
@@ -123,17 +125,24 @@ export class InboxPage implements OnInit {
       }
       return `Timesheet Submission`;
     }
+    if (notification.request_type === 'Resignation Request') {
+      return `Exit / Resignation Request`;
+    }
+    if (notification.request_type === 'Attendance Regularization' && !this.isWfhRemoteRequest(notification)) {
+      return `Attendance Regularization`;
+    }
     const meta = this.getParsedMetadata(notification.metadata);
     const days = meta.total_days || this.getCalculatedDays(notification) || 1;
-    const title = (notification.title || '').toLowerCase();
-    const desc = (notification.description || '').toLowerCase();
-    if (title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('wfh')) {
-      return `${days} day${days > 1 ? 's' : ''} of WFH`;
+    if (this.isWfh(notification)) {
+      return `${days} day${days > 1 ? 's' : ''} of Work From Home`;
     }
-    if (title.includes('remote') || desc.includes('requested remote') || desc.includes('remote')) {
-      return `${days} day${days > 1 ? 's' : ''} of Remote`;
+    if (this.isRemote(notification)) {
+      return `${days} day${days > 1 ? 's' : ''} of Remote Login`;
     }
-    const typeName = notification.leave_type_name || (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off' ? 'Comp Offs' : 'Leaves');
+    if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
+      return `${days} day${days > 1 ? 's' : ''} of Compensatory Off`;
+    }
+    const typeName = notification.leave_type_name || 'Leaves';
     return `${days} day${days > 1 ? 's' : ''} of ${typeName}`;
   }
 
@@ -252,17 +261,19 @@ export class InboxPage implements OnInit {
   applyDropdownFilters() {
     if (this.filterRequestType) {
       if (this.filterRequestType === 'Leave Request') this.selectedTab = 'Leave';
-      else if (this.filterRequestType === 'Comp Off Request' || this.filterRequestType === 'Comp Off') this.selectedTab = 'Comp Off';
+      else if (this.filterRequestType === 'Work From Home' || this.filterRequestType === 'WFH') this.selectedTab = 'WFH';
+      else if (this.filterRequestType === 'Remote Login' || this.filterRequestType === 'Remote') this.selectedTab = 'Remote';
+      else if (this.filterRequestType === 'Comp Off Request' || this.filterRequestType === 'Comp Off') this.selectedTab = 'CompOff';
       else if (this.filterRequestType === 'Attendance Regularization') this.selectedTab = 'Attendance';
       else if (this.filterRequestType === 'Timesheet Request') this.selectedTab = 'Timesheet';
       else if (this.filterRequestType === 'Resignation Request') this.selectedTab = 'Resignation';
+      this.selectedTypeFilter = this.selectedTab;
     } else if (this.filterStatus) {
       if (this.filterStatus === 'Approved') this.selectedTab = 'Approved';
       else if (this.filterStatus === 'Rejected') this.selectedTab = 'Rejected';
       else if (this.filterStatus === 'Pending') this.selectedTab = 'All';
     }
     
-    // Custom filter for priority can be done client-side or we can just run search/sort
     this.loadNotifications(null, true);
   }
 
@@ -271,6 +282,7 @@ export class InboxPage implements OnInit {
     this.filterRequestType = '';
     this.filterStatus = '';
     this.filterPriority = '';
+    this.selectedTypeFilter = 'All';
     this.selectedTab = 'All';
     this.sortField = 'created_at';
     this.sortOrder = 'DESC';
@@ -328,10 +340,60 @@ export class InboxPage implements OnInit {
     }
   }
 
-  getCardBorderClass(requestType: string): string {
-    switch (requestType) {
+  isWfh(notification: InboxNotification | null): boolean {
+    if (!notification) return false;
+    const type = (notification.request_type || '').toLowerCase();
+    const title = (notification.title || '').toLowerCase();
+    const desc = (notification.description || '').toLowerCase();
+    return type === 'work from home' || type === 'wfh' || title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('work from home');
+  }
+
+  isRemote(notification: InboxNotification | null): boolean {
+    if (!notification) return false;
+    if (this.isWfh(notification)) return false;
+    const type = (notification.request_type || '').toLowerCase();
+    const title = (notification.title || '').toLowerCase();
+    const desc = (notification.description || '').toLowerCase();
+    return type === 'remote login' || type === 'remote' || title.includes('remote') || desc.includes('requested remote') || desc.includes('remote');
+  }
+
+  isWfhRemoteRequest(notification: InboxNotification): boolean {
+    return this.isWfh(notification) || this.isRemote(notification);
+  }
+
+  getDisplayRequestType(notification: InboxNotification): string {
+    if (!notification) return '';
+    if (this.isWfh(notification)) return 'Work From Home';
+    if (this.isRemote(notification)) return 'Remote Login';
+    if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') return 'Comp Off';
+    return notification.request_type;
+  }
+
+  getTabEmptyTitle(): string {
+    switch (this.selectedTab) {
+      case 'WFH': return 'Work From Home';
+      case 'Remote': return 'Remote Login';
+      case 'Leave': return 'Leave';
+      case 'CompOff': return 'Comp Off';
+      case 'Attendance': return 'Attendance Regularization';
+      case 'Timesheet': return 'Timesheet';
+      case 'Resignation': return 'Exit';
+      case 'All': return 'pending';
+      default: return this.selectedTab;
+    }
+  }
+
+  getCardBorderClass(n: any): string {
+    if (this.isWfh(n)) return 'border-wfh';
+    if (this.isRemote(n)) return 'border-remote';
+    const type = typeof n === 'string' ? n : n?.request_type;
+    switch (type) {
       case 'Leave Request':
         return 'border-leave';
+      case 'Work From Home':
+        return 'border-wfh';
+      case 'Remote Login':
+        return 'border-remote';
       case 'Comp Off Request':
       case 'Comp Off':
         return 'border-compoff';
@@ -350,6 +412,10 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'assets/icons/menu/leave.svg';
+      case 'Work From Home':
+        return 'assets/icons/menu/leave.svg';
+      case 'Remote Login':
+        return 'assets/icons/menu/attendance.svg';
       case 'Comp Off Request':
       case 'Comp Off':
         return 'assets/icons/menu/leave.svg';
@@ -368,6 +434,10 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'calendar-outline';
+      case 'Work From Home':
+        return 'home-outline';
+      case 'Remote Login':
+        return 'laptop-outline';
       case 'Comp Off Request':
       case 'Comp Off':
         return 'calendar-outline';
@@ -386,6 +456,10 @@ export class InboxPage implements OnInit {
     switch (requestType) {
       case 'Leave Request':
         return 'leave';
+      case 'Work From Home':
+        return 'wfh';
+      case 'Remote Login':
+        return 'remote';
       case 'Comp Off Request':
       case 'Comp Off':
         return 'compoff';
@@ -537,6 +611,16 @@ export class InboxPage implements OnInit {
 
   getCardShortSummary(notification: InboxNotification): string {
     const meta = this.getParsedMetadata(notification.metadata);
+    if (this.isWfh(notification)) {
+      const dates = this.getFallbackLeaveDates(notification);
+      const days = meta.total_days || this.getCalculatedDays(notification);
+      return `Requested ${days} day(s) Work From Home from ${this.formatDate(dates.start)}...`;
+    }
+    if (this.isRemote(notification)) {
+      const dates = this.getFallbackLeaveDates(notification);
+      const days = meta.total_days || this.getCalculatedDays(notification);
+      return `Requested ${days} day(s) Remote Login from ${this.formatDate(dates.start)}...`;
+    }
     if (notification.request_type === 'Leave Request') {
       const dates = this.getFallbackLeaveDates(notification);
       const days = meta.total_days || this.getCalculatedDays(notification);
@@ -549,7 +633,7 @@ export class InboxPage implements OnInit {
     }
     if (notification.request_type === 'Attendance Regularization') {
       const date = this.getFallbackAttendanceDate(notification);
-      return `Missed punch (Check-in) on ${this.formatDate(date)}...`;
+      return `Attendance regularization on ${this.formatDate(date)}...`;
     }
     if (notification.request_type === 'Timesheet Request') {
       const range = meta.week_range || 'this week';
@@ -688,6 +772,17 @@ export class InboxPage implements OnInit {
 
   selectTab(tab: string) {
     this.selectedTab = tab;
+    if (['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation'].includes(tab)) {
+      this.selectedTypeFilter = tab;
+    } else {
+      this.selectedTypeFilter = 'All';
+    }
+    this.selectedNotification = null;
+    this.loadNotifications(null, true);
+  }
+
+  onTypeFilterChange() {
+    this.selectedTab = this.selectedTypeFilter;
     this.selectedNotification = null;
     this.loadNotifications(null, true);
   }
@@ -713,15 +808,6 @@ export class InboxPage implements OnInit {
     this.loadNotifications(event);
   }
 
-  isWfhRemoteRequest(notification: InboxNotification): boolean {
-    if (!notification) return false;
-    const title = (notification.title || '').toLowerCase();
-    const desc = (notification.description || '').toLowerCase();
-    const isWfh = title.includes('wfh') || title.includes('work from home') || desc.includes('requested wfh') || desc.includes('wfh');
-    const isRemote = title.includes('remote') || desc.includes('requested remote') || desc.includes('remote');
-    return isWfh || isRemote;
-  }
-
   async approveRequest(notification: InboxNotification) {
     const loading = await this.loadingCtrl.create({
       message: 'Approving request...',
@@ -731,7 +817,7 @@ export class InboxPage implements OnInit {
     let obs$;
     const isWfhRemote = this.isWfhRemoteRequest(notification);
 
-    if (isWfhRemote) {
+    if (isWfhRemote || notification.request_type === 'Work From Home' || notification.request_type === 'Remote Login') {
       // WFH/Remote request is structurally a Leave record in DB, call approveLeave
       obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
     } else if (notification.request_type === 'Leave Request') {
@@ -818,7 +904,7 @@ export class InboxPage implements OnInit {
     let obs$;
     const isWfhRemote = this.isWfhRemoteRequest(notification);
 
-    if (isWfhRemote) {
+    if (isWfhRemote || notification.request_type === 'Work From Home' || notification.request_type === 'Remote Login') {
       // WFH/Remote request is structurally a Leave record in DB, call rejectLeave
       obs$ = this.leaveRequestService.rejectLeave(notification.request_id, reason);
     } else if (notification.request_type === 'Leave Request') {

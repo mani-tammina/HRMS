@@ -357,6 +357,11 @@
       }
 
       .header-sort-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .type-select-dropdown,
         .month-select-dropdown {
           background: #f8fafc;
           border: 1px solid #cbd5e1;

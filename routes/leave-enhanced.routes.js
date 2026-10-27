@@ -1634,7 +1634,7 @@ router.put("/approve/:leaveId", auth, async (req, res) => {
     }
 
     // Update Inbox Notification
-    const approveNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
+    const approveNotifType = leave.leave_type === "WFH" ? "Work From Home" : (leave.leave_type === "Remote" ? "Remote Login" : "Leave Request");
     await updateNotificationStatus(c, approveNotifType, req.params.leaveId, "Approved", currentEmp.id);
 
     await c.commit();
@@ -1704,8 +1704,8 @@ router.put("/reject/:leaveId", auth, async (req, res) => {
     }
 
     // Update Inbox Notification
-    const rejectNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
-    await updateNotificationStatus(c, rejectNotifType, req.params.leaveId, "Rejected", currentEmp.id);
+    const rejectNotifType = leave.leave_type === "WFH" ? "Work From Home" : (leave.leave_type === "Remote" ? "Remote Login" : "Leave Request");
+    await updateNotificationStatus(c, rejectNotifType, req.params.leaveId, "Rejected", currentEmp.id, reason);
 
     c.end();
 
@@ -1801,7 +1801,7 @@ router.put("/cancel/:leaveId", auth, async (req, res) => {
     }
 
     // Update Inbox Notification
-    const cancelNotifType = ["WFH", "Remote"].includes(leave.leave_type) ? "Attendance Regularization" : "Leave Request";
+    const cancelNotifType = leave.leave_type === "WFH" ? "Work From Home" : (leave.leave_type === "Remote" ? "Remote Login" : "Leave Request");
     await updateNotificationStatus(c, cancelNotifType, req.params.leaveId, "Cancelled", currentEmp.id);
 
     await c.commit();
@@ -2237,7 +2237,7 @@ router.post("/wfh-request", auth, async (req, res) => {
     );
 
     // Create Inbox Notification for WFH/Remote
-    const notifRequestType = work_mode === "Remote" ? "Remote Login" : "Attendance Regularization";
+    const notifRequestType = work_mode === "Remote" ? "Remote Login" : "Work From Home";
     await createInboxNotification(
       c,
       emp.id,

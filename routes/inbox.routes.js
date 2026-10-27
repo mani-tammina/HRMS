@@ -102,19 +102,19 @@ router.get("/", auth, async (req, res) => {
             }
 
             if (tab === "Leave") {
-                query += " AND n.request_type IN ('Leave Request', 'Comp Off Request') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
-            } else if (tab === "Attendance") {
-                query += " AND n.request_type = 'Attendance Regularization'";
-            } else if (tab === "Timesheet") {
+                query += " AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
+            } else if (tab === "Attendance" || tab === "Attendance Regularization") {
+                query += " AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
+            } else if (tab === "Timesheet" || tab === "Timesheet Request") {
                 query += " AND n.request_type = 'Timesheet Request'";
-            } else if (tab === "Resignation") {
+            } else if (tab === "Resignation" || tab === "Resignation Request") {
                 query += " AND n.request_type = 'Resignation Request'";
             } else if (tab === "Comp Off" || tab === "CompOff" || tab === "Comp Off Request") {
                 query += " AND n.request_type = 'Comp Off Request'";
             } else if (tab === "WFH" || tab === "Work From Home") {
                 query += " AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%')";
             } else if (tab === "Remote" || tab === "Remote Login") {
-                query += " AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%')";
+                query += " AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%')";
             }
         }
 
@@ -155,12 +155,13 @@ router.get("/", auth, async (req, res) => {
                 SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
                 SUM(CASE WHEN status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
                 SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type IN ('Leave Request', 'Comp Off Request') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Attendance Regularization' THEN 1 ELSE 0 END) as attendanceCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (request_type = 'Work From Home' OR title LIKE '%WFH%' OR title LIKE '%Work From Home%' OR description LIKE '%WFH%' OR description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (request_type = 'Remote Login' OR title LIKE '%Remote%' OR description LIKE '%Remote%') THEN 1 ELSE 0 END) as remoteCount
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Comp Off Request' THEN 1 ELSE 0 END) as compOffCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as attendanceCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
+                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%') THEN 1 ELSE 0 END) as remoteCount
             FROM inbox_notifications n
             WHERE is_archived = 0
         `;
@@ -185,7 +186,7 @@ router.get("/", auth, async (req, res) => {
         const [statsRows] = await c.query(statsQuery, statsParams);
         const stats = statsRows[0] || { 
             totalRequests: 0, unread: 0, pending: 0, approved: 0, rejected: 0,
-            leaveCount: 0, attendanceCount: 0, timesheetCount: 0, resignationCount: 0,
+            leaveCount: 0, compOffCount: 0, attendanceCount: 0, timesheetCount: 0, resignationCount: 0,
             wfhCount: 0, remoteCount: 0
         };
         
@@ -196,6 +197,7 @@ router.get("/", auth, async (req, res) => {
         stats.approved = stats.approved || 0;
         stats.rejected = stats.rejected || 0;
         stats.leaveCount = stats.leaveCount || 0;
+        stats.compOffCount = stats.compOffCount || 0;
         stats.attendanceCount = stats.attendanceCount || 0;
         stats.timesheetCount = stats.timesheetCount || 0;
         stats.resignationCount = stats.resignationCount || 0;

@@ -290,7 +290,7 @@ router.get("/manager", auth, manager, async (req, res) => {
             LIMIT 10
         `, [emp.id]);
 
-        // Team on leave today
+        // Team on leave today (excluding WFH/Remote)
         const [teamOnLeave] = await c.query(`
             SELECT 
                 e.EmployeeNumber,
@@ -304,6 +304,12 @@ router.get("/manager", auth, manager, async (req, res) => {
             AND l.status = 'approved'
             AND l.start_date <= CURDATE()
             AND l.end_date >= CURDATE()
+            AND (l.leave_type IS NULL OR (
+                l.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+                AND l.leave_type NOT LIKE '%WFH%'
+                AND l.leave_type NOT LIKE '%Remote%'
+                AND l.leave_type NOT LIKE '%Work From Home%'
+            ))
         `, [emp.id]);
 
         // Pending timesheets

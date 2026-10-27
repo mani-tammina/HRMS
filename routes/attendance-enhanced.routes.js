@@ -2342,6 +2342,7 @@ router.get("/report/team", auth, async (req, res) => {
     } catch (_) { }
 
     // Get approved leaves for team members for today (covering full/partial day)
+    // NOTE: WFH and Remote are working arrangements / work modes, NOT leaves! Exclude them from on_leave!
     const [onLeave] = await c.query(
       `SELECT 
           l.*, 
@@ -2350,9 +2351,38 @@ router.get("/report/team", auth, async (req, res) => {
         INNER JOIN employees e ON l.employee_id = e.id
         WHERE l.employee_id IN (?)
           AND l.status IN ('approved', 'pending')
-          AND ? BETWEEN l.start_date AND l.end_date`,
+          AND ? BETWEEN l.start_date AND l.end_date
+          AND (l.leave_type IS NULL OR (
+            l.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+            AND l.leave_type NOT LIKE '%WFH%'
+            AND l.leave_type NOT LIKE '%Remote%'
+            AND l.leave_type NOT LIKE '%Work From Home%'
+          ))`,
       [teamIds, targetDate]
     );
+
+    // Get WFH / Remote requests for team members for today
+    let wfhRemoteRecords = [];
+    try {
+      const [wfhRemote] = await c.query(
+        `SELECT 
+            l.*, 
+            e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail
+          FROM leaves l
+          INNER JOIN employees e ON l.employee_id = e.id
+          WHERE l.employee_id IN (?)
+            AND l.status IN ('approved', 'pending')
+            AND ? BETWEEN l.start_date AND l.end_date
+            AND (
+              l.leave_type IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+              OR l.leave_type LIKE '%WFH%'
+              OR l.leave_type LIKE '%Remote%'
+              OR l.leave_type LIKE '%Work From Home%'
+            )`,
+        [teamIds, targetDate]
+      );
+      wfhRemoteRecords = wfhRemote || [];
+    } catch (_) { }
 
     c.end();
 
@@ -2360,6 +2390,16 @@ router.get("/report/team", auth, async (req, res) => {
     attendance.forEach((a) => {
       attendanceMap.set(a.employee_id, { ...a });
     });
+
+    // If an employee punched in and has an approved/pending WFH/Remote record for today, ensure their work_mode reflects it
+    if (wfhRemoteRecords && wfhRemoteRecords.length > 0) {
+      wfhRemoteRecords.forEach((wr) => {
+        const att = attendanceMap.get(wr.employee_id);
+        if (att && (!att.work_mode || att.work_mode === 'Office')) {
+          att.work_mode = wr.leave_type;
+        }
+      });
+    }
 
     const bioPunchMap = new Map();
     bioPunchesSummary.forEach((bp) => {
@@ -2449,7 +2489,8 @@ router.get("/report/team", auth, async (req, res) => {
       date: targetDate,
       current_user_id: emp.id, // Helps frontend highlight the logged-in user
       attendance: combinedAttendance,
-      on_leave: onLeave, // List of leave records for today
+      on_leave: onLeave, // List of actual leave records for today (excluding WFH/Remote)
+      wfh_remote: wfhRemoteRecords, // List of WFH/Remote records for today
       summary: {
         total_team: team.length,
         present: presentCount,

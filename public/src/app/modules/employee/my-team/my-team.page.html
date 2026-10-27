@@ -167,8 +167,8 @@
             <!-- BOTTOM: Meta info -->
             <div class="card-meta">
               <div class="meta-item">
-                <ion-icon name="location-outline"></ion-icon>
-                <span>{{ member.LocationName || 'Site 1 - TSN' }}</span>
+                <ion-icon [name]="getWorkModeIcon(member)"></ion-icon>
+                <span>{{ getWorkModeText(member) }}</span>
               </div>
               <div class="meta-item">
                 <ion-icon name="mail-outline"></ion-icon>
