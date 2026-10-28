@@ -286,7 +286,7 @@ router.post("/punch-in", auth, async (req, res) => {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { }
     lockName = await acquireAttendanceLock(c, emp.id, shiftDate);
 
     // Auto clock-out check: resolve any overdue active punch for this employee
@@ -831,7 +831,7 @@ router.get("/today", auth, async (req, res) => {
           }
         }
       }
-    } catch (_) {}
+    } catch (_) { }
 
     // Auto clock-out check: resolve any overdue active punch for this employee
     try {
@@ -921,7 +921,7 @@ router.get("/today", auth, async (req, res) => {
                 null as ip_address, bp.device_id as device_info,
                 CASE 
                   WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-                  WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+                  WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
                   WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
                   ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
                 END as location,
@@ -1089,7 +1089,7 @@ router.post("/bulk-status", auth, async (req, res) => {
                   'Biometric' as work_mode, 
                   CASE 
                     WHEN device_id = '3' THEN '4th Floor SVS Towers'
-                    WHEN device_id = '2' THEN '1st Floor SVS Towers'
+                    WHEN device_id = '2' THEN 'Main Door - 1st floor'
                     WHEN device_id = '1' THEN '3rd Floor SVS Towers'
                     ELSE CONCAT(COALESCE(device_id, 'Reader'), ' SVS Towers')
                   END as location, 
@@ -1434,7 +1434,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
              null as ip_address, bp.device_id as device_info,
              CASE 
                WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-               WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+               WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
                WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
                ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
              END as location,
@@ -1689,7 +1689,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
              bp.direction, bp.device_id,
              CASE 
                WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-               WHEN bp.device_id = '2' THEN '1st Floor SVS Towers'
+               WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
                WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
                ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
              END as location,
@@ -2005,7 +2005,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         try {
           const locs = typeof h.applicable_locations === 'string' ? JSON.parse(h.applicable_locations) : h.applicable_locations;
           if (Array.isArray(locs) && locs.map(Number).includes(Number(empLoc))) return true;
-        } catch (e) {}
+        } catch (e) { }
       }
       return false;
     });
@@ -2676,7 +2676,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
         });
         allPunches = [...allPunches, ...mappedBio];
       }
-    } catch (_) {}
+    } catch (_) { }
   }
 
   allPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());

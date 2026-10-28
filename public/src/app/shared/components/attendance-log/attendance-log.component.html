@@ -173,7 +173,7 @@
 </ion-grid>
 
 <!-- Daily Activity Log Modal / Centered Floating Card -->
-<ion-modal [isOpen]="showSlider" class="daily-activity-modal" (didDismiss)="closeSlider()">
+<ion-modal [isOpen]="showSlider" class="daily-activity-modal" (didDismiss)="closeSlider()" [backdropDismiss]="true">
   <ng-template>
     <div class="daily-activity-card">
 
@@ -182,11 +182,10 @@
         <div class="shift-info-block">
           <div class="shift-title">
             <span class="shift-name-text">{{ shiftPolicy?.name || 'Day shift' }}</span>
-            <span class="shift-date-text"> ({{ selectedLog?.attendance_date | date:'dd MMM' }})</span>
+            <span class="shift-date-text"> ({{ selectedLog?.attendance_date | date:'d MMM' }})</span>
           </div>
           <div class="shift-timing-text">
-            {{ shiftPolicy?.start_time ? (shiftPolicy.start_time | slice:0:5) : '10:00' }} - {{ shiftPolicy?.end_time ?
-            (shiftPolicy.end_time | slice:0:5) : '19:00' }}
+            {{ getFormattedShiftTiming() }}
           </div>
         </div>
         <button class="close-card-btn" (click)="closeSlider()" aria-label="Close">
@@ -226,22 +225,6 @@
                     s.outTime }}</span>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <!-- Total Hours Metrics Footer -->
-          <div class="activity-footer-metrics"
-            *ngIf="selectedLog?.total_work_hours || selectedLog?.gross_hours || selectedLog?.effective_hours">
-            <div class="metric-item">
-              <span class="m-label">EFFECTIVE:</span>
-              <span class="m-val">{{ formatHours(selectedLog.total_work_hours !== undefined &&
-                selectedLog.total_work_hours !== null ? selectedLog.total_work_hours : selectedLog.effective_hours,
-                selectedLog.attendance_date) }}</span>
-            </div>
-            <div class="metric-divider"></div>
-            <div class="metric-item">
-              <span class="m-label">GROSS TIME:</span>
-              <span class="m-val">{{ formatHours(selectedLog.gross_hours, selectedLog.attendance_date) }}</span>
             </div>
           </div>
 
