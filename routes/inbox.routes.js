@@ -44,16 +44,18 @@ router.get("/", auth, async (req, res) => {
             return res.status(403).json({ error: "Access denied. Valid HRMS user role required." });
         }
 
-        // Scope filter
+        // Scope filter: ONLY Reporting Manager and HR can receive/view requests for their team
         if (userRole === "admin" || userRole === "hr") {
             if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
-                whereClause += " AND n.manager_id = ?";
-                params.push(emp ? emp.id : 0);
+                whereClause += " AND (e.reporting_manager_id = ? OR n.manager_id = ?)";
+                params.push(emp ? emp.id : 0, emp ? emp.id : 0);
             }
         } else if (userRole === "manager") {
-            whereClause += " AND n.manager_id = ?";
-            params.push(emp ? emp.id : 0);
+            // Manager MUST strictly see ONLY requests from their direct reporting team members
+            whereClause += " AND e.reporting_manager_id = ? AND n.employee_id != ?";
+            params.push(emp ? emp.id : 0, emp ? emp.id : 0);
         } else {
+            // Regular employee can ONLY see their own requests (cannot see or approve other employees)
             whereClause += " AND n.employee_id = ?";
             params.push(emp ? emp.id : 0);
         }
@@ -110,12 +112,8 @@ router.get("/", auth, async (req, res) => {
         const allowedSortFields = ["created_at", "priority", "status", "is_read"];
         const actualSortField = allowedSortFields.includes(sortField) ? `n.${sortField}` : "n.created_at";
 
-        // Fast total count (only join employees if search is active)
-        let countQuery = "SELECT COUNT(*) as total FROM inbox_notifications n";
-        if (hasSearch) {
-            countQuery += " LEFT JOIN employees e ON n.employee_id = e.id";
-        }
-        countQuery += whereClause;
+        // Fast total count (always join employees so whereClause works with e.reporting_manager_id and search)
+        let countQuery = "SELECT COUNT(*) as total FROM inbox_notifications n LEFT JOIN employees e ON n.employee_id = e.id" + whereClause;
         const [countRows] = await c.query(countQuery, params);
         const total = countRows[0]?.total || 0;
 
@@ -156,18 +154,19 @@ router.get("/", auth, async (req, res) => {
             let statsQuery = `
                 SELECT 
                     COUNT(*) as totalRequests,
-                    SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-                    SUM(CASE WHEN status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
-                    SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Comp Off Request' THEN 1 ELSE 0 END) as compOffCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as attendanceCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
-                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%') THEN 1 ELSE 0 END) as remoteCount
+                    SUM(CASE WHEN n.status = 'Pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN n.status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN n.status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Comp Off Request' THEN 1 ELSE 0 END) as compOffCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as attendanceCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%') THEN 1 ELSE 0 END) as remoteCount
                 FROM inbox_notifications n
-                WHERE is_archived = 0
+                LEFT JOIN employees e ON n.employee_id = e.id
+                WHERE n.is_archived = 0
             `;
             const statsParams = [];
             if (isMonthSelected) {
@@ -179,12 +178,13 @@ router.get("/", auth, async (req, res) => {
                 statsParams.push(emp ? emp.id : 0);
             } else if (userRole === "admin" || userRole === "hr") {
                 if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
-                    statsQuery += " AND manager_id = ?";
-                    statsParams.push(emp ? emp.id : 0);
+                    statsQuery += " AND (e.reporting_manager_id = ? OR n.manager_id = ?)";
+                    statsParams.push(emp ? emp.id : 0, emp ? emp.id : 0);
                 }
             } else {
-                statsQuery += " AND manager_id = ?";
-                statsParams.push(emp ? emp.id : 0);
+                // Manager role: strictly direct reporting team members
+                statsQuery += " AND e.reporting_manager_id = ? AND n.employee_id != ?";
+                statsParams.push(emp ? emp.id : 0, emp ? emp.id : 0);
             }
             const [statsRows] = await c.query(statsQuery, statsParams);
             if (statsRows && statsRows[0]) {
@@ -411,6 +411,7 @@ router.get("/teammates-on-leave", auth, async (req, res) => {
                 COALESCE(lt.type_name, l.leave_type, 'Leave') as leave_type_name,
                 DATE_FORMAT(l.start_date, '%Y-%m-%d') as start_date,
                 DATE_FORMAT(l.end_date, '%Y-%m-%d') as end_date,
+                COALESCE(l.total_days, DATEDIFF(l.end_date, l.start_date) + 1, 1) as total_days,
                 l.status
             FROM leaves l
             JOIN employees e ON l.employee_id = e.id
@@ -470,6 +471,16 @@ router.get("/:id", auth, async (req, res) => {
         );
         if (rows.length === 0) {
             return res.status(404).json({ error: "Request not found" });
+        }
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        const userRole = (req.user.role || "").toLowerCase();
+        const isHR = ["admin", "hr"].includes(userRole);
+        const isOwner = rows[0].employee_id === currentEmp?.id;
+        const [empCheck] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [rows[0].employee_id]);
+        const isReportingManager = (rows[0].manager_id === currentEmp?.id) || (empCheck.length > 0 && empCheck[0].reporting_manager_id === currentEmp?.id);
+
+        if (!isHR && !isOwner && !isReportingManager) {
+            return res.status(403).json({ error: "Access denied. You are not authorized to view this request." });
         }
         res.json({ success: true, data: rows[0] });
     } catch (err) {
@@ -571,9 +582,10 @@ router.post("/attendance/action", auth, async (req, res) => {
 
         const notification = notifications[0];
 
-        // Authorization check: Admin, HR, or direct manager
+        // Authorization check: Admin, HR, or direct reporting manager
         const isHR = ["admin", "hr"].includes(req.user.role?.toLowerCase());
-        const isReportingManager = notification.manager_id === managerEmp.id;
+        const [empCheck] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [notification.employee_id]);
+        const isReportingManager = (notification.manager_id === managerEmp.id) || (empCheck.length > 0 && empCheck[0].reporting_manager_id === managerEmp.id);
         if (!isHR && !isReportingManager) {
             return res.status(403).json({ error: "Access denied. You are not authorized to perform actions on this request." });
         }

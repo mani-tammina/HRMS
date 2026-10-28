@@ -119,10 +119,23 @@ export class InboxPage implements OnInit {
     this.isHR = ['admin', 'hr'].includes(role);
     this.isManager = role === 'manager';
     this.isManagerOrHR = ['admin', 'hr', 'manager'].includes(role);
-    this.showViewAll = this.isManagerOrHR;
+    // ONLY HR and Admin can view all organization requests; Managers only see direct reports
+    this.showViewAll = this.isHR;
     if (this.isHR) {
       this.viewAll = true;
+    } else {
+      this.viewAll = false;
     }
+  }
+
+  canTakeActionOn(n: InboxNotification | null): boolean {
+    if (!n || n.status !== 'Pending') return false;
+    if (this.isHR) return true;
+    if (this.isManager) {
+      const currentEmpId = Number(this.auth.employeeID);
+      return !currentEmpId || n.employee_id !== currentEmpId;
+    }
+    return false;
   }
 
   generateMonthOptions() {
@@ -639,6 +652,46 @@ export class InboxPage implements OnInit {
       const statusNote = isApproved ? ' (Approved)' : ' (Pending)';
       return `${t.employee_name} is on ${type}${statusNote}`;
     }).join(' • ');
+  }
+
+  getTeammateShortName(fullName?: string): string {
+    if (!fullName) return '';
+    const parts = fullName.trim().split(' ');
+    const first = parts[0];
+    if (first.length > 8) {
+      return first.substring(0, 7) + '..';
+    }
+    return first;
+  }
+
+  formatTeammateDays(t: any): string {
+    const rawDays = t.total_days != null ? t.total_days : 1;
+    const days = parseFloat(rawDays);
+    const formatted = isNaN(days) ? 1 : days;
+    return `${formatted} ${formatted === 1 ? 'Day' : 'Days'}`;
+  }
+
+  formatTeammateDateRange(t: any): string {
+    if (!t.start_date) return '';
+    if (t.start_date === t.end_date || !t.end_date) {
+      return this.formatDate(t.start_date);
+    }
+    return `${this.formatDate(t.start_date)} - ${this.formatDate(t.end_date)}`;
+  }
+
+  getTeammateBadgeIcon(t: any): string {
+    const type = (t.leave_type_name || '').toLowerCase();
+    if (type.includes('wfh') || type.includes('home')) return 'home';
+    if (type.includes('remote')) return 'laptop-outline';
+    if (type.includes('sick')) return 'medkit-outline';
+    return 'calendar-outline';
+  }
+
+  getTeammateBadgeClass(t: any): string {
+    const type = (t.leave_type_name || '').toLowerCase();
+    if (type.includes('wfh') || type.includes('home') || type.includes('remote')) return 'badge-wfh';
+    if (type.includes('sick')) return 'badge-sick';
+    return 'badge-leave';
   }
 
   async showCardActions(notification: InboxNotification) {

@@ -18,36 +18,41 @@
  */
 async function createInboxNotification(connection, employeeId, managerId, requestType, requestId, title, description, priority = 'Medium', metadata = null) {
     try {
-        let finalManagerId = managerId;
+        let finalManagerId = null;
         
-        // If managerId is not provided, look it up in the employees table
-        if (!finalManagerId && employeeId) {
+        // 1. Look up the employee's direct reporting manager from employees table
+        if (employeeId) {
             const [rows] = await connection.query(
                 "SELECT reporting_manager_id FROM employees WHERE id = ?",
                 [employeeId]
             );
-            if (rows.length > 0) {
+            if (rows.length > 0 && rows[0].reporting_manager_id) {
                 finalManagerId = rows[0].reporting_manager_id;
             }
         }
 
+        // 2. If not found in DB but provided in arguments, use provided managerId
+        if (!finalManagerId && managerId) {
+            finalManagerId = managerId;
+        }
+
+        // 3. Fallback: If no reporting manager is assigned, route strictly to HR or Admin (NEVER to an unrelated manager)
         if (!finalManagerId) {
-            // Fallback: If no direct manager is assigned, route to an active Manager/HR so requests aren't lost
             const [fallback] = await connection.query(`
                 SELECT e.id FROM employees e 
                 JOIN users u ON (u.username = e.WorkEmail OR u.username = e.EmployeeNumber)
-                WHERE u.role IN ('manager', 'hr', 'admin') 
-                ORDER BY CASE WHEN u.role = 'manager' THEN 1 WHEN u.role = 'hr' THEN 2 ELSE 3 END 
+                WHERE u.role IN ('hr', 'admin') AND (e.EmploymentStatus = 'Working' OR e.EmploymentStatus IS NULL)
+                ORDER BY CASE WHEN u.role = 'hr' THEN 1 ELSE 2 END 
                 LIMIT 1
             `);
             if (fallback.length > 0) {
                 finalManagerId = fallback[0].id;
-                console.log(`[Inbox Notification] Employee ID ${employeeId} has no reporting manager. Fallback to manager ID ${finalManagerId}`);
+                console.log(`[Inbox Notification] Employee ID ${employeeId} has no reporting manager. Routed to HR ID ${finalManagerId}`);
             }
         }
 
         if (!finalManagerId) {
-            console.log(`[Inbox Notification] No reporting manager or fallback found for employee ID ${employeeId}. Notification skipped.`);
+            console.log(`[Inbox Notification] No reporting manager or HR fallback found for employee ID ${employeeId}. Notification skipped.`);
             return null;
         }
 
