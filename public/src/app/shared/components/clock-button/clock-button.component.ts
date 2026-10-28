@@ -520,7 +520,10 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           }
           this.isClockedIn = true;
           this.workMode = mode;
-          this.statusChanged.emit({ punch_type: 'in', work_mode: mode, isClockedIn: true });
+          this.attendanceApi.setClockState(true);
+          this.attendanceApi.notifyPunch();
+          this.statusChanged.emit({ punch_type: 'in', work_mode: mode, isClockedIn: true, punch_time: res?.punch_time });
+          this.loadLastPunch();
         }
       },
       error: (err: any) => {
@@ -533,6 +536,9 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         } else if (/active punch-in|already punched in/i.test(errorMessage)) {
           this.showToast('You are currently clocked in. Updating status...', 'primary');
           this.isClockedIn = true;
+          this.attendanceApi.setClockState(true);
+          this.attendanceApi.notifyPunch();
+          this.statusChanged.emit({ punch_type: 'in', isClockedIn: true });
           this.loadLastPunch();
         } else {
           this.showToast(errorMessage, 'danger');
@@ -597,7 +603,10 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.isClockedIn = false;
           const prevMode = this.workMode;
           this.workMode = 'Office';
+          this.attendanceApi.setClockState(false);
+          this.attendanceApi.notifyPunch();
           this.statusChanged.emit({ punch_type: 'out', work_mode: prevMode, isClockedIn: false, hadWFHWork: wasWFH });
+          this.loadLastPunch();
         }
       },
       error: (err) => {
@@ -610,6 +619,10 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         } else if (/already punched out|no punch-in|no attendance record/i.test(errorMessage)) {
           this.showToast('You are not currently clocked in via web.', 'warning');
           this.isClockedIn = false;
+          this.attendanceApi.setClockState(false);
+          this.attendanceApi.notifyPunch();
+          this.statusChanged.emit({ punch_type: 'out', isClockedIn: false });
+          this.loadLastPunch();
         } else {
           this.showToast(errorMessage, 'danger');
         }
@@ -643,7 +656,10 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.remoteActive = false;
           this.workMode = 'Office';
           localStorage.removeItem('remoteActive');
+          this.attendanceApi.setClockState(false);
+          this.attendanceApi.notifyPunch();
           this.statusChanged.emit({ punch_type: 'out', work_mode: 'Remote', isClockedIn: false, hadRemoteWork: true });
+          this.loadLastPunch();
         }
       },
       error: (err) => {
@@ -656,6 +672,10 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         } else if (/already punched out|no punch-in|no attendance record/i.test(errorMessage)) {
           this.showToast('You are not currently clocked in via web.', 'warning');
           this.isClockedIn = false;
+          this.attendanceApi.setClockState(false);
+          this.attendanceApi.notifyPunch();
+          this.statusChanged.emit({ punch_type: 'out', isClockedIn: false });
+          this.loadLastPunch();
         } else {
           this.showToast(errorMessage, 'danger');
         }

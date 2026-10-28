@@ -25,6 +25,11 @@ export class AttendanceApiService {
     }
   }
 
+  notifyPunch(): void {
+    this.clearCaches();
+    this.punchRefreshSubject.next();
+  }
+
   getClockState(): boolean {
     return this.clockStateSubject.value;
   }

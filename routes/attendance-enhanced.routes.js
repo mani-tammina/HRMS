@@ -333,14 +333,20 @@ router.post("/punch-in", auth, async (req, res) => {
     }
 
     // 2. Cross-day check: Check if the active punch belongs to a previous shift date
-    if (isEffectivelyIn && lastPunch[0].attendance_id) {
-      const [attRows] = await c.query(
-        `SELECT a.id, a.attendance_date, a.work_mode FROM attendance a WHERE a.id = ?`,
-        [lastPunch[0].attendance_id]
-      );
-      const prevAttDate = attRows.length > 0 && attRows[0].attendance_date
-        ? toMySQLDate(attRows[0].attendance_date)
-        : null;
+    if (isEffectivelyIn) {
+      let prevAttDate = null;
+      if (lastPunch[0].attendance_id) {
+        const [attRows] = await c.query(
+          `SELECT a.id, a.attendance_date, a.work_mode FROM attendance a WHERE a.id = ?`,
+          [lastPunch[0].attendance_id]
+        );
+        if (attRows.length > 0 && attRows[0].attendance_date) {
+          prevAttDate = toMySQLDate(attRows[0].attendance_date);
+        }
+      }
+      if (!prevAttDate && lastPunch[0].punch_date) {
+        prevAttDate = toMySQLDate(lastPunch[0].punch_date);
+      }
 
       if (prevAttDate && prevAttDate < shiftDate) {
         // Auto-close past day's open session so employee can clock into their new day
@@ -359,7 +365,25 @@ router.post("/punch-in", auth, async (req, res) => {
           [emp.id]
         );
         isEffectivelyIn = refreshedLastPunch.length > 0 && refreshedLastPunch[0].punch_type === "in";
-        if (!isEffectivelyIn && refreshedLastPunch.length > 0) {
+        if (isEffectivelyIn) {
+          // If still marked in (e.g. edge cases where auto-clockout was skipped), force close the past day punch
+          await c.query(
+            `INSERT INTO attendance_punches 
+             (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+             VALUES (?, ?, 'out', ?, ?, ?, ?, ?, ?)`,
+            [
+              refreshedLastPunch[0].attendance_id || null,
+              emp.id,
+              `${prevAttDate} 23:59:59`,
+              prevAttDate,
+              ip_address,
+              device_info,
+              location || 'System',
+              'Auto OUT (Previous Day Unclosed Session)'
+            ]
+          );
+          isEffectivelyIn = false;
+        } else if (refreshedLastPunch.length > 0) {
           lastPunch[0] = refreshedLastPunch[0];
         }
       }
@@ -421,6 +445,7 @@ router.post("/punch-in", auth, async (req, res) => {
           message: `You are already clocked in (${requestedMode})`,
           punch_time: lastPunch[0].punch_time,
           work_mode: requestedMode,
+          isClockedIn: true,
           alreadyActive: true
         });
       }
@@ -715,8 +740,11 @@ router.post("/punch-out", auth, async (req, res) => {
           punch_time: bioPunches[0].punch_time
         }];
       } else {
-        return res.status(400).json({
-          error: "No punch-in found. Please punch in first.",
+        return res.json({
+          success: true,
+          message: "You are already clocked out",
+          alreadyActive: true,
+          isClockedIn: false
         });
       }
     }

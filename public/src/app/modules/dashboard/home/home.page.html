@@ -59,7 +59,7 @@
               </div>
 
               <div class="premium-clock-action" *ngIf="!isCEO()">
-                <app-clock-button></app-clock-button>
+                <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
               </div>
             </div>
           </div>

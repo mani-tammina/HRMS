@@ -252,9 +252,8 @@ export class HomePage implements OnInit, OnDestroy {
     });
 
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(isClocked => {
-      if (isClocked) {
-        this.isClockedIn = true;
-      }
+      this.isClockedIn = isClocked;
+      this.refreshAttendanceState();
       this.cdr.detectChanges();
     });
 
@@ -1096,6 +1095,12 @@ export class HomePage implements OnInit, OnDestroy {
     const h = Math.floor(breakH);
     const m = Math.round((breakH - h) * 60);
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
+  }
+
+  onClockStatusChanged(event: any) {
+    this.isClockedIn = !!event?.isClockedIn;
+    this.refreshAttendanceState();
+    this.cdr.detectChanges();
   }
 
   getStatusLabel(): string {
