@@ -484,10 +484,10 @@
 
           <!-- Bottom Action & Comment Footer Bar -->
           <div class="reader-bottom-action-bar" *ngIf="selectedNotification.status === 'Pending'">
-            <div class="character-limit-indicator">0 / 1024</div>
+            <div class="character-limit-indicator">{{ rejectReasonText?.length || 0 }} / 1024</div>
             <div class="input-actions-row">
               <input type="text" [(ngModel)]="rejectReasonText" placeholder="Add comment or reject reason here"
-                class="comment-input-field" />
+                class="comment-input-field" maxlength="1024" />
               <div class="action-buttons-group">
                 <button class="btn-comment-icon" title="Add Comment">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"

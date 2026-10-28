@@ -141,6 +141,7 @@ export class InboxPage implements OnInit {
 
   onMonthChange() {
     this.selectedNotification = null;
+    this.rejectReasonText = '';
     this.loadNotifications(null, true);
   }
 
@@ -552,6 +553,7 @@ export class InboxPage implements OnInit {
 
   selectNotification(notification: InboxNotification) {
     this.selectedNotification = notification;
+    this.rejectReasonText = '';
     if (window.innerWidth <= 768) {
       this.isModalOpen = true;
     }
@@ -671,6 +673,7 @@ export class InboxPage implements OnInit {
   selectTab(tab: string) {
     this.selectedTab = tab;
     this.selectedNotification = null;
+    this.rejectReasonText = '';
     this.loadNotifications(null, true);
   }
 
@@ -678,6 +681,7 @@ export class InboxPage implements OnInit {
     if (this.selectedTab === 'Archived' || this.selectedTab === 'Rejected') {
       this.selectedTab = this.getDefaultPendingTab();
       this.selectedNotification = null;
+      this.rejectReasonText = '';
       this.loadNotifications(null, true);
     }
   }
@@ -743,11 +747,12 @@ export class InboxPage implements OnInit {
 
     let obs$;
     const isWfhRemote = this.isWfhRemoteRequest(notification);
+    const remarks = this.rejectReasonText?.trim() || 'Approved via Inbox';
 
     if (isWfhRemote || notification.request_type === 'Work From Home' || notification.request_type === 'Remote Login') {
-      obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
+      obs$ = this.leaveRequestService.approveLeave(notification.request_id, remarks);
     } else if (notification.request_type === 'Leave Request') {
-      obs$ = this.leaveRequestService.approveLeave(notification.request_id, 'Approved via Inbox');
+      obs$ = this.leaveRequestService.approveLeave(notification.request_id, remarks);
     } else if (notification.request_type === 'Comp Off Request' || notification.request_type === 'Comp Off') {
       obs$ = this.leaveRequestService.approveCompOff(notification.request_id);
     } else if (notification.request_type === 'Timesheet Request') {
@@ -755,13 +760,13 @@ export class InboxPage implements OnInit {
     } else if (notification.request_type === 'Resignation Request') {
       obs$ = this.separationService.actionResignation(notification.request_id, {
         action: 'Approve',
-        remarks: 'Approved via Inbox'
+        remarks: remarks
       });
     } else if (notification.request_type === 'Attendance Regularization') {
       obs$ = this.inboxService.actionAttendanceRegularization({
         notification_id: notification.notification_id,
         action: 'Approve',
-        remarks: 'Approved via Inbox'
+        remarks: remarks
       });
     }
 
@@ -769,6 +774,7 @@ export class InboxPage implements OnInit {
       obs$.subscribe({
         next: () => {
           loading.dismiss();
+          this.rejectReasonText = '';
           this.toaster.showSuccess('Request approved successfully');
           this.loadNotifications(null, true);
         },
@@ -855,6 +861,7 @@ export class InboxPage implements OnInit {
       obs$.subscribe({
         next: () => {
           loading.dismiss();
+          this.rejectReasonText = '';
           this.toaster.showSuccess('Request rejected successfully');
           this.loadNotifications(null, true);
         },
