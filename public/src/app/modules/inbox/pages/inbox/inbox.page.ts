@@ -35,8 +35,7 @@ export class InboxPage implements OnInit {
   total = 0;
   
   searchQuery = '';
-  selectedTab = 'All';
-  selectedTypeFilter = 'All';
+  selectedTab = 'Leave';
   sortField = 'created_at';
   sortOrder: 'ASC' | 'DESC' = 'DESC';
   showViewAll = false;
@@ -65,7 +64,6 @@ export class InboxPage implements OnInit {
 
   stats: any = {
     totalRequests: 0,
-    unread: 0,
     pending: 0,
     approved: 0,
     rejected: 0,
@@ -78,7 +76,7 @@ export class InboxPage implements OnInit {
     remoteCount: 0
   };
 
-  tabs = ['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
+  tabs = ['Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation', 'Approved', 'Rejected', 'Archived'];
 
   constructor(
     private inboxService: InboxService,
@@ -97,6 +95,8 @@ export class InboxPage implements OnInit {
     this.initRoleAccess();
     if (this.isEmployee) {
       this.selectedTab = 'Rejected';
+    } else {
+      this.selectedTab = 'Leave';
     }
     this.generateMonthOptions();
     this.loadNotifications();
@@ -188,11 +188,10 @@ export class InboxPage implements OnInit {
       else if (this.filterRequestType === 'Attendance Regularization') this.selectedTab = 'Attendance';
       else if (this.filterRequestType === 'Timesheet Request') this.selectedTab = 'Timesheet';
       else if (this.filterRequestType === 'Resignation Request') this.selectedTab = 'Resignation';
-      this.selectedTypeFilter = this.selectedTab;
     } else if (this.filterStatus) {
       if (this.filterStatus === 'Approved') this.selectedTab = 'Approved';
       else if (this.filterStatus === 'Rejected') this.selectedTab = 'Rejected';
-      else if (this.filterStatus === 'Pending') this.selectedTab = 'All';
+      else if (this.filterStatus === 'Pending') this.selectedTab = this.getDefaultPendingTab();
     }
     
     this.loadNotifications(null, true);
@@ -203,8 +202,7 @@ export class InboxPage implements OnInit {
     this.filterRequestType = '';
     this.filterStatus = '';
     this.filterPriority = '';
-    this.selectedTypeFilter = 'All';
-    this.selectedTab = 'All';
+    this.selectedTab = this.getDefaultPendingTab();
     this.sortField = 'created_at';
     this.sortOrder = 'DESC';
     this.loadNotifications(null, true);
@@ -302,7 +300,6 @@ export class InboxPage implements OnInit {
       case 'Attendance': return 'Attendance Regularization';
       case 'Timesheet': return 'Timesheet';
       case 'Resignation': return 'Exit';
-      case 'All': return 'pending';
       default: return this.selectedTab;
     }
   }
@@ -641,6 +638,18 @@ export class InboxPage implements OnInit {
           if (res.stats) {
             this.stats = res.stats;
             this.rejectedCount = res.stats.rejected || 0;
+
+            if (!this.isEmployee && !this.selectedMonth && this.selectedTab !== 'Archived') {
+              const currentKey = this.getStatKeyForTab(this.selectedTab);
+              if (currentKey && (!this.stats[currentKey] || this.stats[currentKey] === 0) && (this.stats.pending || 0) > 0) {
+                const betterTab = this.getDefaultPendingTab();
+                if (betterTab !== this.selectedTab) {
+                  this.selectedTab = betterTab;
+                  this.loadNotifications(null, true);
+                  return;
+                }
+              }
+            }
           }
         }
         this.loading = false;
@@ -661,19 +670,52 @@ export class InboxPage implements OnInit {
 
   selectTab(tab: string) {
     this.selectedTab = tab;
-    if (['All', 'Leave', 'WFH', 'Remote', 'Attendance', 'CompOff', 'Timesheet', 'Resignation'].includes(tab)) {
-      this.selectedTypeFilter = tab;
-    } else {
-      this.selectedTypeFilter = 'All';
-    }
     this.selectedNotification = null;
     this.loadNotifications(null, true);
   }
 
-  onTypeFilterChange() {
-    this.selectedTab = this.selectedTypeFilter;
-    this.selectedNotification = null;
-    this.loadNotifications(null, true);
+  onTakeActionClick() {
+    if (this.selectedTab === 'Archived' || this.selectedTab === 'Rejected') {
+      this.selectedTab = this.getDefaultPendingTab();
+      this.selectedNotification = null;
+      this.loadNotifications(null, true);
+    }
+  }
+
+  hasNoPendingTasks(): boolean {
+    return !(
+      (this.stats.leaveCount && this.stats.leaveCount > 0) ||
+      (this.stats.wfhCount && this.stats.wfhCount > 0) ||
+      (this.stats.remoteCount && this.stats.remoteCount > 0) ||
+      (this.stats.attendanceCount && this.stats.attendanceCount > 0) ||
+      (this.stats.compOffCount && this.stats.compOffCount > 0) ||
+      (this.stats.timesheetCount && this.stats.timesheetCount > 0) ||
+      (this.stats.resignationCount && this.stats.resignationCount > 0)
+    );
+  }
+
+  getDefaultPendingTab(): string {
+    if (this.stats.leaveCount > 0) return 'Leave';
+    if (this.stats.wfhCount > 0) return 'WFH';
+    if (this.stats.remoteCount > 0) return 'Remote';
+    if (this.stats.attendanceCount > 0) return 'Attendance';
+    if (this.stats.compOffCount > 0) return 'CompOff';
+    if (this.stats.timesheetCount > 0) return 'Timesheet';
+    if (this.stats.resignationCount > 0) return 'Resignation';
+    return 'Leave';
+  }
+
+  private getStatKeyForTab(tab: string): string {
+    switch (tab) {
+      case 'Leave': return 'leaveCount';
+      case 'WFH': return 'wfhCount';
+      case 'Remote': return 'remoteCount';
+      case 'Attendance': return 'attendanceCount';
+      case 'CompOff': return 'compOffCount';
+      case 'Timesheet': return 'timesheetCount';
+      case 'Resignation': return 'resignationCount';
+      default: return '';
+    }
   }
 
   refresh(event: any) {

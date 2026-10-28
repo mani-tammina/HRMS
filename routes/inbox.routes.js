@@ -28,7 +28,7 @@ router.get("/", auth, async (req, res) => {
         const offset = (page - 1) * limit;
 
         const search = req.query.search || "";
-        const tab = req.query.tab || "All";
+        const tab = req.query.tab || "Leave";
         const sortField = req.query.sortField || "created_at";
         const sortOrder = req.query.sortOrder === "ASC" ? "ASC" : "DESC";
 

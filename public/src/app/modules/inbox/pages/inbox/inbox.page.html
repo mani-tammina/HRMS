@@ -14,8 +14,8 @@
         <!-- Top Primary Tabs Bar on Left (TAKE ACTION, ARCHIVE / REJECTED REQUESTS) -->
         <div class="top-navigation-tabs">
           <button class="top-nav-tab" *ngIf="!isEmployee" [class.active]="selectedTab !== 'Archived'"
-            (click)="selectTab('All')">
-            TAKE ACTION <span class="tab-badge-text">({{ stats.pending || stats.totalRequests || 0 }})</span>
+            (click)="onTakeActionClick()">
+            TAKE ACTION <span class="tab-badge-text">({{ stats.pending || 0 }})</span>
             <div class="tab-indicator" *ngIf="selectedTab !== 'Archived'"></div>
           </button>
 
@@ -143,18 +143,9 @@
 
         <!-- Manager / HR View Pending Tasks Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="!isEmployee">
-          <!-- 1. All Pending Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'All'" (click)="selectTab('All')">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              stroke-width="2" class="item-icon">
-              <path d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-            <span class="item-text">All Requests</span>
-            <span class="item-count">({{ stats.pending || 0 }})</span>
-          </div>
-
-          <!-- 2. Leave Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
+          <!-- 1. Leave Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'Leave' || stats.leaveCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -166,8 +157,9 @@
             <span class="item-count">({{ stats.leaveCount || 0 }})</span>
           </div>
 
-          <!-- 3. Work From Home Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'WFH'" (click)="selectTab('WFH')">
+          <!-- 2. Work From Home Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'WFH' || stats.wfhCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'WFH'" (click)="selectTab('WFH')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
@@ -177,8 +169,9 @@
             <span class="item-count">({{ stats.wfhCount || 0 }})</span>
           </div>
 
-          <!-- 4. Remote Login Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'Remote'" (click)="selectTab('Remote')">
+          <!-- 3. Remote Login Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'Remote' || stats.remoteCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Remote'" (click)="selectTab('Remote')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
@@ -189,9 +182,9 @@
             <span class="item-count">({{ stats.remoteCount || 0 }})</span>
           </div>
 
-          <!-- 5. Attendance Regularization Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'Attendance'"
-            (click)="selectTab('Attendance')">
+          <!-- 4. Attendance Regularization Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'Attendance' || stats.attendanceCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Attendance'" (click)="selectTab('Attendance')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <circle cx="12" cy="12" r="10"></circle>
@@ -201,8 +194,9 @@
             <span class="item-count">({{ stats.attendanceCount || 0 }})</span>
           </div>
 
-          <!-- 6. Comp Off Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'CompOff'" (click)="selectTab('CompOff')">
+          <!-- 5. Comp Off Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'CompOff' || stats.compOffCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'CompOff'" (click)="selectTab('CompOff')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <circle cx="12" cy="12" r="10"></circle>
@@ -213,8 +207,9 @@
             <span class="item-count">({{ stats.compOffCount || 0 }})</span>
           </div>
 
-          <!-- 7. Timesheet Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
+          <!-- 6. Timesheet Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'Timesheet' || stats.timesheetCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -224,9 +219,9 @@
             <span class="item-count">({{ stats.timesheetCount || 0 }})</span>
           </div>
 
-          <!-- 8. Exit / Resignation Requests -->
-          <div class="sidebar-menu-item" [class.active]="selectedTab === 'Resignation'"
-            (click)="selectTab('Resignation')">
+          <!-- 7. Exit / Resignation Requests -->
+          <div class="sidebar-menu-item" *ngIf="selectedMonth || selectedTab === 'Resignation' || stats.resignationCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -246,7 +241,6 @@
           <div class="header-title-left">
             <span class="list-title-text">
               <ng-container [ngSwitch]="selectedTab">
-                <ng-container *ngSwitchCase="'All'">ALL REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'WFH'">WORK FROM HOME REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Remote'">REMOTE LOGIN REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Leave'">LEAVE REQUESTS</ng-container>
@@ -262,17 +256,6 @@
             </span>
           </div>
           <div class="header-sort-right">
-            <select [(ngModel)]="selectedTypeFilter" (change)="onTypeFilterChange()" class="type-select-dropdown"
-              *ngIf="!isEmployee">
-              <option value="All">All Types</option>
-              <option value="Leave">Leave Requests</option>
-              <option value="WFH">Work From Home</option>
-              <option value="Remote">Remote Login</option>
-              <option value="Attendance">Attendance Regularization</option>
-              <option value="CompOff">Comp Off</option>
-              <option value="Timesheet">Timesheets</option>
-              <option value="Resignation">Exit Requests</option>
-            </select>
             <select [(ngModel)]="selectedMonth" (change)="onMonthChange()" class="month-select-dropdown">
               <option value="">All Months</option>
               <option *ngFor="let m of monthOptions" [value]="m.value">{{ m.label }}</option>
