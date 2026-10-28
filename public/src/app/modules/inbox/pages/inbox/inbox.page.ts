@@ -387,6 +387,13 @@ export class InboxPage implements OnInit {
       if (meta.week_start && meta.week_end) {
         return { start: meta.week_start, end: meta.week_end };
       }
+      if (meta.date) {
+        return { start: meta.date, end: meta.date };
+      }
+      if (meta.week_range && /^\d{4}-\d{2}-\d{2}$/.test(String(meta.week_range).trim())) {
+        const cleanRange = String(meta.week_range).trim();
+        return { start: cleanRange, end: cleanRange };
+      }
     }
     if (meta.start_date && meta.end_date) {
       return { start: meta.start_date, end: meta.end_date };
@@ -406,6 +413,13 @@ export class InboxPage implements OnInit {
     }
     const created = notification.created_at ? notification.created_at.substring(0, 10) : '';
     return { start: created, end: created };
+  }
+
+  isDateRange(notification: InboxNotification | null): boolean {
+    if (!notification) return false;
+    const dates = this.getFallbackLeaveDates(notification);
+    if (!dates.start || !dates.end) return false;
+    return dates.start !== dates.end;
   }
 
   getFallbackCompOffDate(notification: InboxNotification): string {
@@ -466,8 +480,14 @@ export class InboxPage implements OnInit {
       return `Attendance regularization on ${this.formatDate(date)}...`;
     }
     if (notification.request_type === 'Timesheet Request') {
-      const range = meta.week_range || 'this week';
-      return `Weekly timesheet for ${range}...`;
+      const range = meta.date || meta.week_range || 'today';
+      if (meta.week_start && meta.week_end && meta.week_start !== meta.week_end) {
+        return `Weekly timesheet for ${this.formatDate(meta.week_start)} – ${this.formatDate(meta.week_end)}...`;
+      }
+      if (typeof range === 'string' && (range.includes(' – ') || range.includes(' to '))) {
+        return `Weekly timesheet for ${range}...`;
+      }
+      return `Daily timesheet for ${range}...`;
     }
     if (notification.request_type === 'Resignation Request') {
       const lwd = meta.calculated_last_working_date || 'N/A';
@@ -479,11 +499,29 @@ export class InboxPage implements OnInit {
   formatDate(dateStr: string): string {
     if (!dateStr) return '';
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
     const day = d.getDate();
     const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     const month = months[d.getMonth()];
     const year = d.getFullYear();
     return `${day} ${month} ${year}`;
+  }
+
+  formatDateTime(dateStr: string): string {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    const day = d.getDate();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    let hours = d.getHours();
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const formattedTime = `${hours}:${minutes} ${ampm}`;
+    return `${day} ${month} ${year} at ${formattedTime}`;
   }
 
   getDateParts(dateStr: string): { month: string; day: string; weekday: string } {
@@ -522,13 +560,18 @@ export class InboxPage implements OnInit {
     if (!notification) return 'Request Details';
     if (notification.request_type === 'Timesheet Request') {
       const meta = notification._parsedMeta || this.getParsedMetadata(notification.metadata);
-      if (meta.week_range) {
-        return `Weekly Timesheet: ${meta.week_range}`;
-      }
-      if (meta.week_start && meta.week_end) {
+      if (meta.week_start && meta.week_end && meta.week_start !== meta.week_end) {
         return `Weekly Timesheet: ${this.formatDate(meta.week_start)} – ${this.formatDate(meta.week_end)}`;
       }
-      return `Timesheet Submission`;
+      const range = meta.week_range || '';
+      if (typeof range === 'string' && (range.includes(' – ') || range.includes(' to '))) {
+        return `Weekly Timesheet: ${range}`;
+      }
+      const singleDate = meta.date || meta.week_range || this.getFallbackLeaveDates(notification).start;
+      if (singleDate) {
+        return `Daily Timesheet: ${singleDate}`;
+      }
+      return `Daily Timesheet`;
     }
     if (notification.request_type === 'Resignation Request') {
       return `Exit / Resignation Request`;
@@ -910,7 +953,7 @@ export class InboxPage implements OnInit {
   navigateToResubmitWorkTrack(n: InboxNotification) {
     if (!n) return;
     const meta = n._parsedMeta || this.getParsedMetadata(n.metadata);
-    const date = meta.date || meta.week_start || (n as any).date || (n.created_at ? n.created_at.substring(0, 10) : '');
+    const date = meta.date || meta.week_range || meta.week_start || (n as any).date || (n.created_at ? n.created_at.substring(0, 10) : '');
     const id = n.request_id;
     this.router.navigate(['/workTrack'], {
       queryParams: {

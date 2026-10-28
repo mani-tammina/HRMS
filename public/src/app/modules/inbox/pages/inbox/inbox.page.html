@@ -366,7 +366,7 @@
                     </button>
                   </div>
                   <span class="sub-timestamp">Requested by {{ selectedNotification.employee_name }} on {{
-                    formatDate(selectedNotification.created_at) }}</span>
+                    formatDateTime(selectedNotification.created_at) }}</span>
                 </div>
               </div>
             </div>
@@ -384,10 +384,10 @@
                     getFallbackCompOffDate(selectedNotification)).weekday }}</div>
                 </div>
 
-                <div class="date-connector-dash">-</div>
+                <div class="date-connector-dash" *ngIf="isDateRange(selectedNotification)">-</div>
 
                 <!-- Date Box 2 -->
-                <div class="date-badge-box">
+                <div class="date-badge-box" *ngIf="isDateRange(selectedNotification)">
                   <div class="badge-month-header">{{ getDateParts(getFallbackLeaveDates(selectedNotification).end ||
                     getFallbackLeaveDates(selectedNotification).start ||
                     getFallbackCompOffDate(selectedNotification)).month }}</div>
@@ -443,7 +443,7 @@
               <div class="rejection-card-footer">
                 <div class="footer-timestamp">
                   <ion-icon name="time-outline"></ion-icon>
-                  <span>Rejected on {{ formatDate(selectedNotification.updated_at || selectedNotification.created_at)
+                  <span>Rejected on {{ formatDateTime(selectedNotification.updated_at || selectedNotification.created_at)
                     }}</span>
                 </div>
               </div>

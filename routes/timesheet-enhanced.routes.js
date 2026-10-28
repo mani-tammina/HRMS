@@ -168,7 +168,7 @@ const handleRegularTimesheetSubmission = async (req, res) => {
         `Timesheet Request - ${emp.FullName || 'Employee'}`,
         `Submitted timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
         "Medium",
-        { week_range: date, total_hours: total_hours }
+        { date: date, week_range: date, total_hours: total_hours, timesheet_type: 'daily' }
       );
 
       c.end();
@@ -199,7 +199,7 @@ const handleRegularTimesheetSubmission = async (req, res) => {
       `Timesheet Request - ${emp.FullName || 'Employee'}`,
       `Submitted timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
       "Medium",
-      { week_range: date, total_hours: total_hours }
+      { date: date, week_range: date, total_hours: total_hours, timesheet_type: 'daily' }
     );
 
     c.end();
@@ -340,7 +340,7 @@ router.post("/project/submit", auth, async (req, res) => {
         `Timesheet Request - ${emp.FullName || 'Employee'}`,
         `Submitted project timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
         "Medium",
-        { week_range: date, total_hours: total_hours }
+        { date: date, week_range: date, total_hours: total_hours, timesheet_type: 'daily' }
       );
 
       c.end();
@@ -380,7 +380,7 @@ router.post("/project/submit", auth, async (req, res) => {
       `Timesheet Request - ${emp.FullName || 'Employee'}`,
       `Submitted project timesheet for ${date} (Total Hours: ${total_hours}). Notes: ${notes || 'N/A'}`,
       "Medium",
-      { week_range: date, total_hours: total_hours }
+      { date: date, week_range: date, total_hours: total_hours, timesheet_type: 'daily' }
     );
 
     c.end();
