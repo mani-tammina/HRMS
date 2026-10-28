@@ -426,11 +426,14 @@
           display: flex;
           align-items: flex-start;
           gap: 12px;
-          padding: 14px 16px;
-          border-bottom: 1px solid #f1f5f9;
+          padding: 13px 14px;
+          margin: 4px 8px;
+          border-radius: 10px;
+          border: 1px solid #f1f5f9;
           background: #ffffff;
           cursor: pointer;
-          transition: background 0.15s ease;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
           .card-checkbox-wrapper {
             padding-top: 3px;
@@ -550,12 +553,17 @@
           }
 
           &:hover {
-            background: #f8fafc;
+            background: #ffffff;
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
           }
 
           &.active {
-            background: vars.$color-primary-xlight;
-            border-left: 3px solid vars.$color-primary;
+            background: #faf5ff;
+            border-color: #d8b4fe;
+            border-left: 3.5px solid #61439d;
+            box-shadow: 0 4px 14px rgba(97, 67, 157, 0.08);
           }
         }
       }
@@ -791,11 +799,44 @@
 
       // Teammates status note
       .teammates-status-note {
-        font-size: 0.8rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+        font-size: 0.82rem;
         font-weight: 600;
         color: #475569;
-        margin-bottom: 24px;
-        padding-left: 2px;
+        margin-bottom: 20px;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background: #f8fafc;
+        border: 1px solid #f1f5f9;
+
+        .note-icon {
+          font-size: 1.1rem;
+          flex-shrink: 0;
+          margin-top: 1px;
+          &.safe {
+            color: #10b981;
+          }
+          &.warn {
+            color: #d97706;
+          }
+        }
+
+        .warn-text {
+          color: #92400e;
+          line-height: 1.4;
+          strong {
+            color: #78350f;
+            font-weight: 700;
+          }
+        }
+
+        .checking-teammates {
+          color: #94a3b8;
+          font-style: italic;
+          font-weight: 500;
+        }
       }
 
       // User comment/request note box

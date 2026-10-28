@@ -71,6 +71,19 @@ export class InboxService {
     );
   }
 
+  getTeammatesOnLeave(employeeId: number, startDate: string, endDate?: string): Observable<{ success: boolean; count: number; teammates: any[] }> {
+    let httpParams = new HttpParams()
+      .set('employeeId', employeeId.toString())
+      .set('startDate', startDate);
+    if (endDate) {
+      httpParams = httpParams.set('endDate', endDate);
+    }
+    return this.http.get<{ success: boolean; count: number; teammates: any[] }>(
+      this.BASE_URL + '/teammates-on-leave',
+      { headers: this.getHeaders(), params: httpParams }
+    );
+  }
+
   getNotificationById(id: number): Observable<{ success: boolean; data: InboxNotification }> {
     return this.http.get<{ success: boolean; data: InboxNotification }>(
       `${this.BASE_URL}/${id}`,

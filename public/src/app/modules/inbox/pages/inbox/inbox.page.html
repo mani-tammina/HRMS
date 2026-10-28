@@ -406,6 +406,24 @@
               </div>
             </div>
 
+            <!-- Teammates Status Note -->
+            <div class="teammates-status-note" *ngIf="selectedNotification.request_type !== 'Timesheet Request'">
+              <ng-container *ngIf="loadingTeammates">
+                <span class="checking-teammates">Checking teammate leaves...</span>
+              </ng-container>
+              <ng-container *ngIf="!loadingTeammates && teammatesOnLeave.length === 0">
+                <ion-icon name="checkmark-circle-outline" class="note-icon safe"></ion-icon>
+                <span>No teammates are on leave on this day</span>
+              </ng-container>
+              <ng-container *ngIf="!loadingTeammates && teammatesOnLeave.length > 0">
+                <ion-icon name="alert-circle-outline" class="note-icon warn"></ion-icon>
+                <span class="warn-text">
+                  {{ teammatesOnLeave.length }} teammate{{ teammatesOnLeave.length > 1 ? 's are' : ' is' }} also on leave:
+                  <strong>{{ getTeammatesOnLeaveSummary() }}</strong>
+                </span>
+              </ng-container>
+            </div>
+
             <!-- Premium Enterprise Rejection Feedback Card -->
             <div class="rejection-details-card" *ngIf="selectedNotification.status === 'Rejected'">
               <div class="rejection-card-top-row">
@@ -447,11 +465,6 @@
                     }}</span>
                 </div>
               </div>
-            </div>
-
-            <!-- Teammates Status Note -->
-            <div class="teammates-status-note" *ngIf="selectedNotification.request_type !== 'Timesheet Request'">
-              No teammates are on leave on this day
             </div>
 
             <!-- Work Log Preview box for Timesheets -->

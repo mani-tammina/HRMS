@@ -372,6 +372,85 @@ router.get("/timesheets/export", auth, async (req, res) => {
     }
 });
 
+// GET /api/inbox/teammates-on-leave - Check if any teammates are on leave for given date range
+router.get("/teammates-on-leave", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employeeId, startDate, endDate } = req.query;
+        if (!employeeId || !startDate) {
+            return res.json({ success: true, count: 0, teammates: [] });
+        }
+        const cleanStartDate = String(startDate).split('T')[0].trim();
+        const cleanEndDate = String(endDate || startDate).split('T')[0].trim();
+
+        c = await db();
+
+        // 1. Get employee's reporting manager and department
+        const [empRows] = await c.query(
+            "SELECT id, reporting_manager_id, DepartmentId FROM employees WHERE id = ?",
+            [employeeId]
+        );
+        if (empRows.length === 0) {
+            return res.json({ success: true, count: 0, teammates: [] });
+        }
+        const currentEmp = empRows[0];
+        const managerId = currentEmp.reporting_manager_id;
+        const deptId = currentEmp.DepartmentId;
+
+        // 2. Query other employees in the team:
+        // - Peers reporting to the same manager
+        // - Direct reports reporting to this employee (e.g. Moulika reporting to Siva)
+        // - The manager themselves
+        // - Or colleagues in the same department
+        const query = `
+            SELECT 
+                e.id as employee_id,
+                e.FullName as employee_name,
+                e.EmployeeNumber as employee_number,
+                e.profile_image,
+                COALESCE(lt.type_name, l.leave_type, 'Leave') as leave_type_name,
+                DATE_FORMAT(l.start_date, '%Y-%m-%d') as start_date,
+                DATE_FORMAT(l.end_date, '%Y-%m-%d') as end_date,
+                l.status
+            FROM leaves l
+            JOIN employees e ON l.employee_id = e.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE e.id != ?
+              AND (
+                  ( ? IS NOT NULL AND e.reporting_manager_id = ? )
+                  OR e.reporting_manager_id = ?
+                  OR ( ? IS NOT NULL AND e.id = ? )
+                  OR ( ? IS NOT NULL AND e.DepartmentId = ? )
+              )
+              AND LOWER(l.status) IN ('approved', 'pending')
+              AND l.start_date <= ? AND l.end_date >= ?
+            ORDER BY FIELD(LOWER(l.status), 'approved', 'pending'), l.start_date ASC
+        `;
+
+        const params = [
+            employeeId,
+            managerId, managerId,
+            employeeId,
+            managerId, managerId,
+            deptId, deptId,
+            cleanEndDate, cleanStartDate
+        ];
+
+        const [rows] = await c.query(query, params);
+
+        return res.json({
+            success: true,
+            count: rows.length,
+            teammates: rows
+        });
+    } catch (err) {
+        console.error("[Inbox API] Error in /teammates-on-leave:", err);
+        return res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
 // GET /api/inbox/:id - Get a single request details
 router.get("/:id", auth, async (req, res) => {
     let c = null;

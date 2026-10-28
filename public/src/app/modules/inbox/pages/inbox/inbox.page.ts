@@ -59,6 +59,8 @@ export class InboxPage implements OnInit {
   isModalOpen = false;
   selectedNotification: InboxNotification | null = null;
   rejectReasonText = '';
+  teammatesOnLeave: any[] = [];
+  loadingTeammates = false;
 
   private hasInitialized = false;
 
@@ -396,10 +398,13 @@ export class InboxPage implements OnInit {
       }
     }
     if (meta.start_date && meta.end_date) {
-      return { start: meta.start_date, end: meta.end_date };
+      const cleanStart = String(meta.start_date).split('T')[0];
+      const cleanEnd = String(meta.end_date).split('T')[0];
+      return { start: cleanStart, end: cleanEnd };
     }
     if (meta.date) {
-      return { start: meta.date, end: meta.date };
+      const cleanDate = String(meta.date).split('T')[0];
+      return { start: cleanDate, end: cleanDate };
     }
     
     const desc = notification.description || '';
@@ -600,6 +605,40 @@ export class InboxPage implements OnInit {
     if (window.innerWidth <= 768) {
       this.isModalOpen = true;
     }
+    this.checkTeammatesOnLeave(notification);
+  }
+
+  checkTeammatesOnLeave(notification: InboxNotification | null) {
+    this.teammatesOnLeave = [];
+    if (!notification || notification.request_type === 'Timesheet Request') {
+      return;
+    }
+    const dates = this.getFallbackLeaveDates(notification);
+    if (!dates.start || !notification.employee_id) {
+      return;
+    }
+    this.loadingTeammates = true;
+    this.inboxService.getTeammatesOnLeave(notification.employee_id, dates.start, dates.end || dates.start).subscribe({
+      next: (res) => {
+        this.loadingTeammates = false;
+        this.teammatesOnLeave = res?.teammates || [];
+      },
+      error: (err) => {
+        console.error('Failed to check teammates on leave', err);
+        this.loadingTeammates = false;
+        this.teammatesOnLeave = [];
+      }
+    });
+  }
+
+  getTeammatesOnLeaveSummary(): string {
+    if (!this.teammatesOnLeave || this.teammatesOnLeave.length === 0) return '';
+    return this.teammatesOnLeave.map(t => {
+      const type = t.leave_type_name || 'Leave';
+      const isApproved = t.status && t.status.toLowerCase() === 'approved';
+      const statusNote = isApproved ? ' (Approved)' : ' (Pending)';
+      return `${t.employee_name} is on ${type}${statusNote}`;
+    }).join(' • ');
   }
 
   async showCardActions(notification: InboxNotification) {
@@ -673,8 +712,10 @@ export class InboxPage implements OnInit {
             this.notifications = processed;
             if (this.notifications.length > 0) {
               this.selectedNotification = this.notifications[0];
+              this.checkTeammatesOnLeave(this.selectedNotification);
             } else {
               this.selectedNotification = null;
+              this.teammatesOnLeave = [];
             }
           } else {
             this.notifications = [...this.notifications, ...processed];
