@@ -11,7 +11,9 @@
     "dev": "node server.js",
     "prod": "cross-env NODE_ENV=production node server.js",
     "biometric:worker": "node workers/biometric-sync.worker.js",
-    "biometric:sync": "node -e \"require('./services/biometric-sync.service').syncBiometricLogs().then(console.log)\""
+    "biometric:sync": "node -e \"require('./services/biometric-sync.service').syncBiometricLogs().then(console.log)\"",
+    "start:cluster": "node cluster.js",
+    "prod:cluster": "cross-env NODE_ENV=production node cluster.js"
   },
   "keywords": [],
   "author": "",
