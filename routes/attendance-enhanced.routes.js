@@ -892,6 +892,8 @@ router.get("/today", auth, async (req, res) => {
       }
     }
 
+    const today = shiftDate;
+
     // Fetch both web punches and biometric punches for today
     let punches = [];
     if (attendance.length > 0) {
@@ -968,8 +970,8 @@ router.get("/today", auth, async (req, res) => {
       attendanceRecord = {
         id: 0,
         employee_id: emp.id,
-        attendance_date: today,
-        punch_date: today,
+        attendance_date: shiftDate,
+        punch_date: shiftDate,
         first_check_in: punches[0].punch_time,
         last_check_out: punches.length > 1 && lastOverallPunchType === 'out' ? punches[punches.length - 1].punch_time : null,
         work_mode: punches[0]?.work_mode || 'Biometric',
