@@ -23,7 +23,6 @@ const swaggerSpec = require("./swagger/swagger.spec.js");
 
 // Import configurations
 const { DB, db } = require("./config/database");
-// const { ensurePerformanceIndexes } = require("./scripts/optimize-db-indexes");
 const { JWT_SECRET } = require("./config/constants");
 
 
@@ -201,11 +200,8 @@ async function initializeDatabase() {
         user: "root",
         password: "root",
         waitForConnections: true,
-        max_connections: 325,
-        connectionLimit: 20,
-        maxIdle: 5,
-        idleTimeout: 60000,
-        queueLimit: 100
+        connectionLimit: 325,
+        queueLimit: 0
     });
 
     const conn = await pool.getConnection();
@@ -601,12 +597,6 @@ app.use("/api/employees", employeeRoutes);
 // Attendance Routes
 app.use("/api/attendance", attendanceRoutes);
 
-// Remote Clock-In compatibility endpoints
-app.get("/api/remote-clockin/my-requests", (req, res, next) => {
-    req.url = "/remote-clockin/my-requests";
-    attendanceRoutes(req, res, next);
-});
-
 // Time Tracking Policies
 app.use("/api/time-tracking-policies", timeTrackingPolicyRoutes);
 
@@ -762,24 +752,19 @@ app.get("/api/health", (req, res) => {
         await ensureAdminUser();
         console.log("✅ Admin user ready\n");
 
-        // Ensure proper separation of WFH and Remote notifications in inbox
+        // Migrate existing WFH/Remote notifications to Attendance Regularization
         try {
             const conn = await db();
             await conn.query(
                 `UPDATE inbox_notifications 
-                 SET request_type = 'Work From Home' 
-                 WHERE (title LIKE '%WFH%' OR title LIKE '%Work From Home%' OR description LIKE '%Requested WFH%' OR description LIKE '%Work From Home%')`
-            );
-            await conn.query(
-                `UPDATE inbox_notifications 
-                 SET request_type = 'Remote Login' 
-                 WHERE (title LIKE '%Remote%' OR description LIKE '%Requested Remote%' OR description LIKE '%Remote%')
-                 AND request_type != 'Work From Home'`
+                 SET request_type = 'Attendance Regularization' 
+                 WHERE request_type = 'Leave Request' 
+                 AND (title LIKE '%Work From Home%' OR title LIKE '%Remote%' OR description LIKE '%Requested WFH%' OR description LIKE '%Requested Remote%')`
             );
             await conn.end();
-            console.log("✅ WFH and Remote notifications separated and maintained\n");
+            console.log("✅ Existing WFH/Remote notifications migrated to Attendance Regularization\n");
         } catch (migErr) {
-            console.warn("⚠️  Error separating WFH/Remote notifications on startup:", migErr.message);
+            console.warn("⚠️  Error migrating WFH/Remote notifications on startup:", migErr.message);
         }
 
         const PORT = process.env.PORT || 3000;
@@ -796,13 +781,7 @@ app.get("/api/health", (req, res) => {
         autoClockOutService.start();
 
         // Start automatic periodic biometric synchronization background service
-        // Check if cron jobs/background services should run in this process
-        // (Runs by default in standalone mode, or only on primary worker 0 in cluster/PM2 setups)
-        const shouldRunCrons = process.env.ENABLE_CRONS !== 'false' &&
-            process.env.RUN_CRONS !== 'false' &&
-            (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0');
-
-        if (shouldRunCrons && process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
+        if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
             const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
             console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
             setTimeout(() => {
