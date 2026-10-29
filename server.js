@@ -23,6 +23,7 @@ const swaggerSpec = require("./swagger/swagger.spec.js");
 
 // Import configurations
 const { DB, db } = require("./config/database");
+const { ensurePerformanceIndexes } = require("./scripts/optimize-db-indexes");
 const { JWT_SECRET } = require("./config/constants");
 
 
@@ -200,8 +201,11 @@ async function initializeDatabase() {
         user: "root",
         password: "root",
         waitForConnections: true,
-        connectionLimit: 325,
-        queueLimit: 0
+        max_connections: 325,
+        connectionLimit: 20,
+        maxIdle: 5,
+        idleTimeout: 60000,
+        queueLimit: 100
     });
 
     const conn = await pool.getConnection();
@@ -283,7 +287,7 @@ async function initializeDatabase() {
             console.log("📋 Checking employees table columns for phone fields...");
             const [columns] = await conn.query('DESCRIBE employees');
             const columnNames = columns.map(col => col.Field);
-            
+
             const columnsToAdd = [
                 { name: 'mobile_number', type: 'VARCHAR(20) NULL' },
                 { name: 'residence_number', type: 'VARCHAR(20) NULL' },
@@ -599,8 +603,8 @@ app.use("/api/attendance", attendanceRoutes);
 
 // Remote Clock-In compatibility endpoints
 app.get("/api/remote-clockin/my-requests", (req, res, next) => {
-  req.url = "/remote-clockin/my-requests";
-  attendanceRoutes(req, res, next);
+    req.url = "/remote-clockin/my-requests";
+    attendanceRoutes(req, res, next);
 });
 
 // Time Tracking Policies
@@ -792,7 +796,7 @@ app.get("/api/health", (req, res) => {
         autoClockOutService.start();
 
         // Start automatic periodic biometric synchronization background service
-        if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
+        if (shouldRunCrons && process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
             const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
             console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
             setTimeout(() => {
