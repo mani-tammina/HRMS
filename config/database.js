@@ -27,8 +27,8 @@ const DB = {
     database: process.env.DB_NAME || "hrms_db_new",
     // Connection Pool Settings
     waitForConnections: true,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '50', 10),
-    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '500', 10),
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '1500', 10),
+    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '100', 10),
     // Timeouts (in milliseconds)
     connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 15s
     // Character set

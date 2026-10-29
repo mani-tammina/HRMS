@@ -200,8 +200,8 @@ async function initializeDatabase() {
         user: "root",
         password: "root",
         waitForConnections: true,
-        connectionLimit: 500,
-        queueLimit: 0
+        connectionLimit: 1500,
+        queueLimit: 100
     });
 
     const conn = await pool.getConnection();
