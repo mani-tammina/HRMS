@@ -796,6 +796,12 @@ app.get("/api/health", (req, res) => {
         autoClockOutService.start();
 
         // Start automatic periodic biometric synchronization background service
+        // Check if cron jobs/background services should run in this process
+        // (Runs by default in standalone mode, or only on primary worker 0 in cluster/PM2 setups)
+        const shouldRunCrons = process.env.ENABLE_CRONS !== 'false' &&
+            process.env.RUN_CRONS !== 'false' &&
+            (!process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0');
+
         if (shouldRunCrons && process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
             const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
             console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
