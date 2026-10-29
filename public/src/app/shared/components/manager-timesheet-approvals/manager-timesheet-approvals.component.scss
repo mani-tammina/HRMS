@@ -293,9 +293,11 @@ ion-searchbar {
   0% {
     box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.4);
   }
+
   70% {
     box-shadow: 0 0 0 5px rgba(229, 62, 62, 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(229, 62, 62, 0);
   }
@@ -308,9 +310,9 @@ ion-searchbar {
   background: #fffaf0;
   border: 1px solid #feebc8;
   border-left: 4px solid #dd6b20;
-  border-radius: vars.$radius-md;
-  padding: 10px 12px;
-  margin: 10px 0 14px 0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin: 12px 0 0 0;
   cursor: pointer;
   transition: all 0.2s ease;
 
@@ -333,7 +335,7 @@ ion-searchbar {
     .banner-title {
       display: block;
       font-size: 11px;
-      font-weight: vars.$fw-bold;
+      font-weight: 700;
       color: #9c4221;
       text-transform: uppercase;
       letter-spacing: 0.5px;
@@ -345,7 +347,7 @@ ion-searchbar {
       font-size: 12px;
       color: #744210;
       line-height: 1.45;
-      font-weight: vars.$fw-medium;
+      font-weight: 500;
     }
   }
 
