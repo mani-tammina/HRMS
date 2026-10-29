@@ -200,7 +200,7 @@ async function initializeDatabase() {
         user: "root",
         password: "root",
         waitForConnections: true,
-        connectionLimit: 325,
+        connectionLimit: 500,
         queueLimit: 0
     });
 
