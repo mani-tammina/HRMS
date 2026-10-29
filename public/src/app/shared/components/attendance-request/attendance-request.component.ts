@@ -1,7 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { Component, Input, OnInit } from '@angular/core';
+import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { IonicModule } from '@ionic/angular';
-import { HttpClient } from '@angular/common/http';
 import { WorkFromHomeService } from '../../../core/services/work-from-home.service';
 
 interface AttendanceRequestHistory {
@@ -13,7 +12,7 @@ interface AttendanceRequestHistory {
   status: string;
   lastAction: string;
   startDate: string;
-  totaldays: number
+  totaldays: number;
   endDate?: string;
   nextApprover?: string;
 }
@@ -25,21 +24,25 @@ interface AttendanceRequestHistory {
   templateUrl: './attendance-request.component.html',
   styleUrls: ['./attendance-request.component.scss'],
 })
-export class AttendanceRequestComponent implements OnInit {
+export class AttendanceRequestComponent implements OnInit, OnChanges {
   @Input() employeeId: number | null = null;
   @Input() isHRView: boolean = false;
 
   attendanceRequestsHistory: { type: string; dateRange: string; records: AttendanceRequestHistory[] }[] = [];
 
   constructor(
-    private wfhService: WorkFromHomeService,
-    private http: HttpClient
+    private wfhService: WorkFromHomeService
   ) { }
 
   ngOnInit() {
     this.initializeStaticSections();
     this.loadWFHRequests();
-    this.loadRemoteClockinRequests();
+  }
+
+  ngOnChanges(changes: SimpleChanges) {
+    if (changes['employeeId'] && !changes['employeeId'].firstChange) {
+      this.loadWFHRequests();
+    }
   }
 
   private initializeStaticSections() {
@@ -56,10 +59,10 @@ export class AttendanceRequestComponent implements OnInit {
     this.wfhService.getAllWFHRequests(empId).subscribe({
       next: (res: any) => {
         const resData = Array.isArray(res) ? res : (res.data || res.requests || []);
-        const wfhRecords = resData.filter((item: any) => item.leave_type === 'WFH').map((item: any) => this.mapWFHRecord(item, 'WFH'));
-        const regularizationRecords = resData.filter((item: any) => item.leave_type === 'Remote').map((item: any) => this.mapWFHRecord(item, 'Regularization'));
+        const wfhRecords = resData.filter((item: any) => item.leave_type === 'WFH').map((item: any) => this.mapWFHRecord(item, 'Work From Home'));
+        const remoteRecords = resData.filter((item: any) => item.leave_type === 'Remote').map((item: any) => this.mapWFHRecord(item, 'Remote Clock In'));
         this.assignGroup('Work From Home / On Duty Requests', wfhRecords);
-        this.assignGroup('Remote Clock In Requests', regularizationRecords);
+        this.assignGroup('Remote Clock In Requests', remoteRecords);
       },
       error: () => {
         this.assignGroup('Work From Home / On Duty Requests', []);
@@ -68,40 +71,18 @@ export class AttendanceRequestComponent implements OnInit {
     });
   }
 
-  private loadRemoteClockinRequests() {
-    this.http.get<any[]>('/api/remote-clockin/my-requests').subscribe({
-      next: (res) => {
-        const records = res.map(item => ({
-          date: this.formatDate(item.request_date),
-          request: 'Remote Clock In',
-          requestedOn: this.formatRequestedOn(item.created_at),
-          note: item.reason,
-          reason: 'Remote',
-          totaldays: item.total_days,
-          status: this.formatStatus(item.status),
-          lastAction: item.approved_by ? `Approved by ${item.approved_by}` : '-',
-          startDate: this.formatRequestedOn(item.start_date),
-          endDate: this.formatRequestedOn(item.end_date),
-          nextApprover: '-',
-        }));
-        this.assignGroup('Remote Clock In Requests', records);
-      },
-      error: () => { /* keep records from getAllWFHRequests if endpoint not present */ }
-    });
-  }
-
   private mapWFHRecord(item: any, requestLabel: string): AttendanceRequestHistory {
     return {
-      date: this.formatDate(item.applied_at),
+      date: this.formatDate(item.applied_at || item.created_at || item.start_date),
       request: requestLabel,
-      requestedOn: this.formatRequestedOn(item.created_at),
+      requestedOn: this.formatRequestedOn(item.created_at || item.applied_at),
       note: item.reason,
       reason: item.reason,
-      totaldays: item.total_days,
+      totaldays: item.total_days || 1,
       status: this.formatStatus(item.status),
-      lastAction: item.updated_by || '-',
+      lastAction: item.approved_by ? `Approved by ${item.approved_by}` : (item.updated_by || '-'),
       startDate: this.formatRequestedOn(item.start_date),
-      endDate: this.formatRequestedOn(item.end_date),
+      endDate: this.formatRequestedOn(item.end_date || item.start_date),
       nextApprover: item.next_approver || '-',
     };
   }
@@ -114,13 +95,13 @@ export class AttendanceRequestComponent implements OnInit {
   private formatDate(dateStr: string): string {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private formatRequestedOn(dateStr: string): string {
     if (!dateStr) return '-';
     const d = new Date(dateStr);
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return isNaN(d.getTime()) ? '-' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   }
 
   private formatStatus(status: string): string {

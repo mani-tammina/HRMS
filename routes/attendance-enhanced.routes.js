@@ -3365,4 +3365,109 @@ router.post("/auto-clockout/run", auth, roleAuth(["admin", "hr"]), async (req, r
 router.getUnifiedAttendanceDetails = getUnifiedAttendanceDetails;
 router.getUnifiedAttendanceListAndSummary = getUnifiedAttendanceListAndSummary;
 
+/* ============================================
+   REMOTE CLOCK-IN REQUEST ENDPOINTS
+   ============================================ */
+
+// GET /api/attendance/remote-clockin/my-requests
+router.get("/remote-clockin/my-requests", auth, async (req, res) => {
+  let c = null;
+  try {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
+
+    c = await db();
+    const [rows] = await c.query(
+      `SELECT l.*, e.FirstName, e.LastName, e.EmployeeNumber
+       FROM leaves l
+       LEFT JOIN employees e ON l.employee_id = e.id
+       WHERE l.employee_id = ? AND l.leave_type = 'Remote'
+       ORDER BY l.applied_at DESC`,
+      [emp.id]
+    );
+    return res.json(rows);
+  } catch (error) {
+    console.error("Error fetching remote clockin requests:", error);
+    return res.status(500).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// GET /api/attendance/remote-clockin/pending (Manager/HR/Admin)
+router.get("/remote-clockin/pending", auth, async (req, res) => {
+  let c = null;
+  try {
+    if (!["admin", "hr", "manager"].includes(req.user.role)) {
+      return res.json([]);
+    }
+    c = await db();
+    let query = `
+      SELECT l.*, e.FirstName, e.LastName, e.EmployeeNumber
+      FROM leaves l
+      LEFT JOIN employees e ON l.employee_id = e.id
+      WHERE l.leave_type = 'Remote' AND l.status = 'pending'
+    `;
+    const params = [];
+    if (req.user.role === 'manager') {
+      const managerEmp = await findEmployeeByUserId(req.user.id);
+      if (managerEmp) {
+        query += ` AND e.reporting_manager_id = ?`;
+        params.push(managerEmp.id);
+      }
+    }
+    query += ` ORDER BY l.applied_at ASC`;
+    const [rows] = await c.query(query, params);
+    return res.json(rows);
+  } catch (error) {
+    console.error("Error fetching pending remote clockin requests:", error);
+    return res.status(500).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// PUT /api/attendance/remote-clockin/:id/decide (Manager/HR/Admin)
+router.put("/remote-clockin/:id/decide", auth, async (req, res) => {
+  let c = null;
+  try {
+    if (!["admin", "hr", "manager"].includes(req.user.role)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const { decision, rejected_reason } = req.body;
+    const requestId = req.params.id;
+    if (!["approved", "rejected"].includes(decision)) {
+      return res.status(400).json({ error: "Invalid decision" });
+    }
+
+    c = await db();
+    const [requestRows] = await c.query("SELECT * FROM leaves WHERE id = ? AND leave_type = 'Remote'", [requestId]);
+    if (!requestRows.length) {
+      return res.status(404).json({ error: "Remote clock-in request not found" });
+    }
+    const currentReq = requestRows[0];
+
+    await c.query(
+      `UPDATE leaves SET status = ?, remarks = ?, approved_by = ?, updated_at = NOW() WHERE id = ?`,
+      [decision, rejected_reason || (decision === 'approved' ? 'Approved' : 'Rejected'), req.user.id, requestId]
+    );
+
+    // If approved, update attendance record approval_status to 'approved' for those dates
+    if (decision === 'approved') {
+      await c.query(
+        `UPDATE attendance SET approval_status = 'approved'
+         WHERE employee_id = ? AND work_mode = 'Remote' AND attendance_date BETWEEN DATE(?) AND DATE(?)`,
+        [currentReq.employee_id, currentReq.start_date, currentReq.end_date]
+      );
+    }
+
+    return res.json({ success: true, message: `Remote clock-in request ${decision} successfully` });
+  } catch (error) {
+    console.error("Error deciding remote clockin request:", error);
+    return res.status(500).json({ error: error.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
 module.exports = router;

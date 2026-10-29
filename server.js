@@ -597,6 +597,12 @@ app.use("/api/employees", employeeRoutes);
 // Attendance Routes
 app.use("/api/attendance", attendanceRoutes);
 
+// Remote Clock-In compatibility endpoints
+app.get("/api/remote-clockin/my-requests", (req, res, next) => {
+  req.url = "/remote-clockin/my-requests";
+  attendanceRoutes(req, res, next);
+});
+
 // Time Tracking Policies
 app.use("/api/time-tracking-policies", timeTrackingPolicyRoutes);
 
