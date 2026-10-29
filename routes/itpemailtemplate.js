@@ -2,10 +2,10 @@ const { sendMail } = require("../utils/mail.service");
 async function test() {
     await sendMail({
         to: 'sivameesala97@gmail.com',
-        subject: "Master HRMS - OTP for Creating Password",
+        subject: "Interact - OTP for Creating Password",
         html: `
           <div style="font-family: Arial, sans-serif; padding: 20px; border: 1px solid #eee; border-radius: 5px; max-width: 600px;">
-            <h2 style="color: #0054e9; margin-top: 0;">Welcome to Master HRMS</h2>
+            <h2 style="color: #0054e9; margin-top: 0;">Welcome to Interact</h2>
             <p>Hello <strong> Hii || 'Employee'}</strong>,</p>
             <p>Please use the following One-Time Password (OTP) to create your password and set up your account:</p>
             <div style="background: #f4f7fe; padding: 15px; text-align: center; border-radius: 4px; margin: 20px 0;">

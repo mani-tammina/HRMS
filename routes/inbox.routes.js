@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const xlsx = require("xlsx");
 const { db } = require("../config/database");
 const { auth } = require("../middleware/auth");
 const { findEmployeeByUserId } = require("../utils/helpers");
@@ -11,9 +12,9 @@ function parseTime(dateStr, timeStr) {
     return `${dateStr} ${timeStr}:00`;
 }
 
-/* ============ NOTIFICATION LIST & DETAILS ============ */
+/* ============ INBOX REQUESTS LIST & DETAILS ============ */
 
-// GET /api/inbox - Get list of notifications for logged-in manager
+// GET /api/inbox - Get list of requests for logged-in user (Manager / HR / Employee)
 router.get("/", auth, async (req, res) => {
     let c = null;
     try {
@@ -27,15 +28,97 @@ router.get("/", auth, async (req, res) => {
         const offset = (page - 1) * limit;
 
         const search = req.query.search || "";
-        const tab = req.query.tab || "All";
+        const tab = req.query.tab || "Leave";
         const sortField = req.query.sortField || "created_at";
         const sortOrder = req.query.sortOrder === "ASC" ? "ASC" : "DESC";
 
         c = await db();
-        const [allLeaveTypes] = await c.query("SELECT * FROM leave_types");
-        console.log("=== DB LEAVE TYPES ===", allLeaveTypes.map(t => ({ id: t.id, name: t.type_name, code: t.type_code })));
 
-        let query = `
+        let whereClause = " WHERE 1=1";
+        const params = [];
+
+        // Role check: Admin, HR, Manager, Employee
+        const userRole = req.user.role?.toLowerCase() || "";
+        const isAllowed = ["employee", "manager", "hr", "admin"].includes(userRole);
+        if (!isAllowed) {
+            return res.status(403).json({ error: "Access denied. Valid HRMS user role required." });
+        }
+
+        // Scope filter: ONLY Reporting Manager and HR can receive/view requests for their team
+        if (userRole === "admin" || userRole === "hr") {
+            if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
+                whereClause += " AND (e.reporting_manager_id = ? OR n.manager_id = ?)";
+                params.push(emp ? emp.id : 0, emp ? emp.id : 0);
+            }
+        } else if (userRole === "manager") {
+            // Manager MUST strictly see ONLY requests from their direct reporting team members
+            whereClause += " AND e.reporting_manager_id = ? AND n.employee_id != ?";
+            params.push(emp ? emp.id : 0, emp ? emp.id : 0);
+        } else {
+            // Regular employee can ONLY see their own requests (cannot see or approve other employees)
+            whereClause += " AND n.employee_id = ?";
+            params.push(emp ? emp.id : 0);
+        }
+
+        const monthFilter = req.query.month || "";
+        const isMonthSelected = monthFilter && monthFilter !== "all";
+
+        // Tab filters
+        if (tab === "Archived") {
+            whereClause += " AND n.is_archived = 1";
+        } else if (tab === "Approved") {
+            whereClause += " AND n.status = 'Approved' AND n.is_archived = 0";
+        } else if (tab === "Rejected") {
+            whereClause += " AND n.status = 'Rejected' AND n.is_archived = 0";
+        } else {
+            whereClause += " AND n.is_archived = 0";
+            if (!isMonthSelected) {
+                whereClause += " AND n.status = 'Pending'";
+            }
+
+            if (tab === "Leave") {
+                whereClause += " AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
+            } else if (tab === "Attendance" || tab === "Attendance Regularization") {
+                whereClause += " AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
+            } else if (tab === "Timesheet" || tab === "Timesheet Request") {
+                whereClause += " AND n.request_type = 'Timesheet Request'";
+            } else if (tab === "Resignation" || tab === "Resignation Request") {
+                whereClause += " AND n.request_type = 'Resignation Request'";
+            } else if (tab === "Comp Off" || tab === "CompOff" || tab === "Comp Off Request") {
+                whereClause += " AND n.request_type = 'Comp Off Request'";
+            } else if (tab === "WFH" || tab === "Work From Home") {
+                whereClause += " AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%')";
+            } else if (tab === "Remote" || tab === "Remote Login") {
+                whereClause += " AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%')";
+            }
+        }
+
+        // Month filter (e.g. "2026-08")
+        if (isMonthSelected) {
+            whereClause += " AND DATE_FORMAT(n.created_at, '%Y-%m') = ?";
+            params.push(monthFilter);
+        }
+
+        // Search filter
+        let hasSearch = false;
+        if (search) {
+            hasSearch = true;
+            whereClause += " AND (n.title LIKE ? OR n.description LIKE ? OR e.FullName LIKE ? OR e.EmployeeNumber LIKE ?)";
+            const searchPattern = `%${search}%`;
+            params.push(searchPattern, searchPattern, searchPattern, searchPattern);
+        }
+
+        // Sorting
+        const allowedSortFields = ["created_at", "priority", "status", "is_read"];
+        const actualSortField = allowedSortFields.includes(sortField) ? `n.${sortField}` : "n.created_at";
+
+        // Fast total count (always join employees so whereClause works with e.reporting_manager_id and search)
+        let countQuery = "SELECT COUNT(*) as total FROM inbox_notifications n LEFT JOIN employees e ON n.employee_id = e.id" + whereClause;
+        const [countRows] = await c.query(countQuery, params);
+        const total = countRows[0]?.total || 0;
+
+        // Fast data query with pagination
+        const dataQuery = `
             SELECT 
                 n.*, 
                 e.FullName as employee_name, 
@@ -53,156 +136,81 @@ router.get("/", auth, async (req, res) => {
             LEFT JOIN leaves l ON n.request_id = l.id
             LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
             LEFT JOIN timesheets ts ON n.request_id = ts.id AND n.request_type = 'Timesheet Request'
-            WHERE 1=1
+            ${whereClause}
+            ORDER BY ${actualSortField} ${sortOrder}
+            LIMIT ? OFFSET ?
         `;
-        const params = [];
+        const dataParams = [...params, limit, offset];
+        const [rows] = await c.query(dataQuery, dataParams);
 
-        // Role check: Admin, HR, Manager, Employee
-        const userRole = req.user.role?.toLowerCase() || "";
-        const isAllowed = ["employee", "manager", "hr", "admin"].includes(userRole);
-        if (!isAllowed) {
-            return res.status(403).json({ error: "Access denied. Valid HRMS user role required." });
-        }
-
-        // Scope filter
-        if (userRole === "admin" || userRole === "hr") {
-            if (req.query.viewAll === "true") {
-                // Admin/HR viewing all notifications
-            } else {
-                query += " AND n.manager_id = ?";
-                params.push(emp ? emp.id : 0);
-            }
-        } else if (userRole === "manager") {
-            // Managers see their own direct reports' notifications
-            query += " AND n.manager_id = ?";
-            params.push(emp ? emp.id : 0);
-        } else {
-            // Employees see notifications sent to them
-            query += " AND n.employee_id = ?";
-            params.push(emp ? emp.id : 0);
-        }
-
-        const monthFilter = req.query.month || "";
-        const isMonthSelected = monthFilter && monthFilter !== "all";
-
-        // Tab filters
-        if (tab === "Unread") {
-            query += " AND n.is_read = 0 AND n.is_archived = 0";
-        } else if (tab === "Archived") {
-            query += " AND n.is_archived = 1";
-        } else if (tab === "Approved") {
-            query += " AND n.status = 'Approved' AND n.is_archived = 0";
-        } else if (tab === "Rejected") {
-            query += " AND n.status = 'Rejected' AND n.is_archived = 0";
-        } else {
-            // General task tabs: show non-archived items. Enforce status = Pending only when NO specific month is selected
-            query += " AND n.is_archived = 0";
-            if (!isMonthSelected) {
-                query += " AND n.status = 'Pending'";
-            }
-
-            if (tab === "Leave") {
-                query += " AND n.request_type IN ('Leave Request', 'Comp Off Request') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%')";
-            } else if (tab === "Attendance") {
-                query += " AND n.request_type = 'Attendance Regularization'";
-            } else if (tab === "Timesheet") {
-                query += " AND n.request_type = 'Timesheet Request'";
-            } else if (tab === "Resignation") {
-                query += " AND n.request_type = 'Resignation Request'";
-            } else if (tab === "Comp Off" || tab === "CompOff" || tab === "Comp Off Request") {
-                query += " AND n.request_type = 'Comp Off Request'";
-            } else if (tab === "WFH" || tab === "Work From Home") {
-                query += " AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%')";
-            } else if (tab === "Remote" || tab === "Remote Login") {
-                query += " AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%')";
-            }
-        }
-
-        // Month filter (e.g. "2026-08")
-        if (isMonthSelected) {
-            query += " AND DATE_FORMAT(n.created_at, '%Y-%m') = ?";
-            params.push(monthFilter);
-        }
-
-        // Search filter
-        if (search) {
-            query += " AND (n.title LIKE ? OR n.description LIKE ? OR e.FullName LIKE ? OR e.EmployeeNumber LIKE ?)";
-            const searchPattern = `%${search}%`;
-            params.push(searchPattern, searchPattern, searchPattern, searchPattern);
-        }
-
-        // Sorting
-        const allowedSortFields = ["created_at", "priority", "status", "is_read"];
-        const actualSortField = allowedSortFields.includes(sortField) ? `n.${sortField}` : "n.created_at";
-        query += ` ORDER BY ${actualSortField} ${sortOrder}`;
-
-        // Get total count
-        const countQuery = `SELECT COUNT(*) as total FROM (${query}) as temp`;
-        const [countRows] = await c.query(countQuery, params);
-        const total = countRows[0]?.total || 0;
-
-        // Apply pagination
-        query += " LIMIT ? OFFSET ?";
-        params.push(limit, offset);
-
-        const [rows] = await c.query(query, params);
-
-        // Get stats count for manager
-        let statsQuery = `
-            SELECT 
-                COUNT(*) as totalRequests,
-                SUM(CASE WHEN is_read = 0 THEN 1 ELSE 0 END) as unread,
-                SUM(CASE WHEN status = 'Pending' THEN 1 ELSE 0 END) as pending,
-                SUM(CASE WHEN status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
-                SUM(CASE WHEN status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND n.request_type IN ('Leave Request', 'Comp Off Request') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Attendance Regularization' THEN 1 ELSE 0 END) as attendanceCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (request_type = 'Work From Home' OR title LIKE '%WFH%' OR title LIKE '%Work From Home%' OR description LIKE '%WFH%' OR description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
-                SUM(CASE WHEN ${isMonthSelected ? '1=1' : "status = 'Pending'"} AND (request_type = 'Remote Login' OR title LIKE '%Remote%' OR description LIKE '%Remote%') THEN 1 ELSE 0 END) as remoteCount
-            FROM inbox_notifications n
-            WHERE is_archived = 0
-        `;
-        const statsParams = [];
-        if (isMonthSelected) {
-            statsQuery += " AND DATE_FORMAT(n.created_at, '%Y-%m') = ?";
-            statsParams.push(monthFilter);
-        }
-        if (userRole === "employee") {
-            statsQuery += " AND n.employee_id = ?";
-            statsParams.push(emp ? emp.id : 0);
-        } else if (!(userRole === "admin" || userRole === "hr") || req.query.viewAll !== "true") {
-            statsQuery += " AND manager_id = ?";
-            statsParams.push(emp ? emp.id : 0);
-        }
-        const [statsRows] = await c.query(statsQuery, statsParams);
-        const stats = statsRows[0] || { 
-            totalRequests: 0, unread: 0, pending: 0, approved: 0, rejected: 0,
-            leaveCount: 0, attendanceCount: 0, timesheetCount: 0, resignationCount: 0,
+        // Stats calculation (skip if skipStats is true)
+        let stats = { 
+            totalRequests: total, unread: 0, pending: 0, approved: 0, rejected: 0,
+            leaveCount: 0, compOffCount: 0, attendanceCount: 0, timesheetCount: 0, resignationCount: 0,
             wfhCount: 0, remoteCount: 0
         };
-        
-        // Coerce null sum values to 0
-        stats.totalRequests = stats.totalRequests || 0;
-        stats.unread = stats.unread || 0;
-        stats.pending = stats.pending || 0;
-        stats.approved = stats.approved || 0;
-        stats.rejected = stats.rejected || 0;
-        stats.leaveCount = stats.leaveCount || 0;
-        stats.attendanceCount = stats.attendanceCount || 0;
-        stats.timesheetCount = stats.timesheetCount || 0;
-        stats.resignationCount = stats.resignationCount || 0;
-        stats.wfhCount = stats.wfhCount || 0;
-        stats.remoteCount = stats.remoteCount || 0;
 
-        console.log("[Inbox API] Returned leave_type_names:", rows.map(r => ({ id: r.notification_id, type: r.request_type, req_id: r.request_id, leave_type_name: r.leave_type_name })));
+        if (req.query.skipStats !== "true") {
+            let statsQuery = `
+                SELECT 
+                    COUNT(*) as totalRequests,
+                    SUM(CASE WHEN n.status = 'Pending' THEN 1 ELSE 0 END) as pending,
+                    SUM(CASE WHEN n.status IN ('Approved', 'Verified') THEN 1 ELSE 0 END) as approved,
+                    SUM(CASE WHEN n.status = 'Rejected' THEN 1 ELSE 0 END) as rejected,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Leave Request' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as leaveCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Comp Off Request' THEN 1 ELSE 0 END) as compOffCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Attendance Regularization' AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%' AND n.title NOT LIKE '%Remote%' AND n.description NOT LIKE '%Remote%') THEN 1 ELSE 0 END) as attendanceCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Timesheet Request' THEN 1 ELSE 0 END) as timesheetCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND n.request_type = 'Resignation Request' THEN 1 ELSE 0 END) as resignationCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND (n.request_type = 'Work From Home' OR n.title LIKE '%WFH%' OR n.title LIKE '%Work From Home%' OR n.description LIKE '%WFH%' OR n.description LIKE '%Work From Home%') THEN 1 ELSE 0 END) as wfhCount,
+                    SUM(CASE WHEN ${isMonthSelected ? '1=1' : "n.status = 'Pending'"} AND (n.request_type = 'Remote Login' OR n.title LIKE '%Remote%' OR n.description LIKE '%Remote%') AND (n.title NOT LIKE '%WFH%' AND n.title NOT LIKE '%Work From Home%' AND n.description NOT LIKE '%WFH%' AND n.description NOT LIKE '%Work From Home%') THEN 1 ELSE 0 END) as remoteCount
+                FROM inbox_notifications n
+                LEFT JOIN employees e ON n.employee_id = e.id
+                WHERE n.is_archived = 0
+            `;
+            const statsParams = [];
+            if (isMonthSelected) {
+                statsQuery += " AND DATE_FORMAT(n.created_at, '%Y-%m') = ?";
+                statsParams.push(monthFilter);
+            }
+            if (userRole === "employee") {
+                statsQuery += " AND n.employee_id = ?";
+                statsParams.push(emp ? emp.id : 0);
+            } else if (userRole === "admin" || userRole === "hr") {
+                if (req.query.viewAll === "false" || req.query.myReportsOnly === "true") {
+                    statsQuery += " AND (e.reporting_manager_id = ? OR n.manager_id = ?)";
+                    statsParams.push(emp ? emp.id : 0, emp ? emp.id : 0);
+                }
+            } else {
+                // Manager role: strictly direct reporting team members
+                statsQuery += " AND e.reporting_manager_id = ? AND n.employee_id != ?";
+                statsParams.push(emp ? emp.id : 0, emp ? emp.id : 0);
+            }
+            const [statsRows] = await c.query(statsQuery, statsParams);
+            if (statsRows && statsRows[0]) {
+                const s = statsRows[0];
+                stats = {
+                    totalRequests: s.totalRequests || 0,
+                    unread: 0,
+                    pending: s.pending || 0,
+                    approved: s.approved || 0,
+                    rejected: s.rejected || 0,
+                    leaveCount: s.leaveCount || 0,
+                    compOffCount: s.compOffCount || 0,
+                    attendanceCount: s.attendanceCount || 0,
+                    timesheetCount: s.timesheetCount || 0,
+                    resignationCount: s.resignationCount || 0,
+                    wfhCount: s.wfhCount || 0,
+                    remoteCount: s.remoteCount || 0
+                };
+            }
+        }
 
         res.json({
             success: true,
             data: rows,
             total,
-            unreadCount: stats.unread,
+            unreadCount: 0,
             stats
         });
     } catch (err) {
@@ -240,7 +248,211 @@ router.get("/diagnose-leaves-join", async (req, res) => {
     }
 });
 
-// GET /api/inbox/:id - Get a single notification details
+// GET /api/inbox/timesheets/export - Export employee timesheets between startDate and endDate
+router.get("/timesheets/export", auth, async (req, res) => {
+    let c = null;
+    try {
+        const userRole = (req.user.role || "").toLowerCase();
+        if (!["admin", "hr", "manager"].includes(userRole)) {
+            return res.status(403).json({ error: "Access denied. Only HR, Admin, and Managers can export timesheets." });
+        }
+
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        if (!currentEmp) {
+            return res.status(404).json({ error: "Employee profile not found" });
+        }
+
+        const { startDate, endDate, employeeId, status } = req.query;
+        if (!startDate || !endDate) {
+            return res.status(400).json({ error: "startDate and endDate are required query parameters" });
+        }
+
+        c = await db();
+
+        let query = `
+            SELECT 
+                t.id as timesheet_id,
+                t.employee_id,
+                e.FullName as employee_name,
+                e.EmployeeNumber as employee_number,
+                e.WorkEmail as employee_email,
+                d.name as department_name,
+                m.FullName as manager_name,
+                t.date as timesheet_date,
+                t.week_start_date,
+                t.week_end_date,
+                t.timesheet_type,
+                t.total_hours,
+                t.notes,
+                t.status,
+                t.submission_date,
+                t.verified_at,
+                v_user.full_name as verified_by_name,
+                t.validation_remarks,
+                t.rejection_reason
+            FROM timesheets t
+            JOIN employees e ON t.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN employees m ON e.reporting_manager_id = m.id
+            LEFT JOIN users v_user ON t.verified_by = v_user.id
+            WHERE t.date >= ? AND t.date <= ?
+        `;
+        const params = [startDate, endDate];
+
+        // Scoping: Manager sees team reports; Admin/HR sees all employees
+        if (userRole === "manager") {
+            query += " AND (e.reporting_manager_id = ? OR e.id = ?)";
+            params.push(currentEmp.id, currentEmp.id);
+        } else if (employeeId) {
+            query += " AND t.employee_id = ?";
+            params.push(employeeId);
+        }
+
+        if (status && status !== "all") {
+            query += " AND t.status = ?";
+            params.push(status);
+        }
+
+        query += " ORDER BY t.date DESC, e.FullName ASC";
+
+        const [rows] = await c.query(query, params);
+
+        const exportData = rows.map(r => ({
+            "Employee ID": r.employee_number || `EMP-${r.employee_id}`,
+            "Employee Name": r.employee_name || "N/A",
+            "Department": r.department_name || "N/A",
+            "Reporting Manager": r.manager_name || "N/A",
+            "Timesheet Date": r.timesheet_date ? String(r.timesheet_date).substring(0, 10) : "N/A",
+            "Week Range": (r.week_start_date && r.week_end_date)
+                ? `${String(r.week_start_date).substring(0, 10)} to ${String(r.week_end_date).substring(0, 10)}`
+                : (r.timesheet_date ? String(r.timesheet_date).substring(0, 10) : "N/A"),
+            "Total Hours": parseFloat(r.total_hours || 0).toFixed(2),
+            "Timesheet Type": r.timesheet_type || "regular",
+            "Status": (r.status || "submitted").toUpperCase(),
+            "Tasks / Notes": r.notes || "N/A",
+            "Submitted On": r.submission_date ? String(r.submission_date).substring(0, 19).replace("T", " ") : "N/A",
+            "Verified / Approved By": r.verified_by_name || "N/A",
+            "Validation / Rejection Remarks": r.validation_remarks || r.rejection_reason || ""
+        }));
+
+        const wb = xlsx.utils.book_new();
+        const ws = xlsx.utils.json_to_sheet(exportData.length > 0 ? exportData : [
+            { "Employee ID": "N/A", "Employee Name": "No timesheet records found for this period", "Department": "", "Reporting Manager": "", "Timesheet Date": "", "Week Range": "", "Total Hours": "", "Timesheet Type": "", "Status": "", "Tasks / Notes": "", "Submitted On": "", "Verified / Approved By": "", "Validation / Rejection Remarks": "" }
+        ]);
+
+        const colWidths = [
+            { wch: 15 },
+            { wch: 25 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 15 },
+            { wch: 25 },
+            { wch: 12 },
+            { wch: 15 },
+            { wch: 15 },
+            { wch: 40 },
+            { wch: 20 },
+            { wch: 25 },
+            { wch: 30 }
+        ];
+        ws['!cols'] = colWidths;
+
+        xlsx.utils.book_append_sheet(wb, ws, "Employee Timesheets");
+        const buf = xlsx.write(wb, { type: "buffer", bookType: "xlsx" });
+
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.setHeader("Content-Disposition", `attachment; filename=Employee_Timesheets_${startDate}_to_${endDate}.xlsx`);
+        return res.send(buf);
+
+    } catch (err) {
+        console.error("[Inbox API] Error exporting timesheets:", err);
+        return res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// GET /api/inbox/teammates-on-leave - Check if any teammates are on leave for given date range
+router.get("/teammates-on-leave", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employeeId, startDate, endDate } = req.query;
+        if (!employeeId || !startDate) {
+            return res.json({ success: true, count: 0, teammates: [] });
+        }
+        const cleanStartDate = String(startDate).split('T')[0].trim();
+        const cleanEndDate = String(endDate || startDate).split('T')[0].trim();
+
+        c = await db();
+
+        // 1. Get employee's reporting manager and department
+        const [empRows] = await c.query(
+            "SELECT id, reporting_manager_id, DepartmentId FROM employees WHERE id = ?",
+            [employeeId]
+        );
+        if (empRows.length === 0) {
+            return res.json({ success: true, count: 0, teammates: [] });
+        }
+        const currentEmp = empRows[0];
+        const managerId = currentEmp.reporting_manager_id;
+        const deptId = currentEmp.DepartmentId;
+
+        // 2. Query other employees in the team:
+        // - Peers reporting to the same manager
+        // - Direct reports reporting to this employee (e.g. Moulika reporting to Siva)
+        // - The manager themselves
+        // - Or colleagues in the same department
+        const query = `
+            SELECT 
+                e.id as employee_id,
+                e.FullName as employee_name,
+                e.EmployeeNumber as employee_number,
+                e.profile_image,
+                COALESCE(lt.type_name, l.leave_type, 'Leave') as leave_type_name,
+                DATE_FORMAT(l.start_date, '%Y-%m-%d') as start_date,
+                DATE_FORMAT(l.end_date, '%Y-%m-%d') as end_date,
+                COALESCE(l.total_days, DATEDIFF(l.end_date, l.start_date) + 1, 1) as total_days,
+                l.status
+            FROM leaves l
+            JOIN employees e ON l.employee_id = e.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE e.id != ?
+              AND (
+                  ( ? IS NOT NULL AND e.reporting_manager_id = ? )
+                  OR e.reporting_manager_id = ?
+                  OR ( ? IS NOT NULL AND e.id = ? )
+                  OR ( ? IS NOT NULL AND e.DepartmentId = ? )
+              )
+              AND LOWER(l.status) IN ('approved', 'pending')
+              AND l.start_date <= ? AND l.end_date >= ?
+            ORDER BY FIELD(LOWER(l.status), 'approved', 'pending'), l.start_date ASC
+        `;
+
+        const params = [
+            employeeId,
+            managerId, managerId,
+            employeeId,
+            managerId, managerId,
+            deptId, deptId,
+            cleanEndDate, cleanStartDate
+        ];
+
+        const [rows] = await c.query(query, params);
+
+        return res.json({
+            success: true,
+            count: rows.length,
+            teammates: rows
+        });
+    } catch (err) {
+        console.error("[Inbox API] Error in /teammates-on-leave:", err);
+        return res.status(500).json({ error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// GET /api/inbox/:id - Get a single request details
 router.get("/:id", auth, async (req, res) => {
     let c = null;
     try {
@@ -258,7 +470,17 @@ router.get("/:id", auth, async (req, res) => {
             [req.params.id]
         );
         if (rows.length === 0) {
-            return res.status(404).json({ error: "Notification not found" });
+            return res.status(404).json({ error: "Request not found" });
+        }
+        const currentEmp = await findEmployeeByUserId(req.user.id);
+        const userRole = (req.user.role || "").toLowerCase();
+        const isHR = ["admin", "hr"].includes(userRole);
+        const isOwner = rows[0].employee_id === currentEmp?.id;
+        const [empCheck] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [rows[0].employee_id]);
+        const isReportingManager = (rows[0].manager_id === currentEmp?.id) || (empCheck.length > 0 && empCheck[0].reporting_manager_id === currentEmp?.id);
+
+        if (!isHR && !isOwner && !isReportingManager) {
+            return res.status(403).json({ error: "Access denied. You are not authorized to view this request." });
         }
         res.json({ success: true, data: rows[0] });
     } catch (err) {
@@ -269,49 +491,17 @@ router.get("/:id", auth, async (req, res) => {
     }
 });
 
-// PUT /api/inbox/read-all - Mark all notifications as read for current manager
+// PUT /api/inbox/read-all - Compatibility endpoint
 router.put("/read-all", auth, async (req, res) => {
-    let c = null;
-    try {
-        const emp = await findEmployeeByUserId(req.user.id);
-        if (!emp) {
-            return res.status(404).json({ error: "Employee profile not found" });
-        }
-        const userRole = req.user.role?.toLowerCase() || "";
-        c = await db();
-        let query = "UPDATE inbox_notifications SET is_read = 1, updated_at = NOW() WHERE is_read = 0 AND is_archived = 0";
-        const params = [];
-        if (!(userRole === "admin" || userRole === "hr")) {
-            query += " AND manager_id = ?";
-            params.push(emp.id);
-        }
-        await c.query(query, params);
-        res.json({ success: true, message: "All notifications marked as read" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        if (c) await c.end();
-    }
+    res.json({ success: true, message: "All marked as read" });
 });
 
-// PUT /api/inbox/read/:id - Mark notification as read
+// PUT /api/inbox/read/:id - Compatibility endpoint
 router.put("/read/:id", auth, async (req, res) => {
-    let c = null;
-    try {
-        c = await db();
-        await c.query(
-            "UPDATE inbox_notifications SET is_read = 1, updated_at = NOW() WHERE notification_id = ?",
-            [req.params.id]
-        );
-        res.json({ success: true, message: "Notification marked as read" });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    } finally {
-        if (c) await c.end();
-    }
+    res.json({ success: true, message: "Marked as read" });
 });
 
-// PUT /api/inbox/archive/:id - Archive notification
+// PUT /api/inbox/archive/:id - Archive request
 router.put("/archive/:id", auth, async (req, res) => {
     let c = null;
     try {
@@ -320,7 +510,7 @@ router.put("/archive/:id", auth, async (req, res) => {
             "UPDATE inbox_notifications SET is_archived = 1, updated_at = NOW() WHERE notification_id = ?",
             [req.params.id]
         );
-        res.json({ success: true, message: "Notification archived" });
+        res.json({ success: true, message: "Request archived" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
@@ -328,7 +518,7 @@ router.put("/archive/:id", auth, async (req, res) => {
     }
 });
 
-// DELETE /api/inbox/:id - Delete notification
+// DELETE /api/inbox/:id - Delete request
 router.delete("/:id", auth, async (req, res) => {
     let c = null;
     try {
@@ -337,7 +527,7 @@ router.delete("/:id", auth, async (req, res) => {
             "DELETE FROM inbox_notifications WHERE notification_id = ?",
             [req.params.id]
         );
-        res.json({ success: true, message: "Notification deleted successfully" });
+        res.json({ success: true, message: "Request deleted successfully" });
     } catch (err) {
         res.status(500).json({ error: err.message });
     } finally {
@@ -345,7 +535,7 @@ router.delete("/:id", auth, async (req, res) => {
     }
 });
 
-// POST /api/inbox/create - Manual creation of notifications (e.g. for testing)
+// POST /api/inbox/create - Manual creation of requests
 router.post("/create", auth, async (req, res) => {
     let c = null;
     try {
@@ -387,14 +577,15 @@ router.post("/attendance/action", auth, async (req, res) => {
             [notification_id]
         );
         if (notifications.length === 0) {
-            return res.status(404).json({ error: "Notification not found" });
+            return res.status(404).json({ error: "Request not found" });
         }
 
         const notification = notifications[0];
 
-        // Authorization check: Admin, HR, or direct manager
+        // Authorization check: Admin, HR, or direct reporting manager
         const isHR = ["admin", "hr"].includes(req.user.role?.toLowerCase());
-        const isReportingManager = notification.manager_id === managerEmp.id;
+        const [empCheck] = await c.query("SELECT reporting_manager_id FROM employees WHERE id = ?", [notification.employee_id]);
+        const isReportingManager = (notification.manager_id === managerEmp.id) || (empCheck.length > 0 && empCheck[0].reporting_manager_id === managerEmp.id);
         if (!isHR && !isReportingManager) {
             return res.status(403).json({ error: "Access denied. You are not authorized to perform actions on this request." });
         }
@@ -408,7 +599,6 @@ router.post("/attendance/action", auth, async (req, res) => {
         const resolvedStatus = action === "Approve" ? "Approved" : "Rejected";
 
         if (action === "Approve") {
-            // Get regularization metadata
             let metadata = {};
             try {
                 metadata = JSON.parse(notification.metadata);
@@ -431,7 +621,6 @@ router.post("/attendance/action", auth, async (req, res) => {
                 ? `[REGULARIZED ${role} user:${req.user.id}] ${remarks}`
                 : `[REGULARIZED ${role} user:${req.user.id}] ${reason}`;
 
-            // Check if attendance row exists
             const [existingAttendance] = await c.query(
                 "SELECT id, notes FROM attendance WHERE employee_id = ? AND attendance_date = ? LIMIT 1",
                 [empId, dateStr]
@@ -460,7 +649,6 @@ router.post("/attendance/action", auth, async (req, res) => {
                 );
             }
 
-            // Clear old punches and insert new
             await c.query("DELETE FROM attendance_punches WHERE attendance_id = ?", [attendanceId]);
 
             if (firstCheckIn) {
@@ -482,7 +670,6 @@ router.post("/attendance/action", auth, async (req, res) => {
             }
         }
 
-        // Update Notification status
         let metadata = {};
         try {
             metadata = notification.metadata ? (typeof notification.metadata === 'string' ? JSON.parse(notification.metadata) : notification.metadata) : {};

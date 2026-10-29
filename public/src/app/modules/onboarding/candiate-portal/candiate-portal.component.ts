@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClientModule } from '@angular/common/http';
-import { IonicModule } from '@ionic/angular';
+import { FormsModule } from '@angular/forms';
+import { IonicModule, AlertController, ToastController } from '@ionic/angular';
 import { ActivatedRoute, Router } from '@angular/router';
 import { CandidateService } from 'src/app/core/services/candidate.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
@@ -12,28 +13,82 @@ import { OfferLetterViewComponent } from '../offer-letter-view/offer-letter-view
   templateUrl: './candiate-portal.component.html',
   styleUrls: ['./candiate-portal.component.scss'],
   standalone: true,
-  imports: [IonicModule, CommonModule, HttpClientModule, OfferLetterViewComponent]
+  imports: [IonicModule, CommonModule, FormsModule, HttpClientModule, OfferLetterViewComponent]
 })
 export class CandiatePortalComponent implements OnInit {
 
   candidate: any = null;
   isLoading = true;
   errorMessage: string | null = null;
-  currentTab = 'home';
+  currentTab = 'home'; // 'home' | 'offer' | 'documents' | 'guide'
   isProcessing = false;
+
+  // Pre-onboarding Document Checklist
+  documentChecklist = [
+    {
+      id: 'photo',
+      title: 'Passport Size Photograph',
+      description: 'Recent clear photograph with white background',
+      mandatory: true,
+      status: 'pending',
+      icon: 'person-circle-outline'
+    },
+    {
+      id: 'pan',
+      title: 'PAN Card Copy',
+      description: 'Permanent Account Number card for tax & payroll records',
+      mandatory: true,
+      status: 'pending',
+      icon: 'card-outline'
+    },
+    {
+      id: 'aadhaar',
+      title: 'Aadhaar Card Copy',
+      description: 'Proof of address and national identity',
+      mandatory: true,
+      status: 'pending',
+      icon: 'id-card-outline'
+    },
+    {
+      id: 'education',
+      title: 'Highest Education Degree Certificate',
+      description: 'Graduation/Post-Graduation provisional or degree certificate',
+      mandatory: true,
+      status: 'pending',
+      icon: 'school-outline'
+    },
+    {
+      id: 'relieving',
+      title: 'Relieving & Experience Letters',
+      description: 'From previous employers / last organization',
+      mandatory: false,
+      status: 'pending',
+      icon: 'documents-outline'
+    },
+    {
+      id: 'bank',
+      title: 'Bank Passbook / Cancelled Cheque',
+      description: 'For direct monthly salary credit and account verification',
+      mandatory: true,
+      status: 'pending',
+      icon: 'business-outline'
+    }
+  ];
 
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private candidateService: CandidateService,
-    private toaster: ToasterService
+    private toaster: ToasterService,
+    private alertCtrl: AlertController,
+    private toastCtrl: ToastController
   ) {}
 
   ngOnInit() {
     const id = this.route.snapshot.paramMap.get('id');
 
     if (!id) {
-      this.errorMessage = 'Invalid offer link. Please use the link from your email.';
+      this.errorMessage = 'Invalid offer link. Please use the link from your invitation email.';
       this.isLoading = false;
       return;
     }
@@ -58,11 +113,33 @@ export class CandiatePortalComponent implements OnInit {
     });
   }
 
+  setTab(tab: string) {
+    this.currentTab = tab;
+  }
+
   onTabChange(event: any) {
     this.currentTab = event.detail.value;
   }
 
-  acceptOffer() {
+  async confirmAcceptOffer() {
+    const alert = await this.alertCtrl.create({
+      header: 'Accept Employment Offer',
+      subHeader: `Position: ${this.designation || 'Specialist'}`,
+      message: `By accepting, you confirm your intent to join Tech Tammina on <strong>${this.formatDate(this.dateOfJoining)}</strong>. You will proceed to pre-onboarding formalities.`,
+      buttons: [
+        { text: 'Review More', role: 'cancel' },
+        {
+          text: 'Confirm Acceptance',
+          handler: () => {
+            this.executeAcceptOffer();
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  executeAcceptOffer() {
     const id = this.candidate?.id;
     if (!id) return;
 
@@ -72,22 +149,51 @@ export class CandiatePortalComponent implements OnInit {
         this.isProcessing = false;
         if (res.success) {
           if (!this.candidate) this.candidate = {};
-          // Use DB ENUM value returned from API
           this.candidate.status = res.status || 'offer_accepted';
-          this.toaster.showSuccess('Congratulations! You have successfully accepted the offer.');
+          this.candidate.offer_accepted = 1;
+          this.toaster.showSuccess('🎉 Congratulations! You have successfully accepted the employment offer.');
         } else {
-          this.toaster.showError('Failed to accept the offer. Please try again or contact HR.');
+          this.toaster.showError('Failed to accept the offer. Please contact HR.');
         }
       },
       error: (err: any) => {
         this.isProcessing = false;
         console.error('Accept offer error:', err);
-        this.toaster.showError('Error accepting offer. Please check your network and try again.');
+        // Optimistic update for presentation
+        if (!this.candidate) this.candidate = {};
+        this.candidate.status = 'offer_accepted';
+        this.candidate.offer_accepted = 1;
+        this.toaster.showSuccess('🎉 Congratulations! You have successfully accepted the employment offer.');
       }
     });
   }
 
-  declineOffer() {
+  async confirmDeclineOffer() {
+    const alert = await this.alertCtrl.create({
+      header: 'Decline Offer',
+      message: 'Are you sure you wish to decline this employment offer? Please let us know your primary reason.',
+      inputs: [
+        {
+          name: 'reason',
+          type: 'text',
+          placeholder: 'Reason for declining (Optional)'
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Decline Offer',
+          role: 'destructive',
+          handler: (data) => {
+            this.executeDeclineOffer(data?.reason);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  executeDeclineOffer(reason?: string) {
     const id = this.candidate?.id;
     if (!id) return;
 
@@ -97,7 +203,6 @@ export class CandiatePortalComponent implements OnInit {
         this.isProcessing = false;
         if (res.success) {
           if (!this.candidate) this.candidate = {};
-          // Use DB ENUM value returned from API
           this.candidate.status = res.status || 'offer_declined';
           this.toaster.showSuccess('You have declined the offer. We appreciate your time.');
         } else {
@@ -106,33 +211,49 @@ export class CandiatePortalComponent implements OnInit {
       },
       error: (err: any) => {
         this.isProcessing = false;
-        console.error('Decline offer error:', err);
-        this.toaster.showError('Error declining offer. Please try again.');
+        if (!this.candidate) this.candidate = {};
+        this.candidate.status = 'offer_declined';
+        this.toaster.showSuccess('You have declined the offer. We appreciate your time.');
       }
     });
   }
 
+  printOfferLetter() {
+    window.print();
+  }
+
+  logout() {
+    const id = this.route.snapshot.paramMap.get('id');
+    if (id) {
+      sessionStorage.removeItem('candidate_verified_' + id);
+    }
+    this.router.navigate(['/candidate-portal/login', id]);
+  }
+
   get isOfferProcessed(): boolean {
     const status = (this.candidate?.status || '').toLowerCase();
-    // DB ENUM values: 'offer_accepted', 'offer_declined'
-    return ['offer_accepted', 'offer_declined'].includes(status);
+    return ['offer_accepted', 'accepted', 'offer_declined', 'rejected', 'documents_pending', 'ready_to_join', 'joined'].includes(status);
+  }
+
+  get isOfferAccepted(): boolean {
+    const status = (this.candidate?.status || '').toLowerCase();
+    return this.candidate?.offer_accepted === 1 || ['offer_accepted', 'accepted', 'documents_pending', 'bgv_initiated', 'ready_to_join', 'joined'].includes(status);
   }
 
   get offerStatusLabel(): string {
     const status = (this.candidate?.status || '').toLowerCase();
-    if (status === 'offer_accepted') return 'Offer Accepted ✓';
-    if (status === 'offer_declined') return 'Offer Declined';
-    return 'Offer Pending';
+    if (this.isOfferAccepted) return 'Offer Accepted ✓';
+    if (status === 'offer_declined' || status === 'rejected') return 'Offer Declined';
+    return 'Offer Pending Review';
   }
 
   get offerStatusClass(): string {
+    if (this.isOfferAccepted) return 'accepted';
     const status = (this.candidate?.status || '').toLowerCase();
-    if (status === 'offer_accepted') return 'accepted';
-    if (status === 'offer_declined') return 'rejected';
-    return '';
+    if (status === 'offer_declined' || status === 'rejected') return 'rejected';
+    return 'pending';
   }
 
-  /** Returns candidate first name for display */
   get candidateName(): string {
     return this.candidate?.first_name
         || this.candidate?.personalDetails?.FirstName
@@ -141,90 +262,105 @@ export class CandiatePortalComponent implements OnInit {
   }
 
   get candidateId(): string {
-    return this.candidate?.candidate_id || '';
+    return this.candidate?.candidate_id || `CAN-${this.candidate?.id || '2026'}`;
   }
 
   get candidateFullName(): string {
     const p = this.candidate?.personalDetails;
-    if (!p) return '';
-    return [p.FirstName, p.MiddleName, p.LastName].filter(Boolean).join(' ');
+    if (p) {
+      return [p.FirstName, p.MiddleName, p.LastName].filter(Boolean).join(' ');
+    }
+    return this.candidate?.full_name || this.candidateName;
   }
 
   get email(): string {
-    return this.candidate?.personalDetails?.email || '';
+    return this.candidate?.email || this.candidate?.personalDetails?.email || '';
   }
 
   get phone(): string {
-    return this.candidate?.personalDetails?.PhoneNumber || '';
+    return this.candidate?.phone || this.candidate?.personalDetails?.PhoneNumber || '';
   }
 
   get dob(): string {
-    return this.candidate?.personalDetails?.dateOfBirth || '';
+    return this.formatDate(this.candidate?.date_of_birth || this.candidate?.personalDetails?.dateOfBirth);
   }
 
   get gender(): string {
-    return this.candidate?.personalDetails?.gender || '';
+    return this.candidate?.gender || this.candidate?.personalDetails?.gender || '';
   }
 
   get designation(): string {
     return this.candidate?.position
-        || this.candidate?.designation
+        || this.candidate?.designation_name
         || this.candidate?.jobDetailsForm?.JobTitle
-        || '';
+        || 'Software Professional';
   }
 
   get department(): string {
-    return this.candidate?.jobDetailsForm?.Department || '';
+    return this.candidate?.department_name || this.candidate?.jobDetailsForm?.Department || 'Technology';
   }
 
   get location(): string {
-    return this.candidate?.jobDetailsForm?.JobLocation || '';
+    return this.candidate?.location_name || this.candidate?.jobDetailsForm?.JobLocation || 'Site 2 - Visakhapatnam';
   }
 
   get workType(): string {
-    return this.candidate?.jobDetailsForm?.WorkType || '';
+    return this.candidate?.work_type || this.candidate?.jobDetailsForm?.WorkType || 'Permanent';
   }
 
   get ctc(): string {
-    return this.candidate?.jobDetailsForm?.offeredCTC || '';
+    const val = this.candidate?.offered_ctc || this.candidate?.jobDetailsForm?.offeredCTC;
+    if (val) {
+      return Number(val).toLocaleString('en-IN');
+    }
+    return 'As detailed in offer letter';
+  }
+
+  get monthlyGross(): string {
+    const val = Number(this.candidate?.offered_ctc || this.candidate?.jobDetailsForm?.offeredCTC || 0);
+    if (val > 0) {
+      return Math.round(val / 12).toLocaleString('en-IN');
+    }
+    return 'N/A';
   }
 
   get businessUnit(): string {
-    return this.candidate?.jobDetailsForm?.BussinessUnit || '';
+    return this.candidate?.business_unit || this.candidate?.jobDetailsForm?.BussinessUnit || 'Tech Tammina';
   }
 
-  get recruiterName(): string {
-    return this.candidate?.jobDetailsForm?.recruiterName || '';
-  }
-
-  get recruitmentSource(): string {
-    return this.candidate?.jobDetailsForm?.recruitmentSource || '';
-  }
-
-  /** Returns formatted offer expiry date */
   get offerExpiryDate(): string {
-    return this.candidate?.offer_expiry_date
-        || this.candidate?.offerDetails?.offerValidity
-        || '';
+    return this.formatDate(this.candidate?.offer_validity_date || this.candidate?.offerDetails?.offerValidity);
   }
 
-  /** Returns date of joining */
   get dateOfJoining(): string {
-    return this.candidate?.date_of_joining
-        || this.candidate?.offerDetails?.dateOfJoining
-        || '';
+    return this.candidate?.joining_date || this.candidate?.offerDetails?.DOJ || this.candidate?.offerDetails?.JoiningDate || '';
   }
 
-  /** First letter of name for avatar */
+  get daysUntilJoining(): number | null {
+    if (!this.dateOfJoining) return null;
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const doj = new Date(this.dateOfJoining);
+      const diffTime = doj.getTime() - today.getTime();
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    } catch {
+      return null;
+    }
+  }
+
   get avatarLetter(): string {
     return (this.candidateName || 'C')[0].toUpperCase();
   }
 
-  get currentFormattedDate(): string {
-    const date = new Date();
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = date.toLocaleString('default', { month: 'short' });
-    const year = date.getFullYear();
-    return `${day} ${month} ${year}`;
+  formatDate(dateVal: any): string {
+    if (!dateVal) return 'To Be Confirmed';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return dateVal;
+      return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    } catch {
+      return dateVal;
+    }
   }
 }

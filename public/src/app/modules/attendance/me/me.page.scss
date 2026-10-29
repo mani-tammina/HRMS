@@ -804,9 +804,18 @@ app-clock-button {
   .shift-row-new {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 12px;
     border-radius: 10px;
     padding: 12px 14px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+
+    .shift-left-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
 
     .shift-icon-box {
       width: 36px;
@@ -822,9 +831,24 @@ app-clock-button {
     }
 
     .shift-text-label {
-      font-size: 14px;
-      font-weight: 400;
-      color: #202020;
+      font-size: 13px;
+      font-weight: 500;
+      color: #334155;
+    }
+
+    .auto-clockout-pill {
+      font-size: 11px;
+      font-weight: 600;
+      color: #b45309;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      letter-spacing: 0.2px;
+      white-space: nowrap;
+      box-shadow: 0 1px 3px rgba(245, 158, 11, 0.12);
     }
   }
 
@@ -1100,7 +1124,27 @@ app-clock-button {
         cursor: not-allowed;
       }
 
-      &:last-child {
+      &.pill-btn--remote {
+        border-color: #f59e0b;
+        color: #d97706;
+        &:hover:not([disabled]) {
+          background: #fffbeb;
+          border-color: #d97706;
+          color: #b45309;
+        }
+      }
+
+      &.pill-btn--out {
+        border-color: #f87171;
+        color: #dc2626;
+        &:hover:not([disabled]) {
+          background: #fef2f2;
+          border-color: #dc2626;
+          color: #b91c1c;
+        }
+      }
+
+      &.pill-btn--full {
         grid-column: span 2;
         width: 100%;
       }
@@ -1370,7 +1414,7 @@ app-clock-button {
         align-items: center;
         justify-content: center;
 
-        &:last-child {
+        &.pill-btn--full {
           grid-column: span 2;
           width: 100%;
         }

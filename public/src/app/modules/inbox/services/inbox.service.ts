@@ -37,6 +37,7 @@ export class InboxService {
     sortField?: string;
     sortOrder?: 'ASC' | 'DESC';
     viewAll?: boolean;
+    skipStats?: boolean;
   }): Observable<{ success: boolean; data: InboxNotification[]; total: number; unreadCount: number; stats?: any }> {
     let httpParams = new HttpParams()
       .set('page', params.page.toString())
@@ -57,12 +58,28 @@ export class InboxService {
     if (params.sortOrder) {
       httpParams = httpParams.set('sortOrder', params.sortOrder);
     }
-    if (params.viewAll) {
-      httpParams = httpParams.set('viewAll', 'true');
+    if (params.viewAll !== undefined) {
+      httpParams = httpParams.set('viewAll', params.viewAll ? 'true' : 'false');
+    }
+    if (params.skipStats !== undefined) {
+      httpParams = httpParams.set('skipStats', params.skipStats ? 'true' : 'false');
     }
 
     return this.http.get<{ success: boolean; data: InboxNotification[]; total: number; unreadCount: number; stats?: any }>(
       `${this.BASE_URL}`,
+      { headers: this.getHeaders(), params: httpParams }
+    );
+  }
+
+  getTeammatesOnLeave(employeeId: number, startDate: string, endDate?: string): Observable<{ success: boolean; count: number; teammates: any[] }> {
+    let httpParams = new HttpParams()
+      .set('employeeId', employeeId.toString())
+      .set('startDate', startDate);
+    if (endDate) {
+      httpParams = httpParams.set('endDate', endDate);
+    }
+    return this.http.get<{ success: boolean; count: number; teammates: any[] }>(
+      this.BASE_URL + '/teammates-on-leave',
       { headers: this.getHeaders(), params: httpParams }
     );
   }
@@ -93,7 +110,9 @@ export class InboxService {
   }
 
   deleteNotification(id: number): Observable<any> {
-    return this.http.delete(`${this.BASE_URL}/${id}`, { headers: this.getHeaders() });
+    return this.http.delete(`${this.BASE_URL}/${id}`, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   actionAttendanceRegularization(payload: {
@@ -101,7 +120,9 @@ export class InboxService {
     action: 'Approve' | 'Reject';
     remarks?: string;
   }): Observable<any> {
-    return this.http.post(`${this.BASE_URL}/attendance/action`, payload, { headers: this.getHeaders() });
+    return this.http.post(`${this.BASE_URL}/attendance/action`, payload, { headers: this.getHeaders() }).pipe(
+      tap(() => this.notifyCountChanged())
+    );
   }
 
   uploadMonthlyAttendance(formData: FormData): Observable<any> {
@@ -113,16 +134,20 @@ export class InboxService {
     return this.http.post(`${this.env.apiURL}/api/upload/monthly-attendance`, formData, { headers });
   }
 
-  exportMonthlyAttendance(params: { startDate: string; endDate: string; month: number; year: number }): Observable<Blob> {
+  exportMonthlyAttendance(params: { startDate: string; endDate: string; month?: number; year?: number }): Observable<Blob> {
     const token = localStorage.getItem('token') || '';
     const headers = new HttpHeaders({
       Authorization: `Bearer ${token}`
     });
-    const httpParams = new HttpParams()
+    let httpParams = new HttpParams()
       .set('startDate', params.startDate)
-      .set('endDate', params.endDate)
-      .set('month', params.month.toString())
-      .set('year', params.year.toString());
+      .set('endDate', params.endDate);
+    if (params.month !== undefined && params.month !== null) {
+      httpParams = httpParams.set('month', params.month.toString());
+    }
+    if (params.year !== undefined && params.year !== null) {
+      httpParams = httpParams.set('year', params.year.toString());
+    }
     return this.http.get(`${this.env.apiURL}/api/upload/monthly-attendance/export`, {
       headers,
       params: httpParams,
@@ -146,6 +171,24 @@ export class InboxService {
     });
     return this.http.get(`${this.env.apiURL}/api/yearly-leave-balances/export/excel`, {
       headers,
+      responseType: 'blob'
+    });
+  }
+
+  exportTimesheets(params: { startDate: string; endDate: string; employeeId?: number }): Observable<Blob> {
+    const token = localStorage.getItem('token') || '';
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
+    let httpParams = new HttpParams()
+      .set('startDate', params.startDate)
+      .set('endDate', params.endDate);
+    if (params.employeeId) {
+      httpParams = httpParams.set('employeeId', params.employeeId.toString());
+    }
+    return this.http.get(`${this.BASE_URL}/timesheets/export`, {
+      headers,
+      params: httpParams,
       responseType: 'blob'
     });
   }

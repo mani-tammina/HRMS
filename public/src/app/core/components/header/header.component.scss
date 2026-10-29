@@ -14,7 +14,7 @@
   .header-toolbar {
     --background: #{vars.$color-navbar};
     --color: #{vars.$color-white};
-    --padding-start: 24px;
+    // --padding-start: 24px;
     --padding-end: 24px;
     --min-height: 80px;
     display: flex;
@@ -26,7 +26,7 @@
 
 // ── Brand Logo ──
 .brand-logo {
-  height: 56px;
+  height: 75px;
   width: auto;
   vertical-align: middle;
   transition: vars.$transition-base;

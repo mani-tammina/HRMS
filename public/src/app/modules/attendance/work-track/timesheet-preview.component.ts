@@ -64,7 +64,7 @@ import { CommonModule } from '@angular/common';
               <div class="task-card">
                 <div class="card-header">
                   <span class="hours-tag" *ngIf="item.hour">{{ item.hour }}</span>
-                  <span class="hours-tag" *ngIf="item.hours !== undefined && item.hours !== null">{{ item.hours }}h Logged</span>
+                  <span class="hours-tag" *ngIf="item.hours !== undefined && item.hours !== null">{{ formatHoursDisplay(item.hours) }}</span>
                 </div>
                 <p class="task-desc">{{ item.task || 'No description provided' }}</p>
               </div>
@@ -110,6 +110,15 @@ export class TimesheetPreviewComponent implements OnInit, OnChanges {
 
   close() {
     this.modalCtrl.dismiss().catch(err => console.error('Error closing modal:', err));
+  }
+
+  formatHoursDisplay(hours: any): string {
+    if (hours === undefined || hours === null || hours === '') return '0hr Logged';
+    const str = String(hours).trim();
+    if (str.includes('hr') || str.includes('min')) {
+      return `${str} Logged`;
+    }
+    return `${str}h Logged`;
   }
 
   getNoteContent(): string {
@@ -162,7 +171,9 @@ export class TimesheetPreviewComponent implements OnInit, OnChanges {
           return this.parseSingleTaskText(b, idx + 1, 0);
         }
         const hourLabel = b.hour || b.time_slot || b.time || b.slot || b.timeSlot || b.hours_slot || `Slot ${idx + 1}`;
-        const hoursNum = b.hours !== undefined && b.hours !== null ? Number(b.hours) : (b.hours_worked !== undefined ? Number(b.hours_worked) : (b.duration || 0));
+        const hoursNum = b.hours !== undefined && b.hours !== null
+          ? (typeof b.hours === 'string' && (b.hours.includes('hr') || b.hours.includes('min')) ? b.hours : Number(b.hours))
+          : (b.hours_worked !== undefined ? (typeof b.hours_worked === 'string' && (b.hours_worked.includes('hr') || b.hours_worked.includes('min')) ? b.hours_worked : Number(b.hours_worked)) : (b.duration || 0));
         const taskText = b.task || b.task_description || b.notes || b.description || b.work_description || b.details || b.summary || b.task_name || b.comment || 'No description provided';
 
         return {

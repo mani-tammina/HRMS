@@ -54,6 +54,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   shift_id: any;
   allShiftPolicies: any[] = [];
   shift_policy: any;
+  shiftTiming: any = null;
 
   // Weekend
   weekend_id: any;
@@ -96,10 +97,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   showRemotePanel = false;
   remoteReason = '';
   remoteLoading = false;
-  wfhClockInLoading = false;
-  remoteClockInLoading = false;
+  hasRemoteToday = false;
   hasApprovedRemote = false;
+  hasPendingRemote = false;
   hasApprovedWFH = false;
+  hasPendingWFH = false;
+  hasWFHToday = false;
+  isClockedIn = false;
+  remoteClockInLoading = false;
+  wfhClockInLoading = false;
   policyPermissions: any = null;
 
   // ── WFH Request Panel ──
@@ -125,11 +131,22 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
   }
 
-  formatHours(value: number): string {
-    if (value === null || value === undefined || isNaN(value)) return '0h 0m';
-    const hours = Math.floor(value);
-    const minutes = Math.round((value - hours) * 60);
-    return `${hours}h ${minutes}m`;
+  formatHours(value: any): string {
+    if (value === null || value === undefined || value === '' || value === '-') return '0h 0m';
+    const str = value.toString().trim();
+    if (str === '-' || str === '0') return '0h 0m';
+    if (str.includes('h')) {
+      const hPart = parseFloat(str.split('h')[0].trim()) || 0;
+      const mPart = parseFloat((str.split('h')[1] || '').replace(/[^0-9.]/g, '')) || 0;
+      return `${hPart}h ${mPart}m`;
+    }
+    const num = parseFloat(str);
+    if (!isNaN(num) && num > 0) {
+      const hours = Math.floor(num);
+      const minutes = Math.round((num - hours) * 60);
+      return `${hours}h ${minutes}m`;
+    }
+    return '0h 0m';
   }
 
   constructor(
@@ -155,9 +172,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.loadAllData();
     });
 
-    this.route.queryParams.subscribe(queryParams => {
+    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe((isClockedIn: boolean) => {
+      this.isClockedIn = isClockedIn;
+    });
+
+    this.route.queryParams.pipe(takeUntil(this.destroy$)).subscribe(queryParams => {
       if (queryParams['action'] === 'wfh') {
         this.openWFHModal();
+      } else if (queryParams['action'] === 'remote') {
+        this.openRemoteClockinModal();
       }
     });
 
@@ -188,6 +211,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           }
         }
       });
+
+    this.attendanceApi.punchRefresh$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.loadTodayAttendance();
+      this.loadMonthlySummary();
+    });
   }
 
   loadAllData() {
@@ -201,6 +229,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   ionViewWillEnter() {
     this.loadTodayAttendance();
     this.loadMonthlySummary();
+
+    const action = this.route.snapshot.queryParams['action'];
+    if (action === 'wfh') {
+      this.openWFHModal();
+    } else if (action === 'remote') {
+      this.openRemoteClockinModal();
+    }
   }
 
   // ================= DATA LOADERS =================
@@ -266,47 +301,92 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     request$.subscribe({
       next: (res: any) => {
         this.policyPermissions = res?.policyPermissions || null;
-        if (res?.attendance) {
-          this.status = res.attendance.status || 'NOT In Yet';
-        } else if (res?.on_leave) {
-          this.status = res.leave?.type_name ? `On Leave (${res.leave.type_name})` : 'On Leave';
-        } else {
-          this.status = 'NOT In Yet';
+        if (res?.shiftTiming) {
+          this.shiftTiming = res.shiftTiming;
+          if (res.shiftTiming.shiftDurationHours) {
+            this.shiftDuration = `${res.shiftTiming.shiftDurationHours}h 0m`;
+          }
         }
         const punches = res?.punches || [];
+        const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
+        const isAutoOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
 
-        if (res?.attendance) {
-          let gross = parseFloat(res.attendance.gross_hours || 0);
-          let effective = parseFloat(res.attendance.total_work_hours || 0);
+        // Check if employee has done any remote punch or remote clock-out today
+        const todayDateStr = this.formatDateOnly(new Date());
+        const hadRemotePunchToday = (punches && punches.length > 0 && punches.some((p: any) =>
+          (p.work_mode || '').toLowerCase() === 'remote' ||
+          (p.notes || '').toLowerCase().includes('remote') ||
+          (p.location || '').toLowerCase() === 'remote'
+        )) || (res?.attendance?.work_mode || '').toLowerCase() === 'remote';
 
-          if (res.last_punch_type === 'in' && punches.length > 0) {
-            const lastPunch = punches[punches.length - 1];
-            const startTime = new Date(lastPunch.punch_time).getTime();
-            const now = new Date().getTime();
-            const diffHours = (now - startTime) / (1000 * 60 * 60);
-            effective += diffHours;
-            const firstPunch = punches[0];
-            gross = (now - new Date(firstPunch.punch_time).getTime()) / (1000 * 60 * 60);
+        if (hadRemotePunchToday) {
+          this.hasRemoteToday = true;
+          this.hasApprovedRemote = true;
+          localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        } else if (localStorage.getItem('hasRemoteToday_' + todayDateStr) === 'true') {
+          this.hasRemoteToday = true;
+          this.hasApprovedRemote = true;
+        }
+
+        if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
+          this.status = 'NOT In Yet';
+          this.isClockedIn = false;
+        } else if (res?.attendance) {
+          const attStatus = (res.attendance.status || '').toLowerCase();
+          if (attStatus === 'not in yet' || isAutoOut) {
+            this.status = 'NOT In Yet';
+            this.isClockedIn = false;
+          } else {
+            this.status = res.attendance.status || 'NOT In Yet';
           }
+        } else if (res?.on_leave) {
+          this.status = res.leave?.type_name ? `On Leave (${res.leave.type_name})` : 'On Leave';
+          this.isClockedIn = false;
+        } else {
+          this.status = 'NOT In Yet';
+          this.isClockedIn = false;
+        }
 
-          this.grossHours = this.formatHours(gross);
-          this.effectiveHours = this.formatHours(effective);
+        if (punches && punches.length > 0) {
+          this.isClockedIn = lastPunch?.punch_type === 'in';
+          const metrics = this.calculateMetricsFromPunches(punches, true);
 
-          this.grossMinutes = Math.round(gross * 60);
-          this.effectiveMinutes = Math.round(effective * 60);
+          if (this.isClockedIn) {
+            this.grossHours = this.formatHours(metrics.grossHours);
+            this.effectiveHours = this.formatHours(metrics.totalWorkHours);
+            this.grossMinutes = Math.round(metrics.grossMinutes);
+            this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
+          } else if (res?.attendance && res.attendance.total_work_hours !== null && res.attendance.total_work_hours !== undefined) {
+            let gross = parseFloat(res.attendance.gross_hours || 0);
+            let effective = parseFloat(res.attendance.total_work_hours || 0);
+            this.grossHours = this.formatHours(gross);
+            this.effectiveHours = this.formatHours(effective);
+            this.grossMinutes = Math.round(gross * 60);
+            this.effectiveMinutes = Math.round(effective * 60);
+          } else {
+            this.grossHours = this.formatHours(metrics.grossHours);
+            this.effectiveHours = this.formatHours(metrics.totalWorkHours);
+            this.grossMinutes = Math.round(metrics.grossMinutes);
+            this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
+          }
 
           // Calculate late login if shift is available
           if (this.shift_policy && punches.length > 0) {
-            const firstPunch = new Date(punches[0].punch_time);
-            const shiftStartStr = this.shift_policy.start_time; // HH:mm
-            const [h, m] = shiftStartStr.split(':').map(Number);
-            const shiftStartDate = new Date(firstPunch);
-            shiftStartDate.setHours(h, m, 0, 0);
+            const sortedPunches = punches.slice().sort((a: any, b: any) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+            const firstInPunch = sortedPunches.find((p: any) => (p.punch_type || '').toLowerCase() === 'in') || sortedPunches[0];
+            const firstPunchTimeMs = this.parsePunchTimeToMs(firstInPunch.punch_time);
+            if (firstPunchTimeMs > 0) {
+              const firstPunch = new Date(firstPunchTimeMs);
+              const shiftStartStr = this.shift_policy.start_time; // HH:mm:ss
+              const [h, m] = shiftStartStr.split(':').map(Number);
+              const shiftStartDate = new Date(firstPunch);
+              shiftStartDate.setHours(h, m, 0, 0);
 
-            if (firstPunch > shiftStartDate) {
-              this.lateMinutes = Math.max(0, Math.round((firstPunch.getTime() - shiftStartDate.getTime()) / 60000));
-            } else {
-              this.lateMinutes = 0;
+              if (firstPunch.getTime() > shiftStartDate.getTime()) {
+                this.lateMinutes = Math.max(0, Math.round((firstPunch.getTime() - shiftStartDate.getTime()) / 60000));
+              } else {
+                this.lateMinutes = 0;
+              }
             }
           }
 
@@ -333,6 +413,127 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
+      }
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
+      }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
+  }
+
+  calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+    let currentInPunch: any = null;
+
+    for (let i = 0; i < punches.length; i++) {
+      const p = punches[i];
+      const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
+
+      if (punchType === 'in') {
+        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+          earliestInMs = pTimeMs;
+        }
+        if (currentInPunch) {
+          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
+          if (gapMinutes >= 5) {
+            // Save preceding work interval before starting new in-session
+            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+            currentInPunch = p;
+          }
+        } else {
+          currentInPunch = p;
+        }
+      } else if (punchType === 'out') {
+        if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
+          latestOutMs = pTimeMs;
+        }
+        if (currentInPunch && !isAutoOut) {
+          const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > inTimeMs) {
+            workIntervals.push({ start: inTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+          }
+        }
+        currentInPunch = null;
+      }
+    }
+
+    if (currentInPunch && isToday) {
+      const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+      const nowMs = Date.now();
+      if (nowMs > inTimeMs) {
+        workIntervals.push({ start: inTimeMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) {
+          latestOutMs = nowMs;
+        }
+      }
+    }
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
+  }
+
   createTimelineData(punches: any[]) {
     if (!punches || punches.length === 0) {
       if (this.chart) this.chart.destroy();
@@ -354,7 +555,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         const endTime = nextPunch ? new Date(nextPunch.punch_time).getTime() : Date.now();
         const durationMin = (endTime - time) / 60000;
         inData.push(Math.round(durationMin));
-        labels.push(`In: ${new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+        labels.push(`In: ${new Intl.DateTimeFormat('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true }).format(new Date(time))}`);
       } else if (p.punch_type === 'out') {
         const nextPunch = punches[i + 1];
         if (nextPunch) {
@@ -606,8 +807,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     this.loadMonthlySummary(event.month, event.year, event.startDate, event.endDate, event.period);
   }
 
-  isClockedIn(): boolean {
-    return this.clockButton?.isClockedIn || false;
+  getClockedInState(): boolean {
+    return this.clockButton?.isClockedIn || this.isClockedIn || false;
   }
 
   toggleClock() {
@@ -631,17 +832,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         this.gaugeDashOffset = '251.3';
         return;
       }
-      let isPunchedIn = lastPunchType === 'in';
-      let totalEffectiveMs = 0;
 
-      for (let i = 0; i < punches.length; i += 2) {
-        const punchIn = punches[i];
-        const punchOut = punches[i + 1];
-        if (punchIn) {
-          const inTime = new Date(punchIn.punch_time).getTime();
-          const outTime = punchOut ? new Date(punchOut.punch_time).getTime() : Date.now();
-          totalEffectiveMs += (outTime - inTime);
-        }
+      let totalEffectiveMs = 0;
+      if (punches && punches.length > 0) {
+        const metrics = this.calculateMetricsFromPunches(punches, true);
+        this.grossHours = this.formatHours(metrics.grossHours);
+        this.effectiveHours = this.formatHours(metrics.totalWorkHours);
+        this.grossMinutes = Math.round(metrics.grossMinutes);
+        this.effectiveMinutes = Math.round(metrics.totalWorkMinutes);
+        totalEffectiveMs = metrics.totalWorkMinutes * 60 * 1000;
       }
 
       const totalSec = Math.floor(totalEffectiveMs / 1000);
@@ -661,7 +860,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       this.gaugeDashOffset = (251.3 * (1 - progress)).toFixed(1);
 
       // Countdown
-      if (!isPunchedIn && punches.length === 0) {
+      const isPunchedIn = lastPunchType === 'in';
+      if (!isPunchedIn && (!punches || punches.length === 0)) {
         if (this.shift_policy) {
           const [sh, sm] = this.shift_policy.start_time.split(':').map(Number);
           const shiftStart = new Date();
@@ -673,7 +873,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             const s = diffSec % 60;
             this.shiftTimeLeft = `${m}m${s.toString().padStart(2, '0')}s`;
           } else {
-            this.shiftTimeLeft = '10m06s'; // Realistic fallback count matching reference exactly
+            this.shiftTimeLeft = '10m06s';
           }
         } else {
           this.shiftTimeLeft = '10m06s';
@@ -725,22 +925,73 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   trackByDate(index: number, day: Date): string { return day.toDateString(); }
 
   checkApprovedWorkMode() {
+    const todayDateStr = this.formatDateOnly(new Date());
+    const storedRemote = localStorage.getItem('hasRemoteToday_' + todayDateStr) === 'true';
+    const storedWFH = localStorage.getItem('hasWFHToday_' + todayDateStr) === 'true';
+
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (res?.has_wfh && res?.work_mode === 'Remote') {
-          this.hasApprovedRemote = true;
-          this.hasApprovedWFH = false;
-        } else if (res?.has_wfh && res?.work_mode === 'WFH') {
-          this.hasApprovedWFH = true;
-          this.hasApprovedRemote = false;
+        const isRemoteFromApi = !!(
+          res?.has_remote ||
+          res?.has_raised_remote ||
+          res?.has_approved_remote ||
+          res?.has_pending_remote ||
+          res?.had_remote_work ||
+          (res?.has_wfh && res?.work_mode === 'Remote')
+        );
+
+        if (isRemoteFromApi || storedRemote || this.hasRemoteToday) {
+          this.hasRemoteToday = true;
+          this.hasApprovedRemote = !!res?.has_approved_remote;
+          localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
         } else {
+          this.hasRemoteToday = false;
           this.hasApprovedRemote = false;
+        }
+
+        this.hasPendingRemote = !!res?.has_pending_remote;
+
+        const isWFHFromApi = !!(
+          res?.has_wfh ||
+          res?.has_approved_wfh ||
+          res?.has_pending_wfh ||
+          res?.work_mode === 'WFH' ||
+          res?.pending_work_mode === 'WFH'
+        );
+
+        if (isWFHFromApi || storedWFH || this.hasWFHToday) {
+          this.hasWFHToday = true;
+          this.hasApprovedWFH = !!res?.has_approved_wfh;
+          this.hasPendingWFH = !!res?.has_pending_wfh;
+          localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+        } else {
+          this.hasWFHToday = false;
           this.hasApprovedWFH = false;
+          this.hasPendingWFH = false;
+        }
+
+        if (this.clockButton && this.isClockedIn) {
+          if (this.hasRemoteToday) {
+            this.clockButton.workMode = 'Remote';
+            this.clockButton.remoteActive = true;
+            localStorage.setItem('remoteActive', 'true');
+          } else if (this.hasWFHToday) {
+            this.clockButton.workMode = 'WFH';
+            this.clockButton.remoteActive = false;
+          }
         }
       },
       error: () => {
-        this.hasApprovedRemote = false;
+        if (storedRemote) {
+          this.hasRemoteToday = true;
+          this.hasApprovedRemote = true;
+        }
+        if (storedWFH) {
+          this.hasWFHToday = true;
+        }
+        this.hasPendingRemote = false;
         this.hasApprovedWFH = false;
+        this.hasPendingWFH = false;
       }
     });
   }
@@ -750,60 +1001,132 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   remoteClockIn() {
     if (this.remoteClockInLoading || this.clockButton?.loading) return;
     this.remoteClockInLoading = true;
-    this.attendanceApi.checkTodayWFH().subscribe({
+    this.attendanceApi.apiPunchIn({ work_mode: 'Remote', location: 'Remote', notes: 'Remote Clock-In' }).subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh || res?.work_mode !== 'Remote') {
-          this.showToast('Remote request not approved for today', 'warning');
-          this.remoteClockInLoading = false;
-          return;
-        }
-        this.attendanceApi.apiPunchIn({ work_mode: 'Remote', location: 'Remote', notes: 'Remote Clock-In' }).subscribe({
-          next: () => {
-            this.remoteClockInLoading = false;
-            this.showToast('Remote Clock-In successful', 'success');
-            this.loadTodayAttendance();
-            if (this.clockButton) {
-              this.clockButton.workMode = 'Remote';
-              this.clockButton.isClockedIn = true;
-              this.clockButton.remoteActive = true;
-              localStorage.setItem('remoteActive', 'true');
-            }
-            this.attendanceRefresh = Date.now();
-          },
-          error: err => {
-            this.remoteClockInLoading = false;
-            this.showToast(err?.error?.message || 'Remote Clock-In failed', 'danger');
-          },
-        });
-      },
-      error: () => {
         this.remoteClockInLoading = false;
-        this.showToast('Remote check failed', 'danger');
+        this.isClockedIn = true;
+        this.hasRemoteToday = true;
+        const todayDateStr = this.formatDateOnly(new Date());
+        localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        if (res?.alreadyActive) {
+          this.showToast(res?.message || 'You are currently clocked in', 'primary');
+        } else {
+          this.showToast('Remote Clock-In successful', 'success');
+        }
+        if (this.clockButton) {
+          this.clockButton.workMode = 'Remote';
+          this.clockButton.isClockedIn = true;
+          this.clockButton.remoteActive = true;
+          localStorage.setItem('remoteActive', 'true');
+        }
+        this.attendanceApi.setClockState(true);
+        this.attendanceRefresh = Date.now();
+        this.loadTodayAttendance();
+        this.loadMonthlySummary();
       },
+      error: (err: any) => {
+        this.remoteClockInLoading = false;
+        const msg = err?.error?.message || err?.message || 'Remote Clock-In failed';
+        if (msg.includes('active punch-in') || msg.includes('Already punched in')) {
+          this.isClockedIn = true;
+          this.showToast('You are currently clocked in', 'primary');
+          this.loadTodayAttendance();
+        } else {
+          this.showToast(msg, 'danger');
+        }
+      }
     });
   }
+
+  remoteClockOut() {
+    if (this.remoteClockInLoading || this.clockButton?.loading) return;
+    this.remoteClockInLoading = true;
+    this.attendanceApi.apiPunchOut({ notes: 'Remote Clock-Out', comment: 'Remote Clock-Out' } as any).subscribe({
+      next: (res: any) => {
+        this.remoteClockInLoading = false;
+        this.isClockedIn = false;
+        this.hasRemoteToday = true;
+        const todayDateStr = this.formatDateOnly(new Date());
+        localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        if (res?.alreadyActive) {
+          this.showToast(res?.message || 'You are already clocked out', 'primary');
+        } else {
+          this.showToast('Remote Clock-Out successful', 'success');
+        }
+        if (this.clockButton) {
+          this.clockButton.workMode = 'Office';
+          this.clockButton.isClockedIn = false;
+          this.clockButton.remoteActive = false;
+          localStorage.removeItem('remoteActive');
+        }
+        this.attendanceApi.setClockState(false);
+        this.attendanceRefresh = Date.now();
+        this.loadTodayAttendance();
+        this.loadMonthlySummary();
+      },
+      error: (err: any) => {
+        this.remoteClockInLoading = false;
+        const msg = err?.error?.message || err?.message || 'Remote Clock-Out failed';
+        if (msg.includes('already punched out') || msg.includes('no punch-in')) {
+          this.isClockedIn = false;
+          this.showToast('You are already clocked out', 'primary');
+        } else {
+          this.showToast(msg, 'danger');
+        }
+      }
+    });
+  }
+
 
   wfhClockIn() {
     if (this.wfhClockInLoading || this.clockButton?.loading) return;
     this.wfhClockInLoading = true;
     this.attendanceApi.checkTodayWFH().subscribe({
       next: (res: any) => {
-        if (!res?.has_wfh || res?.work_mode !== 'WFH') {
-          this.showToast('WFH not approved for today', 'warning');
+        const canWFH = !!(
+          res?.has_wfh ||
+          res?.has_pending_wfh ||
+          res?.has_approved_wfh ||
+          res?.work_mode === 'WFH' ||
+          res?.pending_work_mode === 'WFH' ||
+          this.hasWFHToday
+        );
+        if (!canWFH) {
+          this.showToast('No WFH request found for today. Please submit a WFH request first.', 'warning');
           this.wfhClockInLoading = false;
           return;
         }
         this.attendanceApi.apiPunchIn({ work_mode: 'WFH', location: 'Home', notes: 'WFH Clock-In' }).subscribe({
-          next: () => {
+          next: (punchRes: any) => {
             this.wfhClockInLoading = false;
-            this.showToast('WFH Clock-In successful', 'success');
-            this.loadTodayAttendance();
-            if (this.clockButton) { this.clockButton.workMode = 'WFH'; this.clockButton.isClockedIn = true; }
+            this.isClockedIn = true;
+            this.hasWFHToday = true;
+            const todayDateStr = this.formatDateOnly(new Date());
+            localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+            if (punchRes?.alreadyActive) {
+              this.showToast(punchRes?.message || 'You are currently clocked in', 'primary');
+            } else {
+              this.showToast('WFH Clock-In recorded (pending approval)', 'success');
+            }
+            if (this.clockButton) {
+              this.clockButton.workMode = 'WFH';
+              this.clockButton.isClockedIn = true;
+              this.clockButton.loadLastPunch();
+            }
+            this.attendanceApi.setClockState(true);
             this.attendanceRefresh = Date.now();
+            this.loadTodayAttendance();
           },
           error: err => {
             this.wfhClockInLoading = false;
-            this.showToast(err?.error?.message || 'WFH Clock-In failed', 'danger');
+            const msg = err?.error?.message || err?.message || 'WFH Clock-In failed';
+            if (msg.includes('active punch-in') || msg.includes('Already punched in')) {
+              this.isClockedIn = true;
+              this.showToast('You are currently clocked in', 'primary');
+              this.loadTodayAttendance();
+            } else {
+              this.showToast(msg, 'danger');
+            }
           },
         });
       },
@@ -828,41 +1151,56 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   submitRemoteRequest() {
+    if ((this.policyPermissions?.remote_clockin_comment_required === 'yes' || !this.remoteReason) && !this.remoteReason.trim()) {
+      this.showToast('Please provide a reason for the remote request', 'warning');
+      return;
+    }
+
     this.remoteLoading = true;
     const today = new Date().toISOString().split('T')[0];
 
-    const doPunchIn = () => {
-      this.attendanceApi.apiPunchIn({
-        work_mode: 'Remote',
-        location: 'Remote',
-        notes: this.remoteReason ? 'Remote Clock-In: ' + this.remoteReason : 'Remote Clock-In'
-      }).subscribe({
-        next: () => this.finalizeRemote(),
-        error: (err) => {
-          this.remoteLoading = false;
-          if (err?.error?.message?.includes('active punch-in') || err?.error?.message?.includes('Already punched in')) {
-            this.finalizeRemote();
-          } else {
-            this.showToast(err?.error?.message || 'Remote Punch-In failed', 'danger');
-          }
-        }
-      });
-    };
+    // Submit Remote Request to manager/HR for approval and automatically record Remote In
+    this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
+      next: (res: any) => {
+        this.remoteLoading = false;
+        this.showRemotePanel = false;
+        this.isClockedIn = true;
+        this.hasRemoteToday = true;
+        this.hasPendingRemote = true;
 
-    if (this.policyPermissions?.remote_clockin_approval_required === 'yes') {
-      this.wfhService.remote({ date: today, reason: this.remoteReason }).subscribe({
-        next: () => doPunchIn(),
-        error: () => doPunchIn()
-      });
-    } else {
-      doPunchIn();
-    }
+        const todayDateStr = this.formatDateOnly(new Date());
+        localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+        localStorage.setItem('remoteActive', 'true');
+
+        if (this.clockButton) {
+          this.clockButton.workMode = 'Remote';
+          this.clockButton.isClockedIn = true;
+          this.clockButton.remoteActive = true;
+          this.clockButton.loadLastPunch();
+        }
+
+        this.attendanceApi.setClockState(true);
+        this.attendanceRefresh = Date.now();
+        this.showToast('Remote request submitted and Remote Clock-In recorded! Pending manager/HR approval.', 'success');
+        this.checkApprovedWorkMode();
+        this.loadTodayAttendance();
+      },
+      error: (err) => {
+        this.remoteLoading = false;
+        const msg = err?.error?.message || err?.error?.error || 'Failed to submit Remote request';
+        this.showToast(msg, 'danger');
+      }
+    });
   }
 
   private finalizeRemote() {
     this.remoteLoading = false;
     this.showRemotePanel = false;
+    this.isClockedIn = true;
     this.hasApprovedRemote = true;
+    this.hasRemoteToday = true;
+    const todayDateStr = this.formatDateOnly(new Date());
+    localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
     if (this.clockButton) {
       this.clockButton.workMode = 'Remote';
       this.clockButton.isClockedIn = true;
@@ -1056,9 +1394,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
     this.wfhLoading = true;
+    const startDateStr = this.wfhFromDate.split('T')[0];
+    const endDateStr = this.wfhDayType === 'half' ? startDateStr : this.wfhToDate.split('T')[0];
     const payload = {
-      start_date: this.wfhFromDate.split('T')[0],
-      end_date: this.wfhDayType === 'half' ? this.wfhFromDate.split('T')[0] : this.wfhToDate.split('T')[0],
+      start_date: startDateStr,
+      end_date: endDateStr,
       total_days: this.wfhTotalDays,
       day_type: this.wfhDayType,
       half_day_type: this.wfhDayType === 'half' ? this.wfhHalfDayType : null,
@@ -1067,10 +1407,33 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       reason: this.wfhReason
     };
     this.wfhService.wfh(payload).subscribe({
-      next: () => {
+      next: (res: any) => {
         this.wfhLoading = false;
         this.showWFHPanel = false;
-        this.showToast('WFH Request submitted successfully!', 'success');
+
+        const todayDateStr = this.formatDateOnly(new Date());
+        const isTodayCovered = (startDateStr <= todayDateStr && endDateStr >= todayDateStr);
+
+        if (res?.clocked_in || isTodayCovered) {
+          this.isClockedIn = true;
+          this.hasWFHToday = true;
+          this.hasPendingWFH = true;
+          localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+
+          if (this.clockButton) {
+            this.clockButton.workMode = 'WFH';
+            this.clockButton.isClockedIn = true;
+            this.clockButton.loadLastPunch();
+          }
+
+          this.attendanceApi.setClockState(true);
+          this.showToast('WFH request submitted and WFH Clock-In recorded! Pending manager/HR approval.', 'success');
+        } else {
+          this.showToast('WFH request submitted successfully! Pending manager/HR approval.', 'success');
+        }
+
+        this.attendanceRefresh = Date.now();
+        this.checkApprovedWorkMode();
         this.loadTodayAttendance();
       },
       error: (err: any) => {
@@ -1105,6 +1468,22 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onClockStatusChanged(record: any) {
+    const todayDateStr = this.formatDateOnly(new Date());
+    if (record?.work_mode === 'Remote' || record?.isRemote || record?.hadRemoteWork) {
+      this.hasRemoteToday = true;
+      localStorage.setItem('hasRemoteToday_' + todayDateStr, 'true');
+    }
+    if (record?.work_mode === 'WFH' || record?.isWFH || record?.hadWFHWork) {
+      this.hasWFHToday = true;
+      localStorage.setItem('hasWFHToday_' + todayDateStr, 'true');
+    }
+    if (record?.isClockedIn !== undefined) {
+      this.isClockedIn = record.isClockedIn;
+    } else if (record?.punch_type === 'in' || record?.isClockedIn === true) {
+      this.isClockedIn = true;
+    } else if (record?.punch_type === 'out' || record?.isClockedIn === false) {
+      this.isClockedIn = false;
+    }
     this.attendanceRefresh = Date.now();
     this.loadTodayAttendance();
     this.loadMonthlySummary();
@@ -1115,7 +1494,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     if (tab === 'log') this.attendanceRefresh = Date.now();
   }
 
-  async showToast(message: string, color: 'success' | 'warning' | 'danger') {
+  async showToast(message: string, color: 'success' | 'warning' | 'danger' | 'primary' = 'success') {
     const toast = await this.toastCtrl.create({ message, duration: 2500, position: 'top', color });
     await toast.present();
   }

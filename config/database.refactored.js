@@ -34,10 +34,10 @@ const DB = {
     // Character set
     charset: 'utf8mb4',
     // Timezone
-    timezone: '+00:00', // Store dates in UTC
+    timezone: '+05:30', // Use IST timezone (+05:30)
     // Additional settings
     multipleStatements: false, // Security: prevent SQL injection via multiple statements
-    dateStrings: false, // Return Date objects instead of strings
+    dateStrings: true, // Return dates as strings to prevent timezone drift
     supportBigNumbers: true,
     bigNumberStrings: false,
     // Enable keep-alive to prevent connection drops

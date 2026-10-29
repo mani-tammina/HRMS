@@ -315,7 +315,10 @@
 
                 <div class="card-field col-time">
                   <label class="mobile-label">Time Slot</label>
-                  <input formControlName="hour" placeholder="e.g. 10 AM" class="glass-input">
+                  <input formControlName="hour" placeholder="e.g. 10:00 AM - 11:00 AM" class="glass-input"
+                    (input)="onTimeSlotChange(i, $event)"
+                    (change)="onTimeSlotChange(i, $event)"
+                    (blur)="onTimeSlotBlur(i)">
                 </div>
 
                 <div class="card-field col-task">
@@ -326,8 +329,10 @@
 
                 <div class="card-field col-hrs">
                   <label class="mobile-label">Hours</label>
-                  <input type="number" step="any" min="0.1" formControlName="hours" (input)="onHoursChange(i, $event)"
-                    (change)="onHoursChange(i, $event)" class="glass-input center">
+                  <input type="text" formControlName="hours" placeholder="e.g. 1hr 32 minutes"
+                    (input)="onHoursChange(i, $event)"
+                    (change)="onHoursChange(i, $event)"
+                    (blur)="onHoursBlur(i)" class="glass-input center">
                 </div>
 
                 <div class="card-field col-action">
@@ -345,7 +350,7 @@
                 <ion-icon name="pulse-outline"></ion-icon>
                 <div class="text">
                   <span>Total Calculated</span>
-                  <h2>{{ calculateTotalHours() }} Hours</h2>
+                  <h2>{{ calculateTotalHoursFormatted() }}</h2>
                 </div>
               </div>
 

@@ -27,17 +27,17 @@ const DB = {
     database: process.env.DB_NAME || "hrms_db_new",
     // Connection Pool Settings
     waitForConnections: true,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '2500', 10),
-    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '5000', 10),
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '1500', 10),
+    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '100', 10),
     // Timeouts (in milliseconds)
     connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 15s
     // Character set
     charset: 'utf8mb4',
     // Timezone
-    timezone: '+00:00', // Store dates in UTC
+    timezone: '+05:30', // Use IST timezone (+05:30)
     // Additional settings
     multipleStatements: false, // Security: prevent SQL injection via multiple statements
-    dateStrings: false, // Return Date objects instead of strings
+    dateStrings: true, // Return dates as strings to prevent timezone drift
     supportBigNumbers: true,
     bigNumberStrings: false,
     // Enable keep-alive to prevent connection drops
@@ -118,6 +118,9 @@ async function db() {
             const originalEnd = conn.end;
             conn.end = async () => {
                 try {
+                    // Guarantee any uncommitted transaction is rolled back and locks freed before reuse
+                    await conn.query("ROLLBACK").catch(() => { });
+                    await conn.query("SELECT RELEASE_ALL_LOCKS()").catch(() => { });
                     conn.release();
                 } catch (err) {
                     console.error('[DB] Error releasing connection:', err.message);
@@ -188,6 +191,9 @@ db.getConnection = async () => {
             const originalEnd = conn.end;
             conn.end = async () => {
                 try {
+                    // Guarantee any uncommitted transaction is rolled back and locks freed before reuse
+                    await conn.query("ROLLBACK").catch(() => { });
+                    await conn.query("SELECT RELEASE_ALL_LOCKS()").catch(() => { });
                     conn.release();
                 } catch (err) {
                     console.error('[DB] Error releasing connection:', err.message);
@@ -325,6 +331,22 @@ db.escape = (value) => {
 db.escapeId = (identifier) => {
     const pool = getPool();
     return pool.escapeId(identifier);
+};
+
+/**
+ * Direct query on pool
+ */
+db.query = async (...args) => {
+    const pool = getPool();
+    return pool.query(...args);
+};
+
+/**
+ * Direct execute on pool
+ */
+db.execute = async (...args) => {
+    const pool = getPool();
+    return pool.execute(...args);
 };
 
 // Handle process termination gracefully

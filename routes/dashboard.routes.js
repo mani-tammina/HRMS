@@ -12,19 +12,19 @@ const { findEmployeeByUserId } = require("../utils/helpers");
 // Format a Date object or ISO string to plain YYYY-MM-DD.
 // Database dates are now stored correctly, so no timezone offset is needed.
 function formatDateToIST(val) {
-  if (!val) return null;
-  if (typeof val === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    if (val.includes('T')) return val.split('T')[0];
-    return val;
-  }
-  if (val instanceof Date) {
-    const yyyy = val.getUTCFullYear();
-    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(val.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  return null;
+    if (!val) return null;
+    if (typeof val === 'string') {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
+        if (val.includes('T')) return val.split('T')[0];
+        return val;
+    }
+    if (val instanceof Date) {
+        const yyyy = val.getUTCFullYear();
+        const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
+        const dd = String(val.getUTCDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    }
+    return null;
 }
 
 /* ============================================
@@ -290,7 +290,7 @@ router.get("/manager", auth, manager, async (req, res) => {
             LIMIT 10
         `, [emp.id]);
 
-        // Team on leave today
+        // Team on leave today (excluding WFH/Remote)
         const [teamOnLeave] = await c.query(`
             SELECT 
                 e.EmployeeNumber,
@@ -304,6 +304,12 @@ router.get("/manager", auth, manager, async (req, res) => {
             AND l.status = 'approved'
             AND l.start_date <= CURDATE()
             AND l.end_date >= CURDATE()
+            AND (l.leave_type IS NULL OR (
+                l.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+                AND l.leave_type NOT LIKE '%WFH%'
+                AND l.leave_type NOT LIKE '%Remote%'
+                AND l.leave_type NOT LIKE '%Work From Home%'
+            ))
         `, [emp.id]);
 
         // Pending timesheets
@@ -420,16 +426,33 @@ router.get("/employee", auth, async (req, res) => {
             AND status = 'allocated'
         `, [emp.id]);
 
-        // Upcoming holidays (next 30 days)
-        const [upcomingHolidays] = await c.query(`
+        // Upcoming holidays (mapped by employee location)
+        let holidayQuery = `
             SELECT 
-                holiday_date,
-                holiday_name,
-                day_name
-            FROM holidays
-            WHERE holiday_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)
-            ORDER BY holiday_date
-        `);
+                h.id,
+                h.holiday_date,
+                h.holiday_name,
+                h.day_name,
+                h.holiday_type,
+                h.description,
+                loc.name as location_name
+            FROM holidays h
+            LEFT JOIN locations loc ON h.location_id = loc.id
+            WHERE h.is_active = 1
+        `;
+        const holidayParams = [];
+        if (emp.LocationId) {
+            holidayQuery += ` AND (
+                h.location_id = ?
+                OR (h.location_id IS NULL AND (h.applicable_locations IS NULL OR h.applicable_locations = '' OR h.applicable_locations = 'null'))
+                OR h.applicable_locations LIKE ?
+                OR (h.holiday_list_id IS NOT NULL AND h.holiday_list_id = ?)
+            )`;
+            holidayParams.push(emp.LocationId, `%"${emp.LocationId}"%`, emp.holiday_list_id || 0);
+        }
+        holidayQuery += ` AND h.holiday_date >= CURDATE() ORDER BY h.holiday_date ASC LIMIT 10`;
+
+        const [upcomingHolidays] = await c.query(holidayQuery, holidayParams);
 
         c.end();
 
@@ -631,6 +654,170 @@ router.get("/analytics/payroll", auth, admin, async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching payroll analytics:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+/* ============================================
+   TEAM STATUS TODAY (On Leave / WFH / Remote)
+   ============================================ */
+
+router.get("/team-status-today", auth, async (req, res) => {
+    try {
+        const c = await db();
+        const today = new Date().toISOString().split('T')[0];
+
+        // 1. Identify logged-in employee
+        let currentEmp = null;
+        if (req.user && req.user.id) {
+            const [userRows] = await c.query("SELECT username FROM users WHERE id = ?", [req.user.id]);
+            if (userRows && userRows.length > 0) {
+                const username = userRows[0].username;
+                const [empRows] = await c.query(
+                    "SELECT * FROM employees WHERE WorkEmail = ? OR EmployeeNumber = ? LIMIT 1",
+                    [username, username]
+                );
+                if (empRows && empRows.length > 0) {
+                    currentEmp = empRows[0];
+                }
+            }
+        }
+
+        if (!currentEmp) {
+            c.end();
+            return res.json({
+                on_leave: [],
+                wfh: [],
+                remote: []
+            });
+        }
+
+        // 2. Determine team member IDs
+        let teamMemberIds = [];
+
+        // Check if employee has direct reportees (manager / lead)
+        const [reportees] = await c.query(
+            "SELECT id FROM employees WHERE reporting_manager_id = ? AND EmploymentStatus = 'Working'",
+            [currentEmp.id]
+        );
+
+        if (reportees && reportees.length > 0) {
+            teamMemberIds = reportees.map(r => r.id);
+        } else if (currentEmp.reporting_manager_id) {
+            // Peer team: other employees reporting to the same manager
+            const [coTeam] = await c.query(
+                "SELECT id FROM employees WHERE reporting_manager_id = ? AND id != ? AND EmploymentStatus = 'Working'",
+                [currentEmp.reporting_manager_id, currentEmp.id]
+            );
+            if (coTeam && coTeam.length > 0) {
+                teamMemberIds = coTeam.map(r => r.id);
+            }
+        }
+
+        // Fallback: department team members
+        if (teamMemberIds.length === 0 && currentEmp.DepartmentId) {
+            const [deptTeam] = await c.query(
+                "SELECT id FROM employees WHERE DepartmentId = ? AND id != ? AND EmploymentStatus = 'Working'",
+                [currentEmp.DepartmentId, currentEmp.id]
+            );
+            if (deptTeam && deptTeam.length > 0) {
+                teamMemberIds = deptTeam.map(r => r.id);
+            }
+        }
+
+        // Always include the current employee so they can see their own status
+        if (!teamMemberIds.includes(currentEmp.id)) {
+            teamMemberIds.push(currentEmp.id);
+        }
+
+        if (teamMemberIds.length === 0) {
+            c.end();
+            return res.json({
+                on_leave: [],
+                wfh: [],
+                remote: []
+            });
+        }
+
+        // 3. Employees on approved leave today in the team
+        const [onLeave] = await c.query(`
+            SELECT DISTINCT
+                e.id as employee_id,
+                e.FirstName,
+                e.LastName,
+                e.profile_image,
+                d.name as department_name,
+                des.name as designation_name,
+                lt.type_name as leave_type
+            FROM leaves l
+            INNER JOIN employees e ON l.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN leave_types lt ON l.leave_type_id = lt.id
+            WHERE l.status = 'approved'
+              AND l.start_date <= ?
+              AND l.end_date >= ?
+              AND e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
+              AND (l.leave_type IS NULL OR l.leave_type NOT IN ('WFH', 'Remote'))
+            ORDER BY e.FirstName, e.LastName
+        `, [today, today, teamMemberIds]);
+
+        // 4. Employees working from home today in the team
+        const [wfhToday] = await c.query(`
+            SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
+                   e.profile_image, d.name as department_name, des.name as designation_name
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
+              AND (
+                EXISTS (
+                  SELECT 1 FROM attendance a
+                  WHERE a.employee_id = e.id AND a.attendance_date = ? AND a.work_mode = 'WFH'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM leaves l
+                  WHERE l.employee_id = e.id AND l.status = 'approved'
+                    AND l.leave_type = 'WFH' AND l.start_date <= ? AND l.end_date >= ?
+                )
+              )
+            ORDER BY e.FirstName, e.LastName
+        `, [teamMemberIds, today, today, today]);
+
+        // 5. Employees working remotely today in the team
+        const [remoteToday] = await c.query(`
+            SELECT DISTINCT e.id as employee_id, e.FirstName, e.LastName,
+                   e.profile_image, d.name as department_name, des.name as designation_name
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE e.EmploymentStatus = 'Working'
+              AND e.id IN (?)
+              AND (
+                EXISTS (
+                  SELECT 1 FROM attendance a
+                  WHERE a.employee_id = e.id AND a.attendance_date = ? AND a.work_mode = 'Remote'
+                )
+                OR EXISTS (
+                  SELECT 1 FROM leaves l
+                  WHERE l.employee_id = e.id AND l.status = 'approved'
+                    AND l.leave_type = 'Remote' AND l.start_date <= ? AND l.end_date >= ?
+                )
+              )
+            ORDER BY e.FirstName, e.LastName
+        `, [teamMemberIds, today, today, today]);
+
+        c.end();
+
+        res.json({
+            on_leave: onLeave,
+            wfh: wfhToday,
+            remote: remoteToday
+        });
+    } catch (error) {
+        console.error("Error fetching team status today:", error);
         res.status(500).json({ error: error.message });
     }
 });

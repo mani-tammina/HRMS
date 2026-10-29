@@ -70,13 +70,16 @@ const inboxRoutes = require("./routes/inbox.routes");
 const yearlyLeaveBalanceRoutes = require("./routes/yearly-leave-balance.routes");
 const timeTrackingPolicyRoutes = require("./routes/time-tracking-policy.routes");
 const employeeDocumentsRoutes = require("./routes/employee-documents.routes");
+const biometricAttendanceRoutes = require("./routes/biometric-attendance.routes");
+const brandingRoutes = require("./routes/branding.routes");
 // const financeConfigRoutes = require("./routes/finance-master-config.routes"); // Finance Master Configuration Engine
 
-// Import notification service
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
 const complianceChecker = require("./utils/compliance-checker.service");
 
 const update_me = require("./routes/update-me.routes");
+const autoClockOutService = require("./services/auto-clockout.service");
+const { syncBiometricLogs } = require("./services/biometric-sync.service");
 
 const app = express();
 app.set('trust proxy', true);
@@ -90,6 +93,11 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4200')
 
 console.log("🌐 Allowed CORS origins:", allowedOrigins);
 console.log("✅ Finance Master Configuration Engine integrated"); // Integration confirmation
+
+const compression = require("compression");
+
+// Compression middleware (Gzip / Brotli) - reduces bundle transfer sizes significantly
+app.use(compression());
 
 // Middleware
 app.use(bodyParser.json());
@@ -114,23 +122,21 @@ app.use(
 
 // Serve static files from public/www/browser folder (where Angular build outputs)
 // IMPORTANT: This must come BEFORE the catch-all route
-app.use(
-  express.static(path.join(__dirname, "public", "www", "browser"), {
-    maxAge: process.env.NODE_ENV === "production" ? "1d" : "0", // No cache in dev, 1d in prod
-    etag: false, // Disable ETag for better caching
-    setHeaders: (res, path) => {
-      // ✅ Ensure CSS files load immediately (not deferred)
-      if (path.endsWith(".css")) {
-        res.setHeader("Content-Type", "text/css; charset=UTF-8");
-        res.setHeader("Cache-Control", "no-cache, must-revalidate");
-      }
-      // ✅ Ensure JS loads properly
-      if (path.endsWith(".js")) {
-        res.setHeader("Content-Type", "application/javascript; charset=UTF-8");
-      }
-    },
-  }),
-);
+app.use(express.static(path.join(__dirname, 'public', 'www', 'browser'), {
+    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+    etag: true,
+    setHeaders: (res, filePath) => {
+        // Hashed bundle files can be cached permanently (immutable)
+        if (filePath.match(/\.[a-f0-9]{8,}\.(js|css)$/) || filePath.match(/chunk-[A-Za-z0-9_-]+\.js$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        } else if (filePath.endsWith('.html')) {
+            // HTML must not be cached aggressively to pick up new chunk hashes on deployment
+            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
+        } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)) {
+            res.setHeader('Cache-Control', 'public, max-age=86400');
+        }
+    }
+}));
 
 // Serve uploaded files (profile images, documents, etc.)
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -207,35 +213,37 @@ app.get('/api/diagnostics', (req, res) => {
 /* ============ DATABASE INITIALIZATION ============ */
 
 async function initializeDatabase() {
-  const pool = mysql.createPool({
-    host: "localhost",
-    user: "root",
-    password: "root",
-    waitForConnections: true,
-    connectionLimit: 60,
-    queueLimit: 0,
-  });
+    const pool = mysql.createPool({
+        host: "localhost",
+        user: "root",
+        password: "root",
+        waitForConnections: true,
+        connectionLimit: 1500,
+        queueLimit: 100
+    });
 
   const conn = await pool.getConnection();
 
-  try {
-    const schemaPath = path.join(__dirname, "schema.sql");
+    try {
+        const schemaPath = path.join(__dirname, 'schema.sql');
 
-    if (!fs.existsSync(schemaPath)) {
-      console.warn(
-        "⚠️ schema.sql not found, skipping file-based initialization",
-      );
-      await conn.query(`CREATE DATABASE IF NOT EXISTS hrms_db_new`);
-      await conn.query(`USE hrms_db_new`);
-      console.log("✅ Database created/verified (minimal setup)");
-    } else {
-      console.log("📄 Reading schema from schema.sql...");
-      const schemaSQL = fs.readFileSync(schemaPath, "utf8");
+        const targetDb = process.env.DB_NAME || 'hrms_db_new';
+        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
+        await conn.query(`USE \`${targetDb}\``);
 
-      await conn.query(`CREATE DATABASE IF NOT EXISTS hrms_db_new`);
-      console.log("✅ Database hrms_db_new created/verified");
-      await conn.query(`USE hrms_db_new`);
-      console.log("✅ Using database hrms_db_new");
+        // Check if database tables already exist to avoid re-running all 150+ SQL statements on every restart
+        const [existingTables] = await conn.query("SHOW TABLES LIKE 'users'");
+        const isDbInitialized = existingTables && existingTables.length > 0;
+
+        if (!fs.existsSync(schemaPath)) {
+            console.warn('⚠️ schema.sql not found, skipping file-based initialization');
+            console.log(`✅ Database ${targetDb} verified (minimal setup)`);
+        } else if (isDbInitialized && process.env.FORCE_DB_INIT !== 'true') {
+            console.log(`✅ Database ${targetDb} schema already initialized. Skipping full schema.sql execution.`);
+        } else {
+            console.log('📄 Reading schema from schema.sql...');
+            const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
+            console.log(`✅ Using database ${targetDb}`);
 
       const sqlWithoutComments = schemaSQL
         .split("\n")
@@ -295,7 +303,7 @@ async function initializeDatabase() {
             console.log("📋 Checking employees table columns for phone fields...");
             const [columns] = await conn.query('DESCRIBE employees');
             const columnNames = columns.map(col => col.Field);
-            
+
             const columnsToAdd = [
                 { name: 'mobile_number', type: 'VARCHAR(20) NULL' },
                 { name: 'residence_number', type: 'VARCHAR(20) NULL' },
@@ -453,6 +461,68 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not verify timesheets table columns:", tsColErr.message);
         }
 
+        // Ensure company_branding table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS company_branding (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    company_name VARCHAR(255) NOT NULL DEFAULT 'Tech Tammina',
+                    legal_name VARCHAR(255) NULL,
+                    tagline VARCHAR(255) NULL,
+                    website VARCHAR(255) NULL,
+                    email VARCHAR(255) NULL,
+                    phone VARCHAR(50) NULL,
+                    tax_id VARCHAR(100) NULL,
+                    registration_number VARCHAR(100) NULL,
+                    logo_url VARCHAR(500) NULL,
+                    favicon_url VARCHAR(500) NULL,
+                    primary_color VARCHAR(50) DEFAULT '#2563eb',
+                    secondary_color VARCHAR(50) DEFAULT '#1e40af',
+                    about_us TEXT NULL,
+                    mission TEXT NULL,
+                    vision TEXT NULL,
+                    core_values TEXT NULL,
+                    linkedin_url VARCHAR(255) NULL,
+                    twitter_url VARCHAR(255) NULL,
+                    facebook_url VARCHAR(255) NULL,
+                    instagram_url VARCHAR(255) NULL,
+                    youtube_url VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            `);
+            console.log("  ✓ Verified/Created table: company_branding");
+        } catch (brandErr) {
+            console.warn("⚠️ Warning: could not check/create company_branding table:", brandErr.message);
+        }
+
+        // Ensure locations table has detailed address columns
+        try {
+            const [locCols] = await conn.query("DESCRIBE locations");
+            const locColNames = locCols.map(c => c.Field);
+            const locColumnsToAdd = [
+                { name: 'address_line1', type: 'VARCHAR(255) NULL' },
+                { name: 'address_line2', type: 'VARCHAR(255) NULL' },
+                { name: 'city', type: 'VARCHAR(100) NULL' },
+                { name: 'state', type: 'VARCHAR(100) NULL' },
+                { name: 'postal_code', type: 'VARCHAR(50) NULL' },
+                { name: 'phone_number', type: 'VARCHAR(50) NULL' },
+                { name: 'email', type: 'VARCHAR(255) NULL' },
+                { name: 'timezone', type: 'VARCHAR(100) NULL' },
+                { name: 'is_headquarters', type: 'TINYINT(1) DEFAULT 0' }
+            ];
+
+            for (const col of locColumnsToAdd) {
+                if (!locColNames.includes(col.name)) {
+                    console.log(`   ⚡ Adding missing column "${col.name}" to locations table...`);
+                    await conn.query(`ALTER TABLE locations ADD COLUMN ${col.name} ${col.type}`);
+                }
+            }
+            console.log("  ✓ Verified/Updated table columns: locations");
+        } catch (locErr) {
+            console.warn("⚠️ Warning: could not check/update locations address columns:", locErr.message);
+        }
+
     } catch (error) {
         console.error("❌ Database initialization error:", error.message);
         throw error;
@@ -581,6 +651,9 @@ app.use("/api/timesheet", timesheetRoutes); // Also mount on singular for compat
 // Compliance & Enforcement Routes
 app.use("/api/compliance", complianceRoutes);
 
+// Company Branding & Locations Routes
+app.use("/api/company-branding", brandingRoutes);
+
 // Announcement Routes
 app.use("/api/announcements", announcementRoutes);
 
@@ -636,6 +709,9 @@ app.use("/api/v1", payrollTaxV1Routes);
 
 // Taxation Workflow Compatibility Routes (non-v1 paths)
 app.use("/api", taxationWorkflowRoutes);
+
+// Dedicated Biometric Attendance Routes
+app.use("/api/biometric-attendance", biometricAttendanceRoutes);
 
 /* ============ SWAGGER API DOCUMENTATION ============ */
 
@@ -731,8 +807,34 @@ app.get("/api/health", (req, res) => {
     timesheetNotificationService.start();
     console.log("✅ Timesheet notification service started");
 
-    // Start compliance checker service
-    complianceChecker.start();
+        // Start compliance checker service
+        complianceChecker.start();
+
+        // Start automatic clock-out background service
+        autoClockOutService.start();
+
+        // Start automatic periodic biometric synchronization background service
+        if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
+            const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
+            console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
+            setTimeout(() => {
+                syncBiometricLogs({ batchSize: 2000, syncAll: true })
+                    .then(res => {
+                        if (res && res.success && res.rowsRead > 0) {
+                            console.log(`✅ [Biometric Sync] Startup sync completed: ${res.rowsRead} rows read, ${res.rowsInserted} inserted. Watermark: ${res.watermarkAfter}`);
+                        }
+                    })
+                    .catch(e => console.warn('⚠️ [Biometric Sync] Startup sync warning:', e.message));
+            }, 3000);
+
+            setInterval(async () => {
+                try {
+                    await syncBiometricLogs({ batchSize: 2000, syncAll: true });
+                } catch (e) {
+                    console.warn('⚠️ [Biometric Sync] Background interval error:', e.message);
+                }
+            }, biometricIntervalSec * 1000);
+        }
 
     app.listen(PORT, () => {
       console.log(`\n╔══════════════════════════════════════════════╗`);

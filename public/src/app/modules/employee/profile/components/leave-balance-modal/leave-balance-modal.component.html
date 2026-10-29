@@ -1,0 +1,152 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="leave-modal-toolbar">
+    <div class="header-content-wrapper">
+      <div class="employee-header-info">
+        <div class="avatar-ring">
+          <img [src]="profileImageUrl || 'assets/user.png'" alt="Employee" class="emp-avatar" />
+        </div>
+        <div class="emp-text-details">
+          <div class="title-row">
+            <h2>{{ employeeName }}</h2>
+            <span class="emp-id-badge" *ngIf="currentEmployee?.EmployeeNumber">
+              #{{ currentEmployee?.EmployeeNumber }}
+            </span>
+          </div>
+          <p class="designation-text">
+            {{ currentEmployee?.designation_name || currentEmployee?.Designation || 'Employee' }}
+            <span class="dept-text" *ngIf="currentEmployee?.department_name"> &bull; {{ currentEmployee?.department_name }}</span>
+          </p>
+        </div>
+      </div>
+
+      <ion-buttons slot="end" class="modal-close-btn-group">
+        <ion-button (click)="dismiss()" fill="clear" class="close-btn" aria-label="Close modal">
+          <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="leave-modal-content">
+  <div class="balances-section">
+    <!-- Section Header matching leaves.page.html -->
+    <div class="section-header">
+      <div class="header-title-group">
+        <h2>Leave Balances</h2>
+      </div>
+
+      <!-- Yearly Leave Cycle Selector Dropdown (Exact match with leaves.page.html) -->
+      <div class="year-selector-wrapper">
+        <div class="custom-year-dropdown" id="modal-year-select-trigger">
+          <span class="year-label">{{ getCycleLabelForYear(currentYear, planStartMonth) }}</span>
+        </div>
+
+        <ion-popover trigger="modal-year-select-trigger" class="year-select-popover" [dismissOnSelect]="true">
+          <ng-template>
+            <div class="year-options-list">
+              <button class="year-option-item" *ngFor="let y of availableYears" [class.selected]="y === currentYear"
+                (click)="onYearChange(y)">
+                <span>{{ getCycleLabelForYear(y, planStartMonth) }}</span>
+              </button>
+            </div>
+          </ng-template>
+        </ion-popover>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-grid" *ngIf="isLoading">
+      <div class="skeleton-card" *ngFor="let i of [1,2,3,4,5,6]">
+        <ion-skeleton-text [animated]="true" style="width: 50%; height: 20px; border-radius: 6px; margin: 0 auto 16px;"></ion-skeleton-text>
+        <ion-skeleton-text [animated]="true" style="width: 88px; height: 88px; border-radius: 50%; margin: 0 auto 16px;"></ion-skeleton-text>
+        <ion-skeleton-text [animated]="true" style="width: 40%; height: 28px; border-radius: 6px; margin: 0 auto 12px;"></ion-skeleton-text>
+        <ion-skeleton-text [animated]="true" style="width: 100%; height: 80px; border-radius: 10px; margin-top: 16px;"></ion-skeleton-text>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div class="error-banner" *ngIf="!isLoading && errorMessage">
+      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
+      <div class="error-details">
+        <h4>Unable to load balances</h4>
+        <p>{{ errorMessage }}</p>
+      </div>
+      <ion-button fill="outline" size="small" (click)="loadLeaveBalance()">
+        <ion-icon name="refresh-outline" slot="start"></ion-icon>
+        Retry
+      </ion-button>
+    </div>
+
+    <!-- Empty State -->
+    <div class="empty-state-box" *ngIf="!isLoading && !errorMessage && leaveCards.length === 0">
+      <div class="empty-icon-circle">
+        <ion-icon name="calendar-clear-outline"></ion-icon>
+      </div>
+      <h4>No Leave Balances Configured</h4>
+      <p>There are no leave allocations found for {{ employeeName }} in the selected leave cycle ({{ currentYear }}).</p>
+    </div>
+
+    <!-- Leave Balances Grid matching leaves.page.html -->
+    <div class="balances-grid" *ngIf="!isLoading && !errorMessage && leaveCards.length > 0">
+      <div class="leave-card" *ngFor="let leave of leaveCards; let i = index"
+        [ngClass]="getLeaveTypeClass(leave.title)">
+        <h3 class="card-title">{{ leave.title }}</h3>
+
+        <div class="icon-container">
+          <div class="icon-background" [style.backgroundColor]="leave.bg_color || ''"
+            [style.borderColor]="leave.bg_color || ''" [class.has-custom-bg]="!!leave.bg_color">
+            <img *ngIf="leave.icon_path && !leave.iconLoadError" [src]="getIconUrl(leave.icon_path)" (error)="leave.iconLoadError = true" class="uploaded-icon" alt="icon" />
+            <ion-icon *ngIf="!leave.icon_path || leave.iconLoadError" [name]="getLeaveIcon(leave.title)"></ion-icon>
+          </div>
+        </div>
+
+        <div class="days-display">
+          <span class="available">{{ leave.isLOP ? leave.used : leave.available }}</span>
+          <span class="separator" *ngIf="!leave.isLOP"> / </span>
+          <span class="total" *ngIf="!leave.isLOP">{{ leave.allocated_days }}</span>
+          <img *ngIf="leave.isLOP" src="assets/unpaidleaves.png" class="unpaid-infinity-icon" alt="∞" />
+        </div>
+
+        <p class="label">{{ leave.isLOP ? 'days taken' : 'days available' }}</p>
+
+        <div class="consumed-badge">
+          <span class="consumed-label">Consumed: </span>
+          <span class="consumed-value">{{ leave.used }} {{ leave.used === 1 ? 'day' : 'days' }}</span>
+        </div>
+
+        <!-- Structured Table Breakdown (Image 2) -->
+        <div class="leave-details-table">
+          <div class="table-row top-row">
+            <div class="table-cell left-cell">
+              <span class="cell-label">AVAILABLE</span>
+              <span class="cell-value avail-text">{{ leave.isLOP ? '0 days' : leave.available + (leave.available === 1 ? ' day' : ' days') }}</span>
+            </div>
+            <div class="table-cell right-cell">
+              <span class="cell-label">CONSUMED</span>
+              <span class="cell-value">{{ leave.used + (leave.used === 1 ? ' day' : ' days') }}</span>
+            </div>
+          </div>
+          <div class="table-row bottom-row">
+            <div class="table-cell" [class.left-cell]="leave.isCasual" [class.full-cell]="!leave.isCasual">
+              <span class="cell-label">ANNUAL QUOTA</span>
+              <span class="cell-value">{{ leave.isLOP ? 'Unlimited' : leave.allocated_days + (leave.allocated_days === 1 ? ' day' : ' days') }}</span>
+            </div>
+            <div class="table-cell right-cell" *ngIf="leave.isCasual">
+              <span class="cell-label">ACCRUED SO FAR</span>
+              <span class="cell-value">{{ leave.accrued_so_far }} {{ leave.accrued_so_far === 1 ? 'day' : 'days' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</ion-content>
+
+<ion-footer class="ion-no-border leave-modal-footer">
+  <div class="footer-btn-container">
+    <ion-button expand="block" (click)="dismiss()" class="close-done-btn">
+      CLOSE
+    </ion-button>
+  </div>
+</ion-footer>

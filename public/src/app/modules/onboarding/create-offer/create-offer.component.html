@@ -100,10 +100,11 @@
           </div>
 
           <div class="candidate-info">
-            <p><strong>Email ID:</strong> {{candidate?.personalDetails?.email}}</p>
-            <p><strong>Phone Number:</strong> {{candidate?.personalDetails?.PhoneNumber}}</p>
-            <p><strong>Joining Date:</strong> {{candidate?.offerDetails?.JoiningDate}}</p>
-            <p><strong>Source:</strong> Direct Offer</p>
+            <p><strong>Email ID:</strong> {{candidate?.personalDetails?.email || candidate?.email}}</p>
+            <p><strong>Phone Number:</strong> {{candidate?.personalDetails?.PhoneNumber || candidate?.phone}}</p>
+            <p><strong>Offered CTC:</strong> ₹{{ candidate?.jobDetailsForm?.offeredCTC || candidate?.offered_ctc || candidate?.package || 'N/A' }}</p>
+            <p><strong>Joining Date:</strong> {{candidate?.offerDetails?.JoiningDate || candidate?.offerDetails?.DOJ || candidate?.joining_date || 'TBD'}}</p>
+            <p><strong>Source:</strong> {{candidate?.jobDetailsForm?.recruitmentSource || 'Direct Offer'}}</p>
           </div>
         </ion-card-content>
       </ion-card>

@@ -1,0 +1,1098 @@
+
+
+
+ENTERPRISE SYSTEM ARCHITECTURE & USAGE SPECIFICATION
+
+Human Resource Management System (MasterHRMS)
+
+Complete Reference Manual: Technologies & Versions, Functional Application Usage, and Role-Based Access Control (RBAC) Matrix
+
+Application Name
+
+Tech Tammina MasterHRMS (Enterprise HRMS)
+
+System Architecture
+
+Decoupled SPA / Hybrid Mobile (Angular 20 + Ionic 8) & Node.js/Express 5 REST API
+
+Database Engine
+
+MySQL 8.0 (hrms_db_new) & MS SQL Server (eTimeTrack Biometric Sync)
+
+Target Organization
+
+Tech Tammina (Tammina Hub)
+
+Document Version & Date
+
+Version 2.5 (Enterprise Baseline) — October 2026
+
+Target Stakeholders
+
+Executive Leadership, Product Managers, Technical Leads, HR & Finance Teams, QA
+
+
+1. Executive Overview & System Architecture
+The Tech Tammina Human Resource Management System (MasterHRMS) is a centralized, enterprise-grade digital platform designed to automate and streamline the complete employee lifecycle. The system replaces fragmented legacy tools by integrating Recruitment & Applicant Tracking (ATS), Pre-onboarding, Core HR Information Management, Automated Biometric Time & Attendance Tracking, Project-based Timesheet Compliance, Comprehensive Leave Administration, Statutory & Income Tax Payroll Execution, and Separation/Exit Management into a unified, secure web and mobile experience.
+
+📌 Architectural VisionMasterHRMS is built on a modern decoupled architecture. The frontend is built with Angular 20 and Ionic 8 for both responsive web browsers and native mobile deployment (iOS and Android via Capacitor). The backend is driven by an asynchronous, high-throughput Node.js / Express 5 API layer connecting to a primary MySQL database and an external MS SQL Server for automatic hardware biometric synchronization.
+
+
+
+1.1 Core Architectural Principles
+
+
+Decoupled Tiered Design: The frontend application operates independently as a Single Page Application (SPA), communicating with the backend exclusively via RESTful JSON APIs secured by JWT Bearer tokens.
+
+
+Dual-Database Connectivity: The primary transactional HR data resides in MySQL (`hrms_db_new`), while an external Microsoft SQL Server (`BiometricSyncDB.dbo.DeviceLogs`) is connected asynchronously via dedicated background workers for biometric machine synchronization.
+
+
+Hybrid Mobile Readiness: Built using Ionic Framework 8 and Capacitor, allowing the application to compile into native mobile apps (Android APK/AAB and iOS IPA) with device hardware access (biometrics, camera, push notifications) from the single shared codebase.
+
+
+Multi-Tier Role Security: Security is enforced at three distinct layers: JWT token verification, endpoint route middleware authorization, and frontend Angular route guards with role-conditional UI rendering.
+
+
+Asynchronous Background Workers: Heavy automated tasks—including automatic clock-out processing, periodic biometric punch ingestion, compliance reminder dispatching, and notification distribution—run as dedicated background jobs without impacting HTTP request response times.
+
+2. Technology Stack & Detailed Versioning
+The application utilizes modern, production-grade frameworks and libraries across the frontend, backend, database, and infrastructure layers. Below is an exhaustive inventory of the technologies, libraries, and their exact active versions used in the codebase.
+
+2.1 Frontend Technologies (User Interface & Mobile)
+
+Technology / Library
+
+Active Version
+
+Category
+
+Functional Purpose in Application
+
+Angular Core & Framework
+
+^20.0.0
+
+Core Framework
+
+Core SPA framework, dependency injection, routing, change detection, and reactive forms
+
+Ionic Framework (@ionic/angular)
+
+^8.0.0
+
+Mobile / UI Components
+
+Cross-platform enterprise UI components (ion-menu, ion-modal, ion-toast, ion-grid)
+
+Capacitor Core & CLI
+
+^7.4.2 / ^8.4.1
+
+Mobile Native Runtime
+
+Native runtime wrapper converting Angular/Ionic into Android & iOS mobile applications
+
+TypeScript
+
+~5.8.0
+
+Language
+
+Strongly-typed programming language providing compile-time safety and IDE tooling
+
+RxJS
+
+~7.8.0
+
+Reactive Programming
+
+Observables and operators for handling asynchronous API data streams, state, and events
+
+Chart.js & ng2-charts
+
+^4.5.1 / ^8.0.0
+
+Data Visualization
+
+Interactive graphical charts for HR analytics, attendance breakdowns, and payroll trends
+
+Quill & ngx-quill
+
+^2.0.3 / ^28.0.2
+
+Rich Text Editor
+
+WYSIWYG editor for drafting company announcements, offer letter templates, and email content
+
+ExcelJS & XLSX
+
+^4.4.0 / ^0.18.5
+
+Spreadsheet Processing
+
+Exporting and parsing Excel reports (attendance registers, employee rosters, payroll sheets)
+
+PapaParse
+
+^5.5.3
+
+CSV Parser
+
+High-performance browser-side parsing and generation of CSV data files
+
+FileSaver.js
+
+^2.0.5
+
+Client File Storage
+
+Initiates direct browser file downloads for payslip PDFs, tax reports, and spreadsheets
+
+Moment.js
+
+^2.30.1
+
+Date / Time Library
+
+Robust timezone-aware date parsing, formatting, date arithmetic, and pay-period slicing
+
+Animate.css
+
+^4.1.1
+
+CSS Animation
+
+Smooth CSS3 animations for modals, notifications, alert banners, and page transitions
+
+libphonenumber-js
+
+^1.12.26
+
+Validation
+
+International mobile number formatting and validation across employee profiles and candidate entry
+
+HTML2Canvas
+
+^1.4.1
+
+Rendering / Capture
+
+Rasterizes DOM elements to canvas for rendering printable employee badges and payslips
+
+2.2 Backend Technologies (Server, API & Workers)
+
+Technology / Library
+
+Active Version
+
+Category
+
+Functional Purpose in Application
+
+Node.js Runtime
+
+v22.19.0 (LTS)
+
+Runtime Engine
+
+High-performance JavaScript runtime powering the server and background background workers
+
+Express.js
+
+^5.2.1
+
+Web / API Framework
+
+Modular REST API routing, request validation, middleware pipeline, and static SPA serving
+
+MySQL2 (mysql2/promise)
+
+^3.15.3
+
+Database Driver
+
+High-capacity connection pooling (2500 conns), prepared statements, and async MySQL queries
+
+MS SQL Driver (mssql)
+
+^12.7.0
+
+External DB Driver
+
+Direct connection pool to eTimeTrack MS SQL database for biometric punch synchronization
+
+JSON Web Token (jsonwebtoken)
+
+^9.0.3
+
+Authentication
+
+Issues signed HS256 JWT access tokens (8h validity) and refresh tokens (7d validity)
+
+BcryptJS
+
+^3.0.3
+
+Password Security
+
+Cryptographic one-way hashing (salt rounds: 10) for securing employee and admin passwords
+
+Node-Cron
+
+^3.0.3
+
+Task Scheduler
+
+Cron-style recurring background scheduler for auto-sync, compliance alerts, and auto-clockout
+
+Nodemailer
+
+^8.0.3
+
+Email Service
+
+SMTP email distribution for offer letters, OTP verifications, approval alerts, and payslips
+
+Multer
+
+^2.0.2
+
+File Uploads
+
+Multipart form-data processor handling employee document uploads, resumes, and branding logos
+
+Tesseract.js
+
+^7.0.0
+
+OCR Engine
+
+Pure JavaScript Optical Character Recognition extracting text from candidate IDs and resumes
+
+PDF-Parse
+
+^2.4.5
+
+Document Parsing
+
+Extracts structured text from uploaded PDF resumes and candidate verification forms
+
+Joi & Validator
+
+^18.0.2 / ^13.15.26
+
+Input Validation
+
+Strict payload schema validation, input sanitization, and protection against injection attacks
+
+Swagger UI Express
+
+^5.0.1
+
+API Documentation
+
+Interactive Swagger/OpenAPI documentation dashboard served live at `/api-docs`
+
+Winston
+
+^3.19.0
+
+Logging Framework
+
+Structured application logging with rotating file transports for error tracking and audit logs
+
+Adm-Zip
+
+^0.6.0
+
+Archive Processing
+
+Compresses batches of payslips, export files, and candidate document archives into ZIP files
+
+2.3 Database Systems & Infrastructure Architecture
+
+Infrastructure Component
+
+Specification / Engine
+
+Configuration & Purpose in HRMS
+
+Primary Database Engine
+
+MySQL 8.x / MariaDB (`hrms_db_new`)
+
+Stores 60+ relational tables: users, employees, payroll, leaves, attendance, and separation
+
+Biometric Source Database
+
+Microsoft SQL Server (`BiometricSyncDB`)
+
+Reads raw device punch records from `dbo.DeviceLogs` populated by physical biometric machines
+
+Database Connection Pool
+
+mysql2 Promise Pool (Max 2500 Connections)
+
+Handles concurrent high-load API spikes with leak detection, keep-alive, and auto-rollback
+
+Timezone Standard
+
+Asia/Kolkata (IST: UTC +05:30)
+
+Standardized database connection timezone and date formatting across all logs and punches
+
+Application Network Ports
+
+Port 4201 (Production API) / Port 4203 (Frontend Dev)
+
+Configurable via environment variables (.env) with reverse proxy routing
+
+Static SPA & Upload Hosting
+
+Express Static Hosting (`public/www/browser` & `/uploads`)
+
+Serves pre-compiled Angular static assets with SPA regex fallback and document storage
+
+
+3. Application Usage & Functional Modules
+MasterHRMS is partitioned into 16 distinct, tightly integrated functional modules. Each module addresses a specific phase of the human resource and workforce operations lifecycle, offering automated business logic, custom approval workflows, and self-service capabilities.
+
+3.1 Module 1: Authentication & Identity Management
+
+
+Secure JWT Authentication: Users log in with their email/username and password. Upon successful validation, the server generates a cryptographically signed JWT access token containing the user ID, role, and expiration timestamp.
+
+
+Brute-Force Protection & Rate Limiting: Tracks failed login attempts with progressive throttling (maximum 5 attempts per 15-minute window) to prevent automated credential attacks.
+
+
+Candidate OTP Authentication: External job applicants accessing the Candidate Portal authenticate securely using an automated One-Time Password (OTP) delivered to their verified email, bypassing regular password management.
+
+
+Password Security Policy: Enforces configurable complexity rules: minimum 8 characters, requiring uppercase, lowercase, numbers, and special symbols.
+
+3.2 Module 2: Organization Master Setup (Administration)
+
+
+Organizational Structure Hierarchy: Defines the multi-level enterprise architecture: Legal Entities, Business Units, Cost Centers, Departments, and Sub-Departments.
+
+
+Job Catalog & Grading: Manages Designations, Employee Bands (e.g., Band 1 to Band 5), and Pay Grades linked to standardized salary structures.
+
+
+Multi-Location Management: Configures physical office locations, work sites, site-specific holiday calendars, and geolocation coordinates.
+
+
+Company Branding Engine: Customizes company legal names, tax IDs, corporate logos, address details, and branding themes used dynamically across generated payslips, offer letters, and email templates.
+
+3.3 Module 3: Employee Information Management (EIM) & Profile
+
+
+Comprehensive Employee Dossier: Maintains complete employee profiles: personal details, blood group, emergency contacts, permanent/current addresses, bank accounts, PAN, Aadhar, and PF/UAN numbers.
+
+
+Dynamic Organizational Tree (/org-tree): Visualizes the interactive reporting hierarchy from Executive Management down to individual contributors, enabling clear chain-of-command visibility.
+
+
+My Team Dashboard (/MyTeam): Provides team leaders and managers with immediate visibility into their direct reports' contact details, daily attendance statuses, active leaves, and work assignments.
+
+
+Employee Document Vault (/documents): Categorized document repository storing official records: identity proofs, educational degree certificates, previous experience letters, appointment letters, and NDAs.
+
+3.4 Module 4: Time & Attendance Management
+
+
+Web Clock-In / Clock-Out: Allows employees to punch attendance directly through the web portal or mobile app with exact timestamp and client IP logging.
+
+
+Multi-Punch Support: Supports unlimited punches per day (clock-in, lunch break, tea break, clock-out) with automated aggregation into first punch, last punch, total work hours, and effective break hours.
+
+
+Time Tracking Policy Wizard: Configurable enterprise rules: shift timings, mandatory core working hours, grace periods (e.g., 15 minutes), late arrival penalties, and half-day thresholds.
+
+
+Automated Clock-Out Background Service: Detects employees who forgot to clock out at the end of the shift and automatically marks an auto clock-out with customizable administrative flags.
+
+
+Compensatory Off (Comp-Off) Workflow: Employees who work on designated holidays or weekly off days can submit Comp-Off credit requests for manager and HR approval.
+
+
+Attendance Regularization Workflow: Allows employees to request attendance corrections for missing punches or official outdoor work with mandatory justifications.
+
+3.5 Module 5: Biometric Hardware Machine Integration
+
+
+Direct eTimeTrack MS SQL Integration: Connects directly to the physical biometric machine database (`BiometricSyncDB.dbo.DeviceLogs`) via dedicated background workers.
+
+
+Automatic Continuous Synchronization: Runs an automated synchronization routine every 60 seconds, streaming new hardware punch logs into the MySQL database in near real-time.
+
+
+Employee Biometric Mapping: Maintains a cross-reference map linking physical device user IDs (card/fingerprint enroll numbers) to official employee records.
+
+
+Raw Log Immutability & Deduplication: Preserves immutable raw logs (`biometric_attendance_raw`) while safely deduplicating redundant machine readings before populating daily attendance tables.
+
+3.6 Module 6: Leave Management System (LMS)
+
+
+Flexible Leave Plans & Types: Supports diverse leave types: Earned Leave (EL), Casual Leave (CL), Sick Leave (SL), Maternity Leave, Paternity Leave, Bereavement Leave, Compensatory Off, and Work From Home (WFH).
+
+
+Yearly Leave Balance Allocations: Automates annual quota credits, monthly accruals, maximum carry-forward rules, probation-period restrictions, and leave encashment limits.
+
+
+Interactive Leave Application (/leaves): Employees can select leave types, specify date ranges (full-day or half-day), attach supporting medical certificates, and view real-time balance deductions.
+
+
+Multi-Tier Approval Hierarchy: Leave requests are routed to the employee's direct reporting manager. Upon manager recommendation, final approval or notification is processed by HR.
+
+3.7 Module 7: Timesheet & Project Work Tracking
+
+
+Project & Task Assignment: Enables administrators and project managers to create client projects, define tasks, and assign team members with specific project shift policies.
+
+
+Weekly Timesheet Grid (/workTrack): Employees record daily project hours, task descriptions, and work updates in an intuitive weekly spreadsheet view.
+
+
+Client Timesheet Upload: Supports uploading client-approved timecards or sign-off PDFs alongside internal timesheets for third-party billing reconciliation.
+
+
+Multi-Level Timesheet Verification: Project managers review submitted timesheets, verify hours against client expectations, and approve or reject with mandatory audit comments.
+
+
+Automated Timesheet Compliance Engine: Monitors weekly submission deadlines and dispatches automated email reminders and in-app alerts to delinquent employees and approvers.
+
+3.8 Module 8: Recruitment & Applicant Tracking System (ATS)
+
+
+Candidate Pipeline Management (/candidates): Tracks candidates across recruiting stages: Sourced, Screening, Technical Interview, HR Round, Offer Extended, Offer Accepted, and Rejected.
+
+
+Automated Resume Text & OCR Extraction: Leverages Tesseract OCR and PDF-Parse to extract candidate resumes, skills, contact information, and educational backgrounds automatically.
+
+
+Dynamic Offer Letter Generator: Builds customizable offer letters using pre-configured company templates, dynamically injecting candidate CTC breakdowns, designations, joining dates, and reporting locations.
+
+
+Digital Offer Release & Tracking: Dispatches offer letters with secure preview links directly to candidates, tracking acceptance, decline reasons, and counter-proposals.
+
+3.9 Module 9: Pre-Onboarding & Candidate Self-Service Portal
+
+
+Dedicated Candidate Portal (/candidate-portal/:id): External candidates log in using OTP authentication to access their personalized pre-boarding portal before their official joining date.
+
+
+Pre-Join Document Submission: Candidates upload digital copies of their PAN, Aadhar, educational degrees, previous employment relieving letters, and bank passbooks.
+
+
+Onboarding Buddy & Asset Allocation: HR pre-assigns a senior colleague as an Onboarding Buddy and provisions IT hardware assets (laptops, monitors, access cards) prior to Day 1.
+
+
+Interactive Pre-Joining Checklist: Guides candidates through corporate culture videos, policy acknowledgments, and emergency contact declarations.
+
+3.10 Module 10: Seamless Onboarding & Induction
+
+
+One-Click Employee Conversion: Upon verified arrival on Day 1, HR converts the accepted candidate into an active employee record with an auto-generated Employee ID.
+
+
+Automated User Account Provisioning: Automatically provisions the new employee's portal login credentials, assigns the default 'employee' role, and triggers a welcome email containing first-time login guidance.
+
+
+Induction Workflow Tracking: Tracks Day-1 induction milestones, statutory PF/ESI enrollment, and company policy sign-offs.
+
+3.11 Module 11: Separation & Exit Management
+
+
+Self-Service Resignation Submission: Employees initiate formal resignations via `/administration/separation`, selecting documented resignation reasons and proposed last working days.
+
+
+Notice Period Policy Enforcement: Calculates required contractual notice periods based on department policies, tracking leaves allowed during notice periods and notice buy-out options.
+
+
+Manager & HR Multi-Stage Decisions: Reporting managers can recommend: Approve, Retain (with retention notes), or Send Back. HR subsequently processes the final approval or return.
+
+
+Cross-Department No-Dues Clearance: Coordinates asset return and clearance approvals across IT (hardware return), Admin (ID card/keys), Finance (travel advance recovery), and HR.
+
+
+Full & Final (FnF) Settlement Preparation: Compiles unbilled timesheets, encashable leave balances, notice period shortfalls, and gratuity calculations for final payroll settlement.
+
+3.12 Module 12: Payroll & Compensation Engine (Finance)
+
+
+Salary Master Components: Defines dynamic earnings components (Basic, House Rent Allowance, Special Allowance, Conveyance, Medical, Performance Bonus) and deduction components (PF, ESI, Professional Tax, TDS).
+
+
+Salary Structure Templates: Standardizes CTC salary structures categorized by employee band, designation, and location.
+
+
+Monthly Payroll Run Execution: Finance admins execute monthly payroll cycles. The system freezes attendance snapshots, incorporates paid leaves, adjusts unpaid absences (LOP), computes statutory deductions, and calculates net pay.
+
+
+Payroll Period Locking & Audit Trail: Once reviewed, payroll periods are locked against further modification, recording an immutable audit trail of approvers, calculation logs, and adjustments.
+
+
+Payslip Generation & Distribution: Generates branded, downloadable PDF payslips accessible via Employee Self-Service (`/MyPay`) and triggers batch payslip email delivery.
+
+
+Bank Payout Batch Export: Exports formatted bank payout transfer files (NEFT/RTGS batch formats) for rapid corporate banking disbursement.
+
+3.13 Module 13: Income Tax & Statutory Compliance
+
+
+Dual Tax Regime Selection: Employees declare their tax preference between the Old Tax Regime (with itemized deductions) and the New Tax Regime (simplified tax slabs).
+
+
+Investment Declarations & Proof Submission: Employees declare and upload proof documents for Section 80C (PPF, ELSS, Life Insurance), Section 80D (Health Insurance), Home Loan Interest (Section 24), and HRA rent receipts.
+
+
+Admin Proof Verification Workflow: Finance administrators verify uploaded investment proofs, approve or reject claimed amounts with notes, and recalculate monthly Tax Deducted at Source (TDS).
+
+
+Statutory Rule Configuration: Centralized configuration for Provident Fund (PF: 12% employee + employer share), Employee State Insurance (ESI: 0.75% / 3.25%), and State-wise Professional Tax (PT) slab rules.
+
+3.14 Module 14: Unified Inbox & Approval Action Center
+
+
+Centralized Action Hub (/inbox): Unifies all actionable workflow requests into a single, intuitive interface for employees, managers, and HR administrators.
+
+
+Multi-Workflow Item Processing: Managers can review, approve, or reject Leave Applications, Timesheet Submissions, Attendance Regularization requests, and Resignation applications without navigating between different modules.
+
+
+Live Unread Badge Counts: Displays dynamic notification count badges in the main navigation menu, automatically syncing unread requests across devices.
+
+
+Comprehensive Filtering & Search: Filters approval cards by Request Type, Status (Pending, Approved, Rejected), Priority, and Specific Calendar Month.
+
+3.15 Module 15: Company Engagement & Internal Helpdesk
+
+
+Company Announcements (/administration/announcements): Broadcasts company-wide news, organizational changes, and policy updates with rich-text formatting and attachment downloads.
+
+
+Location-Specific Holiday Calendar: Displays active public and statutory holidays customized by office location.
+
+
+Birthday & Anniversary Celebrations: Highlights daily and upcoming colleague birthdays and work anniversaries on the Home dashboard with automated celebration greeting wishes.
+
+
+Employee Support Helpdesk (/support): Enables employees to raise support tickets for IT infrastructure, HR queries, or facilities issues, tracking resolution statuses and response times.
+
+3.16 Module 16: Analytics, Reporting & Audit Logs
+
+
+Executive Dashboards (/Home): Provides visual cards and metrics on workforce strength, active projects, today's attendance percentages, pending approvals, and upcoming company events.
+
+
+Custom Enterprise Reports: Generates detailed analytical reports across Attendance Registers, Leave Balances, Monthly Timesheets, Headcount Attrition, and Salary Breakups.
+
+
+Export Formats (Excel & CSV): Allows single-click data export into formatted Microsoft Excel (.xlsx) workbooks and CSV files for offline analysis and auditing.
+
+
+Immutable System Audit Trail: Maintains detailed database change logs for sensitive operations, including user role modifications, salary structure edits, payroll payout approvals, and exit actions.
+
+
+4. Roles and Permissions Architecture (RBAC)
+MasterHRMS implements a strict Role-Based Access Control (RBAC) architecture designed to protect sensitive employee records, ensure financial segregation of duties, and provide streamlined self-service portals. The system defines five primary internal roles and one dedicated external persona.
+
+4.1 Role Profiles & Operational Boundaries
+
+1. Administrator (Admin)
+
+
+Primary Responsibility: Global system administration, technical configurations, infrastructure health, and organization-wide governance.
+
+
+Key Capabilities: Full access to all system modules; manages Organization Setup (Entities, Departments, Locations); creates user accounts and assigns roles; manages Company Branding and global settings; inspects API diagnostics, health endpoints, and audit logs.
+
+
+Operational Boundaries: Maintains overall platform integrity and system masters; typically delegates day-to-day hiring, leave approvals, and employee disputes to HR.
+
+2. Human Resources (HR)
+
+
+Primary Responsibility: Workforce lifecycle management, talent acquisition, policy governance, and employee relations.
+
+
+Key Capabilities: Manages Candidate recruitment pipeline and resume parsing; generates and extends Offer Letters; coordinates Pre-onboarding and executes Day-1 employee creation; manages Employee Directory, documents, and reporting structures; administers Leave Plans and yearly balance allocations; manages Holiday calendars and company announcements; handles Separation workflows and cross-department exit clearances.
+
+
+Operational Boundaries: Has unrestricted access to employee personal files and HR configurations, but does not execute core financial disbursements or tax slab modifications.
+
+3. Reporting Manager / Team Lead (Manager)
+
+
+Primary Responsibility: Operational supervision of direct reports, project execution, and frontline workforce productivity.
+
+
+Key Capabilities: Accesses the My Team dashboard (`/MyTeam`) to monitor direct reports; reviews and approves daily attendance regularizations and Comp-Off claims; verifies, approves, or rejects weekly project timesheets with audit comments; evaluates team leave requests; conducts initial resignation reviews (Approve, Retain with retention notes, or Send Back).
+
+
+Operational Boundaries: Access is strictly partitioned to direct and indirect reporting subordinates. Cannot access employee compensation data, system-level configurations, or employees outside their reporting hierarchy.
+
+4. Finance Administrator (Finance)
+
+
+Primary Responsibility: Payroll processing, compensation structures, income tax compliance, and statutory disbursements.
+
+
+Key Capabilities: Manages Salary Master Components, structure templates, and employee compensation contracts; executes monthly payroll runs and reviews attendance deduction snapshots; verifies employee income tax investment declarations and proof receipts; configures PF, ESI, and Professional Tax statutory rules; generates payslips and exports bank payout files; accesses financial reports and cost center analytics.
+
+
+Operational Boundaries: Has privileged access to financial, tax, and salary records; does not manage recruitment pipelines, job postings, or company IT configurations.
+
+5. Employee (Standard Employee / ESS)
+
+
+Primary Responsibility: Employee Self-Service (ESS), personal attendance logging, timesheet recording, and benefit tracking.
+
+
+Key Capabilities: Clocks in and out daily via web or mobile app; inspects personal attendance logs and requests attendance regularization; applies for leaves and monitors available balances; logs weekly project timesheets and uploads client timecards; views and downloads monthly payslips (`/MyPay`); submits Income Tax declarations and proof documents (`/MyTax`); views the interactive Organization Tree and company announcements; raises internal support tickets.
+
+
+Operational Boundaries: Access is strictly limited to the employee's own records. Cannot view other colleagues' salary, timesheets, personal documents, or administrative pages.
+
+6. External Candidate (Candidate Portal Persona)
+
+
+Primary Responsibility: Job offer evaluation and pre-joining document submission.
+
+
+Key Capabilities: Authenticates securely via email OTP (`/candidate-portal/login`); views digital offer letters, CTC compensation annexures, and company terms; accepts or declines job offers; uploads mandatory verification documents (PAN, Aadhar, degrees, experience certificates); completes pre-onboarding checklists prior to Day 1.
+
+
+Operational Boundaries: Strictly isolated to the Candidate Portal. Has zero access to internal HRMS pages, employee directories, payroll, or administrative features.
+
+4.2 Comprehensive Role-Based Access Control (RBAC) Matrix
+The following matrix summarizes the functional permissions across all system modules. Permissions are designated as: Full Control (CRUD), Read / Approve, Self-Service Only (Own Data), or No Access (-).
+
+Functional Module / Feature
+
+Admin
+
+HR
+
+Manager
+
+Finance
+
+Employee
+
+Candidate
+
+System Masters & Roles
+
+Full (CRUD)
+
+Read Only
+
+No Access
+
+No Access
+
+No Access
+
+No Access
+
+Company Branding & Locations
+
+Full (CRUD)
+
+Read / Edit
+
+No Access
+
+No Access
+
+No Access
+
+No Access
+
+Employee Directory & Profiles
+
+Full (CRUD)
+
+Full (CRUD)
+
+Team Only
+
+Read / Pay
+
+Self Only
+
+No Access
+
+Organizational Tree (/org-tree)
+
+Full Access
+
+Full Access
+
+Full Access
+
+Full Access
+
+Full Access
+
+No Access
+
+Candidate Pipeline & ATS
+
+Full Access
+
+Full Access
+
+Interview
+
+No Access
+
+No Access
+
+No Access
+
+Offer Letter Creation & Release
+
+Full Access
+
+Full Access
+
+No Access
+
+Read CTC
+
+No Access
+
+View Offer
+
+Candidate Portal & Document KYC
+
+Full Access
+
+Full Access
+
+No Access
+
+No Access
+
+No Access
+
+Submit Own
+
+Pre-Onboarding & Task Setup
+
+Full Access
+
+Full Access
+
+No Access
+
+No Access
+
+No Access
+
+Checklist
+
+Employee Clock-In / Clock-Out
+
+Full Access
+
+Full Access
+
+Team View
+
+Read Only
+
+Clock Own
+
+No Access
+
+Attendance Policies & Shifts
+
+Full (CRUD)
+
+Full (CRUD)
+
+No Access
+
+Read Only
+
+No Access
+
+No Access
+
+Biometric Sync & Device Logs
+
+Full (CRUD)
+
+Read Only
+
+No Access
+
+No Access
+
+No Access
+
+No Access
+
+Comp-Off & Regularization
+
+Full Access
+
+Approve
+
+Approve Team
+
+No Access
+
+Submit Own
+
+No Access
+
+Leave Plans & Policy Rules
+
+Full (CRUD)
+
+Full (CRUD)
+
+No Access
+
+No Access
+
+No Access
+
+No Access
+
+Leave Requests & Approvals
+
+Full Access
+
+Approve All
+
+Approve Team
+
+Read Balances
+
+Submit Own
+
+No Access
+
+Timesheet Logging (/workTrack)
+
+Full Access
+
+Read Only
+
+Team View
+
+Read Only
+
+Log Own
+
+No Access
+
+Timesheet Verification & Approval
+
+Full Access
+
+Audit Only
+
+Approve Team
+
+Billing Read
+
+No Access
+
+No Access
+
+Salary Structure Templates
+
+Full (CRUD)
+
+Read Only
+
+No Access
+
+Full (CRUD)
+
+No Access
+
+No Access
+
+Payroll Execution & Payouts
+
+Full Access
+
+Read Summary
+
+No Access
+
+Full (CRUD)
+
+No Access
+
+No Access
+
+Payslips Access & Download
+
+Full Access
+
+Full Access
+
+No Access
+
+Full Access
+
+Self Only
+
+No Access
+
+Tax Declarations & Proof Audit
+
+Full Access
+
+Read Only
+
+No Access
+
+Full (CRUD)
+
+Submit Own
+
+No Access
+
+4.3 Multi-Tier Security Enforcement Mechanism
+
+
+Layer 1: JWT Verification & Blacklist Check: Every incoming HTTP request to protected endpoints is intercepted by `auth.js` middleware. The token signature is validated using the application secret, token expiration is confirmed, and user payload identity is attached to the request object.
+
+
+Layer 2: Endpoint Authorization Middleware: Sensitive API routes require specific role-guard middleware (`admin`, `hr`, `manager`, `finance`, or `roleAuth(['admin', 'hr', 'finance'])`). Requests failing role criteria are immediately rejected with HTTP 403 Forbidden.
+
+
+Layer 3: Frontend Angular Route Guards: The Angular router utilizes `AuthGuard` (redirects unauthenticated sessions to `/login`) and `RoleGuard` (validates `route.data['role']`). Unauthorized navigation attempts automatically redirect to `/administration` for administrators or `/Home` for regular users.
+
+
+Layer 4: UI Dynamic Menu & Template Filtering: The main navigation menu (`AppComponent.appPages`) dynamically filters visible navigation items and action buttons according to `routeGuardService.userRole`. Features inaccessible to the current user's role are omitted entirely from the DOM.
+
+
+5. Key Business Workflows & Data Flow Pipelines
+To illustrate how the technologies, modules, and roles interact during daily operations, the following section outlines the five fundamental end-to-end data workflows of the platform.
+
+5.1 Workflow 1: Daily Biometric & Attendance Processing Pipeline
+
+
+Step 1: Punch Registration: An employee places their finger or scans their RFID card at an on-premise biometric hardware terminal.
+
+
+Step 2: External DB Logging: The biometric terminal controller writes the punch timestamp, terminal ID, and enroll card number into the external MS SQL database (`BiometricSyncDB.dbo.DeviceLogs`).
+
+
+Step 3: Background Ingestion: The Node.js background sync worker (`biometric-sync.service.js`) polls MS SQL every 60 seconds, fetches incremental logs since the last synced Log ID, and saves raw punches into MySQL (`biometric_attendance_raw`).
+
+
+Step 4: Mapping & Aggregation: The service resolves the device enroll number against `biometric_employee_map` to identify the official Employee ID, calculating first in-punch, last out-punch, and net duration in `attendance` and `biometric_daily_attendance`.
+
+
+Step 5: Policy Application: At scheduled cutoff times, the Auto Clock-Out background service identifies incomplete shifts and flags missing logs in accordance with the organization's Time Tracking Policy.
+
+5.2 Workflow 2: Timesheet Submission & Approval Pipeline
+
+
+Step 1: Weekly Timesheet Logging: Employees log daily project task hours in the weekly spreadsheet grid (`/workTrack`), optionally attaching client-approved timecards.
+
+
+Step 2: Formal Submission: Upon week completion, the employee submits the timesheet, updating the status from 'draft' to 'submitted' and locking the grid against edits.
+
+
+Step 3: Inbox Notification Dispatch: The system dispatches an in-app actionable notification to the project manager's Unified Inbox (`/inbox`) and generates an automated email alert.
+
+
+Step 4: Manager Audit & Decision: The manager reviews project hours and client documents. The manager can approve the timesheet (status becomes 'approved') or reject it with mandatory rejection notes (status becomes 'rejected', reopening the timesheet for correction).
+
+5.3 Workflow 3: Recruitment, Offer & Candidate Onboarding Pipeline
+
+
+Step 1: Candidate Entry & Resume Parsing: HR creates candidate records and uploads PDF resumes, triggering Tesseract OCR and PDF-Parse to populate candidate skills and histories.
+
+
+Step 2: Offer Letter Generation: HR selects an offer letter template, enters the agreed CTC breakdown, and generates a branded offer letter with digital salary annexures.
+
+
+Step 3: Candidate Portal Notification: The candidate receives an email containing a secure link to the Candidate Portal (`/candidate-portal/login`) with an auto-generated OTP.
+
+
+Step 4: Candidate Digital Acceptance: The candidate authenticates, reviews offer terms, accepts the offer, and uploads KYC verification documents (PAN, Aadhar, degrees, previous pay slips).
+
+
+Step 5: Day-1 Employee Conversion: On joining day, HR verifies uploaded documents and converts the candidate into an active employee record, automatically generating login credentials.
+
+5.4 Workflow 4: Resignation & Separation Clearance Pipeline
+
+
+Step 1: Resignation Initiation: The employee submits an exit request via `/administration/separation`, documenting reasons and proposed last working days.
+
+
+Step 2: Notice Period & Leave Evaluation: The system calculates contractual notice periods, evaluating allowed leaves during notice and identifying notice buy-out requirements.
+
+
+Step 3: Reporting Manager Review: The manager reviews the resignation in their Inbox, choosing to Approve, Retain (submitting retention agreements), or Send Back.
+
+
+Step 4: HR Clearance & Cross-Department Sign-Off: HR approves the exit and triggers cross-department no-dues checklists across IT, Administration, and Finance.
+
+
+Step 5: Full & Final (FnF) Settlement: Finance computes leave encashment, unbilled timesheets, gratuity, and notice period adjustments to finalize the exit settlement.
+
+5.5 Workflow 5: Monthly Payroll Execution & Payout Pipeline
+
+
+Step 1: Period Initiation & Attendance Snapshot: Finance admins open the monthly payroll cycle. The system takes an immutable snapshot of employee attendance, paid leaves, and loss of pay (LOP) days.
+
+
+Step 2: Salary Structure & Tax Computation: The payroll engine computes gross earnings from employee salary contracts, calculates statutory deductions (PF, ESI, Professional Tax), and applies monthly TDS based on verified tax regimes.
+
+
+Step 3: Finance Preview & Verification: Finance reviews the comprehensive payroll preview, adjusts one-time allowances or deductions, and locks the payroll period.
+
+
+Step 4: Payout Batch Generation & Payslip Release: The system generates bank NEFT/RTGS disbursement files and publishes individual digital payslips to Employee Self-Service (`/MyPay`) alongside automated email delivery.
+
+
+6. Operational Best Practices & Strategic Roadmap
+To ensure long-term stability, enterprise security, and seamless scalability as the organization expands, the following technical and operational practices are recommended.
+
+6.1 Production Operational Best Practices
+
+
+Environment Variable Protection: Ensure all sensitive credentials (JWT_SECRET, database passwords, SMTP app credentials) reside strictly in `.env` files with restricted operating system read permissions.
+
+
+Database Connection Pool Monitoring: Continuously monitor MySQL connection pool metrics using `db.getPoolStats()` to verify connection acquisition latency and detect pool exhaustion under peak morning clock-in spikes.
+
+
+Automated Database Backups: Maintain automated daily mysqldump backups of `hrms_db_new` with point-in-time binary log archiving to guarantee disaster recovery readiness.
+
+
+Biometric Sync Resilience: Implement automated watchdog alerts for the Biometric Sync Worker. If `last_sync_at` exceeds 15 minutes during working hours, automated alert emails should notify system administrators.
+
+6.2 Strategic Future Roadmap
+
+
+Single Sign-On (SSO) Integration: Implement corporate OAuth2 / SAML 2.0 Single Sign-On (Microsoft Azure AD / Google Workspace) for unified enterprise identity management.
+
+
+Native Mobile Store Deployment: Leverage the existing Capacitor mobile codebase to package and distribute official apps on the Google Play Store (Android) and Apple App Store (iOS).
+
+
+AI-Assisted Candidate Match & Tax Proof OCR: Extend the existing Tesseract OCR engine to automatically validate candidate certificates and verify rent receipt numbers and PAN signatures on submitted tax proofs.
+
+
+Multi-Entity Consolidated Payroll: Enable multi-currency, multi-jurisdiction payroll processing for international subsidiaries under a single unified dashboard.
+

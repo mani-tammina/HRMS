@@ -26,10 +26,13 @@ export interface InboxNotification {
   leave_type_name?: string;
   imageFailed?: boolean;
 
-  // AI analytics fields
-  ai_analytics_loaded?: boolean;
-  ai_analytics_loading?: boolean;
-  ai_flag?: boolean;
-  ai_summary?: string;
-  ai_analytics?: any;
+  // Pre-computed / memoized UI properties for fast rendering
+  _parsedMeta?: any;
+  _displayType?: string;
+  _shortSummary?: string;
+  _timeAgo?: string;
+  _cardBorderClass?: string;
+  _statusBadgeClass?: string;
+  _initials?: string;
+  _avatarUrl?: string;
 }

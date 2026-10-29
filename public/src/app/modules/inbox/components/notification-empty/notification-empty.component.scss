@@ -4,32 +4,36 @@
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: 40px 24px;
+  padding: 48px 24px;
   border-radius: 16px;
   background: #ffffff;
-  border: 1px solid #e2e8f0;
+  border: 1px solid #f1f5f9;
   margin: 40px auto;
-  max-width: 480px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  max-width: 440px;
+  box-shadow: 0 4px 20px -4px rgba(0, 0, 0, 0.04);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: all 0.25s ease;
 
   .icon-circle {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 72px;
-    height: 72px;
-    border-radius: 50%;
-    background: #f8fafc;
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
     margin-bottom: 20px;
-    color: #94a3b8;
-    border: 1px solid #cbd5e1;
-    transition: all 0.25s ease-in-out;
+    color: #64748b;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 
     &:hover {
-      transform: scale(1.04);
-      background: #f1f5f9;
-      color: #64748b;
+      transform: translateY(-2px) scale(1.05);
+      background: #ffffff;
+      color: #61439d;
+      border-color: #cbd5e1;
+      box-shadow: 0 6px 16px rgba(97, 67, 157, 0.1);
     }
 
     .empty-state-svg {
@@ -39,14 +43,15 @@
   }
 
   .empty-title {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: #0f172a;
     margin: 0 0 6px 0;
+    letter-spacing: -0.2px;
   }
 
   .empty-desc {
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     color: #64748b;
     margin: 0;
     line-height: 1.5;

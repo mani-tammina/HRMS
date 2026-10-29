@@ -10,6 +10,6 @@ import { IonicModule } from '@ionic/angular';
   imports: [CommonModule, IonicModule]
 })
 export class NotificationEmptyComponent {
-  @Input() message = 'No notifications found';
+  @Input() message = 'No requests found';
   @Input() subMessage = 'Check back later for new requests or updates.';
 }

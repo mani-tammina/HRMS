@@ -26,39 +26,33 @@
         </p>
         <div class="radio-group">
           <label class="radio-label">
-            <input
-              type="radio"
-              name="allow_web_clockin_fallback"
-              value="no"
+            <input type="radio" name="allow_web_clockin_fallback" value="no"
               [checked]="formGroup.get('allow_web_clockin_fallback')?.value === 'no'"
-              (change)="setFallbackOption('no')"
-            />
+              (change)="setFallbackOption('no')" />
             <span>No</span>
           </label>
           <label class="radio-label">
-            <input
-              type="radio"
-              name="allow_web_clockin_fallback"
-              value="yes"
+            <input type="radio" name="allow_web_clockin_fallback" value="yes"
               [checked]="formGroup.get('allow_web_clockin_fallback')?.value === 'yes'"
-              (change)="setFallbackOption('yes')"
-            />
+              (change)="setFallbackOption('yes')" />
             <span>Yes</span>
           </label>
         </div>
       </div>
     </div>
 
-    <!-- 2. Keka Website / Web Clock-In Option -->
+    <!-- 2. INTERACT Website / Web Clock-In Option -->
     <div class="option-block mt-4">
       <label class="custom-checkbox-label">
         <input type="checkbox" formControlName="web_clockin_enabled" class="checkbox-input" />
         <span class="checkbox-text bold">
-          Keka Website: Also known as Web Clock-in. Employees log in to Keka website and mark their attendance (Browser Only)
+          INTERACT Website: Also known as Web Clock-in. Employees log in to INTERACT website and mark their attendance
+          (Browser
+          Only)
         </span>
       </label>
 
-      <!-- Sub-options under Keka Website -->
+      <!-- Sub-options under INTERACT Website -->
       <div class="sub-options-container" *ngIf="webClockinEnabled || (biometricEnabled && allowFallback)">
         <!-- 1. Comment requirement -->
         <div class="sub-option-row">
@@ -82,7 +76,8 @@
         <div class="ip-table-card" *ngIf="ipRestrictionEnabled">
           <div class="table-actions-bar">
             <button type="button" class="btn-outline-green" (click)="openAddIpModal()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round">
                 <line x1="12" y1="5" x2="12" y2="19"></line>
                 <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
@@ -113,8 +108,10 @@
                   <td class="col-name font-medium">{{ item.name }}</td>
                   <td class="col-address text-secondary">{{ item.ip_address }}</td>
                   <td class="col-action">
-                    <button type="button" class="btn-icon-delete" (click)="removeSingleIp(item.id)" title="Delete IP Network">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <button type="button" class="btn-icon-delete" (click)="removeSingleIp(item.id)"
+                      title="Delete IP Network">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="3 6 5 6 21 6"></polyline>
                         <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
                       </svg>
@@ -144,7 +141,8 @@
       <div class="modal-body">
         <div class="form-group" *ngIf="allLocations.length > 0">
           <label>Select Office Location (from Location API)</label>
-          <select [(ngModel)]="selectedLocationId" [ngModelOptions]="{standalone: true}" (change)="onLocationSelectChange($event)" class="form-input">
+          <select [(ngModel)]="selectedLocationId" [ngModelOptions]="{standalone: true}"
+            (change)="onLocationSelectChange($event)" class="form-input">
             <option value="">-- Choose Location --</option>
             <option *ngFor="let loc of allLocations" [value]="loc.id">
               {{ loc.name || loc.location_name }}
@@ -153,16 +151,19 @@
         </div>
         <div class="form-group mt-3">
           <label>IP Network Name <span class="required">*</span></label>
-          <input type="text" [(ngModel)]="newIpName" [ngModelOptions]="{standalone: true}" placeholder="e.g. Vizag - TSN" class="form-input" />
+          <input type="text" [(ngModel)]="newIpName" [ngModelOptions]="{standalone: true}"
+            placeholder="e.g. Vizag - TSN" class="form-input" />
         </div>
         <div class="form-group mt-3">
           <label>IP Address / Range <span class="required">*</span></label>
-          <input type="text" [(ngModel)]="newIpAddress" [ngModelOptions]="{standalone: true}" placeholder="e.g. 103.40.48.146 - 103.40.48.146" class="form-input" />
+          <input type="text" [(ngModel)]="newIpAddress" [ngModelOptions]="{standalone: true}"
+            placeholder="e.g. 103.40.48.146 - 103.40.48.146" class="form-input" />
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" (click)="closeAddIpModal()">Cancel</button>
-        <button type="button" class="btn-primary-green" (click)="addIpNetwork()" [disabled]="!newIpName.trim() || !newIpAddress.trim()">
+        <button type="button" class="btn-primary-green" (click)="addIpNetwork()"
+          [disabled]="!newIpName.trim() || !newIpAddress.trim()">
           Save IP Network
         </button>
       </div>
@@ -170,6 +171,3 @@
   </div>
 
 </div>
-
-
-

@@ -7,6 +7,7 @@ import { EmployeeService } from '../../services/employee.service';
 import { AuthService } from '../../services/auth.service';
 import { RouteGuardService } from '../../services/route-guard.service';
 import { AdminService } from '../../services/admin.service';
+import { BrandingService } from '../../services/branding.service';
 
 @Component({
   selector: 'app-header',
@@ -22,6 +23,9 @@ export class HeaderComponent implements OnInit, OnDestroy {
   isSearchPopoverOpen: boolean = false;
   selectedIndex: number = -1;
   filteredQuickActions: any[] = [];
+
+  companyLogoUrl: string = 'assets/tt_blue_logo.png';
+  companyName: string = 'Tech Tammina';
 
   quickActions = [
 
@@ -87,6 +91,7 @@ export class HeaderComponent implements OnInit, OnDestroy {
     private adminService: AdminService,
     private routeGuardService: RouteGuardService,
     private authService: AuthService,
+    private brandingService: BrandingService,
     private cdr: ChangeDetectorRef
   ) { }
 
@@ -94,6 +99,25 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.env = environment.apiURL.startsWith('http') ? environment.apiURL : `${environment.apiURL}`;
     this.isAdmin = this.routeGuardService.userRole?.toLowerCase() === 'admin';
     this.filteredQuickActions = this.quickActions;
+
+    // Listen to reactive company branding updates (uploaded logo)
+    this.brandingService.logoUrl$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(url => {
+        if (url) {
+          this.companyLogoUrl = url;
+          this.cdr.detectChanges();
+        }
+      });
+
+    this.brandingService.companyName$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(name => {
+        if (name) {
+          this.companyName = name;
+          this.cdr.detectChanges();
+        }
+      });
 
     const currentUrl = this.router.url;
     const isLoginPage = currentUrl.includes('/login');
@@ -278,6 +302,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
 
   handleImageError(event: any) {
     event.target.src = '../../assets/user.png';
+  }
+
+  onLogoError(event: any) {
+    event.target.src = 'assets/tt_blue_logo.png';
   }
 
 

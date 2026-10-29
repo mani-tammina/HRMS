@@ -48,43 +48,52 @@ const uploadProfileImage = multer({
 /* ============ DATE FORMATTING HELPER ============ */
 
 /**
- * Convert a Date object or ISO string to a plain YYYY-MM-DD string.
+ * Convert a Date object or ISO string to a plain YYYY-MM-DD string in IST (Asia/Kolkata).
  * Prevents timezone conversion issues when sending date fields to the frontend.
  */
 const formatDateField = function(val) {
   if (!val) return null;
   if (typeof val === 'string') {
-    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) return val;
-    if (val.includes('T')) return val.split('T')[0];
-    return val;
+    const trimmed = val.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+    if (trimmed.includes('T') || trimmed.includes(' ')) {
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) {
+        return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
+      }
+      return trimmed.split(/[T ]/)[0];
+    }
+    return trimmed;
   }
   if (val instanceof Date) {
-    const yyyy = val.getUTCFullYear();
-    const mm = String(val.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(val.getUTCDate()).padStart(2, '0');
-    return `${yyyy}-${mm}-${dd}`;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(val);
   }
   return null;
 };
 
 /**
  * Normalize date fields in an employee record so they are always
- * plain YYYY-MM-DD strings when sent to the client.
+ * plain YYYY-MM-DD strings in IST when sent to the client.
  */
 const formatEmployeeDates = function(emp) {
   if (!emp) return emp;
-  const dateFields = ['DateOfBirth', 'DateJoined', 'exit_date', 'created_at', 'updated_at'];
+  const dateFields = [
+    'DateOfBirth',
+    'DateJoined',
+    'date_of_birth',
+    'date_of_joining',
+    'joining_date',
+    'exit_date',
+    'resignation_date',
+    'last_working_day',
+    'confirmation_date',
+    'probation_end_date',
+    'created_at',
+    'updated_at'
+  ];
   const result = { ...emp };
   for (const field of dateFields) {
     if (result[field] !== undefined && result[field] !== null) {
-      // Add 1 day to DateOfBirth and DateJoined to compensate for UTC timezone shift
-      if (field === 'DateOfBirth' || field === 'DateJoined' || field === 'exit_date') {
-        let d = new Date(result[field]);
-        if (!isNaN(d.getTime())) {
-          d.setUTCDate(d.getUTCDate() + 1);
-          result[field] = d;
-        }
-      }
       result[field] = formatDateField(result[field]);
     }
   }
@@ -140,7 +149,7 @@ router.get("/", auth, async (req, res) => {
     c.end();
 
     res.json({
-      data: r,
+      data: r.map(emp => formatEmployeeDates(emp)),
       pagination: {
         page,
         limit,
@@ -196,7 +205,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       c.end();
       return res.json({
         type: "all_employees",
-        team: allEmployees,
+        team: allEmployees.map(emp => formatEmployeeDates(emp)),
         message: "All Employees (HR/Admin View)",
       });
     }
@@ -226,7 +235,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       console.log("Returning reporting team:", reportingTeam.length, "members");
       return res.json({
         type: "reporting_team",
-        team: reportingTeam,
+        team: reportingTeam.map(emp => formatEmployeeDates(emp)),
         message: "Your reporting team",
       });
     }
@@ -253,7 +262,7 @@ router.get("/my-team/list", auth, async (req, res) => {
       c.end();
       return res.json({
         type: "co_team",
-        team: coTeam,
+        team: coTeam.map(emp => formatEmployeeDates(emp)),
         message: "Your team members",
       });
     }
@@ -322,20 +331,37 @@ router.get("/:id", auth, async (req, res) => {
               d.name  AS department_name,
               des.name AS designation_name,
               l.name  AS location_name,
+              l.address_line1 AS location_address_line1,
+              l.city AS location_city,
+              l.state AS location_state,
+              l.postal_code AS location_postal_code,
+              l.country AS location_country,
+              l.phone_number AS location_phone_number,
               bu.name as business_unit_name,
               mgr.FirstName as manager_first_name,
               mgr.LastName as manager_last_name,
               COALESCE(
                 (SELECT CASE 
-                          WHEN ap.punch_type = 'in' THEN 'In'
-                          WHEN ap.punch_type = 'out' THEN 'Out'
+                          WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                          WHEN combined.punch_type = 'in' THEN 'In'
+                          WHEN combined.punch_type = 'out' THEN 'Out'
+                          ELSE 'In'
                         END
-                 FROM attendance_punches ap 
-                 WHERE ap.employee_id = e.id AND ap.punch_date = CURDATE() 
-                 ORDER BY ap.punch_time DESC LIMIT 1),
+                 FROM (
+                   SELECT punch_type, punch_time, notes
+                   FROM attendance_punches
+                   WHERE employee_id = e.id AND punch_date = CURDATE()
+                   UNION ALL
+                   SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                   FROM biometric_punches
+                   WHERE employee_id = e.id AND punch_date = CURDATE()
+                 ) combined
+                 ORDER BY combined.punch_time DESC
+                 LIMIT 1),
                 (SELECT 'On Leave'
                  FROM leaves lv
                  WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                   AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
                  LIMIT 1),
                 'Not In Yet'
               ) AS attendance_status,
@@ -343,6 +369,10 @@ router.get("/:id", auth, async (req, res) => {
                 (SELECT att.work_mode 
                  FROM attendance att 
                  WHERE att.employee_id = e.id AND att.attendance_date = CURDATE() 
+                 LIMIT 1),
+                (SELECT 'Biometric'
+                 FROM biometric_punches bp
+                 WHERE bp.employee_id = e.id AND bp.punch_date = CURDATE()
                  LIMIT 1),
                 'N/A'
               ) AS work_mode
@@ -433,13 +463,26 @@ router.get("/:id/details", auth, async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Get recent attendance (last 30 days)
+    // Get recent attendance (last 30 days) combining web attendance and biometric attendance
     const [attendance] = await c.query(
-      `SELECT attendance_date, first_check_in, last_check_out, total_work_hours as total_hours, work_mode, status 
-           FROM attendance 
-           WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-         ORDER BY attendance_date DESC`,
-      [requestedEmployeeId],
+      `SELECT attendance_date, first_check_in, last_check_out, total_hours, work_mode, status
+       FROM (
+         SELECT attendance_date, first_check_in, last_check_out, total_work_hours as total_hours, work_mode, status
+         FROM attendance
+         WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+         UNION ALL
+         SELECT attendance_date, 
+                CONCAT(attendance_date, ' ', COALESCE(first_punch_in, '00:00:00')) as first_check_in,
+                CONCAT(attendance_date, ' ', COALESCE(last_punch_out, '00:00:00')) as last_check_out,
+                gross_hours as total_hours,
+                'Biometric' as work_mode,
+                CASE WHEN status = 'half_day' THEN 'half-day' ELSE COALESCE(status, 'present') END as status
+         FROM biometric_daily_attendance
+         WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+           AND attendance_date NOT IN (SELECT attendance_date FROM attendance WHERE employee_id = ?)
+       ) combined_att
+       ORDER BY attendance_date DESC`,
+      [requestedEmployeeId, requestedEmployeeId, requestedEmployeeId],
     );
 
     // Get leave balance
@@ -447,6 +490,7 @@ router.get("/:id/details", auth, async (req, res) => {
       `SELECT leave_type, COUNT(*) as used 
            FROM leaves 
            WHERE employee_id = ? AND status = 'approved' AND YEAR(start_date) = YEAR(CURDATE())
+             AND (leave_type IS NULL OR (leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND leave_type NOT LIKE '%WFH%' AND leave_type NOT LIKE '%Remote%'))
            GROUP BY leave_type`,
       [requestedEmployeeId],
     );
@@ -521,6 +565,8 @@ router.put("/:id", auth, hr, async (req, res) => {
        "Gender",
        "BloodGroup",
        "MaritalStatus",
+       "exit_date",
+       "exit_status",
     ];
     const updateData = {};
     for (const key of allowedFields) {
@@ -535,6 +581,13 @@ router.put("/:id", auth, hr, async (req, res) => {
       if (!dateRegex.test(updateData.DateOfBirth)) {
         return res.status(400).json({ error: "DateOfBirth must be in YYYY-MM-DD format" });
       }
+    }
+
+    if (updateData.exit_date === '') {
+      updateData.exit_date = null;
+    }
+    if (updateData.exit_status === '') {
+      updateData.exit_status = null;
     }
 
     if (Object.keys(updateData).length === 0) {
@@ -672,8 +725,8 @@ router.get("/search/query", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = r.map(emp => maskSensitiveData(emp, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = r.map(emp => formatEmployeeDates(maskSensitiveData(emp, req.user.role, false)));
 
     res.json({ data: maskedData, count: maskedData.length });
   } catch (error) {
@@ -695,6 +748,12 @@ router.get("/profile/me", auth, async (req, res) => {
             e.*,
             COALESCE(esc.annual_ctc, e.lpa) as lpa,
             l.name as location_name,
+            l.address_line1 as location_address_line1,
+            l.city as location_city,
+            l.state as location_state,
+            l.postal_code as location_postal_code,
+            l.country as location_country,
+            l.phone_number as location_phone_number,
             d.name as department_name,
             sd.name as sub_department_name,
             des.name as designation_name,
@@ -910,8 +969,8 @@ router.get("/my-team/reporting", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = reportingTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = reportingTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -963,8 +1022,8 @@ router.get("/my-team/co-team", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = coTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = coTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1022,8 +1081,8 @@ router.get("/my-team/reporting/:employeeId", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = reportingTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = reportingTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1093,8 +1152,8 @@ router.get("/my-team/co-team/:employeeId", auth, async (req, res) => {
     );
     c.end();
 
-    // Apply data masking
-    const maskedData = coTeam.map(e => maskSensitiveData(e, req.user.role, false));
+    // Apply data masking and date formatting
+    const maskedData = coTeam.map(e => formatEmployeeDates(maskSensitiveData(e, req.user.role, false)));
 
     res.json({
       team: maskedData,
@@ -1149,7 +1208,7 @@ const handleGetOrgTree = async (req, res) => {
         rows[0].reports_count = parseInt(rows[0].reports_count) || 0;
         rows[0].has_reports = rows[0].reports_count > 0;
       }
-      return maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId);
+      return formatEmployeeDates(maskSensitiveData(rows[0], req.user.role, rows[0].id === targetEmployeeId));
     };
 
     // Helper function to fetch reports (team) for a manager
@@ -1169,7 +1228,7 @@ const handleGetOrgTree = async (req, res) => {
       return rows.map(e => {
         e.reports_count = parseInt(e.reports_count) || 0;
         e.has_reports = e.reports_count > 0;
-        return maskSensitiveData(e, req.user.role, e.id === targetEmployeeId);
+        return formatEmployeeDates(maskSensitiveData(e, req.user.role, e.id === targetEmployeeId));
       });
     };
 

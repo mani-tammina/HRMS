@@ -18,21 +18,41 @@
  */
 async function createInboxNotification(connection, employeeId, managerId, requestType, requestId, title, description, priority = 'Medium', metadata = null) {
     try {
-        let finalManagerId = managerId;
+        let finalManagerId = null;
         
-        // If managerId is not provided, look it up in the employees table
-        if (!finalManagerId && employeeId) {
+        // 1. Look up the employee's direct reporting manager from employees table
+        if (employeeId) {
             const [rows] = await connection.query(
                 "SELECT reporting_manager_id FROM employees WHERE id = ?",
                 [employeeId]
             );
-            if (rows.length > 0) {
+            if (rows.length > 0 && rows[0].reporting_manager_id) {
                 finalManagerId = rows[0].reporting_manager_id;
             }
         }
 
+        // 2. If not found in DB but provided in arguments, use provided managerId
+        if (!finalManagerId && managerId) {
+            finalManagerId = managerId;
+        }
+
+        // 3. Fallback: If no reporting manager is assigned, route strictly to HR or Admin (NEVER to an unrelated manager)
         if (!finalManagerId) {
-            console.log(`[Inbox Notification] No reporting manager found for employee ID ${employeeId}. Notification skipped.`);
+            const [fallback] = await connection.query(`
+                SELECT e.id FROM employees e 
+                JOIN users u ON (u.username = e.WorkEmail OR u.username = e.EmployeeNumber)
+                WHERE u.role IN ('hr', 'admin') AND (e.EmploymentStatus = 'Working' OR e.EmploymentStatus IS NULL)
+                ORDER BY CASE WHEN u.role = 'hr' THEN 1 ELSE 2 END 
+                LIMIT 1
+            `);
+            if (fallback.length > 0) {
+                finalManagerId = fallback[0].id;
+                console.log(`[Inbox Notification] Employee ID ${employeeId} has no reporting manager. Routed to HR ID ${finalManagerId}`);
+            }
+        }
+
+        if (!finalManagerId) {
+            console.log(`[Inbox Notification] No reporting manager or HR fallback found for employee ID ${employeeId}. Notification skipped.`);
             return null;
         }
 
@@ -86,9 +106,13 @@ async function createInboxNotification(connection, employeeId, managerId, reques
 async function updateNotificationStatus(connection, requestType, requestId, status, actionTakenBy, rejectionReason = null) {
     try {
         let metaObj = {};
+        const typeList = ['Attendance Regularization', 'Remote Login', 'Work From Home'].includes(requestType)
+            ? ['Attendance Regularization', 'Remote Login', 'Work From Home']
+            : [requestType];
+
         const [existing] = await connection.query(
-            "SELECT metadata FROM inbox_notifications WHERE request_type = ? AND request_id = ?",
-            [requestType, requestId]
+            "SELECT metadata FROM inbox_notifications WHERE request_type IN (?) AND request_id = ?",
+            [typeList, requestId]
         );
 
         if (existing.length > 0 && existing[0].metadata) {
@@ -116,8 +140,8 @@ async function updateNotificationStatus(connection, requestType, requestId, stat
         const [result] = await connection.query(
             `UPDATE inbox_notifications 
              SET status = ?, is_read = 1, action_taken_by = ?, action_taken_on = NOW(), metadata = COALESCE(?, metadata), updated_at = NOW() 
-             WHERE request_type = ? AND request_id = ?`,
-            [status, actionTakenBy || null, metadataStr, requestType, requestId]
+             WHERE request_type IN (?) AND request_id = ?`,
+            [status, actionTakenBy || null, metadataStr, typeList, requestId]
         );
         console.log(`[Inbox Notification] Updated status of ${requestType} ID ${requestId} to ${status}. Affected rows: ${result.affectedRows}`);
     } catch (err) {

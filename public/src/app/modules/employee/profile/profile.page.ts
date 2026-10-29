@@ -8,6 +8,8 @@ import { environment } from '../../../../environments/environment';
 import { SeparationService } from '../../../core/services/separation.service';
 import { ResignationFormComponent } from './components/resignation-form/resignation-form.component';
 import { ResignationTrackingComponent } from './components/resignation-tracking/resignation-tracking.component';
+import { IdCardModalComponent } from './components/id-card-modal/id-card-modal.component';
+import { LeaveBalanceModalComponent } from './components/leave-balance-modal/leave-balance-modal.component';
 import { RouteGuardService } from '../../../core/services/route-guard.service';
 
 @Component({
@@ -52,6 +54,23 @@ export class ProfilePage implements OnInit, OnDestroy {
     if (userRole === 'hr' || userRole === 'admin') return true;
 
     // Manager check: only allow if this user is the direct reporting manager of the viewed employee
+    const reportingManagerId = this.currentEmployee?.reporting_manager_id;
+    if (this.myEmployeeId && reportingManagerId &&
+      Number(this.myEmployeeId) === Number(reportingManagerId)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns true only if the viewer has the HR/Admin role OR is the direct reporting manager of the viewed employee.
+   */
+  get canViewLeaves(): boolean {
+    const userRole = this.routeGuardService.userRole?.toLowerCase() || '';
+    if (userRole === 'hr' || userRole === 'admin') return true;
+
+    // Manager check: only allow if logged-in user is the direct reporting manager of the viewed employee
     const reportingManagerId = this.currentEmployee?.reporting_manager_id;
     if (this.myEmployeeId && reportingManagerId &&
       Number(this.myEmployeeId) === Number(reportingManagerId)) {
@@ -164,6 +183,9 @@ export class ProfilePage implements OnInit, OnDestroy {
             if (!this.canViewPrivateTabs && ['profile', 'job', 'documents', 'assets'].includes(this.selectedSegment)) {
               this.selectedSegment = 'about';
             }
+            if (!this.canViewLeaves && this.selectedSegment === 'leaves') {
+              this.selectedSegment = 'about';
+            }
             this.cdr.detectChanges();
           },
           error: () => {
@@ -204,6 +226,9 @@ export class ProfilePage implements OnInit, OnDestroy {
             if (!this.canViewPrivateTabs && ['profile', 'job', 'documents', 'assets'].includes(this.selectedSegment)) {
               this.selectedSegment = 'about';
             }
+            if (!this.canViewLeaves && this.selectedSegment === 'leaves') {
+              this.selectedSegment = 'about';
+            }
             this.cdr.detectChanges();
           },
           error: () => {
@@ -215,8 +240,28 @@ export class ProfilePage implements OnInit, OnDestroy {
     });
   }
 
+  previousSegment: string = 'about';
+
+  onLeavesSegmentClick(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    this.openLeaveBalanceModal();
+    // Keep the active segment indicator on the previous non-leaves segment
+    setTimeout(() => {
+      this.selectedSegment = this.previousSegment || 'about';
+      this.cdr.detectChanges();
+    }, 50);
+  }
+
   segmentChanged(ev: any) {
+    if (ev.detail.value === 'leaves') {
+      this.onLeavesSegmentClick();
+      return;
+    }
     this.selectedSegment = ev.detail.value;
+    this.previousSegment = ev.detail.value;
     this.cdr.detectChanges();
 
     // Scroll to tab content and animate cards
@@ -317,8 +362,17 @@ export class ProfilePage implements OnInit, OnDestroy {
       await this.popoverController.dismiss();
     } catch (e) {}
 
+    if (actionKey === 'id_card') {
+      this.openIdCardModal();
+      return;
+    }
+
+    if (actionKey === 'leaves') {
+      this.openLeaveBalanceModal();
+      return;
+    }
+
     const actionNames: { [key: string]: string } = {
-      'id_card': 'ID Card',
       'write_note': 'Write Internal Note',
       'request_feedback': 'Request Feedback',
       'disable_login': 'Disable Login',
@@ -330,6 +384,34 @@ export class ProfilePage implements OnInit, OnDestroy {
 
     const label = actionNames[actionKey] || actionKey;
     this.showToast(`${label} - Work in progress`, 'warning');
+  }
+
+  async openLeaveBalanceModal() {
+    if (!this.currentEmployee) return;
+
+    const modal = await this.modalController.create({
+      component: LeaveBalanceModalComponent,
+      componentProps: {
+        currentEmployee: this.currentEmployee
+      },
+      cssClass: 'leave-balance-modal'
+    });
+
+    await modal.present();
+  }
+
+  async openIdCardModal() {
+    if (!this.currentEmployee) return;
+
+    const modal = await this.modalController.create({
+      component: IdCardModalComponent,
+      componentProps: {
+        currentEmployee: this.currentEmployee
+      },
+      cssClass: 'id-card-modal'
+    });
+
+    await modal.present();
   }
 
   async openResignationModal() {

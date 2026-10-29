@@ -11,16 +11,14 @@ export class EmployeeLeavesService {
   constructor(private http: HttpClient) { }
 
   getLeaveBalance(year: number, employeeId?: number): Observable<any> {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('access_token');
     const headers = new HttpHeaders({
       accept: 'application/json',
       Authorization: `Bearer ${token}`,
     });
-    let params = new HttpParams().set('leave_year', year.toString());
-    if (employeeId) {
-      params = params.set('employeeId', String(employeeId));
-    }
-    return this.http.get<any>(`${this.API_URL}/balance`, { headers, params });
+    const params = new HttpParams().set('leave_year', year.toString());
+    const url = employeeId ? `${this.API_URL}/balance/${employeeId}` : `${this.API_URL}/balance`;
+    return this.http.get<any>(url, { headers, params });
   }
 
   initializeBalance(year: number): Observable<any> {

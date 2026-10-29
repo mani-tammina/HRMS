@@ -35,21 +35,21 @@ router.get("/", auth, async (req, res) => {
 
   if (period === "today") {
     query +=
-      " AND DAY(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = DAY(CURDATE()) AND MONTH(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = MONTH(CURDATE())";
+      " AND DAY(DateJoined) = DAY(CURDATE()) AND MONTH(DateJoined) = MONTH(CURDATE())";
   } else if (period === "week") {
-    query += " AND WEEK(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = WEEK(CURDATE())";
+    query += " AND WEEK(DateJoined) = WEEK(CURDATE())";
   } else if (period === "month") {
-    query += " AND MONTH(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = MONTH(CURDATE())";
+    query += " AND MONTH(DateJoined) = MONTH(CURDATE())";
   } else if (period === "upcoming") {
     // Next 30 days
     query += ` AND (
-            (MONTH(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = MONTH(CURDATE()) AND DAY(DATE_ADD(DateJoined, INTERVAL 1 DAY)) >= DAY(CURDATE())) 
+            (MONTH(DateJoined) = MONTH(CURDATE()) AND DAY(DateJoined) >= DAY(CURDATE())) 
             OR 
-            (MONTH(DATE_ADD(DateJoined, INTERVAL 1 DAY)) = MONTH(DATE_ADD(CURDATE(), INTERVAL 30 DAY)))
+            (MONTH(DateJoined) = MONTH(DATE_ADD(CURDATE(), INTERVAL 30 DAY)))
         )`;
   }
 
-  query += " ORDER BY MONTH(DATE_ADD(DateJoined, INTERVAL 1 DAY)), DAY(DATE_ADD(DateJoined, INTERVAL 1 DAY))";
+  query += " ORDER BY MONTH(DateJoined), DAY(DateJoined)";
 
   try {
     const [r] = await c.query(query);
@@ -57,11 +57,6 @@ router.get("/", auth, async (req, res) => {
 
     const formattedResults = r.map(emp => {
       if (emp.DateJoined) {
-        let d = new Date(emp.DateJoined);
-        if (!isNaN(d.getTime())) {
-          d.setUTCDate(d.getUTCDate() + 1);
-          emp.DateJoined = d;
-        }
         emp.DateJoined = formatDateToIST(emp.DateJoined);
       }
       return emp;

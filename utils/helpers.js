@@ -106,9 +106,22 @@ const EMPLOYEE_READONLY_FIELDS = [
 
 /* ============ CORE HELPER FUNCTIONS ============ */
 
+// In-memory cache for employee lookups to prevent hammering the database on every parallel request
+const employeeUserCache = new Map();
+const EMPLOYEE_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes
+
+function invalidateEmployeeUserCache(userId) {
+    if (userId) {
+        employeeUserCache.delete(Number(userId));
+    } else {
+        employeeUserCache.clear();
+    }
+}
+
 /**
  * Find employee record for a given user ID
  * Matches username to WorkEmail or EmployeeNumber
+ * Cached for 2 minutes to avoid hammering DB on every parallel API call
  * 
  * BACKWARD COMPATIBLE: Maintains exact same behavior as original
  * 
@@ -125,16 +138,24 @@ async function findEmployeeByUserId(userId) {
             return null;
         }
 
+        const numericUserId = Number(userId);
+
+        // Check in-memory cache first
+        const cached = employeeUserCache.get(numericUserId);
+        if (cached && (Date.now() - cached.timestamp < EMPLOYEE_CACHE_TTL_MS)) {
+            return cached.data;
+        }
+
         connection = await db();
         
         // Get username from users table
         const [userRows] = await connection.query(
             "SELECT username FROM users WHERE id = ?", 
-            [userId]
+            [numericUserId]
         );
         
         if (!userRows || userRows.length === 0) {
-            console.warn('[findEmployeeByUserId] User not found:', userId);
+            console.warn('[findEmployeeByUserId] User not found:', numericUserId);
             return null;
         }
 
@@ -151,8 +172,9 @@ async function findEmployeeByUserId(userId) {
             return null;
         }
 
-        console.log(`[findEmployeeByUserId] Found employee ${employeeRows[0].id} for user ${userId}`);
-        return employeeRows[0];
+        const employee = employeeRows[0];
+        employeeUserCache.set(numericUserId, { data: employee, timestamp: Date.now() });
+        return employee;
         
     } catch (error) {
         console.error('[findEmployeeByUserId] Error:', error.message);
@@ -174,46 +196,30 @@ async function findEmployeeByUserId(userId) {
  */
 function toMySQLDateTime(val) {
     if (!val) return null;
-    
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(val.trim())) {
+        return val.trim();
+    }
     const date = new Date(val);
-    
-    // Check if valid date
     if (isNaN(date.getTime())) {
         console.warn('[toMySQLDateTime] Invalid date value:', val);
         return null;
     }
-    
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mi = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
-    
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+    const dStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
+    const tStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+    return `${dStr} ${tStr}`;
 }
 
-/**
- * Convert JavaScript Date to MySQL DATE format (YYYY-MM-DD)
- * 
- * @param {Date|string|number} val - Date value to convert
- * @returns {string|null} MySQL DATE string or null if invalid
- */
 function toMySQLDate(val) {
     if (!val) return null;
-    
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+        return val.trim();
+    }
     const date = new Date(val);
-    
     if (isNaN(date.getTime())) {
         console.warn('[toMySQLDate] Invalid date value:', val);
         return null;
     }
-    
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    
-    return `${yyyy}-${mm}-${dd}`;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
 }
 
 /**
@@ -613,6 +619,7 @@ function buildPagination(page = 1, pageSize = 50) {
 // Backward compatible exports (must maintain exact names)
 module.exports = { 
     findEmployeeByUserId, 
+    invalidateEmployeeUserCache,
     toMySQLDateTime, 
     getOrCreateMaster,
     

@@ -545,6 +545,33 @@ ion-modal {
     --backdrop-opacity: 0.3 !important;
   }
 
+  &.daily-activity-modal {
+    --width: 360px;
+    --max-width: 92vw;
+    --height: auto;
+    --max-height: 85vh;
+    --border-radius: 12px;
+    --backdrop-opacity: 0.4 !important;
+    align-items: center;
+    justify-content: center;
+
+    &::part(content) {
+      position: relative !important;
+      inset: auto !important;
+      width: 360px;
+      max-width: 92vw;
+      max-height: 85vh;
+      border-radius: 12px !important;
+      background: #ffffff !important;
+      box-shadow: 0 20px 35px -5px rgba(0, 0, 0, 0.22), 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+      border: 1px solid #e2e8f0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden !important;
+      margin: auto;
+    }
+  }
+
   &.side-custom-popup {
     --width: 630px;
     --height: 100vh;
@@ -1556,4 +1583,68 @@ ion-toast.wip-custom-toast {
 .toast-wrapper {
   margin: 0 auto;
   max-width: max-content !important;
+}
+
+// ─── ID Card Modal ───
+.id-card-modal {
+  --width: 420px;
+  --max-width: 95vw;
+  --min-height: 640px;
+  --height: 90vh;
+  --max-height: 90vh;
+  --border-radius: 16px;
+  --box-shadow: 0 16px 48px rgba(0, 0, 0, 0.12);
+
+  &::part(content) {
+    border-radius: 16px;
+  }
+
+  ion-content {
+    --overflow: auto;
+  }
+
+  @media (max-width: 576px) {
+    --width: 100%;
+    --max-width: 100%;
+    --height: 100%;
+    --max-height: 100%;
+    --min-height: 100%;
+    --border-radius: 0;
+
+    &::part(content) {
+      border-radius: 0;
+    }
+  }
+}
+
+// ─── Leave Balance Modal ───
+.leave-balance-modal {
+  --width: 1060px;
+  --max-width: 95vw;
+  --height: 85vh;
+  --max-height: 90vh;
+  --border-radius: 20px;
+  --box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+
+  &::part(content) {
+    border-radius: 20px;
+    overflow: hidden;
+  }
+
+  ion-content {
+    --overflow: auto;
+  }
+
+  @media (max-width: 768px) {
+    --width: 100%;
+    --max-width: 100%;
+    --height: 100%;
+    --max-height: 100%;
+    --min-height: 100%;
+    --border-radius: 0;
+
+    &::part(content) {
+      border-radius: 0;
+    }
+  }
 }

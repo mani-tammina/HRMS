@@ -1,54 +1,477 @@
 <ion-content class="login-content" [fullscreen]="true">
-  <div class="login-container">
-    
-    <!-- Loading state -->
-    <div *ngIf="isLoading" class="loading-wrapper">
-      <ion-spinner name="crescent" color="primary"></ion-spinner>
-      <p>Verifying invitation link...</p>
-    </div>
+  <main class="page">
 
-    <!-- Error state -->
-    <div *ngIf="!isLoading && errorMessage" class="error-wrapper">
-      <ion-icon name="alert-circle-outline" class="error-icon"></ion-icon>
-      <p class="error-msg">{{ errorMessage }}</p>
-    </div>
+    <div class="background-grid"></div>
+    <div class="glow glow-one"></div>
+    <div class="glow glow-two"></div>
 
-    <!-- Login card -->
-    <div *ngIf="!isLoading && !errorMessage" class="login-card">
-      <div class="card-header">
-        <img src="assets/techtammina.webp" alt="Tech Tammina Logo" class="company-logo" onerror="this.style.display='none'" />
-        <h2>Verify Your Email</h2>
-        <p>Please enter the email address where you received the offer letter link to access your candidate portal.</p>
+    <!-- Loading State -->
+    <div *ngIf="isLoading" class="portal loading-state-container">
+      <div class="loading-box">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <h3>Connecting to Secure Candidate Portal</h3>
+        <p>Please wait while we verify your access...</p>
       </div>
+    </div>
 
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-        <!-- EMAIL FIELD -->
-        <div class="field-group">
-          <label class="field-label" for="candidate-email">Email Address</label>
-          <div class="input-wrapper">
-            <ion-icon name="mail-outline" class="input-icon"></ion-icon>
-            <input 
-              id="candidate-email" 
-              type="email" 
-              formControlName="email" 
-              placeholder="e.g. name@example.com" 
-              class="form-input" 
-              [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid"
-            />
+    <!-- Error State -->
+    <div *ngIf="!isLoading && errorMessage" class="portal error-state-container">
+      <div class="error-box">
+        <div class="error-icon">⚠</div>
+        <h3>Access Notice</h3>
+        <p>{{ errorMessage }}</p>
+      </div>
+    </div>
+
+    <!-- Main Portal Frame -->
+    <div *ngIf="!isLoading && !errorMessage" class="portal">
+
+      <!-- LEFT PANEL -->
+      <section class="left-panel">
+
+        <header class="brand-header">
+          <div class="brand">
+            <img src="assets/TamminaLogo.png" alt="Tech Tammina" class="left-logo-img" width="200px" height="75px"
+              fetchpriority="high" loading="lazy" />
+
+            <!-- <div class="brand-logo">T</div> -->
+            <!-- <div class="brand-text">
+              <strong>Tech Tammina</strong>
+              <span>SOFTWARE SOLUTIONS</span>
+            </div> -->
           </div>
-          <div *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" class="validation-error">
-            <span *ngIf="loginForm.get('email')?.errors?.['required']">Email address is required.</span>
-            <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email address.</span>
+
+          <div class="portal-label">
+            <span class="status-dot"></span>
+            Candidate Portal
+          </div>
+        </header>
+
+        <!-- HERO -->
+        <div class="hero">
+          <div class="welcome-label">
+            <span>✦</span>
+            Welcome to Tech Tammina
+          </div>
+
+          <h1>
+            <span class="build">Build Your Future
+              <br>
+              With </span> <span>Tech Tammina</span>
+          </h1>
+
+          <p class="hero-description">
+            Access your offer letter, review compensation details,
+            complete documentation, and begin your career journey
+            with us through a secure digital experience.
+          </p>
+        </div>
+
+        <!-- FEATURES -->
+        <div class="features">
+          <div class="feature">
+            <div class="feature-icon blue">◇</div>
+            <div>
+              <strong>Secure &amp; Private</strong>
+              <span>Protected candidate access</span>
+            </div>
+          </div>
+
+          <div class="feature">
+            <div class="feature-icon green">✓</div>
+            <div>
+              <strong>Fast Onboarding</strong>
+              <span>Simple guided process</span>
+            </div>
+          </div>
+
+          <div class="feature">
+            <div class="feature-icon orange">▤</div>
+            <div>
+              <strong>Paperless Process</strong>
+              <span>Digital document workflow</span>
+            </div>
+          </div>
+
+          <div class="feature">
+            <div class="feature-icon purple">♧</div>
+            <div>
+              <strong>HR Assistance</strong>
+              <span>Support when you need it</span>
+            </div>
           </div>
         </div>
 
-        <!-- Submit Button -->
-        <ion-button expand="block" type="submit" class="verify-btn" [disabled]="isVerifying">
-          <ion-spinner *ngIf="isVerifying" name="crescent" slot="start" style="width:16px;height:16px;margin-right:6px;"></ion-spinner>
-          {{ isVerifying ? 'Verifying...' : 'Verify & Access Offer' }}
-        </ion-button>
-      </form>
+        <!-- PORTAL ILLUSTRATION -->
+        <div class="illustration">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+
+          <!-- Offer card -->
+          <div class="floating-card offer-card">
+            <div class="small-icon blue">▤</div>
+            <div>
+              <strong>Offer Letter</strong>
+              <span class="mini-line long"></span>
+              <span class="mini-line short"></span>
+            </div>
+          </div>
+
+          <!-- Compensation card -->
+          <div class="floating-card salary-card">
+            <div class="small-icon orange">₹</div>
+            <div>
+              <strong>Compensation</strong>
+              <span class="mini-line long"></span>
+              <span class="mini-line short"></span>
+            </div>
+          </div>
+
+          <!-- Main dashboard -->
+          <div class="dashboard">
+            <div class="dashboard-top">
+              <div class="window-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+              <div class="window-search"></div>
+            </div>
+
+            <div class="dashboard-body">
+              <aside class="sidebar">
+                <div class="sidebar-logo">T</div>
+                <div class="sidebar-item active">
+                  <span>◈</span> Overview
+                </div>
+                <div class="sidebar-item">
+                  <span>▤</span> Offer Letter
+                </div>
+                <div class="sidebar-item">
+                  <span>▣</span> Documents
+                </div>
+                <div class="sidebar-item">
+                  <span>✓</span> Onboarding
+                </div>
+                <div class="sidebar-item">
+                  <span>♙</span> Profile
+                </div>
+              </aside>
+
+              <div class="dashboard-content">
+                <div class="dashboard-heading">
+                  <div>
+                    <small>YOUR CANDIDATE DASHBOARD</small>
+                    <h3>Welcome Aboard!</h3>
+                  </div>
+                  <div class="profile-mini">{{ candidateDisplayName ? candidateDisplayName.charAt(0).toUpperCase() : 'P'
+                    }}</div>
+                </div>
+
+                <div class="progress-title">
+                  Onboarding Progress
+                  <span>25%</span>
+                </div>
+
+                <div class="progress-track">
+                  <div class="progress-value"></div>
+                </div>
+
+                <div class="progress-steps">
+                  <span class="completed">Offer</span>
+                  <span>Documents</span>
+                  <span>Review</span>
+                  <span>Join</span>
+                </div>
+
+                <div class="document-card">
+                  <div class="document-icon">▤</div>
+                  <div class="document-info">
+                    <strong>Offer Letter</strong>
+                    <span>Ready for your review</span>
+                  </div>
+                  <div class="document-check">✓</div>
+                </div>
+
+                <div class="document-card secondary-card">
+                  <div class="document-icon purple">▣</div>
+                  <div class="document-info">
+                    <strong>Personal Documents</strong>
+                    <span>Complete your profile</span>
+                  </div>
+                  <div class="document-arrow">→</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Verification card -->
+          <div class="floating-card verification-card">
+            <div class="small-icon green">✓</div>
+            <div>
+              <strong>Verification</strong>
+              <span class="card-caption">Secure &amp; Protected</span>
+            </div>
+          </div>
+
+          <div class="floating-shield">✓</div>
+        </div>
+
+        <!-- ONBOARDING STEPS -->
+        <div class="onboarding">
+          <div class="onboarding-item">
+            <div class="step-icon completed">✓</div>
+            <div>
+              <strong>Step 1: Offer Letter</strong>
+              <span>Access your personalized offer package</span>
+            </div>
+          </div>
+
+          <div class="onboarding-item">
+            <div class="step-icon" [ngClass]="currentStep === 'otp' ? 'current' : 'current'">02</div>
+            <div>
+              <strong class="active-text">Step 2: Authentication</strong>
+              <span>Verify your email and access the portal</span>
+            </div>
+          </div>
+
+          <div class="onboarding-item">
+            <div class="step-icon">03</div>
+            <div>
+              <strong>Step 3: Review &amp; Onboard</strong>
+              <span>Complete your documents and onboarding</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="left-footer">
+          <span class="footer-shield">✓</span>
+          <span>
+            Secure candidate portal
+            <span class="footer-separator">•</span>
+            Your privacy matters
+          </span>
+        </div>
+      </section>
+
+      <!-- RIGHT PANEL -->
+      <section class="right-panel">
+
+        <!-- TOP BAR -->
+        <header class="topbar">
+          <div class="candidate-profile">
+            <div class="avatar">{{ candidateDisplayName ? candidateDisplayName.charAt(0).toUpperCase() : 'P' }}</div>
+            <div>
+              <strong>Hello, {{ candidateDisplayName || 'Candidate' }}!</strong>
+              <span>{{ candidateRole || 'Candidate Account' }}</span>
+            </div>
+          </div>
+
+          <div class="invited">
+            <span></span>
+            Invited
+          </div>
+        </header>
+
+        <!-- STEP 1: EMAIL LOGIN FORM -->
+        <div *ngIf="currentStep === 'credentials'" class="login-container">
+          <div class="login-heading">
+            <div class="login-badge">
+              <span>✦</span>
+              SECURE CANDIDATE ACCESS
+            </div>
+
+            <h2>
+              <span class="build">Candidate </span>
+              <span>Sign In</span>
+            </h2>
+
+            <p>
+              Enter your registered email address to receive
+              a secure one-time verification code.
+            </p>
+          </div>
+
+          <!-- EMAIL FORM -->
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmitCredentials()" class="login-form">
+            <label for="email">
+              Registered Email Address
+            </label>
+
+            <div class="input-box"
+              [class.has-error]="loginForm.get('email')?.touched && loginForm.get('email')?.invalid">
+              <span class="input-icon">✉</span>
+
+              <input type="email" id="email" formControlName="email" placeholder="Enter your registered email"
+                autocomplete="email" (keydown.enter)="onSubmitCredentials()" required>
+
+              <span class="input-indicator">✦</span>
+            </div>
+
+            <div *ngIf="loginForm.get('email')?.touched && loginForm.get('email')?.invalid" class="field-error-msg">
+              <span *ngIf="loginForm.get('email')?.errors?.['required']">Email address is required.</span>
+              <span *ngIf="loginForm.get('email')?.errors?.['email']">Please enter a valid email address.</span>
+            </div>
+
+            <!-- OTP INFORMATION -->
+            <div class="otp-info">
+              <div class="otp-info-icon">◇</div>
+              <div>
+                <strong>Passwordless Secure Login</strong>
+                <p>
+                  A one-time verification code will be sent
+                  to your registered email address.
+                </p>
+              </div>
+            </div>
+
+            <!-- BUTTON -->
+            <button type="submit" class="primary-button" [disabled]="isVerifying">
+              <ion-spinner *ngIf="isVerifying" name="crescent" class="btn-spinner"></ion-spinner>
+              <span>{{ isVerifying ? 'Sending Verification Code...' : 'Generate OTP & Continue' }}</span>
+              <span *ngIf="!isVerifying" class="button-arrow">→</span>
+            </button>
+          </form>
+
+          <!-- SECURITY -->
+          <div class="security-notice">
+            <div class="security-icon">✓</div>
+            <div class="security-text">
+              <strong>Your data is safe with us.</strong>
+              <p>
+                Your candidate information and confidential
+                documents are protected through secure access
+                and industry-standard security practices.
+              </p>
+            </div>
+            <div class="notice-arrow">›</div>
+          </div>
+
+          <!-- SUPPORT -->
+          <div class="support">
+            <span>Need help logging in?</span>
+            <a href="mailto:hr@techtammina.com">
+              Contact HR <span>↗</span>
+            </a>
+          </div>
+
+          <!-- EXTRA INFORMATION -->
+          <div class="trust-section">
+            <div class="trust-item">
+              <span class="trust-icon">◇</span>
+              <div>
+                <strong>Secure Access</strong>
+                <span>Protected login</span>
+              </div>
+            </div>
+
+            <div class="trust-item">
+              <span class="trust-icon">✓</span>
+              <div>
+                <strong>Email Verification</strong>
+                <span>One-time code</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: OTP VERIFICATION VIEW -->
+        <div *ngIf="currentStep === 'otp'" class="login-container">
+          <div class="login-heading">
+            <div class="login-badge">
+              <span>✦</span>
+              EMAIL VERIFICATION
+            </div>
+
+            <h2>
+              Enter
+              <span>Verification Code</span>
+            </h2>
+
+            <p>
+              We have sent a 6-digit verification code to <br>
+              <strong class="highlight-email">{{ maskedEmail }}</strong>
+            </p>
+          </div>
+
+          <!-- 6-digit OTP input boxes -->
+          <div class="otp-input-wrapper" (paste)="onOtpPaste($event)">
+            <div class="otp-boxes-grid" [class.otp-has-error]="otpError">
+              <input #otpInput *ngFor="let digit of otpDigits; let i = index" type="text" inputmode="numeric"
+                maxlength="1" [value]="otpDigits[i]" (input)="onOtpInput($event, i)" (keydown)="onOtpKeyDown($event, i)"
+                class="otp-digit-box" [class.filled]="otpDigits[i] !== ''" autocomplete="one-time-code" />
+            </div>
+
+            <div *ngIf="otpError" class="field-error-msg center-error">
+              <span>Invalid OTP code. Please enter the correct 6-digit code.</span>
+            </div>
+          </div>
+
+          <!-- Resend Countdown -->
+          <div class="resend-countdown-row">
+            <span *ngIf="otpTimer > 0">
+              Resend code in <strong>00:{{ otpTimer < 10 ? '0' + otpTimer : otpTimer }}</strong>
+            </span>
+
+            <button *ngIf="otpTimer === 0" type="button" (click)="resendOtp()" class="resend-action-btn">
+              ↻ Resend New OTP
+            </button>
+          </div>
+
+          <!-- Verify OTP Button -->
+          <button type="button" class="primary-button" (click)="onVerifyOtp()" [disabled]="isVerifying">
+            <ion-spinner *ngIf="isVerifying" name="crescent" class="btn-spinner"></ion-spinner>
+            <span>{{ isVerifying ? 'Verifying OTP...' : 'Verify OTP & Access Portal' }}</span>
+            <span *ngIf="!isVerifying" class="button-arrow">✓</span>
+          </button>
+
+          <!-- Back button -->
+          <div class="back-link-wrapper">
+            <button type="button" (click)="backToCredentials()" class="back-button">
+              ← Back / Change Email Address
+            </button>
+          </div>
+
+          <!-- SUPPORT -->
+          <div class="support">
+            <span>Did not receive the code?</span>
+            <a href="mailto:hr@techtammina.com">
+              Contact HR <span>↗</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- RIGHT FOOTER -->
+        <div class="right-footer">
+          <div>
+            <span class="footer-lock">◇</span>
+            256-bit SSL Encrypted
+          </div>
+
+          <div>
+            <span class="footer-lock">✓</span>
+            Secure Candidate Portal
+          </div>
+        </div>
+
+      </section>
+
     </div>
 
-  </div>
+    <!-- PAGE FOOTER -->
+    <footer class="page-footer">
+      <div class="footer-links">
+        <a href="#privacy">Privacy Policy</a>
+        <span>•</span>
+        <a href="#terms">Terms of Use</a>
+        <span>•</span>
+        <a href="mailto:hr@techtammina.com">Support</a>
+      </div>
+
+      <div class="copyright">
+        © 2026 Tech Tammina Software Solutions. All rights reserved.
+      </div>
+    </footer>
+
+  </main>
 </ion-content>

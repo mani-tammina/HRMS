@@ -6,7 +6,7 @@
   color: #334155;
 }
 
-.keka-inbox-wrapper {
+.HRMS-inbox-wrapper {
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -16,7 +16,7 @@
 }
 
 // ── TOP HEADER BAR (Light Theme per attached design) ──
-.keka-inbox-header {
+.HRMS-inbox-header {
   background: #f4f6fa;
   color: #1e293b;
   padding: 0 24px;
@@ -144,7 +144,7 @@
           top: calc(100% + 4px);
           right: 0;
           z-index: 1000;
-          min-width: 180px;
+          min-width: 250px;
           background: #ffffff;
           border-radius: 8px;
           box-shadow: 0 10px 25px rgba(0, 0, 0, 0.12);
@@ -357,6 +357,11 @@
       }
 
       .header-sort-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        .type-select-dropdown,
         .month-select-dropdown {
           background: #f8fafc;
           border: 1px solid #cbd5e1;
@@ -421,11 +426,14 @@
           display: flex;
           align-items: flex-start;
           gap: 12px;
-          padding: 14px 16px;
-          border-bottom: 1px solid #f1f5f9;
+          padding: 13px 14px;
+          margin: 4px 8px;
+          border-radius: 10px;
+          border: 1px solid #f1f5f9;
           background: #ffffff;
           cursor: pointer;
-          transition: background 0.15s ease;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+          transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 
           .card-checkbox-wrapper {
             padding-top: 3px;
@@ -545,12 +553,17 @@
           }
 
           &:hover {
-            background: #f8fafc;
+            background: #ffffff;
+            border-color: #cbd5e1;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            transform: translateY(-1px);
           }
 
           &.active {
-            background: vars.$color-primary-xlight;
-            border-left: 3px solid vars.$color-primary;
+            background: #faf5ff;
+            border-color: #d8b4fe;
+            border-left: 3.5px solid #61439d;
+            box-shadow: 0 4px 14px rgba(97, 67, 157, 0.08);
           }
         }
       }
@@ -784,13 +797,313 @@
         }
       }
 
-      // Teammates status note
-      .teammates-status-note {
-        font-size: 0.8rem;
-        font-weight: 600;
-        color: #475569;
-        margin-bottom: 24px;
-        padding-left: 2px;
+      // Teammates status container & card (Avatar Bubbles with Hover Tooltip matching Mobbin design)
+      .teammates-status-container {
+        margin-bottom: 20px;
+
+        .teammates-status-note {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.82rem;
+          font-weight: 600;
+          color: #475569;
+          padding: 8px 12px;
+          border-radius: 8px;
+          background: #f8fafc;
+          border: 1px solid #f1f5f9;
+
+          .note-icon {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+            &.safe {
+              color: #10b981;
+            }
+          }
+
+          .checking-teammates {
+            color: #94a3b8;
+            font-style: italic;
+            font-weight: 500;
+          }
+
+          .loading-spinner {
+            width: 14px;
+            height: 14px;
+            color: #64748b;
+          }
+        }
+
+        .teammates-leaves-card {
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 12px 14px;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+
+          .teammates-leaves-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 6px;
+              font-size: 0.82rem;
+              color: #92400e;
+
+              .warn-icon {
+                font-size: 1.15rem;
+                color: #d97706;
+                flex-shrink: 0;
+              }
+
+              strong {
+                color: #78350f;
+                font-weight: 700;
+              }
+            }
+          }
+
+          // Horizontal Avatars Row
+          .teammates-avatars-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 16px;
+            overflow-x: auto;
+            padding: 6px 4px 4px 4px;
+
+            /* Custom smooth scrollbar */
+            &::-webkit-scrollbar {
+              height: 4px;
+            }
+            &::-webkit-scrollbar-thumb {
+              background: #cbd5e1;
+              border-radius: 4px;
+            }
+
+            .teammate-avatar-item {
+              position: relative;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              cursor: pointer;
+              user-select: none;
+              flex-shrink: 0;
+
+              .avatar-wrapper {
+                position: relative;
+                width: 44px;
+                height: 44px;
+
+                .avatar-img {
+                  width: 44px;
+                  height: 44px;
+                  border-radius: 50%;
+                  object-fit: cover;
+                  border: 2px solid #e2e8f0;
+                  transition: transform 0.2s ease, border-color 0.2s ease;
+                }
+
+                .avatar-initials {
+                  width: 44px;
+                  height: 44px;
+                  border-radius: 50%;
+                  background: #e2e8f0;
+                  color: #334155;
+                  font-size: 13px;
+                  font-weight: 700;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid #cbd5e1;
+                  transition: transform 0.2s ease, border-color 0.2s ease;
+                }
+
+                // Top-right status badge icon
+                .avatar-status-badge {
+                  position: absolute;
+                  top: -2px;
+                  right: -4px;
+                  width: 18px;
+                  height: 18px;
+                  border-radius: 50%;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                  border: 2px solid #ffffff;
+                  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+                  font-size: 10px;
+
+                  &.badge-wfh {
+                    background: #1976d2; // Exact blue from Mobbin Image 2
+                    color: #ffffff;
+                  }
+
+                  &.badge-sick {
+                    background: #ea580c;
+                    color: #ffffff;
+                  }
+
+                  &.badge-leave {
+                    background: #7c3aed;
+                    color: #ffffff;
+                  }
+
+                  ion-icon {
+                    font-size: 10px;
+                    --ionicon-stroke-width: 40px;
+                  }
+                }
+              }
+
+              &:hover {
+                .avatar-wrapper .avatar-img,
+                .avatar-wrapper .avatar-initials {
+                  transform: scale(1.06);
+                  border-color: #1976d2;
+                }
+
+                .teammate-short-name {
+                  color: #0f172a;
+                  font-weight: 600;
+                }
+
+                .teammate-hover-tooltip {
+                  opacity: 1;
+                  visibility: visible;
+                  transform: translateX(-50%) translateY(0);
+                  pointer-events: auto;
+                }
+              }
+
+              .teammate-short-name {
+                margin-top: 5px;
+                font-size: 11px;
+                font-weight: 500;
+                color: #475569;
+                max-width: 60px;
+                text-align: center;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+                overflow: hidden;
+                transition: color 0.15s ease;
+              }
+
+              // Hover Tooltip: Type of Leave and Days
+              .teammate-hover-tooltip {
+                position: absolute;
+                bottom: calc(100% + 10px);
+                left: 50%;
+                transform: translateX(-50%) translateY(6px);
+                z-index: 1000;
+                min-width: 195px;
+                max-width: 260px;
+                background: #ffffff;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.16), 0 4px 6px -2px rgba(15, 23, 42, 0.08);
+                padding: 10px 12px;
+                opacity: 0;
+                visibility: hidden;
+                pointer-events: none;
+                transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+                white-space: normal;
+                text-align: left;
+
+                .tooltip-header {
+                  display: flex;
+                  align-items: center;
+                  justify-content: space-between;
+                  gap: 8px;
+                  margin-bottom: 6px;
+                  padding-bottom: 6px;
+                  border-bottom: 1px solid #f1f5f9;
+
+                  .tooltip-name {
+                    font-size: 12px;
+                    font-weight: 700;
+                    color: #0f172a;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                  }
+
+                  .tooltip-status-pill {
+                    font-size: 10px;
+                    font-weight: 600;
+                    padding: 2px 6px;
+                    border-radius: 4px;
+                    text-transform: capitalize;
+
+                    &.pending {
+                      background: #fef3c7;
+                      color: #b45309;
+                    }
+
+                    &.approved {
+                      background: #dcfce7;
+                      color: #15803d;
+                    }
+                  }
+                }
+
+                .tooltip-body {
+                  .tooltip-detail-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 8px;
+                    font-size: 11px;
+                    margin-top: 3px;
+
+                    .detail-label {
+                      color: #64748b;
+                      font-weight: 500;
+                    }
+
+                    .detail-value {
+                      color: #1e293b;
+                      font-weight: 600;
+                      text-align: right;
+
+                      &.highlight {
+                        color: #1976d2;
+                        font-weight: 700;
+                      }
+
+                      &.font-bold {
+                        font-weight: 700;
+                        color: #0f172a;
+                      }
+
+                      &.text-muted {
+                        color: #64748b;
+                        font-size: 10px;
+                        font-weight: 500;
+                      }
+                    }
+                  }
+                }
+
+                .tooltip-caret {
+                  position: absolute;
+                  top: 100%;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  width: 0;
+                  height: 0;
+                  border-left: 6px solid transparent;
+                  border-right: 6px solid transparent;
+                  border-top: 6px solid #ffffff;
+                  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.06));
+                }
+              }
+            }
+          }
+        }
       }
 
       // User comment/request note box

@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
-import { BehaviorSubject, Observable, Subject, tap, shareReplay } from 'rxjs';
+import { BehaviorSubject, Observable, Subject, tap, shareReplay, throwError, finalize } from 'rxjs';
 import { environment } from 'src/environments/environment';
 
 @Injectable({ providedIn: 'root' })
@@ -9,6 +9,7 @@ export class AttendanceApiService {
   private readonly BASE_URL = `${this.env.apiURL}/api/attendance`;
   private readonly leaves_BASE_URL = `${this.env.apiURL}/api/leaves`;
 
+  private isPunchInProgress = false;
 
   private clockStateSubject = new BehaviorSubject<boolean>(false);
   clockState$ = this.clockStateSubject.asObservable();
@@ -19,7 +20,9 @@ export class AttendanceApiService {
   constructor(private http: HttpClient) { }
 
   setClockState(isClockedIn: boolean): void {
-    this.clockStateSubject.next(isClockedIn);
+    if (this.clockStateSubject.value !== isClockedIn) {
+      this.clockStateSubject.next(isClockedIn);
+    }
   }
 
   getClockState(): boolean {
@@ -36,6 +39,11 @@ export class AttendanceApiService {
   }
 
   apiPunchIn(payload: { work_mode: string; location: string; notes?: string }): Observable<any> {
+    if (this.isPunchInProgress) {
+      return throwError(() => ({ error: { message: 'An attendance request is already being processed. Please wait a moment.' } }));
+    }
+    this.isPunchInProgress = true;
+
     return this.http.post(`${this.BASE_URL}/punch-in`, payload, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         if (res?.success) {
@@ -43,11 +51,19 @@ export class AttendanceApiService {
           this.setClockState(true);
           this.punchRefreshSubject.next();
         }
+      }),
+      finalize(() => {
+        this.isPunchInProgress = false;
       })
     );
   }
 
   apiPunchOut(payload: { notes?: string }): Observable<any> {
+    if (this.isPunchInProgress) {
+      return throwError(() => ({ error: { message: 'An attendance request is already being processed. Please wait a moment.' } }));
+    }
+    this.isPunchInProgress = true;
+
     return this.http.post(`${this.BASE_URL}/punch-out`, payload, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         if (res?.success) {
@@ -55,6 +71,9 @@ export class AttendanceApiService {
           this.setClockState(false);
           this.punchRefreshSubject.next();
         }
+      }),
+      finalize(() => {
+        this.isPunchInProgress = false;
       })
     );
   }
@@ -66,9 +85,12 @@ export class AttendanceApiService {
     if (!force && this.todayAttendance$) return this.todayAttendance$;
     this.todayAttendance$ = this.http.get(`${this.BASE_URL}/today`, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
-        const punches = res?.punches || [];
-        if (punches.length > 0) {
-          this.setClockState(punches[punches.length - 1].punch_type === 'in');
+        const allPunches = res?.punches || [];
+        const webPunches = allPunches.filter((p: any) => p.source !== 'biometric' && p.work_mode !== 'Biometric');
+        if (webPunches.length > 0) {
+          this.setClockState(webPunches[webPunches.length - 1].punch_type === 'in');
+        } else if (allPunches.length > 0) {
+          this.setClockState(allPunches[allPunches.length - 1].punch_type === 'in');
         } else {
           this.setClockState(false);
         }
@@ -129,6 +151,12 @@ export class AttendanceApiService {
 
   decideRemoteClockinRequest(id: number, decision: 'approved' | 'rejected', rejected_reason?: string): Observable<any> {
     return this.http.put(`${this.BASE_URL}/remote-clockin/${id}/decide`, { decision, rejected_reason }, { headers: this.getHeaders() });
+  }
+
+  getShiftTiming(date?: string): Observable<any> {
+    let params = new HttpParams();
+    if (date) params = params.set('date', date);
+    return this.http.get(`${this.BASE_URL}/shift-timing`, { headers: this.getHeaders(), params });
   }
 
   private clearCaches() {

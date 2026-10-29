@@ -4,22 +4,19 @@
     <ion-refresher-content></ion-refresher-content>
   </ion-refresher>
 
-  <div class="keka-inbox-wrapper">
+  <div class="HRMS-inbox-wrapper">
     <!-- Top Header Bar with Brand & Actions -->
-    <div class="keka-inbox-header">
-      <div class="header-top-row">
-        <!-- Top Primary Tabs Bar on Left (TAKE ACTION, NOTIFICATIONS, ARCHIVE) -->
-        <div class="top-navigation-tabs">
-          <button class="top-nav-tab" *ngIf="!isEmployee"
-            [class.active]="selectedTab !== 'Unread' && selectedTab !== 'Archived'" (click)="selectTab('All')">
-            TAKE ACTION <span class="tab-badge-text">({{ stats.pending || stats.totalRequests || 0 }})</span>
-            <div class="tab-indicator" *ngIf="selectedTab !== 'Unread' && selectedTab !== 'Archived'"></div>
-          </button>
+    <div class="HRMS-inbox-header">
 
-          <button class="top-nav-tab" *ngIf="!isEmployee" [class.active]="selectedTab === 'Unread'"
-            (click)="selectTab('Unread')">
-            NOTIFICATIONS <span class="tab-badge-text" *ngIf="unreadCount > 0">({{ unreadCount }})</span>
-            <div class="tab-indicator" *ngIf="selectedTab === 'Unread'"></div>
+
+
+      <div class="header-top-row">
+        <!-- Top Primary Tabs Bar on Left (TAKE ACTION, ARCHIVE / REJECTED REQUESTS) -->
+        <div class="top-navigation-tabs">
+          <button class="top-nav-tab" *ngIf="!isEmployee" [class.active]="selectedTab !== 'Archived'"
+            (click)="onTakeActionClick()">
+            TAKE ACTION <span class="tab-badge-text">({{ stats.pending || 0 }})</span>
+            <div class="tab-indicator" *ngIf="selectedTab !== 'Archived'"></div>
           </button>
 
           <button class="top-nav-tab" *ngIf="isEmployee" [class.active]="selectedTab === 'Rejected'"
@@ -34,10 +31,11 @@
           </button>
         </div>
 
-        <!-- Action buttons on Right side (No search box) -->
+        <!-- Action buttons on Right side -->
         <div class="header-right">
           <!-- Action buttons for HR/Manager -->
-          <ng-container *ngIf="showViewAll">
+          <!-- HR-Only Upload Actions -->
+          <ng-container *ngIf="isHR">
             <button class="btn btn-header-outline" (click)="triggerUpload()" title="Upload Monthly Attendance">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                 stroke-width="2" class="btn-icon">
@@ -58,28 +56,6 @@
               Upload Leave Balance
             </button>
 
-            <!-- Reports Dropdown Menu -->
-            <div class="reports-dropdown-wrapper">
-              <button class="btn btn-header-outline" (click)="toggleReportsDropdown($event)">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" class="btn-icon">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
-                Reports
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                  stroke-width="2" class="chevron-icon">
-                  <polyline points="6 9 12 15 18 9"></polyline>
-                </svg>
-              </button>
-              <div class="reports-dropdown-menu" *ngIf="showReportsDropdown">
-                <button class="dropdown-item" (click)="triggerExport(); showReportsDropdown = false">Export
-                  Attendance</button>
-                <button class="dropdown-item" (click)="exportLeaves(); showReportsDropdown = false">Export
-                  Leaves</button>
-              </div>
-            </div>
-
             <!-- Hidden File Inputs -->
             <input type="file" id="attendanceFileInput" style="display: none;" accept=".xlsx, .xls"
               (change)="onFileSelected($event)">
@@ -87,7 +63,46 @@
               (change)="onLeaveBalanceFileSelected($event)">
           </ng-container>
 
-          <button class="btn btn-header-outline" (click)="markAllAsRead()">Mark all as read</button>
+          <!-- HR & Manager Action: Download Timesheets -->
+          <button class="btn btn-header-outline" (click)="triggerExportTimesheets()"
+            title="Download Employee Timesheets" *ngIf="isManagerOrHR">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="btn-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Timesheets
+          </button>
+
+          <!-- Reports Dropdown Menu (Manager & HR) -->
+          <div class="reports-dropdown-wrapper" *ngIf="isManagerOrHR">
+            <button class="btn btn-header-outline" (click)="toggleReportsDropdown($event)">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" class="btn-icon">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+              </svg>
+              Reports
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2" class="chevron-icon">
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </button>
+            <div class="reports-dropdown-menu" *ngIf="showReportsDropdown">
+              <button class="dropdown-item" (click)="triggerExportTimesheets(); showReportsDropdown = false">
+                Download Timesheets (From Date - To Date)
+              </button>
+              <button class="dropdown-item" *ngIf="isManagerOrHR"
+                (click)="triggerExport(); showReportsDropdown = false">
+                Export Attendance (From Date - To Date)
+              </button>
+              <button class="dropdown-item" *ngIf="isHR" (click)="exportLeaves(); showReportsDropdown = false">
+                Export Leaves
+              </button>
+            </div>
+          </div>
+
           <button class="btn btn-header-primary" (click)="loadNotifications(null, true)">Refresh</button>
         </div>
       </div>
@@ -102,7 +117,7 @@
 
         <!-- Employee View Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="isEmployee">
-          <!-- Rejected Requests (employee-facing rejection notifications) -->
+          <!-- Rejected Requests -->
           <div class="sidebar-menu-item sidebar-menu-item--rejected" [class.active]="selectedTab === 'Rejected'"
             (click)="selectTab('Rejected')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -129,8 +144,9 @@
         <!-- Manager / HR View Pending Tasks Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="!isEmployee">
           <!-- 1. Leave Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.leaveCount > 0"
-            [class.active]="selectedTab === 'Leave' || selectedTab === 'All'" (click)="selectTab('Leave')">
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'Leave' || stats.leaveCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
               <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
@@ -143,7 +159,8 @@
           </div>
 
           <!-- 2. Work From Home Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.wfhCount > 0"
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'WFH' || stats.wfhCount > 0 || hasNoPendingTasks()"
             [class.active]="selectedTab === 'WFH'" (click)="selectTab('WFH')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -155,7 +172,8 @@
           </div>
 
           <!-- 3. Remote Login Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.remoteCount > 0"
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'Remote' || stats.remoteCount > 0 || hasNoPendingTasks()"
             [class.active]="selectedTab === 'Remote'" (click)="selectTab('Remote')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -167,21 +185,36 @@
             <span class="item-count">({{ stats.remoteCount || 0 }})</span>
           </div>
 
-          <!-- 4. Exit Request -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.resignationCount > 0"
-            [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
+          <!-- 4. Attendance Regularization Requests -->
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'Attendance' || stats.attendanceCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Attendance'" (click)="selectTab('Attendance')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
-              <polyline points="16 17 21 12 16 7"></polyline>
-              <line x1="21" y1="12" x2="9" y2="12"></line>
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
-            <span class="item-text">Exit Request</span>
-            <span class="item-count">({{ stats.resignationCount || 0 }})</span>
+            <span class="item-text">Attendance Regularization</span>
+            <span class="item-count">({{ stats.attendanceCount || 0 }})</span>
           </div>
 
-          <!-- 5. Timesheet Requests -->
-          <div class="sidebar-menu-item" *ngIf="selectedMonth || stats.timesheetCount > 0"
+          <!-- 5. Comp Off Requests -->
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'CompOff' || stats.compOffCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'CompOff'" (click)="selectTab('CompOff')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="16"></line>
+              <line x1="8" y1="12" x2="16" y2="12"></line>
+            </svg>
+            <span class="item-text">Comp Off</span>
+            <span class="item-count">({{ stats.compOffCount || 0 }})</span>
+          </div>
+
+          <!-- 6. Timesheet Requests -->
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'Timesheet' || stats.timesheetCount > 0 || hasNoPendingTasks()"
             [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -192,17 +225,25 @@
             <span class="item-count">({{ stats.timesheetCount || 0 }})</span>
           </div>
 
-          <!-- Fallback when no pending tasks -->
-          <div class="sidebar-empty-msg"
-            *ngIf="!selectedMonth && !stats.leaveCount && !stats.wfhCount && !stats.remoteCount && !stats.resignationCount && !stats.timesheetCount">
-            No pending tasks
+          <!-- 7. Exit / Resignation Requests -->
+          <div class="sidebar-menu-item"
+            *ngIf="selectedMonth || selectedTab === 'Resignation' || stats.resignationCount > 0 || hasNoPendingTasks()"
+            [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+              <polyline points="16 17 21 12 16 7"></polyline>
+              <line x1="21" y1="12" x2="9" y2="12"></line>
+            </svg>
+            <span class="item-text">Exit Request</span>
+            <span class="item-count">({{ stats.resignationCount || 0 }})</span>
           </div>
         </div>
       </div>
 
       <!-- Column 2: Items List -->
       <div class="column-items-list">
-        <!-- Top bar of Column 2 (No checkboxes) -->
+        <!-- Top bar of Column 2 -->
         <div class="list-column-header">
           <div class="header-title-left">
             <span class="list-title-text">
@@ -210,9 +251,13 @@
                 <ng-container *ngSwitchCase="'WFH'">WORK FROM HOME REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Remote'">REMOTE LOGIN REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Leave'">LEAVE REQUESTS</ng-container>
-                <ng-container *ngSwitchCase="'Resignation'">EXIT REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'CompOff'">COMP OFF REQUESTS</ng-container>
                 <ng-container *ngSwitchCase="'Attendance'">ATTENDANCE REGULARIZATION</ng-container>
                 <ng-container *ngSwitchCase="'Timesheet'">TIMESHEET REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Resignation'">EXIT REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Archived'">ARCHIVED REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Approved'">APPROVED REQUESTS</ng-container>
+                <ng-container *ngSwitchCase="'Rejected'">REJECTED REQUESTS</ng-container>
                 <ng-container *ngSwitchDefault>PENDING REQUESTS</ng-container>
               </ng-container>
             </span>
@@ -227,10 +272,10 @@
 
         <!-- Search input box in Column 2 -->
         <div class="list-search-wrapper">
-          <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search" />
+          <input type="text" [value]="searchQuery" (input)="onFilterSearch($event)" placeholder="Search requests..." />
         </div>
 
-        <!-- Scrollable List of Cards (No checkboxes on cards) -->
+        <!-- Scrollable List of Cards -->
         <div class="scrollable-cards-wrapper">
           <div class="skeleton-list" *ngIf="loading && page === 1">
             <div class="skeleton-card" *ngFor="let item of [1, 2, 3]">
@@ -241,20 +286,22 @@
           </div>
 
           <app-notification-empty *ngIf="!loading && notifications.length === 0"
-            [message]="'No ' + (selectedTab === 'WFH' ? 'Work From Home' : selectedTab === 'Remote' ? 'Remote Login' : selectedTab) + ' requests found'"
+            [message]="'No ' + getTabEmptyTitle() + ' requests found'"
             [subMessage]="'You have no pending requests in this list.'">
           </app-notification-empty>
 
           <div class="request-cards-stack" *ngIf="notifications.length > 0">
-            <div class="request-card-item" *ngFor="let notification of notifications"
+            <div class="request-card-item" *ngFor="let notification of notifications; trackBy: trackByNotificationId"
               [class.active]="selectedNotification?.notification_id === notification.notification_id"
-              [class.unread]="notification.is_read === 0" (click)="selectNotification(notification)">
+              [ngClass]="notification._cardBorderClass || getCardBorderClass(notification)"
+              (click)="selectNotification(notification)">
 
               <div class="card-avatar-wrapper">
-                <img *ngIf="getProfileImage(notification)" [src]="getProfileImage(notification)"
+                <img *ngIf="notification._avatarUrl || getProfileImage(notification)"
+                  [src]="notification._avatarUrl || getProfileImage(notification)"
                   (error)="onProfileImageError(notification)" class="avatar-img" />
-                <div *ngIf="!getProfileImage(notification)" class="avatar-circle">
-                  {{ getInitials(notification.employee_name) }}
+                <div *ngIf="!(notification._avatarUrl || getProfileImage(notification))" class="avatar-circle">
+                  {{ notification._initials || getInitials(notification.employee_name) }}
                 </div>
               </div>
 
@@ -262,18 +309,20 @@
                 <div class="card-header-line">
                   <span class="employee-name">{{ notification.employee_name }}</span>
                   <div class="card-meta-right">
-                    <span class="card-status-badge" [ngClass]="getStatusBadgeClass(notification.status)">
+                    <span class="card-status-badge"
+                      [ngClass]="notification._statusBadgeClass || getStatusBadgeClass(notification.status)">
                       {{ notification.status || 'Pending' }}
                     </span>
-                    <span class="time-ago">{{ getTimeAgo(notification.created_at) }}</span>
+                    <span class="time-ago">{{ notification._timeAgo || getTimeAgo(notification.created_at) }}</span>
                   </div>
                 </div>
                 <div class="request-title-line">
-                  {{ notification.request_type }}: {{ getCardShortSummary(notification) }}
+                  {{ notification._displayType || getDisplayRequestType(notification) }}: {{ notification._shortSummary
+                  || getCardShortSummary(notification) }}
                 </div>
                 <div class="request-desc-snippet">
-                  {{ getParsedMetadata(notification.metadata).reason || notification.description || 'No additional
-                  details provided' }}
+                  {{ (notification._parsedMeta || getParsedMetadata(notification.metadata)).reason ||
+                  notification.description || 'No additional details provided' }}
                 </div>
               </div>
             </div>
@@ -324,7 +373,7 @@
                     </button>
                   </div>
                   <span class="sub-timestamp">Requested by {{ selectedNotification.employee_name }} on {{
-                    formatDate(selectedNotification.created_at) }} 06:31 pm</span>
+                    formatDateTime(selectedNotification.created_at) }}</span>
                 </div>
               </div>
             </div>
@@ -342,10 +391,10 @@
                     getFallbackCompOffDate(selectedNotification)).weekday }}</div>
                 </div>
 
-                <div class="date-connector-dash">-</div>
+                <div class="date-connector-dash" *ngIf="isDateRange(selectedNotification)">-</div>
 
                 <!-- Date Box 2 -->
-                <div class="date-badge-box">
+                <div class="date-badge-box" *ngIf="isDateRange(selectedNotification)">
                   <div class="badge-month-header">{{ getDateParts(getFallbackLeaveDates(selectedNotification).end ||
                     getFallbackLeaveDates(selectedNotification).start ||
                     getFallbackCompOffDate(selectedNotification)).month }}</div>
@@ -364,148 +413,176 @@
               </div>
             </div>
 
-            <!-- Premium Enterprise Rejection Feedback Card -->
-            <div class="rejection-details-card" *ngIf="selectedNotification.status === 'Rejected'">
-              <div class="rejection-card-top-row">
-                <div class="rejection-header-group">
-                  <div class="rejection-icon-badge">
-                    <ion-icon name="close-circle-outline"></ion-icon>
+              <!-- Teammates Status Card (Avatar Bubbles with Hover Tooltip) -->
+              <div class="teammates-status-container" *ngIf="selectedNotification.request_type !== 'Timesheet Request'">
+                <ng-container *ngIf="loadingTeammates">
+                  <div class="teammates-status-note">
+                    <ion-spinner name="crescent" class="loading-spinner"></ion-spinner>
+                    <span class="checking-teammates">Checking teammate leaves...</span>
                   </div>
-                  <div class="rejection-title-meta">
-                    <div class="rejection-title">Request Rejected</div>
-                    <div class="rejection-manager-pill">
-                      <span>Rejected by</span>
-                      <span class="manager-name-tag">
-                        <ion-icon name="person-circle-outline"></ion-icon>
-                        {{ getRejectedBy(selectedNotification) }}
-                      </span>
+                </ng-container>
+
+                <ng-container *ngIf="!loadingTeammates && teammatesOnLeave.length === 0">
+                  <div class="teammates-status-note teammates-status-note--empty">
+                    <ion-icon name="checkmark-circle-outline" class="note-icon safe"></ion-icon>
+                    <span>No teammates are on leave on this day</span>
+                  </div>
+                </ng-container>
+
+                <ng-container *ngIf="!loadingTeammates && teammatesOnLeave.length > 0">
+                  <div class="teammates-leaves-card">
+                    <div class="teammates-leaves-header">
+                      <div class="header-left">
+                        <ion-icon name="alert-circle" class="warn-icon"></ion-icon>
+                        <span class="header-title">
+                          <strong>{{ teammatesOnLeave.length }}</strong> teammate{{ teammatesOnLeave.length > 1 ? 's
+                          are' : ' is' }} also on leave:
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Horizontal Teammates Avatar Bubble Row matching Mobbin Image 2 -->
+                    <div class="teammates-avatars-row">
+                      <div class="teammate-avatar-item" *ngFor="let t of teammatesOnLeave">
+                        <!-- Circular Avatar with Badge Indicator -->
+                        <div class="avatar-wrapper">
+                          <img *ngIf="getProfileImage(t)" [src]="getProfileImage(t)" [alt]="t.employee_name"
+                            class="avatar-img" (error)="t.imageFailed = true" />
+                          <div *ngIf="!getProfileImage(t)" class="avatar-initials">
+                            {{ getInitials(t.employee_name) }}
+                          </div>
+
+                          <!-- Top-Right Type Badge (e.g. Blue Home badge for WFH/Remote) -->
+                          <div class="avatar-status-badge" [ngClass]="getTeammateBadgeClass(t)">
+                            <ion-icon [name]="getTeammateBadgeIcon(t)"></ion-icon>
+                          </div>
+                        </div>
+
+                        <!-- Truncated Name underneath -->
+                        <span class="teammate-short-name" [title]="t.employee_name">
+                          {{ getTeammateShortName(t.employee_name) }}
+                        </span>
+
+                        <!-- Rich Hover Tooltip displaying Leave Type & Days -->
+                        <div class="teammate-hover-tooltip">
+                          <div class="tooltip-header">
+                            <span class="tooltip-name">{{ t.employee_name }}</span>
+                            <span class="tooltip-status-pill" [ngClass]="t.status?.toLowerCase()">{{ t.status }}</span>
+                          </div>
+                          <div class="tooltip-body">
+                            <div class="tooltip-detail-item">
+                              <span class="detail-label">Type:</span>
+                              <span class="detail-value highlight">{{ t.leave_type_name }}</span>
+                            </div>
+                            <div class="tooltip-detail-item">
+                              <span class="detail-label">Days:</span>
+                              <span class="detail-value font-bold">{{ formatTeammateDays(t) }}</span>
+                            </div>
+                            <div class="tooltip-detail-item" *ngIf="t.start_date">
+                              <span class="detail-label">Dates:</span>
+                              <span class="detail-value text-muted">{{ formatTeammateDateRange(t) }}</span>
+                            </div>
+                          </div>
+                          <div class="tooltip-caret"></div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div class="rejection-status-badge">
-                  <span class="status-dot"></span>
-                  <span>Rejected</span>
-                </div>
-              </div>
-
-              <div class="rejection-reason-body">
-                <div class="reason-label-tag">
-                  <ion-icon name="chatbox-ellipses"></ion-icon>
-                  <span>Rejection Reason</span>
-                </div>
-                <div class="reason-text-content">
-                  "{{ getRejectionReason(selectedNotification) || 'No reason provided by manager.' }}"
-                </div>
-              </div>
-
-              <div class="rejection-card-footer">
-                <div class="footer-timestamp">
-                  <ion-icon name="time-outline"></ion-icon>
-                  <span>Rejected on {{ formatDate(selectedNotification.updated_at || selectedNotification.created_at)
-                    }}</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- Teammates Status Note -->
-            <div class="teammates-status-note" *ngIf="selectedNotification.request_type !== 'Timesheet Request'">
-              No teammates are on leave on this day
-            </div>
-
-            <!-- Work Log Preview box for Timesheets -->
-            <div class="timesheet-worklog-box" *ngIf="selectedNotification.request_type === 'Timesheet Request'">
-              <div class="log-info-group">
-                <div class="log-icon-pill">
-                  <ion-icon name="time-outline"></ion-icon>
-                </div>
-                <div class="log-text-details">
-                  <span class="log-title">Timesheet Work Log</span>
-                  <span class="log-hours-count">
-                    <strong>{{ getParsedMetadata(selectedNotification.metadata).total_hours || '0' }}</strong> Hours
-                    Logged
-                  </span>
-                </div>
-              </div>
-              <div class="log-action-buttons">
-                <!-- AI Flag Pill -->
-                <div
-                  *ngIf="selectedNotification.ai_analytics_loaded"
-                  class="ai-flag-badge"
-                  [ngClass]="selectedNotification.ai_flag ? 'flag-danger' : 'flag-success'"
-                  (click)="openAiSummary(selectedNotification, $event)"
-                  [title]="selectedNotification.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
-                ><ion-icon name="flag"></ion-icon><span class="flag-label">{{ selectedNotification.ai_flag ? 'Flagged' : 'Clean' }}</span></div>
-
-                <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
-                  <ion-icon name="eye-outline"></ion-icon>
-                  <span>View Details</span>
-                </button>
-                <button class="btn-resubmit-report" *ngIf="selectedNotification.status === 'Rejected'"
-                  (click)="navigateToResubmitWorkTrack(selectedNotification)">
-                  <ion-icon name="create-outline"></ion-icon>
-                  <span>Resubmit Report</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- AI Flag Reason Alert Banner if Flagged -->
-            <div
-              class="ai-summary-banner"
-              *ngIf="selectedNotification.request_type === 'Timesheet Request' && selectedNotification.ai_flag && selectedNotification.ai_summary"
-              (click)="openAiSummary(selectedNotification, $event)"
-            >
-              <div class="banner-icon">
-                <ion-icon name="alert-circle"></ion-icon>
-              </div>
-              <div class="banner-content">
-                <span class="banner-title">AI Flag Reason</span>
-                <p class="banner-text">{{ selectedNotification.ai_summary }}</p>
-              </div>
-              <ion-icon name="information-circle-outline" class="info-icon"></ion-icon>
-            </div>
-          </div>
-
-          <!-- Bottom Action Bar for Rejected Timesheets -->
-          <!-- <div class="reader-bottom-action-bar resubmit-action-bar" *ngIf="selectedNotification.status === 'Rejected' && selectedNotification.request_type === 'Timesheet Request'">
-            <div class="action-status-hint">
-              <ion-icon name="alert-circle-outline"></ion-icon>
-              <span>Modify your work log and resubmit report for this date.</span>
-            </div>
-            <button class="btn-primary-resubmit" (click)="navigateToResubmitWorkTrack(selectedNotification)">
-              <ion-icon name="create-outline"></ion-icon>
-              <span>Edit & Resubmit Report</span>
-            </button>
-          </div> -->
-
-          <!-- Bottom Action & Comment Footer Bar -->
-          <div class="reader-bottom-action-bar" *ngIf="selectedNotification.status === 'Pending'">
-            <div class="character-limit-indicator">0 / 1024</div>
-            <div class="input-actions-row">
-              <input type="text" [(ngModel)]="rejectReasonText" placeholder="Add comment or reject reason here"
-                class="comment-input-field" />
-              <div class="action-buttons-group">
-                <button class="btn-comment-icon" title="Add Comment">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    stroke-width="2" style="width: 18px; height: 18px; color: #64748b;">
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                  </svg>
-                </button>
-                <ng-container *ngIf="selectedNotification.status === 'Pending'">
-                  <!-- AI Flag Badge (Red if flagged, Green if clean) -->
-                  <div
-                    *ngIf="selectedNotification.request_type === 'Timesheet Request' && selectedNotification.ai_analytics_loaded"
-                    class="ai-flag-badge"
-                    [ngClass]="selectedNotification.ai_flag ? 'flag-danger' : 'flag-success'"
-                    (click)="openAiSummary(selectedNotification, $event)"
-                    [title]="selectedNotification.ai_flag ? 'AI Flagged (Click to view analysis)' : 'AI Verified Clean (Click to view analysis)'"
-                  ><ion-icon name="flag"></ion-icon><span class="flag-label">{{ selectedNotification.ai_flag ? 'Flagged' : 'Clean' }}</span></div>
-
-                  <button class="btn-action-approve" (click)="approveRequest(selectedNotification)">Approve</button>
-                  <button class="btn-action-reject" (click)="rejectRequest(selectedNotification)">Reject</button>
                 </ng-container>
               </div>
+
+              <!-- Premium Enterprise Rejection Feedback Card -->
+              <div class="rejection-details-card" *ngIf="selectedNotification.status === 'Rejected'">
+                <div class="rejection-card-top-row">
+                  <div class="rejection-header-group">
+                    <div class="rejection-icon-badge">
+                      <ion-icon name="close-circle-outline"></ion-icon>
+                    </div>
+                    <div class="rejection-title-meta">
+                      <div class="rejection-title">Request Rejected</div>
+                      <div class="rejection-manager-pill">
+                        <span>Rejected by</span>
+                        <span class="manager-name-tag">
+                          <ion-icon name="person-circle-outline"></ion-icon>
+                          {{ getRejectedBy(selectedNotification) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="rejection-status-badge">
+                    <span class="status-dot"></span>
+                    <span>Rejected</span>
+                  </div>
+                </div>
+
+                <div class="rejection-reason-body">
+                  <div class="reason-label-tag">
+                    <ion-icon name="chatbox-ellipses"></ion-icon>
+                    <span>Rejection Reason</span>
+                  </div>
+                  <div class="reason-text-content">
+                    "{{ getRejectionReason(selectedNotification) || 'No reason provided by manager.' }}"
+                  </div>
+                </div>
+
+                <div class="rejection-card-footer">
+                  <div class="footer-timestamp">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <span>Rejected on {{ formatDateTime(selectedNotification.updated_at ||
+                      selectedNotification.created_at)
+                      }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Work Log Preview box for Timesheets -->
+              <div class="timesheet-worklog-box" *ngIf="selectedNotification.request_type === 'Timesheet Request'">
+                <div class="log-info-group">
+                  <div class="log-icon-pill">
+                    <ion-icon name="time-outline"></ion-icon>
+                  </div>
+                  <div class="log-text-details">
+                    <span class="log-title">Timesheet Work Log</span>
+                    <span class="log-hours-count">
+                      <strong>{{ getParsedMetadata(selectedNotification.metadata).total_hours || '0' }}</strong> Hours
+                      Logged
+                    </span>
+                  </div>
+                </div>
+                <div class="log-action-buttons">
+                  <button class="btn-view-preview" (click)="openTimesheetPreview(selectedNotification)">
+                    <ion-icon name="eye-outline"></ion-icon>
+                    <span>View Details</span>
+                  </button>
+                  <button class="btn-resubmit-report" *ngIf="selectedNotification.status === 'Rejected'"
+                    (click)="navigateToResubmitWorkTrack(selectedNotification)">
+                    <ion-icon name="create-outline"></ion-icon>
+                    <span>Resubmit Report</span>
+                  </button>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <!-- Bottom Action & Comment Footer Bar (Only Reporting Manager and HR can take action) -->
+            <div class="reader-bottom-action-bar" *ngIf="canTakeActionOn(selectedNotification)">
+              <div class="character-limit-indicator">{{ rejectReasonText?.length || 0 }} / 1024</div>
+              <div class="input-actions-row">
+                <input type="text" [(ngModel)]="rejectReasonText" placeholder="Add comment or reject reason here"
+                  class="comment-input-field" maxlength="1024" />
+                <div class="action-buttons-group">
+                  <button class="btn-comment-icon" title="Add Comment">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                      stroke-width="2" style="width: 18px; height: 18px; color: #64748b;">
+                      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                    </svg>
+                  </button>
+                  <ng-container *ngIf="selectedNotification.status === 'Pending'">
+                    <button class="btn-action-approve" (click)="approveRequest(selectedNotification)">Approve</button>
+                    <button class="btn-action-reject" (click)="rejectRequest(selectedNotification)">Reject</button>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
         </ng-container>
 
         <ng-template #noSelectionTemplate>

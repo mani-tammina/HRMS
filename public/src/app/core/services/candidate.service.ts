@@ -12,8 +12,13 @@ export class CandidateService {
   constructor(private http: HttpClient) { }
 
   // Get all candidates
-  getAllCandidates(): Observable<any> {
-    return this.http.get<any>(this.apiUrl);
+  getAllCandidates(params?: any): Observable<any> {
+    return this.http.get<any>(this.apiUrl, { params });
+  }
+
+  // Get offer accepted candidates
+  getOfferAcceptedCandidates(params?: any): Observable<any> {
+    return this.http.get<any>(this.apiUrl, { params: { ...params, offer_accepted: '1' } });
   }
 
   // Get candidate by ID
@@ -24,6 +29,16 @@ export class CandidateService {
   // Get candidate by ID (Public verification endpoint)
   getCandidateByIdPublic(id: number): Observable<any> {
     return this.http.get<any>(`${this.apiUrl}/public/${id}`);
+  }
+
+  // Send OTP to candidate email (Public)
+  sendCandidateOtp(email: string, candidateId?: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/public/send-otp`, { email, candidateId });
+  }
+
+  // Verify candidate OTP (Public)
+  verifyCandidateOtp(email: string, otp: string, candidateId?: any): Observable<any> {
+    return this.http.post<any>(`${this.apiUrl}/public/verify-otp`, { email, otp, candidateId });
   }
 
   // Update candidate status (Public acceptance/rejection)

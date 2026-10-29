@@ -1,5 +1,5 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, interval, fromEvent } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
 
@@ -11,6 +11,8 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 import { AdminService } from '../../../core/services/admin.service';
 import { LeaverequestService } from '../../../core/services/leaverequest.service';
 import { LeavePlanService } from '../../../core/services/leave-plans.service';
+import { DashboardService } from '../../../core/services/dashboard.service';
+import { HolidayService } from '../../../core/services/holiday.service';
 
 @Component({
   selector: 'app-home',
@@ -21,6 +23,7 @@ import { LeavePlanService } from '../../../core/services/leave-plans.service';
 export class HomePage implements OnInit, OnDestroy {
   private destroy$ = new Subject<void>();
   private clockInterval: any;
+  private lastDashboardFetchTime = 0;
 
   // Birthday wishes UI state
   activeWishEmployeeId: number | null = null;
@@ -77,9 +80,27 @@ export class HomePage implements OnInit, OnDestroy {
   /* ================= ANNOUNCEMENTS ================= */
   announcements: any[] = [];
 
+  /* ================= TEAM STATUS TODAY ================= */
+  onLeaveToday: any[] = [];
+  wfhToday: any[] = [];
+  remoteToday: any[] = [];
+  activeWorkplaceTab: 'leave' | 'wfh' | 'remote' = 'leave';
+
+  /* ================= UPCOMING HOLIDAYS CAROUSEL ================= */
+  upcomingHolidays: any[] = [];
+  currentHolidayIndex: number = 0;
+  employeeLocationName: string = '';
+  isHolidaysLoading: boolean = false;
+
+  get currentHoliday(): any {
+    return this.upcomingHolidays[this.currentHolidayIndex] || null;
+  }
+
   /* ================= DASHBOARD ================= */
   days: { date: string; status: 'Complete' | 'Remaining' }[] = [];
   hasPunchedToday: boolean = false;
+  isAutoClockedOut: boolean = false;
+  isClockedIn: boolean = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -92,18 +113,24 @@ export class HomePage implements OnInit, OnDestroy {
     private leaveRequestService: LeaverequestService,
     private leavePlanService: LeavePlanService,
     private adminService: AdminService,
+    private dashboardService: DashboardService,
+    private holidayService: HolidayService,
     private cdr: ChangeDetectorRef
   ) { }
 
   ngOnInit() {
+    this.lastDashboardFetchTime = Date.now();
     this.setupEnvironment();
     this.setupGreetingAndDate();
     this.setupClock();
+    this.loadEmployeeProfile();
     this.loadLeaveBalance();
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
     this.loadAnnouncements();
     this.refreshAttendanceState();
+    this.loadTeamStatusToday();
+    this.loadUpcomingHolidays();
 
     const year = new Date().getFullYear();
     const month = new Date().getMonth() + 1;
@@ -114,10 +141,26 @@ export class HomePage implements OnInit, OnDestroy {
       this.monthlyAttendanceReport = report;
 
       const todayStr = new Date().toISOString().split('T')[0];
-      this.todayAttendance = report.find(r => {
+      const foundToday = report.find(r => {
         const d = r.attendance_date || r.date;
         return d && d.startsWith(todayStr);
-      }) || null;
+      });
+      const isFoundTodayAutoOut = foundToday && (foundToday.is_auto_out || (foundToday.notes || '').includes('OUT Missing') || (foundToday.notes || '').includes('Auto Clock-Out') || (foundToday.status || '').toLowerCase() === 'not in yet');
+      if (foundToday && !this.isAutoClockedOut && !isFoundTodayAutoOut) {
+        const liveWorkHours = this.todayAttendance?.total_work_hours;
+        const liveGrossHours = this.todayAttendance?.gross_hours;
+        const hasLiveHours = liveWorkHours && liveWorkHours !== '0.00' && liveWorkHours !== '0' && liveWorkHours !== '-';
+        this.todayAttendance = {
+          ...foundToday,
+          ...this.todayAttendance,
+          gross_hours: hasLiveHours ? liveGrossHours : (foundToday.gross_hours || this.todayAttendance?.gross_hours),
+          total_work_hours: hasLiveHours ? liveWorkHours : (foundToday.total_work_hours || foundToday.effective_hours || this.todayAttendance?.total_work_hours),
+          effective_hours: hasLiveHours ? liveWorkHours : (foundToday.effective_hours || foundToday.total_work_hours || this.todayAttendance?.effective_hours)
+        };
+      } else if (this.isAutoClockedOut || isFoundTodayAutoOut) {
+        this.todayAttendance = null;
+        this.todayEffectivePercentage = 0;
+      }
 
       if (report.length) {
         const presentDays = report.filter(r => r.status === 'present').length;
@@ -208,8 +251,21 @@ export class HomePage implements OnInit, OnDestroy {
       this.refreshAttendanceState();
     });
 
-    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(() => {
+    this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(isClocked => {
+      if (isClocked) {
+        this.isClockedIn = true;
+      }
       this.cdr.detectChanges();
+    });
+
+    if (typeof window !== 'undefined') {
+      fromEvent(window, 'focus').pipe(takeUntil(this.destroy$)).subscribe(() => {
+        this.refreshAttendanceState();
+      });
+    }
+
+    interval(30000).pipe(takeUntil(this.destroy$)).subscribe(() => {
+      this.refreshAttendanceState();
     });
 
     this.loadBirthdays();
@@ -230,11 +286,160 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   ionViewWillEnter() {
+    const now = Date.now();
+    // Prevent duplicate API storm if ngOnInit already fetched data within the last 30 seconds
+    if (now - this.lastDashboardFetchTime < 30000) {
+      return;
+    }
+    this.lastDashboardFetchTime = now;
+
     this.loadEmployeeProfile();
     this.loadBirthdays();
     this.loadLeaveBalance();
     this.loadCurrentMonthLOP();
     this.loadCurrentMonthLeaves();
+    this.loadTeamStatusToday();
+    this.loadUpcomingHolidays();
+    this.refreshAttendanceState();
+  }
+
+  loadUpcomingHolidays() {
+    this.isHolidaysLoading = true;
+    this.holidayService.getUpcomingHolidays().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.isHolidaysLoading = false;
+        const list = Array.isArray(res) ? res : (res?.holidays || []);
+        this.upcomingHolidays = list;
+
+        if (res?.location_name) {
+          this.employeeLocationName = res.location_name;
+        } else if (this.currentEmployee?.location_name) {
+          this.employeeLocationName = this.currentEmployee.location_name;
+        }
+
+        // Default carousel slide to the next upcoming holiday
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const nextIdx = list.findIndex((h: any) => {
+          const d = new Date(h.holiday_date);
+          d.setHours(0, 0, 0, 0);
+          return d >= today;
+        });
+
+        if (nextIdx !== -1) {
+          this.currentHolidayIndex = nextIdx;
+        } else if (list.length > 0) {
+          this.currentHolidayIndex = list.length - 1;
+        } else {
+          this.currentHolidayIndex = 0;
+        }
+
+        this.cdr.detectChanges();
+      },
+      error: (err) => {
+        this.isHolidaysLoading = false;
+        console.warn('Could not load upcoming holidays:', err);
+      }
+    });
+  }
+
+  prevHoliday() {
+    if (this.upcomingHolidays.length <= 1) return;
+    if (this.currentHolidayIndex > 0) {
+      this.currentHolidayIndex--;
+    } else {
+      this.currentHolidayIndex = this.upcomingHolidays.length - 1;
+    }
+    this.cdr.detectChanges();
+  }
+
+  nextHoliday() {
+    if (this.upcomingHolidays.length <= 1) return;
+    if (this.currentHolidayIndex < this.upcomingHolidays.length - 1) {
+      this.currentHolidayIndex++;
+    } else {
+      this.currentHolidayIndex = 0;
+    }
+    this.cdr.detectChanges();
+  }
+
+  setHolidayIndex(index: number) {
+    if (index >= 0 && index < this.upcomingHolidays.length) {
+      this.currentHolidayIndex = index;
+      this.cdr.detectChanges();
+    }
+  }
+
+  isPastHoliday(holiday: any): boolean {
+    if (!holiday || !holiday.holiday_date) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hDate = new Date(holiday.holiday_date);
+    hDate.setHours(0, 0, 0, 0);
+    return hDate < today;
+  }
+
+  getHolidayStatusLabel(holiday: any): string {
+    if (!holiday || !holiday.holiday_date) return '';
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const hDate = new Date(holiday.holiday_date);
+    hDate.setHours(0, 0, 0, 0);
+    const diffTime = hDate.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return 'Today';
+    if (diffDays === 1) return 'Tomorrow';
+    if (diffDays > 1 && diffDays <= 7) return `In ${diffDays} days`;
+    if (diffDays < 0) return 'Past Holiday';
+    return 'Upcoming';
+  }
+
+  setWorkplaceTab(tab: 'leave' | 'wfh' | 'remote') {
+    this.activeWorkplaceTab = tab;
+    this.cdr.detectChanges();
+  }
+
+  loadTeamStatusToday() {
+    const colors = ['#ff9800', '#2196f3', '#4caf50', '#f44336', '#9c27b0', '#009688', '#3f51b5', '#e91e63'];
+    this.dashboardService.getTeamStatusToday().pipe(takeUntil(this.destroy$)).subscribe({
+      next: (res: any) => {
+        this.onLeaveToday = (res.on_leave || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+        this.wfhToday = (res.wfh || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+        this.remoteToday = (res.remote || []).map((emp: any) => ({
+          ...emp,
+          initials: ((emp.FirstName || '').charAt(0) + (emp.LastName || '').charAt(0)).toUpperCase(),
+          avatarColor: colors[(emp.employee_id || emp.id || 0) % colors.length],
+          fullImageUrl: emp.profile_image ? `${this.env}${emp.profile_image}` : null
+        }));
+
+        // Auto-select tab with active employees
+        if (this.onLeaveToday.length > 0) {
+          this.activeWorkplaceTab = 'leave';
+        } else if (this.wfhToday.length > 0) {
+          this.activeWorkplaceTab = 'wfh';
+        } else if (this.remoteToday.length > 0) {
+          this.activeWorkplaceTab = 'remote';
+        }
+
+        this.cdr.detectChanges();
+      },
+      error: () => {
+        this.onLeaveToday = [];
+        this.wfhToday = [];
+        this.remoteToday = [];
+      }
+    });
   }
 
   loadBirthdays() {
@@ -440,6 +645,9 @@ export class HomePage implements OnInit, OnDestroy {
     if (this.clockInterval) clearInterval(this.clockInterval);
     this.clockInterval = setInterval(() => {
       this.currentTime = new Date().toLocaleTimeString('en-US', { hour12: true });
+      if (this.isClockedIn && this.currentPunches && this.currentPunches.length > 0 && new Date().getSeconds() % 30 === 0) {
+        this.recalculateTodayOverviewMetrics();
+      }
     }, 1000);
   }
 
@@ -455,6 +663,7 @@ export class HomePage implements OnInit, OnDestroy {
 
   attendance() { this.router.navigate(['/Me']); }
   wfhRequest() { this.router.navigate(['/Me'], { queryParams: { action: 'wfh' } }); }
+  remoteRequest() { this.router.navigate(['/Me'], { queryParams: { action: 'remote' } }); }
   leaves() { this.router.navigate(['/leaves']); }
   myteam() { this.router.navigate(['/MyTeam']); }
   viewAllAnnouncements() { this.router.navigate(['/administration/org-setup']); }
@@ -620,35 +829,178 @@ export class HomePage implements OnInit, OnDestroy {
     this.cdr.detectChanges();
   }
 
+  private currentPunches: any[] = [];
+
   private refreshAttendanceState() {
     this.attendanceApi.getTodayAttendance(true).pipe(takeUntil(this.destroy$)).subscribe(res => {
-      console.log(res)
       const punches = res?.punches || [];
-      this.hasPunchedToday = punches.length > 0;
+      this.currentPunches = punches;
+      const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
+      this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
 
-      if (this.hasPunchedToday) {
-        // Build the overview data object
+      const isOverallIn = lastPunch ? lastPunch.punch_type === 'in' : false;
+      const isWebIn = this.attendanceApi.getClockState();
+      this.isClockedIn = isOverallIn || isWebIn;
+      this.hasPunchedToday = punches.length > 0 && !this.isAutoClockedOut;
 
-        this.todayAttendance = {
-          ...this.todayAttendance,
-          first_check_in: res.first_check_in || (punches.length > 0 ? punches[0].punch_time : null),
-          last_check_out: res.last_check_out || (punches.length > 0 && punches[punches.length - 1].punch_type === 'out' ? punches[punches.length - 1].punch_time : null),
-          gross_hours: this.formatMinutesToHours(res.gross_hours),
-          work_mode: res.work_mode || (punches.length > 0 ? punches[0].work_mode : null),
-          effective_hours: this.formatMinutesToHours(res.total_work_hours)
-        };
-
-        const eff = parseFloat(res.effective_hours) || 0;
-        this.todayEffectivePercentage = Math.round((eff / (8 * 60)) * 100);
+      if (this.isAutoClockedOut) {
+        this.todayAttendance = null;
+        this.todayEffectivePercentage = 0;
+      } else if (this.hasPunchedToday) {
+        this.recalculateTodayOverviewMetrics(res);
       }
 
       this.cdr.detectChanges();
     });
   }
 
+  private recalculateTodayOverviewMetrics(res?: any) {
+    if (!this.currentPunches || !this.currentPunches.length || this.isAutoClockedOut) return;
+
+    const metrics = this.calculateMetricsFromPunches(this.currentPunches, true);
+    const effHours = metrics.totalWorkHours;
+    const grossHours = metrics.grossHours;
+
+    const lastActivePunch = this.currentPunches[this.currentPunches.length - 1];
+    const firstActivePunch = this.currentPunches[0];
+
+    const firstCheckIn = res?.attendance?.first_check_in || res?.first_check_in || this.todayAttendance?.first_check_in || firstActivePunch.punch_time;
+    const lastCheckOut = (res?.attendance?.last_check_out || res?.last_check_out) || (lastActivePunch.punch_type === 'out' ? lastActivePunch.punch_time : null);
+
+    this.todayAttendance = {
+      ...this.todayAttendance,
+      attendance_date: new Date().toISOString().split('T')[0],
+      first_check_in: firstCheckIn,
+      last_check_out: lastCheckOut,
+      gross_hours: grossHours,
+      work_mode: res?.attendance?.work_mode || res?.work_mode || this.todayAttendance?.work_mode || (lastActivePunch ? lastActivePunch.work_mode : firstActivePunch.work_mode),
+      effective_hours: effHours,
+      total_work_hours: effHours
+    };
+
+    const eff = parseFloat(effHours) || 0;
+    this.todayEffectivePercentage = Math.round((eff / 8) * 100);
+    this.cdr.detectChanges();
+  }
+
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
+      }
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
+      }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
+  }
+
+  private calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+    let currentInPunch: any = null;
+
+    for (let i = 0; i < punches.length; i++) {
+      const p = punches[i];
+      const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
+
+      if (punchType === 'in') {
+        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+          earliestInMs = pTimeMs;
+        }
+        if (currentInPunch) {
+          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > prevInTimeMs && (pTimeMs - prevInTimeMs) >= 5 * 60 * 1000) {
+            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+          }
+        }
+        currentInPunch = p;
+      } else if (punchType === 'out') {
+        if (currentInPunch && !isAutoOut) {
+          const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > inTimeMs) {
+            workIntervals.push({ start: inTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+          }
+        }
+        currentInPunch = null;
+      }
+    }
+
+    if (currentInPunch && isToday) {
+      const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+      const nowMs = Date.now();
+      if (nowMs > inTimeMs) {
+        workIntervals.push({ start: inTimeMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) {
+          latestOutMs = nowMs;
+        }
+      }
+    }
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
+  }
+
   private formatMinutesToHours(val: any): string {
     if (!val) return '0h 0m';
-    // Ensure we handle strings like "120" or numeric values correctly
     const totalMinutes = typeof val === 'number' ? val : parseInt(val.toString().replace(/[^0-9]/g, '')) || 0;
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
@@ -658,13 +1010,14 @@ export class HomePage implements OnInit, OnDestroy {
   formatGrossHours(val: any): string {
     if (val === null || val === undefined || val === '') return '0h 0m';
     const str = val.toString().trim();
+    if (str === '-' || str === '0') return '0h 0m';
     // Already formatted as "Xh Ym" or "Xh Y m"
     if (str.includes('h')) {
       const hPart = parseFloat(str.split('h')[0].trim()) || 0;
       const mPart = parseFloat((str.split('h')[1] || '').replace(/[^0-9.]/g, '')) || 0;
       return `${hPart}h ${mPart}m`;
     }
-    // Numeric decimal hours (e.g. 7.5 from monthly report)
+    // Numeric decimal hours (e.g. 7.5 from monthly report or "7.50")
     const num = parseFloat(str);
     if (!isNaN(num)) {
       const hours = Math.floor(num);
@@ -746,9 +1099,9 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   getStatusLabel(): string {
-    const isClockedIn = this.attendanceApi.getClockState();
-    if (isClockedIn) return 'In';
-    return this.hasPunchedToday ? 'Out' : 'Not In Yet';
+    if (this.isClockedIn) return 'In';
+    if (!this.hasPunchedToday || this.isAutoClockedOut) return 'Not In Yet';
+    return 'Out';
   }
 
   getStatusClass(): string {

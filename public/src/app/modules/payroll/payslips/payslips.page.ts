@@ -83,6 +83,28 @@ export class PayslipsPage implements OnInit, OnDestroy {
   }
   isBreakupModalOpen = false;
   selectedContractDetails: any = null;
+
+  get formattedDOJ(): string {
+    const val = this.currentEmployee?.DateJoined;
+    if (!val) return '-';
+    const str = String(val).trim();
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const ymd = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (ymd) {
+      const mIdx = parseInt(ymd[2], 10) - 1;
+      return `${ymd[3].padStart(2, '0')} ${months[mIdx] || ymd[2]} ${ymd[1]}`;
+    }
+    const dmy = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmy) {
+      const mIdx = parseInt(dmy[2], 10) - 1;
+      return `${dmy[1].padStart(2, '0')} ${months[mIdx] || dmy[2]} ${dmy[3]}`;
+    }
+    const d = new Date(str);
+    if (!isNaN(d.getTime())) {
+      return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata' }).format(d);
+    }
+    return str || '-';
+  }
   selectedContractBreakup: any = null;
   isLoadingBreakup = false;
 

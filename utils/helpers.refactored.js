@@ -174,46 +174,30 @@ async function findEmployeeByUserId(userId) {
  */
 function toMySQLDateTime(val) {
     if (!val) return null;
-    
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(val.trim())) {
+        return val.trim();
+    }
     const date = new Date(val);
-    
-    // Check if valid date
     if (isNaN(date.getTime())) {
         console.warn('[toMySQLDateTime] Invalid date value:', val);
         return null;
     }
-    
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    const hh = String(date.getHours()).padStart(2, '0');
-    const mi = String(date.getMinutes()).padStart(2, '0');
-    const ss = String(date.getSeconds()).padStart(2, '0');
-    
-    return `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+    const dStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
+    const tStr = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(date);
+    return `${dStr} ${tStr}`;
 }
 
-/**
- * Convert JavaScript Date to MySQL DATE format (YYYY-MM-DD)
- * 
- * @param {Date|string|number} val - Date value to convert
- * @returns {string|null} MySQL DATE string or null if invalid
- */
 function toMySQLDate(val) {
     if (!val) return null;
-    
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val.trim())) {
+        return val.trim();
+    }
     const date = new Date(val);
-    
     if (isNaN(date.getTime())) {
         console.warn('[toMySQLDate] Invalid date value:', val);
         return null;
     }
-    
-    const yyyy = date.getFullYear();
-    const mm = String(date.getMonth() + 1).padStart(2, '0');
-    const dd = String(date.getDate()).padStart(2, '0');
-    
-    return `${yyyy}-${mm}-${dd}`;
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(date);
 }
 
 /**

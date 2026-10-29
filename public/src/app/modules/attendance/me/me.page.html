@@ -76,23 +76,25 @@
             </div>
 
             <div class="timings-body">
-              <div class="shift-row-new" *ngIf="shift_policy">
-                <div class="shift-icon-box">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
-                    stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="5" />
-                    <line x1="12" y1="1" x2="12" y2="3" />
-                    <line x1="12" y1="21" x2="12" y2="23" />
-                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-                    <line x1="1" y1="12" x2="3" y2="12" />
-                    <line x1="21" y1="12" x2="23" y2="12" />
-                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-                  </svg>
+              <div class="shift-row-new">
+                <div class="shift-left-meta">
+                  <div class="shift-icon-box">
+                    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+                      stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="5" />
+                      <line x1="12" y1="1" x2="12" y2="3" />
+                      <line x1="12" y1="21" x2="12" y2="23" />
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                      <line x1="1" y1="12" x2="3" y2="12" />
+                      <line x1="21" y1="12" x2="23" y2="12" />
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                    </svg>
+                  </div>
+                  <span class="shift-text-label">Shift : {{ (shift_policy?.start_time || shiftTiming?.startTime || '09:00:00') | timeFormat }} - {{
+                    (shift_policy?.end_time || shiftTiming?.endTime || '18:00:00') | timeFormat }}</span>
                 </div>
-                <span class="shift-text-label">Shift : {{ shift_policy.start_time | timeFormat }} - {{
-                  shift_policy.end_time | timeFormat }}</span>
               </div>
 
               <div class="days-row-capsules">
@@ -151,34 +153,17 @@
                     <p class="status-sub">Have a productive day!</p>
                   </div>
 
-                  <div class="time-left-box">
-                    <span class="tl-label">Time Left : </span>
-                    <span class="tl-value">{{ shiftTimeLeft }}</span>
-                  </div>
-
                   <div class="main-clock-btn-wrapper" *ngIf="!isHRView">
                     <app-clock-button (statusChanged)="onClockStatusChanged($event)"></app-clock-button>
                   </div>
 
-                  <div class="pills-row" *ngIf="!isHRView">
-                    <button *ngIf="(!policyPermissions || policyPermissions.remote_clockin_enabled !== false) && !hasApprovedRemote"
-                      class="pill-btn outlined" (click)="openRemoteClockinModal()"
-                      [disabled]="clockButton?.isClockedIn || clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
-                        stroke-linecap="round" stroke-linejoin="round"
-                        style="margin-right: 4px; vertical-align: middle;">
-                        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
-                        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
-                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
-                        <line x1="12" y1="20" x2="12.01" y2="20" />
-                      </svg>
-                      <span>Remote request</span>
-                    </button>
-                    <button *ngIf="hasApprovedRemote" class="pill-btn outlined" (click)="remoteClockIn()"
-                      [disabled]="clockButton?.isClockedIn || clockButton?.loading || remoteClockInLoading || wfhClockInLoading">
+                  <div class="pills-row" *ngIf="!isHRView && !isClockedIn">
+                    <!-- Remote In button: shown when remote request / punch has occurred for today -->
+                    <button *ngIf="hasRemoteToday" class="pill-btn outlined pill-btn--remote" (click)="remoteClockIn()"
+                      [disabled]="clockButton?.loading || remoteClockInLoading || wfhClockInLoading">
                       <ion-spinner *ngIf="remoteClockInLoading" name="crescent"
                         style="width: 14px; height: 14px; margin-right: 4px; vertical-align: middle;"></ion-spinner>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                      <svg *ngIf="!remoteClockInLoading" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round"
                         style="margin-right: 4px; vertical-align: middle;">
                         <path d="M5 12.55a11 11 0 0 1 14.08 0" />
@@ -188,6 +173,8 @@
                       </svg>
                       <span>{{ remoteClockInLoading ? 'Please wait...' : 'Remote In' }}</span>
                     </button>
+
+                    <!-- WFH In button -->
                     <button class="pill-btn outlined" (click)="wfhClockIn()"
                       [disabled]="clockButton?.isClockedIn || clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
                       <ion-spinner *ngIf="wfhClockInLoading" name="crescent"
@@ -200,7 +187,24 @@
                       </svg>
                       <span>{{ wfhClockInLoading ? 'Please wait...' : 'WFH In' }}</span>
                     </button>
-                    <button class="pill-btn outlined" (click)="openWFHModal()">
+
+                    <!-- Remote request button: shown even in out state -->
+                    <button *ngIf="!policyPermissions || policyPermissions.remote_clockin_enabled !== false"
+                      class="pill-btn outlined" (click)="openRemoteClockinModal()"
+                      [disabled]="clockButton?.loading || wfhClockInLoading || remoteClockInLoading">
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
+                        stroke-linecap="round" stroke-linejoin="round"
+                        style="margin-right: 4px; vertical-align: middle;">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0" />
+                        <path d="M1.42 9a16 16 0 0 1 21.16 0" />
+                        <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+                        <line x1="12" y1="20" x2="12.01" y2="20" />
+                      </svg>
+                      <span>Remote request</span>
+                    </button>
+
+                    <!-- WFH Request button: shown even in out state -->
+                    <button class="pill-btn outlined" [class.pill-btn--full]="!hasRemoteToday" (click)="openWFHModal()">
                       <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round"
                         style="margin-right: 4px; vertical-align: middle;">
@@ -318,7 +322,7 @@
   <div class="sp-body">
 
     <!-- How it works strip -->
-    <div class="sp-flow-strip" *ngIf="policyPermissions?.remote_clockin_approval_required === 'yes'">
+    <div class="sp-flow-strip" *ngIf="policyPermissions?.remote_clockin_approval_required !== 'no'">
       <div class="sp-flow-step">
         <div class="sp-flow-dot sp-dot-blue">1</div>
         <span>Fill reason</span>
@@ -336,7 +340,7 @@
     </div>
 
     <!-- Notice card -->
-    <div class="sp-notice-card" *ngIf="policyPermissions?.remote_clockin_approval_required === 'yes'">
+    <div class="sp-notice-card" *ngIf="policyPermissions?.remote_clockin_approval_required !== 'no'">
       <div class="sp-notice-icon">
         <ion-icon name="shield-checkmark-outline"></ion-icon>
       </div>
@@ -357,10 +361,10 @@
           {{ remoteReason.length }}/250
         </span>
       </div>
-      <div *ngIf="(policyPermissions?.remote_clockin_comment_required) === 'yes'" class="sp-textarea-wrap"
+      <div *ngIf="(policyPermissions?.remote_clockin_comment_required) !== 'no'" class="sp-textarea-wrap"
         [class.sp-textarea-focused]="remoteReason.length > 0">
         <textarea class="sp-textarea" [(ngModel)]="remoteReason"
-          placeholder="Explain why you are clocking in remotely today…" rows="5" maxlength="250"
+          placeholder="Explain why you are requesting to work remotely today…" rows="5" maxlength="250"
           [disabled]="remoteLoading"></textarea>
       </div>
     </div>

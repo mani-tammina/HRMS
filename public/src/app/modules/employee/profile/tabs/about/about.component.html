@@ -1,89 +1,109 @@
 <div class="about-container" *ngIf="currentEmployee">
-  <div class="detail-row">
+  <!-- Top Row: Personal Summary (Left) & Organizational Details (Right) -->
+  <div class="about-top-grid">
     <!-- Personal Summary Card -->
-    <div class="details-card">
+    <div class="about-card summary-card">
       <div class="card-header">
-        Personal Summary
+        <div class="header-left">
+          <ion-icon name="document-text-outline" class="card-icon"></ion-icon>
+          <span class="card-title">Personal Summary</span>
+        </div>
       </div>
-      <div class="card-content">
+      <div class="card-body">
         <p class="summary-text">
-          {{ currentEmployee?.personal_summary || 'Experienced professional with a passion for excellence and a track
-          record of success in corporate environments.' }}
+          {{ currentEmployee?.personal_summary || 'Experienced professional with a passion for excellence and a track record of success in corporate environments.' }}
         </p>
       </div>
     </div>
 
     <!-- Organizational Details Card -->
-    <div class="details-card">
+    <div class="about-card org-card">
       <div class="card-header">
-        Organizational Details
+        <div class="header-left">
+          <ion-icon name="business-outline" class="card-icon"></ion-icon>
+          <span class="card-title">Organizational Details</span>
+        </div>
       </div>
-      <div class="card-content">
-        <div class="org-details">
-          <div class="info-group">
-            <span class="label">Business Unit</span>
-            <span class="value">{{ currentEmployee?.business_unit_name || '-' }}</span>
+      <div class="card-body">
+        <div class="org-details-list">
+          <div class="org-field">
+            <span class="field-label">Business Unit</span>
+            <span class="field-value">{{ currentEmployee?.business_unit_name || '-' }}</span>
           </div>
-          <div class="info-group border-separator">
-            <span class="label">Department</span>
-            <span class="value">{{ currentEmployee?.department_name || '-' }}</span>
+
+          <div class="field-divider"></div>
+
+          <div class="org-field">
+            <span class="field-label">Department</span>
+            <span class="field-value">{{ currentEmployee?.department_name || '-' }}</span>
           </div>
-          <div class="info-group">
-            <span class="label">Reporting Manager</span>
-            <div class="manager-info">
-              <ion-avatar class="small-avatar">
-                <img src="../assets/Profile_Picture.png" alt="Manager" />
-              </ion-avatar>
-              <span class="value">{{ currentEmployee?.manager_first_name }} {{ currentEmployee?.manager_last_name
-                }}</span>
+
+          <div class="field-divider"></div>
+
+          <div class="org-field">
+            <span class="field-label">Reporting Manager</span>
+            <div class="manager-item" *ngIf="currentEmployee?.manager_first_name || currentEmployee?.manager_last_name; else noManager">
+              <div class="manager-avatar-badge" [title]="(currentEmployee?.manager_first_name || '') + ' ' + (currentEmployee?.manager_last_name || '')">
+                {{ managerInitials }}
+              </div>
+              <span class="field-value manager-name">
+                {{ currentEmployee?.manager_first_name }} {{ currentEmployee?.manager_last_name }}
+              </span>
             </div>
+            <ng-template #noManager>
+              <span class="field-value text-muted">-</span>
+            </ng-template>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <div class="detail-row">
-    <!-- Primary Details Card -->
-    <div class="details-card">
-      <div class="card-header">Primary Details</div>
-      <div class="card-content">
-        <ion-grid class="ion-no-padding">
-          <ion-row>
-            <ion-col size="4" class="info-group">
-              <span class="label">Employee ID</span>
-              <span class="value">{{ currentEmployee?.EmployeeNumber || '-' }}</span>
-            </ion-col>
-            <ion-col size="4" class="info-group" *ngIf="canViewDOB">
-              <span class="label">Date of Birth</span>
-              <span class="value">{{ (currentEmployee?.DateOfBirth | date:'dd-MM-yyyy') || '-' }}</span>
-            </ion-col>
-            <ion-col size="4" class="info-group">
-              <span class="label">Gender</span>
-              <span class="value">{{ currentEmployee?.Gender || '-' }}</span>
-            </ion-col>
-          </ion-row>
-          <ion-row class="ion-margin-top">
-            <ion-col size="4" class="info-group">
-              <span class="label">Nationality</span>
-              <span class="value">{{ currentEmployee?.Nationality || '-' }}</span>
-            </ion-col>
-            <ion-col size="4" class="info-group">
-              <span class="label">Marital Status</span>
-              <span class="value">{{ currentEmployee?.MaritalStatus || '-' }}</span>
-            </ion-col>
-            <ion-col size="4" class="info-group">
-              <span class="label">Blood Group</span>
-              <span class="value">{{ currentEmployee?.BloodGroup || '-' }}</span>
-            </ion-col>
-          </ion-row>
-        </ion-grid>
+  <!-- Primary Details Card (Full-width balanced grid) -->
+  <div class="about-card primary-details-card">
+    <div class="card-header">
+      <div class="header-left">
+        <ion-icon name="id-card-outline" class="card-icon"></ion-icon>
+        <span class="card-title">Primary Details</span>
       </div>
     </div>
+    <div class="card-body">
+      <div class="primary-grid">
+        <div class="grid-item">
+          <span class="field-label">Employee ID</span>
+          <span class="field-value badge-emp-id">{{ currentEmployee?.EmployeeNumber || '-' }}</span>
+        </div>
 
-    <!-- Reporting Team Component -->
-    <div class="details-card no-border bg-transparent">
-      <app-reporting-team [currentEmployee]="currentEmployee"></app-reporting-team>
+        <div class="grid-item" *ngIf="canViewDOB">
+          <span class="field-label">Date of Birth</span>
+          <span class="field-value">{{ formattedDOB }}</span>
+        </div>
+
+        <div class="grid-item">
+          <span class="field-label">Gender</span>
+          <span class="field-value">{{ currentEmployee?.Gender || '-' }}</span>
+        </div>
+
+        <div class="grid-item">
+          <span class="field-label">Nationality</span>
+          <span class="field-value">{{ currentEmployee?.Nationality || '-' }}</span>
+        </div>
+
+        <div class="grid-item">
+          <span class="field-label">Marital Status</span>
+          <span class="field-value">{{ currentEmployee?.MaritalStatus || '-' }}</span>
+        </div>
+
+        <div class="grid-item">
+          <span class="field-label">Blood Group</span>
+          <span class="field-value badge-blood-group">{{ currentEmployee?.BloodGroup || '-' }}</span>
+        </div>
+      </div>
     </div>
+  </div>
+
+  <!-- Reporting Team Component -->
+  <div class="reporting-team-section">
+    <app-reporting-team [currentEmployee]="currentEmployee"></app-reporting-team>
   </div>
 </div>

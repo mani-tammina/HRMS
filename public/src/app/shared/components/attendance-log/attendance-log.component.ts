@@ -9,6 +9,7 @@ import { AttendanceService } from '../../../core/services/attendance.service';
 import { LeaverequestService, MyLeave } from '../../../core/services/leaverequest.service';
 import { EmployeeService } from '../../../core/services/employee.service';
 import { AdminService } from '../../../core/services/admin.service';
+import { HolidayService, Holiday } from '../../../core/services/holiday.service';
 import { AlertController, ToastController } from '@ionic/angular';
 import { TimeFormatPipe } from '../../pipes/time-format.pipe';
 import { FormsModule } from '@angular/forms';
@@ -52,6 +53,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   monthButtons: string[] = [];
   showSlider = false;
   selectedLog: any = null;
+  selectedFloorFilter: string = 'ALL';
 
   currentYear = new Date().getFullYear();
   currentMonth = new Date().getMonth() + 1;
@@ -62,10 +64,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   shiftPolicy: any = null;
   todayPunches: any[] = [];
+  todayResponse: any = null;
 
   private destroy$ = new Subject<void>();
   private reloadInProgress = false;
   leaveDaysMap: Map<string, string> = new Map();
+  holidaysMap: Map<string, { id?: number; name: string; type: string }> = new Map();
   employeeProfile: any = null;
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
   missingLogConfigs: any[] = [];
@@ -76,6 +80,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     private leaveService: LeaverequestService,
     private employeeService: EmployeeService,
     private adminService: AdminService,
+    private holidayService: HolidayService,
     private alertCtrl: AlertController,
     private toastCtrl: ToastController,
   ) {
@@ -99,6 +104,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.todayPunches = [];
     this.selectedLog = null;
     this.showSlider = false;
+    this.selectedFloorFilter = 'ALL';
     if (!this.startDate || !this.endDate) {
       const now = new Date();
       this.currentMonth = now.getMonth() + 1;
@@ -111,7 +117,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   ngOnInit(): void { this.reloadAttendance(); }
   ngOnDestroy(): void { this.destroy$.next(); this.destroy$.complete(); }
 
-  private getAllDatesBetween(start: string, end: string): string[] {
+  private shouldHideNextDay(attendanceMap?: Map<string, any>): boolean {
+    // Keep today visible at all times so current punches and logs are always accessible
+    return false;
+  }
+
+  private getAllDatesBetween(start: string, end: string, attendanceMap?: Map<string, any>): string[] {
     const dates: string[] = [];
     const [sy, sm, sd] = start.split('-').map(Number);
     const startDate = new Date(sy, sm - 1, sd);
@@ -119,7 +130,17 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     today.setHours(0, 0, 0, 0);
     const [ey, em, ed] = end.split('-').map(Number);
     const endDate = new Date(ey, em - 1, ed);
-    const finalEndDate = endDate > today ? today : endDate;
+    let finalEndDate = endDate > today ? today : endDate;
+
+    // Until the auto clock-out triggers, hide the next day (today) in attendance log
+    if (this.shouldHideNextDay(attendanceMap)) {
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      if (finalEndDate >= today) {
+        finalEndDate = yesterday;
+      }
+    }
+
     for (let d = new Date(startDate); d <= finalEndDate; d.setDate(d.getDate() + 1)) {
       dates.push(this.formatDateOnly(new Date(d)));
     }
@@ -127,8 +148,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   private formatDateOnly(date: string | Date): string {
+    if (!date) return '';
     const d = new Date(date);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    if (isNaN(d.getTime())) return '';
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(d);
   }
 
   private reloadAttendance(): void {
@@ -152,13 +175,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       : this.attendanceApi.getTodayAttendance().pipe(catchError(() => of({ punches: [] })));
 
     const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
+    const holidays$ = this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([])));
 
-    forkJoin({ profile: profile$, shiftPolicies: shiftPolicies$, weekOffPolicies: weekOffPolicies$, leaves: leaves$, today: todayPunches$, missingLogs: missingLogTimes$ })
+    forkJoin({
+      profile: profile$,
+      shiftPolicies: shiftPolicies$,
+      weekOffPolicies: weekOffPolicies$,
+      leaves: leaves$,
+      today: todayPunches$,
+      missingLogs: missingLogTimes$,
+      holidays: holidays$
+    })
       .pipe(takeUntil(this.destroy$)).subscribe({
         next: (res: any) => {
           this.employeeProfile = res.profile;
           const woId = res.profile?.weekly_off_policy_id || res.profile?.WeeklyOffPolicyId;
           const sId = res.profile?.shift_policy_id || res.profile?.ShiftPolicyId;
+          const locId = res.profile?.location_id || res.profile?.LocationId || res.profile?.Location_id;
 
           const weekOffPolicies = Array.isArray(res.weekOffPolicies) ? res.weekOffPolicies : (res.weekOffPolicies?.data || []);
           this.weeklyOffPolicy = (weekOffPolicies || []).find((p: any) => p.id === woId) || null;
@@ -166,10 +199,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
+          this.todayResponse = res.today;
           this.todayPunches = res.today?.punches || [];
           this.missingLogConfigs = res.missingLogs || [];
           const leaves = Array.isArray(res.leaves) ? res.leaves : (res.leaves.data || res.leaves.leaves || []);
           this.processLeavesIntoMap(leaves);
+          const holidays = Array.isArray(res.holidays) ? res.holidays : (res.holidays?.data || []);
+          this.processHolidaysIntoMap(holidays, locId);
           this.loadMonthlyReport();
           this.reloadInProgress = false;
         },
@@ -177,13 +213,84 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       });
   }
 
-  private leaveDetailsMap: Map<string, { leaveType: string; isHalfDay: boolean; halfDaySession: string; typeCode: string; halfCode: string }> = new Map();
+  private processHolidaysIntoMap(holidays: Holiday[], locationId?: number | null) {
+    this.holidaysMap = new Map();
+    if (!Array.isArray(holidays)) return;
+    const empLocId = locationId ? Number(locationId) : null;
+    holidays.forEach(h => {
+      if (h.is_active !== undefined && (h.is_active === 0 || h.is_active === false)) return;
+
+      let isApplicable = false;
+      const hLocId = h.location_id ? Number(h.location_id) : null;
+
+      let appLocs: number[] = [];
+      if (h.applicable_locations) {
+        try {
+          appLocs = typeof h.applicable_locations === 'string' ? JSON.parse(h.applicable_locations) : h.applicable_locations;
+        } catch (e) {
+          appLocs = [];
+        }
+      }
+
+      if (!hLocId && (!appLocs || appLocs.length === 0)) {
+        isApplicable = true;
+      } else if (empLocId) {
+        if (hLocId === empLocId) {
+          isApplicable = true;
+        } else if (Array.isArray(appLocs) && appLocs.map(Number).includes(empLocId)) {
+          isApplicable = true;
+        }
+      } else {
+        if (!hLocId && (!appLocs || appLocs.length === 0)) {
+          isApplicable = true;
+        }
+      }
+
+      if (isApplicable && h.holiday_date) {
+        const dStr = this.formatDateOnly(h.holiday_date);
+        this.holidaysMap.set(dStr, {
+          id: h.id,
+          name: h.holiday_name,
+          type: h.holiday_type || 'public'
+        });
+      }
+    });
+  }
+
+  private leaveDetailsMap: Map<string, {
+    leaveType: string;
+    isHalfDay: boolean;
+    halfDaySession: string;
+    typeCode: string;
+    halfCode: string;
+    status: string;
+    isPending: boolean;
+  }> = new Map();
 
   private processLeavesIntoMap(leaves: MyLeave[]) {
     this.leaveDaysMap = new Map();
     this.leaveDetailsMap = new Map();
-    const approvedLeaves = leaves.filter(l => (l.status || '').toUpperCase() === 'APPROVED');
-    approvedLeaves.forEach(leave => {
+    if (!Array.isArray(leaves)) return;
+
+    // Filter valid leaves: include both APPROVED and PENDING, exclude REJECTED and CANCELLED
+    const validLeaves = leaves.filter(l => {
+      const s = (l.status || '').toUpperCase();
+      const rawType = (l as any).type_code || (l as any).type_name || l.leave_type || '';
+      const upper = String(rawType).toUpperCase();
+      if (upper === 'WFH' || upper === 'REMOTE') return false;
+      return s === 'APPROVED' || s === 'PENDING';
+    });
+
+    // Sort: PENDING first, APPROVED last so that APPROVED takes precedence if both coincide
+    validLeaves.sort((a, b) => {
+      const sA = (a.status || '').toUpperCase();
+      const sB = (b.status || '').toUpperCase();
+      if (sA === 'PENDING' && sB === 'APPROVED') return -1;
+      if (sA === 'APPROVED' && sB === 'PENDING') return 1;
+      return 0;
+    });
+
+    validLeaves.forEach(leave => {
       let rawType = (leave as any).type_code || (leave as any).type_name || leave.leave_type || 'Leave';
       let code = String(rawType).trim().toUpperCase();
       if (code.includes('SICK') || code === 'SL') code = 'SL';
@@ -193,18 +300,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       else if (code.includes('PRIVILEGE') || code === 'PL') code = 'PL';
       else if (code.includes('EARNED') || code === 'EL') code = 'EL';
       else if (code.includes('UNPAID') || code.includes('LOSS OF PAY') || code === 'LOP' || code === 'UL') code = 'LOP';
+      else if (code.includes('BEREAVEMENT') || code === 'BL' || code === 'BA') code = 'BL';
       else if (code.length > 5) {
-        const words = code.split(/[\s_]+/);
-        if (words.length > 1) {
-          code = words.map(w => w[0]).join('');
-        } else {
-          code = code.substring(0, 4);
-        }
+        code = 'LEAVE';
       }
+
+      if (code === 'BA') code = 'BL';
 
       const leaveType = (leave as any).type_name || leave.leave_type || code;
       const isHalfDay = !!(leave.is_half_day || (leave as any).is_half_day);
       const halfDaySession = leave.half_day_session || (leave as any).half_day_session || '';
+      const leaveStatus = (leave.status || '').toUpperCase();
+      const isPending = leaveStatus === 'PENDING';
 
       const fromRaw = leave.start_date || leave.from_date;
       const toRaw = leave.end_date || leave.to_date || fromRaw;
@@ -224,8 +331,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             halfCode = `P:${code}`;
           }
         }
+        if (halfCode === 'BA:P' || halfCode === 'P:BA' || halfCode === 'BA') {
+          halfCode = 'HD';
+        }
         this.leaveDaysMap.set(dStr, leaveType);
-        this.leaveDetailsMap.set(dStr, { leaveType, isHalfDay, halfDaySession, typeCode: code, halfCode });
+        this.leaveDetailsMap.set(dStr, {
+          leaveType,
+          isHalfDay,
+          halfDaySession,
+          typeCode: code,
+          halfCode,
+          status: leaveStatus,
+          isPending
+        });
         d.setDate(d.getDate() + 1);
       }
     });
@@ -233,18 +351,24 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getHalfDayNotation(log: any): string {
     if (!log) return 'HD';
-    if (log.halfCode) return log.halfCode;
+    if (log.halfCode) {
+      if (log.halfCode === 'BA:P' || log.halfCode === 'P:BA' || log.halfCode === 'BA') return 'HD';
+      return log.halfCode;
+    }
     const dateStr = this.formatDateOnly(log.attendance_date);
     const leaveDetail = this.leaveDetailsMap.get(dateStr);
     if (leaveDetail && leaveDetail.halfCode) {
+      if (leaveDetail.halfCode === 'BA:P' || leaveDetail.halfCode === 'P:BA' || leaveDetail.halfCode === 'BA') return 'HD';
       return leaveDetail.halfCode;
     }
     if (log.notes && (log.notes.includes(':P') || log.notes.includes('P:'))) {
-      return log.notes.trim();
+      const trimmed = log.notes.trim();
+      if (trimmed === 'BA:P' || trimmed === 'P:BA' || trimmed === 'BA') return 'HD';
+      return trimmed;
     }
     const notesStr = String(log.notes || '').trim();
     const notesLower = notesStr.toLowerCase();
-    let leaveCode = 'CL';
+    let leaveCode = '';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul') || notesLower.includes('unpaid')) {
       leaveCode = 'LOP';
     } else if (notesLower.includes('sick') || notesLower.includes('sl')) {
@@ -259,30 +383,30 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       leaveCode = 'EL';
     } else if (notesLower.includes('privilege') || notesLower.includes('pl')) {
       leaveCode = 'PL';
-    } else if (notesStr) {
-      const cleanName = notesStr.replace(/^(first|second|1st|2nd)\s+half\s+/i, '').trim();
-      if (cleanName) {
-        const words = cleanName.split(/\s+/);
-        if (words.length > 1) {
-          leaveCode = words.map(w => w[0].toUpperCase()).join('');
-        } else {
-          leaveCode = cleanName.substring(0, 4).toUpperCase();
-        }
-      }
+    } else if (notesLower.includes('bereavement') || notesLower.includes('bl')) {
+      leaveCode = 'BL';
     }
 
-    if (notesLower.includes('second') || notesLower.includes('2nd')) {
-      return `P:${leaveCode}`;
+    if (leaveCode) {
+      if (notesLower.includes('second') || notesLower.includes('2nd')) {
+        return `P:${leaveCode}`;
+      }
+      return `${leaveCode}:P`;
     }
-    return `${leaveCode}:P`;
+
+    return 'HD';
   }
 
   getLeaveBadgeText(log: any): string {
     if (!log) return 'LEAVE';
-    if (log.leaveCode) return log.leaveCode;
+    if (log.leaveCode) {
+      if (log.leaveCode === 'BA') return 'LEAVE';
+      return log.leaveCode;
+    }
     const dateStr = this.formatDateOnly(log.attendance_date);
     const leaveDetail = this.leaveDetailsMap.get(dateStr);
     if (leaveDetail && leaveDetail.typeCode) {
+      if (leaveDetail.typeCode === 'BA') return 'LEAVE';
       return leaveDetail.typeCode;
     }
     const notesStr = String(log.notes || log.leaveType || '').trim();
@@ -294,14 +418,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (notesLower.includes('privilege') || notesLower.includes('pl')) return 'PL';
     if (notesLower.includes('earned') || notesLower.includes('el')) return 'EL';
     if (notesLower.includes('loss of pay') || notesLower.includes('lop') || notesLower.includes('ul')) return 'LOP';
+    if (notesLower.includes('bereavement') || notesLower.includes('bl')) return 'BL';
 
-    if (notesStr) {
-      const words = notesStr.split(/\s+/);
-      if (words.length > 1) {
-        return words.map(w => w[0].toUpperCase()).join('');
-      }
-      return notesStr.substring(0, 4).toUpperCase();
-    }
     return 'LEAVE';
   }
 
@@ -327,7 +445,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         apiAttendance.forEach((item: any) => {
           attendanceMap.set(this.formatDateOnly(item.attendance_date), item);
         });
-        const allDates = this.getAllDatesBetween(this.startDate, this.endDate);
+        const allDates = this.getAllDatesBetween(this.startDate, this.endDate, attendanceMap);
 
         const weekOffDays: number[] = [];
         if (this.weeklyOffPolicy) {
@@ -346,6 +464,14 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const leaveType = this.leaveDaysMap.get(date);
           const leaveDetail = this.leaveDetailsMap.get(date);
           const isWeekOff = weekOffDays.includes(day);
+          const holiday = this.holidaysMap.get(date);
+
+          const hasRealLogs = existing && (
+            (existing.punches && existing.punches.length > 0) ||
+            existing.first_check_in ||
+            (existing.total_work_hours && parseFloat(existing.total_work_hours) > 0) ||
+            (existing.gross_hours && parseFloat(existing.gross_hours) > 0)
+          );
 
           if (leaveDetail && leaveDetail.isHalfDay) {
             return {
@@ -354,11 +480,70 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               status: 'half-day',
               leaveType: leaveDetail.leaveType,
               halfCode: leaveDetail.halfCode,
-              noLogs: !existing
+              leaveStatus: leaveDetail.status,
+              isLeavePending: leaveDetail.isPending,
+              noLogs: !hasRealLogs
             };
           }
 
-          if (leaveType) return { ...(existing || {}), attendance_date: date, status: 'on-leave', leaveType, noLogs: !existing };
+          if (leaveType) {
+            return {
+              ...(existing || {}),
+              attendance_date: date,
+              status: 'on-leave',
+              leaveType,
+              leaveStatus: leaveDetail?.status,
+              isLeavePending: leaveDetail?.isPending,
+              noLogs: !hasRealLogs
+            };
+          }
+
+          if (holiday) {
+            const isToday = this.islogToday(date);
+            let updatedExisting = existing ? { ...existing } : null;
+            if (isToday && this.todayPunches && this.todayPunches.length > 0) {
+              const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+              if (inPunches.length > 0) {
+                if (!updatedExisting) {
+                  updatedExisting = { attendance_date: date, total_work_hours: '0.00', gross_hours: '0.00' };
+                }
+                const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                updatedExisting.first_check_in = sortedInPunches[0].punch_time;
+              }
+            }
+
+            const hasPunches = updatedExisting && (
+              (updatedExisting.punches && updatedExisting.punches.length > 0) ||
+              updatedExisting.first_check_in ||
+              (updatedExisting.total_work_hours && parseFloat(updatedExisting.total_work_hours) > 0) ||
+              (updatedExisting.gross_hours && parseFloat(updatedExisting.gross_hours) > 0) ||
+              (updatedExisting.status && updatedExisting.status !== 'absent' && updatedExisting.status !== 'penalty' && updatedExisting.status !== 'on-leave' && updatedExisting.status !== 'holiday')
+            );
+
+            if (hasPunches) {
+              return {
+                ...updatedExisting,
+                attendance_date: date,
+                status: 'holiday',
+                isHoliday: true,
+                holidayName: holiday.name,
+                leaveType: holiday.name,
+                noLogs: false
+              };
+            }
+            return {
+              ...(existing || {}),
+              attendance_date: date,
+              status: 'holiday',
+              isHoliday: true,
+              holidayName: holiday.name,
+              leaveType: holiday.name,
+              total_work_hours: null,
+              gross_hours: null,
+              noLogs: true
+            };
+          }
+
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
@@ -367,22 +552,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               updatedExisting.leaveType = existing.notes || 'Leave';
             }
             const isToday = this.islogToday(date);
-            if (isToday && this.todayPunches && this.todayPunches.length > 0) {
-              const lastPunch = this.todayPunches[this.todayPunches.length - 1];
-              const isPunchedIn = lastPunch.punch_type === 'in';
-              if (isPunchedIn) {
-                const lastPunchTime = new Date(lastPunch.punch_time).getTime();
-                const now = new Date().getTime();
-                const diffHours = (now - lastPunchTime) / (1000 * 60 * 60);
-
-                let effective = parseFloat(updatedExisting.total_work_hours || 0);
-                effective += diffHours;
-                updatedExisting.total_work_hours = effective.toFixed(2);
-
-                const firstPunch = this.todayPunches[0];
-                const firstPunchTime = new Date(firstPunch.punch_time).getTime();
-                const gross = (now - firstPunchTime) / (1000 * 60 * 60);
-                updatedExisting.gross_hours = gross.toFixed(2);
+            const isOngoing = isToday || this.isOngoingOvernight(date);
+            if (isOngoing && this.todayPunches && this.todayPunches.length > 0) {
+              const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+              if (inPunches.length > 0 && !updatedExisting.first_check_in) {
+                const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                updatedExisting.first_check_in = sortedInPunches[0].punch_time;
+              }
+              const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+              if (metrics.grossMinutes > 0 || parseFloat(metrics.totalWorkHours) > 0) {
+                updatedExisting.total_work_hours = metrics.totalWorkHours;
+                updatedExisting.gross_hours = metrics.grossHours;
+                updatedExisting.effective_hours = metrics.totalWorkHours;
               }
             }
             return updatedExisting;
@@ -409,15 +590,41 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (now > penaltyThreshold) {
             defaultStatus = 'penalty';
           } else {
-            // If it's today, handle 'not-in-yet'
-            const isToday = now.getFullYear() === logD.getFullYear() && now.getMonth() === logD.getMonth() && now.getDate() === logD.getDate();
+            // If it's today, handle 'not-in-yet' or present from today punches
+            const isToday = this.islogToday(date);
             if (isToday) {
+              const targetDate = this.todayResponse?.attendance?.attendance_date
+                ? this.formatDateOnly(this.todayResponse.attendance.attendance_date)
+                : (this.todayPunches && this.todayPunches.length > 0 ? this.formatDateOnly(this.todayPunches[0].punch_date || this.todayPunches[0].punch_time) : '');
+              const isDateMatch = !targetDate || targetDate === date;
+              if (isDateMatch && this.todayPunches && this.todayPunches.length > 0) {
+                const inPunches = this.todayPunches.filter(p => (p.punch_type || '').toLowerCase() === 'in');
+                if (inPunches.length > 0) {
+                  const sortedInPunches = inPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+                  const firstInPunch = sortedInPunches[0];
+                  const metrics = this.calculateMetricsFromPunches(this.todayPunches, true);
+                  return {
+                    attendance_date: date,
+                    first_check_in: firstInPunch ? firstInPunch.punch_time : null,
+                    total_work_hours: metrics.totalWorkHours || '0.00',
+                    gross_hours: metrics.grossHours || '0.00',
+                    effective_hours: metrics.totalWorkHours || '0.00',
+                    status: 'present',
+                    records: [],
+                    noLogs: false
+                  };
+                }
+              }
               defaultStatus = 'not-in-yet';
             }
           }
           return { attendance_date: date, total_work_hours: null, gross_hours: null, status: defaultStatus, records: [], noLogs: true };
         });
 
+        if (this.shouldHideNextDay(attendanceMap)) {
+          const todayStr = this.formatDateOnly(new Date());
+          this.currentMonthreport = this.currentMonthreport.filter(r => this.formatDateOnly(r.attendance_date) !== todayStr);
+        }
         this.currentMonthreport.reverse();
         this.attendanceService.setMonthlyReport(this.currentMonthreport);
       },
@@ -428,6 +635,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   filterByPeriod(period: string): void {
     this.selectedPeriod = period;
     const now = new Date();
+    const prevYear = this.currentYear;
     if (period === '30DAYS') {
       this.currentMonth = now.getMonth() + 1;
       this.currentYear = now.getFullYear();
@@ -445,7 +653,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         this.currentYear = year;
       }
     }
-    this.loadMonthlyReport();
+
+    if (this.currentYear !== prevYear) {
+      const locId = this.employeeProfile?.location_id || this.employeeProfile?.LocationId || this.employeeProfile?.Location_id;
+      this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([]))).subscribe(holidays => {
+        const holidayList = Array.isArray(holidays) ? holidays : ((holidays as any)?.data || []);
+        this.processHolidaysIntoMap(holidayList, locId);
+        this.loadMonthlyReport();
+      });
+    } else {
+      this.loadMonthlyReport();
+    }
+
     this.periodChanged.emit({
       period: this.selectedPeriod,
       startDate: this.startDate,
@@ -473,15 +692,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   openLogDetails(log: any): void {
+    this.selectedFloorFilter = 'ALL';
     const today = new Date().toDateString();
     const logDate = new Date(log.attendance_date).toDateString();
     if (today === logDate && this.todayPunches.length) {
       this.selectedLog = {
         ...log,
-        records: this.mapPunches(this.todayPunches),
         prepared: false
       };
-      this.processSelectedLogRecords();
+      this.processSelectedLog(this.todayPunches);
     } else {
       this.selectedLog = { ...log, prepared: false };
       this.loadLogDetails(log);
@@ -489,7 +708,23 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     this.showSlider = true;
   }
 
-  closeSlider(): void { this.showSlider = false; this.selectedLog = null; }
+  closeSlider(): void { this.showSlider = false; this.selectedLog = null; this.selectedFloorFilter = 'ALL'; }
+
+  getFormattedShiftTiming(): string {
+    const formatTimePart = (timeStr?: string): string => {
+      if (!timeStr) return '';
+      const parts = timeStr.trim().split(':');
+      if (parts.length >= 2) {
+        let hour = parseInt(parts[0], 10);
+        let min = parts[1].padStart(2, '0');
+        return `${isNaN(hour) ? parts[0] : hour}:${min}`;
+      }
+      return timeStr;
+    };
+    const start = formatTimePart(this.shiftPolicy?.start_time) || '10:00';
+    const end = formatTimePart(this.shiftPolicy?.end_time) || '19:00';
+    return `${start} - ${end}`;
+  }
 
   private loadLogDetails(log: any): void {
     if (!log?.attendance_date) return;
@@ -498,94 +733,482 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       next: (res) => {
         this.selectedLog = {
           ...log,
-          records: this.mapPunches(res?.punches || []),
           prepared: false
         };
-        this.processSelectedLogRecords();
+        this.processSelectedLog(res?.punches || []);
       },
       error: () => {
-        this.selectedLog = { ...log, records: [], prepared: true, officeRecords: [], wfhRecords: [], remoteRecords: [] };
+        this.selectedLog = { ...log, prepared: true, timeline: [], total_work_hours: '0.00', gross_hours: '0.00' };
       }
     });
   }
 
-  private processSelectedLogRecords(): void {
-    if (!this.selectedLog || !this.selectedLog.records) return;
-
-    const records = this.selectedLog.records;
-
-    this.selectedLog.officeRecords = records.filter((r: any) => {
-      const loc = r.location?.toLowerCase() || '';
-      return r.work_mode === 'Office' || loc.includes('office') || loc.includes('mumbai');
-    }).slice().reverse();
-
-    this.selectedLog.wfhRecords = records.filter((r: any) =>
-      r.work_mode === 'WFH' || r.location?.toLowerCase().includes('home')
-    ).slice().reverse();
-
-    this.selectedLog.remoteRecords = records.filter((r: any) =>
-      r.work_mode === 'Remote'
-    ).map((r: any) => ({ ...r, pendingApproval: r.approved !== true })).slice().reverse();
-
-    // Create a unified timeline for the redesign
-    const timeline: any[] = [];
-    records.forEach((r: any) => {
-      let displayLocation = r.location;
-      if (displayLocation && displayLocation.toLowerCase().includes('mumbai')) {
-        displayLocation = this.employeeProfile?.location_name || displayLocation;
-      } else if (r.work_mode === 'Office' && !displayLocation) {
-        displayLocation = this.employeeProfile?.location_name;
+  private parsePunchTimeToMs(dateVal: any): number {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal instanceof Date) return dateVal.getTime();
+    if (typeof dateVal === 'string') {
+      const clean = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        const isoStr = clean.replace(' ', 'T');
+        return new Date(`${isoStr}+05:30`).getTime();
       }
-
-      let displayNotes = r.notes;
-      const lowerNotes = displayNotes?.toLowerCase().trim();
-      if (lowerNotes === 'morning shift' || lowerNotes === 'office clock-in') {
-        displayNotes = this.shiftPolicy?.name || displayNotes;
+      if (clean.includes('+') || clean.endsWith('Z')) {
+        return new Date(clean).getTime();
       }
+      const d = new Date(clean);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return 0;
+  }
 
-      if (r.check_in) {
-        timeline.push({
-          type: 'IN',
-          time: r.check_in,
-          mode: r.work_mode || 'Office',
-          location: displayLocation,
-          notes: displayNotes,
-          icon: 'log-in-outline'
+  private processSelectedLog(punches: any[]): void {
+    if (!this.selectedLog) return;
+
+    const sourcePunches = Array.isArray(punches) ? punches : [];
+    const bioPunchSecs = new Set(
+      sourcePunches
+        .filter(p => p.source === 'biometric' || p.work_mode === 'Biometric')
+        .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
+    );
+
+    const isToday = this.islogToday(this.selectedLog.attendance_date);
+    const isOngoing = isToday || this.isOngoingOvernight(this.selectedLog.attendance_date);
+
+    const cleanList: any[] = [];
+    for (let i = 0; i < sourcePunches.length; i++) {
+      const p = sourcePunches[i];
+      if ((p.notes || '').includes('Biometric Check-In')) {
+        continue;
+      }
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAutoOut) {
+        const hasLaterPunches = sourcePunches.slice(i + 1).some(laterP => !(laterP.notes || '').includes('OUT Missing'));
+        if (hasLaterPunches || isOngoing) {
+          continue; // Obsolete or premature auto-out: drop so session continues seamlessly!
+        }
+      }
+      const isWeb = p.source === 'web' || !p.source;
+      if (isWeb) {
+        const pSec = Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000);
+        if (bioPunchSecs.has(pSec)) {
+          continue;
+        }
+      }
+      cleanList.push(p);
+    }
+
+    const rawPunches = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+
+    const getFormattedTime = (dateVal: any): string => {
+      if (!dateVal) return '';
+      const ms = this.parsePunchTimeToMs(dateVal);
+      if (ms > 0) {
+        const d = new Date(ms);
+        const formatted = new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(d);
+        return formatted.replace(/^0(\d:)/, '$1');
+      }
+      if (typeof dateVal === 'string' && dateVal.includes(':')) {
+        const parts = dateVal.split(' ');
+        const t = parts.length > 1 ? parts[1] : parts[0];
+        const clean = t.split('.')[0];
+        return clean.replace(/^0(\d:)/, '$1');
+      }
+      return String(dateVal);
+    };
+
+    const isUserAgent = (dev: string) => {
+      const lower = dev.toLowerCase();
+      return (
+        lower.includes('mozilla') ||
+        lower.includes('applewebkit') ||
+        lower.includes('chrome') ||
+        lower.includes('safari') ||
+        lower.includes('windows nt') ||
+        dev.length > 20
+      );
+    };
+
+    const isBiometric = (p: any): boolean => {
+      if (!p) return false;
+      const source = (p.source || '').toLowerCase();
+      const workMode = (p.work_mode || '').toLowerCase();
+      const notes = (p.notes || '').toLowerCase();
+      const loc = (p.location || '').toLowerCase();
+      const dev = p.device_info != null ? String(p.device_info).trim() : '';
+
+      if (source === 'biometric' || workMode === 'biometric' || notes.includes('biometric')) {
+        return true;
+      }
+      if (!isUserAgent(dev)) {
+        if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) {
+          return true;
+        }
+        if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const getBiometricLocationTitle = (p: any): string => {
+      const loc = (p.location || '').trim();
+      const dev = p.device_info != null ? String(p.device_info).trim() : '';
+      const lowerLoc = loc.toLowerCase();
+
+      if (lowerLoc.includes('main door') || lowerLoc.includes('door')) {
+        return loc;
+      }
+      if (dev === '2' || lowerLoc.includes('1st floor') || lowerLoc.includes('1st') || lowerLoc.includes('device (2)') || lowerLoc.includes('device 2')) {
+        return 'Main Door - 1st floor';
+      }
+      if (dev === '3' || lowerLoc.includes('4th floor') || lowerLoc.includes('4th') || lowerLoc.includes('device (3)') || lowerLoc.includes('device 3')) {
+        return '4th Floor SVS Towers';
+      }
+      if (dev === '1' || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd') || lowerLoc.includes('device (1)') || lowerLoc.includes('device 1')) {
+        return '3rd Floor SVS Towers';
+      }
+      if (dev && /^\d+$/.test(dev)) {
+        return `${dev} Floor SVS Towers`;
+      }
+      if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai') && !lowerLoc.includes('mozilla')) {
+        return loc;
+      }
+      return 'Main Door - 1st floor';
+    };
+
+    const getSoftwarePunchMode = (p: any): string => {
+      const loc = (p.location || '').toLowerCase();
+      const notes = (p.notes || '').toLowerCase();
+      const mode = (p.work_mode || '').toLowerCase();
+
+      if (notes.includes('remote') || loc.includes('remote')) {
+        return 'Remote Clock In';
+      }
+      if (notes.includes('wfh') || loc.includes('home') || mode === 'wfh') {
+        return 'Work From Home';
+      }
+      if (mode === 'remote' && !loc.includes('office') && !notes.includes('office')) {
+        return 'Remote Clock In';
+      }
+      return 'Web Clock In';
+    };
+
+    const getGroupIcon = (name: string): string => {
+      const lower = name.toLowerCase();
+      if (lower.includes('floor') || lower.includes('door') || lower.includes('svs') || lower.includes('biometric')) return 'finger-print-outline';
+      if (lower.includes('remote')) return 'cloud-outline';
+      if (lower.includes('home') || lower.includes('wfh')) return 'home-outline';
+      return 'desktop-outline';
+    };
+
+    const groupsMap = new Map<string, { locationName: string; icon: string; sessions: any[] }>();
+
+    const addSessionToGroup = (groupName: string, session: any) => {
+      if (!groupsMap.has(groupName)) {
+        groupsMap.set(groupName, {
+          locationName: groupName,
+          icon: getGroupIcon(groupName),
+          sessions: []
         });
       }
-      if (r.check_out) {
-        timeline.push({
-          type: 'OUT',
-          time: r.check_out,
-          mode: r.work_mode || 'Office',
-          location: displayLocation,
-          notes: displayNotes,
-          icon: 'log-out-outline'
+      groupsMap.get(groupName)!.sessions.push(session);
+    };
+
+    // 1. Process Biometric Punches (device/door-wise)
+    const bioPunches = rawPunches.filter(p => isBiometric(p));
+    const bioByDevice = new Map<string, any[]>();
+    for (const p of bioPunches) {
+      const groupName = getBiometricLocationTitle(p);
+      if (!bioByDevice.has(groupName)) bioByDevice.set(groupName, []);
+      bioByDevice.get(groupName)!.push(p);
+    }
+
+    bioByDevice.forEach((streamPunches, groupName) => {
+      let currentIn = null;
+      for (let i = 0; i < streamPunches.length; i++) {
+        const p = streamPunches[i];
+        const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+        const punchType = (p.punch_type || p.direction || '').toLowerCase();
+
+        if (punchType === 'in') {
+          if (currentIn) {
+            addSessionToGroup(groupName, {
+              rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
+              inTime: getFormattedTime(currentIn.punch_time),
+              outTime: 'MISSING',
+              isMissingOut: true,
+              isAutoOut: true,
+              notes: currentIn.notes
+            });
+          }
+          currentIn = p;
+        } else if (punchType === 'out') {
+          if (currentIn) {
+            addSessionToGroup(groupName, {
+              rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
+              inTime: getFormattedTime(currentIn.punch_time),
+              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+              isMissingOut: isAutoOut,
+              isAutoOut: isAutoOut,
+              notes: p.notes
+            });
+            currentIn = null;
+          } else {
+            addSessionToGroup(groupName, {
+              rawTime: this.parsePunchTimeToMs(p.punch_time),
+              inTime: 'MISSING',
+              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+              isMissingOut: false,
+              isAutoOut: isAutoOut,
+              notes: p.notes
+            });
+          }
+        }
+      }
+      if (currentIn) {
+        addSessionToGroup(groupName, {
+          rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
+          inTime: getFormattedTime(currentIn.punch_time),
+          outTime: isOngoing ? 'In Progress' : 'MISSING',
+          isMissingOut: !isOngoing,
+          isAutoOut: false,
+          notes: currentIn.notes
         });
       }
     });
 
-    // Sort timeline by time ascending
-    this.selectedLog.timeline = timeline.sort((a, b) =>
-      new Date(a.time).getTime() - new Date(b.time).getTime()
-    );
+    // 2. Process Software Punches (Web / Remote / Work From Home)
+    const softwarePunches = rawPunches.filter(p => !isBiometric(p));
+    let currentSoftwareIn = null;
+    let currentSoftwareMode = 'Web Clock In';
 
+    for (let i = 0; i < softwarePunches.length; i++) {
+      const p = softwarePunches[i];
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
+      const pMode = getSoftwarePunchMode(p);
+
+      if (punchType === 'in') {
+        if (currentSoftwareIn) {
+          addSessionToGroup(currentSoftwareMode, {
+            rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
+            inTime: getFormattedTime(currentSoftwareIn.punch_time),
+            outTime: 'MISSING',
+            isMissingOut: true,
+            isAutoOut: true,
+            notes: currentSoftwareIn.notes
+          });
+        }
+        currentSoftwareIn = p;
+        currentSoftwareMode = pMode;
+      } else if (punchType === 'out') {
+        if (currentSoftwareIn) {
+          const targetMode = currentSoftwareMode !== 'Web Clock In' ? currentSoftwareMode : pMode;
+          addSessionToGroup(targetMode, {
+            rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
+            inTime: getFormattedTime(currentSoftwareIn.punch_time),
+            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+            isMissingOut: isAutoOut,
+            isAutoOut: isAutoOut,
+            notes: p.notes
+          });
+          currentSoftwareIn = null;
+          currentSoftwareMode = 'Web Clock In';
+        } else {
+          addSessionToGroup(pMode, {
+            rawTime: this.parsePunchTimeToMs(p.punch_time),
+            inTime: 'MISSING',
+            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+            isMissingOut: false,
+            isAutoOut: isAutoOut,
+            notes: p.notes
+          });
+        }
+      }
+    }
+
+    if (currentSoftwareIn) {
+      addSessionToGroup(currentSoftwareMode, {
+        rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
+        inTime: getFormattedTime(currentSoftwareIn.punch_time),
+        outTime: isOngoing ? 'In Progress' : 'MISSING',
+        isMissingOut: !isOngoing,
+        isAutoOut: false,
+        notes: currentSoftwareIn.notes
+      });
+    }
+
+    if (this.selectedLog.total_work_hours === null || this.selectedLog.total_work_hours === undefined || this.selectedLog.total_work_hours === '0.00' || this.selectedLog.total_work_hours === 0) {
+      const metrics = this.calculateMetricsFromPunches(rawPunches, isOngoing);
+      if (metrics.hasAnyValidOut || isToday || metrics.grossMinutes > 0) {
+        this.selectedLog.total_work_hours = metrics.totalWorkHours;
+        this.selectedLog.gross_hours = metrics.grossHours;
+        this.selectedLog.effective_hours = metrics.totalWorkHours;
+      }
+    } else {
+      this.selectedLog.effective_hours = this.selectedLog.total_work_hours;
+    }
+
+    // Sort location groups chronologically by earliest punch
+    const floorOrder = ['Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers', 'Web Clock In', 'Remote Clock In', 'Work From Home'];
+    const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
+      const timeA = a.sessions?.[0]?.rawTime || 0;
+      const timeB = b.sessions?.[0]?.rawTime || 0;
+      if (timeA && timeB && timeA !== timeB) {
+        return timeA - timeB;
+      }
+      const idxA = floorOrder.indexOf(a.locationName);
+      const idxB = floorOrder.indexOf(b.locationName);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.locationName.localeCompare(b.locationName);
+    });
+
+    this.selectedLog.locationGroups = sortedGroups;
     this.selectedLog.prepared = true;
   }
 
-  private mapPunches(punches: any): any[] {
-    if (!Array.isArray(punches)) return [];
-    const records: any[] = [];
-    let current: any = null;
-    punches.forEach(p => {
-      const isRemote = (p.work_mode === 'Remote') || (p.location?.toLowerCase().includes('remote')) || (p.notes?.toLowerCase().includes('remote'));
-      if (p.punch_type === 'in') {
-        current = { check_in: p.punch_time, check_out: null, work_mode: isRemote ? 'Remote' : (p.work_mode || 'Office'), location: p.location, notes: p.notes, approved: p.approved };
-        records.push(current);
+  setFloorFilter(filterKey: string): void {
+    this.selectedFloorFilter = filterKey;
+  }
+
+  getFloorFilterOptions(): { key: string; label: string; count: number }[] {
+    if (!this.selectedLog?.locationGroups || this.selectedLog.locationGroups.length <= 1) {
+      return [];
+    }
+    const totalSessions = this.selectedLog.locationGroups.reduce(
+      (acc: number, g: any) => acc + (g.sessions?.length || 0),
+      0
+    );
+    const options: { key: string; label: string; count: number }[] = [
+      { key: 'ALL', label: 'All Floors', count: totalSessions }
+    ];
+    for (const g of this.selectedLog.locationGroups) {
+      options.push({
+        key: g.locationName,
+        label: g.locationName,
+        count: g.sessions?.length || 0
+      });
+    }
+    return options;
+  }
+
+  getFilteredLocationGroups(): any[] {
+    if (!this.selectedLog?.locationGroups) return [];
+    if (!this.selectedFloorFilter || this.selectedFloorFilter === 'ALL') {
+      return this.selectedLog.locationGroups;
+    }
+    return this.selectedLog.locationGroups.filter((g: any) => g.locationName === this.selectedFloorFilter);
+  }
+
+  calculateMetricsFromPunches(rawPunches: any[], isToday: boolean): {
+    totalWorkHours: string;
+    grossHours: string;
+    totalWorkMinutes: number;
+    grossMinutes: number;
+    hasAnyValidOut: boolean;
+  } {
+    if (!rawPunches || !rawPunches.length) {
+      return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
+    }
+
+    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const workIntervals: { start: number; end: number }[] = [];
+    let earliestInMs: number | null = null;
+    let latestOutMs: number | null = null;
+    let hasAnyValidOut = false;
+    let currentInPunch: any = null;
+
+    for (let i = 0; i < punches.length; i++) {
+      const p = punches[i];
+      const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      const punchType = (p.punch_type || '').toLowerCase();
+
+      if (punchType === 'in') {
+        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
+          earliestInMs = pTimeMs;
+        }
+        if (currentInPunch) {
+          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
+          if (gapMinutes >= 5) {
+            // Save preceding work interval before starting new in-session
+            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+            if (latestOutMs === null || pTimeMs > latestOutMs) {
+              latestOutMs = pTimeMs;
+            }
+            currentInPunch = p;
+          }
+        } else {
+          currentInPunch = p;
+        }
+      } else if (punchType === 'out') {
+        if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
+          latestOutMs = pTimeMs;
+        }
+        if (currentInPunch && !isAutoOut) {
+          const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+          if (pTimeMs > inTimeMs) {
+            workIntervals.push({ start: inTimeMs, end: pTimeMs });
+            hasAnyValidOut = true;
+          }
+        }
+        currentInPunch = null;
       }
-      if (p.punch_type === 'out' && current) { current.check_out = p.punch_time; current = null; }
-    });
-    return records;
+    }
+
+    if (currentInPunch && isToday) {
+      const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
+      const nowMs = Date.now();
+      if (nowMs > inTimeMs) {
+        workIntervals.push({ start: inTimeMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) {
+          latestOutMs = nowMs;
+        }
+      }
+    }
+
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals: { start: number; end: number }[] = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null) {
+      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      if (endMs > earliestInMs) {
+        grossMinutes = (endMs - earliestInMs) / (1000 * 60);
+      }
+    }
+
+    return {
+      totalWorkHours: (totalWorkMinutes / 60).toFixed(2),
+      grossHours: (grossMinutes / 60).toFixed(2),
+      totalWorkMinutes,
+      grossMinutes,
+      hasAnyValidOut
+    };
   }
 
   getOfficeRecords(records: any[]): any[] {
@@ -605,7 +1228,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getArrivalStatus(log: any): string {
     if (!log?.status) return 'Unknown';
-    
+
     // Check if regularized via notes
     if (log.notes && log.notes.includes('[REGULARIZED')) {
       return 'regularlise';
@@ -616,9 +1239,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     const statusMap: { [key: string]: string } = {
-      present: 'On Time', absent: 'Absent', 'half-day': 'Half Day',
-      late: 'Late Arrival', 'on-leave': 'On Leave', 'not-in-yet': 'NOT-IN-YET',
-      penalty: 'Penalty'
+      present: 'On Time', absent: 'Absent',
+      'half-day': log.isLeavePending ? 'Half Day (Pending)' : 'Half Day',
+      late: 'Late Arrival',
+      'on-leave': log.isLeavePending ? 'On Leave (Pending)' : 'On Leave',
+      'not-in-yet': 'NOT-IN-YET',
+      penalty: 'Penalty', holiday: 'Holiday', weekend: 'Week Off'
     };
     if (log.status === 'present' && log.first_check_in && this.shiftPolicy?.start_time) {
       try {
@@ -656,7 +1282,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
    *   - If no punch data, fall back to a single proportional work bar.
    */
   getAttendanceSegments(log: any): { type: 'work' | 'break'; widthPct: number }[] {
-    const workH  = parseFloat(log?.total_work_hours);
+    const workH = parseFloat(log?.total_work_hours !== undefined && log?.total_work_hours !== null ? log?.total_work_hours : log?.effective_hours);
     const grossH = parseFloat(log?.gross_hours);
 
     // Nothing to show
@@ -667,7 +1293,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     // Reference window in hours (cap at 12 h to prevent tiny-looking bars)
     const refH = Math.max(isNaN(grossH) ? workH : grossH, 8);
 
-    const workPct  = Math.min((workH  / refH) * 100, 100);
+    const workPct = Math.min((workH / refH) * 100, 100);
     const grossPct = isNaN(grossH) ? workPct : Math.min((grossH / refH) * 100, 100);
     const breakPct = Math.max(grossPct - workPct, 0);
 
@@ -679,16 +1305,16 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     // Split work on both sides of the break (equal halves)
     const halfWorkPct = workPct / 2;
     return [
-      { type: 'work',  widthPct: halfWorkPct },
-      { type: 'break', widthPct: breakPct    },
-      { type: 'work',  widthPct: halfWorkPct },
+      { type: 'work', widthPct: halfWorkPct },
+      { type: 'break', widthPct: breakPct },
+      { type: 'work', widthPct: halfWorkPct },
     ];
   }
 
   /** Returns break hours = gross - effective */
   getBreakHours(log: any): string {
     const gross = parseFloat(log?.gross_hours);
-    const work  = parseFloat(log?.total_work_hours);
+    const work = parseFloat(log?.total_work_hours !== undefined && log?.total_work_hours !== null ? log?.total_work_hours : log?.effective_hours);
     if (isNaN(gross) || isNaN(work) || gross <= work) return '';
     const breakH = gross - work;
     const h = Math.floor(breakH);
@@ -696,16 +1322,28 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     return h > 0 ? `${h}h ${m}m` : `${m}m`;
   }
 
+  isOngoingOvernight(attDate: any): boolean {
+    if (!attDate) return false;
+    const logDateStr = this.formatDateOnly(attDate);
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const yesterdayStr = this.formatDateOnly(yesterday);
+    if (logDateStr === yesterdayStr) {
+      const curHour = new Date().getHours() + new Date().getMinutes() / 60;
+      return curHour < 12.0; // Early morning hours: shift from yesterday is still ongoing!
+    }
+    return false;
+  }
+
   islogToday(date: string): boolean {
     if (!date) return false;
-    const today = new Date().toISOString().split('T')[0];
-    const logDate = new Date(date).toISOString().split('T')[0];
+    const today = this.formatDateOnly(new Date());
+    const logDate = this.formatDateOnly(date);
     return today === logDate;
   }
 
   getLateDuration(log: any): string {
     if (!log || (log.status !== 'present' && log.status !== 'late') || !log.first_check_in || !this.shiftPolicy?.start_time) return '';
-    
+
     // Check if regularized via notes
     if (log.notes && log.notes.includes('[REGULARIZED')) {
       return '';

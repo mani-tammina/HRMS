@@ -1,5 +1,5 @@
 import { NgModule } from '@angular/core';
-import { PreloadAllModules, RouterModule, Routes } from '@angular/router';
+import { RouterModule, Routes } from '@angular/router';
 import { AuthGuard } from './core/guards/auth.guard';
 import { RoleGuard } from './core/guards/role.guard';
 
@@ -38,8 +38,20 @@ const routes: Routes = [
     data: { role: ['admin', 'hr'] }
   },
   {
-    // Public candidate verification page
+    // Public candidate verification page (with or without id param)
     path: 'candidate-portal/login/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-portal/login',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-login/:id',
+    loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
+  },
+  {
+    path: 'candidate-login',
     loadComponent: () => import('./modules/onboarding/candiate-login/candiate-login.component').then(m => m.CandiateLoginComponent)
   },
   {
@@ -119,7 +131,7 @@ const routes: Routes = [
 
 @NgModule({
   imports: [
-    RouterModule.forRoot(routes, { preloadingStrategy: PreloadAllModules })
+    RouterModule.forRoot(routes)
   ],
   exports: [RouterModule]
 })

@@ -1,0 +1,1121 @@
+<ion-content [fullscreen]="true" class="holidays-admin-page ion-padding">
+  
+  <!-- ══════════════════════════════════════════════════
+       TOP HEADER & ACTIONS BAR
+  ══════════════════════════════════════════════════ -->
+  <div class="page-header">
+    <div class="header-left">
+      <button class="back-btn" (click)="goBack()" title="Back to Administration">
+        <ion-icon name="arrow-back-outline"></ion-icon>
+      </button>
+      <div class="title-group">
+        <div class="breadcrumbs">
+          <span>Administration</span>
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+          <span class="active">Holiday Management</span>
+        </div>
+        <h1>Holiday Calendars & Policy Setup</h1>
+        <p>Configure company holidays, shift-specific rosters, and location-based holiday lists.</p>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-outline" (click)="downloadTemplate()" title="Download Excel Template">
+        <ion-icon name="cloud-download-outline"></ion-icon>
+        <span>Template</span>
+      </button>
+
+      <button class="btn btn-outline" (click)="exportToExcel()" [disabled]="isExporting" title="Export Current List to Excel">
+        <ion-icon name="download-outline"></ion-icon>
+        <span>{{ isExporting ? 'Exporting...' : 'Export' }}</span>
+      </button>
+
+      <button class="btn btn-secondary" (click)="openManageListsModal()" title="Manage Holiday List Groups">
+        <ion-icon name="albums-outline"></ion-icon>
+        <span>Holiday Lists</span>
+      </button>
+
+      <button class="btn btn-primary-gradient" (click)="openUploadModal()">
+        <ion-icon name="cloud-upload-outline"></ion-icon>
+        <span>Bulk Upload</span>
+      </button>
+
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <ion-icon name="add-circle-outline"></ion-icon>
+        <span>Add Holiday</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       KPI SUMMARY METRIC CARDS
+  ══════════════════════════════════════════════════ -->
+  <div class="kpi-grid">
+    <div class="kpi-card total-card">
+      <div class="kpi-icon-wrapper">
+        <ion-icon name="calendar-outline"></ion-icon>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-label">Total Holidays ({{ selectedYear }})</span>
+        <h2 class="kpi-value">{{ summary.total }}</h2>
+        <span class="kpi-subtext">Across all locations & shifts</span>
+      </div>
+    </div>
+
+    <div class="kpi-card public-card">
+      <div class="kpi-icon-wrapper">
+        <ion-icon name="star-outline"></ion-icon>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-label">Mandatory / Public</span>
+        <h2 class="kpi-value">{{ summary.public_count }}</h2>
+        <span class="kpi-subtext">Compulsory organization off</span>
+      </div>
+    </div>
+
+    <div class="kpi-card optional-card">
+      <div class="kpi-icon-wrapper">
+        <ion-icon name="sparkles-outline"></ion-icon>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-label">Restricted / Optional</span>
+        <h2 class="kpi-value">{{ summary.optional_count }}</h2>
+        <span class="kpi-subtext">Floating / regional leaves</span>
+      </div>
+    </div>
+
+    <div class="kpi-card upcoming-card">
+      <div class="kpi-icon-wrapper">
+        <ion-icon name="time-outline"></ion-icon>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-label">Upcoming Holidays</span>
+        <h2 class="kpi-value">{{ summary.upcoming_count }}</h2>
+        <span class="kpi-subtext">Remaining for this year</span>
+      </div>
+    </div>
+
+    <div class="kpi-card shift-card">
+      <div class="kpi-icon-wrapper">
+        <ion-icon name="git-branch-outline"></ion-icon>
+      </div>
+      <div class="kpi-details">
+        <span class="kpi-label">Shifts & Locations</span>
+        <h2 class="kpi-value">{{ meta.locations.length }} Loc / {{ meta.shiftPolicies.length }} Shift</h2>
+        <span class="kpi-subtext">Policies configured</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       FILTER & CONTROLS TOOLBAR
+  ══════════════════════════════════════════════════ -->
+  <div class="filter-card">
+    <div class="filter-top-row">
+      
+      <!-- Search Input -->
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input
+          type="text"
+          placeholder="Search holiday name, day, shift or location..."
+          [(ngModel)]="searchQuery"
+          (ngModelChange)="onSearchChange($event)"
+        />
+        <button *ngIf="searchQuery" class="clear-search" (click)="searchQuery = ''; onSearchChange('')">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <!-- Year Selector -->
+      <div class="filter-item">
+        <label>Year</label>
+        <div class="select-wrapper">
+          <select [(ngModel)]="selectedYear" (change)="onFilterChange()">
+            <option *ngFor="let y of years" [value]="y">{{ y }}</option>
+          </select>
+          <ion-icon name="chevron-down-outline"></ion-icon>
+        </div>
+      </div>
+
+      <!-- Location Filter (Multi-Select with Checkboxes) -->
+      <div class="filter-item custom-multiselect-dropdown" [class.open]="isLocationFilterOpen">
+        <label>Location</label>
+        <button type="button" class="multiselect-trigger" (click)="toggleLocationFilterDropdown($event)">
+          <span class="trigger-text" [title]="getLocationFilterSummary()">{{ getLocationFilterSummary() }}</span>
+          <ion-icon name="chevron-down-outline" [class.rotate]="isLocationFilterOpen"></ion-icon>
+        </button>
+        <div class="multiselect-menu" *ngIf="isLocationFilterOpen" (click)="$event.stopPropagation()">
+          <div class="menu-header">
+            <label class="custom-chk-label select-all-chk">
+              <input type="checkbox" [checked]="isAllLocationsFilterActive" (change)="toggleAllLocationsFilter()" />
+              <span class="chk-box"></span>
+              <strong>All Locations</strong>
+            </label>
+          </div>
+          <div class="menu-divider"></div>
+          <div class="menu-items-list">
+            <label class="custom-chk-label" *ngFor="let loc of meta.locations">
+              <input type="checkbox" [checked]="isLocationFilterSelected(loc.id)" (change)="toggleLocationFilter(loc.id)" />
+              <span class="chk-box"></span>
+              <span class="item-name">{{ loc.name }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shift Policy / Scheme Filter (Multi-Select with Checkboxes) -->
+      <div class="filter-item custom-multiselect-dropdown" [class.open]="isShiftFilterOpen">
+        <label>Shift Policy / Scheme</label>
+        <button type="button" class="multiselect-trigger" (click)="toggleShiftFilterDropdown($event)">
+          <span class="trigger-text" [title]="getShiftFilterSummary()">{{ getShiftFilterSummary() }}</span>
+          <ion-icon name="chevron-down-outline" [class.rotate]="isShiftFilterOpen"></ion-icon>
+        </button>
+        <div class="multiselect-menu" *ngIf="isShiftFilterOpen" (click)="$event.stopPropagation()">
+          <div class="menu-header">
+            <label class="custom-chk-label select-all-chk">
+              <input type="checkbox" [checked]="isAllShiftsFilterActive" (change)="toggleAllShiftsFilter()" />
+              <span class="chk-box"></span>
+              <strong>All Shift Policies</strong>
+            </label>
+          </div>
+          <div class="menu-divider"></div>
+          <div class="menu-items-list">
+            <label class="custom-chk-label" *ngFor="let sp of meta.shiftPolicies">
+              <input type="checkbox" [checked]="isShiftFilterSelected(sp.id)" (change)="toggleShiftFilter(sp.id)" />
+              <span class="chk-box"></span>
+              <span class="item-name">{{ sp.name }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Holiday List Group Filter (Multi-Select with Checkboxes) -->
+      <div class="filter-item custom-multiselect-dropdown" [class.open]="isHolidayListFilterOpen">
+        <label>Holiday List</label>
+        <button type="button" class="multiselect-trigger" (click)="toggleHolidayListFilterDropdown($event)">
+          <span class="trigger-text" [title]="getHolidayListFilterSummary()">{{ getHolidayListFilterSummary() }}</span>
+          <ion-icon name="chevron-down-outline" [class.rotate]="isHolidayListFilterOpen"></ion-icon>
+        </button>
+        <div class="multiselect-menu" *ngIf="isHolidayListFilterOpen" (click)="$event.stopPropagation()">
+          <div class="menu-header">
+            <label class="custom-chk-label select-all-chk">
+              <input type="checkbox" [checked]="isAllHolidayListsFilterActive" (change)="toggleAllHolidayListsFilter()" />
+              <span class="chk-box"></span>
+              <strong>All Holiday Lists</strong>
+            </label>
+          </div>
+          <div class="menu-divider"></div>
+          <div class="menu-items-list">
+            <label class="custom-chk-label" *ngFor="let hl of meta.holidayLists">
+              <input type="checkbox" [checked]="isHolidayListFilterSelected(hl.id!)" (change)="toggleHolidayListFilter(hl.id!)" />
+              <span class="chk-box"></span>
+              <span class="item-name">{{ hl.name }}</span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Type Filter -->
+      <div class="filter-item">
+        <label>Type</label>
+        <div class="select-wrapper">
+          <select [(ngModel)]="selectedType" (change)="onFilterChange()">
+            <option value="">All Types</option>
+            <option value="public">Mandatory / Public</option>
+            <option value="optional">Restricted / Optional</option>
+          </select>
+          <ion-icon name="chevron-down-outline"></ion-icon>
+        </div>
+      </div>
+
+      <!-- View Switcher -->
+      <div class="view-switcher">
+        <button
+          [class.active]="viewMode === 'table'"
+          (click)="viewMode = 'table'"
+          title="Table View"
+        >
+          <ion-icon name="list-outline"></ion-icon>
+        </button>
+        <button
+          [class.active]="viewMode === 'cards'"
+          (click)="viewMode = 'cards'"
+          title="Cards Grid View"
+        >
+          <ion-icon name="grid-outline"></ion-icon>
+        </button>
+        <button
+          [class.active]="viewMode === 'calendar'"
+          (click)="viewMode = 'calendar'"
+          title="Monthly Calendar View"
+        >
+          <ion-icon name="calendar-clear-outline"></ion-icon>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Bulk Action Bar when items selected -->
+    <div class="bulk-selection-bar" *ngIf="selectedIds.size > 0">
+      <span class="selected-count">
+        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+        <strong>{{ selectedIds.size }}</strong> holiday{{ selectedIds.size > 1 ? 's' : '' }} selected
+      </span>
+      <div class="bulk-btns">
+        <button class="btn btn-assign-sm" (click)="openBulkAssignModal()">
+          <ion-icon name="git-branch-outline"></ion-icon>
+          Assign Locations & Shifts
+        </button>
+        <button class="btn btn-danger-sm" (click)="confirmBulkDelete()">
+          <ion-icon name="trash-outline"></ion-icon>
+          Delete Selected
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MAIN CONTENT: VIEWS (TABLE, CARDS, CALENDAR)
+  ══════════════════════════════════════════════════ -->
+
+  <!-- Loading State -->
+  <div class="loading-state" *ngIf="isLoading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Loading holiday calendars...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-state" *ngIf="!isLoading && filteredHolidays.length === 0">
+    <div class="empty-icon-wrap">
+      <ion-icon name="calendar-outline"></ion-icon>
+    </div>
+    <h3>No Holidays Found</h3>
+    <p>No holidays matching the selected year, shift policy, or location filter criteria.</p>
+    <div class="empty-actions">
+      <button class="btn btn-primary" (click)="openAddModal()">
+        <ion-icon name="add-circle-outline"></ion-icon> Add First Holiday
+      </button>
+      <button class="btn btn-secondary" (click)="openUploadModal()">
+        <ion-icon name="cloud-upload-outline"></ion-icon> Bulk Upload Excel
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 1. TABLE VIEW ── -->
+  <div class="table-container" *ngIf="!isLoading && filteredHolidays.length > 0 && viewMode === 'table'">
+    <table class="custom-table">
+      <thead>
+        <tr>
+          <th class="th-checkbox">
+            <input type="checkbox" [checked]="selectAll" (change)="toggleSelectAll()" />
+          </th>
+          <th>Holiday Date</th>
+          <th>Holiday Name</th>
+          <th>Day</th>
+          <th>Type</th>
+          <th>Holiday List</th>
+          <th>Location</th>
+          <th>Shift Policy</th>
+          <th>Description</th>
+          <th class="text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr
+          *ngFor="let h of filteredHolidays"
+          [class.selected-row]="selectedIds.has(h.id!)"
+          [class.past-row]="!isUpcoming(h.holiday_date)"
+        >
+          <td class="td-checkbox">
+            <input
+              type="checkbox"
+              [checked]="selectedIds.has(h.id!)"
+              (change)="toggleSelectItem(h.id)"
+            />
+          </td>
+
+          <!-- Date Badge -->
+          <td>
+            <div class="date-badge-wrap">
+              <div class="date-box" [class.upcoming-box]="isUpcoming(h.holiday_date)">
+                <span class="day-num">{{ getDayNumber(h.holiday_date) }}</span>
+                <span class="month-name">{{ getMonthShort(h.holiday_date) }}</span>
+              </div>
+              <div class="date-details">
+                <span class="full-date">{{ formatDate(h.holiday_date) }}</span>
+                <span class="status-indicator" *ngIf="isUpcoming(h.holiday_date)">Upcoming</span>
+              </div>
+            </div>
+          </td>
+
+          <!-- Name -->
+          <td>
+            <div class="holiday-name-cell">
+              <span class="name-text">{{ h.holiday_name }}</span>
+            </div>
+          </td>
+
+          <!-- Day -->
+          <td>
+            <span class="day-text">{{ h.day_name || '-' }}</span>
+          </td>
+
+          <!-- Type Badge -->
+          <td>
+            <span
+              class="badge-pill"
+              [class.badge-public]="h.holiday_type === 'public' || !h.holiday_type"
+              [class.badge-optional]="h.holiday_type === 'optional' || h.holiday_type === 'restricted'"
+            >
+              <ion-icon [name]="h.holiday_type === 'optional' ? 'sparkles-outline' : 'shield-checkmark-outline'"></ion-icon>
+              {{ h.holiday_type === 'optional' ? 'Optional / Restricted' : 'Mandatory / Public' }}
+            </span>
+          </td>
+
+          <!-- Holiday List -->
+          <td>
+            <span class="chip chip-list" *ngIf="h.holiday_list_name">
+              <ion-icon name="albums-outline"></ion-icon>
+              {{ h.holiday_list_name }}
+            </span>
+            <span class="text-muted" *ngIf="!h.holiday_list_name">Default / General</span>
+          </td>
+
+          <!-- Location -->
+          <td>
+            <span class="chip chip-location" *ngIf="h.location_name">
+              <ion-icon name="location-outline"></ion-icon>
+              {{ h.location_name }}
+            </span>
+            <span class="chip chip-all" *ngIf="!h.location_name">
+              <ion-icon name="globe-outline"></ion-icon>
+              All Locations
+            </span>
+          </td>
+
+          <!-- Shift Policy -->
+          <td>
+            <span class="chip chip-shift" *ngIf="h.shift_policy_name">
+              <ion-icon name="time-outline"></ion-icon>
+              {{ h.shift_policy_name }}
+            </span>
+            <span class="chip chip-all" *ngIf="!h.shift_policy_name">
+              <ion-icon name="people-outline"></ion-icon>
+              All Shifts
+            </span>
+          </td>
+
+          <!-- Description -->
+          <td class="desc-cell">
+            <span class="desc-text" [title]="h.description || ''">{{ h.description || '-' }}</span>
+          </td>
+
+          <!-- Actions -->
+          <td class="text-right">
+            <div class="action-buttons">
+              <button class="icon-btn assign-btn" (click)="openBulkAssignModal(h)" title="Assign Locations & Shifts">
+                <ion-icon name="git-branch-outline"></ion-icon>
+              </button>
+              <button class="icon-btn edit-btn" (click)="openEditModal(h)" title="Edit Holiday">
+                <ion-icon name="create-outline"></ion-icon>
+              </button>
+              <button class="icon-btn delete-btn" (click)="openDeleteConfirm(h)" title="Delete Holiday">
+                <ion-icon name="trash-outline"></ion-icon>
+              </button>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ── 2. CARDS GRID VIEW ── -->
+  <div class="cards-grid" *ngIf="!isLoading && filteredHolidays.length > 0 && viewMode === 'cards'">
+    <div class="holiday-card" *ngFor="let h of filteredHolidays" [class.past-card]="!isUpcoming(h.holiday_date)">
+      <div class="card-header-bar">
+        <div class="card-date-badge" [class.upcoming-date]="isUpcoming(h.holiday_date)">
+          <span class="day-digit">{{ getDayNumber(h.holiday_date) }}</span>
+          <span class="month-txt">{{ getMonthShort(h.holiday_date) }}</span>
+        </div>
+
+        <div class="card-title-block">
+          <h3>{{ h.holiday_name }}</h3>
+          <div class="day-and-year">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>{{ h.day_name }} &bull; {{ formatDate(h.holiday_date) }}</span>
+          </div>
+        </div>
+
+        <div class="card-actions-top">
+          <button class="mini-btn assign" (click)="openBulkAssignModal(h)" title="Assign Locations & Shifts">
+            <ion-icon name="git-branch-outline"></ion-icon>
+          </button>
+          <button class="mini-btn edit" (click)="openEditModal(h)" title="Edit">
+            <ion-icon name="create-outline"></ion-icon>
+          </button>
+          <button class="mini-btn delete" (click)="openDeleteConfirm(h)" title="Delete">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body">
+        <p class="card-description" *ngIf="h.description">{{ h.description }}</p>
+
+        <div class="card-tags-grid">
+          <div class="tag-row">
+            <span class="tag-label">Type:</span>
+            <span
+              class="badge-pill mini"
+              [class.badge-public]="h.holiday_type === 'public' || !h.holiday_type"
+              [class.badge-optional]="h.holiday_type === 'optional' || h.holiday_type === 'restricted'"
+            >
+              {{ h.holiday_type === 'optional' ? 'Optional' : 'Mandatory' }}
+            </span>
+          </div>
+
+          <div class="tag-row" *ngIf="h.holiday_list_name">
+            <span class="tag-label">List:</span>
+            <span class="chip chip-list mini">{{ h.holiday_list_name }}</span>
+          </div>
+
+          <div class="tag-row">
+            <span class="tag-label">Location:</span>
+            <span class="chip chip-location mini" *ngIf="h.location_name">{{ h.location_name }}</span>
+            <span class="chip chip-all mini" *ngIf="!h.location_name">All Locations</span>
+          </div>
+
+          <div class="tag-row">
+            <span class="tag-label">Shift:</span>
+            <span class="chip chip-shift mini" *ngIf="h.shift_policy_name">{{ h.shift_policy_name }}</span>
+            <span class="chip chip-all mini" *ngIf="!h.shift_policy_name">All Shifts</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card-footer" *ngIf="isUpcoming(h.holiday_date)">
+        <span class="upcoming-chip">
+          <ion-icon name="time-outline"></ion-icon> Upcoming Holiday
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. MONTHLY CALENDAR VIEW ── -->
+  <div class="calendar-view" *ngIf="!isLoading && filteredHolidays.length > 0 && viewMode === 'calendar'">
+    <div class="calendar-months-grid">
+      <div class="month-card" *ngFor="let m of calendarMonths" [class.has-holidays]="m.holidays.length > 0">
+        <div class="month-header">
+          <h4>{{ m.name }} {{ selectedYear }}</h4>
+          <span class="month-count-badge">{{ m.holidays.length }} Holiday{{ m.holidays.length !== 1 ? 's' : '' }}</span>
+        </div>
+
+        <div class="month-body">
+          <div *ngIf="m.holidays.length === 0" class="no-holidays-msg">
+            No holidays in this month
+          </div>
+
+          <div class="month-holiday-item" *ngFor="let h of m.holidays" (click)="openEditModal(h)">
+            <div class="item-date-tag">
+              <span class="item-day">{{ getDayNumber(h.holiday_date) }}</span>
+            </div>
+            <div class="item-info">
+              <div class="item-name">{{ h.holiday_name }}</div>
+              <div class="item-meta">
+                <span>{{ h.day_name }}</span>
+                <span class="bullet">&bull;</span>
+                <span class="type-tag" [class.opt]="h.holiday_type === 'optional'">{{ h.holiday_type || 'public' }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MODAL 1: BULK EXCEL UPLOAD WITH LIVE PREVIEW
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showUploadModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge upload-badge">
+            <ion-icon name="cloud-upload-outline"></ion-icon>
+          </div>
+          <div>
+            <h2>Upload Holidays by Shift & Location</h2>
+            <p>Import holidays from an Excel (.xlsx, .xls) or CSV file with shift and location policies.</p>
+          </div>
+        </div>
+        <button class="close-btn" (click)="showUploadModal = false">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Upload Configuration Row -->
+        <div class="form-grid-3 mb-24">
+          <div class="form-group">
+            <label>Target Holiday List (Optional Default)</label>
+            <select [(ngModel)]="uploadTargetHolidayListId">
+              <option value="">Auto-detect from file or General</option>
+              <option *ngFor="let hl of meta.holidayLists" [value]="hl.id">{{ hl.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Target Location (Optional Default)</label>
+            <select [(ngModel)]="uploadTargetLocationId">
+              <option value="">Auto-detect from file or All Locations</option>
+              <option *ngFor="let loc of meta.locations" [value]="loc.id">{{ loc.name }}</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label>Target Shift Policy (Optional Default)</label>
+            <select [(ngModel)]="uploadTargetShiftPolicyId">
+              <option value="">Auto-detect from file or All Shifts</option>
+              <option *ngFor="let sp of meta.shiftPolicies" [value]="sp.id">{{ sp.name }}</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Drag and Drop Dropzone -->
+        <div
+          class="dropzone-area"
+          (dragover)="onDragOver($event)"
+          (drop)="onFileDropped($event)"
+          (click)="fileInput.click()"
+        >
+          <input #fileInput type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" hidden />
+          <div class="dropzone-content">
+            <div class="upload-icon-circle">
+              <ion-icon name="cloud-arrow-up-outline"></ion-icon>
+            </div>
+            <h4 *ngIf="!uploadFileName">Drag & drop your Excel / CSV file here, or <span class="browse-link">browse</span></h4>
+            <h4 *ngIf="uploadFileName" class="selected-file-name">
+              <ion-icon name="document-text-outline"></ion-icon> {{ uploadFileName }}
+            </h4>
+            <p>Supports .xlsx, .xls, .csv files up to 10MB</p>
+          </div>
+        </div>
+
+        <!-- Overwrite toggle & Template helper -->
+        <div class="upload-options-row">
+          <label class="custom-checkbox">
+            <input type="checkbox" [(ngModel)]="uploadOverwrite" />
+            <span class="checkmark"></span>
+            <span>Update existing holidays on duplicate date and list</span>
+          </label>
+
+          <button class="template-download-btn" (click)="downloadTemplate()">
+            <ion-icon name="download-outline"></ion-icon> Download Sample Template
+          </button>
+        </div>
+
+        <!-- Live Parsed Preview Table -->
+        <div class="preview-section" *ngIf="previewRows.length > 0">
+          <div class="preview-header">
+            <h4>File Preview ({{ previewRows.length }} rows found)</h4>
+            <span class="preview-badge">Ready for validation</span>
+          </div>
+
+          <div class="preview-table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Date</th>
+                  <th>Holiday Name</th>
+                  <th>Type</th>
+                  <th>Holiday List</th>
+                  <th>Location</th>
+                  <th>Shift Policy</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of previewRows.slice(0, 10); let i = index" [class.invalid-row]="!row.isValid">
+                  <td>{{ i + 1 }}</td>
+                  <td><strong>{{ row.date || 'Invalid Date' }}</strong></td>
+                  <td>{{ row.name || 'Missing Name' }}</td>
+                  <td><span class="preview-type-badge">{{ row.type }}</span></td>
+                  <td>{{ row.holidayList }}</td>
+                  <td>{{ row.location }}</td>
+                  <td>{{ row.shift }}</td>
+                  <td>
+                    <span class="status-badge valid" *ngIf="row.isValid">
+                      <ion-icon name="checkmark-circle"></ion-icon> Valid
+                    </span>
+                    <span class="status-badge invalid" *ngIf="!row.isValid">
+                      <ion-icon name="alert-circle"></ion-icon> {{ row.errorMsg }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="preview-note" *ngIf="previewRows.length > 10">
+            Showing first 10 of {{ previewRows.length }} rows. All valid rows will be imported.
+          </p>
+        </div>
+
+        <!-- Upload Result Alert -->
+        <div class="upload-result-alert" *ngIf="uploadResult">
+          <div class="result-header">
+            <ion-icon name="checkmark-circle-outline"></ion-icon>
+            <h4>{{ uploadResult.message }}</h4>
+          </div>
+          <div class="result-stats">
+            <div class="r-stat"><span class="label">Inserted:</span> <strong>{{ uploadResult.inserted }}</strong></div>
+            <div class="r-stat"><span class="label">Updated:</span> <strong>{{ uploadResult.updated }}</strong></div>
+            <div class="r-stat"><span class="label">Skipped:</span> <strong>{{ uploadResult.skipped }}</strong></div>
+          </div>
+          <div class="result-errors" *ngIf="uploadResult.errors && uploadResult.errors.length > 0">
+            <h5>Errors / Warnings:</h5>
+            <ul>
+              <li *ngFor="let err of uploadResult.errors">{{ err }}</li>
+            </ul>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showUploadModal = false">
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary-gradient"
+          (click)="submitUpload()"
+          [disabled]="!uploadFile || isUploading"
+        >
+          <ion-icon name="cloud-upload-outline" *ngIf="!isUploading"></ion-icon>
+          <ion-spinner name="crescent" *ngIf="isUploading"></ion-spinner>
+          <span>{{ isUploading ? 'Importing Holidays...' : 'Import Holidays' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MODAL 2: ADD / EDIT SINGLE HOLIDAY
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showAddEditModal">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge">
+            <ion-icon [name]="isEditing ? 'create-outline' : 'add-circle-outline'"></ion-icon>
+          </div>
+          <div>
+            <h2>{{ isEditing ? 'Edit Holiday' : 'Add New Holiday' }}</h2>
+            <p>{{ isEditing ? 'Update holiday details and policy assignments' : 'Configure a holiday calendar entry' }}</p>
+          </div>
+        </div>
+        <button class="close-btn" (click)="showAddEditModal = false">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        
+        <div class="form-grid-2">
+          <!-- Holiday Date -->
+          <div class="form-group">
+            <label>Holiday Date <span class="required">*</span></label>
+            <input
+              type="date"
+              [(ngModel)]="holidayModel.holiday_date"
+              (change)="onDateChange()"
+              required
+            />
+          </div>
+
+          <!-- Day Name (Auto-calculated) -->
+          <div class="form-group">
+            <label>Day of Week</label>
+            <input
+              type="text"
+              [(ngModel)]="holidayModel.day_name"
+              placeholder="e.g. Friday"
+              readonly
+            />
+          </div>
+        </div>
+
+        <!-- Holiday Name -->
+        <div class="form-group">
+          <label>Holiday Name <span class="required">*</span></label>
+          <input
+            type="text"
+            placeholder="e.g. Independence Day, Diwali, Christmas"
+            [(ngModel)]="holidayModel.holiday_name"
+            required
+          />
+        </div>
+
+        <!-- Holiday Type -->
+        <div class="form-group">
+          <label>Holiday Classification</label>
+          <div class="type-radio-group">
+            <label class="type-option" [class.selected]="holidayModel.holiday_type === 'public'">
+              <input type="radio" name="holiday_type" value="public" [(ngModel)]="holidayModel.holiday_type" />
+              <div class="type-box">
+                <ion-icon name="shield-checkmark-outline"></ion-icon>
+                <div>
+                  <strong>Mandatory / Public</strong>
+                  <span>Compulsory holiday for all assigned staff</span>
+                </div>
+              </div>
+            </label>
+
+            <label class="type-option" [class.selected]="holidayModel.holiday_type === 'optional'">
+              <input type="radio" name="holiday_type" value="optional" [(ngModel)]="holidayModel.holiday_type" />
+              <div class="type-box">
+                <ion-icon name="sparkles-outline"></ion-icon>
+                <div>
+                  <strong>Restricted / Optional</strong>
+                  <span>Employee can choose from list of floating holidays</span>
+                </div>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- Target Holiday List -->
+        <div class="form-group mb-16">
+          <label>Holiday List Group</label>
+          <select [(ngModel)]="holidayModel.holiday_list_id">
+            <option [ngValue]="null">General (All Lists)</option>
+            <option *ngFor="let hl of meta.holidayLists" [value]="hl.id">{{ hl.name }}</option>
+          </select>
+        </div>
+
+        <!-- Applicable Locations Checkbox Selector -->
+        <div class="modal-section-box mb-16">
+          <div class="section-box-header">
+            <label class="section-box-title">
+              <ion-icon name="location-outline"></ion-icon>
+              <span>Applicable Locations</span>
+            </label>
+            <label class="custom-chk-label select-all-inline">
+              <input type="checkbox" [checked]="addEditAllLocations" (change)="toggleAddEditAllLocations()" />
+              <span class="chk-box"></span>
+              <strong>All Locations</strong>
+            </label>
+          </div>
+          <div class="checkbox-chips-grid">
+            <label class="custom-chip-chk" *ngFor="let loc of meta.locations" [class.checked]="isAddEditLocationChecked(loc.id)">
+              <input type="checkbox" [checked]="isAddEditLocationChecked(loc.id)" (change)="toggleAddEditLocation(loc.id)" />
+              <ion-icon [name]="isAddEditLocationChecked(loc.id) ? 'checkbox' : 'square-outline'"></ion-icon>
+              <span>{{ loc.name }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Applicable Shift Policies / Schemes Checkbox Selector -->
+        <div class="modal-section-box mb-16">
+          <div class="section-box-header">
+            <label class="section-box-title">
+              <ion-icon name="time-outline"></ion-icon>
+              <span>Applicable Shift Policies / Schemes</span>
+            </label>
+            <label class="custom-chk-label select-all-inline">
+              <input type="checkbox" [checked]="addEditAllShifts" (change)="toggleAddEditAllShifts()" />
+              <span class="chk-box"></span>
+              <strong>All Shift Policies</strong>
+            </label>
+          </div>
+          <div class="checkbox-chips-grid">
+            <label class="custom-chip-chk" *ngFor="let sp of meta.shiftPolicies" [class.checked]="isAddEditShiftChecked(sp.id)">
+              <input type="checkbox" [checked]="isAddEditShiftChecked(sp.id)" (change)="toggleAddEditShift(sp.id)" />
+              <ion-icon [name]="isAddEditShiftChecked(sp.id) ? 'checkbox' : 'square-outline'"></ion-icon>
+              <span>{{ sp.name }}</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Description -->
+        <div class="form-group">
+          <label>Description / Notes (Optional)</label>
+          <textarea
+            rows="2"
+            placeholder="Additional details, cultural significance or festival notes..."
+            [(ngModel)]="holidayModel.description"
+          ></textarea>
+        </div>
+
+        <!-- Status Toggle -->
+        <div class="form-group">
+          <label class="custom-checkbox">
+            <input type="checkbox" [(ngModel)]="holidayModel.is_active" />
+            <span class="checkmark"></span>
+            <span>Active holiday (included in company calendar and leave calculations)</span>
+          </label>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showAddEditModal = false">
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary"
+          (click)="saveHoliday()"
+          [disabled]="isSaving"
+        >
+          <ion-spinner name="crescent" *ngIf="isSaving"></ion-spinner>
+          <span>{{ isSaving ? 'Saving...' : (isEditing ? 'Update Holiday' : 'Create Holiday') }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MODAL 2.5: ASSIGN HOLIDAYS TO LOCATIONS & SHIFTS
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showAssignModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge assign-badge">
+            <ion-icon name="git-branch-outline"></ion-icon>
+          </div>
+          <div>
+            <h2>Assign Holidays to Locations & Shift Policies</h2>
+            <p>Select which office locations and shift schemes will observe the selected holidays.</p>
+          </div>
+        </div>
+        <button class="close-btn" (click)="showAssignModal = false">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Selected Holidays Preview -->
+        <div class="assign-selected-summary">
+          <div class="summary-title">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <span>Assigning <strong>{{ assignSelectedHolidayIds.length }}</strong> Holiday{{ assignSelectedHolidayIds.length > 1 ? 's' : '' }}:</span>
+          </div>
+          <div class="holiday-chips-list">
+            <span class="h-chip" *ngFor="let h of assignSelectedHolidaysList">
+              <span class="h-name">{{ h.holiday_name }}</span>
+              <span class="h-date">{{ formatDate(h.holiday_date) }}</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Holiday List Group Option (Optional) -->
+        <div class="form-group mb-20">
+          <label>Assign to Holiday List Group (Optional)</label>
+          <select [(ngModel)]="assignHolidayListId">
+            <option [ngValue]="null">Do not change holiday list / Keep existing</option>
+            <option *ngFor="let hl of meta.holidayLists" [value]="hl.id">{{ hl.name }}</option>
+          </select>
+        </div>
+
+        <!-- 1. Location Selection Checkboxes -->
+        <div class="assign-section-box">
+          <div class="section-box-header">
+            <div class="header-left-title">
+              <ion-icon name="location-outline"></ion-icon>
+              <h4>Select Applicable Locations</h4>
+            </div>
+            <label class="custom-chk-label select-all-inline">
+              <input type="checkbox" [checked]="assignAllLocations" (change)="toggleAssignAllLocations()" />
+              <span class="chk-box"></span>
+              <strong>All Locations</strong>
+            </label>
+          </div>
+          <div class="checkbox-cards-grid">
+            <label class="location-chk-card" *ngFor="let loc of meta.locations" [class.selected]="isAssignLocationChecked(loc.id)">
+              <input type="checkbox" [checked]="isAssignLocationChecked(loc.id)" (change)="toggleAssignLocation(loc.id)" />
+              <div class="chk-content">
+                <ion-icon [name]="isAssignLocationChecked(loc.id) ? 'checkbox' : 'square-outline'"></ion-icon>
+                <span class="card-label">{{ loc.name }}</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 2. Shift Policy / Scheme Selection Checkboxes -->
+        <div class="assign-section-box mt-20">
+          <div class="section-box-header">
+            <div class="header-left-title">
+              <ion-icon name="time-outline"></ion-icon>
+              <h4>Select Applicable Shift Policies / Schemes</h4>
+            </div>
+            <label class="custom-chk-label select-all-inline">
+              <input type="checkbox" [checked]="assignAllShifts" (change)="toggleAssignAllShifts()" />
+              <span class="chk-box"></span>
+              <strong>All Shift Policies</strong>
+            </label>
+          </div>
+          <div class="checkbox-cards-grid">
+            <label class="location-chk-card" *ngFor="let sp of meta.shiftPolicies" [class.selected]="isAssignShiftChecked(sp.id)">
+              <input type="checkbox" [checked]="isAssignShiftChecked(sp.id)" (change)="toggleAssignShift(sp.id)" />
+              <div class="chk-content">
+                <ion-icon [name]="isAssignShiftChecked(sp.id) ? 'checkbox' : 'square-outline'"></ion-icon>
+                <span class="card-label">{{ sp.name }}</span>
+              </div>
+            </label>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showAssignModal = false">
+          Cancel
+        </button>
+        <button
+          class="btn btn-primary-gradient"
+          (click)="executeBulkAssign()"
+          [disabled]="isAssigning"
+        >
+          <ion-spinner name="crescent" *ngIf="isAssigning"></ion-spinner>
+          <ion-icon name="checkmark-done-circle-outline" *ngIf="!isAssigning"></ion-icon>
+          <span>{{ isAssigning ? 'Assigning...' : 'Assign Holidays to Employees' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MODAL 3: MANAGE HOLIDAY LISTS MASTER GROUPS
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showManageListsModal">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge">
+            <ion-icon name="albums-outline"></ion-icon>
+          </div>
+          <div>
+            <h2>Holiday List Groups</h2>
+            <p>Create & configure distinct holiday rosters by shift schedule and office branch.</p>
+          </div>
+        </div>
+        <button class="close-btn" (click)="showManageListsModal = false">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        
+        <!-- Form to Add / Edit a Holiday List -->
+        <div class="hlist-form-card">
+          <h4>{{ editingListId ? 'Edit Holiday List Group' : 'Create New Holiday List Group' }}</h4>
+          <div class="form-grid-2">
+            <div class="form-group">
+              <label>Holiday List Name <span class="required">*</span></label>
+              <input
+                type="text"
+                placeholder="e.g. Night Shift Holiday List, Visakhapatnam Day Roster"
+                [(ngModel)]="holidayListModel.name"
+              />
+            </div>
+            <div class="form-group">
+              <label>Default Location (Optional)</label>
+              <select [(ngModel)]="holidayListModel.location_id">
+                <option [ngValue]="null">All Locations</option>
+                <option *ngFor="let loc of meta.locations" [value]="loc.id">{{ loc.name }}</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Description</label>
+            <input
+              type="text"
+              placeholder="Short description or notes..."
+              [(ngModel)]="holidayListModel.description"
+            />
+          </div>
+
+          <div class="hlist-form-actions">
+            <button *ngIf="editingListId" class="btn btn-outline-sm" (click)="resetHolidayListForm()">Cancel Edit</button>
+            <button class="btn btn-primary-sm" (click)="saveHolidayList()">
+              <ion-icon [name]="editingListId ? 'save-outline' : 'add-outline'"></ion-icon>
+              {{ editingListId ? 'Update Group' : 'Add Group' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- List of existing Holiday Lists -->
+        <div class="existing-lists-table-wrap">
+          <table class="custom-table compact">
+            <thead>
+              <tr>
+                <th>List Name</th>
+                <th>Location</th>
+                <th>Holidays Count</th>
+                <th>Description</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let hl of meta.holidayLists">
+                <td><strong>{{ hl.name }}</strong></td>
+                <td>{{ hl.location_name || 'All Locations' }}</td>
+                <td>
+                  <span class="count-pill">{{ hl.holiday_count || 0 }} items</span>
+                </td>
+                <td>{{ hl.description || '-' }}</td>
+                <td class="text-right">
+                  <button class="icon-btn edit-btn" (click)="editHolidayList(hl)" title="Edit">
+                    <ion-icon name="create-outline"></ion-icon>
+                  </button>
+                  <button class="icon-btn delete-btn" (click)="deleteHolidayList(hl)" title="Delete">
+                    <ion-icon name="trash-outline"></ion-icon>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showManageListsModal = false">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       MODAL 4: DELETE CONFIRMATION
+  ══════════════════════════════════════════════════ -->
+  <div class="modal-backdrop" *ngIf="showDeleteConfirm">
+    <div class="modal-dialog modal-sm">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-icon-badge danger-badge">
+            <ion-icon name="trash-outline"></ion-icon>
+          </div>
+          <div>
+            <h2>Confirm Deletion</h2>
+            <p *ngIf="!isBulkDelete">Are you sure you want to delete holiday "<strong>{{ itemToDelete?.holiday_name }}</strong>"?</p>
+            <p *ngIf="isBulkDelete">Are you sure you want to delete <strong>{{ selectedIds.size }}</strong> selected holidays?</p>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" (click)="showDeleteConfirm = false">Cancel</button>
+        <button class="btn btn-danger" (click)="executeDelete()">
+          <ion-icon name="trash-outline"></ion-icon> Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+</ion-content>

@@ -127,7 +127,13 @@
             {{ (row.first_check_in | date:'hh:mm a') || '--:--' }}
           </div>
           <div class="col col-out">
-            {{ (row.last_check_out | date:'hh:mm a') || '--:--' }}
+            <span *ngIf="row.last_check_out; else noLastCheckOut">
+              {{ row.last_check_out | date:'hh:mm a' }}
+            </span>
+            <ng-template #noLastCheckOut>
+              <span *ngIf="row.first_check_in" style="color: #dc2626; font-size: 11px; font-weight: 600;">OUT Missing</span>
+              <span *ngIf="!row.first_check_in">--:--</span>
+            </ng-template>
           </div>
           <div class="col col-hours">
             {{ row.gross_hours || '0.00' }} hrs

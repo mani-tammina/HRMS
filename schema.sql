@@ -39,7 +39,45 @@ CREATE TABLE IF NOT EXISTS locations (
   id INT PRIMARY KEY AUTO_INCREMENT,
   name VARCHAR(100) UNIQUE NOT NULL,
   country VARCHAR(100),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  address_line1 VARCHAR(255),
+  address_line2 VARCHAR(255),
+  city VARCHAR(100),
+  state VARCHAR(100),
+  postal_code VARCHAR(50),
+  phone_number VARCHAR(50),
+  email VARCHAR(255),
+  timezone VARCHAR(100),
+  is_headquarters TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- Company Branding Master
+CREATE TABLE IF NOT EXISTS company_branding (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  company_name VARCHAR(255) NOT NULL DEFAULT 'Tech Tammina',
+  legal_name VARCHAR(255),
+  tagline VARCHAR(255),
+  website VARCHAR(255),
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  tax_id VARCHAR(100),
+  registration_number VARCHAR(100),
+  logo_url VARCHAR(500),
+  favicon_url VARCHAR(500),
+  primary_color VARCHAR(50) DEFAULT '#2563eb',
+  secondary_color VARCHAR(50) DEFAULT '#1e40af',
+  about_us TEXT,
+  mission TEXT,
+  vision TEXT,
+  core_values TEXT,
+  linkedin_url VARCHAR(255),
+  twitter_url VARCHAR(255),
+  facebook_url VARCHAR(255),
+  instagram_url VARCHAR(255),
+  youtube_url VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 -- Departments Master
@@ -1916,7 +1954,10 @@ CREATE TABLE IF NOT EXISTS inbox_notifications (
   INDEX idx_is_read (is_read),
   INDEX idx_is_archived (is_archived),
   INDEX idx_request_type (request_type),
-  INDEX idx_created_at (created_at)
+  INDEX idx_created_at (created_at),
+  INDEX idx_mgr_arch_stat_created (manager_id, is_archived, status, created_at),
+  INDEX idx_emp_arch_stat_created (employee_id, is_archived, status, created_at),
+  INDEX idx_arch_stat_created (is_archived, status, created_at)
 );
 
 -- ============================================
@@ -1999,5 +2040,102 @@ CREATE TABLE IF NOT EXISTS employee_documents (
   FOREIGN KEY (uploaded_by) REFERENCES users(id)
 );
 
+-- ============================================
+-- Dedicated Biometric Attendance Tables
+-- ============================================
 
+-- 1. Raw imported punches from Microsoft SQL Server (DeviceLogs)
+CREATE TABLE IF NOT EXISTS biometric_attendance_raw (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  source_system VARCHAR(50) DEFAULT 'ETIMETRACK_MSSQL',
+  source_log_id VARCHAR(100) NOT NULL,
+  biometric_user_id VARCHAR(100) NOT NULL,
+  punch_time DATETIME NOT NULL,
+  device_id VARCHAR(100) NULL,
+  direction VARCHAR(50) NULL,
+  raw_payload JSON NULL,
+  status ENUM('processed', 'ignored', 'pending') DEFAULT 'pending',
+  employee_id INT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_source_log (source_system, source_log_id),
+  INDEX idx_raw_user_log (biometric_user_id, punch_time),
+  INDEX idx_raw_punch_time (punch_time),
+  INDEX idx_raw_emp (employee_id)
+);
+
+-- 2. Employee mapping between Biometric User ID and HRMS Employee ID
+CREATE TABLE IF NOT EXISTS biometric_employee_map (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  employee_id INT NOT NULL,
+  biometric_user_id VARCHAR(100) NOT NULL,
+  device_id VARCHAR(100) NULL,
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_biometric_user_device (biometric_user_id, device_id),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
+);
+
+-- 3. Individual processed biometric punches mapped to HRMS employee
+CREATE TABLE IF NOT EXISTS biometric_punches (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  user_id VARCHAR(100) NOT NULL,
+  punch_time DATETIME NOT NULL,
+  punch_date DATE NOT NULL,
+  direction ENUM('in', 'out', 'auto') DEFAULT 'auto',
+  device_id VARCHAR(100) NULL,
+  raw_log_id BIGINT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  INDEX idx_emp_punch_date (employee_id, punch_date),
+  INDEX idx_punch_time (punch_time)
+);
+
+-- 4. Daily summarized biometric attendance per employee
+CREATE TABLE IF NOT EXISTS biometric_daily_attendance (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NOT NULL,
+  attendance_date DATE NOT NULL,
+  first_punch_in TIME NULL,
+  last_punch_out TIME NULL,
+  total_punches INT DEFAULT 0,
+  gross_hours DECIMAL(5,2) DEFAULT 0.00,
+  status ENUM('present', 'half_day', 'absent') DEFAULT 'present',
+  punches_detail JSON NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY uk_biometric_emp_date (employee_id, attendance_date),
+  FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  INDEX idx_bio_date (attendance_date)
+);
+
+-- 5. Synchronization cursor state
+CREATE TABLE IF NOT EXISTS biometric_sync_state (
+  source_system VARCHAR(50) PRIMARY KEY,
+  last_source_log_id VARCHAR(100) DEFAULT '0',
+  last_sync_at DATETIME NULL,
+  last_status VARCHAR(20) NULL,
+  last_error TEXT NULL,
+  last_synced_records_count INT DEFAULT 0,
+  total_synced_records INT DEFAULT 0,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+-- 6. Operational audit history
+CREATE TABLE IF NOT EXISTS biometric_sync_log (
+  id BIGINT AUTO_INCREMENT PRIMARY KEY,
+  source_system VARCHAR(50) DEFAULT 'ETIMETRACK_MSSQL',
+  start_time DATETIME NOT NULL,
+  end_time DATETIME NULL,
+  watermark_before VARCHAR(100) NULL,
+  watermark_after VARCHAR(100) NULL,
+  rows_read INT DEFAULT 0,
+  rows_inserted INT DEFAULT 0,
+  rows_skipped INT DEFAULT 0,
+  rows_processed INT DEFAULT 0,
+  status VARCHAR(20) DEFAULT 'running',
+  error_message TEXT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 

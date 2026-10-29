@@ -1,0 +1,326 @@
+<ion-content [fullscreen]="true" class="branding-dashboard ion-padding">
+  <!-- TOP HEADER -->
+  <div class="top-header-banner animate__animated animate__fadeIn">
+    <div class="header-left">
+      <div class="badge-tag">
+        <ion-icon name="sparkles-outline"></ion-icon>
+        <span>Organization Setup</span>
+      </div>
+      <h1>Company Branding & Profiles</h1>
+      <p>Configure corporate visual identity, upload official logos, and maintain branch office locations.</p>
+    </div>
+    <div class="header-right">
+      <div class="branding-quick-card">
+        <div class="mini-logo-container">
+          <img [src]="getFullImageUrl(branding.logo_url)" alt="Company Logo" onerror="this.src='assets/tt_blue_logo.png'" />
+        </div>
+        <div class="company-quick-meta">
+          <span class="quick-title">{{ branding.company_name || 'Tech Tammina' }}</span>
+          <span class="quick-tagline">{{ branding.tagline || 'Corporate Workspace' }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION TABS -->
+  <div class="tabs-nav-container animate__animated animate__fadeIn">
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'identity'" 
+      (click)="activeTab = 'identity'">
+      <ion-icon name="color-palette-outline"></ion-icon>
+      <span>Brand Identity & Logo</span>
+    </button>
+
+    <button 
+      class="tab-btn" 
+      [class.active]="activeTab === 'locations'" 
+      (click)="activeTab = 'locations'">
+      <ion-icon name="business-outline"></ion-icon>
+      <span>Locations & Addresses</span>
+      <span class="count-pill">{{ locations.length }}</span>
+    </button>
+  </div>
+
+  <!-- =========================================================================
+       TAB 1: BRAND IDENTITY & LOGO
+  ========================================================================= -->
+  <div class="tab-content-area" *ngIf="activeTab === 'identity'">
+    <div class="identity-grid">
+      <!-- LEFT COLUMN: LOGO UPLOAD & THEME -->
+      <div class="panel-card logo-upload-card animate__animated animate__fadeInLeft">
+        <div class="card-header-styled">
+          <div class="header-icon-box">
+            <ion-icon name="image-outline"></ion-icon>
+          </div>
+          <div>
+            <h3>Official Company Logo</h3>
+            <p>Upload high-resolution logo for headers and login portal.</p>
+          </div>
+        </div>
+
+        <div class="logo-preview-box" [class.dark-bg]="previewBgDark">
+          <div class="preview-backdrop-toggle">
+            <button class="bg-toggle-btn" (click)="toggleDarkPreview()" [title]="previewBgDark ? 'Switch to light backdrop' : 'Switch to dark backdrop'">
+              <ion-icon [name]="previewBgDark ? 'sunny-outline' : 'moon-outline'"></ion-icon>
+              <span>{{ previewBgDark ? 'Light Backdrop' : 'Dark Backdrop' }}</span>
+            </button>
+          </div>
+
+          <div class="image-wrapper">
+            <img 
+              [src]="logoPreviewUrl || getFullImageUrl(branding.logo_url)" 
+              alt="Logo Preview" 
+              onerror="this.src='assets/tt_blue_logo.png'" />
+          </div>
+        </div>
+
+        <!-- UPLOAD DROPZONE -->
+        <div class="upload-dropzone">
+          <input 
+            type="file" 
+            #fileInput 
+            (change)="onLogoSelected($event)" 
+            accept="image/png, image/jpeg, image/svg+xml, image/webp" 
+            class="hidden-file-input" />
+
+          <div class="dropzone-content" (click)="fileInput.click()">
+            <ion-icon name="cloud-upload-outline" class="cloud-icon"></ion-icon>
+            <span class="dropzone-text">Click to choose new logo image</span>
+            <span class="dropzone-sub">PNG, SVG, JPG, or WEBP (Max: 5MB)</span>
+          </div>
+
+          <div class="upload-actions" *ngIf="selectedLogoFile">
+            <div class="selected-file-info">
+              <ion-icon name="checkmark-circle" color="success"></ion-icon>
+              <span>{{ selectedLogoFile.name }} ({{ (selectedLogoFile.size / 1024).toFixed(1) }} KB)</span>
+            </div>
+            <div class="logo-action-buttons">
+              <button type="button" class="btn-secondary" (click)="cancelLogoSelection(fileInput)" [disabled]="isUploadingLogo">
+                <ion-icon name="close-circle-outline"></ion-icon>
+                <span>Cancel</span>
+              </button>
+              <button type="button" class="btn-primary" (click)="uploadLogo(fileInput)" [disabled]="isUploadingLogo">
+                <ion-spinner name="crescent" *ngIf="isUploadingLogo"></ion-spinner>
+                <ion-icon name="arrow-up-circle-outline" *ngIf="!isUploadingLogo"></ion-icon>
+                <span>{{ isUploadingLogo ? 'Uploading...' : 'Save & Apply Logo' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN: COMPANY DETAILS -->
+      <div class="panel-card company-details-card animate__animated animate__fadeInRight">
+        <div class="card-header-styled">
+          <div class="header-icon-box">
+            <ion-icon name="business-outline"></ion-icon>
+          </div>
+          <div>
+            <h3>Corporate Identity Details</h3>
+            <p>Essential organization information displayed throughout the Interact portal.</p>
+          </div>
+        </div>
+
+        <form [formGroup]="identityForm" (ngSubmit)="saveIdentity()" class="identity-form">
+          <div class="form-row">
+            <div class="form-group col-6">
+              <label>Company Brand Name <span class="req">*</span></label>
+              <div class="input-with-icon">
+                <ion-icon name="business-outline"></ion-icon>
+                <input type="text" formControlName="company_name" placeholder="e.g. Tech Tammina" />
+              </div>
+              <span class="field-error" *ngIf="identityForm.get('company_name')?.touched && identityForm.get('company_name')?.errors?.['required']">
+                Company name is required.
+              </span>
+            </div>
+
+            <div class="form-group col-6">
+              <label>Legal Registered Name</label>
+              <div class="input-with-icon">
+                <ion-icon name="shield-checkmark-outline"></ion-icon>
+                <input type="text" formControlName="legal_name" placeholder="e.g. Tech Tammina LLC / Pvt Ltd" />
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Tagline / Slogan</label>
+            <div class="input-with-icon">
+              <ion-icon name="chatbubble-ellipses-outline"></ion-icon>
+              <input type="text" formControlName="tagline" placeholder="e.g. Empowering Innovation & Human Agility" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label>Official Website URL</label>
+            <div class="input-with-icon">
+              <ion-icon name="globe-outline"></ion-icon>
+              <input type="url" formControlName="website" placeholder="https://www.tammina.com" />
+            </div>
+          </div>
+
+          <div class="form-submit-footer">
+            <button type="submit" class="btn-primary" [disabled]="isSaving">
+              <ion-spinner name="crescent" *ngIf="isSaving"></ion-spinner>
+              <ion-icon name="save-outline" *ngIf="!isSaving"></ion-icon>
+              <span>{{ isSaving ? 'Saving Changes...' : 'Save Brand Identity' }}</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       TAB 2: LOCATIONS MANAGEMENT
+  ========================================================================= -->
+  <div class="tab-content-area" *ngIf="activeTab === 'locations'">
+    <!-- ADD LOCATION CARD -->
+    <div class="panel-card add-location-card animate__animated animate__fadeIn">
+      <div class="card-header-styled compact">
+        <div class="header-icon-box">
+          <ion-icon name="business-outline"></ion-icon>
+        </div>
+        <div>
+          <h3>Add Location</h3>
+          <p>Enter the office or branch location name below to add it to your organization.</p>
+        </div>
+      </div>
+
+      <div class="single-input-row">
+        <div class="input-with-icon location-main-input">
+          <ion-icon name="business-outline"></ion-icon>
+          <input 
+            type="text" 
+            [(ngModel)]="newLocationName" 
+            (keyup.enter)="addLocation()" 
+            placeholder="Enter location name (e.g. Site 1 - TSN, Visakhapatnam, US Office)..." 
+            [disabled]="isAddingLocation" />
+        </div>
+        <button 
+          type="button" 
+          class="btn-primary add-location-submit-btn" 
+          (click)="addLocation()" 
+          [disabled]="isAddingLocation || !newLocationName.trim()">
+          <ion-spinner name="crescent" *ngIf="isAddingLocation"></ion-spinner>
+          <ion-icon name="add-circle-outline" *ngIf="!isAddingLocation"></ion-icon>
+          <span>{{ isAddingLocation ? 'Adding...' : 'Add Location' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- LOCATIONS TOOLBAR & SEARCH -->
+    <div class="locations-toolbar animate__animated animate__fadeIn">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input 
+          type="text" 
+          [(ngModel)]="searchTerm" 
+          (ngModelChange)="filterLocations()" 
+          placeholder="Search locations or addresses..." />
+        <button *ngIf="searchTerm" (click)="searchTerm = ''; filterLocations()" class="clear-search-btn">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <div class="location-count-info">
+        <span>Total: <strong>{{ filteredLocations.length }}</strong> {{ filteredLocations.length === 1 ? 'Location' : 'Locations' }}</span>
+      </div>
+    </div>
+
+    <!-- LOCATIONS GRID -->
+    <div class="locations-grid animate__animated animate__fadeIn" *ngIf="filteredLocations.length > 0">
+      <div class="location-card" *ngFor="let loc of filteredLocations">
+        <!-- CARD HEADER -->
+        <div class="loc-card-header">
+          <div class="loc-icon-bubble">
+            <ion-icon name="business"></ion-icon>
+          </div>
+          <div class="loc-header-info">
+            <h3 class="loc-name">{{ loc.name }}</h3>
+            <span class="loc-badge" *ngIf="loc.id">Location #{{ loc.id }}</span>
+          </div>
+        </div>
+
+        <!-- ADDRESS DISPLAY / FORM -->
+        <div class="loc-address-section">
+          <!-- VIEW MODE: WHEN NOT EDITING ADDRESS -->
+          <div *ngIf="editingAddressLocationId !== loc.id" class="address-view-box">
+            <div class="address-content" *ngIf="loc.address_line1">
+              <ion-icon name="location-outline" class="address-icon"></ion-icon>
+              <span class="address-text">{{ loc.address_line1 }}</span>
+            </div>
+            <div class="address-empty-text" *ngIf="!loc.address_line1">
+              <ion-icon name="information-circle-outline"></ion-icon>
+              <span>No address added yet. Click <strong>Add Address</strong> below.</span>
+            </div>
+          </div>
+
+          <!-- EDIT MODE: SINGLE INPUT FORM FOR ADDRESS -->
+          <div *ngIf="editingAddressLocationId === loc.id" class="address-single-input-form animate__animated animate__fadeIn">
+            <div class="address-input-wrapper">
+              <ion-icon name="navigate-outline"></ion-icon>
+              <input 
+                type="text" 
+                [(ngModel)]="locationAddressInput" 
+                (keyup.enter)="saveLocationAddress(loc)" 
+                (keyup.escape)="cancelAddAddress()"
+                placeholder="Enter address (e.g. 13800 Coppermine Road, Suite 300, Herndon, VA)..." 
+                class="address-input-field" 
+                [disabled]="isSavingAddress" 
+                autofocus />
+            </div>
+
+            <div class="address-form-actions">
+              <button 
+                type="button" 
+                class="btn-mini-cancel" 
+                (click)="cancelAddAddress()" 
+                [disabled]="isSavingAddress">
+                <ion-icon name="close-outline"></ion-icon>
+                <span>Cancel</span>
+              </button>
+              <button 
+                type="button" 
+                class="btn-mini-save" 
+                (click)="saveLocationAddress(loc)" 
+                [disabled]="isSavingAddress">
+                <ion-spinner name="crescent" *ngIf="isSavingAddress"></ion-spinner>
+                <ion-icon name="checkmark-circle-outline" *ngIf="!isSavingAddress"></ion-icon>
+                <span>{{ isSavingAddress ? 'Saving...' : 'Save Address' }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- CARD FOOTER ACTIONS -->
+        <div class="loc-card-actions" *ngIf="editingAddressLocationId !== loc.id">
+          <button 
+            class="action-btn add-address-btn" 
+            (click)="startAddAddress(loc)">
+            <ion-icon [name]="loc.address_line1 ? 'create-outline' : 'add-circle-outline'"></ion-icon>
+            <span>{{ loc.address_line1 ? 'Update Address' : 'Add Address' }}</span>
+          </button>
+          
+          <button 
+            class="action-btn delete-btn" 
+            (click)="confirmDeleteLocation(loc)" 
+            title="Delete location">
+            <ion-icon name="trash-outline"></ion-icon>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- EMPTY STATE -->
+    <div class="empty-state-card animate__animated animate__fadeIn" *ngIf="filteredLocations.length === 0">
+      <div class="empty-icon-wrap">
+        <ion-icon name="location-outline"></ion-icon>
+      </div>
+      <h3>No Locations Found</h3>
+      <p *ngIf="searchTerm">No office locations match your search query "{{ searchTerm }}".</p>
+      <p *ngIf="!searchTerm">No office locations added yet. Use the input box above to add your first location.</p>
+    </div>
+  </div>
+</ion-content>
