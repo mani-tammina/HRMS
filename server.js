@@ -23,7 +23,7 @@ const swaggerSpec = require("./swagger/swagger.spec.js");
 
 // Import configurations
 const { DB, db } = require("./config/database");
-const { ensurePerformanceIndexes } = require("./scripts/optimize-db-indexes");
+// const { ensurePerformanceIndexes } = require("./scripts/optimize-db-indexes");
 const { JWT_SECRET } = require("./config/constants");
 
 
