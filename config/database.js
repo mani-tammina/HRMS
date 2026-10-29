@@ -16,64 +16,34 @@
 
 const mysql = require("mysql2/promise");
 
+/**
+ * Database Configuration
+ * Reads from environment variables with fallbacks
+ */
 const DB = {
     host: process.env.DB_HOST || "localhost",
     user: process.env.DB_USER || "root",
     password: process.env.DB_PASSWORD || "root",
     database: process.env.DB_NAME || "hrms_db_new",
-
-    // Connection pool settings
+    // Connection Pool Settings
     waitForConnections: true,
-    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || "20", 10),
-    maxIdle: 5,
-    idleTimeout: 60000,
-    queueLimit: 100,
-
-    // Connection timeout
-    connectTimeout: 15000,
-
-    // Character set and timezone
-    charset: "utf8mb4",
-    timezone: "+05:30",
-
+    connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '20', 10),
+    queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '100', 10),
+    // Timeouts (in milliseconds)
+    connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 15s
+    // Character set
+    charset: 'utf8mb4',
+    // Timezone
+    timezone: '+05:30', // Use IST timezone (+05:30)
     // Additional settings
-    multipleStatements: false,
-    dateStrings: true,
+    multipleStatements: false, // Security: prevent SQL injection via multiple statements
+    dateStrings: true, // Return dates as strings to prevent timezone drift
     supportBigNumbers: true,
     bigNumberStrings: false,
+    // Enable keep-alive to prevent connection drops
     enableKeepAlive: true,
     keepAliveInitialDelay: 0
 };
-
-
-/**
- * Database Configuration
- * Reads from environment variables with fallbacks
- */
-// const DB = {
-//     host: process.env.DB_HOST || "localhost",
-//     user: process.env.DB_USER || "root",
-//     password: process.env.DB_PASSWORD || "root",
-//     database: process.env.DB_NAME || "hrms_db_new",
-//     // Connection Pool Settings
-//     waitForConnections: true,
-//     connectionLimit: parseInt(process.env.DB_CONNECTION_LIMIT || '2500', 10),
-//     queueLimit: parseInt(process.env.DB_QUEUE_LIMIT || '5000', 10),
-//     // Timeouts (in milliseconds)
-//     connectTimeout: parseInt(process.env.DB_CONNECT_TIMEOUT || '15000', 10), // 15s
-//     // Character set
-//     charset: 'utf8mb4',
-//     // Timezone
-//     timezone: '+05:30', // Use IST timezone (+05:30)
-//     // Additional settings
-//     multipleStatements: false, // Security: prevent SQL injection via multiple statements
-//     dateStrings: true, // Return dates as strings to prevent timezone drift
-//     supportBigNumbers: true,
-//     bigNumberStrings: false,
-//     // Enable keep-alive to prevent connection drops
-//     enableKeepAlive: true,
-//     keepAliveInitialDelay: 0
-// };
 
 // Warn if using default credentials
 if (DB.user === 'root' && DB.password === 'root') {
