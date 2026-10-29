@@ -1588,7 +1588,8 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
         for (const r of rows) {
             try {
                 const empNo = r.EmployeeNumber || r['Employee Number'] || r.employee_number || r.EmployeeCode || r.EmployeeID || r['Employee ID'];
-                // Flexible amount detection (Monthly or Annual)
+// Universal amount resolution for ALL employees:
+                // Accepts Monthly Salary or Annual CTC under any standard column name
                 const monthlyInput = parseFloat(
                     r.monthly_salary || r['Monthly Salary'] || r.MonthlySalary || r.monthly || r.Monthly ||
                     r.monthly_gross || r['Monthly Gross'] || r.monthly_ctc || r['Monthly CTC'] || 0
@@ -1597,31 +1598,36 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
                     r.annual_ctc || r.AnnualCTC || r['Annual CTC'] || r.ctc || r.CTC || r.lpa || r.LPA || 0
                 );
                 const generalAmount = parseFloat(
-                    r.remuneration_amount || r['Remuneration Amount'] || r.remuneration || r.Salary || r.salary || r.Gross || r.gross || 0
+                    r.remuneration_amount || r['Remuneration Amount'] || r.remuneration || r.Salary || r.salary || r.Gross || r.gross || r.amount || r.Amount || 0
                 );
+
+                // Helper to normalize annual CTC for ALL employees (removes erroneous +1800 if present)
+                const normalizeAnnual = (val) => {
+                    let cleaned = Number(val);
+                    const monthlyEquivalent = cleaned / 12;
+                    // Detect if the erroneous +1800 formula was added in spreadsheet (e.g. ends in 1800 or monthly inflated by 150)
+                    const hasPlus1800Artifact = (cleaned % 10000 === 1800) || (cleaned > 200000 && monthlyEquivalent % 100 === 40 && (cleaned - 1800) % 12 === 0);
+                    if (hasPlus1800Artifact) {
+                        cleaned -= 1800;
+                    }
+                    return Math.round(cleaned);
+                };
 
                 let annualCTC = 0;
                 if (monthlyInput > 0) {
-                    // Explicit monthly salary -> pure monthly * 12 without adding 1800 or any other value
+                    // Universal for ALL employees: Pure monthly * 12 strictly without adding 1800 or any other value
                     annualCTC = Math.round(monthlyInput * 12);
                 } else if (annualInput > 0) {
-                    let cleaned = annualInput;
-                    // Detect if the erroneous +1800 formula was added in spreadsheet (e.g. 1201800, 802080, ends in 1800)
-                    if (cleaned % 10000 === 1800 || Math.round(cleaned) === 802080) {
-                        cleaned -= 1800;
-                    }
-                    annualCTC = Math.round(cleaned);
+                    // Universal for ALL employees: Normalize annual CTC
+                    annualCTC = normalizeAnnual(annualInput);
                 } else if (generalAmount > 0) {
-                    // If < 200,000, it's a monthly salary (min annual package in company is > 300,000)
+                    // Universal for ALL employees:
+                    // If under 200,000, it is a monthly figure (min annual package in company is > 300,000)
                     // Pure monthly * 12 without adding 1800
                     if (generalAmount < 200000) {
                         annualCTC = Math.round(generalAmount * 12);
                     } else {
-                        let cleaned = generalAmount;
-                        if (cleaned % 10000 === 1800 || Math.round(cleaned) === 802080) {
-                            cleaned -= 1800;
-                        }
-                        annualCTC = Math.round(cleaned);
+                        annualCTC = normalizeAnnual(generalAmount);
                     }
                 }
                 const templateNameFromRow = r.template_name || r.TemplateName || r['Template Name'] || r.Template || r.salary_template || r.SalaryTemplate;
