@@ -30,6 +30,7 @@ exports.createContract = (req, res) => payrollMasterService.createContract(req, 
 exports.getContract = (req, res) => payrollMasterService.getContract(req, res);
 exports.updateContract = (req, res) => payrollMasterService.updateContract(req, res);
 exports.terminateContract = (req, res) => payrollMasterService.terminateContract(req, res);
+exports.deleteAllContracts = (req, res) => payrollMasterService.deleteAllContracts(req, res);
 
 // Structure Composition (template-component mapping)
 exports.listComposition = (req, res) => payrollMasterService.listComposition(req, res);

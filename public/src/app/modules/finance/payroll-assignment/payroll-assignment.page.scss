@@ -188,6 +188,23 @@
   }
 
   .bulk-actions-stack {
+    .btn-delete-all {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #ef4444;
+
+      &:hover:not(:disabled) {
+        background: #fee2e2;
+        border-color: #f87171;
+        color: #dc2626;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
+
     display: flex;
     flex-direction: row;
     gap: 16px;
@@ -323,11 +340,33 @@
         border-color: #cbd5e1;
       }
 
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
       ion-icon {
         font-size: 16px;
       }
     }
 
+    
+    .btn-danger-action {
+      color: #ef4444;
+      border-color: #fecaca;
+      background: #fef2f2;
+
+      &:hover:not(:disabled) {
+        background: #fee2e2;
+        border-color: #f87171;
+        color: #dc2626;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    }
     .btn-toolbar-badge {
       background: #e8f0fe;
       border: 1px solid transparent;
@@ -639,6 +678,22 @@
     align-items: flex-start;
   }
 
+  
+  .detail-actions-group {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .neon-btn.mini.danger {
+    background: #ef4444;
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2);
+
+    &:hover {
+      background: #dc2626;
+      box-shadow: 0 6px 14px rgba(239, 68, 68, 0.3);
+    }
+  }
   .neon-btn.mini {
     background: #1a73e8;
     color: white;
