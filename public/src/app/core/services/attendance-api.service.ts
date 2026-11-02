@@ -86,11 +86,22 @@ export class AttendanceApiService {
     this.todayAttendance$ = this.http.get(`${this.BASE_URL}/today`, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         const allPunches = res?.punches || [];
-        const webPunches = allPunches.filter((p: any) => p.source !== 'biometric' && p.work_mode !== 'Biometric');
-        if (webPunches.length > 0) {
-          this.setClockState(webPunches[webPunches.length - 1].punch_type === 'in');
-        } else if (allPunches.length > 0) {
-          this.setClockState(allPunches[allPunches.length - 1].punch_type === 'in');
+        const isBiometricPunch = (p: any) => {
+          const src = (p.source || '').toLowerCase();
+          const mode = (p.work_mode || '').toLowerCase();
+          const notes = (p.notes || '').toLowerCase();
+          return src === 'biometric' || mode === 'biometric' || notes.includes('biometric');
+        };
+        const webPunches = allPunches.filter((p: any) => !isBiometricPunch(p));
+
+        if (res?.is_web_clocked_in !== undefined && res?.is_web_clocked_in !== null) {
+          this.setClockState(Boolean(res.is_web_clocked_in));
+        } else if (res?.is_clocked_in !== undefined && res?.is_clocked_in !== null) {
+          this.setClockState(Boolean(res.is_clocked_in));
+        } else if (webPunches.length > 0) {
+          const lastPunch = webPunches[webPunches.length - 1];
+          const isAutoOut = res?.is_auto_clocked_out || (lastPunch?.notes || '').includes('OUT Missing') || (lastPunch?.notes || '').includes('Auto Clock-Out');
+          this.setClockState(!isAutoOut && lastPunch.punch_type === 'in');
         } else {
           this.setClockState(false);
         }

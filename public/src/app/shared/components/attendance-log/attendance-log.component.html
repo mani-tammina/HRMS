@@ -213,7 +213,7 @@
               <div *ngFor="let s of group.sessions" class="session-row">
                 <!-- IN Column -->
                 <div class="punch-col in-col">
-                  <span class="punch-arrow in-arrow">&#x2199;</span>
+                  <span class="punch-arrow in-arrow">&#x2713;</span>
                   <span class="punch-time in-time" [class.missing-text]="s.inTime === 'MISSING'">{{ s.inTime }}</span>
                 </div>
 
@@ -236,6 +236,19 @@
             <p>No activity logs found for this date.</p>
           </div>
         </ng-template>
+      </div>
+
+      <!-- Footer Metrics -->
+      <div class="activity-footer-metrics" *ngIf="selectedLog?.prepared && selectedLog?.locationGroups?.length">
+        <div class="metric-item">
+          <span class="m-label">EFFECTIVE:</span>
+          <span class="m-val">{{ formatHours(selectedLog?.total_work_hours !== undefined && selectedLog?.total_work_hours !== null ? selectedLog?.total_work_hours : selectedLog?.effective_hours, selectedLog?.attendance_date) }}</span>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-item">
+          <span class="m-label">GROSS TIME:</span>
+          <span class="m-val">{{ formatHours(selectedLog?.gross_hours, selectedLog?.attendance_date) }}</span>
+        </div>
       </div>
 
       <ng-template #loadingDetails>

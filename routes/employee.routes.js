@@ -115,7 +115,32 @@ router.get("/", auth, async (req, res) => {
       SELECT 
           e.*, 
           d.name as department_name, 
-          des.name as designation_name 
+          des.name as designation_name,
+          COALESCE(
+            (SELECT CASE 
+                      WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                      WHEN combined.punch_type = 'in' THEN 'In'
+                      WHEN combined.punch_type = 'out' THEN 'Out'
+                      ELSE 'In'
+                    END
+             FROM (
+               SELECT punch_type, punch_time, notes
+               FROM attendance_punches
+               WHERE employee_id = e.id AND punch_date = CURDATE()
+               UNION ALL
+               SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+               FROM biometric_punches
+               WHERE employee_id = e.id AND punch_date = CURDATE()
+             ) combined
+             ORDER BY combined.punch_time DESC
+             LIMIT 1),
+            (SELECT 'On Leave'
+             FROM leaves lv
+             WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+               AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+             LIMIT 1),
+            'Not In Yet'
+          ) AS attendance_status
       FROM employees e
       LEFT JOIN departments d ON e.DepartmentId = d.id
       LEFT JOIN designations des ON e.DesignationId = des.id
@@ -192,7 +217,32 @@ router.get("/my-team/list", auth, async (req, res) => {
                 e.*,
                 d.name as department_name,
                 des.name as designation_name,
-                l.name as location_name
+                l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
@@ -217,7 +267,32 @@ router.get("/my-team/list", auth, async (req, res) => {
                 e.*,
                 d.name as department_name,
                 des.name as designation_name,
-                l.name as location_name
+                l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
@@ -715,7 +790,32 @@ router.get("/search/query", auth, async (req, res) => {
 
     const c = await db();
     const [r] = await c.query(
-      `SELECT e.*, d.name as department_name, des.name as designation_name 
+      `SELECT e.*, d.name as department_name, des.name as designation_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
        FROM employees e
        LEFT JOIN departments d ON e.DepartmentId = d.id
        LEFT JOIN designations des ON e.DesignationId = des.id
@@ -952,7 +1052,32 @@ router.get("/my-team/reporting", auth, async (req, res) => {
     const c = await db();
     const [reportingTeam] = await c.query(
       `SELECT 
-                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
@@ -1005,7 +1130,32 @@ router.get("/my-team/co-team", auth, async (req, res) => {
     const c = await db();
     const [coTeam] = await c.query(
       `SELECT 
-                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
@@ -1064,7 +1214,32 @@ router.get("/my-team/reporting/:employeeId", auth, async (req, res) => {
     const c = await db();
     const [reportingTeam] = await c.query(
       `SELECT 
-                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id
@@ -1135,7 +1310,32 @@ router.get("/my-team/co-team/:employeeId", auth, async (req, res) => {
     const reportingManagerId = empRows[0].reporting_manager_id;
     const [coTeam] = await c.query(
       `SELECT 
-                e.*, d.name as department_name, des.name as designation_name, l.name as location_name
+                e.*, d.name as department_name, des.name as designation_name, l.name as location_name,
+                COALESCE(
+                  (SELECT CASE 
+                            WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
+                            WHEN combined.punch_type = 'in' THEN 'In'
+                            WHEN combined.punch_type = 'out' THEN 'Out'
+                            ELSE 'In'
+                          END
+                   FROM (
+                     SELECT punch_type, punch_time, notes
+                     FROM attendance_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                     UNION ALL
+                     SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time, 'Biometric' as notes
+                     FROM biometric_punches
+                     WHERE employee_id = e.id AND punch_date = CURDATE()
+                   ) combined
+                   ORDER BY combined.punch_time DESC
+                   LIMIT 1),
+                  (SELECT 'On Leave'
+                   FROM leaves lv
+                   WHERE lv.employee_id = e.id AND lv.status = 'approved' AND CURDATE() BETWEEN lv.start_date AND lv.end_date
+                     AND (lv.leave_type IS NULL OR (lv.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login') AND lv.leave_type NOT LIKE '%WFH%' AND lv.leave_type NOT LIKE '%Remote%'))
+                   LIMIT 1),
+                  'Not In Yet'
+                ) AS attendance_status
              FROM employees e
              LEFT JOIN departments d ON e.DepartmentId = d.id
              LEFT JOIN designations des ON e.DesignationId = des.id

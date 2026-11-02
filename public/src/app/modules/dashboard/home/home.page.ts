@@ -252,9 +252,7 @@ export class HomePage implements OnInit, OnDestroy {
     });
 
     this.attendanceApi.clockState$.pipe(takeUntil(this.destroy$)).subscribe(isClocked => {
-      if (isClocked) {
-        this.isClockedIn = true;
-      }
+      this.isClockedIn = Boolean(isClocked);
       this.cdr.detectChanges();
     });
 
@@ -839,9 +837,9 @@ export class HomePage implements OnInit, OnDestroy {
       this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
 
       const isOverallIn = lastPunch ? lastPunch.punch_type === 'in' : false;
-      const isWebIn = this.attendanceApi.getClockState();
-      this.isClockedIn = isOverallIn || isWebIn;
+      this.isClockedIn = !this.isAutoClockedOut && (res?.is_clocked_in !== undefined ? Boolean(res.is_clocked_in) : Boolean(isOverallIn));
       this.hasPunchedToday = punches.length > 0 && !this.isAutoClockedOut;
+      this.attendanceApi.setClockState(this.isClockedIn);
 
       if (this.isAutoClockedOut) {
         this.todayAttendance = null;
@@ -865,7 +863,7 @@ export class HomePage implements OnInit, OnDestroy {
     const firstActivePunch = this.currentPunches[0];
 
     const firstCheckIn = res?.attendance?.first_check_in || res?.first_check_in || this.todayAttendance?.first_check_in || firstActivePunch.punch_time;
-    const lastCheckOut = (res?.attendance?.last_check_out || res?.last_check_out) || (lastActivePunch.punch_type === 'out' ? lastActivePunch.punch_time : null);
+    const lastCheckOut = lastActivePunch.punch_type === 'out' ? (res?.attendance?.last_check_out || res?.last_check_out || lastActivePunch.punch_time) : null;
 
     this.todayAttendance = {
       ...this.todayAttendance,

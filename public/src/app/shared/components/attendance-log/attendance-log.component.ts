@@ -921,17 +921,28 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       groupsMap.get(groupName)!.sessions.push(session);
     };
 
-    // 1. Process Biometric Punches (device/door-wise)
-    const bioPunches = rawPunches.filter(p => isBiometric(p));
-    const bioByDevice = new Map<string, any[]>();
-    for (const p of bioPunches) {
-      const groupName = getBiometricLocationTitle(p);
-      if (!bioByDevice.has(groupName)) bioByDevice.set(groupName, []);
-      bioByDevice.get(groupName)!.push(p);
+    // Group each punch mode individually (Web Clock In, Remote Clock In, Work From Home, Biometric Clock In)
+    const getPunchGroupName = (p: any): string => {
+      if (isBiometric(p)) {
+        return getBiometricLocationTitle(p);
+      }
+      return getSoftwarePunchMode(p);
+    };
+
+    const modePunchesMap = new Map<string, any[]>();
+    for (const p of rawPunches) {
+      const modeName = getPunchGroupName(p);
+      if (!modePunchesMap.has(modeName)) {
+        modePunchesMap.set(modeName, []);
+      }
+      modePunchesMap.get(modeName)!.push(p);
     }
 
-    bioByDevice.forEach((streamPunches, groupName) => {
-      let currentIn = null;
+    // Process each mode individually into punch session rows
+    modePunchesMap.forEach((streamPunches, modeName) => {
+      streamPunches.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+      let currentIn: any = null;
+
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
@@ -939,7 +950,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
         if (punchType === 'in') {
           if (currentIn) {
-            addSessionToGroup(groupName, {
+            addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
               inTime: getFormattedTime(currentIn.punch_time),
               outTime: 'MISSING',
@@ -951,7 +962,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           currentIn = p;
         } else if (punchType === 'out') {
           if (currentIn) {
-            addSessionToGroup(groupName, {
+            addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
               inTime: getFormattedTime(currentIn.punch_time),
               outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
@@ -961,7 +972,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             });
             currentIn = null;
           } else {
-            addSessionToGroup(groupName, {
+            addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(p.punch_time),
               inTime: 'MISSING',
               outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
@@ -972,8 +983,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           }
         }
       }
+
       if (currentIn) {
-        addSessionToGroup(groupName, {
+        addSessionToGroup(modeName, {
           rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
           inTime: getFormattedTime(currentIn.punch_time),
           outTime: isOngoing ? 'In Progress' : 'MISSING',
@@ -983,67 +995,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         });
       }
     });
-
-    // 2. Process Software Punches (Web / Remote / Work From Home)
-    const softwarePunches = rawPunches.filter(p => !isBiometric(p));
-    let currentSoftwareIn = null;
-    let currentSoftwareMode = 'Web Clock In';
-
-    for (let i = 0; i < softwarePunches.length; i++) {
-      const p = softwarePunches[i];
-      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
-      const pMode = getSoftwarePunchMode(p);
-
-      if (punchType === 'in') {
-        if (currentSoftwareIn) {
-          addSessionToGroup(currentSoftwareMode, {
-            rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
-            inTime: getFormattedTime(currentSoftwareIn.punch_time),
-            outTime: 'MISSING',
-            isMissingOut: true,
-            isAutoOut: true,
-            notes: currentSoftwareIn.notes
-          });
-        }
-        currentSoftwareIn = p;
-        currentSoftwareMode = pMode;
-      } else if (punchType === 'out') {
-        if (currentSoftwareIn) {
-          const targetMode = currentSoftwareMode !== 'Web Clock In' ? currentSoftwareMode : pMode;
-          addSessionToGroup(targetMode, {
-            rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
-            inTime: getFormattedTime(currentSoftwareIn.punch_time),
-            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-            isMissingOut: isAutoOut,
-            isAutoOut: isAutoOut,
-            notes: p.notes
-          });
-          currentSoftwareIn = null;
-          currentSoftwareMode = 'Web Clock In';
-        } else {
-          addSessionToGroup(pMode, {
-            rawTime: this.parsePunchTimeToMs(p.punch_time),
-            inTime: 'MISSING',
-            outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-            isMissingOut: false,
-            isAutoOut: isAutoOut,
-            notes: p.notes
-          });
-        }
-      }
-    }
-
-    if (currentSoftwareIn) {
-      addSessionToGroup(currentSoftwareMode, {
-        rawTime: this.parsePunchTimeToMs(currentSoftwareIn.punch_time),
-        inTime: getFormattedTime(currentSoftwareIn.punch_time),
-        outTime: isOngoing ? 'In Progress' : 'MISSING',
-        isMissingOut: !isOngoing,
-        isAutoOut: false,
-        notes: currentSoftwareIn.notes
-      });
-    }
 
     if (this.selectedLog.total_work_hours === null || this.selectedLog.total_work_hours === undefined || this.selectedLog.total_work_hours === '0.00' || this.selectedLog.total_work_hours === 0) {
       const metrics = this.calculateMetricsFromPunches(rawPunches, isOngoing);
@@ -1057,7 +1008,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     // Sort location groups chronologically by earliest punch
-    const floorOrder = ['Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers', 'Web Clock In', 'Remote Clock In', 'Work From Home'];
+    const floorOrder = ['Web Clock In', 'Remote Clock In', 'Work From Home', 'Biometric Clock In', 'Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers'];
     const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
       const timeA = a.sessions?.[0]?.rawTime || 0;
       const timeB = b.sessions?.[0]?.rawTime || 0;

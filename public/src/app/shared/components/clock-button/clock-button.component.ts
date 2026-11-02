@@ -46,7 +46,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
     <!-- Clock Out Button Group (when clocked in) -->
     <div *ngIf="isClockedIn" class="row-center">
       <!-- Office Out -->
-      <button *ngIf="workMode === 'Office' || (!workMode && workMode !== 'Remote' && workMode !== 'WFH')" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading || initialLoading">
+      <button *ngIf="workMode !== 'Remote' && workMode !== 'WFH'" class="modern-clock-btn out" (click)="clockOut()" [disabled]="loading || initialLoading">
         <div class="inner-pulse red"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
@@ -348,7 +348,23 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         this.hasDoneWFHOut = hasDoneWFHPunch || localStorage.getItem('hasDoneWFHOut_' + todayDateStr) === 'true';
         this.hasDoneRemoteOut = hasDoneRemotePunch || localStorage.getItem('hasDoneRemoteOut_' + todayDateStr) === 'true';
 
-        if (!allPunches.length) {
+        // Clock Out button is driven strictly by Web Clock-In, Remote, or WFH punches (excluding Biometric)
+        const isBiometricPunch = (p: any): boolean => {
+          if (!p) return false;
+          const src = (p.source || '').toLowerCase();
+          const mode = (p.work_mode || '').toLowerCase();
+          const notes = (p.notes || '').toLowerCase();
+          const loc = (p.location || '').toLowerCase();
+          const dev = p.device_info != null ? String(p.device_info).trim().toLowerCase() : '';
+          if (src === 'biometric' || mode === 'biometric' || notes.includes('biometric')) return true;
+          if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) return true;
+          if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) return true;
+          return false;
+        };
+
+        const webPunches = allPunches.filter((p: any) => !isBiometricPunch(p));
+
+        if (!webPunches.length) {
           this.initialLoading = false;
           this.isClockedIn = false;
           if (wasClockedIn) {
@@ -361,25 +377,26 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           return;
         }
 
-        const lastPunch = lastOverall!;
-        this.isClockedIn = lastPunch.punch_type === 'in';
+        const lastWebPunch = webPunches[webPunches.length - 1];
+        const isAutoOut = (lastWebPunch?.notes || '').includes('OUT Missing') || (lastWebPunch?.notes || '').includes('Auto Clock-Out');
+        this.isClockedIn = !isAutoOut && lastWebPunch.punch_type === 'in';
         this.initialLoading = false;
 
         // Detect if state transitioned from Clocked-In to Clocked-Out
         if (wasClockedIn && !this.isClockedIn) {
-          const isAutoOut = (lastPunch?.notes || '').includes('OUT Missing') || (lastPunch?.notes || '').includes('Auto Clock-Out');
-          this.statusChanged.emit({ isClockedIn: false, autoClockedOut: isAutoOut, lastPunch });
+          this.statusChanged.emit({ isClockedIn: false, autoClockedOut: isAutoOut, lastPunch: lastWebPunch });
         }
 
-        // When clocked in via Remote, main button shows "Remote Out".
-        // When not clocked in (or after Remote Out), main button shows "Clock In".
+        // Clock Out displays only if the punch-in came from Web Clock-In, Remote, or WFH
         if (this.isClockedIn) {
-          const lastMode = lastPunch?.work_mode;
-          const lastNotes = (lastPunch?.notes || '').toLowerCase();
-          if (lastMode === 'Remote' || lastNotes.includes('remote')) {
+          const lastMode = (lastWebPunch?.work_mode || '').toLowerCase();
+          const lastNotes = (lastWebPunch?.notes || '').toLowerCase();
+          const lastLoc = (lastWebPunch?.location || '').toLowerCase();
+
+          if (lastMode === 'remote' || lastNotes.includes('remote') || lastLoc === 'remote') {
             this.workMode = 'Remote';
             this.remoteActive = true;
-          } else if (lastMode === 'WFH' || lastNotes.includes('wfh')) {
+          } else if (lastMode === 'wfh' || lastNotes.includes('wfh') || lastLoc === 'home') {
             this.workMode = 'WFH';
             this.remoteActive = false;
           } else {
@@ -549,7 +566,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
     if (!this.isClockedIn || this.loading) return;
     this.loading = true;
     const wasWFH = this.workMode === 'WFH';
-    let notes = wasWFH ? 'WFH Clock-Out' : 'Going for lunch';
+    let notes = wasWFH ? 'WFH Clock-Out' : (this.workMode === 'Remote' ? 'Remote Clock-Out' : 'Clock-Out');
 
     const requiresOfficeComment = this.workMode === 'Office' && this.policyPermissions?.web_clockin_comment_required;
 

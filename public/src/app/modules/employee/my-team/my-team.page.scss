@@ -468,13 +468,24 @@
       flex-shrink: 0;
     }
 
-    &.present {
+    &.present,
+    &.status-in {
       background: #e6f9ee;
       color: #00983d;
       border: 1px solid #b3eacc;
 
       .dot {
         background: #00983d;
+      }
+    }
+
+    &.status-out {
+      background: #fdecea;
+      color: #bb2c1f;
+      border: 1px solid #f5b8b3;
+
+      .dot {
+        background: #bb2c1f;
       }
     }
 

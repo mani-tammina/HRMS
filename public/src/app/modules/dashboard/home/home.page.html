@@ -91,6 +91,11 @@
                 <span class="stat-value bold-text">{{ formatClockTime(todayAttendance?.first_check_in) }}</span>
               </div>
 
+              <div class="stat-item-row" *ngIf="todayAttendance?.last_check_out">
+                <span class="stat-label">Clock Out</span>
+                <span class="stat-value bold-text">{{ formatClockTime(todayAttendance?.last_check_out) }}</span>
+              </div>
+
               <div class="stat-item-row">
                 <span class="stat-label">Status</span>
                 <span class="status-badge-pill" [ngClass]="getStatusClass()">{{ getStatusLabel() }}</span>

@@ -210,8 +210,10 @@ export class MyTeamPage implements OnInit, OnDestroy {
       const attStatus = (att.status || '').toLowerCase();
       const isAttLeave = attStatus === 'on-leave' || attStatus === 'on_leave';
       if (!isAttLeave) {
+        const isClockedIn = att.is_clocked_in !== undefined ? Boolean(att.is_clocked_in) : (!att.last_out || att.last_out === att.first_in || att.last_check_out === null);
         newStatuses[att.employee_id] = {
-          status: 'present',
+          status: isClockedIn ? 'in' : 'out',
+          is_clocked_in: isClockedIn,
           first_in: att.first_in || att.first_check_in,
           last_out: att.last_out || att.last_check_out,
           total_hours: att.total_hours || att.total_work_hours,
@@ -307,18 +309,24 @@ export class MyTeamPage implements OnInit, OnDestroy {
 
   /** Returns card-accent color based on attendance status */
   getAccentColor(employeeId: number): string {
-    const status = (this.getRealTimeStatus(employeeId).status || '').toLowerCase();
+    const stats = this.getRealTimeStatus(employeeId);
+    const status = (stats.status || '').toLowerCase();
     if (status.includes('leave') || status === 'on_leave') {
       return 'rgb(31, 116, 187)';    // On Leave — Blue
     }
     if (status === 'absent') {
       return 'rgb(187, 44, 31)';     // Absent — Red
     }
-    if (status === 'not_punched' || status === 'not_checked_in') {
-      return '#8099b0';              // Not Punched — Slate/Gray
+    if (status === 'not_punched' || status === 'not_checked_in' || status === 'not in yet') {
+      return '#8099b0';              // Not Punched / Not In Yet — Slate/Gray
     }
-    // Any employee with attendance / punch is Present
-    return 'rgb(0, 152, 61)';        // Present — Green
+    if (status === 'in' || stats.is_clocked_in) {
+      return 'rgb(0, 152, 61)';      // In — Green
+    }
+    if (status === 'out') {
+      return '#bb2c1f';              // Out — Red
+    }
+    return 'rgb(0, 152, 61)';        // In — Green
   }
 
   async navigateToLeaveApprovals() {
@@ -414,15 +422,22 @@ export class MyTeamPage implements OnInit, OnDestroy {
 
     if (status.includes('leave') || status === 'on_leave') return 'ON LEAVE';
     if (status === 'absent') return 'ABSENT';
-    if (status === 'not_punched' || status === 'not_checked_in') {
-      if (workMode.includes('WFH') || workMode.includes('HOME')) return 'NOT PUNCHED (WFH)';
-      if (workMode.includes('REMOTE')) return 'NOT PUNCHED (REMOTE)';
-      return 'NOT PUNCHED';
+    if (status === 'not_punched' || status === 'not_checked_in' || status === 'not in yet') {
+      if (workMode.includes('WFH') || workMode.includes('HOME')) return 'NOT IN YET (WFH)';
+      if (workMode.includes('REMOTE')) return 'NOT IN YET (REMOTE)';
+      return 'NOT IN YET';
     }
-    // Any employee with attendance / punch (biometric, web, remote, wfh) is PRESENT
-    if (workMode.includes('WFH') || workMode.includes('HOME')) return 'PRESENT (WFH)';
-    if (workMode.includes('REMOTE')) return 'PRESENT (REMOTE)';
-    return 'PRESENT';
+    if (status === 'in' || stats.is_clocked_in) {
+      if (workMode.includes('WFH') || workMode.includes('HOME')) return 'IN (WFH)';
+      if (workMode.includes('REMOTE')) return 'IN (REMOTE)';
+      return 'IN';
+    }
+    if (status === 'out') {
+      return 'OUT';
+    }
+    if (workMode.includes('WFH') || workMode.includes('HOME')) return 'IN (WFH)';
+    if (workMode.includes('REMOTE')) return 'IN (REMOTE)';
+    return 'IN';
   }
 
   getDisplayStatusClass(employeeId: number): string {
@@ -430,8 +445,10 @@ export class MyTeamPage implements OnInit, OnDestroy {
     const status = (stats.status || '').toLowerCase();
     if (status.includes('leave') || status === 'on_leave') return 'leave-status';
     if (status === 'absent') return 'absent';
-    if (status === 'not_punched' || status === 'not_checked_in') return 'not-punched-status';
-    return 'present';
+    if (status === 'not_punched' || status === 'not_checked_in' || status === 'not in yet') return 'not-punched-status';
+    if (status === 'in' || stats.is_clocked_in) return 'status-in';
+    if (status === 'out') return 'status-out';
+    return 'status-in';
   }
 
   getWorkModeText(member: any): string {

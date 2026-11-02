@@ -96,16 +96,18 @@ ion-progress-bar {
       text-transform: uppercase;
       box-shadow: vars.$shadow-xs;
 
-      &.present {
+      &.present,
+      &.in {
         background: vars.$color-success-light !important;
         color: vars.$color-success !important;
         border: 1px solid vars.$color-success-border;
       }
 
-      &.absent {
-        background: vars.$color-danger-light !important;
-        color: vars.$color-danger !important;
-        border: 1px solid vars.$color-danger-border;
+      &.absent,
+      &.out {
+        background: #fee2e2 !important;
+        color: #991b1b !important;
+        border: 1px solid #fca5a5 !important;
       }
 
       &.not-in-yet {
@@ -114,7 +116,8 @@ ion-progress-bar {
         border: 1px solid vars.$color-warning-border;
       }
 
-      &.leave {
+      &.leave,
+      &.on-leave {
         background: vars.$color-primary-light !important;
         color: vars.$color-primary !important;
         border: 1px solid rgba(vars.$color-primary, 0.15);

@@ -331,17 +331,15 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
           this.status = 'NOT In Yet';
           this.isClockedIn = false;
-        } else if (res?.attendance) {
-          const attStatus = (res.attendance.status || '').toLowerCase();
-          if (attStatus === 'not in yet' || isAutoOut) {
-            this.status = 'NOT In Yet';
-            this.isClockedIn = false;
-          } else {
-            this.status = res.attendance.status || 'NOT In Yet';
-          }
-        } else if (res?.on_leave) {
+        } else if (res?.on_leave && (!punches || punches.length === 0)) {
           this.status = res.leave?.type_name ? `On Leave (${res.leave.type_name})` : 'On Leave';
           this.isClockedIn = false;
+        } else if (punches && punches.length > 0) {
+          this.isClockedIn = lastPunch?.punch_type === 'in';
+          this.status = this.isClockedIn ? 'In' : 'Out';
+        } else if (res?.is_clocked_in !== undefined) {
+          this.isClockedIn = Boolean(res.is_clocked_in);
+          this.status = this.isClockedIn ? 'In' : 'Out';
         } else {
           this.status = 'NOT In Yet';
           this.isClockedIn = false;
