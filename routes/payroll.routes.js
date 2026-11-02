@@ -91,6 +91,104 @@ router.get('/v2/run', auth, finance, async (req, res) => {
     }
 });
 
+// DELETE /api/payroll/v2/run/:runId or DELETE /api/payroll/v2/run?month=YYYY-MM
+// Cancel and delete all run records for that run/month so the user can start from again
+async function handleCancelPayrollRun(req, res) {
+    const runId = req.params.runId ? Number(req.params.runId) : null;
+    const month = req.query.month || req.body.month || null;
+
+    if (!runId && !month) {
+        return res.status(400).json({ success: false, error: 'Either runId or month query parameter is required' });
+    }
+
+    let c = null;
+    try {
+        c = await db();
+        await c.beginTransaction();
+
+        let runRows = [];
+        if (runId) {
+            const [r] = await c.query('SELECT id, cycle_id FROM payroll_runs WHERE id = ?', [runId]);
+            runRows = r;
+        }
+        if (runRows.length === 0 && month) {
+            const parts = month.split('-');
+            if (parts.length === 2) {
+                const year = Number(parts[0]);
+                const mon = Number(parts[1]);
+                const [r] = await c.query(
+                    `SELECT r.id, r.cycle_id 
+                     FROM payroll_runs r 
+                     JOIN payroll_cycles cy ON cy.id = r.cycle_id 
+                     WHERE cy.year = ? AND cy.month = ?`,
+                    [year, mon]
+                );
+                runRows = r;
+            }
+        }
+
+        const runIds = runRows.map(r => r.id);
+        const cycleIds = [...new Set(runRows.map(r => r.cycle_id).filter(Boolean))];
+
+        if (runIds.length > 0) {
+            // Find salary record IDs
+            const [salaries] = await c.query(
+                `SELECT id FROM payroll_employee_salaries WHERE run_id IN (?)`,
+                [runIds]
+            );
+            const salaryIds = salaries.map(s => s.id);
+
+            if (salaryIds.length > 0) {
+                await c.query(`DELETE FROM payroll_payouts WHERE employee_salary_id IN (?)`, [salaryIds]);
+                await c.query(`DELETE FROM payroll_payslips WHERE employee_salary_id IN (?)`, [salaryIds]);
+                await c.query(`DELETE FROM payroll_salary_breakups WHERE employee_salary_id IN (?)`, [salaryIds]);
+                await c.query(`DELETE FROM payroll_tax_deductions WHERE employee_salary_id IN (?)`, [salaryIds]);
+                await c.query(`DELETE FROM payroll_employee_salaries WHERE id IN (?)`, [salaryIds]);
+            }
+
+            await c.query(`DELETE FROM payroll_slips WHERE payroll_run_id IN (?)`, [runIds]);
+            await c.query(`DELETE FROM payroll_audit_trail WHERE payroll_run_id IN (?)`, [runIds]);
+            await c.query(`DELETE FROM payroll_run_lifecycle WHERE run_id IN (?)`, [runIds]);
+            await c.query(`UPDATE payroll_runs SET is_rerun_of = NULL WHERE is_rerun_of IN (?)`, [runIds]);
+            await c.query(`DELETE FROM payroll_runs WHERE id IN (?)`, [runIds]);
+        }
+
+        // Reset cycles to OPEN so month can be run again
+        if (cycleIds.length > 0) {
+            for (const cyId of cycleIds) {
+                const [rem] = await c.query('SELECT id FROM payroll_runs WHERE cycle_id = ?', [cyId]);
+                if (rem.length === 0) {
+                    await c.query(`UPDATE payroll_cycles SET status = 'OPEN' WHERE id = ?`, [cyId]);
+                    await c.query(`DELETE FROM payroll_attendance_snapshots WHERE cycle_id = ?`, [cyId]);
+                }
+            }
+        } else if (month) {
+            const parts = month.split('-');
+            if (parts.length === 2) {
+                const year = Number(parts[0]);
+                const mon = Number(parts[1]);
+                await c.query(`UPDATE payroll_cycles SET status = 'OPEN' WHERE year = ? AND month = ?`, [year, mon]);
+                await c.query(
+                    `DELETE FROM payroll_attendance_snapshots WHERE cycle_id IN (SELECT id FROM payroll_cycles WHERE year = ? AND month = ?)`,
+                    [year, mon]
+                );
+            }
+        }
+
+        await c.commit();
+        res.json({ success: true, message: 'Payroll run deleted successfully', deletedCount: runIds.length });
+    } catch (err) {
+        if (c) await c.rollback();
+        console.error('Error cancelling payroll run:', err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+}
+
+router.delete('/v2/run/:runId', auth, finance, handleCancelPayrollRun);
+router.delete('/v2/run', auth, finance, handleCancelPayrollRun);
+
 // GET /api/payroll/v2/run/:employeeId?month=YYYY-MM -> employee-level payroll breakup
 router.get('/v2/run/:employeeId', auth, finance, async (req, res) => {
     const { month } = req.query;

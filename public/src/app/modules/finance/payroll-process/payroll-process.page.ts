@@ -16,12 +16,12 @@ import { ToasterService } from '../../../core/services/toaster.service';
 type StepKey = 'run' | 'summary' | 'preview' | 'validate' | 'lock' | 'paid';
 
 const STEPS: Array<{ key: StepKey; label: string }> = [
-  { key: 'run',     label: 'Run'     },
+  { key: 'run', label: 'Run' },
   { key: 'summary', label: 'Summary' },
   { key: 'preview', label: 'Preview' },
-  { key: 'validate', label: 'Validate'},
-  { key: 'lock',    label: 'Lock'    },
-  { key: 'paid',    label: 'Paid'    },
+  { key: 'validate', label: 'Validate' },
+  { key: 'lock', label: 'Lock' },
+  { key: 'paid', label: 'Paid' },
 ];
 
 @Component({
@@ -52,6 +52,10 @@ export class PayrollProcessPage implements OnInit {
   runResult: V2RunResponse | null = null;
   /** Full list from GET /api/payroll/v2/run?month= */
   runList: V2RunSummary[] = [];
+  /** Latest run for the selected month */
+  latestRun: V2RunSummary | null = null;
+  /** Array containing only the latest run for compatibility */
+  lastestrun: V2RunSummary[] = [];
   /** The run chosen by user from the list */
   selectedRun: V2RunSummary | null = null;
   /** Alias so lock/paid steps keep working unchanged */
@@ -60,7 +64,17 @@ export class PayrollProcessPage implements OnInit {
   validationResult: PayrollValidationResult | null = null;
   lockResult: any = null;
   paidResult: any = null;
-  
+
+  get isMonthLocked(): boolean {
+    const status = (this.latestRun?.status || '').toUpperCase();
+    return status === 'LOCKED' || status === 'PAID' || status === 'COMPLETED';
+  }
+
+  get isMonthPaid(): boolean {
+    const status = (this.latestRun?.status || '').toUpperCase();
+    return status === 'PAID' || status === 'COMPLETED';
+  }
+
   // ─── Pagination & Infinite Scroll ─────────────────────────
   previewPage = 1;
   previewLimit = 20;
@@ -69,12 +83,13 @@ export class PayrollProcessPage implements OnInit {
 
 
   // ─── Loading flags ────────────────────────────────────────
-  isRunning        = false;
+  isRunning = false;
   isLoadingSummary = false;
-  isPreviewing     = false;
-  isValidating     = false;
-  isLocking        = false;
-  isMarkingPaid    = false;
+  isPreviewing = false;
+  isValidating = false;
+  isLocking = false;
+  isMarkingPaid = false;
+  isCancelling = false;
 
   constructor(
     private fb: FormBuilder,
@@ -84,12 +99,193 @@ export class PayrollProcessPage implements OnInit {
     public router: Router
   ) {
     this.selectedMonth = this.payrollApi.getCurrentYearMonth();
-    this.previewMonth  = this.payrollApi.getCurrentYearMonth();
+    this.previewMonth = this.payrollApi.getCurrentYearMonth();
     this.processForm = this.fb.group({ month: [this.selectedMonth, Validators.required] });
     this.previewForm = this.fb.group({ month: [this.previewMonth, Validators.required] });
   }
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.checkMonthStatusAndNavigate(this.selectedMonth);
+
+    this.processForm.get('month')?.valueChanges.subscribe((val) => {
+      if (val) {
+        const month = val.substring(0, 7);
+        if (month !== this.selectedMonth) {
+          this.onMonthSelected(month);
+        }
+      }
+    });
+  }
+
+  // ─── Stage Persistence & Month Tracking ───────────────────
+  private getStorageKey(month: string): string {
+    return `payroll_stage_${month}`;
+  }
+
+  saveMonthStage(month: string, stage: StepKey) {
+    if (!month) return;
+    try {
+      localStorage.setItem(this.getStorageKey(month), stage);
+    } catch (e) {
+      console.warn('Could not save payroll stage to localStorage', e);
+    }
+  }
+
+  getSavedStage(month: string): StepKey | null {
+    if (!month) return null;
+    try {
+      return (localStorage.getItem(this.getStorageKey(month)) as StepKey) || null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  getTargetStep(month?: string): StepKey {
+    const m = month || this.selectedMonth;
+    const runStatus = (this.latestRun?.status || '').toUpperCase();
+    const savedStage = this.getSavedStage(m);
+
+    if (runStatus === 'PAID' || runStatus === 'COMPLETED') return 'paid';
+    if (runStatus === 'LOCKED') return 'lock';
+    if (savedStage && ['summary', 'preview', 'validate', 'lock', 'paid'].includes(savedStage)) {
+      return savedStage;
+    }
+    return 'preview';
+  }
+
+  canNavigateToStep(step: StepKey): boolean {
+    if (step === this.currentStep) return true;
+    if (step === 'run') return true;
+    if (this.latestRun || this.runResult) return true;
+    return false;
+  }
+
+  onStepClick(step: StepKey) {
+    if (this.canNavigateToStep(step)) {
+      this.goToStep(step);
+    }
+  }
+
+  resumeMonthStage() {
+    const target = this.getTargetStep(this.selectedMonth);
+    this.goToStep(target);
+  }
+
+  // ─── Cancel Payroll of the Month ──────────────────────────
+  async confirmCancelPayroll() {
+    const alert = await this.alertCtrl.create({
+      header: 'Cancel Payroll',
+      subHeader: `Month: ${this.selectedMonth}`,
+      message: `Are you sure you want to cancel and delete the payroll for <strong>${this.selectedMonth}</strong>? All generated run records and payslips will be deleted, and you will start from the beginning.`,
+      cssClass: 'glass-alert danger-alert',
+      buttons: [
+        { text: 'Keep Payroll', role: 'cancel' },
+        {
+          text: 'Yes, Delete & Restart',
+          role: 'destructive',
+          handler: () => this.executeCancelPayroll()
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  executeCancelPayroll() {
+    const runId = this.latestRun?.run_id || this.runResult?.data?.runId || null;
+    this.isCancelling = true;
+
+    this.payrollApi.cancelPayrollRun(runId, this.selectedMonth).subscribe({
+      next: (res) => {
+        this.isCancelling = false;
+        try {
+          localStorage.removeItem(this.getStorageKey(this.selectedMonth));
+        } catch (e) {}
+
+        this.runResult = null;
+        this.runList = [];
+        this.latestRun = null;
+        this.lastestrun = [];
+        this.selectedRun = null;
+        this.previewData = null;
+        this.fullDetailedPreview = [];
+        this.validationResult = null;
+        this.lockResult = null;
+        this.paidResult = null;
+        this.currentStep = 'run';
+
+        this.toaster.showSuccess(`Payroll for ${this.selectedMonth} has been cancelled and deleted. You can start again.`);
+      },
+      error: (err) => {
+        this.isCancelling = false;
+        this.toaster.showError('Failed to cancel payroll: ' + (err?.error?.error || err?.message || 'Server error'));
+        console.error(err);
+      }
+    });
+  }
+
+  onMonthPickerChange(event: any) {
+    const val = event?.detail?.value;
+    if (val) {
+      const month = val.substring(0, 7);
+      if (month !== this.selectedMonth) {
+        this.onMonthSelected(month);
+      }
+    }
+  }
+
+  onHeaderMonthChange(event: any) {
+    const val = event?.detail?.value;
+    if (val) {
+      const month = val.substring(0, 7);
+      if (month !== this.selectedMonth) {
+        this.onMonthSelected(month);
+      }
+    }
+  }
+
+  onMonthSelected(month: string) {
+    if (!month) return;
+    this.selectedMonth = month;
+    this.previewMonth = month;
+    this.processForm.patchValue({ month }, { emitEvent: false });
+    this.previewForm.patchValue({ month }, { emitEvent: false });
+    this.previewData = null;
+    this.validationResult = null;
+    this.lockResult = null;
+    this.paidResult = null;
+    this.checkMonthStatusAndNavigate(month);
+  }
+
+  checkMonthStatusAndNavigate(month: string) {
+    this.isLoadingSummary = true;
+    this.payrollApi.getV2RunSummary(month).subscribe({
+      next: (runs) => {
+        this.runList = runs || [];
+        this.isLoadingSummary = false;
+
+        if (this.runList.length > 0) {
+          const sorted = [...this.runList].sort((a, b) => (Number(b.run_id) || 0) - (Number(a.run_id) || 0));
+          this.latestRun = sorted[0];
+          this.lastestrun = [this.latestRun];
+          this.selectedRun = this.latestRun;
+
+          const target = this.getTargetStep(month);
+          this.goToStep(target);
+          this.toaster.showSuccess(`Existing payroll found for ${month} — navigated to ${target.toUpperCase()} stage.`);
+        } else {
+          this.latestRun = null;
+          this.lastestrun = [];
+          this.selectedRun = null;
+          this.runResult = null;
+          this.currentStep = 'run';
+        }
+      },
+      error: (err) => {
+        this.isLoadingSummary = false;
+        console.error('Failed to load runs for month:', month, err);
+      }
+    });
+  }
 
   // ─── Navigation ───────────────────────────────────────────
   goBack() {
@@ -103,15 +299,29 @@ export class PayrollProcessPage implements OnInit {
 
   goToStep(key: StepKey) {
     this.currentStep = key;
-    // Always refresh summary when navigating to it
+    this.saveMonthStage(this.selectedMonth, key);
+
+    // Refresh summary when navigating to summary
     if (key === 'summary') {
       this.loadSummary();
+    } else if (key === 'preview') {
+      this.previewMonth = this.selectedMonth;
+      this.previewForm.patchValue({ month: this.selectedMonth }, { emitEvent: false });
+      if (!this.previewData && !this.isPreviewing) {
+        this.startPreview();
+      }
+    } else if (key === 'validate') {
+      if (!this.validationResult && !this.isValidating) {
+        this.startValidation();
+      }
     }
   }
 
   resetWorkflow() {
     this.runResult = null;
     this.runList = [];
+    this.latestRun = null;
+    this.lastestrun = [];
     this.selectedRun = null;
     this.previewData = null;
     this.validationResult = null;
@@ -133,6 +343,10 @@ export class PayrollProcessPage implements OnInit {
   // ═══════════════════════════════════════════════════════════
 
   async confirmRun() {
+    if (this.isMonthLocked) {
+      this.toaster.showError(`Payroll for ${this.selectedMonth} is locked. You cannot re-run it.`);
+      return;
+    }
     const raw: string = this.processForm.value.month;
     this.selectedMonth = raw.substring(0, 7);
 
@@ -149,8 +363,8 @@ export class PayrollProcessPage implements OnInit {
   }
 
   executeRun() {
-    this.isRunning  = true;
-    this.runResult  = null;
+    this.isRunning = true;
+    this.runResult = null;
 
     const [year, month] = this.selectedMonth.split('-').map(Number);
 
@@ -158,6 +372,7 @@ export class PayrollProcessPage implements OnInit {
       next: (res) => {
         this.runResult = res;
         this.isRunning = false;
+        this.saveMonthStage(this.selectedMonth, 'summary');
         this.toaster.showSuccess(`Payroll run #${res.data?.runId} created.`);
       },
       error: (err) => {
@@ -204,10 +419,20 @@ export class PayrollProcessPage implements OnInit {
     this.payrollApi.getV2RunSummary(this.selectedMonth).subscribe({
       next: (res) => {
         this.runList = res || [];
-        this.isLoadingSummary = false;
-        if (this.runList.length === 0) {
+        if (this.runList.length > 0) {
+          // Sort descending by run_id (or started_at) to guarantee the latest run is first
+          const sorted = [...this.runList].sort((a, b) => (Number(b.run_id) || 0) - (Number(a.run_id) || 0));
+          this.latestRun = sorted[0];
+          this.lastestrun = [this.latestRun];
+          // Auto-select the latest run so download, preview, lock and mark-as-paid are active
+          this.selectedRun = this.latestRun;
+        } else {
+          this.latestRun = null;
+          this.lastestrun = [];
+          this.selectedRun = null;
           this.toaster.showError('No runs found for ' + this.selectedMonth);
         }
+        this.isLoadingSummary = false;
       },
       error: (err) => {
         this.isLoadingSummary = false;
@@ -232,7 +457,7 @@ export class PayrollProcessPage implements OnInit {
     const [year, month] = this.previewMonth.split('-').map(Number);
 
     this.isPreviewing = true;
-    this.previewData  = null;
+    this.previewData = null;
     this.fullDetailedPreview = [];
     this.previewPage = 1;
     this.canLoadMorePreview = true;
@@ -241,19 +466,20 @@ export class PayrollProcessPage implements OnInit {
   }
 
   loadPreviewData(year: number, month: number, event?: any) {
-    this.payrollApi.previewPayroll({ 
-      year, 
-      month, 
-      page: this.previewPage, 
-      limit: this.previewLimit 
+    this.payrollApi.previewPayroll({
+      year,
+      month,
+      page: this.previewPage,
+      limit: this.previewLimit
     }).subscribe({
       next: (res) => {
         this.previewData = res;
         const newItems = res.data?.detailedPreview || [];
         this.fullDetailedPreview = [...this.fullDetailedPreview, ...newItems];
-        
+
         this.isPreviewing = false;
-        
+        this.saveMonthStage(this.selectedMonth, 'preview');
+
         // Check if we can load more
         const pagination = (res as any).data?.pagination;
         if (pagination) {
@@ -288,8 +514,8 @@ export class PayrollProcessPage implements OnInit {
   }
 
   viewAllPreview() {
-    this.router.navigate(['/finance/preview-all'], { 
-      queryParams: { month: this.previewMonth } 
+    this.router.navigate(['/finance/preview-all'], {
+      queryParams: { month: this.previewMonth }
     });
   }
 
@@ -300,7 +526,7 @@ export class PayrollProcessPage implements OnInit {
   // ═══════════════════════════════════════════════════════════
 
   startValidation() {
-    this.isValidating     = true;
+    this.isValidating = true;
     this.validationResult = null;
 
     this.payrollApi.validatePayroll(this.selectedMonth).subscribe({
@@ -308,8 +534,10 @@ export class PayrollProcessPage implements OnInit {
         this.validationResult = res;
         this.isValidating = false;
         if (res.data?.valid) {
+          this.saveMonthStage(this.selectedMonth, 'lock');
           this.toaster.showSuccess('Validation passed — ready to lock.');
         } else {
+          this.saveMonthStage(this.selectedMonth, 'validate');
           this.toaster.showError('Validation failed. Resolve errors first.');
         }
       },
@@ -338,6 +566,8 @@ export class PayrollProcessPage implements OnInit {
         this.lockResult = res;
         this.isLocking = false;
         if (this.runStatus) this.runStatus.status = 'LOCKED';
+        if (this.latestRun) this.latestRun.status = 'LOCKED';
+        this.saveMonthStage(this.selectedMonth, 'lock');
         this.toaster.showSuccess(`Run #${this.runStatus!.run_id} locked.`);
       },
       error: (err) => {
@@ -371,13 +601,15 @@ export class PayrollProcessPage implements OnInit {
 
   private doMarkAsPaid() {
     this.isMarkingPaid = true;
-    this.paidResult    = null;
+    this.paidResult = null;
 
     this.payrollApi.markAsPaid(this.runStatus!.run_id).subscribe({
       next: (res) => {
-        this.paidResult    = res;
+        this.paidResult = res;
         this.isMarkingPaid = false;
         if (this.runStatus) this.runStatus.status = 'PAID';
+        if (this.latestRun) this.latestRun.status = 'PAID';
+        this.saveMonthStage(this.selectedMonth, 'paid');
         this.toaster.showSuccess(`Run #${this.runStatus!.run_id} marked as PAID!`);
       },
       error: (err) => {
@@ -396,11 +628,11 @@ export class PayrollProcessPage implements OnInit {
 
   getStatusColor(status: string): string {
     const s = (status || '').toLowerCase();
-    if (s === 'paid')    return '#10b981';
-    if (s === 'locked')  return '#8b5cf6';
+    if (s === 'paid') return '#10b981';
+    if (s === 'locked') return '#8b5cf6';
     if (s.includes('complete') || s.includes('success')) return '#10b981';
-    if (s.includes('run') || s.includes('process'))      return '#f59e0b';
-    if (s.includes('fail') || s.includes('error'))       return '#ef4444';
+    if (s.includes('run') || s.includes('process')) return '#f59e0b';
+    if (s.includes('fail') || s.includes('error')) return '#ef4444';
     return '#6366f1';
   }
 

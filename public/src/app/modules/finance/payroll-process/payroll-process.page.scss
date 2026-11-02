@@ -1338,3 +1338,94 @@ ion-infinite-scroll {
     }
   }
 }
+.header-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.header-month-picker {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: vars.$color-white;
+  padding: 6px 14px;
+  border: 1.5px solid vars.$color-border-light;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+
+  .header-month-lbl {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.85rem;
+    font-weight: vars.$fw-semibold;
+    color: vars.$color-text-subtle;
+  }
+}
+
+.month-status-banner {
+  margin-top: 1.5rem;
+  padding: 1.25rem 1.5rem;
+  background: #f0fdf4;
+  border: 1.5px solid #86efac;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+
+  .status-banner-content {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    ion-icon {
+      font-size: 2rem;
+      color: #16a34a;
+      flex-shrink: 0;
+    }
+
+    h4 {
+      margin: 0 0 4px 0;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #14532d;
+    }
+
+    p {
+      margin: 0;
+      font-size: 0.9rem;
+      color: #166534;
+    }
+  }
+
+  .banner-actions {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.cancel-payroll-btn,
+.cancel-stage-btn {
+  --border-color: #fca5a5;
+  --color: #dc2626;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+
+  &:hover {
+    --background: #fee2e2;
+    --border-color: #ef4444;
+  }
+}
