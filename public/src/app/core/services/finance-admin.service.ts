@@ -215,6 +215,18 @@ export class FinanceAdminService {
     return this.http.put<any>(url, payload, { headers: this.getHeaders() });
   }
 
+  /**
+   * Delete all employee salary contracts globally, or for a specific employee
+   */
+  deleteAllContracts(employeeId?: number): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts/all`;
+    let params = new HttpParams();
+    if (employeeId) {
+      params = params.set('employee_id', employeeId.toString());
+    }
+    return this.http.delete<any>(url, { params, headers: this.getHeaders() });
+  }
+
   terminateContract(contractId: number, payload: any): Observable<any> {
     const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
     return this.http.delete<any>(url, { body: payload, headers: this.getHeaders() });

@@ -57,6 +57,10 @@
             <ion-icon name="cloud-upload-outline"></ion-icon>
             Upload & Map Contracts
           </button>
+          <button class="btn-delete-all" (click)="confirmDeleteAllContracts(); $event.stopPropagation()" [disabled]="cachedContracts.length === 0 || isDeletingContracts">
+            <ion-icon name="trash-outline"></ion-icon>
+            Delete All Contracts
+          </button>
         </div>
         
         <!-- Hidden File Input -->
@@ -90,9 +94,13 @@
             <ion-icon name="funnel-outline"></ion-icon>
             Filter
           </button>
-          <button class="btn-toolbar-action">
+          <button class="btn-toolbar-action" (click)="exportContracts()" [disabled]="isExporting">
             <ion-icon name="download-outline"></ion-icon>
-            Export
+            {{ isExporting ? 'Exporting...' : 'Export' }}
+          </button>
+          <button class="btn-toolbar-action btn-danger-action" (click)="confirmDeleteAllContracts()" [disabled]="cachedContracts.length === 0 || isDeletingContracts">
+            <ion-icon name="trash-outline"></ion-icon>
+            Delete All Contracts
           </button>
           <button class="btn-toolbar-badge">
             <ion-icon name="people-outline"></ion-icon>
@@ -239,10 +247,16 @@
             </div>
           </div>
         </div>
-        <button class="neon-btn mini" (click)="openAssignmentModal()">
-          <ion-icon name="add-circle-outline"></ion-icon>
-          Create New Assignment
-        </button>
+        <div class="detail-actions-group">
+          <button class="neon-btn mini danger" *ngIf="employeeContracts.length > 0" (click)="confirmDeleteAllContracts(selectedEmployee.id)">
+            <ion-icon name="trash-outline"></ion-icon>
+            Delete All Contracts
+          </button>
+          <button class="neon-btn mini" (click)="openAssignmentModal()">
+            <ion-icon name="add-circle-outline"></ion-icon>
+            Create New Assignment
+          </button>
+        </div>
       </div>
 
       <div *ngIf="isLoadingContracts" class="loader-wrap">

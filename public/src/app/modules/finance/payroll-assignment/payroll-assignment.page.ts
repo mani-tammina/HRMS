@@ -6,6 +6,7 @@ import { ToasterService } from '../../../core/services/toaster.service';
 import { ModalController, LoadingController, AlertController } from '@ionic/angular';
 import { Subject } from 'rxjs';
 import { debounceTime, distinctUntilChanged } from 'rxjs/operators';
+import * as XLSX from 'xlsx';
 
 @Component({
   selector: 'app-payroll-assignment',
@@ -361,17 +362,26 @@ export class PayrollAssignmentPage implements OnInit {
   // --- Bulk Import ---
   selectedTemplateForBulk: number | null = null;
   isImporting = false;
+  isExporting = false;
+  isDeletingContracts = false;
   dragOver = false;
+  lastUploadedFile: File | null = null;
+  lastUploadedFileName = '';
 
   handleDrop(event: DragEvent) {
     if (event.dataTransfer && event.dataTransfer.files.length > 0) {
-      this.importContracts(event.dataTransfer.files[0]);
+      const file = event.dataTransfer.files[0];
+      this.lastUploadedFile = file;
+      this.lastUploadedFileName = file.name;
+      this.importContracts(file);
     }
   }
 
   async onFileSelected(event: any) {
     const file = event.target.files[0];
     if (file) {
+      this.lastUploadedFile = file;
+      this.lastUploadedFileName = file.name;
       this.importContracts(file);
       // Reset input so same file can be uploaded again if needed
       event.target.value = '';
@@ -429,4 +439,245 @@ export class PayrollAssignmentPage implements OnInit {
     link.click();
     document.body.removeChild(link);
   }
+
+  // --- Export Contracts Mapping ---
+  exportContracts() {
+    if (this.isExporting) return;
+    this.isExporting = true;
+
+    // Fetch latest contracts from server to ensure fresh state
+    this.financeService.getAllContracts().subscribe({
+      next: (contractsRes) => {
+        this.cachedContracts = contractsRes || [];
+        this.allEmployees = this.mapEmployeeContracts(this.allEmployees);
+        this.applyFilter();
+        this.executeExport();
+      },
+      error: () => {
+        // Fallback to in-memory state
+        this.executeExport();
+      }
+    });
+  }
+
+  private executeExport() {
+    this.isExporting = false;
+
+    // 1. If currently on Skipped tab, export unassigned employees list
+    if (this.activeTab === 'skipped') {
+      const skippedEmps = this.filteredEmployees;
+      if (skippedEmps.length === 0) {
+        this.toaster.showInfo('No unassigned employees found to export');
+        return;
+      }
+      const data = skippedEmps.map(emp => ({
+        'EmployeeNumber': emp.employeeNumber || `EMP${100 + emp.id}`,
+        'Employee Name': emp.name,
+        'Department': emp.department || 'General',
+        'Designation': emp.designation || 'Staff',
+        'remuneration_amount': Number(emp.salary || 0),
+        'annual_ctc': Number(emp.salary ? emp.salary * 12 : 0),
+        'template_name': '',
+        'effective_from': emp.joinDate ? String(emp.joinDate).split('T')[0] : '',
+        'status': 'Not Assigned'
+      }));
+      this.saveExportWorkbook(data, 'unassigned_employees');
+      return;
+    }
+
+    // 2. Main case: Download what was uploaded and mapped from Upload & Map Contracts
+    let contractsToExport: any[] = [];
+
+    if (this.cachedContracts && this.cachedContracts.length > 0) {
+      if (this.searchQuery && this.searchQuery.trim()) {
+        const q = this.searchQuery.toLowerCase().trim();
+        contractsToExport = this.cachedContracts.filter((c: any) => {
+          const emp = this.allEmployees.find(e => e.id === c.employee_id);
+          const empNo = (c.EmployeeNumber || emp?.employeeNumber || '').toLowerCase();
+          const empName = (c.FullName || emp?.name || '').toLowerCase();
+          const template = (c.template_name || '').toLowerCase();
+          return empNo.includes(q) || empName.includes(q) || template.includes(q);
+        });
+      } else {
+        contractsToExport = [...this.cachedContracts];
+      }
+    }
+
+    // 3. Fallback: if cachedContracts has no records, check allEmployees for assigned records
+    if (contractsToExport.length === 0 && this.allEmployees && this.allEmployees.length > 0) {
+      const assignedEmps = this.allEmployees.filter(emp => emp.assignmentStatus === 'Assigned' || (emp.annualCtc && emp.annualCtc > 0));
+      if (assignedEmps.length > 0) {
+        const data = assignedEmps.map(emp => ({
+          'EmployeeNumber': emp.employeeNumber || `EMP${100 + emp.id}`,
+          'Employee Name': emp.name,
+          'Department': emp.department || 'General',
+          'Designation': emp.designation || 'Staff',
+          'remuneration_amount': Number(emp.annualCtc || emp.salary || 0),
+          'annual_ctc': Number(emp.annualCtc || emp.salary || 0),
+          'template_name': emp.assignedStructureName || 'Standard Employee Package',
+          'effective_from': emp.joinDate ? String(emp.joinDate).split('T')[0] : '',
+          'status': emp.assignmentStatus || 'Active'
+        }));
+        this.saveExportWorkbook(data, 'payroll_contracts_mapping');
+        return;
+      }
+    }
+
+    // 4. Fallback if still empty: if a file was uploaded in this session, trigger its download
+    if (contractsToExport.length === 0) {
+      if (this.lastUploadedFile) {
+        this.downloadRawFile(this.lastUploadedFile);
+        return;
+      }
+      this.toaster.showWarning('No uploaded or mapped contracts found to export');
+      return;
+    }
+
+    // Format mapped contracts for export (matching Upload & Map Contracts template columns)
+    const data = contractsToExport.map((c: any) => {
+      const emp = this.allEmployees.find(e => e.id === c.employee_id);
+      const empNumber = c.EmployeeNumber || emp?.employeeNumber || (emp ? `EMP${100 + emp.id}` : (c.employee_id ? `EMP${100 + c.employee_id}` : ''));
+      const empName = c.FullName || emp?.name || 'Unknown';
+      const annualCtc = Number(c.annual_ctc || emp?.annualCtc || 0);
+
+      return {
+        'EmployeeNumber': empNumber,
+        'Employee Name': empName,
+        'Department': emp?.department || 'General',
+        'Designation': emp?.designation || 'Staff',
+        'remuneration_amount': annualCtc,
+        'annual_ctc': annualCtc,
+        'template_name': c.template_name || emp?.assignedStructureName || 'Standard Employee Package',
+        'effective_from': c.effective_from ? String(c.effective_from).split('T')[0] : (emp?.joinDate ? String(emp.joinDate).split('T')[0] : ''),
+        'status': c.status || 'Active'
+      };
+    });
+
+    this.saveExportWorkbook(data, 'payroll_contracts_mapping');
+  }
+
+  private saveExportWorkbook(data: any[], prefix: string) {
+    try {
+      const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+      const wb: XLSX.WorkBook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Contracts Mapping');
+
+      // Auto-fit column widths
+      if (data.length > 0) {
+        const colKeys = Object.keys(data[0]);
+        ws['!cols'] = colKeys.map(k => {
+          const maxValLen = Math.max(...data.map(d => String(d[k] || '').length));
+          const maxLen = Math.max(k.length, maxValLen);
+          return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+        });
+      }
+
+      const today = new Date().toISOString().split('T')[0];
+      const filename = `${prefix}_${today}.xlsx`;
+
+      XLSX.writeFile(wb, filename);
+      this.toaster.showSuccess(`Exported ${data.length} contract ${data.length === 1 ? 'record' : 'records'} successfully`);
+    } catch (err) {
+      console.error('XLSX export failed, falling back to CSV', err);
+      this.fallbackCsvExport(data, prefix);
+    }
+  }
+
+  private fallbackCsvExport(data: any[], prefix: string) {
+    if (!data || data.length === 0) return;
+    const headers = Object.keys(data[0]);
+    const csvRows = [
+      headers.join(','),
+      ...data.map(row => headers.map(h => `"${String(row[h] ?? '').replace(/"/g, '""')}"`).join(','))
+    ];
+    const csvContent = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvRows.join('\n'));
+    const link = document.createElement('a');
+    link.setAttribute('href', csvContent);
+    const today = new Date().toISOString().split('T')[0];
+    link.setAttribute('download', `${prefix}_${today}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    this.toaster.showSuccess(`Exported ${data.length} records as CSV`);
+  }
+
+  private downloadRawFile(file: File) {
+    const url = window.URL.createObjectURL(file);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    this.toaster.showSuccess(`Downloaded ${file.name}`);
+  }
+
+  // --- Delete Contracts ---
+  async confirmDeleteAllContracts(employeeId?: number) {
+    const isSingleEmployee = !!employeeId;
+    const targetName = isSingleEmployee ? (this.selectedEmployee?.name || 'this employee') : 'all employees';
+
+    const alert = await this.alertCtrl.create({
+      header: isSingleEmployee ? 'Delete Contracts' : 'Delete All Contracts',
+      subHeader: isSingleEmployee
+        ? `Remove all contracts for ${targetName}`
+        : 'Permanent Contract Deletion',
+      message: isSingleEmployee
+        ? `Are you sure you want to delete all contract records for ${targetName}? Their assignment status will be reset to 'Not Assigned'.`
+        : `Are you sure you want to delete ALL salary contracts across all employees? This will unassign every employee and wipe contract mapping records. This action cannot be undone.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Delete All',
+          role: 'destructive',
+          cssClass: 'danger-btn',
+          handler: () => {
+            this.executeDeleteAllContracts(employeeId);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async executeDeleteAllContracts(employeeId?: number) {
+    this.isDeletingContracts = true;
+    const loading = await this.loadingCtrl.create({
+      message: employeeId ? 'Deleting employee contracts...' : 'Deleting all contracts...',
+      cssClass: 'glass-loading'
+    });
+    await loading.present();
+
+    this.financeService.deleteAllContracts(employeeId).subscribe({
+      next: (res) => {
+        this.isDeletingContracts = false;
+        loading.dismiss();
+        if (res.success) {
+          const msg = employeeId
+            ? 'All contracts for this employee have been deleted.'
+            : `All ${res.deleted || ''} employee salary contracts have been deleted successfully.`;
+          this.toaster.showSuccess(msg);
+          this.refreshContracts(() => {
+            if (this.selectedEmployee) {
+              this.loadEmployeeContracts(this.selectedEmployee.id);
+            }
+          });
+        } else {
+          this.toaster.showError(res.message || 'Failed to delete contracts');
+        }
+      },
+      error: (err) => {
+        this.isDeletingContracts = false;
+        loading.dismiss();
+        this.toaster.showError(err.error?.message || err.error?.error || 'Failed to delete contracts');
+      }
+    });
+  }
+
 }

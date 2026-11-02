@@ -588,6 +588,38 @@ exports.updateContract = async (req, res) => {
   }
 };
 
+exports.deleteAllContracts = async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    await ensureTemplateModelTables(c);
+    const employeeId = req.query.employee_id || req.body?.employee_id;
+
+    if (employeeId) {
+      const [result] = await c.query('DELETE FROM employee_salary_contracts WHERE employee_id = ?', [employeeId]);
+      await c.query('UPDATE employees SET lpa = 0 WHERE id = ?', [employeeId]);
+      c.end();
+      return res.json({
+        success: true,
+        deleted: result.affectedRows,
+        message: `All contracts for employee ${employeeId} deleted successfully`
+      });
+    }
+
+    const [result] = await c.query('DELETE FROM employee_salary_contracts');
+    await c.query('UPDATE employees SET lpa = 0');
+    c.end();
+    return res.json({
+      success: true,
+      deleted: result.affectedRows,
+      message: 'All employee salary contracts deleted successfully'
+    });
+  } catch (err) {
+    if (c) c.end();
+    res.status(500).json({ error: err.message });
+  }
+};
+
 exports.terminateContract = async (req, res) => {
   try {
     const c = await db();

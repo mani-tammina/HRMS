@@ -469,6 +469,16 @@ export class PayrollApiService {
     return this.http.get<V2RunSummary[]>(`${this.baseUrl}/payroll/v2/run`, { headers: this.getHeaders(), params });
   }
 
+  /** DELETE /api/payroll/v2/run/:runId?month=YYYY-MM — Cancel/delete a payroll run so the month can be started again */
+  cancelPayrollRun(runId?: number | null, month?: string): Observable<any> {
+    let params = new HttpParams();
+    if (month) params = params.set('month', month);
+    const url = runId 
+      ? `${this.baseUrl}/payroll/v2/run/${runId}` 
+      : `${this.baseUrl}/payroll/v2/run`;
+    return this.http.delete(url, { headers: this.getHeaders(), params });
+  }
+
   /** GET /api/payroll/v2/run/:employeeId?month=YYYY-MM — Breakdown for one employee */
   getV2EmployeeBreakdown(employeeId: number, month: string): Observable<any> {
     const params = new HttpParams().set('month', month);

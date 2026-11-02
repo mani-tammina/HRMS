@@ -33,6 +33,8 @@ router.get('/contracts', ctrl.listContracts);
 router.post('/contracts', ctrl.createContract);
 router.get('/contracts/:contract_id', ctrl.getContract);
 router.put('/contracts/:contract_id', ctrl.updateContract);
+router.delete('/contracts/all', ctrl.deleteAllContracts);
+router.delete('/contracts', ctrl.deleteAllContracts);
 router.delete('/contracts/:contract_id', ctrl.terminateContract);
 
 // Structure Composition (template-component mapping)
