@@ -524,10 +524,12 @@
             <div class="cs-item"><ion-icon name="calendar-outline"></ion-icon><span>{{ selectedMonth }}</span></div>
           </div>
           <div class="action-footer vertical" style="margin-top:2rem">
-            <ion-button expand="block" class="primary-btn" (click)="navigateToExecution()">
-              Manage Payouts &amp; Payslips <ion-icon name="arrow-forward-outline" slot="end"></ion-icon>
+            <ion-button expand="block" class="primary-btn" (click)="goToPayrollDashboard()">
+              <ion-icon name="grid-outline" slot="start"></ion-icon> View Payroll Dashboard
             </ion-button>
-            <ion-button expand="block" fill="clear" (click)="resetWorkflow()">Process Another Month</ion-button>
+            <ion-button expand="block" fill="clear" (click)="resetWorkflow()">
+              <ion-icon name="refresh-outline" slot="start"></ion-icon> Process Another Month
+            </ion-button>
             <ion-button expand="block" fill="outline" color="danger" class="cancel-stage-btn" (click)="confirmCancelPayroll()">
               <ion-icon name="trash-outline" slot="start"></ion-icon> Cancel &amp; Delete This Month's Payroll
             </ion-button>

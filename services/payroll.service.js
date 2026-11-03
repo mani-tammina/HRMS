@@ -566,10 +566,11 @@ async function runPayroll(year, month, runBy = null) {
 
       // Insert payroll_employee_salaries
       const monthlyGross = Number(structure.ctc_amount || 0) / 12;
+      const empNet = Math.max(0, monthlyGross - deductions);
       const [salaryRes] = await conn.query(
         `INSERT INTO payroll_employee_salaries (run_id, cycle_id, employee_id, structure_id, gross_earnings, total_deductions, net_pay, created_at)
-         VALUES (?, ?, ?, ?, ?, 0, ?, NOW())`,
-        [runId, cycleId, employeeId, structure.id, monthlyGross.toFixed(2), monthlyGross.toFixed(2)]
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        [runId, cycleId, employeeId, structure.id, monthlyGross.toFixed(2), deductions.toFixed(2), empNet.toFixed(2)]
       );
       const employeeSalaryId = salaryRes.insertId;
 
@@ -695,15 +696,16 @@ async function runPayroll(year, month, runBy = null) {
       );
 
       totalEmployeesCount += 1;
-      totalGross += Number(resolved.structure.ctc_amount || 0) / 12;
-      totalDeductions = 0;
-      totalNet += Number(resolved.structure.ctc_amount || 0) / 12;
+      const empGross = Number(resolved.structure.ctc_amount || 0) / 12;
+      totalGross += empGross;
+      totalDeductions += deductions;
+      totalNet += (empGross - deductions);
     }
 
     // Update run totals and mark completed
     await conn.query(
-      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = 0, total_net = ?, completed_at = NOW() WHERE id = ?`,
-      ['COMPLETED', totalEmployeesCount, totalGross.toFixed(2), totalNet.toFixed(2), runId]
+      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = ?, total_net = ?, completed_at = NOW() WHERE id = ?`,
+      ['COMPLETED', totalEmployeesCount, totalGross.toFixed(2), totalDeductions.toFixed(2), totalNet.toFixed(2), runId]
     );
 
     await conn.commit();

@@ -1,3 +1,72 @@
+
+export interface PayrollTimelineMonth {
+  monthStr: string;
+  year: number;
+  month: number;
+  label: string;
+  dateRange: string;
+  totalDays: number;
+  status: 'COMPLETED' | 'CURRENT' | 'UPCOMING' | 'IN_PROGRESS';
+  isCurrent: boolean;
+  runId: number | null;
+  totalEmployees: number;
+  payingEmployees?: number;
+  totalGross: number;
+  totalNet: number;
+}
+
+export interface PayrollDashboardData {
+  month: string;
+  year: number;
+  monthNum: number;
+  calendarDays: number;
+  monthLabel: string;
+  monthHeading: string;
+  totalEmployees: number;
+  payingEmployees?: number;
+  employeeChanges: {
+    joiners: number;
+    leavers: number;
+  };
+  payrollProcessedCount: number;
+  payrollProcessedRatio: string;
+  run: any;
+  equation: {
+    totalPayrollCost: number;
+    employeeDeposit: number;
+    totalDeductions: number;
+    totalContributions: number;
+    prevMonthLabel: string;
+    prevMonthCost: number;
+    prevMonthDeposit: number;
+    prevMonthDeductions: number;
+    prevMonthContributions: number;
+    costDelta: number;
+    depositDelta: number;
+    deductionsDelta: number;
+    contributionsDelta: number;
+  };
+  outcome: {
+    runId: number | null;
+    status: string | null;
+    noOfEmployees: number;
+    payslipsReleased: number;
+    payslipsOnHold: number;
+    isCompleted: boolean;
+    statutoryCards?: any;
+  };
+  timeline: PayrollTimelineMonth[];
+  summary: any;
+  statusBreakdown: any[];
+  lifecycleBreakdown: any[];
+}
+
+export interface PayrollDashboardResponse {
+  success: boolean;
+  data: PayrollDashboardData;
+  error?: string | null;
+}
+
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
@@ -67,6 +136,7 @@ export interface V2RunResponse {
     runId: number;
     cycleId: number;
     totalEmployees: number;
+  payingEmployees?: number;
     totalGross: number;
     totalDeductions: number;
     totalNet: number;
@@ -163,6 +233,7 @@ export interface PayrollValidationResult {
   data: {
     month: string;
     totalEmployees: number;
+  payingEmployees?: number;
     withSalaryStructure: number;
     withAttendance: number;
     missingSalaryStructureCount: number;
@@ -181,6 +252,7 @@ export interface PayrollPreviewResponse {
     validation: {
       month: string;
       totalEmployees: number;
+  payingEmployees?: number;
       withSalaryStructure: number;
       withAttendance: number;
       missingSalaryStructureCount: number;
@@ -859,4 +931,14 @@ export class PayrollApiService {
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   }
+
+  /** GET /api/payroll/v2/dashboard?month=YYYY-MM — Dashboard overview with equation, outcome, timeline */
+  getPayrollDashboard(month: string): Observable<PayrollDashboardResponse> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get<PayrollDashboardResponse>(`${this.baseUrl}/payroll/v2/dashboard`, {
+      headers: this.getHeaders(),
+      params
+    });
+  }
+
 }

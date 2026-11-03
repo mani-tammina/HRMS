@@ -43,6 +43,14 @@ const routes: Routes = [
     loadChildren: () => import('./payroll-process/payroll-process.module').then(m => m.PayrollProcessPageModule)
   },
   {
+    path: 'dashboard',
+    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
+  },
+  {
+    path: 'run-payroll',
+    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
+  },
+  {
     path: 'preview-all',
     loadChildren: () => import('./payroll-preview-all/payroll-preview-all.module').then(m => m.PayrollPreviewAllPageModule)
   }

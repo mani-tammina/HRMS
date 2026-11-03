@@ -67,12 +67,12 @@ export class PayrollProcessPage implements OnInit {
 
   get isMonthLocked(): boolean {
     const status = (this.latestRun?.status || '').toUpperCase();
-    return status === 'LOCKED' || status === 'PAID' || status === 'COMPLETED';
+    return status === 'LOCKED' || status === 'PAID';
   }
 
   get isMonthPaid(): boolean {
     const status = (this.latestRun?.status || '').toUpperCase();
-    return status === 'PAID' || status === 'COMPLETED';
+    return status === 'PAID';
   }
 
   // ─── Pagination & Infinite Scroll ─────────────────────────
@@ -117,13 +117,17 @@ export class PayrollProcessPage implements OnInit {
     });
   }
 
+  ionViewWillEnter() {
+    this.checkMonthStatusAndNavigate(this.selectedMonth);
+  }
+
   // ─── Stage Persistence & Month Tracking ───────────────────
   private getStorageKey(month: string): string {
     return `payroll_stage_${month}`;
   }
 
   saveMonthStage(month: string, stage: StepKey) {
-    if (!month) return;
+    if (!month || stage === 'run') return;
     try {
       localStorage.setItem(this.getStorageKey(month), stage);
     } catch (e) {
@@ -145,12 +149,26 @@ export class PayrollProcessPage implements OnInit {
     const runStatus = (this.latestRun?.status || '').toUpperCase();
     const savedStage = this.getSavedStage(m);
 
-    if (runStatus === 'PAID' || runStatus === 'COMPLETED') return 'paid';
-    if (runStatus === 'LOCKED') return 'lock';
+    // 1. If user previously progressed to a specific stage for this month, navigate directly to that stage!
     if (savedStage && ['summary', 'preview', 'validate', 'lock', 'paid'].includes(savedStage)) {
       return savedStage;
     }
-    return 'preview';
+
+    // 2. If status is explicitly PAID in backend, go to paid
+    if (runStatus === 'PAID') return 'paid';
+
+    // 3. If status is explicitly LOCKED in backend, go to lock
+    if (runStatus === 'LOCKED') return 'lock';
+
+    // 4. If status is REVIEWED in backend, go to validate
+    if (runStatus === 'REVIEWED') return 'validate';
+
+    // 5. If a run exists (status is COMPLETED or run exists), default to preview stage
+    if (this.latestRun || this.runResult) {
+      return 'preview';
+    }
+
+    return 'run';
   }
 
   canNavigateToStep(step: StepKey): boolean {
@@ -227,9 +245,7 @@ export class PayrollProcessPage implements OnInit {
     const val = event?.detail?.value;
     if (val) {
       const month = val.substring(0, 7);
-      if (month !== this.selectedMonth) {
-        this.onMonthSelected(month);
-      }
+      this.onMonthSelected(month);
     }
   }
 
@@ -237,9 +253,7 @@ export class PayrollProcessPage implements OnInit {
     const val = event?.detail?.value;
     if (val) {
       const month = val.substring(0, 7);
-      if (month !== this.selectedMonth) {
-        this.onMonthSelected(month);
-      }
+      this.onMonthSelected(month);
     }
   }
 
@@ -291,9 +305,10 @@ export class PayrollProcessPage implements OnInit {
   goBack() {
     const idx = this.stepIndex;
     if (idx === 0) {
-      this.router.navigate(['/finance/admin']);
+      this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
     } else {
-      this.currentStep = STEPS[idx - 1].key;
+      const prevStep = STEPS[idx - 1].key;
+      this.goToStep(prevStep);
     }
   }
 
@@ -334,8 +349,12 @@ export class PayrollProcessPage implements OnInit {
     this.runResult = null;
   }
 
-  navigateToExecution() {
-    this.router.navigate(['/finance/execution']);
+  goToPayrollDashboard() {
+    this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+  }
+
+navigateToExecution() {
+    this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
   }
 
   // ═══════════════════════════════════════════════════════════
@@ -611,6 +630,7 @@ export class PayrollProcessPage implements OnInit {
         if (this.latestRun) this.latestRun.status = 'PAID';
         this.saveMonthStage(this.selectedMonth, 'paid');
         this.toaster.showSuccess(`Run #${this.runStatus!.run_id} marked as PAID!`);
+        this.goToPayrollDashboard();
       },
       error: (err) => {
         this.isMarkingPaid = false;

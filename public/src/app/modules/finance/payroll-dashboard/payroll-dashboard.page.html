@@ -1,0 +1,439 @@
+<ion-content class="payroll-dashboard-content">
+  <!-- ═══════════════════════════════════════════════════════════
+       1. TOP SUB-NAVIGATION TABS
+  ════════════════════════════════════════════════════════════ -->
+  <div class="sub-nav-bar">
+    <div class="sub-nav-inner">
+      <button 
+        *ngFor="let tab of subTabs" 
+        class="nav-tab-btn" 
+        [class.active]="activeSubTab === tab.label"
+        (click)="onSubTabClick(tab)">
+        <span>{{ tab.label }}</span>
+        <div class="tab-indicator" *ngIf="activeSubTab === tab.label">
+          <span class="indicator-arrow">▲</span>
+        </div>
+      </button>
+    </div>
+  </div>
+
+  <div class="dashboard-body">
+
+    <!-- ═══════════════════════════════════════════════════════════
+         2. FISCAL YEAR HORIZONTAL TIMELINE
+    ════════════════════════════════════════════════════════════ -->
+    <div class="timeline-wrapper">
+      <button class="carousel-nav-btn prev" (click)="scrollTimeline('left')" title="Scroll left">
+        <ion-icon name="chevron-back-outline"></ion-icon>
+      </button>
+
+      <div class="timeline-scroll-container" #timelineScroll>
+        <div 
+          *ngFor="let m of dashboardData?.timeline" 
+          class="month-card"
+          [class.selected]="m.monthStr === selectedMonth"
+          [class.is-completed]="m.status === 'COMPLETED'"
+          (click)="selectMonth(m.monthStr)">
+          
+          <div class="card-title">{{ m.label }}</div>
+          <div class="card-dates">{{ m.dateRange }}</div>
+          
+          <div class="card-badge-container">
+            <!-- CURRENT (Active selected month) -->
+            <span *ngIf="m.monthStr === selectedMonth" class="badge badge-current">
+              <span class="badge-dot">⦿</span> CURRENT
+            </span>
+
+            <!-- COMPLETED -->
+            <span *ngIf="m.monthStr !== selectedMonth && m.status === 'COMPLETED'" class="badge badge-completed">
+              <ion-icon name="checkmark-circle-outline"></ion-icon> COMPLETED
+            </span>
+
+            <!-- IN PROGRESS -->
+            <span *ngIf="m.monthStr !== selectedMonth && m.status === 'IN_PROGRESS'" class="badge badge-progress">
+              <ion-icon name="time-outline"></ion-icon> IN PROGRESS
+            </span>
+
+            <!-- UPCOMING -->
+            <span *ngIf="m.monthStr !== selectedMonth && m.status === 'UPCOMING'" class="badge badge-upcoming">
+              UPCOMING
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <button class="carousel-nav-btn next" (click)="scrollTimeline('right')" title="Scroll right">
+        <ion-icon name="chevron-forward-outline"></ion-icon>
+      </button>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         3. MONTH TITLE & ACTION ROW
+    ════════════════════════════════════════════════════════════ -->
+    <div class="month-title-row">
+      <h2 class="month-heading">
+        {{ dashboardData?.monthHeading || (selectedMonth + ' (' + daysInMonth + ' days)') }}
+      </h2>
+
+      <div class="header-actions">
+        <button class="step-btn secondary" (click)="goToRunStepper()">
+          <ion-icon name="git-merge-outline"></ion-icon>
+          <span>{{ dashboardData?.outcome?.isCompleted ? 'View Process Stepper' : 'Run / Resume Stepper' }}</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="isLoading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Loading payroll overview for {{ selectedMonth }}...</p>
+    </div>
+
+    <div *ngIf="!isLoading">
+
+      <!-- ═══════════════════════════════════════════════════════════
+           4. METRICS & FINANCIAL EQUATION ROW
+      ════════════════════════════════════════════════════════════ -->
+      <div class="overview-equation-row">
+        
+        <!-- Left Stats Card -->
+        <div class="stats-box">
+          <!-- Total Employees -->
+          <div class="stat-col">
+            <span class="stat-label">TOTAL EMPLOYEES</span>
+            <div class="stat-value-row">
+              <span class="stat-number">{{ dashboardData?.totalEmployees || 0 }}</span>
+              <span class="delta-indicator up" title="New joiners this month">
+                <span class="arrow">⌃</span> {{ dashboardData?.employeeChanges?.joiners || 0 }}
+              </span>
+              <span class="delta-indicator down" title="Leavers this month">
+                <span class="arrow">⌄</span> {{ dashboardData?.employeeChanges?.leavers || 0 }}
+              </span>
+            </div>
+            <span class="stat-paying-subtext">{{ dashboardData?.payingEmployees || 0 }} Paying</span>
+          </div>
+
+          <div class="stat-divider"></div>
+
+          <!-- Calendar Days -->
+          <div class="stat-col">
+            <span class="stat-label">CALENDAR DAYS</span>
+            <div class="stat-value-row">
+              <span class="stat-number">{{ dashboardData?.calendarDays || daysInMonth }}</span>
+            </div>
+            <span class="stat-paying-subtext">Calendar Days</span>
+          </div>
+
+          <div class="stat-divider"></div>
+
+          <!-- Payroll Processed -->
+          <div class="stat-col">
+            <span class="stat-label">PAYROLL PROCESSED</span>
+            <div class="stat-value-row">
+              <span class="stat-processed">{{ dashboardData?.payrollProcessedRatio || ((dashboardData?.totalEmployees || 0) + '/' + (dashboardData?.payingEmployees || 0) + ' EMPLOYEES') }}</span>
+            </div>
+            <span class="stat-paying-subtext">Total / Paying for month</span>
+          </div>
+        </div>
+
+        <!-- Right Formula Equation Section -->
+        <div class="equation-box">
+          
+          <!-- Total Payroll Cost -->
+          <div class="equation-item">
+            <span class="eq-label">Total Payroll Cost</span>
+            <span class="eq-amount">{{ formatCurrency(dashboardData?.equation?.totalPayrollCost) }}</span>
+            <span class="eq-subtext" [ngClass]="isDeltaPositive(dashboardData?.equation?.costDelta) ? 'positive' : 'negative'">
+              {{ dashboardData?.equation?.prevMonthLabel }} {{ formatDelta(dashboardData?.equation?.costDelta) }}
+            </span>
+          </div>
+
+          <!-- Equals Operator -->
+          <div class="equation-operator">=</div>
+
+          <!-- Employee Deposit -->
+          <div class="equation-item">
+            <span class="eq-label">
+              Employee Deposit <ion-icon name="information-circle-outline" class="info-icon" title="Net salary deposited into employee accounts"></ion-icon>
+            </span>
+            <span class="eq-amount">{{ formatCurrency(dashboardData?.equation?.employeeDeposit) }}</span>
+            <span class="eq-subtext" [ngClass]="isDeltaPositive(dashboardData?.equation?.depositDelta) ? 'positive' : 'negative'">
+              {{ dashboardData?.equation?.prevMonthLabel }} {{ formatDelta(dashboardData?.equation?.depositDelta) }}
+            </span>
+          </div>
+
+          <!-- Plus Operator -->
+          <div class="equation-operator">+</div>
+
+          <!-- Total Deductions -->
+          <div class="equation-item">
+            <span class="eq-label">Total Deductions</span>
+            <span class="eq-amount">{{ formatCurrency(dashboardData?.equation?.totalDeductions) }}</span>
+            <span class="eq-subtext" [ngClass]="isDeltaPositive(dashboardData?.equation?.deductionsDelta) ? 'positive' : 'negative'">
+              {{ dashboardData?.equation?.prevMonthLabel }} {{ formatDelta(dashboardData?.equation?.deductionsDelta) }}
+            </span>
+          </div>
+
+          <!-- Plus Operator -->
+          <div class="equation-operator">+</div>
+
+          <!-- Total Contributions -->
+          <div class="equation-item">
+            <span class="eq-label">Total contributions</span>
+            <span class="eq-amount">{{ formatCurrency(dashboardData?.equation?.totalContributions) }}</span>
+            <span class="eq-subtext" [ngClass]="isDeltaPositive(dashboardData?.equation?.contributionsDelta) ? 'positive' : 'negative'">
+              {{ dashboardData?.equation?.prevMonthLabel }} {{ formatDelta(dashboardData?.equation?.contributionsDelta) }}
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           5. COLLAPSIBLE PAYROLL OUTCOME SECTION
+      ════════════════════════════════════════════════════════════ -->
+      <div class="outcome-accordion-container">
+        
+        <!-- Accordion Header -->
+        <div class="outcome-header" (click)="toggleOutcome()">
+          <div class="outcome-title">
+            <ion-icon [name]="outcomeCollapsed ? 'chevron-forward-outline' : 'chevron-down-outline'" class="accordion-chevron"></ion-icon>
+            <h3>Payroll Outcome</h3>
+          </div>
+
+          <!-- View Pay Register Action -->
+          <div class="outcome-actions">
+            <button class="view-register-btn" (click)="viewPayRegister($event)" [disabled]="isDownloadingRegister">
+              <ion-icon name="print-outline"></ion-icon>
+              <span>{{ isDownloadingRegister ? 'Exporting...' : 'View Pay Register' }}</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Accordion Body -->
+                <!-- Accordion Body -->
+        <div class="outcome-body" *ngIf="!outcomeCollapsed">
+          
+          <!-- Card 0: Manage Payslips -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Manage Payslips
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">No. of employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.noOfEmployees || 0 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Payslips released</span>
+                  <span class="value">{{ dashboardData?.outcome?.payslipsReleased || 0 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Payslips on hold</span>
+                  <span class="value">{{ dashboardData?.outcome?.payslipsOnHold || 0 }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-action">
+              <button class="primary-purple-btn" (click)="managePayslips()">
+                Manage payslips and F&amp;F Statements
+              </button>
+            </div>
+          </div>
+
+          <!-- Card 1: Income Tax (ITR) -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Income Tax (ITR)
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">No. of Employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.incomeTax?.employeesCount || 5 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Initiation Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.incomeTax?.initiationDate || ('07-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">End Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.incomeTax?.endDate || (daysInMonth + '-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Status</span>
+                  <span class="value status-val">{{ dashboardData?.outcome?.statutoryCards?.incomeTax?.status || 'UPLOADED' }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-action">
+              <button class="review-btn" (click)="reviewItem('incomeTax')">Review</button>
+            </div>
+          </div>
+
+          <!-- Card 2: Provident Fund (PF) -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Provident Fund (PF)
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">No. of Employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.providentFund?.employeesCount || 223 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Initiation Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.providentFund?.initiationDate || ('21-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">End Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.providentFund?.endDate || ('04-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Data Change</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.providentFund?.dataChange || ('07-' + selectedMonth) }}</span>
+                </div>
+              </div>
+              <a class="card-sub-link" (click)="viewRelatedRecords('PF-linked', dashboardData?.outcome?.statutoryCards?.providentFund?.linkedRecordsCount || 5)">
+                Information related to {{ dashboardData?.outcome?.statutoryCards?.providentFund?.linkedRecordsCount || 5 }} PF-linked records &rarr;
+              </a>
+            </div>
+            <div class="card-action">
+              <button class="review-btn" (click)="reviewItem('providentFund')">Review</button>
+            </div>
+          </div>
+
+          <!-- Card 3: Employee State Insurance (ESI) -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Employee State Insurance (ESI)
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">No. of Employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.esi?.employeesCount || 56 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Initiation Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.esi?.initiationDate || ('16-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">End Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.esi?.endDate || ('24-' + selectedMonth) }}</span>
+                </div>
+              </div>
+              <a class="card-sub-link" (click)="viewRelatedRecords('ESI-registered', dashboardData?.outcome?.statutoryCards?.esi?.registeredRecordsCount || 7)">
+                Information related to {{ dashboardData?.outcome?.statutoryCards?.esi?.registeredRecordsCount || 7 }} ESI-registered records &rarr;
+              </a>
+            </div>
+            <div class="card-action">
+              <button class="review-btn" (click)="reviewItem('esi')">Review</button>
+            </div>
+          </div>
+
+          <!-- Card 4: Professional Tax -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Professional Tax
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">No. of Employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.professionalTax?.employeesCount || 243 }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Tax periods</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.professionalTax?.taxPeriods || selectedMonth }}</span>
+                </div>
+              </div>
+              <a class="card-sub-link" (click)="viewRelatedRecords('PT-related', dashboardData?.outcome?.statutoryCards?.professionalTax?.relatedRecordsCount || 11)">
+                Information related to {{ dashboardData?.outcome?.statutoryCards?.professionalTax?.relatedRecordsCount || 11 }} PT-related records &rarr;
+              </a>
+            </div>
+            <div class="card-action">
+              <button class="review-btn" (click)="reviewItem('professionalTax')">Review</button>
+            </div>
+          </div>
+
+          <!-- Card 5: Deduction Components -->
+          <div class="outcome-card">
+            <div class="card-details">
+              <h4 class="card-title">
+                <span class="purple-bar"></span>
+                Deduction Components
+              </h4>
+              <div class="stats-row">
+                <div class="stat-unit">
+                  <span class="label">Device Component Name</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.deductionComponents?.componentName || 'PF - Data Change' }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Last Execution Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.deductionComponents?.lastExecutionDate || ('08-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Last Umbrella Plan Date</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.deductionComponents?.lastUmbrellaPlanDate || ('08-' + selectedMonth) }}</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat-unit">
+                  <span class="label">Total Employees</span>
+                  <span class="value">{{ dashboardData?.outcome?.statutoryCards?.deductionComponents?.totalEmployees || 233 }}</span>
+                </div>
+              </div>
+            </div>
+            <div class="card-action">
+              <button class="review-btn" (click)="reviewItem('deductionComponents')">Review</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ═══════════════════════════════════════════════════════════
+           6. NOT YET PROCESSED BANNER (If month has no completed run)
+      ════════════════════════════════════════════════════════════ -->
+      <div class="not-processed-card" *ngIf="!dashboardData?.outcome?.isCompleted">
+        <div class="not-processed-content">
+          <div class="info-badge">
+            <ion-icon name="alert-circle-outline"></ion-icon>
+          </div>
+          <div>
+            <h4>Payroll Not Finalized for {{ selectedMonth }}</h4>
+            <p>Run the 6-step payroll process (Run → Summary → Preview → Validate → Lock → Paid) to disburse salaries and generate payslips.</p>
+          </div>
+        </div>
+        <button class="start-process-btn" (click)="goToRunStepper()">
+          <ion-icon name="play-outline"></ion-icon>
+          <span>Run Payroll for {{ selectedMonth }}</span>
+        </button>
+      </div>
+
+    </div>
+
+  </div>
+</ion-content>
+
