@@ -207,16 +207,47 @@ export class PayslipsPage implements OnInit, OnDestroy {
   fetchPayslipData(employeeId: number, monthStr: string) {
     this.loading = true;
 
+    const [yearStr, monthStrPart] = monthStr.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStrPart, 10);
+    const totalDaysInMonth = new Date(year, month, 0).getDate();
+    const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+    const endDate = `${year}-${String(month).padStart(2, '0')}-${String(totalDaysInMonth).padStart(2, '0')}`;
+
+    this.totalWorkingDays = totalDaysInMonth;
+
+    // Direct attendance report call to /api/attendance/my-report
+    const reportObservable = (this.currentEmployee?.id === employeeId)
+      ? this.attendanceApi.getMonthlyReport({ startDate, endDate, month, year })
+      : this.attendanceApi.getEmployeeReport(employeeId, { startDate, endDate, month, year });
+
+    reportObservable.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (attRes: any) => {
+        if (attRes?.summary) {
+          this.lopDays = Number(attRes.summary.lop_days ?? 0);
+          this.actualPayableDays = Number(attRes.summary.present_days ?? 0);
+          this.daysPayable = Math.max(0, this.totalWorkingDays - this.lopDays);
+          this.payableDays = this.daysPayable;
+        }
+      },
+      error: (err: any) => {
+        console.warn('Could not fetch attendance report:', err);
+      }
+    });
+
     this.payrollApi.getEmployeeRunStatus(employeeId, monthStr).pipe(takeUntil(this.destroy$)).subscribe({
       next: (res: any) => {
         if (res.success && res.data) {
           const data = res.data;
 
-          // Update attendance metrics directly from Payroll API response
-          this.actualPayableDays = data.total_days || 0;
-          this.totalWorkingDays = data.total_days || 0;
-          this.lopDays = data.lop_days || 0;
-          this.daysPayable = data.days_payable || 0;
+          if (data.total_days) {
+            this.totalWorkingDays = data.total_days;
+          }
+          if (this.lopDays === undefined || this.lopDays === null) {
+            this.lopDays = data.lop_days ?? 0;
+            this.actualPayableDays = data.attendanceSummary?.present_days ?? data.present_days ?? 0;
+          }
+          this.daysPayable = Math.max(0, this.totalWorkingDays - this.lopDays);
           this.payableDays = this.daysPayable;
 
           // Only show payslip if runStatus is COMPLETED

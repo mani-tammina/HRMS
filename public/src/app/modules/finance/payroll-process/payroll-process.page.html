@@ -333,6 +333,7 @@
                     <th class="num">Annual CTC</th>
                     <th class="num">Monthly Gross</th>
                     <th class="num highlight-attendance">Calendar Days</th>
+                    <th class="num highlight-attendance">Present Days</th>
                     <th class="num highlight-lop">LOP</th>
                     <th class="num highlight-paid">Paid Days</th>
                     <th *ngFor="let head of getPreviewComponentHeaders()" class="num">{{ head }}</th>
@@ -354,6 +355,7 @@
                     <td class="num">{{ formatCurrency(emp.annual_ctc) }}</td>
                     <td class="num bold">{{ formatCurrency(emp.monthly_gross) }}</td>
                     <td class="num">{{ emp.calendar_days }}</td>
+                    <td class="num highlight-attendance">{{ emp.present_days !== undefined ? emp.present_days : 0 }}</td>
                     <td class="num bold lop-val">{{ emp.lop_days }}</td>
                     <td class="num bold paid-val">{{ emp.paid_days }}</td>
                     <td *ngFor="let head of getPreviewComponentHeaders()" class="num">

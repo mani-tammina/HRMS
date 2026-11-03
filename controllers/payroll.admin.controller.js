@@ -117,112 +117,36 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
   const sd = `${year}-${String(month).padStart(2, '0')}-01`;
   const lastDay = new Date(year, month, 0).getDate();
   const ed = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
-  const now = new Date();
-  const todayStr = now.toDateString();
 
-  const employeeIds = employees.map(e => e.id);
-  if (employeeIds.length === 0) return {};
+  if (!employees || employees.length === 0) return {};
 
-  const [attendance] = await c.query(`
-    SELECT employee_id, attendance_date, status FROM attendance 
-    WHERE employee_id IN (?) AND attendance_date BETWEEN ? AND ?
-  `, [employeeIds, sd, ed]);
-
-  const attMap = {};
-  attendance.forEach(a => {
-    if (!attMap[a.employee_id]) attMap[a.employee_id] = {};
-    attMap[a.employee_id][new Date(a.attendance_date).toDateString()] = a;
-  });
-
-  const [allLeaves] = await c.query(`
-    SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, l.is_half_day
-    FROM leaves l
-    INNER JOIN leave_types lt ON l.leave_type_id = lt.id
-    WHERE l.employee_id IN (?) AND l.status = 'approved'
-      AND (l.start_date <= ? AND l.end_date >= ?)
-  `, [employeeIds, ed, sd]);
-
-  const leavesMap = {};
-  const lopLeavesByDay = {}; // employee_id -> { dateStr -> weight }
-
-  allLeaves.forEach(l => {
-    if (!leavesMap[l.employee_id]) leavesMap[l.employee_id] = [];
-    leavesMap[l.employee_id].push(l);
-
-    if (l.type_code === 'LOP' || l.type_code === 'UL') {
-      if (!lopLeavesByDay[l.employee_id]) lopLeavesByDay[l.employee_id] = {};
-      let currL = new Date(l.start_date);
-      const endL = new Date(l.end_date);
-      const weight = l.is_half_day ? 0.5 : 1.0;
-      
-      while (currL <= endL) {
-        const dStr = currL.toDateString();
-        lopLeavesByDay[l.employee_id][dStr] = (lopLeavesByDay[l.employee_id][dStr] || 0) + weight;
-        currL.setDate(currL.getDate() + 1);
-      }
-    }
-  });
-
+  const attendanceRoutes = require('../routes/attendance-enhanced.routes');
   const result = {};
 
   for (const emp of employees) {
-    const empAtt = attMap[emp.id] || {};
-    const empLeaves = leavesMap[emp.id] || [];
-    const empLopDaysMap = lopLeavesByDay[emp.id] || {};
-    
-    const weekOffDays = [];
-    if (emp.sunday_off) weekOffDays.push('sunday');
-    if (emp.monday_off) weekOffDays.push('monday');
-    if (emp.tuesday_off) weekOffDays.push('tuesday');
-    if (emp.wednesday_off) weekOffDays.push('wednesday');
-    if (emp.thursday_off) weekOffDays.push('thursday');
-    if (emp.friday_off) weekOffDays.push('friday');
-    if (emp.saturday_off) weekOffDays.push('saturday');
+    try {
+      const rep = await attendanceRoutes.getUnifiedAttendanceListAndSummary(c, emp.id, sd, ed, month, year);
+      const summ = rep?.summary || {};
+      const lopDays = Number(summ.lop_days || 0);
+      const presentDays = Number(summ.present_days || 0);
+      const totalDays = Number(summ.total_days || lastDay);
 
-    let penalty_absent_days = 0;
-    let regular_absent_days = 0;
-    let lop_leave_days = 0;
-
-    let curr = new Date(sd);
-    const end = new Date(ed);
-    const daysInMonth = new Date(year, month, 0).getDate();
-
-    while (curr <= end) {
-      const dStr = curr.toDateString();
-      const isFuture = curr > now && dStr !== todayStr;
-      const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      
-      // 1. Check for approved LOP leave first
-      if (empLopDaysMap[dStr]) {
-        lop_leave_days += empLopDaysMap[dStr];
-      } 
-      // 2. Otherwise check attendance for penalties or regular absences
-      else if (empAtt[dStr]) {
-        const record = empAtt[dStr];
-        if (record.status === 'penalty') {
-          penalty_absent_days++; // Penalty days from attendance
-        } else if (record.status === 'absent') {
-          regular_absent_days++; // Regular absent days from attendance
-        }
-      } 
-      // 3. No log and not weekend/future? 
-      else if (!isFuture && dStr !== todayStr && !weekOffDays.includes(weekday)) {
-         // This matches the "No Attendance Logs" penalty logic from my-report
-         // But only if it's past the threshold. For simplicity in preview, we treat it as penalty
-         penalty_absent_days++;
-      }
-      
-      curr.setDate(curr.getDate() + 1);
+      result[emp.id] = {
+        calendar_days: lastDay,
+        lop_days: lopDays,
+        paid_days: Math.max(0, lastDay - lopDays),
+        present_days: presentDays,
+        total_days: totalDays
+      };
+    } catch (e) {
+      result[emp.id] = {
+        calendar_days: lastDay,
+        lop_days: 0,
+        paid_days: lastDay,
+        present_days: 0,
+        total_days: lastDay
+      };
     }
-
-    // Following my-report's lop_days logic
-    const lopDays = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_leave_days;
-    
-    result[emp.id] = {
-      calendar_days: daysInMonth,
-      lop_days: lopDays,
-      paid_days: daysInMonth - lopDays
-    };
   }
 
   return result;
@@ -626,6 +550,8 @@ async function calculateDryRunFinancials(c, year, month) {
       lop_days: lopDays,
       calendar_days: calendarDays,
       paid_days: paidDays,
+      present_days: attSummary.present_days !== undefined ? attSummary.present_days : 0,
+      total_days: attSummary.total_days !== undefined ? attSummary.total_days : calendarDays,
       components: finalComponents.map(c => ({
         code: c.component_code,
         name: c.component_name,
@@ -1251,137 +1177,17 @@ async function getEmployeeRunStatus(req, res) {
       [employeeId, parsed.year, parsed.month]
     );
 
-    // Calculate attendance metrics for pro-rata scaling
+    // Calculate attendance metrics directly via unified attendance (matches /api/attendance/my-report)
     const totalCalendarDays = new Date(parsed.year, parsed.month, 0).getDate();
     const startDate = `${parsed.year}-${String(parsed.month).padStart(2, '0')}-01`;
     const endDate = `${parsed.year}-${String(parsed.month).padStart(2, '0')}-${totalCalendarDays}`;
-    
-    let weekOffNames = [];
-    const [employeeData] = await c.query("SELECT weekly_off_policy_id FROM employees WHERE id = ?", [employeeId]);
-    if (employeeData.length && employeeData[0].weekly_off_policy_id) {
-        const [wp] = await c.query("SELECT * FROM weekly_off_policies WHERE id = ?", [employeeData[0].weekly_off_policy_id]);
-        if (wp.length) {
-            const policy = wp[0];
-            if (policy.sunday_off) weekOffNames.push('sunday');
-            if (policy.monday_off) weekOffNames.push('monday');
-            if (policy.tuesday_off) weekOffNames.push('tuesday');
-            if (policy.wednesday_off) weekOffNames.push('wednesday');
-            if (policy.thursday_off) weekOffNames.push('thursday');
-            if (policy.friday_off) weekOffNames.push('friday');
-            if (policy.saturday_off) weekOffNames.push('saturday');
-        }
-    }
 
-    const [attendance] = await c.query(
-        `SELECT a.* FROM attendance a WHERE a.employee_id = ? AND a.attendance_date BETWEEN ? AND ?`,
-        [employeeId, startDate, endDate]
-    );
-
-    const [empDetails] = await c.query(`
-        SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
-        FROM employees e
-        LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-        LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
-        LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-        WHERE e.id = ?
-    `, [employeeId]);
-    const employee = empDetails[0];
-
-    const [allLeaves] = await c.query(`
-        SELECT l.*, lt.type_code 
-        FROM leaves l 
-        INNER JOIN leave_types lt ON l.leave_type_id = lt.id
-        WHERE l.employee_id = ? AND l.status = 'approved' 
-          AND ((l.start_date BETWEEN ? AND ?) OR (l.end_date BETWEEN ? AND ?))
-    `, [employeeId, startDate, endDate, startDate, endDate]);
-
-    const weekOffDays = [];
-    if (employee) {
-        if (employee.sunday_off) weekOffDays.push('sunday');
-        if (employee.monday_off) weekOffDays.push('monday');
-        if (employee.tuesday_off) weekOffDays.push('tuesday');
-        if (employee.wednesday_off) weekOffDays.push('wednesday');
-        if (employee.thursday_off) weekOffDays.push('thursday');
-        if (employee.friday_off) weekOffDays.push('friday');
-        if (employee.saturday_off) weekOffDays.push('saturday');
-    }
-
-    const attMap = new Map();
-    attendance.forEach(a => {
-        const dStr = new Date(a.attendance_date).toDateString();
-        attMap.set(dStr, a);
-    });
-
-    const now = new Date();
-    const todayStr = now.toDateString();
-    let present_days = 0;
-    let absent_days = 0;
-    let leave_days = 0;
-    let weekend_days = 0;
-    let half_day_count = 0;
-    let lop_leave_days = 0;
-
-    let curr = new Date(startDate);
-    let end = new Date(endDate);
-    while (curr <= end) {
-        if (curr > now && curr.toDateString() !== todayStr) {
-            curr.setDate(curr.getDate() + 1);
-            continue;
-        }
-
-        const dStr = curr.toDateString();
-        const isToday = dStr === todayStr;
-        const weekday = curr.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        
-        const todaysLeaves = allLeaves.filter(l => {
-            const lStart = new Date(l.start_date);
-            const lEnd = new Date(l.end_date);
-            const check = new Date(curr);
-            check.setHours(0,0,0,0);
-            lStart.setHours(0,0,0,0);
-            lEnd.setHours(0,0,0,0);
-            return check >= lStart && check <= lEnd;
-        });
-
-        if (todaysLeaves.length > 0) {
-            todaysLeaves.forEach(l => {
-                const weight = l.is_half_day ? 0.5 : 1.0;
-                leave_days += weight;
-                if (l.type_code === 'LOP') {
-                    lop_leave_days += weight;
-                }
-            });
-        } else if (weekOffDays.includes(weekday)) {
-            weekend_days++;
-        } else if (attMap.has(dStr)) {
-            const record = attMap.get(dStr);
-            if (record.status === 'present') present_days++;
-            else if (record.status === 'half-day') {
-                present_days += 0.5;
-                half_day_count++;
-            } else if (record.status === 'penalty') {
-                absent_days++;
-            }
-        } else if (!isToday) {
-            const shiftStartStr = employee?.start_time || '09:00:00';
-            const [sh, sm] = shiftStartStr.split(':').map(Number);
-            const shiftStart = new Date(curr);
-            shiftStart.setHours(sh || 9, sm || 0, 0, 0);
-
-            const penaltyThreshold = new Date(shiftStart);
-            const thresholdHours = employee?.missing_log_threshold || 48;
-            penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
-
-            if (now > penaltyThreshold) {
-                absent_days++;
-            }
-        }
-        curr.setDate(curr.getDate() + 1);
-    }
-
-    const lop_days = (absent_days * 0.5) + lop_leave_days;
-    const days_payable = totalCalendarDays - lop_days;
-    const proRataFactor = totalCalendarDays > 0 ? (days_payable / totalCalendarDays) : 1;
+    const attendanceRoutes = require('../routes/attendance-enhanced.routes');
+    const attReport = await attendanceRoutes.getUnifiedAttendanceListAndSummary(c, employeeId, startDate, endDate, parsed.month, parsed.year);
+    const attSummary = attReport?.summary || {};
+    const lop_days = Number(attSummary.lop_days || 0);
+    const present_days = Number(attSummary.present_days || 0);
+    const days_payable = Math.max(0, totalCalendarDays - lop_days);
 
     // 2. Get Active Contract for the employee
     const [contractRows] = await c.query(
@@ -1394,68 +1200,66 @@ async function getEmployeeRunStatus(req, res) {
     );
     const contract = contractRows[0] || null;
 
-    // 3. Get Template Components (Composition) if contract exists
+    // 3. Components & Contributions calculated as per payroll process
+    const dryRun = await calculateDryRunFinancials(c, parsed.year, parsed.month);
+    const empCalc = dryRun.allCalculated.find(e => e.employee_id === employeeId);
+
     let templateComponents = [];
-    if (contract) {
-        const [compRows] = await c.query(
-            `SELECT sc.*, 
-                    COALESCE(mc.code, lc.code) AS component_code,
-                    COALESCE(mc.name, lc.name) AS component_name,
-                    COALESCE(mc.component_type, lc.component_type) AS component_type,
-                    COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
-                    COALESCE(mc.value, lc.value) AS value,
-                    COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
-                    COALESCE(mc.sequence, lc.sequence) AS sequence
-             FROM structure_composition sc
-             LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
-             LEFT JOIN salary_components lc ON lc.id = sc.component_id
-             WHERE sc.template_id = ?
-             ORDER BY COALESCE(mc.sequence, lc.sequence, 999)`,
-            [contract.template_id]
-        );
-        
-        // Calculate pro-rated monthly Gross (Target CTC for balancing)
-        const fullMonthlyCTC = contract ? Number(contract.annual_ctc || 0) / 12.0 : 0;
-        const monthlyGrossCalculated = Math.round(fullMonthlyCTC * proRataFactor);
-        const computed = {};
-        const full_computed = {};
-        let otherTotal = 0;
-        let fullOtherTotal = 0;
-        let specialCompIdx = -1;
-        
-        // Rule: If Full Month Basic >= 15000, Deductions are NOT pro-rated for LOP
-        const basicComp = compRows.find(c => {
-             const code = (c.component_code || "").toUpperCase();
-             const name = (c.component_name || "").toUpperCase();
-             return code === 'BASIC' || name === 'BASIC SALARY';
-        });
+    let monthlyGross = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;
+    let totalEarnings = 0;
+
+    if (empCalc && empCalc.components) {
+        monthlyGross = empCalc.monthly_gross || monthlyGross;
+        totalEarnings = empCalc.total_earnings || 0;
+
+        const fullMonthlyCTC = Number(empCalc.annual_ctc || 0) / 12.0;
+        let compRows = [];
+        if (contract) {
+            const [rows] = await c.query(
+                `SELECT sc.*, 
+                        COALESCE(mc.code, lc.code) AS component_code,
+                        COALESCE(mc.name, lc.name) AS component_name,
+                        COALESCE(mc.component_type, lc.component_type) AS component_type,
+                        COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+                        COALESCE(mc.value, lc.value) AS value,
+                        COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+                        COALESCE(mc.sequence, lc.sequence) AS sequence
+                 FROM structure_composition sc
+                 LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+                 LEFT JOIN salary_components lc ON lc.id = sc.component_id
+                 WHERE sc.template_id = ?
+                 ORDER BY COALESCE(mc.sequence, lc.sequence, 999)`,
+                [contract.template_id]
+            );
+            compRows = rows;
+        }
+
+        const basicComp = compRows.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
         let fullMonthlyBasic = 0;
         if (basicComp) {
-             const override = parseFormulaOverride(basicComp.formula_or_value);
-             let inputVal = Number(basicComp.value || 0);
-             let calcType = basicComp.calculation_type;
-             if (override) {
-                 if (override.calculation_type) calcType = override.calculation_type;
-                 inputVal = override.value;
-             }
-             if (calcType === 'PERCENTAGE') {
-                 fullMonthlyBasic = (fullMonthlyCTC * inputVal) / 100.0;
-             } else {
-                 fullMonthlyBasic = inputVal / 12.0;
-             }
-        }
-        const skipDeductionProRata = lop_days > 0 && fullMonthlyBasic >= 15000;
-
-        // First pass: Calculate and round all components except Special Allowance
-        let results = compRows.map((r, idx) => {
-            if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
-                specialCompIdx = idx;
-                return null;
+            const override = parseFormulaOverride(basicComp.formula_or_value);
+            let inputVal = Number(basicComp.default_value || basicComp.value || 0);
+            let calcType = basicComp.calculation_type;
+            if (override) {
+                if (override.calculation_type) calcType = override.calculation_type;
+                inputVal = override.value;
             }
-            
+            if (calcType === 'PERCENTAGE') {
+                fullMonthlyBasic = (fullMonthlyCTC * inputVal) / 100.0;
+            } else {
+                fullMonthlyBasic = inputVal / 12.0;
+            }
+        }
+
+        const fullComputed = {};
+        let fullOtherEarnings = 0;
+        let specialIdx = -1;
+
+        templateComponents = empCalc.components.map((cmp, idx) => {
+            const r = compRows.find(x => x.component_code === cmp.code || x.component_name === cmp.name) || cmp;
             const override = parseFormulaOverride(r.formula_or_value);
-            let calculation_type = r.calculation_type;
-            let inputVal = Number(r.value || 0);
+            let calculation_type = r.calculation_type || 'FIXED';
+            let inputVal = Number(r.default_value || r.value || 0);
             let percentage_of_code = r.percentage_of_code;
 
             if (override) {
@@ -1464,92 +1268,41 @@ async function getEmployeeRunStatus(req, res) {
                 if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
             }
 
-            const isEarning = r.component_type === 'EARNING';
-            const isESI = r.component_code === 'ESI_EE' || r.component_code === 'ESI_ER' || /esi/i.test(r.component_name || '');
-            const skipProRata = skipDeductionProRata || (lop_days > 0 && isESI);
-            const currentFactor = (isEarning || !skipProRata) ? proRataFactor : 1.0;
-
-            let actualValue = 0;
-            let fullValueRaw = 0;
-
-            if (calculation_type === 'PERCENTAGE') {
-                if (percentage_of_code && computed[percentage_of_code] !== undefined) {
-                    if (!isEarning && skipProRata) {
-                        actualValue = (full_computed[percentage_of_code] * inputVal) / 100.0;
-                    } else {
-                        actualValue = (computed[percentage_of_code] * inputVal) / 100.0;
-                    }
-                    fullValueRaw = (full_computed[percentage_of_code] * inputVal) / 100.0;
+            let fullVal = 0;
+            if (cmp.code === 'SPECIAL' || cmp.name === 'Special Allowance') {
+                specialIdx = idx;
+            } else if (calculation_type === 'PERCENTAGE') {
+                if (percentage_of_code && fullComputed[percentage_of_code] !== undefined) {
+                    fullVal = (fullComputed[percentage_of_code] * inputVal) / 100.0;
                 } else {
-                    actualValue = (fullMonthlyCTC * currentFactor * inputVal) / 100.0;
-                    fullValueRaw = (fullMonthlyCTC * inputVal) / 100.0;
+                    fullVal = (fullMonthlyCTC * inputVal) / 100.0;
                 }
             } else {
-                actualValue = (inputVal / 12.0) * currentFactor;
-                fullValueRaw = (inputVal / 12.0);
+                fullVal = inputVal > 1000 ? (inputVal / 12.0) : inputVal;
             }
 
-            const roundedValue = Math.round(actualValue);
-            const roundedFullValue = Math.round(fullValueRaw);
-            
-            computed[r.component_code] = roundedValue;
-            full_computed[r.component_code] = roundedFullValue;
-            
-            if (isEarning) {
-                otherTotal += roundedValue;
-                fullOtherTotal += roundedFullValue;
+            const roundedFull = Math.round(fullVal);
+            fullComputed[cmp.code] = roundedFull;
+            if (cmp.type === 'EARNING' && cmp.code !== 'SPECIAL') {
+                fullOtherEarnings += roundedFull;
             }
-            
+
             return {
-                ...r,
-                value: roundedValue.toString(),
-                full_value: roundedFullValue.toString()
+                component_code: cmp.code,
+                component_name: cmp.name,
+                component_type: cmp.type,
+                value: Math.round(cmp.amount).toString(),
+                full_value: roundedFull.toString()
             };
         });
 
-        if (specialCompIdx !== -1) {
-            const specialComp = compRows[specialCompIdx];
-            const specialValue = Math.max(0, monthlyGrossCalculated - otherTotal);
-            const fullSpecialValue = Math.max(0, Math.round(fullMonthlyCTC) - fullOtherTotal);
-            
-            results[specialCompIdx] = {
-                ...specialComp,
-                value: specialValue.toString(),
-                full_value: fullSpecialValue.toString()
-            };
+        if (specialIdx !== -1) {
+            const fullSpecial = Math.max(0, Math.round(fullMonthlyCTC) - fullOtherEarnings);
+            templateComponents[specialIdx].full_value = fullSpecial.toString();
         }
-
-        // Bundle Employer portions into Special Allowance (Subtracting them to hide them in the Gross Salary view)
-        let erBundle = 0;
-        let erFullBundle = 0;
-        results.forEach(r => {
-            if (!r) return;
-            const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
-            if (isEr) {
-                erBundle += Number(r.value || 0);
-                erFullBundle += Number(r.full_value || 0);
-            }
-        });
-
-        if (specialCompIdx !== -1) {
-            results[specialCompIdx].value = (Number(results[specialCompIdx].value) - erBundle).toString();
-            results[specialCompIdx].full_value = (Number(results[specialCompIdx].full_value) - erFullBundle).toString();
-        }
-
-        templateComponents = results.filter(r => {
-            if (!r) return false;
-            const isEr = /employer|employeer/i.test(r.component_name) || /_ER$/i.test(r.component_code);
-            const isESI_ER = /ESI_ER/i.test(r.component_code || '');
-            return !isEr || isESI_ER;
-        });
-        monthlyGross = Math.round(fullMonthlyCTC);
     }
 
     const monthlyCTCValue = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;
-    const totalEarnings = templateComponents
-        .filter(c => c.component_type === 'EARNING')
-        .reduce((sum, c) => sum + Number(c.value || 0), 0);
-
     c.end();
 
     if (!rows.length) {
@@ -1566,11 +1319,12 @@ async function getEmployeeRunStatus(req, res) {
         days_payable,
         lop_days,
         attendanceSummary: {
-            total_days: present_days + weekend_days + lop_days,
+            total_days: attSummary.total_days || totalCalendarDays,
             present_days,
-            absent_days,
-            leave_days,
-            weekend_days,
+            absent_days: Number(attSummary.absent_days || 0),
+            leave_days: Number(attSummary.leave_days || 0),
+            weekend_days: Number(attSummary.weekend_days || 0),
+            holiday_days: Number(attSummary.holiday_days || 0),
             lop_days
         },
         templateComponents
@@ -1590,11 +1344,12 @@ async function getEmployeeRunStatus(req, res) {
       days_payable,
       lop_days,
       attendanceSummary: {
-          total_days: present_days + weekend_days + lop_days,
+          total_days: attSummary.total_days || totalCalendarDays,
           present_days,
-          absent_days,
-          leave_days,
-          weekend_days,
+          absent_days: Number(attSummary.absent_days || 0),
+          leave_days: Number(attSummary.leave_days || 0),
+          weekend_days: Number(attSummary.weekend_days || 0),
+          holiday_days: Number(attSummary.holiday_days || 0),
           lop_days
       },
       templateComponents

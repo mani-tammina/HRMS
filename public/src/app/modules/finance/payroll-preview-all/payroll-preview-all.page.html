@@ -30,6 +30,7 @@
           <div class="header-cell col-ctc num">Annual CTC</div>
           <div class="header-cell col-gross num">Monthly Gross</div>
           <div class="header-cell col-days num highlight-attendance">Calendar</div>
+          <div class="header-cell col-days num highlight-attendance">Present</div>
           <div class="header-cell col-days num highlight-lop">LOP</div>
           <div class="header-cell col-days num highlight-paid">Paid</div>
           
@@ -58,6 +59,7 @@
             <div class="cell col-ctc num">{{ formatCurrency(emp.annual_ctc) }}</div>
             <div class="cell col-gross num bold">{{ formatCurrency(emp.monthly_gross) }}</div>
             <div class="cell col-days num highlight-attendance">{{ emp.calendar_days }}</div>
+            <div class="cell col-days num highlight-attendance">{{ emp.present_days !== undefined ? emp.present_days : 0 }}</div>
             <div class="cell col-days num bold lop-val highlight-lop">{{ emp.lop_days }}</div>
             <div class="cell col-days num bold paid-val highlight-paid">{{ emp.paid_days }}</div>
             
