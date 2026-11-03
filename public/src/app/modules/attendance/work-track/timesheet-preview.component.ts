@@ -12,6 +12,9 @@ import { CommonModule } from '@angular/common';
       <ion-toolbar>
         <ion-title>Work Log Preview</ion-title>
         <ion-buttons slot="end">
+          <ion-button class="download-btn" (click)="downloadExcel()" title="Download Timesheet">
+            <ion-icon slot="icon-only" name="download-outline"></ion-icon>
+          </ion-button>
           <ion-button class="close-btn" (click)="close()">
             <ion-icon slot="icon-only" name="close-outline"></ion-icon>
           </ion-button>
@@ -82,6 +85,79 @@ export class TimesheetPreviewComponent implements OnInit, OnChanges {
     if (changes['data']) {
       this.updateLogs();
     }
+  }
+
+  downloadExcel() {
+    if (!this.data) return;
+    const timesheet = this.data;
+    let tableRows = '';
+    const logs = this.parsedLogs && this.parsedLogs.length ? this.parsedLogs : [];
+
+    if (logs.length > 0) {
+      logs.forEach((b: any, index: number) => {
+        tableRows += `
+          <tr>
+            <td style="text-align: center;">${index + 1}</td>
+            <td>${b.hour || '-'}</td>
+            <td>${b.task || '-'}</td>
+            <td style="text-align: center;">${b.hours !== undefined && b.hours !== null ? b.hours : '-'}</td>
+          </tr>
+        `;
+      });
+    } else {
+      tableRows = `
+        <tr>
+          <td style="text-align: center;">1</td>
+          <td>Full Day</td>
+          <td>${timesheet.notes || timesheet.work_description || '-'}</td>
+          <td style="text-align: center;">${timesheet.total_hours || '0'}</td>
+        </tr>
+      `;
+    }
+
+    const rawDate = timesheet.date || timesheet.week_start_date || timesheet.created_at;
+    let formattedDate = rawDate;
+    try {
+      const d = new Date(rawDate);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        formattedDate = `${day}-${month}-${year}`;
+      }
+    } catch {}
+
+    const empName = timesheet.FullName || 
+                    (timesheet.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
+                    'Employee';
+    const empNumber = timesheet.EmployeeNumber || '';
+
+    const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel">
+    <head><meta charset="UTF-8" /></head>
+    <body>
+      <table border="1">
+        <tr><td>Employee</td><td colspan="3">${empName} ${empNumber ? '(' + empNumber + ')' : ''}</td></tr>
+        <tr><td>Date</td><td colspan="3">${formattedDate}</td></tr>
+        <tr><th>S.No</th><th>Time</th><th>Task</th><th>Hours</th></tr>
+        ${tableRows}
+        <tr><td>Note</td><td colspan="3">${timesheet.notes || '-'}</td></tr>
+        <tr><td>Total</td><td colspan="3">${timesheet.total_hours || '0'}</td></tr>
+      </table>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    const safeEmp = empName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Timesheet_${safeEmp}_${formattedDate}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
   }
 
   close() {

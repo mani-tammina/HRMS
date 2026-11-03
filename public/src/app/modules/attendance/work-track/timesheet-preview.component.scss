@@ -238,6 +238,18 @@ ion-header {
   }
 }
 
+.download-btn {
+  --color: #{vars.$color-primary};
+  --padding-start: 8px;
+  --padding-end: 8px;
+  font-size: 22px;
+  transition: vars.$transition-base;
+
+  &:hover {
+    --color: #{vars.$color-primary-dark};
+  }
+}
+
 .close-btn {
   --color: vars.$color-text-muted;
   --padding-start: 8px;

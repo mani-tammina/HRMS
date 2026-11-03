@@ -1015,6 +1015,159 @@ export class InboxPage implements OnInit {
     }
   }
 
+  async downloadTimesheet(notification: InboxNotification) {
+    if (!notification || !notification.request_id) {
+      this.toaster.showWarning('No timesheet record found to download');
+      return;
+    }
+
+    const loading = await this.loadingCtrl.create({
+      message: 'Preparing timesheet download...',
+    });
+    await loading.present();
+
+    this.timesheetService.getTimesheetDetails(notification.request_id).subscribe({
+      next: (timesheet: any) => {
+        loading.dismiss();
+        this.generateTimesheetExcel(timesheet, notification);
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.warn('Could not fetch server details, generating from notification data', err);
+        this.generateTimesheetExcel(null, notification);
+      }
+    });
+  }
+
+  private generateTimesheetExcel(timesheet: any, notification: InboxNotification) {
+    const meta = this.getParsedMetadata(notification.metadata);
+    const dateStr = timesheet?.date || meta.date || meta.week_range || notification.created_at;
+    let formattedDate = dateStr;
+    try {
+      const d = new Date(dateStr);
+      if (!isNaN(d.getTime())) {
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = d.getFullYear();
+        formattedDate = `${day}-${month}-${year}`;
+      }
+    } catch {}
+
+    const empName = timesheet?.FullName || 
+                    (timesheet?.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
+                    notification.employee_name || 'Employee';
+    const empNumber = timesheet?.EmployeeNumber || notification.employee_number || '';
+    const totalHours = timesheet?.total_hours || meta.total_hours || '0';
+    const rawNotes = timesheet?.notes || timesheet?.work_description || '';
+
+    // Extract hours_breakdown
+    let breakdown = timesheet?.hours_breakdown;
+    let attempts = 0;
+    while (typeof breakdown === 'string' && attempts < 3) {
+      attempts++;
+      try { breakdown = JSON.parse(breakdown); } catch { breakdown = null; break; }
+    }
+
+    let tableRows = '';
+    if (Array.isArray(breakdown) && breakdown.length > 0) {
+      breakdown.forEach((b: any, index: number) => {
+        tableRows += `
+          <tr>
+            <td style="text-align: center;">${index + 1}</td>
+            <td>${b.hour || '-'}</td>
+            <td>${b.task || b.task_description || b.description || '-'}</td>
+            <td style="text-align: center;">${b.hours !== undefined && b.hours !== null ? b.hours : '-'}</td>
+          </tr>
+        `;
+      });
+    } else {
+      const notesToParse = rawNotes || (notification.description && notification.description.includes('Notes:') 
+        ? notification.description.split('Notes:')[1].trim() 
+        : '');
+
+      if (notesToParse && notesToParse.includes('•')) {
+        const parts: string[] = notesToParse.split('•').map((p: string) => p.trim()).filter(Boolean);
+        parts.forEach((p: string, index: number) => {
+          const timeMatch = p.match(/^\[(.*?)\]\s*(.*)$/);
+          const time = timeMatch ? timeMatch[1] : '-';
+          const task = timeMatch ? timeMatch[2] : p;
+          tableRows += `
+            <tr>
+              <td style="text-align: center;">${index + 1}</td>
+              <td>${time}</td>
+              <td>${task}</td>
+              <td style="text-align: center;">-</td>
+            </tr>
+          `;
+        });
+      } else {
+        tableRows = `
+          <tr>
+            <td style="text-align: center;">1</td>
+            <td>Full Day</td>
+            <td>${notesToParse || notification.description || 'Timesheet work log'}</td>
+            <td style="text-align: center;">${totalHours}</td>
+          </tr>
+        `;
+      }
+    }
+
+    const html = `
+    <html xmlns:o="urn:schemas-microsoft-com:office:office"
+          xmlns:x="urn:schemas-microsoft-com:office:excel"
+          xmlns="http://www.w3.org/TR/REC-html40">
+    <head>
+      <meta charset="UTF-8" />
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; }
+        table { border-collapse: collapse; width: 100%; }
+        th { background-color: #61439d; color: #ffffff; font-weight: bold; padding: 8px 12px; border: 1px solid #cbd5e1; }
+        td { padding: 8px 12px; border: 1px solid #cbd5e1; font-size: 13px; }
+        .meta-label { background-color: #f8fafc; font-weight: bold; width: 140px; }
+      </style>
+    </head>
+    <body>
+      <table>
+        <tr>
+          <td class="meta-label">Employee</td>
+          <td colspan="3">${empName} ${empNumber ? '(' + empNumber + ')' : ''}</td>
+        </tr>
+        <tr>
+          <td class="meta-label">Date</td>
+          <td colspan="3">${formattedDate}</td>
+        </tr>
+        <tr>
+          <th style="width: 50px;">S.No</th>
+          <th style="width: 180px;">Time / Slot</th>
+          <th>Task Description</th>
+          <th style="width: 80px;">Hours</th>
+        </tr>
+        ${tableRows}
+        <tr>
+          <td class="meta-label">Note</td>
+          <td colspan="3">${rawNotes || '-'}</td>
+        </tr>
+        <tr>
+          <td class="meta-label">Total Hours</td>
+          <td colspan="3"><strong>${totalHours} Hours</strong></td>
+        </tr>
+      </table>
+    </body>
+    </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    const safeEmp = empName.replace(/[^a-zA-Z0-9_-]/g, '_');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Timesheet_${safeEmp}_${formattedDate}.xls`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    this.toaster.showSuccess('Timesheet downloaded successfully');
+  }
+
   async openTimesheetPreview(notification: InboxNotification) {
     const loading = await this.loadingCtrl.create({
       message: 'Loading work logs...',
@@ -1240,7 +1393,237 @@ export class InboxPage implements OnInit {
     });
   }
 
-  async triggerExportTimesheets() {
+  getSelectedTimesheetDate(): string {
+    if (this.selectedNotification) {
+      const meta = this.getParsedMetadata(this.selectedNotification.metadata);
+      if (meta?.date) return meta.date;
+      if (meta?.week_range && !meta.week_range.includes('to')) return meta.week_range;
+      if (this.selectedNotification.created_at) {
+        return this.selectedNotification.created_at.substring(0, 10);
+      }
+    }
+    const firstTs = this.notifications.find(n => n.request_type === 'Timesheet Request');
+    if (firstTs) {
+      const meta = this.getParsedMetadata(firstTs.metadata);
+      if (meta?.date) return meta.date;
+      if (meta?.week_range && !meta.week_range.includes('to')) return meta.week_range;
+      if (firstTs.created_at) return firstTs.created_at.substring(0, 10);
+    }
+    return new Date().toISOString().split('T')[0];
+  }
+
+  getTimesheetDateDisplay(n: InboxNotification | null): string {
+    if (!n) return this.getSelectedTimesheetDate();
+    const meta = this.getParsedMetadata(n.metadata);
+    return meta?.date || (meta?.week_range && !meta.week_range.includes('to') ? meta.week_range : '') || n.created_at?.substring(0, 10) || 'Date';
+  }
+
+  async downloadTeamTimesheetsForDate(dateOrNotification?: any) {
+    let targetDate = '';
+    if (typeof dateOrNotification === 'string') {
+      targetDate = dateOrNotification;
+    } else if (dateOrNotification) {
+      targetDate = this.getTimesheetDateDisplay(dateOrNotification);
+    }
+    if (!targetDate || targetDate === 'Date') {
+      targetDate = this.getSelectedTimesheetDate();
+    }
+
+    const loading = await this.loadingCtrl.create({
+      message: `Downloading team timesheets for ${targetDate}...`,
+    });
+    await loading.present();
+
+    this.inboxService.exportTimesheets({ startDate: targetDate, endDate: targetDate }).subscribe({
+      next: (blob: Blob) => {
+        loading.dismiss();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `Team_Timesheets_${targetDate}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        this.toaster.showSuccess(`Team timesheets for ${targetDate} downloaded successfully`);
+      },
+      error: (err: any) => {
+        loading.dismiss();
+        console.warn(`Server export failed for ${targetDate}, falling back to loaded timesheets:`, err);
+        this.exportLoadedTeamTimesheets(targetDate);
+      }
+    });
+  }
+
+  async downloadAllTeamTimesheets() {
+    const targetDate = this.getSelectedTimesheetDate();
+
+    const alert = await this.alertCtrl.create({
+      header: 'Download Team Timesheets',
+      subHeader: `Download team timesheets for ${targetDate} or select a date`,
+      inputs: [
+        {
+          name: 'targetDate',
+          type: 'date',
+          label: 'Selected Date',
+          value: targetDate
+        }
+      ],
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: `Download for Selected Date`,
+          handler: (data) => {
+            if (!data.targetDate) {
+              this.toaster.showError('Please select a date');
+              return false;
+            }
+            this.downloadTeamTimesheetsForDate(data.targetDate);
+            return true;
+          }
+        },
+        {
+          text: 'Date Range...',
+          handler: () => {
+            this.triggerExportTimesheets(true);
+            return true;
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  exportLoadedTeamTimesheets(filterDate?: string) {
+    let timesheetNotifications = this.notifications.filter(n => n.request_type === 'Timesheet Request');
+    if (filterDate) {
+      const filtered = timesheetNotifications.filter(n => this.getTimesheetDateDisplay(n) === filterDate);
+      if (filtered.length > 0) {
+        timesheetNotifications = filtered;
+      }
+    }
+
+    if (!timesheetNotifications.length) {
+      this.toaster.showWarning(`No timesheet requests found for ${filterDate || 'current view'}.`);
+      return;
+    }
+
+    let rowsHtml = '';
+    timesheetNotifications.forEach((n, idx) => {
+      const meta = this.getParsedMetadata(n.metadata);
+      const dateStr = meta.date || meta.week_range || n.created_at?.substring(0, 10) || '-';
+      let formattedDate = dateStr;
+      try {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) {
+          const day = String(d.getDate()).padStart(2, '0');
+          const month = String(d.getMonth() + 1).padStart(2, '0');
+          const year = d.getFullYear();
+          formattedDate = `${day}-${month}-${year}`;
+        }
+      } catch {}
+
+      const empId = n.employee_number || `EMP-${n.employee_id}`;
+      const empName = n.employee_name || 'N/A';
+      const dept = n.department_name || 'N/A';
+      const manager = n.manager_name || 'N/A';
+      const totalHours = meta.total_hours || '0';
+      const status = (n.status || 'Pending').toUpperCase();
+
+      let breakdownStr = '';
+      const notesToParse = n.description && n.description.includes('Notes:') 
+        ? n.description.split('Notes:')[1].trim() 
+        : (n.description || '');
+
+      if (notesToParse && notesToParse.includes('•')) {
+        const parts: string[] = notesToParse.split('•').map((p: string) => p.trim()).filter(Boolean);
+        breakdownStr = parts.map((p: string, i: number) => `${i + 1}. ${p}`).join('<br/>');
+      } else {
+        breakdownStr = notesToParse || 'Timesheet work log';
+      }
+
+      const rowBg = idx % 2 === 0 ? '#ffffff' : '#f8fafc';
+      rowsHtml += `
+        <tr style="background-color: ${rowBg};">
+          <td style="text-align: center; padding: 6px;">${idx + 1}</td>
+          <td style="padding: 6px; font-weight: bold;">${empId}</td>
+          <td style="padding: 6px;">${empName}</td>
+          <td style="padding: 6px;">${dept}</td>
+          <td style="padding: 6px;">${manager}</td>
+          <td style="text-align: center; padding: 6px;">${formattedDate}</td>
+          <td style="text-align: center; padding: 6px; font-weight: bold;">${totalHours}</td>
+          <td style="text-align: center; padding: 6px;">${status}</td>
+          <td style="padding: 6px;">${breakdownStr}</td>
+        </tr>
+      `;
+    });
+
+    const fileDate = filterDate || new Date().toISOString().split('T')[0];
+    const html = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office"
+            xmlns:x="urn:schemas-microsoft-com:office:excel"
+            xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Team Timesheets</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <style>
+          table { border-collapse: collapse; width: 100%; font-family: Arial, sans-serif; font-size: 11pt; }
+          th { background-color: #1e293b; color: #ffffff; font-weight: bold; padding: 8px; text-align: left; }
+          td { border: 1px solid #cbd5e1; vertical-align: top; }
+        </style>
+      </head>
+      <body>
+        <h3>Team Timesheets Report - ${fileDate}</h3>
+        <table border="1">
+          <thead>
+            <tr>
+              <th style="text-align: center;">S.No</th>
+              <th>Employee ID</th>
+              <th>Employee Name</th>
+              <th>Department</th>
+              <th>Reporting Manager</th>
+              <th style="text-align: center;">Date</th>
+              <th style="text-align: center;">Total Hours</th>
+              <th style="text-align: center;">Status</th>
+              <th>Work / Tasks Breakdown</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `Team_Timesheets_${fileDate}.xls`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    this.toaster.showSuccess(`Team timesheets for ${fileDate} downloaded successfully`);
+  }
+
+  async triggerExportTimesheets(showRange: boolean = false) {
+    if (!showRange) {
+      await this.downloadAllTeamTimesheets();
+      return;
+    }
+
     const today = new Date();
     const y = today.getFullYear();
     const m = String(today.getMonth() + 1).padStart(2, '0');
@@ -1248,7 +1631,7 @@ export class InboxPage implements OnInit {
     const defaultEnd = today.toISOString().split('T')[0];
 
     const alert = await this.alertCtrl.create({
-      header: 'Download Timesheets',
+      header: 'Download Team Timesheets (Date Range)',
       subHeader: this.isHR ? 'Download timesheets for all employees' : 'Download timesheets for your reporting team',
       inputs: [
         {
@@ -1267,7 +1650,7 @@ export class InboxPage implements OnInit {
       buttons: [
         { text: 'Cancel', role: 'cancel' },
         {
-          text: 'Download',
+          text: 'Download (.xlsx)',
           handler: (data) => {
             if (!data.startDate || !data.endDate) {
               this.toaster.showError('Both From Date and To Date are required');
@@ -1287,8 +1670,11 @@ export class InboxPage implements OnInit {
   }
 
   private async executeExportTimesheets(startDate: string, endDate: string) {
+    const isSingleDate = startDate === endDate;
     const loading = await this.loadingCtrl.create({
-      message: 'Generating timesheets report...',
+      message: isSingleDate 
+        ? `Generating team timesheets report for ${startDate}...` 
+        : `Generating team timesheets report from ${startDate} to ${endDate}...`,
     });
     await loading.present();
 
@@ -1298,17 +1684,20 @@ export class InboxPage implements OnInit {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `Employee_Timesheets_${startDate}_to_${endDate}.xlsx`;
+        a.download = isSingleDate ? `Team_Timesheets_${startDate}.xlsx` : `Team_Timesheets_${startDate}_to_${endDate}.xlsx`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
-        this.toaster.showSuccess('Timesheets downloaded successfully');
+        this.toaster.showSuccess(isSingleDate 
+          ? `Team timesheets for ${startDate} downloaded successfully` 
+          : 'Team timesheets downloaded successfully');
       },
       error: (err: any) => {
         loading.dismiss();
         console.error('Timesheets export failed', err);
-        this.toaster.showError('Failed to download employee timesheets');
+        const msg = err?.error?.error || 'Failed to download employee timesheets';
+        this.toaster.showError(msg);
       }
     });
   }

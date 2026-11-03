@@ -361,6 +361,33 @@
         align-items: center;
         gap: 8px;
 
+        .btn-download-team-timesheets {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background: #eff6ff;
+          color: #1d4ed8;
+          border: 1px solid #bfdbfe;
+          border-radius: 6px;
+          padding: 4px 10px;
+          font-size: 0.74rem;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          white-space: nowrap;
+
+          .btn-icon {
+            width: 13px;
+            height: 13px;
+          }
+
+          &:hover {
+            background: #dbeafe;
+            border-color: #93c5fd;
+            color: #1e40af;
+          }
+        }
+
         .type-select-dropdown,
         .month-select-dropdown {
           background: #f8fafc;
@@ -1404,6 +1431,48 @@
 
             &:active {
               transform: translateY(0);
+            }
+          }
+
+          .btn-download-preview {
+            background: #ffffff;
+            color: vars.$color-primary;
+            border: 1.5px solid vars.$color-primary;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+
+            ion-icon {
+              font-size: 16px;
+            }
+
+            &:hover {
+              background: #f3f0f9;
+              transform: translateY(-1px);
+              box-shadow: 0 4px 10px rgba(97, 67, 157, 0.15);
+            }
+
+            &:active {
+              transform: translateY(0);
+            }
+
+            &.btn-download-team {
+              background: #f0fdf4;
+              color: #16a34a;
+              border-color: #86efac;
+
+              &:hover {
+                background: #dcfce7;
+                border-color: #4ade80;
+                box-shadow: 0 4px 10px rgba(22, 163, 74, 0.15);
+              }
             }
           }
 
