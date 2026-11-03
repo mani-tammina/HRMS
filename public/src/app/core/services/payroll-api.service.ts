@@ -32,16 +32,20 @@ export interface PayrollDashboardData {
   payrollProcessedRatio: string;
   run: any;
   equation: {
+    totalGross?: number;
     totalPayrollCost: number;
     employeeDeposit: number;
     totalDeductions: number;
     totalContributions: number;
+    totalDeductionsContributions?: number;
     prevMonthLabel: string;
     prevMonthCost: number;
+    prevMonthGross?: number;
     prevMonthDeposit: number;
     prevMonthDeductions: number;
     prevMonthContributions: number;
     costDelta: number;
+    grossDelta?: number;
     depositDelta: number;
     deductionsDelta: number;
     contributionsDelta: number;
@@ -264,6 +268,10 @@ export interface PayrollPreviewResponse {
     estimate: {
       employeeCount: number;
       totalGross: number;
+      totalDeductions?: number;
+      totalContributions?: number;
+      totalDeductionsContributions?: number;
+      totalPayrollCost?: number;
       totalNet: number;
       totalPayout: number;
     };

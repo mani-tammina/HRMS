@@ -60,6 +60,12 @@ export class PayrollProcessPage implements OnInit {
   selectedRun: V2RunSummary | null = null;
   /** Alias so lock/paid steps keep working unchanged */
   get runStatus(): V2RunSummary | null { return this.selectedRun; }
+  get lockNetPayout(): number {
+    if (this.previewData?.data?.estimate?.totalNet !== undefined && this.previewData?.data?.estimate?.totalNet !== null) {
+      return this.previewData.data.estimate.totalNet;
+    }
+    return this.runStatus?.total_net || 0;
+  }
   previewData: PayrollPreviewResponse | null = null;
   validationResult: PayrollValidationResult | null = null;
   lockResult: any = null;
@@ -329,6 +335,13 @@ export class PayrollProcessPage implements OnInit {
       if (!this.validationResult && !this.isValidating) {
         this.startValidation();
       }
+      if (!this.previewData && !this.isPreviewing) {
+        this.startPreview();
+      }
+    } else if (key === 'lock' || key === 'paid') {
+      if (!this.previewData && !this.isPreviewing) {
+        this.startPreview();
+      }
     }
   }
 
@@ -496,8 +509,15 @@ navigateToExecution() {
         const newItems = res.data?.detailedPreview || [];
         this.fullDetailedPreview = [...this.fullDetailedPreview, ...newItems];
 
+        if (res.data?.estimate?.totalNet !== undefined) {
+          if (this.selectedRun) this.selectedRun.total_net = res.data.estimate.totalNet;
+          if (this.latestRun) this.latestRun.total_net = res.data.estimate.totalNet;
+        }
+
         this.isPreviewing = false;
-        this.saveMonthStage(this.selectedMonth, 'preview');
+        if (this.currentStep === 'preview') {
+          this.saveMonthStage(this.selectedMonth, 'preview');
+        }
 
         // Check if we can load more
         const pagination = (res as any).data?.pagination;

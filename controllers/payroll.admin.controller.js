@@ -327,6 +327,351 @@ async function buildRunValidation(year, month) {
   }
 }
 
+async function calculateDryRunFinancials(c, year, month) {
+  const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+  const ed = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+
+  const [allEmployees] = await c.query(`
+    SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
+           esc.template_id, t.template_name, esc.annual_ctc,
+           wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
+           wop.thursday_off, wop.friday_off, wop.saturday_off
+    FROM employees e
+    INNER JOIN (
+      SELECT DISTINCT employee_id 
+      FROM attendance 
+      WHERE attendance_date BETWEEN ? AND ?
+    ) att ON e.id = att.employee_id
+    INNER JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
+      AND esc.effective_from <= LAST_DAY(?)
+      AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
+    LEFT JOIN designations d ON d.id = e.DesignationId
+    LEFT JOIN departments dept ON dept.id = e.DepartmentId
+    LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+    LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+    WHERE e.EmploymentStatus = 'Working'
+  `, [sd, ed, sd, sd]);
+
+  if (!allEmployees.length) {
+    return {
+      deposit: 0,
+      deductions: 0,
+      contributions: 0,
+      totalCost: 0,
+      gross: 0,
+      payingCount: 0,
+      pf: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalPf: 0, employees: [] },
+      esi: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalEsi: 0, employees: [] },
+      professionalTax: { employeesPaying: 0, totalTax: 0, employees: [] },
+      allCalculated: []
+    };
+  }
+
+  const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
+
+  const templateIds = [...new Set(allEmployees.map(e => e.template_id).filter(Boolean))];
+  let compMap = {};
+  if (templateIds.length > 0) {
+    const [compositions] = await c.query(`
+      SELECT sc.*, 
+             COALESCE(mc.code, lc.code) AS component_code,
+             COALESCE(mc.name, lc.name) AS component_name,
+             COALESCE(mc.component_type, lc.component_type) AS component_type,
+             COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+             COALESCE(mc.value, lc.value) AS default_value,
+             COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+             COALESCE(mc.sequence, lc.sequence) AS sequence
+      FROM structure_composition sc
+      LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+      LEFT JOIN salary_components lc ON lc.id = sc.component_id
+      WHERE sc.template_id IN (?)
+    `, [templateIds]);
+    
+    compMap = compositions.reduce((acc, comp) => {
+      if (!acc[comp.template_id]) acc[comp.template_id] = [];
+      acc[comp.template_id].push(comp);
+      return acc;
+    }, {});
+  }
+
+  let aggGross = 0;
+  let aggNet = 0;
+  let aggDeductions = 0;
+  let aggContributions = 0;
+  let aggPfEmployees = 0;
+  let aggPfEmployeeShare = 0;
+  let aggPfEmployerShare = 0;
+  const pfBreakdown = [];
+  let aggEsiEmployees = 0;
+  let aggEsiEmployeeShare = 0;
+  let aggEsiEmployerShare = 0;
+  const esiBreakdown = [];
+  let aggPtEmployees = 0;
+  let aggPtAmount = 0;
+  const ptBreakdown = [];
+
+  const allCalculated = allEmployees.map(emp => {
+    const annualCTC = Number(emp.annual_ctc || 0);
+    const monthlyGross = Math.round(annualCTC / 12);
+    const comps = compMap[emp.template_id] || [];
+    
+    const attSummary = attSummaryMap[emp.id] || { calendar_days: 30, lop_days: 0, paid_days: 30 };
+    const lopDays = attSummary.lop_days;
+    const calendarDays = attSummary.calendar_days;
+    const paidDays = attSummary.paid_days;
+    const proRataFactor = calendarDays > 0 ? (paidDays / calendarDays) : 1;
+
+    const basicComp = comps.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
+    let fullMonthlyBasic = 0;
+    if (basicComp) {
+        const override = parseFormulaOverride(basicComp.formula_or_value);
+        let inputVal = Number(basicComp.default_value || 0);
+        let calculation_type = basicComp.calculation_type;
+        if (override) {
+            if (override.calculation_type) calculation_type = override.calculation_type;
+            inputVal = override.value;
+        }
+        if (calculation_type === 'PERCENTAGE') {
+            fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
+        } else {
+            fullMonthlyBasic = inputVal / 12.0;
+        }
+    }
+
+    const computed = {};
+    let totalEarnings = 0;
+    let totalDeductions = 0;
+    let specialIdx = -1;
+
+    const sortedComps = [...comps].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+    const calculatedComponents = sortedComps.map((r, idx) => {
+      if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
+        specialIdx = idx;
+        return { ...r, calculated_amount: 0 };
+      }
+
+      const override = parseFormulaOverride(r.formula_or_value);
+      let calculation_type = r.calculation_type;
+      let inputVal = Number(r.default_value || 0);
+      let percentage_of_code = r.percentage_of_code;
+
+      if (override) {
+        if (override.calculation_type) calculation_type = override.calculation_type;
+        inputVal = override.value;
+        if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
+      }
+
+      const isPT = r.component_code === 'PROF_TAX' || r.component_code === 'PT' || /prof.*tax/i.test(r.component_name || '');
+
+      let amt = 0;
+      if (calculation_type === 'PERCENTAGE') {
+        if (percentage_of_code && computed[percentage_of_code] !== undefined) {
+          // If percentage of another component (e.g. PF = 12% of BASIC):
+          // computed[percentage_of_code] is ALREADY pro-rated by LOP.
+          amt = (computed[percentage_of_code] * inputVal) / 100.0;
+        } else {
+          // If percentage of Gross (e.g. ESI = 0.75% / 3.25% of Gross):
+          // Calculated on the pro-rated gross as per LOP days
+          amt = (monthlyGross * proRataFactor * inputVal) / 100.0;
+        }
+      } else {
+        if (isPT) {
+          // Professional Tax will remain same, no minus for LOP's
+          amt = inputVal > 1000 ? (inputVal / 12.0) : inputVal;
+        } else {
+          // Fixed component pro-rated by attendance / LOP
+          amt = (inputVal / 12.0) * proRataFactor;
+        }
+      }
+
+      const rounded = Math.round(amt);
+      computed[r.component_code] = rounded;
+      
+      if (r.component_type === 'EARNING') {
+        totalEarnings += rounded;
+      } else {
+        totalDeductions += rounded;
+      }
+
+      return { ...r, calculated_amount: rounded };
+    });
+
+    if (specialIdx !== -1) {
+      const targetGross = Math.round(monthlyGross * proRataFactor);
+      const specialAmt = Math.max(0, targetGross - totalEarnings);
+      calculatedComponents[specialIdx].calculated_amount = specialAmt;
+      computed['SPECIAL'] = specialAmt;
+      totalEarnings += specialAmt;
+    }
+
+    let erBundle = 0;
+    let employeePf = 0;
+    let hasExplicitPfEr = false;
+    let employeeEsi = 0;
+    let employerPf = 0;
+    let employerEsi = 0;
+    let employeePt = 0;
+    let empTaxesAndOther = 0;
+
+    calculatedComponents.forEach(c => {
+      const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
+      const code = (c.component_code || '').toUpperCase();
+      const name = (c.component_name || '').toUpperCase();
+
+      if (isEr) {
+        erBundle += c.calculated_amount;
+        if (code.includes('ESI') || name.includes('ESI')) {
+          employerEsi += c.calculated_amount;
+        } else if (code.includes('PF') || name.includes('PROVIDENT') || name.includes('PF')) {
+          employerPf += c.calculated_amount;
+          hasExplicitPfEr = true;
+        }
+      } else if (c.component_type === 'DEDUCTION') {
+        if (code.includes('PF') || name.includes('PF') || name.includes('PROVIDENT')) {
+          employeePf += c.calculated_amount;
+        } else if (code.includes('ESI') || name.includes('ESI')) {
+          employeeEsi += c.calculated_amount;
+        } else {
+          empTaxesAndOther += c.calculated_amount;
+          if (code.includes('PROF') || code === 'PT' || name.includes('PROFESSIONAL')) {
+            employeePt += c.calculated_amount;
+          }
+        }
+      }
+    });
+
+    if (employerPf === 0 && employeePf > 0) {
+      employerPf = employeePf;
+    }
+    if (employerEsi === 0 && employeeEsi > 0) {
+      employerEsi = Math.round(employeeEsi * (3.25 / 0.75));
+    }
+
+    if (specialIdx !== -1) {
+      calculatedComponents[specialIdx].calculated_amount -= erBundle;
+    }
+
+    const finalComponents = calculatedComponents.filter(c => {
+      const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
+      const isESI_ER = /ESI_ER/i.test(c.component_code || '');
+      return !isEr || isESI_ER;
+    });
+
+    const finalGross = totalEarnings - erBundle;
+    const finalDeductions = totalDeductions - erBundle;
+    const net = finalGross - finalDeductions;
+    const empContributions = erBundle + (hasExplicitPfEr ? 0 : employeePf);
+
+    if (employeePf > 0 || employerPf > 0) {
+      aggPfEmployees++;
+      aggPfEmployeeShare += employeePf;
+      aggPfEmployerShare += employerPf;
+      pfBreakdown.push({
+        employeeId: emp.id,
+        employeeNumber: emp.EmployeeNumber,
+        fullName: emp.FullName,
+        designation: emp.Designation,
+        employeeShare: employeePf,
+        employerShare: employerPf,
+        totalPf: employeePf + employerPf
+      });
+    }
+
+    if (employeeEsi > 0 || employerEsi > 0) {
+      aggEsiEmployees++;
+      aggEsiEmployeeShare += employeeEsi;
+      aggEsiEmployerShare += employerEsi;
+      esiBreakdown.push({
+        employeeId: emp.id,
+        employeeNumber: emp.EmployeeNumber,
+        fullName: emp.FullName,
+        designation: emp.Designation,
+        employeeShare: employeeEsi,
+        employerShare: employerEsi,
+        totalEsi: employeeEsi + employerEsi
+      });
+    }
+
+    if (employeePt > 0) {
+      aggPtEmployees++;
+      aggPtAmount += employeePt;
+      ptBreakdown.push({
+        employeeId: emp.id,
+        employeeNumber: emp.EmployeeNumber,
+        fullName: emp.FullName,
+        designation: emp.Designation,
+        amount: employeePt
+      });
+    }
+
+    aggGross += finalGross;
+    aggNet += net;
+    aggDeductions += finalDeductions;
+    aggContributions += empContributions;
+
+    return {
+      employee_id: emp.id,
+      employee_number: emp.EmployeeNumber,
+      full_name: emp.FullName,
+      designation: emp.Designation,
+      department: emp.Department,
+      template_name: emp.template_name,
+      annual_ctc: annualCTC,
+      monthly_gross: monthlyGross,
+      total_earnings: finalGross,
+      total_deductions: finalDeductions,
+      total_net: net,
+      total_net_payout: net,
+      lop_days: lopDays,
+      calendar_days: calendarDays,
+      paid_days: paidDays,
+      components: finalComponents.map(c => ({
+        code: c.component_code,
+        name: c.component_name,
+        type: c.component_type,
+        amount: c.calculated_amount
+      }))
+    };
+  });
+
+  const deposit = Math.round(aggNet * 100) / 100;
+  const deductions = Math.round(aggDeductions * 100) / 100;
+  const contributions = Math.round(aggContributions * 100) / 100;
+  const deductionsContributions = Math.round((deductions + contributions) * 100) / 100;
+  const totalCost = Math.round((deposit + deductions + contributions) * 100) / 100;
+
+  return {
+    deposit,
+    deductions,
+    contributions,
+    deductionsContributions,
+    totalCost,
+    gross: Math.round(aggGross * 100) / 100,
+    payingCount: allEmployees.length,
+    pf: {
+      employeesPaying: aggPfEmployees,
+      employeeShare: Math.round(aggPfEmployeeShare * 100) / 100,
+      employerShare: Math.round(aggPfEmployerShare * 100) / 100,
+      totalPf: Math.round((aggPfEmployeeShare + aggPfEmployerShare) * 100) / 100,
+      employees: pfBreakdown
+    },
+    esi: {
+      employeesPaying: aggEsiEmployees,
+      employeeShare: Math.round(aggEsiEmployeeShare * 100) / 100,
+      employerShare: Math.round(aggEsiEmployerShare * 100) / 100,
+      totalEsi: Math.round((aggEsiEmployeeShare + aggEsiEmployerShare) * 100) / 100,
+      employees: esiBreakdown
+    },
+    professionalTax: {
+      employeesPaying: aggPtEmployees,
+      totalTax: Math.round(aggPtAmount * 100) / 100,
+      employees: ptBreakdown
+    },
+    allCalculated
+  };
+}
+
 async function previewRun(req, res) {
   try {
     const year = Number(req.body.year);
@@ -340,230 +685,31 @@ async function previewRun(req, res) {
     const limit = Number(req.body.limit) || 20;
     const offset = (page - 1) * limit;
 
-    // --- DETAILED PREVIEW LOGIC ---
-    // Fetch ALL employees for aggregate calculation
-    const sd = `${year}-${String(month).padStart(2, '0')}-01`;
-    const ed = `${year}-${String(month).padStart(2, '0')}-${new Date(year, month, 0).getDate()}`;
+    const dryRun = await calculateDryRunFinancials(c, year, month);
+    c.end();
 
-    const [allEmployees] = await c.query(`
-      SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
-             esc.template_id, t.template_name, esc.annual_ctc,
-             wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
-             wop.thursday_off, wop.friday_off, wop.saturday_off
-      FROM employees e
-      INNER JOIN (
-        SELECT DISTINCT employee_id 
-        FROM attendance 
-        WHERE attendance_date BETWEEN ? AND ?
-      ) att ON e.id = att.employee_id
-      INNER JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
-        AND esc.effective_from <= LAST_DAY(?)
-        AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
-      LEFT JOIN designations d ON d.id = e.DesignationId
-      LEFT JOIN departments dept ON dept.id = e.DepartmentId
-      LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
-      LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-      WHERE e.EmploymentStatus = 'Working'
-    `, [sd, ed, sd, sd]);
-
-    const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
-
-    const templateIds = [...new Set(allEmployees.map(e => e.template_id).filter(Boolean))];
-    let compMap = {};
-    if (templateIds.length > 0) {
-      const [compositions] = await c.query(`
-        SELECT sc.*, 
-               COALESCE(mc.code, lc.code) AS component_code,
-               COALESCE(mc.name, lc.name) AS component_name,
-               COALESCE(mc.component_type, lc.component_type) AS component_type,
-               COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
-               COALESCE(mc.value, lc.value) AS default_value,
-               COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
-               COALESCE(mc.sequence, lc.sequence) AS sequence
-        FROM structure_composition sc
-        LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
-        LEFT JOIN salary_components lc ON lc.id = sc.component_id
-        WHERE sc.template_id IN (?)
-      `, [templateIds]);
-      
-      compMap = compositions.reduce((acc, comp) => {
-        if (!acc[comp.template_id]) acc[comp.template_id] = [];
-        acc[comp.template_id].push(comp);
-        return acc;
-      }, {});
-    }
-
-    let aggGross = 0;
-    let aggNet = 0;
-    let aggPayout = 0;
-
-    const allCalculated = allEmployees.map(emp => {
-      const annualCTC = Number(emp.annual_ctc || 0);
-      const monthlyGross = Math.round(annualCTC / 12);
-      const comps = compMap[emp.template_id] || [];
-      
-      const attSummary = attSummaryMap[emp.id] || { calendar_days: 30, lop_days: 0, paid_days: 30 };
-      const lopDays = attSummary.lop_days;
-      const calendarDays = attSummary.calendar_days;
-      const paidDays = attSummary.paid_days;
-      const proRataFactor = calendarDays > 0 ? (paidDays / calendarDays) : 1;
-
-      // Rule: If Full Month Basic >= 15000, Deductions are NOT pro-rated for LOP
-      const basicComp = comps.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
-      let fullMonthlyBasic = 0;
-      if (basicComp) {
-          const override = parseFormulaOverride(basicComp.formula_or_value);
-          let inputVal = Number(basicComp.default_value || 0);
-          let calculation_type = basicComp.calculation_type;
-          if (override) {
-              if (override.calculation_type) calculation_type = override.calculation_type;
-              inputVal = override.value;
-          }
-          if (calculation_type === 'PERCENTAGE') {
-              fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
-          } else {
-              fullMonthlyBasic = inputVal / 12.0;
-          }
-      }
-
-      const skipDeductionProRata = lopDays > 0 && fullMonthlyBasic >= 15000;
-
-      const computed = {};
-      let totalEarnings = 0;
-      let totalDeductions = 0;
-      let specialIdx = -1;
-
-      const sortedComps = [...comps].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
-
-      const calculatedComponents = sortedComps.map((r, idx) => {
-        if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
-          specialIdx = idx;
-          return { ...r, calculated_amount: 0 };
-        }
-
-        const override = parseFormulaOverride(r.formula_or_value);
-        let calculation_type = r.calculation_type;
-        let inputVal = Number(r.default_value || 0);
-        let percentage_of_code = r.percentage_of_code;
-
-        if (override) {
-          if (override.calculation_type) calculation_type = override.calculation_type;
-          inputVal = override.value;
-          if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
-        }
-
-        const isEarning = r.component_type === 'EARNING';
-        const isESI = r.component_code === 'ESI_EE' || r.component_code === 'ESI_ER' || /esi/i.test(r.component_name || '');
-        const skipProRata = skipDeductionProRata || (lopDays > 0 && isESI);
-        const currentFactor = (isEarning || !skipProRata) ? proRataFactor : 1.0;
-
-        let amt = 0;
-        if (calculation_type === 'PERCENTAGE') {
-          if (percentage_of_code && computed[percentage_of_code] !== undefined) {
-            // If it's a Deduction and we skip pro-rata, use the FULL base value
-            if (!isEarning && skipProRata) {
-                 // We need full monthly values of the base component.
-                 const baseVal = proRataFactor > 0 ? (computed[percentage_of_code] / proRataFactor) : computed[percentage_of_code];
-                 amt = (baseVal * inputVal) / 100.0;
-            } else {
-                 amt = (computed[percentage_of_code] * inputVal) / 100.0;
-            }
-          } else {
-            amt = (monthlyGross * currentFactor * inputVal) / 100.0;
-          }
-        } else {
-          amt = (inputVal / 12.0) * currentFactor;
-        }
-
-        const rounded = Math.round(amt);
-        computed[r.component_code] = rounded;
-        
-        if (isEarning) {
-          totalEarnings += rounded;
-        } else {
-          totalDeductions += rounded;
-        }
-
-        return { ...r, calculated_amount: rounded };
-      });
-
-      if (specialIdx !== -1) {
-        // Special Allowance balances the pro-rated monthly gross
-        const targetGross = Math.round(monthlyGross * proRataFactor);
-        const specialAmt = Math.max(0, targetGross - totalEarnings);
-        calculatedComponents[specialIdx].calculated_amount = specialAmt;
-        computed['SPECIAL'] = specialAmt;
-        totalEarnings += specialAmt;
-      }
-
-      // Bundle Employer portions into Special Allowance (Subtracting them to hide them in the Gross Salary view)
-      let erBundle = 0;
-      calculatedComponents.forEach(c => {
-        const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
-        if (isEr) {
-          erBundle += c.calculated_amount;
-        }
-      });
-
-      if (specialIdx !== -1) {
-        calculatedComponents[specialIdx].calculated_amount -= erBundle;
-      }
-
-      const finalComponents = calculatedComponents.filter(c => {
-        const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
-        // Explicitly allow ESI_ER to be visible per user request
-        const isESI_ER = /ESI_ER/i.test(c.component_code || '');
-        return !isEr || isESI_ER;
-      });
-
-      const finalGross = totalEarnings - erBundle;
-      const finalDeductions = totalDeductions - erBundle;
-      const net = finalGross - finalDeductions;
-
-      aggGross += finalGross;
-      aggNet += net;
-      aggPayout += net;
-
-      return {
-        employee_id: emp.id,
-        employee_number: emp.EmployeeNumber,
-        full_name: emp.FullName,
-        designation: emp.Designation,
-        department: emp.Department,
-        template_name: emp.template_name,
-        annual_ctc: annualCTC,
-        monthly_gross: monthlyGross,
-        total_earnings: finalGross,
-        total_deductions: finalDeductions,
-        total_net: net,
-        total_net_payout: net,
-        lop_days: lopDays,
-        calendar_days: calendarDays,
-        paid_days: paidDays,
-        components: finalComponents.map(c => ({
-          code: c.component_code,
-          name: c.component_name,
-          type: c.component_type,
-          amount: c.calculated_amount
-        }))
-      };
-    });
-
-    const detailedList = allCalculated.slice(offset, offset + limit);
+    const detailedList = dryRun.allCalculated.slice(offset, offset + limit);
 
     return ok(res, {
       mode: 'DRY_RUN',
       validation,
       estimate: {
-        employeeCount: allEmployees.length,
-        totalGross: aggGross,
-        totalNet: aggNet,
-        totalPayout: aggPayout
+        employeeCount: dryRun.payingCount,
+        totalGross: dryRun.gross,
+        totalDeductions: dryRun.deductions,
+        totalContributions: dryRun.contributions,
+        totalDeductionsContributions: dryRun.deductionsContributions !== undefined ? dryRun.deductionsContributions : Math.round((dryRun.deductions + dryRun.contributions) * 100) / 100,
+        totalPayrollCost: dryRun.totalCost,
+        pf: dryRun.pf,
+        esi: dryRun.esi,
+        professionalTax: dryRun.professionalTax,
+        totalNet: dryRun.deposit,
+        totalPayout: dryRun.deposit
       },
       detailedPreview: detailedList,
       pagination: {
-        total: allEmployees.length,
-        pages: Math.ceil(allEmployees.length / limit),
+        total: dryRun.payingCount,
+        pages: Math.ceil(dryRun.payingCount / limit) || 1,
         currentPage: page,
         limit: limit
       }
@@ -593,7 +739,10 @@ async function calculateRunFinancials(c, run) {
       deductions: 0,
       contributions: 0,
       totalCost: 0,
-      payingCount: 0
+      payingCount: 0,
+      pf: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalPf: 0, employees: [] },
+      esi: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalEsi: 0, employees: [] },
+      professionalTax: { employeesPaying: 0, totalTax: 0, employees: [] }
     };
   }
 
@@ -618,8 +767,9 @@ async function calculateRunFinancials(c, run) {
   const [taxRows] = await c.query(
     `SELECT 
        COALESCE(SUM(t.amount), 0) as sumTax,
-       COALESCE(SUM(CASE WHEN t.deduction_code IN ('PF_EMP', 'PF_DEDUCT') THEN t.amount ELSE 0 END), 0) as sumPfEmp,
-       COALESCE(SUM(CASE WHEN t.deduction_code IN ('ESI_EE') THEN t.amount ELSE 0 END), 0) as sumEsiEmp
+       COALESCE(SUM(CASE WHEN t.deduction_code IN ('PF_EMP', 'PF_DEDUCT') OR t.deduction_name LIKE '%PF%' OR t.deduction_name LIKE '%Provident%' THEN t.amount ELSE 0 END), 0) as sumPfEmp,
+       COALESCE(SUM(CASE WHEN t.deduction_code IN ('ESI_EE') OR t.deduction_name LIKE '%ESI%' THEN t.amount ELSE 0 END), 0) as sumEsiEmp,
+       COALESCE(SUM(CASE WHEN t.deduction_code NOT IN ('PF_EMP', 'PF_DEDUCT', 'ESI_EE') AND t.deduction_name NOT LIKE '%PF%' AND t.deduction_name NOT LIKE '%Provident%' AND t.deduction_name NOT LIKE '%ESI%' THEN t.amount ELSE 0 END), 0) as sumOtherDeductions
      FROM payroll_tax_deductions t
      JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
      WHERE s.run_id = ?`,
@@ -628,10 +778,7 @@ async function calculateRunFinancials(c, run) {
   const sumTax = Number(taxRows[0]?.sumTax) || 0;
   const sumPfEmp = Number(taxRows[0]?.sumPfEmp) || 0;
   const sumEsiEmp = Number(taxRows[0]?.sumEsiEmp) || 0;
-
-  if (sumTax > 0) {
-    totalDeductions = sumTax;
-  }
+  const sumOtherDeductions = Number(taxRows[0]?.sumOtherDeductions) || 0;
 
   // 3. Employer Contributions
   // Fetch employer ESI or PF breakups if present
@@ -650,14 +797,20 @@ async function calculateRunFinancials(c, run) {
   // Under statutory rules, Employer PF matches Employee PF (12%)
   const employerPf = sumPfErBreakup > 0 ? sumPfErBreakup : sumPfEmp;
   const employerEsi = sumEsiEr > 0 ? sumEsiEr : (sumEsiEmp > 0 ? Math.ceil(sumEsiEmp * (3.25 / 0.75)) : 0);
-  const totalContributions = employerPf + employerEsi;
+
+  // Total Contributions = All EPF (Employee + Employer) + All ESI (Employee + Employer)
+  const totalContributions = (sumPfEmp + employerPf) + (sumEsiEmp + employerEsi);
+
+  // Total Deductions = Professional Tax and other taxes (excluding EPF and ESI)
+  totalDeductions = sumOtherDeductions;
+  if (sumTax === 0 && Number(salStats.totalDeductions) > 0) {
+    totalDeductions = Math.max(0, Number(salStats.totalDeductions) - sumPfEmp - sumEsiEmp);
+  }
 
   // 4. Employee Deposit (Net Pay)
   let employeeDeposit = totalNet;
-  if (totalDeductions > 0 && Math.abs(totalNet - totalGross) < 0.01) {
-    employeeDeposit = Math.max(0, totalGross - totalDeductions);
-  } else if (employeeDeposit === 0 && totalGross > 0) {
-    employeeDeposit = Math.max(0, totalGross - totalDeductions);
+  if (totalGross > 0 && (employeeDeposit === 0 || Math.abs(employeeDeposit - totalGross) < 0.01)) {
+    employeeDeposit = Math.max(0, totalGross - (sumPfEmp + sumEsiEmp + totalDeductions));
   }
 
   // 5. Total Payroll Cost = Employee Deposit + Total Deductions + Total contributions
@@ -666,12 +819,137 @@ async function calculateRunFinancials(c, run) {
   const contributionsRounded = Math.round(totalContributions * 100) / 100;
   const totalPayrollCost = Math.round((depositRounded + deductionsRounded + contributionsRounded) * 100) / 100;
 
+  const [pfEmpCountRows] = await c.query(
+    `SELECT COUNT(DISTINCT s.id) as pfCount
+     FROM payroll_tax_deductions t
+     JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+     WHERE s.run_id = ? AND (t.deduction_code IN ('PF_EMP', 'PF_DEDUCT') OR t.deduction_name LIKE '%PF%' OR t.deduction_name LIKE '%Provident%')`,
+    [run.id]
+  );
+  const pfCount = Number(pfEmpCountRows[0]?.pfCount) || (sumPfEmp > 0 ? salCount : 0);
+
+  let runPfBreakdown = [];
+  try {
+    const [pfRows] = await c.query(
+      `SELECT s.employee_id as employeeId, e.FullName as fullName, e.EmployeeNumber as employeeNumber, d.name as designation,
+              COALESCE(SUM(t.amount), 0) as employeeShare
+       FROM payroll_tax_deductions t
+       JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+       LEFT JOIN employees e ON e.id = s.employee_id
+       LEFT JOIN designations d ON d.id = e.DesignationId
+       WHERE s.run_id = ? AND (t.deduction_code IN ('PF_EMP', 'PF_DEDUCT') OR t.deduction_name LIKE '%PF%' OR t.deduction_name LIKE '%Provident%')
+       GROUP BY s.employee_id, e.FullName, e.EmployeeNumber, d.name`,
+      [run.id]
+    );
+    runPfBreakdown = pfRows.map(r => {
+      const ee = Number(r.employeeShare) || 0;
+      return {
+        employeeId: r.employeeId,
+        employeeNumber: r.employeeNumber,
+        fullName: r.fullName,
+        designation: r.designation,
+        employeeShare: ee,
+        employerShare: ee,
+        totalPf: ee * 2
+      };
+    });
+  } catch (err) {}
+
+  const [esiEmpCountRows] = await c.query(
+    `SELECT COUNT(DISTINCT s.id) as esiCount
+     FROM payroll_tax_deductions t
+     JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+     WHERE s.run_id = ? AND (t.deduction_code IN ('ESI_EE') OR t.deduction_name LIKE '%ESI%')`,
+    [run.id]
+  );
+  const esiCount = Number(esiEmpCountRows[0]?.esiCount) || (sumEsiEmp > 0 ? salCount : 0);
+
+  let runEsiBreakdown = [];
+  try {
+    const [esiRows] = await c.query(
+      `SELECT s.employee_id as employeeId, e.FullName as fullName, e.EmployeeNumber as employeeNumber, d.name as designation,
+              COALESCE(SUM(t.amount), 0) as employeeShare
+       FROM payroll_tax_deductions t
+       JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+       LEFT JOIN employees e ON e.id = s.employee_id
+       LEFT JOIN designations d ON d.id = e.DesignationId
+       WHERE s.run_id = ? AND (t.deduction_code IN ('ESI_EE') OR t.deduction_name LIKE '%ESI%')
+       GROUP BY s.employee_id, e.FullName, e.EmployeeNumber, d.name`,
+      [run.id]
+    );
+    runEsiBreakdown = esiRows.map(r => {
+      const ee = Number(r.employeeShare) || 0;
+      const er = Math.round(ee * (3.25 / 0.75));
+      return {
+        employeeId: r.employeeId,
+        employeeNumber: r.employeeNumber,
+        fullName: r.fullName,
+        designation: r.designation,
+        employeeShare: ee,
+        employerShare: er,
+        totalEsi: ee + er
+      };
+    });
+  } catch (err) {}
+
+  const [ptEmpCountRows] = await c.query(
+    `SELECT COUNT(DISTINCT s.id) as ptCount, COALESCE(SUM(t.amount), 0) as sumPt
+     FROM payroll_tax_deductions t
+     JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+     WHERE s.run_id = ? AND (t.deduction_code IN ('PT', 'PROF_TAX') OR t.deduction_name LIKE '%Professional%')`,
+    [run.id]
+  );
+  const ptCount = Number(ptEmpCountRows[0]?.ptCount) || 0;
+  const sumPt = Number(ptEmpCountRows[0]?.sumPt) || 0;
+
+  let runPtBreakdown = [];
+  try {
+    const [ptRows] = await c.query(
+      `SELECT s.employee_id as employeeId, e.FullName as fullName, e.EmployeeNumber as employeeNumber, d.name as designation,
+              COALESCE(SUM(t.amount), 0) as amount
+       FROM payroll_tax_deductions t
+       JOIN payroll_employee_salaries s ON s.id = t.employee_salary_id
+       LEFT JOIN employees e ON e.id = s.employee_id
+       LEFT JOIN designations d ON d.id = e.DesignationId
+       WHERE s.run_id = ? AND (t.deduction_code IN ('PT', 'PROF_TAX') OR t.deduction_name LIKE '%Professional%')
+       GROUP BY s.employee_id, e.FullName, e.EmployeeNumber, d.name`,
+      [run.id]
+    );
+    runPtBreakdown = ptRows.map(r => ({
+      employeeId: r.employeeId,
+      employeeNumber: r.employeeNumber,
+      fullName: r.fullName,
+      designation: r.designation,
+      amount: Number(r.amount) || 0
+    }));
+  } catch (err) {}
+
   return {
     deposit: depositRounded,
     deductions: deductionsRounded,
     contributions: contributionsRounded,
     totalCost: totalPayrollCost,
-    payingCount: salCount
+    gross: totalGross,
+    payingCount: salCount,
+    pf: {
+      employeesPaying: pfCount,
+      employeeShare: Math.round(sumPfEmp * 100) / 100,
+      employerShare: Math.round(employerPf * 100) / 100,
+      totalPf: Math.round((sumPfEmp + employerPf) * 100) / 100,
+      employees: runPfBreakdown
+    },
+    esi: {
+      employeesPaying: esiCount,
+      employeeShare: Math.round(sumEsiEmp * 100) / 100,
+      employerShare: Math.round(employerEsi * 100) / 100,
+      totalEsi: Math.round((sumEsiEmp + employerEsi) * 100) / 100,
+      employees: runEsiBreakdown
+    },
+    professionalTax: {
+      employeesPaying: ptCount,
+      totalTax: Math.round(sumPt * 100) / 100,
+      employees: runPtBreakdown
+    }
   };
 }
 
@@ -795,8 +1073,19 @@ async function getPayrollDashboard(req, res) {
       }
     }
 
-    const currentFinancials = await calculateRunFinancials(c, currentRun);
-    const prevFinancials = await calculateRunFinancials(c, prevRun);
+    let currentFinancials = await calculateDryRunFinancials(c, parsed.year, parsed.month);
+    if (!currentFinancials || currentFinancials.payingCount === 0) {
+      if (currentRun) {
+        currentFinancials = await calculateRunFinancials(c, currentRun);
+      }
+    }
+
+    let prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
+    if (!prevFinancials || prevFinancials.payingCount === 0) {
+      if (prevRun) {
+        prevFinancials = await calculateRunFinancials(c, prevRun);
+      }
+    }
 
     const [summary] = await c.query(
       `SELECT
@@ -851,16 +1140,20 @@ async function getPayrollDashboard(req, res) {
       payrollProcessedRatio: `${totalEmployees}/${currentFinancials.payingCount} EMPLOYEES`,
       run: currentRun,
       equation: {
+        totalGross: currentFinancials.gross,
         totalPayrollCost: currentFinancials.totalCost,
         employeeDeposit: currentFinancials.deposit,
         totalDeductions: currentFinancials.deductions,
         totalContributions: currentFinancials.contributions,
+        totalDeductionsContributions: Math.round((currentFinancials.deductions + currentFinancials.contributions) * 100) / 100,
         prevMonthLabel: prevMonthNameUpper,
         prevMonthCost: prevFinancials.totalCost,
+        prevMonthGross: prevFinancials.gross,
         prevMonthDeposit: prevFinancials.deposit,
         prevMonthDeductions: prevFinancials.deductions,
         prevMonthContributions: prevFinancials.contributions,
         costDelta: Math.round((currentFinancials.totalCost - prevFinancials.totalCost) * 100) / 100,
+        grossDelta: Math.round((currentFinancials.gross - prevFinancials.gross) * 100) / 100,
         depositDelta: Math.round((currentFinancials.deposit - prevFinancials.deposit) * 100) / 100,
         deductionsDelta: Math.round((currentFinancials.deductions - prevFinancials.deductions) * 100) / 100,
         contributionsDelta: Math.round((currentFinancials.contributions - prevFinancials.contributions) * 100) / 100
@@ -882,24 +1175,29 @@ async function getPayrollDashboard(req, res) {
           },
           providentFund: {
             title: 'Provident Fund (PF)',
-            employeesCount: Math.round(totalEmployees * 0.87) || 223,
-            initiationDate: `21-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            endDate: `04-${parsed.month === 12 ? MONTH_NAMES_SHORT[0] : MONTH_NAMES_SHORT[parsed.month]}-${parsed.month === 12 ? parsed.year + 1 : parsed.year}`,
-            dataChange: `07-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            linkedRecordsCount: 5
+            employeesCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            employeeShare: currentFinancials.pf?.employeeShare ?? 0,
+            employerShare: currentFinancials.pf?.employerShare ?? 0,
+            totalPf: currentFinancials.pf?.totalPf ?? 0,
+            linkedRecordsCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            employees: currentFinancials.pf?.employees || []
           },
           esi: {
             title: 'Employee State Insurance (ESI)',
-            employeesCount: Math.round(totalEmployees * 0.22) || 56,
-            initiationDate: `16-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            endDate: `24-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            registeredRecordsCount: 7
+            employeesCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            employeeShare: currentFinancials.esi?.employeeShare ?? 0,
+            employerShare: currentFinancials.esi?.employerShare ?? 0,
+            totalEsi: currentFinancials.esi?.totalEsi ?? 0,
+            registeredRecordsCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            employees: currentFinancials.esi?.employees || []
           },
           professionalTax: {
             title: 'Professional Tax',
-            employeesCount: Math.round(totalEmployees * 0.95) || 243,
-            taxPeriods: `${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            relatedRecordsCount: 11
+            employeesCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            totalTax: currentFinancials.professionalTax?.totalTax ?? 0,
+            amount: currentFinancials.professionalTax?.totalTax ?? 0,
+            relatedRecordsCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 3,
+            employees: currentFinancials.professionalTax?.employees || []
           },
           deductionComponents: {
             title: 'Deduction Components',

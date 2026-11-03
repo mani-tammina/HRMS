@@ -185,6 +185,190 @@ export class PayrollDashboardPage implements OnInit {
   }
 
   async reviewItem(itemKey: string) {
+    if (itemKey === 'providentFund') {
+      const pfData = this.dashboardData?.outcome?.statutoryCards?.providentFund;
+      const employees = pfData?.employees || [];
+      const totalEmpShare = pfData?.employeeShare || 0;
+      const totalErShare = pfData?.employerShare || 0;
+      const totalPf = pfData?.totalPf || (totalEmpShare + totalErShare);
+
+      let empRowsHtml = '';
+      if (employees.length > 0) {
+        empRowsHtml = employees.map((e: any) => `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 10px; text-align: left;"><strong>${e.fullName}</strong><br><small style="color:#64748b">${e.employeeNumber || ''} · ${e.designation || 'Staff'}</small></td>
+            <td style="padding: 8px 10px; text-align: right; color:#6366f1; font-weight:600;">${this.formatCurrency(e.employeeShare)}</td>
+            <td style="padding: 8px 10px; text-align: right; color:#0284c7; font-weight:600;">${this.formatCurrency(e.employerShare)}</td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color:#10b981;">${this.formatCurrency(e.totalPf)}</td>
+          </tr>
+        `).join('');
+      } else {
+        empRowsHtml = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: #64748b;">No individual PF records found for ${this.selectedMonth}</td></tr>`;
+      }
+
+      const alert = await this.alertCtrl.create({
+        header: 'Provident Fund (PF) Breakdown',
+        subHeader: `Preview — Dry Run (${this.selectedMonth}) · ${pfData?.employeesCount || employees.length} Employees Paying`,
+        message: `
+          <div style="font-size: 0.85rem; max-height: 320px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                  <th style="padding: 8px 10px; text-align: left; font-size:0.75rem; color:#64748b;">EMPLOYEE</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#6366f1;">EE SHARE</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#0284c7;">ER SHARE</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#10b981;">TOTAL PF</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${empRowsHtml}
+              </tbody>
+              <tfoot>
+                <tr style="background: #f1f5f9; font-weight: bold; border-top: 2px solid #94a3b8;">
+                  <td style="padding: 8px 10px; text-align: left;">Total (${pfData?.employeesCount || employees.length})</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#6366f1;">${this.formatCurrency(totalEmpShare)}</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#0284c7;">${this.formatCurrency(totalErShare)}</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#10b981;">${this.formatCurrency(totalPf)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `,
+        cssClass: 'glass-alert wide-alert',
+        buttons: [
+          { text: 'Close', role: 'cancel' },
+          {
+            text: 'Go to Dry Run Preview',
+            handler: () => {
+              this.router.navigate(['/finance/process'], { queryParams: { month: this.selectedMonth, step: 'preview' } });
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
+    if (itemKey === 'esi') {
+      const esiData = this.dashboardData?.outcome?.statutoryCards?.esi;
+      const employees = esiData?.employees || [];
+      const totalEmpShare = esiData?.employeeShare || 0;
+      const totalErShare = esiData?.employerShare || 0;
+      const totalEsi = esiData?.totalEsi || (totalEmpShare + totalErShare);
+
+      let empRowsHtml = '';
+      if (employees.length > 0) {
+        empRowsHtml = employees.map((e: any) => `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 10px; text-align: left;"><strong>${e.fullName}</strong><br><small style="color:#64748b">${e.employeeNumber || ''} · ${e.designation || 'Staff'}</small></td>
+            <td style="padding: 8px 10px; text-align: right; color:#6366f1; font-weight:600;">${this.formatCurrency(e.employeeShare)}</td>
+            <td style="padding: 8px 10px; text-align: right; color:#0284c7; font-weight:600;">${this.formatCurrency(e.employerShare)}</td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color:#10b981;">${this.formatCurrency(e.totalEsi)}</td>
+          </tr>
+        `).join('');
+      } else {
+        empRowsHtml = `<tr><td colspan="4" style="padding: 12px; text-align: center; color: #64748b;">No individual ESI records found for ${this.selectedMonth}</td></tr>`;
+      }
+
+      const alert = await this.alertCtrl.create({
+        header: 'Employee State Insurance (ESI) Breakdown',
+        subHeader: `Preview — Dry Run (${this.selectedMonth}) · ${esiData?.employeesCount || employees.length} Employees Paying`,
+        message: `
+          <div style="font-size: 0.85rem; max-height: 320px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                  <th style="padding: 8px 10px; text-align: left; font-size:0.75rem; color:#64748b;">EMPLOYEE</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#6366f1;">EE SHARE (0.75%)</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#0284c7;">ER SHARE (3.25%)</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#10b981;">TOTAL ESI</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${empRowsHtml}
+              </tbody>
+              <tfoot>
+                <tr style="background: #f1f5f9; font-weight: bold; border-top: 2px solid #94a3b8;">
+                  <td style="padding: 8px 10px; text-align: left;">Total (${esiData?.employeesCount || employees.length})</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#6366f1;">${this.formatCurrency(totalEmpShare)}</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#0284c7;">${this.formatCurrency(totalErShare)}</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#10b981;">${this.formatCurrency(totalEsi)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `,
+        cssClass: 'glass-alert wide-alert',
+        buttons: [
+          { text: 'Close', role: 'cancel' },
+          {
+            text: 'Go to Dry Run Preview',
+            handler: () => {
+              this.router.navigate(['/finance/process'], { queryParams: { month: this.selectedMonth, step: 'preview' } });
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
+    if (itemKey === 'professionalTax') {
+      const ptData = this.dashboardData?.outcome?.statutoryCards?.professionalTax;
+      const employees = ptData?.employees || [];
+      const totalTax = ptData?.totalTax ?? ptData?.amount ?? 0;
+
+      let empRowsHtml = '';
+      if (employees.length > 0) {
+        empRowsHtml = employees.map((e: any) => `
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 8px 10px; text-align: left;"><strong>${e.fullName}</strong><br><small style="color:#64748b">${e.employeeNumber || ''} · ${e.designation || 'Staff'}</small></td>
+            <td style="padding: 8px 10px; text-align: right; font-weight: 700; color:#6366f1;">${this.formatCurrency(e.amount)}</td>
+          </tr>
+        `).join('');
+      } else {
+        empRowsHtml = `<tr><td colspan="2" style="padding: 12px; text-align: center; color: #64748b;">No individual Professional Tax records found for ${this.selectedMonth}</td></tr>`;
+      }
+
+      const alert = await this.alertCtrl.create({
+        header: 'Professional Tax (PT) Breakdown',
+        subHeader: `Preview — Dry Run (${this.selectedMonth}) · ${ptData?.employeesCount || employees.length} Employees Paying`,
+        message: `
+          <div style="font-size: 0.85rem; max-height: 320px; overflow-y: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.82rem;">
+              <thead>
+                <tr style="background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+                  <th style="padding: 8px 10px; text-align: left; font-size:0.75rem; color:#64748b;">EMPLOYEE</th>
+                  <th style="padding: 8px 10px; text-align: right; font-size:0.75rem; color:#6366f1;">PROFESSIONAL TAX</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${empRowsHtml}
+              </tbody>
+              <tfoot>
+                <tr style="background: #f1f5f9; font-weight: bold; border-top: 2px solid #94a3b8;">
+                  <td style="padding: 8px 10px; text-align: left;">Total (${ptData?.employeesCount || employees.length})</td>
+                  <td style="padding: 8px 10px; text-align: right; color:#6366f1;">${this.formatCurrency(totalTax)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        `,
+        cssClass: 'glass-alert wide-alert',
+        buttons: [
+          { text: 'Close', role: 'cancel' },
+          {
+            text: 'Go to Dry Run Preview',
+            handler: () => {
+              this.router.navigate(['/finance/process'], { queryParams: { month: this.selectedMonth, step: 'preview' } });
+            }
+          }
+        ]
+      });
+      await alert.present();
+      return;
+    }
+
     const titles: { [key: string]: { name: string; route?: string } } = {
       incomeTax: { name: 'Income Tax (ITR)', route: '/finance/tax-admin' },
       providentFund: { name: 'Provident Fund (PF)', route: '/finance/tax-admin' },
@@ -215,6 +399,18 @@ export class PayrollDashboardPage implements OnInit {
   }
 
   viewRelatedRecords(type: string, count: number) {
+    if (type === 'PF-linked') {
+      this.reviewItem('providentFund');
+      return;
+    }
+    if (type === 'ESI-registered') {
+      this.reviewItem('esi');
+      return;
+    }
+    if (type === 'PT-related') {
+      this.reviewItem('professionalTax');
+      return;
+    }
     this.toaster.showInfo(`Viewing ${count} related ${type} records for ${this.selectedMonth}`);
   }
 

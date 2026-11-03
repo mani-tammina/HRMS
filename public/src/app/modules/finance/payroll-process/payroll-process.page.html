@@ -22,11 +22,13 @@
             <ion-datetime-button datetime="dtHeaderMonth"></ion-datetime-button>
             <ion-popover [keepContentsMounted]="true">
               <ng-template>
-                <ion-datetime id="dtHeaderMonth" presentation="month-year" [value]="selectedMonth" (ionChange)="onHeaderMonthChange($event)"></ion-datetime>
+                <ion-datetime id="dtHeaderMonth" presentation="month-year" [value]="selectedMonth"
+                  (ionChange)="onHeaderMonthChange($event)"></ion-datetime>
               </ng-template>
             </ion-popover>
           </div>
-          <ion-button fill="outline" color="danger" class="cancel-payroll-btn" *ngIf="latestRun || runResult" (click)="confirmCancelPayroll()">
+          <ion-button fill="outline" color="danger" class="cancel-payroll-btn" *ngIf="latestRun || runResult"
+            (click)="confirmCancelPayroll()">
             <ion-icon name="trash-outline" slot="start"></ion-icon> Cancel Payroll
           </ion-button>
         </div>
@@ -37,7 +39,8 @@
     <div class="stepper-container bounce-in">
       <div class="stepper-indicator">
         <ng-container *ngFor="let s of steps; let i = index">
-          <div class="step" [class.active]="currentStep === s.key" [class.completed]="stepIndex > i" (click)="onStepClick(s.key)" [style.cursor]="canNavigateToStep(s.key) ? 'pointer' : 'default'">
+          <div class="step" [class.active]="currentStep === s.key" [class.completed]="stepIndex > i"
+            (click)="onStepClick(s.key)" [style.cursor]="canNavigateToStep(s.key) ? 'pointer' : 'default'">
             <div class="step-circle">
               <ion-icon name="checkmark-outline" *ngIf="stepIndex > i"></ion-icon>
               <span *ngIf="stepIndex <= i">{{ i + 1 }}</span>
@@ -77,7 +80,8 @@
             </div>
             <ion-popover [keepContentsMounted]="true">
               <ng-template>
-                <ion-datetime id="dtRun" presentation="month-year" formControlName="month" (ionChange)="onMonthPickerChange($event)"></ion-datetime>
+                <ion-datetime id="dtRun" presentation="month-year" formControlName="month"
+                  (ionChange)="onMonthPickerChange($event)"></ion-datetime>
               </ng-template>
             </ion-popover>
           </div>
@@ -88,12 +92,14 @@
               <ion-icon [name]="isMonthLocked ? 'lock-closed' : 'checkmark-circle'"></ion-icon>
               <div>
                 <h4>Payroll In-Progress for {{ selectedMonth }}</h4>
-                <p>Run <strong>#{{ latestRun.run_id }}</strong> is at <strong>{{ latestRun.status }}</strong> stage. This month is saved.</p>
+                <p>Run <strong>#{{ latestRun.run_id }}</strong> is at <strong>{{ latestRun.status }}</strong> stage.
+                  This month is saved.</p>
               </div>
             </div>
             <div class="banner-actions">
               <ion-button class="primary-btn" (click)="resumeMonthStage()">
-                Go to {{ getTargetStep(selectedMonth) | titlecase }} Stage <ion-icon name="arrow-forward" slot="end"></ion-icon>
+                Go to {{ getTargetStep(selectedMonth) | titlecase }} Stage <ion-icon name="arrow-forward"
+                  slot="end"></ion-icon>
               </ion-button>
               <ion-button fill="outline" class="secondary-btn" *ngIf="!isMonthLocked" (click)="confirmRun()">
                 Re-Run Payroll
@@ -185,8 +191,7 @@
 
           <!-- Run card (Latest Run Only) -->
           <div class="run-list" *ngIf="latestRun">
-            <div class="run-card selected"
-              (click)="selectRun(latestRun)">
+            <div class="run-card selected" (click)="selectRun(latestRun)">
 
               <div class="run-card-left">
                 <div class="run-id-circle">#{{ latestRun.run_id }}</div>
@@ -212,7 +217,8 @@
               </div>
 
               <div class="run-card-right">
-                <span class="status-pill" [style.background]="getStatusColor(latestRun.status)">{{ latestRun.status }}</span>
+                <span class="status-pill" [style.background]="getStatusColor(latestRun.status)">{{ latestRun.status
+                  }}</span>
                 <ion-icon name="checkmark-circle" class="selected-check"></ion-icon>
               </div>
             </div>
@@ -294,13 +300,26 @@
               <div class="label">Est. Gross</div>
               <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalGross || 0) }}</div>
             </div>
+
+            <div class="summary-operator">=</div>
             <div class="summary-item success">
-              <div class="label">Est. Net</div>
-              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalNet || 0) }}</div>
+              <div class="label">Est. Net (Deposit)</div>
+              <div class="value" style="color: #10b981">{{ formatCurrency(previewData.data?.estimate?.totalNet || 0) }}
+              </div>
+            </div>
+            <div class="summary-operator">+</div>
+            <div class="summary-item danger" *ngIf="previewData.data?.estimate">
+              <div class="label">Est. Deductions + Contributions</div>
+              <div class="value" style="color: #ef4444">
+                {{ formatCurrency(previewData.data?.estimate?.totalDeductionsContributions !== undefined ?
+                previewData.data?.estimate?.totalDeductionsContributions : ((previewData.data?.estimate?.totalDeductions
+                || 0) + (previewData.data?.estimate?.totalContributions || 0))) }}
+              </div>
             </div>
             <div class="summary-item primary">
-              <div class="label">Total Payout</div>
-              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalPayout || 0) }}</div>
+              <div class="label">Total Payroll Cost</div>
+              <div class="value">{{ formatCurrency(previewData.data?.estimate?.totalPayrollCost ||
+                previewData.data?.estimate?.totalPayout || 0) }}</div>
             </div>
           </div>
 
@@ -447,8 +466,8 @@
           <div class="lock-summary payroll-inset" *ngIf="runStatus">
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
             <div class="ls-row"><span>Month</span><strong>{{ selectedMonth }}</strong></div>
-            <div class="ls-row"><span>Net Payout</span><strong>{{ formatCurrency(runStatus.total_net) }}</strong></div>
-            <div class="ls-row"><span>Employees</span><strong>{{ runStatus.employee_count }}</strong></div>
+            <div class="ls-row"><span>Net Payout</span><strong style="color: #10b981;">{{ formatCurrency(lockNetPayout) }}</strong></div>
+            <div class="ls-row"><span>Employees</span><strong>{{ previewData?.data?.estimate?.employeeCount || runStatus.employee_count }}</strong></div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('validate')">Back</ion-button>
@@ -495,8 +514,7 @@
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
             <div class="ls-row"><span>Status</span><span class="status-pill-sm"
                 [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span></div>
-            <div class="ls-row"><span>Net Payout</span><strong class="highlight">{{ formatCurrency(runStatus.total_net)
-                }}</strong></div>
+            <div class="ls-row"><span>Net Payout</span><strong class="highlight" style="color: #10b981;">{{ formatCurrency(lockNetPayout) }}</strong></div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('lock')">Back</ion-button>
@@ -517,10 +535,9 @@
               available.</p>
           </div>
           <div class="completion-stats payroll-inset">
-            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ runStatus?.employee_count }}
+            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ previewData?.data?.estimate?.employeeCount || runStatus?.employee_count }}
                 Employees</span></div>
-            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(runStatus?.total_net)
-                }}</span></div>
+            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(lockNetPayout) }}</span></div>
             <div class="cs-item"><ion-icon name="calendar-outline"></ion-icon><span>{{ selectedMonth }}</span></div>
           </div>
           <div class="action-footer vertical" style="margin-top:2rem">
@@ -530,7 +547,8 @@
             <ion-button expand="block" fill="clear" (click)="resetWorkflow()">
               <ion-icon name="refresh-outline" slot="start"></ion-icon> Process Another Month
             </ion-button>
-            <ion-button expand="block" fill="outline" color="danger" class="cancel-stage-btn" (click)="confirmCancelPayroll()">
+            <ion-button expand="block" fill="outline" color="danger" class="cancel-stage-btn"
+              (click)="confirmCancelPayroll()">
               <ion-icon name="trash-outline" slot="start"></ion-icon> Cancel &amp; Delete This Month's Payroll
             </ion-button>
           </div>
