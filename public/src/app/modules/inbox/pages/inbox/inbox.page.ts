@@ -115,10 +115,12 @@ export class InboxPage implements OnInit {
 
   private initRoleAccess() {
     const role = this.auth.userRole?.toLowerCase() || '';
-    this.isEmployee = role === 'employee';
+    const hasTeam = sessionStorage.getItem('hasTeam') === 'true';
+
     this.isHR = ['admin', 'hr'].includes(role);
-    this.isManager = role === 'manager';
-    this.isManagerOrHR = ['admin', 'hr', 'manager'].includes(role);
+    this.isManager = role === 'manager' || hasTeam;
+    this.isEmployee = role === 'employee' && !hasTeam;
+    this.isManagerOrHR = ['admin', 'hr', 'manager'].includes(role) || hasTeam;
     // ONLY HR and Admin can view all organization requests; Managers only see direct reports
     this.showViewAll = this.isHR;
     if (this.isHR) {
@@ -132,8 +134,8 @@ export class InboxPage implements OnInit {
     if (!n || n.status !== 'Pending') return false;
     if (this.isHR) return true;
     if (this.isManager) {
-      const currentEmpId = Number(this.auth.employeeID);
-      return !currentEmpId || n.employee_id !== currentEmpId;
+      // In manager mode, backend already scopes notifications strictly to direct reporting team members
+      return true;
     }
     return false;
   }
