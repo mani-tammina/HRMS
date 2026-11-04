@@ -18,7 +18,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
         <div class="inner-pulse"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="(loading && clockingInMode === 'Office') || initialLoading" name="crescent" class="btn-spinner"></ion-spinner>
-          <span class="text">Clock In</span>
+          <span class="text">Web Clock-In</span>
         </div>
       </button>
 
@@ -50,7 +50,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
         <div class="inner-pulse red"></div>
         <div class="btn-content">
           <ion-spinner *ngIf="loading" name="crescent" class="btn-spinner"></ion-spinner>
-          <span class="text">Clock Out</span>
+          <span class="text">Web Clock-Out</span>
         </div>
       </button>
 
@@ -504,7 +504,8 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         inputs: [{ name: 'comment', type: 'text', placeholder: 'Enter your comment here...' }],
         buttons: [
           { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; this.clockingInMode = null; } },
-          { text: 'Clock In', handler: (data) => {
+          {
+            text: 'Clock In', handler: (data) => {
               if (!data.comment || data.comment.trim() === '') {
                 this.showToast('A comment is mandatory to clock in.', 'warning');
                 return false;
@@ -577,7 +578,8 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
         inputs: [{ name: 'comment', type: 'text', placeholder: 'Enter your comment here...' }],
         buttons: [
           { text: 'Cancel', role: 'cancel', handler: () => { this.loading = false; } },
-          { text: 'Clock Out', handler: (data) => {
+          {
+            text: 'Clock Out', handler: (data) => {
               if (!data.comment || data.comment.trim() === '') {
                 this.showToast('A comment is mandatory to clock out.', 'warning');
                 return false;
