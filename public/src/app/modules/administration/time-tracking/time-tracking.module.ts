@@ -11,9 +11,11 @@ import { Step2BiometricComponent } from './time-tracking-wizard/steps/step2-biom
 import { Step3RemotePunchesComponent } from './time-tracking-wizard/steps/step3-remote-punches/step3-remote-punches.component';
 import { Step4WfhOnDutyComponent } from './time-tracking-wizard/steps/step4-wfh-on-duty/step4-wfh-on-duty.component';
 import { Step5RegularizationComponent } from './time-tracking-wizard/steps/step5-regularization/step5-regularization.component';
+import { AttendanceTimeTrackingPolicyComponent } from './attendance-time-tracking-policy/attendance-time-tracking-policy.component';
 
 const routes: Routes = [
   { path: '', component: TimeTrackingListPage },
+  { path: 'attendance-policy', component: AttendanceTimeTrackingPolicyComponent },
   { path: 'create', component: TimeTrackingWizardPage },
   { path: 'edit/:id', component: TimeTrackingWizardPage }
 ];
@@ -33,7 +35,11 @@ const routes: Routes = [
     Step2BiometricComponent,
     Step3RemotePunchesComponent,
     Step4WfhOnDutyComponent,
-    Step5RegularizationComponent
+    Step5RegularizationComponent,
+    AttendanceTimeTrackingPolicyComponent
+  ],
+  exports: [
+    AttendanceTimeTrackingPolicyComponent
   ]
 })
 export class TimeTrackingModule {}

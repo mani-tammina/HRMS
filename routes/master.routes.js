@@ -182,7 +182,246 @@ createMasterRoutes("bands", "bands", "name");
 createMasterRoutes("pay-grades", "pay_grades", "name");
 createMasterRoutes("leave-plans", "leave_plans", "name");
 // Shift policies and weekly-off policies handled separately due to enhanced fields
-createMasterRoutes("attendance-policies", "attendance_policies", "name");
+// ============ ENHANCED ATTENDANCE POLICIES CRUD ============
+async function ensureAttendancePolicyColumns() {
+  try {
+    const c = await db();
+    const [cols] = await c.query(`
+      SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'attendance_policies'
+    `);
+    const names = cols.map(r => r.COLUMN_NAME);
+    if (!names.includes('description')) {
+      await c.query(`ALTER TABLE attendance_policies ADD COLUMN description TEXT NULL`);
+    }
+    if (!names.includes('updated_at')) {
+      await c.query(`ALTER TABLE attendance_policies ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
+    }
+    c.end();
+  } catch (e) {
+    console.warn('[attendance_policies] Column check:', e.message);
+  }
+}
+ensureAttendancePolicyColumns();
+
+// GET all attendance policies with employee counts
+router.get("/attendance-policies", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    const [rows] = await c.query(`
+      SELECT 
+        ap.id, 
+        ap.name, 
+        ap.description, 
+        ap.created_at, 
+        ap.updated_at,
+        COUNT(DISTINCT e.id) AS employee_count
+      FROM attendance_policies ap
+      LEFT JOIN employees e ON e.attendance_policy_id = ap.id
+      GROUP BY ap.id, ap.name, ap.description, ap.created_at, ap.updated_at
+      ORDER BY ap.id ASC
+    `);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// GET single attendance policy by ID
+router.get("/attendance-policies/:id", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    const [rows] = await c.query(`
+      SELECT 
+        ap.id, 
+        ap.name, 
+        ap.description, 
+        ap.created_at, 
+        ap.updated_at,
+        COUNT(DISTINCT e.id) AS employee_count
+      FROM attendance_policies ap
+      LEFT JOIN employees e ON e.attendance_policy_id = ap.id
+      WHERE ap.id = ?
+      GROUP BY ap.id, ap.name, ap.description, ap.created_at, ap.updated_at
+    `, [req.params.id]);
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: "Attendance policy not found" });
+    }
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// GET employees assigned to this policy
+router.get("/attendance-policies/:id/employees", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    const [rows] = await c.query(`
+      SELECT 
+        e.id, 
+        e.EmployeeNumber AS emp_no, 
+        e.EmployeeNumber,
+        e.FirstName AS first_name, 
+        e.LastName AS last_name, 
+        e.FullName AS full_name,
+        e.WorkEmail AS work_email,
+        e.profile_image,
+        d.name AS department_name, 
+        des.name AS designation_name, 
+        l.name AS location_name
+      FROM employees e
+      LEFT JOIN departments d ON e.DepartmentId = d.id
+      LEFT JOIN designations des ON e.DesignationId = des.id
+      LEFT JOIN locations l ON e.LocationId = l.id
+      WHERE e.attendance_policy_id = ?
+      ORDER BY COALESCE(e.FirstName, e.FullName) ASC
+    `, [req.params.id]);
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// POST create attendance policy
+router.post("/attendance-policies", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const { name, description } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Policy name is required" });
+    }
+    c = await db();
+    const [existing] = await c.query("SELECT id FROM attendance_policies WHERE name = ?", [name.trim()]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: `Attendance policy '${name.trim()}' already exists` });
+    }
+    const [result] = await c.query(
+      "INSERT INTO attendance_policies (name, description) VALUES (?, ?)",
+      [name.trim(), description ? description.trim() : null]
+    );
+    res.status(201).json({
+      success: true,
+      message: "Attendance policy created successfully",
+      id: result.insertId,
+      name: name.trim(),
+      description: description ? description.trim() : null,
+      employee_count: 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// PUT update attendance policy
+router.put("/attendance-policies/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const { name, description } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Policy name is required" });
+    }
+    c = await db();
+    const [existing] = await c.query("SELECT id FROM attendance_policies WHERE name = ? AND id != ?", [name.trim(), req.params.id]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: `Attendance policy '${name.trim()}' already exists` });
+    }
+    const [result] = await c.query(
+      "UPDATE attendance_policies SET name = ?, description = ? WHERE id = ?",
+      [name.trim(), description !== undefined ? (description ? description.trim() : null) : null, req.params.id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Attendance policy not found" });
+    }
+    res.json({ success: true, message: "Attendance policy updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// DELETE attendance policy
+router.delete("/attendance-policies/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const policyId = req.params.id;
+    const forceUnassign = req.query.unassign === "true" || req.body?.unassign === true;
+    c = await db();
+
+    // Check employee count
+    const [empRows] = await c.query("SELECT COUNT(*) AS count FROM employees WHERE attendance_policy_id = ?", [policyId]);
+    const empCount = empRows[0]?.count || 0;
+
+    if (empCount > 0 && !forceUnassign) {
+      return res.status(400).json({
+        error: `Cannot delete policy while ${empCount} employee(s) are assigned.`,
+        employee_count: empCount,
+        requires_unassign: true
+      });
+    }
+
+    if (empCount > 0 && forceUnassign) {
+      await c.query("UPDATE employees SET attendance_policy_id = NULL WHERE attendance_policy_id = ?", [policyId]);
+    }
+
+    const [result] = await c.query("DELETE FROM attendance_policies WHERE id = ?", [policyId]);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Attendance policy not found" });
+    }
+    res.json({ success: true, message: "Attendance policy deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// POST assign employees to attendance policy
+router.post("/attendance-policies/:id/assign-employees", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const policyId = req.params.id;
+    const { employee_ids } = req.body;
+    if (!Array.isArray(employee_ids) || employee_ids.length === 0) {
+      return res.status(400).json({ error: "employee_ids array is required" });
+    }
+    c = await db();
+    await c.query("UPDATE employees SET attendance_policy_id = ? WHERE id IN (?)", [policyId, employee_ids]);
+    res.json({ success: true, message: `${employee_ids.length} employee(s) assigned successfully` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
+
+// POST unassign single employee from attendance policy
+router.post("/attendance-policies/:id/unassign-employee/:empId", auth, roleAuth(["admin", "hr"]), async (req, res) => {
+  let c;
+  try {
+    const { id, empId } = req.params;
+    c = await db();
+    await c.query("UPDATE employees SET attendance_policy_id = NULL WHERE id = ? AND attendance_policy_id = ?", [empId, id]);
+    res.json({ success: true, message: "Employee unassigned successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    if (c) c.end();
+  }
+});
 // attendance-capture-schemes: GET only here (full CRUD via /api/time-tracking-policies)
 router.get("/attendance-capture-schemes", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {
@@ -844,7 +1083,7 @@ const updateMasterRoutes = [
   { route: "bands", table: "bands", col: "name" },
   { route: "pay-grades", table: "pay_grades", col: "name" },
   { route: "leave-plans", table: "leave_plans", col: "name" },
-  { route: "attendance-policies", table: "attendance_policies", col: "name" },
+
   {
     route: "attendance-capture-schemes",
     table: "attendance_capture_schemes",

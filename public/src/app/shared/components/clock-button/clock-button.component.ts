@@ -362,6 +362,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           return false;
         };
 
+        // Web Clock In & Out state is driven strictly by web punches (separate from biometric swipes)
         const webPunches = allPunches.filter((p: any) => !isBiometricPunch(p));
 
         if (!webPunches.length) {
@@ -387,7 +388,6 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.statusChanged.emit({ isClockedIn: false, autoClockedOut: isAutoOut, lastPunch: lastWebPunch });
         }
 
-        // Clock Out displays only if the punch-in came from Web Clock-In, Remote, or WFH
         if (this.isClockedIn) {
           const lastMode = (lastWebPunch?.work_mode || '').toLowerCase();
           const lastNotes = (lastWebPunch?.notes || '').toLowerCase();
@@ -407,6 +407,7 @@ export class ClockButtonComponent implements OnInit, OnDestroy {
           this.workMode = 'Office';
           this.remoteActive = false;
           localStorage.removeItem('remoteActive');
+          this.checkTodayWorkMode();
         }
 
         const hadRemotePunch = allPunches.some((p: any) =>

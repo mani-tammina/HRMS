@@ -308,31 +308,10 @@ router.post("/punch-in", auth, async (req, res) => {
       [emp.id]
     );
 
+    // Web punch-in session is managed separately from biometric door swipes
     let isEffectivelyIn = lastPunch.length > 0 && lastPunch[0].punch_type === "in";
 
-    // 1. Biometric check: Check if employee has a newer punch in biometric_punches
-    if (isEffectivelyIn) {
-      try {
-        const [latestBio] = await c.query(
-          `SELECT punch_time, direction FROM biometric_punches
-           WHERE employee_id = ?
-           ORDER BY punch_time DESC, id DESC
-           LIMIT 1`,
-          [emp.id]
-        );
-        if (latestBio.length > 0) {
-          const lastWebTime = new Date(lastPunch[0].punch_time).getTime();
-          const lastBioTime = new Date(latestBio[0].punch_time).getTime();
-          if (lastBioTime >= lastWebTime && latestBio[0].direction === "out") {
-            isEffectivelyIn = false;
-          }
-        }
-      } catch (bioErr) {
-        console.warn("[PunchIn] Biometric check warning:", bioErr.message);
-      }
-    }
-
-    // 2. Cross-day check: Check if the active punch belongs to a previous shift date
+    // Cross-day check: Check if the active punch belongs to a previous shift date
     if (isEffectivelyIn && lastPunch[0].attendance_id) {
       const [attRows] = await c.query(
         `SELECT a.id, a.attendance_date, a.work_mode FROM attendance a WHERE a.id = ?`,
@@ -708,6 +687,28 @@ router.post("/punch-out", auth, async (req, res) => {
         attendanceId = attendance[0].id;
         workMode = attendance[0].work_mode;
         attendanceLocation = attendance[0].location || "Office";
+
+        // If attendance exists but has no punch-in in attendance_punches, bridge first biometric punch
+        const [existingIn] = await c.query(
+          `SELECT id FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'in' LIMIT 1`,
+          [attendanceId]
+        );
+        if (existingIn.length === 0) {
+          const [bioPunches] = await c.query(
+            `SELECT punch_time FROM biometric_punches 
+             WHERE employee_id = ? AND punch_date = ? 
+             ORDER BY punch_time ASC LIMIT 1`,
+            [emp.id, shiftDate]
+          );
+          if (bioPunches.length > 0) {
+            await c.query(
+              `INSERT INTO attendance_punches 
+               (attendance_id, employee_id, punch_type, punch_time, punch_date, ip_address, device_info, location, notes)
+               VALUES (?, ?, 'in', ?, ?, '127.0.0.1', 'Biometric Device', 'Office', 'Biometric Check-In')`,
+              [attendanceId, emp.id, bioPunches[0].punch_time, shiftDate]
+            );
+          }
+        }
       }
     }
 
@@ -715,37 +716,36 @@ router.post("/punch-out", auth, async (req, res) => {
     // We use the workMode from the attendance record since punch-out doesn't send it.
     await validateTimeTrackingPolicy(c, emp.id, workMode || "Office", ip_address, notes);
 
-    // Check latest punch across both web and biometric punches
-    const [latestCombined] = await c.query(
-      `SELECT punch_type, punch_time FROM (
-         SELECT punch_type, punch_time
-         FROM attendance_punches
-         WHERE attendance_id = ? AND (notes IS NULL OR notes != 'Biometric Check-In')
-         UNION ALL
-         SELECT CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, punch_time
-         FROM biometric_punches
-         WHERE employee_id = ? AND punch_date = ?
-       ) combined
-       ORDER BY punch_time DESC
-       LIMIT 1`,
-      [attendanceId, emp.id, shiftDate]
+    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
+    await c.query(
+      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
+      [attendanceId]
     );
 
-    let lastPunch = latestCombined;
-    if (lastPunch.length === 0) {
+    // Check latest punch in attendance_punches for this attendance record
+    const [lastWebPunches] = await c.query(
+      `SELECT punch_type, punch_time FROM attendance_punches
+       WHERE attendance_id = ?
+       ORDER BY punch_time DESC, id DESC
+       LIMIT 1`,
+      [attendanceId]
+    );
+
+    if (lastWebPunches.length === 0) {
       return res.status(400).json({
         error: "No punch-in found. Please punch in first.",
       });
     }
 
-    if (lastPunch[0].punch_type === "out") {
-      const punchTime = lastPunch[0].punch_time ? new Date(lastPunch[0].punch_time).getTime() : 0;
+    if (lastWebPunches[0].punch_type === "out") {
+      const lastWebOutTime = lastWebPunches[0].punch_time;
+      const punchTime = lastWebOutTime ? new Date(lastWebOutTime).getTime() : 0;
       const secondsAgo = (Date.now() - punchTime) / 1000;
       if (secondsAgo >= 0 && secondsAgo <= 60) {
         return res.json({
           success: true,
           message: "Punched out successfully",
-          punch_time: lastPunch[0].punch_time,
+          punch_time: lastWebPunches[0].punch_time,
           attendance_id: attendanceId,
           alreadyProcessed: true
         });
@@ -753,7 +753,7 @@ router.post("/punch-out", auth, async (req, res) => {
       return res.json({
         success: true,
         message: "You are already clocked out",
-        punch_time: lastPunch[0].punch_time,
+        punch_time: lastWebPunches[0].punch_time,
         attendance_id: attendanceId,
         alreadyActive: true
       });
@@ -763,12 +763,6 @@ router.post("/punch-out", auth, async (req, res) => {
       (notes && notes.toLowerCase().includes('remote') ? 'Remote' : null) ||
       attendanceLocation ||
       'Office';
-
-    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
-    await c.query(
-      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
-      [attendanceId]
-    );
 
     // Insert punch out record
     await c.query(
@@ -2986,11 +2980,17 @@ router.post("/checkout", auth, async (req, res) => {
       });
     }
 
+    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
+    await c.query(
+      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
+      [attendanceId]
+    );
+
     // Check last punch
     const [lastPunch] = await c.query(
       `SELECT punch_type, punch_time FROM attendance_punches 
              WHERE attendance_id = ? 
-             ORDER BY punch_time DESC LIMIT 1`,
+             ORDER BY punch_time DESC, id DESC LIMIT 1`,
       [attendanceId]
     );
 
@@ -3003,20 +3003,23 @@ router.post("/checkout", auth, async (req, res) => {
     }
 
     if (lastPunch[0].punch_type === "out") {
-      await c.rollback();
-      c.end();
-      return res.json({
-        success: true,
-        message: "You are already checked out",
-        alreadyActive: true
-      });
+      const lastOutTime = lastPunch[0].punch_time;
+      const [newerBioIn] = await c.query(
+        `SELECT punch_time FROM biometric_punches
+         WHERE employee_id = ? AND punch_date = ? AND direction != 'out' AND punch_time > ?
+         ORDER BY punch_time DESC LIMIT 1`,
+        [emp.id, shiftDate, lastOutTime]
+      );
+      if (newerBioIn.length === 0) {
+        await c.rollback();
+        c.end();
+        return res.json({
+          success: true,
+          message: "You are already checked out",
+          alreadyActive: true
+        });
+      }
     }
-
-    // Remove any previous auto-clockout ('OUT Missing') on this attendance so real punch-out takes precedence
-    await c.query(
-      `DELETE FROM attendance_punches WHERE attendance_id = ? AND punch_type = 'out' AND notes = 'OUT Missing'`,
-      [attendanceId]
-    );
 
     // Insert punch out record
     await c.query(
