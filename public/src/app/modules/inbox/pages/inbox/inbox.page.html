@@ -576,7 +576,7 @@
 
           <!-- Bottom Action & Comment Footer Bar (Only Reporting Manager and HR can take action) -->
           <div class="reader-bottom-action-bar" *ngIf="canTakeActionOn(selectedNotification)">
-            <div class="character-limit-indicator">{{ rejectReasonText?.length || 0 }} / 1024</div>
+            <div class="character-limit-indicator">{{ rejectReasonText.length || 0 }} / 1024</div>
             <div class="input-actions-row">
               <input type="text" [(ngModel)]="rejectReasonText" placeholder="Add comment or reject reason here"
                 class="comment-input-field" maxlength="1024" />

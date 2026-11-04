@@ -122,12 +122,65 @@ export class PayrollPreviewAllPage implements OnInit {
   getPreviewComponentHeaders(): string[] {
     const preview = this.fullDetailedPreview;
     if (!preview || preview.length === 0) return [];
-    return preview[0].components?.map((c: any) => c.name) || [];
+    return (preview[0].components?.map((c: any) => c.name) || [])
+      .filter((name: string) => !/pf|provident|esi/i.test(name));
   }
 
   getComponentAmount(emp: any, name: string): number {
-    const comp = emp.components?.find((c: any) => c.name === name);
-    return comp ? comp.amount : 0;
+    const comp = emp.components?.find((c: any) =>
+      c.name?.toLowerCase() === name.toLowerCase() ||
+      c.code?.toLowerCase() === name.toLowerCase()
+    );
+    return comp ? Number(comp.amount) || 0 : 0;
+  }
+
+  getEmployeePf(emp: any): number {
+    if (emp.pf_employee !== undefined && emp.pf_employee !== null && emp.pf_employee !== 0) {
+      return Number(emp.pf_employee);
+    }
+    const fromComp = this.getComponentAmount(emp, 'PF Employee Contribution') ||
+                     this.getComponentAmount(emp, 'PF Employee') ||
+                     this.getComponentAmount(emp, 'PF_DEDUCT') ||
+                     this.getComponentAmount(emp, 'PF');
+    if (fromComp) return Number(fromComp);
+    return 0;
+  }
+
+  getEmployerPf(emp: any): number {
+    if (emp.pf_employer !== undefined && emp.pf_employer !== null && emp.pf_employer !== 0) {
+      return Number(emp.pf_employer);
+    }
+    const fromComp = this.getComponentAmount(emp, 'PF Employer Contribution') ||
+                     this.getComponentAmount(emp, 'PF Employer') ||
+                     this.getComponentAmount(emp, 'PF_ER') ||
+                     this.getComponentAmount(emp, 'PF_DEDUCT_EMPLOYER');
+    if (fromComp) return Number(fromComp);
+    return this.getEmployeePf(emp);
+  }
+
+  getEmployeeEsi(emp: any): number {
+    if (emp.esi_employee !== undefined && emp.esi_employee !== null && emp.esi_employee !== 0) {
+      return Number(emp.esi_employee);
+    }
+    const fromComp = this.getComponentAmount(emp, 'ESI Employee Contribution') ||
+                     this.getComponentAmount(emp, 'ESI Employee') ||
+                     this.getComponentAmount(emp, 'ESI_EE') ||
+                     this.getComponentAmount(emp, 'ESI');
+    if (fromComp) return Number(fromComp);
+    return 0;
+  }
+
+  getEmployerEsi(emp: any): number {
+    if (emp.esi_employer !== undefined && emp.esi_employer !== null && emp.esi_employer !== 0) {
+      return Number(emp.esi_employer);
+    }
+    const fromComp = this.getComponentAmount(emp, 'ESI Employer Contribution') ||
+                     this.getComponentAmount(emp, 'ESI Employer') ||
+                     this.getComponentAmount(emp, 'ESI_ER');
+    if (fromComp) return Number(fromComp);
+    const ee = this.getEmployeeEsi(emp);
+    if (ee > 0) return Math.round(ee * (3.25 / 0.75));
+    return 0;
   }
 
   trackByEmpId(index: number, item: any) {

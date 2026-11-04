@@ -285,10 +285,10 @@
             <ion-icon name="eye-outline"></ion-icon>
             <h3>Preview — Dry Run</h3>
             <span class="badge">Not committed</span>
-            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()"
+            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()" [disabled]="isExporting"
               style="margin-left: auto;">
-              <ion-icon name="download-outline" slot="start"></ion-icon>
-              Export
+              <ion-icon [name]="isExporting ? 'hourglass-outline' : 'download-outline'" slot="start"></ion-icon>
+              {{ isExporting ? 'Exporting...' : 'Export' }}
             </ion-button>
           </div>
           <div class="preview-summary">
@@ -323,6 +323,30 @@
             </div>
           </div>
 
+          <!-- Statutory Breakdown Overview -->
+          <div class="statutory-preview-chips" *ngIf="previewData.data?.estimate?.pf || previewData.data?.estimate?.esi"
+            style="display: flex; gap: 12px; margin-bottom: 1.25rem; flex-wrap: wrap;">
+            <div class="stat-chip" *ngIf="previewData.data?.estimate?.pf"
+              style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+              <strong style="color: #1e293b; font-weight: 600;">PF:</strong>
+              <span style="color: #475569;">Emp Share: <strong>{{ formatCurrency(previewData.data?.estimate?.pf?.employeeShare || 0) }}</strong></span>
+              <span style="color: #cbd5e1;">|</span>
+              <span style="color: #475569;">Employer Share: <strong>{{ formatCurrency(previewData.data?.estimate?.pf?.employerShare || 0) }}</strong></span>
+            </div>
+            <div class="stat-chip" *ngIf="previewData.data?.estimate?.esi"
+              style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+              <strong style="color: #1e293b; font-weight: 600;">ESI:</strong>
+              <span style="color: #475569;">Emp Share: <strong>{{ formatCurrency(previewData.data?.estimate?.esi?.employeeShare || 0) }}</strong></span>
+              <span style="color: #cbd5e1;">|</span>
+              <span style="color: #475569;">Employer Share: <strong>{{ formatCurrency(previewData.data?.estimate?.esi?.employerShare || 0) }}</strong></span>
+            </div>
+            <div class="stat-chip" *ngIf="previewData.data?.estimate?.professionalTax"
+              style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+              <strong style="color: #1e293b; font-weight: 600;">PT:</strong>
+              <span style="color: #475569;">Total Tax: <strong>{{ formatCurrency(previewData.data?.estimate?.professionalTax?.totalTax || 0) }}</strong></span>
+            </div>
+          </div>
+
           <div class="preview-details-container" *ngIf="fullDetailedPreview.length">
             <div class="table-scroll-container">
               <table class="premium-table">
@@ -337,6 +361,10 @@
                     <th class="num highlight-lop">LOP</th>
                     <th class="num highlight-paid">Paid Days</th>
                     <th *ngFor="let head of getPreviewComponentHeaders()" class="num">{{ head }}</th>
+                    <th class="num highlight-statutory">PF (Emp)</th>
+                    <th class="num highlight-statutory">PF (Er)</th>
+                    <th class="num highlight-statutory">ESI (Emp)</th>
+                    <th class="num highlight-statutory">ESI (Er)</th>
                     <th class="num highlight-earnings">Total Earnings</th>
                     <th class="num highlight-deductions">Total Deductions</th>
                     <th class="num highlight-net">Net Pay</th>
@@ -361,6 +389,10 @@
                     <td *ngFor="let head of getPreviewComponentHeaders()" class="num">
                       {{ formatCurrency(getComponentAmount(emp, head)) }}
                     </td>
+                    <td class="num bold">{{ formatCurrency(getEmployeePf(emp)) }}</td>
+                    <td class="num bold">{{ formatCurrency(getEmployerPf(emp)) }}</td>
+                    <td class="num bold">{{ formatCurrency(getEmployeeEsi(emp)) }}</td>
+                    <td class="num bold">{{ formatCurrency(getEmployerEsi(emp)) }}</td>
                     <td class="num bold earnings-val">{{ formatCurrency(emp.total_earnings) }}</td>
                     <td class="num bold deductions-val">{{ formatCurrency(emp.total_deductions) }}</td>
                     <td class="num bold net-val">{{ formatCurrency(emp.total_net) }}</td>

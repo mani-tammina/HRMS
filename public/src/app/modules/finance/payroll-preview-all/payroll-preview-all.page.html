@@ -38,6 +38,11 @@
             {{ head }}
           </div>
           
+          <div class="header-cell col-stat num highlight-statutory">PF (Emp)</div>
+          <div class="header-cell col-stat num highlight-statutory">PF (Er)</div>
+          <div class="header-cell col-stat num highlight-statutory">ESI (Emp)</div>
+          <div class="header-cell col-stat num highlight-statutory">ESI (Er)</div>
+
           <div class="header-cell col-total num highlight-earnings">Earnings</div>
           <div class="header-cell col-total num highlight-deductions">Deductions</div>
           <div class="header-cell col-total num highlight-net">Net Pay</div>
@@ -66,6 +71,11 @@
             <div *ngFor="let head of getPreviewComponentHeaders()" class="cell col-comp num">
               {{ formatCurrency(getComponentAmount(emp, head)) }}
             </div>
+
+            <div class="cell col-stat num bold">{{ formatCurrency(getEmployeePf(emp)) }}</div>
+            <div class="cell col-stat num bold">{{ formatCurrency(getEmployerPf(emp)) }}</div>
+            <div class="cell col-stat num bold">{{ formatCurrency(getEmployeeEsi(emp)) }}</div>
+            <div class="cell col-stat num bold">{{ formatCurrency(getEmployerEsi(emp)) }}</div>
 
             <div class="cell col-total num bold earnings-val highlight-earnings">{{ formatCurrency(emp.total_earnings) }}</div>
             <div class="cell col-total num bold deductions-val highlight-deductions">{{ formatCurrency(emp.total_deductions) }}</div>

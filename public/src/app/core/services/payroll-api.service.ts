@@ -274,6 +274,26 @@ export interface PayrollPreviewResponse {
       totalPayrollCost?: number;
       totalNet: number;
       totalPayout: number;
+      pf?: {
+        employeesPaying: number;
+        employeeShare: number;
+        employerShare: number;
+        totalPf: number;
+        employees?: any[];
+      };
+      esi?: {
+        employeesPaying: number;
+        employeeShare: number;
+        employerShare: number;
+        totalEsi: number;
+        employees?: any[];
+      };
+      professionalTax?: {
+        employeesPaying: number;
+        totalTax: number;
+        employees?: any[];
+      };
+      [key: string]: any;
     };
     detailedPreview?: Array<{
       employee_id: number;
@@ -949,4 +969,18 @@ export class PayrollApiService {
     });
   }
 
+
+  /** GET /api/employees — Get all employees for payroll enrichment */
+  getAllEmployees(limit: number = 2000): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/employees?limit=${limit}&status=Working`, {
+      headers: this.getHeaders()
+    });
+  }
+
+  /** GET /api/locations — Get all locations for payroll enrichment */
+  getLocations(): Observable<any> {
+    return this.http.get<any>(`${this.baseUrl}/locations`, {
+      headers: this.getHeaders()
+    });
+  }
 }

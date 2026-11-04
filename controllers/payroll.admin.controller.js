@@ -258,6 +258,8 @@ async function calculateDryRunFinancials(c, year, month) {
   const [allEmployees] = await c.query(`
     SELECT e.id, e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
            esc.template_id, t.template_name, esc.annual_ctc,
+           e.PANNumber, e.EmploymentStatus, e.DateJoined, e.Gender, e.DateOfBirth,
+           loc.name as Location,
            wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
            wop.thursday_off, wop.friday_off, wop.saturday_off
     FROM employees e
@@ -271,6 +273,7 @@ async function calculateDryRunFinancials(c, year, month) {
       AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
     LEFT JOIN designations d ON d.id = e.DesignationId
     LEFT JOIN departments dept ON dept.id = e.DepartmentId
+    LEFT JOIN locations loc ON loc.id = e.LocationId
     LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
     LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
     WHERE e.EmploymentStatus = 'Working'
@@ -543,6 +546,12 @@ async function calculateDryRunFinancials(c, year, month) {
       template_name: emp.template_name,
       annual_ctc: annualCTC,
       monthly_gross: monthlyGross,
+      pan_number: emp.PANNumber || '',
+      employment_status: emp.EmploymentStatus || 'Working',
+      date_of_joining: emp.DateJoined || '',
+      gender: emp.Gender || '',
+      date_of_birth: emp.DateOfBirth || '',
+      location: emp.Location || '',
       total_earnings: finalGross,
       total_deductions: finalDeductions,
       total_net: net,
@@ -552,6 +561,12 @@ async function calculateDryRunFinancials(c, year, month) {
       paid_days: paidDays,
       present_days: attSummary.present_days !== undefined ? attSummary.present_days : 0,
       total_days: attSummary.total_days !== undefined ? attSummary.total_days : calendarDays,
+      pf_employer: employerPf,
+      esi_employer: employerEsi,
+      pf_employee: employeePf,
+      esi_employee: employeeEsi,
+      professional_tax: employeePt,
+      total_contributions: employeePf + employeeEsi,
       components: finalComponents.map(c => ({
         code: c.component_code,
         name: c.component_name,
@@ -614,7 +629,8 @@ async function previewRun(req, res) {
     const dryRun = await calculateDryRunFinancials(c, year, month);
     c.end();
 
-    const detailedList = dryRun.allCalculated.slice(offset, offset + limit);
+    const isAll = req.body.all === true || req.body.exportAll === true || limit >= 9999;
+    const detailedList = isAll ? dryRun.allCalculated : dryRun.allCalculated.slice(offset, offset + limit);
 
     return ok(res, {
       mode: 'DRY_RUN',
@@ -635,9 +651,9 @@ async function previewRun(req, res) {
       detailedPreview: detailedList,
       pagination: {
         total: dryRun.payingCount,
-        pages: Math.ceil(dryRun.payingCount / limit) || 1,
+        pages: isAll ? 1 : (Math.ceil(dryRun.payingCount / limit) || 1),
         currentPage: page,
-        limit: limit
+        limit: isAll ? dryRun.payingCount : limit
       }
     });
   } catch (err) {
