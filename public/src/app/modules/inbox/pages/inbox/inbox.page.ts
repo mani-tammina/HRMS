@@ -15,6 +15,8 @@ import { RouteGuardService } from 'src/app/core/services/route-guard.service';
 import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
 import { environment } from 'src/environments/environment';
 import { NotificationEmptyComponent } from '../../components/notification-empty/notification-empty.component';
+import * as XLSX from 'xlsx';
+import * as ExcelJS from 'exceljs';
 
 @Component({
   selector: 'app-inbox',
@@ -1039,7 +1041,7 @@ export class InboxPage implements OnInit {
     });
   }
 
-  private generateTimesheetExcel(timesheet: any, notification: InboxNotification) {
+  private async generateTimesheetExcel(timesheet: any, notification: InboxNotification) {
     const meta = this.getParsedMetadata(notification.metadata);
     const dateStr = timesheet?.date || meta.date || meta.week_range || notification.created_at;
     let formattedDate = dateStr;
@@ -1053,34 +1055,48 @@ export class InboxPage implements OnInit {
       }
     } catch {}
 
-    const empName = timesheet?.FullName || 
-                    (timesheet?.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
-                    notification.employee_name || 'Employee';
-    const empNumber = timesheet?.EmployeeNumber || notification.employee_number || '';
-    const totalHours = timesheet?.total_hours || meta.total_hours || '0';
-    const rawNotes = timesheet?.notes || timesheet?.work_description || '';
+    let empDisplayName = timesheet?.FullName || 
+                         (timesheet?.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
+                         notification.employee_name || 'Employee';
+    if (empDisplayName.startsWith('Meerasa ')) {
+      empDisplayName = empDisplayName.replace(/^Meerasa\s+/, 'M.');
+    }
+
+    const techDisplay = ''; // Empty as of now
+
+    const parseHourSlot = (hourStr: string): { from: string; to: string } => {
+      if (!hourStr || typeof hourStr !== 'string') return { from: '-', to: '-' };
+      const clean = hourStr.replace(/^[\[\s]+|[\]\s]+$/g, '').trim();
+      const parts = clean.split(/\s*[-–—]\s*|\s+to\s+/i);
+      if (parts.length >= 2) {
+        return { from: parts[0].trim() || '-', to: parts[1].trim() || '-' };
+      }
+      return { from: clean || '-', to: '-' };
+    };
 
     // Extract hours_breakdown
-    let breakdown = timesheet?.hours_breakdown;
+    let breakdown = timesheet?.hours_breakdown || meta?.hours_breakdown;
     let attempts = 0;
     while (typeof breakdown === 'string' && attempts < 3) {
       attempts++;
       try { breakdown = JSON.parse(breakdown); } catch { breakdown = null; break; }
     }
 
-    let tableRows = '';
+    const dataItems: { sl: number; task: string; from: string; to: string }[] = [];
+
     if (Array.isArray(breakdown) && breakdown.length > 0) {
       breakdown.forEach((b: any, index: number) => {
-        tableRows += `
-          <tr>
-            <td style="text-align: center;">${index + 1}</td>
-            <td>${b.hour || '-'}</td>
-            <td>${b.task || b.task_description || b.description || '-'}</td>
-            <td style="text-align: center;">${b.hours !== undefined && b.hours !== null ? b.hours : '-'}</td>
-          </tr>
-        `;
+        const timeSlot = parseHourSlot(b.hour || b.time_slot || b.time || '');
+        const task = b.task || b.task_description || b.description || '-';
+        dataItems.push({
+          sl: index + 1,
+          task: task,
+          from: timeSlot.from,
+          to: timeSlot.to
+        });
       });
     } else {
+      const rawNotes = timesheet?.notes || timesheet?.work_description || '';
       const notesToParse = rawNotes || (notification.description && notification.description.includes('Notes:') 
         ? notification.description.split('Notes:')[1].trim() 
         : '');
@@ -1088,79 +1104,99 @@ export class InboxPage implements OnInit {
       if (notesToParse && notesToParse.includes('•')) {
         const parts: string[] = notesToParse.split('•').map((p: string) => p.trim()).filter(Boolean);
         parts.forEach((p: string, index: number) => {
-          const timeMatch = p.match(/^\[(.*?)\]\s*(.*)$/);
-          const time = timeMatch ? timeMatch[1] : '-';
-          const task = timeMatch ? timeMatch[2] : p;
-          tableRows += `
-            <tr>
-              <td style="text-align: center;">${index + 1}</td>
-              <td>${time}</td>
-              <td>${task}</td>
-              <td style="text-align: center;">-</td>
-            </tr>
-          `;
+          let timeStr = '';
+          let taskStr = p;
+          const bracketMatch = p.match(/^\[(.*?)\]\s*(.*)$/);
+          if (bracketMatch) {
+            timeStr = bracketMatch[1];
+            taskStr = bracketMatch[2];
+          } else {
+            const colonMatch = p.match(/^(\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?\s*(?:[-–—]|\bto\b)\s*\d{1,2}:\d{2}(?:\s*[AaPp][Mm])?)\s*[:\-]?\s*(.*)$/i);
+            if (colonMatch) {
+              timeStr = colonMatch[1];
+              taskStr = colonMatch[2];
+            }
+          }
+          const timeSlot = parseHourSlot(timeStr);
+          dataItems.push({
+            sl: index + 1,
+            task: taskStr || '-',
+            from: timeSlot.from,
+            to: timeSlot.to
+          });
         });
       } else {
-        tableRows = `
-          <tr>
-            <td style="text-align: center;">1</td>
-            <td>Full Day</td>
-            <td>${notesToParse || notification.description || 'Timesheet work log'}</td>
-            <td style="text-align: center;">${totalHours}</td>
-          </tr>
-        `;
+        dataItems.push({
+          sl: 1,
+          task: notesToParse || notification.description || 'Timesheet work log',
+          from: 'Full Day',
+          to: '-'
+        });
       }
     }
 
-    const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:x="urn:schemas-microsoft-com:office:excel"
-          xmlns="http://www.w3.org/TR/REC-html40">
-    <head>
-      <meta charset="UTF-8" />
-      <style>
-        body { font-family: Calibri, Arial, sans-serif; }
-        table { border-collapse: collapse; width: 100%; }
-        th { background-color: #61439d; color: #ffffff; font-weight: bold; padding: 8px 12px; border: 1px solid #cbd5e1; }
-        td { padding: 8px 12px; border: 1px solid #cbd5e1; font-size: 13px; }
-        .meta-label { background-color: #f8fafc; font-weight: bold; width: 140px; }
-      </style>
-    </head>
-    <body>
-      <table>
-        <tr>
-          <td class="meta-label">Employee</td>
-          <td colspan="3">${empName} ${empNumber ? '(' + empNumber + ')' : ''}</td>
-        </tr>
-        <tr>
-          <td class="meta-label">Date</td>
-          <td colspan="3">${formattedDate}</td>
-        </tr>
-        <tr>
-          <th style="width: 50px;">S.No</th>
-          <th style="width: 180px;">Time / Slot</th>
-          <th>Task Description</th>
-          <th style="width: 80px;">Hours</th>
-        </tr>
-        ${tableRows}
-        <tr>
-          <td class="meta-label">Note</td>
-          <td colspan="3">${rawNotes || '-'}</td>
-        </tr>
-        <tr>
-          <td class="meta-label">Total Hours</td>
-          <td colspan="3"><strong>${totalHours} Hours</strong></td>
-        </tr>
-      </table>
-    </body>
-    </html>
-    `;
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Work Report');
 
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    ws.columns = [
+      { key: 'colA', width: 14 },
+      { key: 'colB', width: 85 },
+      { key: 'colC', width: 18 },
+      { key: 'colD', width: 18 }
+    ];
+
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+
+    // Row 1: Name and Date
+    const r1 = ws.addRow(['Name', empDisplayName, 'Date', formattedDate]);
+    r1.getCell(1).font = { bold: true };
+    r1.getCell(3).font = { bold: true };
+
+    // Row 2: Technology
+    const r2 = ws.addRow(['Technology', techDisplay, '', '']);
+    r2.getCell(1).font = { bold: true };
+
+    // Row 3: Duration Header (Merged C3:D3)
+    const r3 = ws.addRow(['', '', 'Duration (HH:MI to HH:MI)', '']);
+    ws.mergeCells('C3:D3');
+    r3.getCell(3).font = { bold: true };
+    r3.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Row 4: Table Headers
+    const r4 = ws.addRow(['Sl. No', 'Work Completed', 'From', 'To']);
+    r4.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // Row 5+: Data rows
+    dataItems.forEach((item) => {
+      const row = ws.addRow([item.sl, item.task, item.from, item.to]);
+      row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(2).alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(4).alignment = { horizontal: 'center', vertical: 'top' };
+    });
+
+    // Apply borders to all table cells
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      for (let c = 1; c <= 4; c++) {
+        row.getCell(c).border = thinBorder;
+      }
+    }
+
+    const safeEmp = (empDisplayName || 'Employee').trim().replace(/[\/\\:*?"<>|]/g, '');
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
-    const safeEmp = empName.replace(/[^a-zA-Z0-9_-]/g, '_');
     link.href = URL.createObjectURL(blob);
-    link.download = `Timesheet_${safeEmp}_${formattedDate}.xls`;
+    link.download = `${safeEmp}-WorkReport-${formattedDate}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

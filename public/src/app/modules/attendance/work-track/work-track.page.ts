@@ -1,3 +1,5 @@
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, forkJoin, takeUntil, catchError, of } from 'rxjs';
@@ -1296,52 +1298,103 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
     return `${day}-${month}-${year}`;
   }
-  downloadExcel(timesheet: any) {
+  async downloadExcel(timesheet: any) {
     if (!timesheet || !timesheet.hours_breakdown?.length) {
       return;
     }
 
-    let tableRows = '';
+    const formattedDate = this.formatDateDDMMYYYY(new Date(timesheet.date));
+    let empDisplayName = timesheet?.FullName || 
+                         (timesheet?.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
+                         sessionStorage.getItem('userName') || 
+                         sessionStorage.getItem('employee_name') || 
+                         'Employee';
+    if (empDisplayName.startsWith('Meerasa ')) {
+      empDisplayName = empDisplayName.replace(/^Meerasa\s+/, 'M.');
+    }
 
+    const techDisplay = ''; // Empty as of now
+
+    const parseHourSlot = (hourStr: string): { from: string; to: string } => {
+      if (!hourStr || typeof hourStr !== 'string') return { from: '-', to: '-' };
+      const clean = hourStr.replace(/^[\[\s]+|[\]\s]+$/g, '').trim();
+      const parts = clean.split(/\s*[-–—]\s*|\s+to\s+/i);
+      if (parts.length >= 2) {
+        return { from: parts[0].trim() || '-', to: parts[1].trim() || '-' };
+      }
+      return { from: clean || '-', to: '-' };
+    };
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Work Report');
+
+    ws.columns = [
+      { key: 'colA', width: 14 },
+      { key: 'colB', width: 85 },
+      { key: 'colC', width: 18 },
+      { key: 'colD', width: 18 }
+    ];
+
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+
+    // Row 1
+    const r1 = ws.addRow(['Name', empDisplayName, 'Date', formattedDate]);
+    r1.getCell(1).font = { bold: true };
+    r1.getCell(3).font = { bold: true };
+
+    // Row 2
+    const r2 = ws.addRow(['Technology', techDisplay, '', '']);
+    r2.getCell(1).font = { bold: true };
+
+    // Row 3
+    const r3 = ws.addRow(['', '', 'Duration (HH:MI to HH:MI)', '']);
+    ws.mergeCells('C3:D3');
+    r3.getCell(3).font = { bold: true };
+    r3.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Row 4
+    const r4 = ws.addRow(['Sl. No', 'Work Completed', 'From', 'To']);
+    r4.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // Rows 5+
     timesheet.hours_breakdown.forEach((b: any, index: number) => {
-      tableRows += `
-        <tr>
-          <td>${index + 1}</td>
-          <td>${b.hour || '-'}</td>
-          <td>${b.task || '-'}</td>
-          <td>${b.hours || '-'}</td>
-        </tr>
-      `;
-    });
-    timesheet.date = this.formatDateDDMMYYYY(new Date(timesheet.date));
-    const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:x="urn:schemas-microsoft-com:office:excel">
-    <head>
-      <meta charset="UTF-8" />
-    </head>
-    <body>
-      <table border="1">
-        <tr><td>Date</td><td colspan="3">${timesheet.date}</td></tr>
-        <tr>
-          <th>S.No</th><th>Time</th><th>Task</th><th>Hours</th>
-        </tr>
-        ${tableRows}
-        <tr><td>Note</td><td colspan="3">${timesheet.notes || '-'}</td></tr>
-        <tr><td>Total</td><td colspan="3">${timesheet.total_hours}</td></tr>
-      </table>
-    </body>
-    </html>
-    `;
-
-    const blob = new Blob([html], {
-      type: 'application/vnd.ms-excel;charset=utf-8;'
+      const timeSlot = parseHourSlot(b.hour || b.time_slot || b.time || '');
+      const row = ws.addRow([
+        index + 1,
+        b.task || b.task_description || b.description || '-',
+        timeSlot.from,
+        timeSlot.to
+      ]);
+      row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(2).alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(4).alignment = { horizontal: 'center', vertical: 'top' };
     });
 
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      for (let c = 1; c <= 4; c++) {
+        row.getCell(c).border = thinBorder;
+      }
+    }
+
+    const safeEmp = (empDisplayName || 'Employee').trim().replace(/[\/\\:*?"<>|]/g, '');
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `Timesheet_${timesheet.date}.xls`;
+    link.download = `${safeEmp}-WorkReport-${formattedDate}.xlsx`;
+    document.body.appendChild(link);
     link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(link.href);
   }
 

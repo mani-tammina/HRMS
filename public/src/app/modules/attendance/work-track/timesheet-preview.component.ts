@@ -1,3 +1,5 @@
+import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import { Component, Input, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { IonicModule, ModalController } from '@ionic/angular';
 import { CommonModule } from '@angular/common';
@@ -87,33 +89,10 @@ export class TimesheetPreviewComponent implements OnInit, OnChanges {
     }
   }
 
-  downloadExcel() {
+  async downloadExcel() {
     if (!this.data) return;
     const timesheet = this.data;
-    let tableRows = '';
     const logs = this.parsedLogs && this.parsedLogs.length ? this.parsedLogs : [];
-
-    if (logs.length > 0) {
-      logs.forEach((b: any, index: number) => {
-        tableRows += `
-          <tr>
-            <td style="text-align: center;">${index + 1}</td>
-            <td>${b.hour || '-'}</td>
-            <td>${b.task || '-'}</td>
-            <td style="text-align: center;">${b.hours !== undefined && b.hours !== null ? b.hours : '-'}</td>
-          </tr>
-        `;
-      });
-    } else {
-      tableRows = `
-        <tr>
-          <td style="text-align: center;">1</td>
-          <td>Full Day</td>
-          <td>${timesheet.notes || timesheet.work_description || '-'}</td>
-          <td style="text-align: center;">${timesheet.total_hours || '0'}</td>
-        </tr>
-      `;
-    }
 
     const rawDate = timesheet.date || timesheet.week_start_date || timesheet.created_at;
     let formattedDate = rawDate;
@@ -127,33 +106,105 @@ export class TimesheetPreviewComponent implements OnInit, OnChanges {
       }
     } catch {}
 
-    const empName = timesheet.FullName || 
-                    (timesheet.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
-                    'Employee';
-    const empNumber = timesheet.EmployeeNumber || '';
+    let empDisplayName = timesheet.FullName || 
+                         (timesheet.FirstName ? `${timesheet.FirstName} ${timesheet.LastName || ''}`.trim() : '') || 
+                         'Employee';
+    if (empDisplayName.startsWith('Meerasa ')) {
+      empDisplayName = empDisplayName.replace(/^Meerasa\s+/, 'M.');
+    }
 
-    const html = `
-    <html xmlns:o="urn:schemas-microsoft-com:office:office"
-          xmlns:x="urn:schemas-microsoft-com:office:excel">
-    <head><meta charset="UTF-8" /></head>
-    <body>
-      <table border="1">
-        <tr><td>Employee</td><td colspan="3">${empName} ${empNumber ? '(' + empNumber + ')' : ''}</td></tr>
-        <tr><td>Date</td><td colspan="3">${formattedDate}</td></tr>
-        <tr><th>S.No</th><th>Time</th><th>Task</th><th>Hours</th></tr>
-        ${tableRows}
-        <tr><td>Note</td><td colspan="3">${timesheet.notes || '-'}</td></tr>
-        <tr><td>Total</td><td colspan="3">${timesheet.total_hours || '0'}</td></tr>
-      </table>
-    </body>
-    </html>
-    `;
+    const techDisplay = ''; // Empty as of now
 
-    const blob = new Blob([html], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+    const parseHourSlot = (hourStr: string): { from: string; to: string } => {
+      if (!hourStr || typeof hourStr !== 'string') return { from: '-', to: '-' };
+      const clean = hourStr.replace(/^[\[\s]+|[\]\s]+$/g, '').trim();
+      const parts = clean.split(/\s*[-–—]\s*|\s+to\s+/i);
+      if (parts.length >= 2) {
+        return { from: parts[0].trim() || '-', to: parts[1].trim() || '-' };
+      }
+      return { from: clean || '-', to: '-' };
+    };
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Work Report');
+
+    ws.columns = [
+      { key: 'colA', width: 14 },
+      { key: 'colB', width: 85 },
+      { key: 'colC', width: 18 },
+      { key: 'colD', width: 18 }
+    ];
+
+    const thinBorder: Partial<ExcelJS.Borders> = {
+      top: { style: 'thin', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF000000' } },
+      bottom: { style: 'thin', color: { argb: 'FF000000' } },
+      right: { style: 'thin', color: { argb: 'FF000000' } }
+    };
+
+    // Row 1
+    const r1 = ws.addRow(['Name', empDisplayName, 'Date', formattedDate]);
+    r1.getCell(1).font = { bold: true };
+    r1.getCell(3).font = { bold: true };
+
+    // Row 2
+    const r2 = ws.addRow(['Technology', techDisplay, '', '']);
+    r2.getCell(1).font = { bold: true };
+
+    // Row 3
+    const r3 = ws.addRow(['', '', 'Duration (HH:MI to HH:MI)', '']);
+    ws.mergeCells('C3:D3');
+    r3.getCell(3).font = { bold: true };
+    r3.getCell(3).alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Row 4
+    const r4 = ws.addRow(['Sl. No', 'Work Completed', 'From', 'To']);
+    r4.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+
+    // Rows 5+
+    if (logs.length > 0) {
+      logs.forEach((b: any, index: number) => {
+        const timeSlot = parseHourSlot(b.hour || b.time_slot || b.time || '');
+        const row = ws.addRow([
+          index + 1,
+          b.task || b.task_description || b.description || '-',
+          timeSlot.from,
+          timeSlot.to
+        ]);
+        row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+        row.getCell(2).alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+        row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
+        row.getCell(4).alignment = { horizontal: 'center', vertical: 'top' };
+      });
+    } else {
+      const row = ws.addRow([
+        1,
+        timesheet.notes || timesheet.work_description || '-',
+        'Full Day',
+        '-'
+      ]);
+      row.getCell(1).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(2).alignment = { horizontal: 'left', vertical: 'top', wrapText: true };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
+      row.getCell(4).alignment = { horizontal: 'center', vertical: 'top' };
+    }
+
+    for (let r = 1; r <= ws.rowCount; r++) {
+      const row = ws.getRow(r);
+      for (let c = 1; c <= 4; c++) {
+        row.getCell(c).border = thinBorder;
+      }
+    }
+
+    const safeEmp = (empDisplayName || 'Employee').trim().replace(/[\/\\:*?"<>|]/g, '');
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const link = document.createElement('a');
-    const safeEmp = empName.replace(/[^a-zA-Z0-9_-]/g, '_');
     link.href = URL.createObjectURL(blob);
-    link.download = `Timesheet_${safeEmp}_${formattedDate}.xls`;
+    link.download = `${safeEmp}-WorkReport-${formattedDate}.xlsx`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

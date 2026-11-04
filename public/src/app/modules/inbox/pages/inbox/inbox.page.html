@@ -559,12 +559,6 @@
                   <ion-icon name="download-outline"></ion-icon>
                   <span>Download</span>
                 </button>
-                <button class="btn-download-preview btn-download-team" *ngIf="isManagerOrHR"
-                  (click)="downloadTeamTimesheetsForDate(selectedNotification)"
-                  title="Download All Team Timesheets for this date">
-                  <ion-icon name="people-outline"></ion-icon>
-                  <span>Download Team ({{ getTimesheetDateDisplay(selectedNotification) }})</span>
-                </button>
                 <button class="btn-resubmit-report" *ngIf="selectedNotification.status === 'Rejected'"
                   (click)="navigateToResubmitWorkTrack(selectedNotification)">
                   <ion-icon name="create-outline"></ion-icon>
