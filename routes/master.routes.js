@@ -194,6 +194,9 @@ async function ensureAttendancePolicyColumns() {
     if (!names.includes('description')) {
       await c.query(`ALTER TABLE attendance_policies ADD COLUMN description TEXT NULL`);
     }
+    if (!names.includes('effective_date')) {
+      await c.query(`ALTER TABLE attendance_policies ADD COLUMN effective_date DATE NULL`);
+    }
     if (!names.includes('updated_at')) {
       await c.query(`ALTER TABLE attendance_policies ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP`);
     }
@@ -214,12 +217,13 @@ router.get("/attendance-policies", auth, roleAuth(["admin", "hr", "employee", "m
         ap.id, 
         ap.name, 
         ap.description, 
+        ap.effective_date,
         ap.created_at, 
         ap.updated_at,
         COUNT(DISTINCT e.id) AS employee_count
       FROM attendance_policies ap
-      LEFT JOIN employees e ON e.attendance_policy_id = ap.id
-      GROUP BY ap.id, ap.name, ap.description, ap.created_at, ap.updated_at
+      LEFT JOIN employees e ON e.attendance_policy_id = ap.id AND e.EmploymentStatus = 'Working'
+      GROUP BY ap.id, ap.name, ap.description, ap.effective_date, ap.created_at, ap.updated_at
       ORDER BY ap.id ASC
     `);
     res.json(rows);
@@ -240,13 +244,14 @@ router.get("/attendance-policies/:id", auth, roleAuth(["admin", "hr", "employee"
         ap.id, 
         ap.name, 
         ap.description, 
+        ap.effective_date,
         ap.created_at, 
         ap.updated_at,
         COUNT(DISTINCT e.id) AS employee_count
       FROM attendance_policies ap
-      LEFT JOIN employees e ON e.attendance_policy_id = ap.id
+      LEFT JOIN employees e ON e.attendance_policy_id = ap.id AND e.EmploymentStatus = 'Working'
       WHERE ap.id = ?
-      GROUP BY ap.id, ap.name, ap.description, ap.created_at, ap.updated_at
+      GROUP BY ap.id, ap.name, ap.description, ap.effective_date, ap.created_at, ap.updated_at
     `, [req.params.id]);
 
     if (rows.length === 0) {
@@ -282,7 +287,7 @@ router.get("/attendance-policies/:id/employees", auth, roleAuth(["admin", "hr", 
       LEFT JOIN departments d ON e.DepartmentId = d.id
       LEFT JOIN designations des ON e.DesignationId = des.id
       LEFT JOIN locations l ON e.LocationId = l.id
-      WHERE e.attendance_policy_id = ?
+      WHERE e.attendance_policy_id = ? AND e.EmploymentStatus = 'Working'
       ORDER BY COALESCE(e.FirstName, e.FullName) ASC
     `, [req.params.id]);
     res.json(rows);
@@ -297,7 +302,7 @@ router.get("/attendance-policies/:id/employees", auth, roleAuth(["admin", "hr", 
 router.post("/attendance-policies", auth, roleAuth(["admin", "hr"]), async (req, res) => {
   let c;
   try {
-    const { name, description } = req.body;
+    const { name, description, effective_date } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Policy name is required" });
     }
@@ -306,9 +311,10 @@ router.post("/attendance-policies", auth, roleAuth(["admin", "hr"]), async (req,
     if (existing.length > 0) {
       return res.status(409).json({ error: `Attendance policy '${name.trim()}' already exists` });
     }
+    const effDate = effective_date ? (typeof effective_date === 'string' ? effective_date.split('T')[0] : effective_date) : null;
     const [result] = await c.query(
-      "INSERT INTO attendance_policies (name, description) VALUES (?, ?)",
-      [name.trim(), description ? description.trim() : null]
+      "INSERT INTO attendance_policies (name, description, effective_date) VALUES (?, ?, ?)",
+      [name.trim(), description ? description.trim() : null, effDate]
     );
     res.status(201).json({
       success: true,
@@ -316,6 +322,7 @@ router.post("/attendance-policies", auth, roleAuth(["admin", "hr"]), async (req,
       id: result.insertId,
       name: name.trim(),
       description: description ? description.trim() : null,
+      effective_date: effDate,
       employee_count: 0
     });
   } catch (err) {
@@ -329,7 +336,7 @@ router.post("/attendance-policies", auth, roleAuth(["admin", "hr"]), async (req,
 router.put("/attendance-policies/:id", auth, roleAuth(["admin", "hr"]), async (req, res) => {
   let c;
   try {
-    const { name, description } = req.body;
+    const { name, description, effective_date } = req.body;
     if (!name || !name.trim()) {
       return res.status(400).json({ error: "Policy name is required" });
     }
@@ -338,12 +345,24 @@ router.put("/attendance-policies/:id", auth, roleAuth(["admin", "hr"]), async (r
     if (existing.length > 0) {
       return res.status(409).json({ error: `Attendance policy '${name.trim()}' already exists` });
     }
-    const [result] = await c.query(
-      "UPDATE attendance_policies SET name = ?, description = ? WHERE id = ?",
-      [name.trim(), description !== undefined ? (description ? description.trim() : null) : null, req.params.id]
-    );
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ error: "Attendance policy not found" });
+    const effDate = effective_date !== undefined ? (effective_date ? (typeof effective_date === 'string' ? effective_date.split('T')[0] : effective_date) : null) : undefined;
+    
+    if (effDate !== undefined) {
+      const [result] = await c.query(
+        "UPDATE attendance_policies SET name = ?, description = ?, effective_date = ? WHERE id = ?",
+        [name.trim(), description !== undefined ? (description ? description.trim() : null) : null, effDate, req.params.id]
+      );
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Attendance policy not found" });
+      }
+    } else {
+      const [result] = await c.query(
+        "UPDATE attendance_policies SET name = ?, description = ? WHERE id = ?",
+        [name.trim(), description !== undefined ? (description ? description.trim() : null) : null, req.params.id]
+      );
+      if (result.affectedRows === 0) {
+        return res.status(404).json({ error: "Attendance policy not found" });
+      }
     }
     res.json({ success: true, message: "Attendance policy updated successfully" });
   } catch (err) {

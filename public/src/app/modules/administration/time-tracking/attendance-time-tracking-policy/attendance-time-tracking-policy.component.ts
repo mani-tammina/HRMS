@@ -34,9 +34,10 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
   isEdit = false;
   editingPolicyId: number | null = null;
   modalSubmitting = false;
-  policyForm: { name: string; description: string } = {
+  policyForm: { name: string; description: string; effective_date: string } = {
     name: '',
-    description: ''
+    description: '',
+    effective_date: ''
   };
   formError = '';
 
@@ -151,7 +152,8 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
   openCreateModal() {
     this.isEdit = false;
     this.editingPolicyId = null;
-    this.policyForm = { name: '', description: '' };
+    const today = new Date().toISOString().substring(0, 10);
+    this.policyForm = { name: '', description: '', effective_date: today };
     this.formError = '';
     this.showModal = true;
   }
@@ -160,9 +162,14 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
   openEditModal(policy: AttendancePolicy) {
     this.isEdit = true;
     this.editingPolicyId = policy.id;
+    let eff = '';
+    if (policy.effective_date) {
+      eff = typeof policy.effective_date === 'string' ? policy.effective_date.split('T')[0] : '';
+    }
     this.policyForm = {
       name: policy.name,
-      description: policy.description || ''
+      description: policy.description || '',
+      effective_date: eff
     };
     this.formError = '';
     this.showModal = true;
@@ -186,7 +193,8 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
 
     const payload = {
       name: trimmedName,
-      description: this.policyForm.description.trim() || undefined
+      description: this.policyForm.description.trim() || undefined,
+      effective_date: this.policyForm.effective_date || undefined
     };
 
     if (this.isEdit && this.editingPolicyId) {
@@ -291,10 +299,12 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
 
   loadAllEmployees() {
     this.loadingAllEmployees = true;
-    this.employeeService.getAllEmployees(1, 2000, '').subscribe({
+    this.employeeService.getAllEmployees(1, 2000, '', 'Working').subscribe({
       next: (res) => {
         const list = res?.data || res?.employees || res || [];
-        const arr = Array.isArray(list) ? list : [];
+        const arr = (Array.isArray(list) ? list : []).filter((e: any) =>
+          (e.EmploymentStatus || '').toLowerCase() === 'working'
+        );
         arr.sort((a: any, b: any) => {
           const nameA = (a.FullName || a.full_name || `${a.FirstName || a.first_name || ''} ${a.LastName || a.last_name || ''}`).trim().toLowerCase();
           const nameB = (b.FullName || b.full_name || `${b.FirstName || b.first_name || ''} ${b.LastName || b.last_name || ''}`).trim().toLowerCase();
@@ -398,6 +408,16 @@ export class AttendanceTimeTrackingPolicyComponent implements OnInit {
   formatDate(dateStr?: string): string {
     if (!dateStr) return '—';
     try {
+      const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
       return new Date(dateStr).toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',

@@ -201,10 +201,10 @@
                 <tbody>
                   <tr *ngFor="let emp of selectedPolicyEmployees">
                     <td><span class="emp-code">{{ emp.EmployeeNumber || emp.emp_no || ('EMP-' + emp.id) }}</span></td>
-                    <td class="emp-name">{{ emp.FullName || (emp.FirstName + ' ' + (emp.LastName || '')) }}</td>
-                    <td>{{ emp.WorkEmail || '—' }}</td>
-                    <td>{{ emp.Department || emp.department_name || '—' }}</td>
-                    <td>{{ emp.Designation || emp.designation_name || '—' }}</td>
+                    <td class="emp-name">{{ emp.name || emp.full_name || emp.FullName || ((emp.first_name || emp.FirstName || '') + ' ' + (emp.last_name || emp.LastName || '')).trim() || '—' }}</td>
+                    <td>{{ emp.work_email || emp.WorkEmail || '—' }}</td>
+                    <td>{{ emp.department_name || emp.Department || emp.department || '—' }}</td>
+                    <td>{{ emp.designation_name || emp.Designation || emp.designation || '—' }}</td>
                   </tr>
                 </tbody>
               </table>
@@ -318,7 +318,7 @@
           <div class="details-header-text">
             <h2>{{ selectedAttendancePolicy.name }}</h2>
             <p class="description">{{ selectedAttendancePolicy.description || 'No description provided for this policy.' }}</p>
-            <p class="metadata">Created: {{ formatDate(selectedAttendancePolicy.created_at) }}</p>
+            <p class="metadata">Effective Date: {{ formatDate(selectedAttendancePolicy.effective_date || selectedAttendancePolicy.created_at) }}</p>
           </div>
           <div class="details-actions">
             <button class="action-btn edit" (click)="openEditAttendancePolicyModal(selectedAttendancePolicy)" title="Edit Policy">
@@ -420,7 +420,7 @@
                 </div>
                 <div class="stat-details">
                   <div class="stat-label">Effective Date</div>
-                  <div class="stat-value text-date">{{ formatDate(selectedAttendancePolicy.created_at) }}</div>
+                  <div class="stat-value text-date">{{ formatDate(selectedAttendancePolicy.effective_date || selectedAttendancePolicy.created_at) }}</div>
                   <div class="stat-sub">Updated: {{ formatDate(selectedAttendancePolicy.updated_at) }}</div>
                 </div>
               </div>
@@ -707,6 +707,12 @@
           <label for="attPolicyName">Policy Name <span class="required">*</span></label>
           <input type="text" id="attPolicyName" [(ngModel)]="attendanceForm.name" placeholder="e.g. Standard Tracking Policy"
             [disabled]="attendanceModalSubmitting" autofocus />
+        </div>
+
+        <div class="form-group">
+          <label for="attPolicyEffectiveDate">Effective Date</label>
+          <input type="date" id="attPolicyEffectiveDate" [(ngModel)]="attendanceForm.effective_date"
+            [disabled]="attendanceModalSubmitting" />
         </div>
 
         <div class="form-group">

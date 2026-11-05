@@ -7,6 +7,7 @@ export interface AttendancePolicy {
   id: number;
   name: string;
   description?: string;
+  effective_date?: string;
   created_at?: string;
   updated_at?: string;
   employee_count?: number;
@@ -15,6 +16,7 @@ export interface AttendancePolicy {
 export interface AttendancePolicyPayload {
   name: string;
   description?: string;
+  effective_date?: string;
 }
 
 export interface AttendancePolicyEmployee {

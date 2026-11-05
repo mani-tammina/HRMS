@@ -45,7 +45,7 @@ export class TimeTrackingListPage implements OnInit {
   isEditAttendance = false;
   editingAttendancePolicyId: number | null = null;
   attendanceModalSubmitting = false;
-  attendanceForm = { name: '', description: '' };
+  attendanceForm: { name: string; description: string; effective_date: string } = { name: '', description: '', effective_date: '' };
   attendanceFormError = '';
 
   // Assign Employees Modal State
@@ -184,7 +184,8 @@ export class TimeTrackingListPage implements OnInit {
   openCreateAttendancePolicyModal() {
     this.isEditAttendance = false;
     this.editingAttendancePolicyId = null;
-    this.attendanceForm = { name: '', description: '' };
+    const today = new Date().toISOString().substring(0, 10);
+    this.attendanceForm = { name: '', description: '', effective_date: today };
     this.attendanceFormError = '';
     this.showAttendanceModal = true;
   }
@@ -193,9 +194,14 @@ export class TimeTrackingListPage implements OnInit {
   openEditAttendancePolicyModal(policy: AttendancePolicy) {
     this.isEditAttendance = true;
     this.editingAttendancePolicyId = policy.id;
+    let eff = '';
+    if (policy.effective_date) {
+      eff = typeof policy.effective_date === 'string' ? policy.effective_date.split('T')[0] : '';
+    }
     this.attendanceForm = {
       name: policy.name,
-      description: policy.description || ''
+      description: policy.description || '',
+      effective_date: eff
     };
     this.attendanceFormError = '';
     this.showAttendanceModal = true;
@@ -218,9 +224,10 @@ export class TimeTrackingListPage implements OnInit {
     this.attendanceModalSubmitting = true;
     this.attendanceFormError = '';
 
-    const payload = {
+    const payload: any = {
       name: trimmed,
-      description: this.attendanceForm.description.trim() || undefined
+      description: this.attendanceForm.description.trim() || undefined,
+      effective_date: this.attendanceForm.effective_date || undefined
     };
 
     if (this.isEditAttendance && this.editingAttendancePolicyId) {
@@ -324,10 +331,12 @@ export class TimeTrackingListPage implements OnInit {
 
   loadAllAssignableEmployees() {
     this.loadingAllEmployees = true;
-    this.employeeService.getAllEmployees(1, 2000, '').subscribe({
+    this.employeeService.getAllEmployees(1, 2000, '', 'Working').subscribe({
       next: (res) => {
         const list = res?.data || res?.employees || res || [];
-        const arr = Array.isArray(list) ? list : [];
+        const arr = (Array.isArray(list) ? list : []).filter((e: any) =>
+          (e.EmploymentStatus || '').toLowerCase() === 'working'
+        );
         arr.sort((a: any, b: any) => {
           const nameA = (a.FullName || a.full_name || `${a.FirstName || a.first_name || ''} ${a.LastName || a.last_name || ''}`).trim().toLowerCase();
           const nameB = (b.FullName || b.full_name || `${b.FirstName || b.first_name || ''} ${b.LastName || b.last_name || ''}`).trim().toLowerCase();
@@ -545,6 +554,16 @@ export class TimeTrackingListPage implements OnInit {
   formatDate(dateStr?: string): string {
     if (!dateStr) return '—';
     try {
+      const clean = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
+      const parts = clean.split('-');
+      if (parts.length === 3) {
+        const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+        return d.toLocaleDateString('en-IN', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric'
+        });
+      }
       return new Date(dateStr).toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',

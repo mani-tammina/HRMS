@@ -100,7 +100,7 @@ router.get("/", auth, roleAuth(["admin", "hr", "manager", "employee"]), async (r
       FROM attendance_capture_schemes s
       LEFT JOIN attendance_capture_scheme_sites ss ON s.id = ss.scheme_id
       LEFT JOIN locations l ON ss.site_id = l.id
-      LEFT JOIN employees e ON s.id = e.attendance_capture_scheme_id
+      LEFT JOIN employees e ON s.id = e.attendance_capture_scheme_id AND e.EmploymentStatus = 'Working'
       GROUP BY s.id
       ORDER BY s.id DESC
     `);
@@ -147,14 +147,16 @@ router.get("/:id/employees", auth, roleAuth(["admin", "hr", "manager"]), async (
   try {
     const c = await db();
     const [rows] = await c.query(`
-      SELECT e.EmployeeNumber as id,
+      SELECT e.id, e.id as emp_db_id, e.EmployeeNumber as id, e.EmployeeNumber, e.EmployeeNumber as emp_no, e.FirstName, e.FirstName as first_name, e.LastName, e.LastName as last_name, e.FullName, e.FullName as full_name, e.WorkEmail, e.WorkEmail as work_email, e.EmploymentStatus,
              CONCAT(e.FirstName, ' ', IFNULL(e.LastName, '')) as name,
-             d.name as department,
-             desig.name as designation
+             d.name as department, d.name as Department, d.name as department_name,
+             desig.name as designation, desig.name as Designation, desig.name as designation_name, l.name as location_name
       FROM employees e
       LEFT JOIN departments d ON e.DepartmentId = d.id
       LEFT JOIN designations desig ON e.DesignationId = desig.id
+      LEFT JOIN locations l ON e.LocationId = l.id
       WHERE e.attendance_capture_scheme_id = ?
+        AND e.EmploymentStatus = 'Working'
       ORDER BY e.FirstName, e.LastName
     `, [req.params.id]);
     c.end();
