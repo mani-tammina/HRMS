@@ -118,7 +118,11 @@ router.post("/employees", auth, roleAuth(["admin", "hr"]), upload.single("file")
                     shift_policy_id: shiftPolicyId
                 }
             );
-            const attendancePolicyId = attendancePolicyName ? await getOrCreateMaster(c, 'attendance_policies', 'name', attendancePolicyName) : null;
+            let attendancePolicyId = attendancePolicyName ? await getOrCreateMaster(c, 'attendance_policies', 'name', attendancePolicyName) : null;
+            if (!attendancePolicyId) {
+                const [noAtt] = await c.query("SELECT id FROM attendance_policies WHERE name = 'No Attendance' LIMIT 1");
+                if (noAtt.length > 0) attendancePolicyId = noAtt[0].id;
+            }
             const attendanceCaptureSchemeId = attendanceCaptureSchemeName ? await getOrCreateMaster(c, 'attendance_capture_schemes', 'name', attendanceCaptureSchemeName) : null;
             const holidayListId = holidayListName ? await getOrCreateMaster(c, 'holiday_lists', 'name', holidayListName) : null;
             const expensePolicyId = expensePolicyName ? await getOrCreateMaster(c, 'expense_policies', 'name', expensePolicyName) : null;

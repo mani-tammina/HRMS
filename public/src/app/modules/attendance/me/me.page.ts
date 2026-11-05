@@ -91,6 +91,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   isHRView = false;
   viewEmployeeId: number | null = null;
+  employeeProfile: any = null;
   isTodayCardExpanded = false;
 
   // ── Remote Clock-In Panel ──
@@ -188,22 +189,24 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe(report => {
         if (report && report.length > 0) {
+          const isNoAtt = (this.employeeProfile?.attendance_policy_name || "").toLowerCase().includes("no attendance") || Number(this.employeeProfile?.attendance_policy_id) === 6 || report.some((l: any) => l.isNoAttendance);
           // Fallback client summary calculation only if monthlySummary was not loaded from API summary
-          if (!this.monthlySummary || (!this.monthlySummary.total_days && !this.monthlySummary.absent_days)) {
-            const present_days = report.filter(log => log.status === 'present').length;
-            const half_days_count = report.filter(log => log.status === 'half-day').length;
-            const std_absent_days = report.filter(log => log.status === 'absent' && log.notes !== 'LOP').length;
-            const leave_days = report.filter(log => log.status === 'on-leave').length;
-            const explicit_lop = report.filter(log => log.status === 'absent' && log.notes === 'LOP').length;
-            const penalty_days = report.filter(log => log.status === 'penalty').length;
+          if (!this.monthlySummary || (!this.monthlySummary.total_days && !this.monthlySummary.absent_days) || isNoAtt) {
+            const present_days = report.filter(log => log.status === "present").length;
+            const half_days_count = report.filter(log => log.status === "half-day").length;
+            const std_absent_days = report.filter(log => log.status === "absent" && log.notes !== "LOP").length;
+            const leave_days = report.filter(log => log.status === "on-leave").length;
+            const explicit_lop = report.filter(log => log.status === "absent" && log.notes === "LOP").length;
+            const penalty_days = report.filter(log => log.status === "penalty").length;
 
-            const lop_days = explicit_lop + (penalty_days * 0.5);
-            const absent_days = std_absent_days + (penalty_days * 0.5);
+            const finalPenalty = isNoAtt ? 0 : penalty_days;
+            const finalAbsent = isNoAtt ? 0 : (std_absent_days + (finalPenalty * 0.5));
+            const lop_days = isNoAtt ? 0 : (explicit_lop + (finalPenalty * 0.5));
 
             this.monthlySummary = {
               ...this.monthlySummary,
-              present_days,
-              absent_days,
+              present_days: isNoAtt ? (report.length - leave_days - (report.filter(l => l.status === "weekend").length) - (report.filter(l => l.status === "holiday").length)) : present_days,
+              absent_days: finalAbsent,
               leave_days,
               lop_days,
               half_days: half_days_count
@@ -265,6 +268,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request.subscribe(profile => {
       if (!profile) return;
+      this.employeeProfile = profile;
       this.shift_id = profile.shift_policy_id || profile.ShiftPolicyId;
       this.weekend_id = profile.weekly_off_policy_id || profile.WeeklyOffPolicyId;
       this.matchEmployeeShift();
@@ -328,7 +332,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.hasApprovedRemote = true;
         }
 
-        if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
+        const isNoAtt = (this.employeeProfile?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(this.employeeProfile?.attendance_policy_id) === 6;
+        if (isNoAtt && (!punches || punches.length === 0)) {
+          this.status = 'Present';
+          this.isClockedIn = true;
+        } else if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
           this.status = 'NOT In Yet';
           this.isClockedIn = false;
         } else if (res?.on_leave && (!punches || punches.length === 0)) {
@@ -723,13 +731,14 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request.subscribe({
       next: (res: any) => {
-        if (res?.summary) {
+                if (res?.summary) {
+          const isNoAtt = (res?.employee?.attendance_policy_name || this.employeeProfile?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(res?.employee?.attendance_policy_id || this.employeeProfile?.attendance_policy_id) === 6;
           this.monthlySummary = {
             ...res.summary,
-            present_days: Number(res.summary.present_days) || 0,
-            absent_days: Number(res.summary.absent_days) || 0,
+            present_days: isNoAtt ? (Number(res.summary.present_days) || (Number(res.summary.total_days || 0) - Number(res.summary.weekend_days || 0) - Number(res.summary.holiday_days || 0) - Number(res.summary.leave_days || 0))) : (Number(res.summary.present_days) || 0),
+            absent_days: isNoAtt ? 0 : (Number(res.summary.absent_days) || 0),
             leave_days: Number(res.summary.leave_days) || 0,
-            lop_days: Number(res.summary.lop_days) || 0,
+            lop_days: isNoAtt ? (Number(res.summary.lop_days) || 0) : (Number(res.summary.lop_days) || 0),
             half_days: Number(res.summary.half_days) || 0
           };
           this.lastAttendance = res?.attendance || [];

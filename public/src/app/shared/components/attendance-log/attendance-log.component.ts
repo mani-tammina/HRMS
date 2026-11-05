@@ -45,7 +45,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }>();
 
   ngOnChanges(changes: SimpleChanges): void {
-    if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
+    if (changes['employeeId'] && changes['employeeId'].currentValue !== changes['employeeId'].previousValue) {
+      this.reloadInProgress = false;
+      this.reloadAttendance();
+    } else if (changes['refreshTrigger'] && !changes['refreshTrigger'].firstChange) {
       this.reloadAttendance();
     }
   }
@@ -71,6 +74,22 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   leaveDaysMap: Map<string, string> = new Map();
   holidaysMap: Map<string, { id?: number; name: string; type: string }> = new Map();
   employeeProfile: any = null;
+
+  get isNoAttendanceEmployee(): boolean {
+    const policyName = (
+      this.employeeProfile?.attendance_policy_name ||
+      this.employeeProfile?.attendancePolicyName ||
+      ''
+    ).trim().toLowerCase();
+    const policyId = Number(
+      this.employeeProfile?.attendance_policy_id ||
+      this.employeeProfile?.AttendancePolicyId
+    );
+    if (policyName === 'no attendance' || policyName.includes('no attendance') || policyId === 6) {
+      return true;
+    }
+    return this.currentMonthreport?.some(log => log?.isNoAttendance) || false;
+  }
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
   missingLogConfigs: any[] = [];
 
@@ -440,6 +459,17 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
     request.subscribe({
       next: res => {
+        if (res?.employee) {
+          if (!this.employeeProfile) {
+            this.employeeProfile = {};
+          }
+          if (res.employee.attendance_policy_name) {
+            this.employeeProfile.attendance_policy_name = res.employee.attendance_policy_name;
+          }
+          if (res.employee.attendance_policy_id) {
+            this.employeeProfile.attendance_policy_id = res.employee.attendance_policy_id;
+          }
+        }
         const apiAttendance = res?.attendance || [];
         const attendanceMap = new Map<string, any>();
         apiAttendance.forEach((item: any) => {
@@ -457,6 +487,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (Number(this.weeklyOffPolicy.friday_off) === 1) weekOffDays.push(5);
           if (Number(this.weeklyOffPolicy.saturday_off) === 1) weekOffDays.push(6);
         }
+
+        const policyName = (
+          res?.employee?.attendance_policy_name ||
+          this.employeeProfile?.attendance_policy_name ||
+          this.employeeProfile?.attendancePolicyName ||
+          ''
+        ).trim().toLowerCase();
+        const policyId = Number(
+          res?.employee?.attendance_policy_id ||
+          this.employeeProfile?.attendance_policy_id ||
+          this.employeeProfile?.AttendancePolicyId
+        );
+        const isNoAttendance = policyName === 'no attendance' || policyName.includes('no attendance') || policyId === 6;
 
         this.currentMonthreport = allDates.map(date => {
           const existing = attendanceMap.get(date);
@@ -547,6 +590,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
+            if (isNoAttendance) {
+              updatedExisting.isNoAttendance = true;
+              if (updatedExisting.status === "penalty" || updatedExisting.status === "absent") {
+                updatedExisting.status = "present";
+              }
+            }
             if (existing.status === 'on-leave') {
               updatedExisting.noLogs = true;
               updatedExisting.leaveType = existing.notes || 'Leave';
@@ -567,6 +616,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               }
             }
             return updatedExisting;
+          }
+
+          if (isNoAttendance) {
+            return {
+              attendance_date: date,
+              total_work_hours: null,
+              gross_hours: null,
+              status: 'present',
+              records: [],
+              noLogs: true,
+              isNoAttendance: true
+            };
           }
 
           let defaultStatus = 'absent';
@@ -1179,6 +1240,18 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   getArrivalStatus(log: any): string {
     if (!log?.status) return 'Unknown';
+
+    if (log.isNoAttendance || this.isNoAttendanceEmployee) {
+      if (log.status === 'on-leave') {
+        return log.isLeavePending ? 'On Leave (Pending)' : 'On Leave';
+      }
+      if (log.status === 'half-day') {
+        return log.isLeavePending ? 'Half Day (Pending)' : 'Half Day';
+      }
+      if (log.status === 'holiday') return 'Holiday';
+      if (log.status === 'weekend') return 'Week Off';
+      return 'Present';
+    }
 
     // Check if regularized via notes
     if (log.notes && log.notes.includes('[REGULARIZED')) {

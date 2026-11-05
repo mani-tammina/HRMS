@@ -1020,9 +1020,46 @@ router.get("/today", auth, async (req, res) => {
       }
     }
 
+    let isNoAttendanceToday = false;
+    if (emp.attendance_policy_id) {
+      const [attPol] = await c.query("SELECT name FROM attendance_policies WHERE id = ?", [emp.attendance_policy_id]);
+      if (attPol.length > 0 && attPol[0].name === "No Attendance") {
+        isNoAttendanceToday = true;
+      }
+    }
+
     c.end();
 
     if (!attendanceRecord && punches.length === 0) {
+      if (isNoAttendanceToday) {
+        return res.json({
+          has_attendance: true,
+          message: "Exempt from Attendance",
+          punches: [],
+          policyPermissions,
+          is_clocked_in: true,
+          status: "Present",
+          is_no_attendance: true,
+          attendance: {
+            id: 0,
+            employee_id: emp.id,
+            attendance_date: shiftDate,
+            punch_date: shiftDate,
+            status: "present",
+            work_mode: "Office",
+            location: "Office",
+            total_work_hours: "0.00",
+            gross_hours: "0.00",
+            effective_hours: "0.00"
+          },
+          shiftTiming,
+          total_hours: "0.00",
+          effective_hours: "0.00",
+          gross_hours: "0.00",
+          total_break_hours: "0.00",
+          total_punches: 0
+        });
+      }
       return res.json({
         has_attendance: false,
         message: "No attendance record for today",
@@ -1964,14 +2001,16 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   const lopDays = Number(lopData[0]?.lop_days) || 0;
 
   const [empDetails] = await c.query(`
-    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
+    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
     FROM employees e
     LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
     LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
     LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+    LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
     WHERE e.id = ?
   `, [targetEmpId]);
   const employee = empDetails[0];
+  const isNoAttendance = (employee?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(employee?.attendance_policy_id) === 6;
 
   const [holidaysList] = await c.query(`
     SELECT holiday_date, holiday_name, location_id, applicable_locations 
@@ -2078,11 +2117,15 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       const nLower = String(record.notes || '').toLowerCase();
       if (record.status === 'present') present_days++;
       else if (record.status === 'absent') {
-        absent_days++;
-        if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-          lop_from_attendance++;
+        if (!isNoAttendance) {
+          absent_days++;
+          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
+            lop_from_attendance++;
+          } else {
+            regular_absent_days++;
+          }
         } else {
-          regular_absent_days++;
+          present_days++;
         }
       } else if (record.status === 'half-day') {
         present_days += 0.5;
@@ -2099,32 +2142,59 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
           lop_from_attendance++;
         }
       } else if (record.status === 'penalty') {
-        penalty_count++;
-        penalty_absent_days++;
-        absent_days++;
+        if (!isNoAttendance) {
+          penalty_count++;
+          penalty_absent_days++;
+          absent_days++;
+        } else {
+          present_days++;
+        }
       }
     } else if (!isToday) {
-      const shiftStartStr = employee?.start_time || '09:00:00';
-      const [sh, sm] = shiftStartStr.split(':').map(Number);
-      const shiftStart = new Date(curr);
-      shiftStart.setHours(sh || 9, sm || 0, 0, 0);
+      if (!isNoAttendance) {
+        const shiftStartStr = employee?.start_time || '09:00:00';
+        const [sh, sm] = shiftStartStr.split(':').map(Number);
+        const shiftStart = new Date(curr);
+        shiftStart.setHours(sh || 9, sm || 0, 0, 0);
 
-      const penaltyThreshold = new Date(shiftStart);
-      const thresholdHours = employee?.missing_log_threshold || 48;
-      penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
+        const penaltyThreshold = new Date(shiftStart);
+        const thresholdHours = employee?.missing_log_threshold || 48;
+        penaltyThreshold.setHours(penaltyThreshold.getHours() + thresholdHours);
 
-      if (now > penaltyThreshold) {
-        penalty_count++;
-        penalty_absent_days++;
-        absent_days++;
+        if (now > penaltyThreshold) {
+          penalty_count++;
+          penalty_absent_days++;
+          absent_days++;
+        }
+      } else {
+        present_days++;
+      }
+    } else {
+      if (isNoAttendance) {
+        present_days++;
       }
     }
 
     curr.setDate(curr.getDate() + 1);
   }
 
+  if (isNoAttendance) {
+    penalty_count = 0;
+    penalty_absent_days = 0;
+    absent_days = 0;
+    lop_days = lop_from_leaves;
+    attendance.forEach(a => {
+      if (a.status === 'penalty' || a.status === 'absent') {
+        const nLower = String(a.notes || '').toLowerCase();
+        if (!nLower.includes('lop') && !nLower.includes('ul') && !nLower.includes('loss of pay') && !nLower.includes('unpaid')) {
+          a.status = 'present';
+        }
+      }
+    });
+  }
+
   const summary = {
-    total_days: attendance.length + weekend_days + holiday_days,
+    total_days: isNoAttendance ? (present_days + absent_days + leave_days + weekend_days + holiday_days) : (attendance.length + weekend_days + holiday_days),
     present_days: present_days,
     absent_days: absent_days,
     half_days: half_day_count,
@@ -2256,6 +2326,8 @@ router.get("/report/employee/:employeeId", auth, manager, async (req, res) => {
           employee_number: reportData.employee.EmployeeNumber,
           name: `${reportData.employee.FirstName || ''} ${reportData.employee.LastName || ''}`.trim(),
           email: reportData.employee.WorkEmail,
+          attendance_policy_id: reportData.employee.attendance_policy_id,
+          attendance_policy_name: reportData.employee.attendance_policy_name
         }
         : null,
       summary: reportData.summary,
@@ -2332,10 +2404,11 @@ router.get("/report/team", auth, async (req, res) => {
     if (req.user.role === "hr") {
       // HR sees ALL employees INCLUDING themselves
       const [allEmployees] = await c.query(
-        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, e.profile_image, loc.name AS LocationName,
+        `SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.EmploymentStatus, e.LocationId, e.profile_image, loc.name AS LocationName, e.attendance_policy_id, ap.name AS attendance_policy_name,
                 CASE WHEN e.id = ? THEN 1 ELSE 0 END AS is_current_user
          FROM employees e
          LEFT JOIN locations loc ON e.LocationId = loc.id
+         LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
          WHERE e.EmploymentStatus = 'Working'
          ORDER BY is_current_user DESC, e.FirstName, e.LastName`,
         [emp.id]
@@ -2614,7 +2687,37 @@ router.get("/report/team", auth, async (req, res) => {
     const uniqueOnLeaveIds = Array.from(
       new Set([...attendanceOnLeaveIds, ...leaveOnLeaveIds])
     );
-    const presentCount = combinedAttendance.filter((a) => {
+        // Add synthetic present records for No Attendance employees who are not on leave and not yet in attendanceMap
+    team.forEach(tm => {
+      const isNoAtt = (tm.attendance_policy_name || '').toLowerCase() === 'no attendance' || Number(tm.attendance_policy_id) === 6;
+      if (isNoAtt && !attendanceMap.has(tm.id) && !uniqueOnLeaveIds.includes(tm.id)) {
+        attendanceMap.set(tm.id, {
+          id: `no_att_${tm.id}`,
+          employee_id: tm.id,
+          attendance_date: targetDate,
+          first_in: null,
+          last_out: null,
+          first_check_in: null,
+          last_check_out: null,
+          total_hours: '0.00',
+          gross_hours: '0.00',
+          total_work_hours: '0.00',
+          is_clocked_in: true,
+          status: 'Present',
+          attendance_status: 'Present',
+          work_mode: 'Office',
+          location: tm.LocationName || 'Office',
+          total_punches: 0,
+          EmployeeNumber: tm.EmployeeNumber,
+          FirstName: tm.FirstName,
+          LastName: tm.LastName
+        });
+      }
+    });
+
+    const finalCombinedAttendance = Array.from(attendanceMap.values());
+
+    const presentCount = finalCombinedAttendance.filter((a) => {
       const s = (a.status || '').toLowerCase();
       return s === "present" || s === "in" || s === "out" || s === "half-day";
     }).length;
@@ -2623,7 +2726,7 @@ router.get("/report/team", auth, async (req, res) => {
       team_members: team,
       date: targetDate,
       current_user_id: emp.id, // Helps frontend highlight the logged-in user
-      attendance: combinedAttendance,
+      attendance: finalCombinedAttendance,
       on_leave: onLeave, // List of actual leave records for today (excluding WFH/Remote)
       wfh_remote: wfhRemoteRecords, // List of WFH/Remote records for today
       summary: {

@@ -17,9 +17,6 @@
       <div class="nav-tab" [class.active]="activeTopTab === 'attendance-time-tracking-policy'" (click)="onTabClick('attendance-time-tracking-policy')">
         Attendance Time Tracking Policy
       </div>
-      <div class="nav-tab" [class.active]="activeTopTab === 'time-tracking-allocation'" (click)="onTabClick('time-tracking-allocation')">
-        Time Tracking Policy Allocation
-      </div>
     </div>
   </div>
 
@@ -387,7 +384,7 @@
                     <th>Department</th>
                     <th>Designation</th>
                     <th>Location</th>
-                    <th class="text-right">Action</th>
+                    <th class="text-center">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -397,16 +394,22 @@
                     </td>
                     <td>
                       <div class="emp-name-cell">
-                        <span class="emp-name">{{ emp.full_name || (emp.first_name + ' ' + (emp.last_name || '')) }}</span>
+                        <span class="emp-name">{{ emp.full_name || ((emp.first_name || '') + ' ' + (emp.last_name || '')).trim() || '—' }}</span>
                       </div>
                     </td>
                     <td>
                       <span class="emp-email">{{ emp.work_email || '—' }}</span>
                     </td>
-                    <td>{{ emp.department_name || '—' }}</td>
-                    <td>{{ emp.designation_name || '—' }}</td>
-                    <td>{{ emp.location_name || '—' }}</td>
-                    <td class="text-right">
+                    <td>
+                      <span class="emp-dept">{{ emp.department_name || '—' }}</span>
+                    </td>
+                    <td>
+                      <span class="emp-desig">{{ emp.designation_name || '—' }}</span>
+                    </td>
+                    <td>
+                      <span class="emp-loc">{{ emp.location_name || '—' }}</span>
+                    </td>
+                    <td class="text-center">
                       <button class="remove-btn" (click)="unassignEmployee(emp)" title="Remove from policy">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                           stroke-linecap="round" stroke-linejoin="round">
@@ -531,9 +534,10 @@
             <input type="checkbox" [checked]="isEmployeeSelected(emp.id)" (click)="$event.stopPropagation()"
               (change)="toggleEmployeeSelection(emp.id)" />
             <div class="assign-item-details">
-              <span class="assign-name">{{ emp.full_name || (emp.first_name || emp.FirstName) + ' ' + (emp.last_name || emp.LastName || '') }}</span>
+              <span class="assign-name">{{ emp.FullName || emp.full_name || ((emp.FirstName || emp.first_name || '') + ' ' + (emp.LastName || emp.last_name || '')).trim() }}</span>
               <span class="assign-meta">
-                {{ emp.emp_no || emp.EmployeeNumber || ('ID: ' + emp.id) }} &bull; {{ emp.department_name || emp.Department || 'General' }}
+                {{ emp.EmployeeNumber || emp.emp_no || ('ID: ' + emp.id) }} &bull; {{ emp.department_name || emp.Department || 'General' }}
+                <span *ngIf="emp.designation_name || emp.Designation">&bull; {{ emp.designation_name || emp.Designation }}</span>
               </span>
             </div>
           </div>

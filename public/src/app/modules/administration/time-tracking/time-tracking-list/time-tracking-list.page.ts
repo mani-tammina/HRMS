@@ -68,7 +68,7 @@ export class TimeTrackingListPage implements OnInit {
 
   ngOnInit() {
     this.route.queryParams.subscribe((params) => {
-      if (params['tab']) {
+      if (params['tab'] && params['tab'] !== 'time-tracking-allocation') {
         this.activeTopTab = params['tab'];
       }
     });
@@ -324,10 +324,16 @@ export class TimeTrackingListPage implements OnInit {
 
   loadAllAssignableEmployees() {
     this.loadingAllEmployees = true;
-    this.employeeService.getAllEmployees(1, 200, '').subscribe({
+    this.employeeService.getAllEmployees(1, 2000, '').subscribe({
       next: (res) => {
         const list = res?.data || res?.employees || res || [];
-        this.allAssignableEmployees = Array.isArray(list) ? list : [];
+        const arr = Array.isArray(list) ? list : [];
+        arr.sort((a: any, b: any) => {
+          const nameA = (a.FullName || a.full_name || `${a.FirstName || a.first_name || ''} ${a.LastName || a.last_name || ''}`).trim().toLowerCase();
+          const nameB = (b.FullName || b.full_name || `${b.FirstName || b.first_name || ''} ${b.LastName || b.last_name || ''}`).trim().toLowerCase();
+          return nameA.localeCompare(nameB);
+        });
+        this.allAssignableEmployees = arr;
         this.loadingAllEmployees = false;
       },
       error: (err) => {
@@ -341,15 +347,25 @@ export class TimeTrackingListPage implements OnInit {
     const assignedIds = new Set(this.selectedAttendanceEmployees.map(e => e.id));
     let list = this.allAssignableEmployees.filter(e => !assignedIds.has(e.id));
     if (!this.assignSearchTerm.trim()) return list;
-    const term = this.assignSearchTerm.toLowerCase();
-    return list.filter(e =>
-      (e.first_name || e.FirstName || '').toLowerCase().includes(term) ||
-      (e.last_name || e.LastName || '').toLowerCase().includes(term) ||
-      (e.full_name || e.FullName || '').toLowerCase().includes(term) ||
-      (e.emp_no || e.EmployeeNumber || '').toLowerCase().includes(term) ||
-      (e.work_email || e.WorkEmail || '').toLowerCase().includes(term) ||
-      (e.department_name || e.Department || '').toLowerCase().includes(term)
-    );
+    const term = this.assignSearchTerm.toLowerCase().trim();
+    return list.filter(e => {
+      const fn = (e.FirstName || e.first_name || '').toLowerCase();
+      const ln = (e.LastName || e.last_name || '').toLowerCase();
+      const full = (e.FullName || e.full_name || `${fn} ${ln}`).toLowerCase();
+      const code = (e.EmployeeNumber || e.emp_no || '').toLowerCase();
+      const email = (e.WorkEmail || e.work_email || '').toLowerCase();
+      const dept = (e.department_name || e.Department || '').toLowerCase();
+      const desig = (e.designation_name || e.Designation || '').toLowerCase();
+      return (
+        full.includes(term) ||
+        fn.includes(term) ||
+        ln.includes(term) ||
+        code.includes(term) ||
+        email.includes(term) ||
+        dept.includes(term) ||
+        desig.includes(term)
+      );
+    });
   }
 
   toggleEmployeeSelection(id: number) {

@@ -400,6 +400,13 @@ router.post("/attendance-policies/:id/assign-employees", auth, roleAuth(["admin"
     }
     c = await db();
     await c.query("UPDATE employees SET attendance_policy_id = ? WHERE id IN (?)", [policyId, employee_ids]);
+
+    // If assigned to 'No Attendance', clear any existing penalty status in attendance records
+    const [polRows] = await c.query("SELECT name FROM attendance_policies WHERE id = ?", [policyId]);
+    if (polRows.length > 0 && polRows[0].name === 'No Attendance') {
+      await c.query("UPDATE attendance SET status = 'present' WHERE employee_id IN (?) AND status = 'penalty'", [employee_ids]);
+    }
+
     res.json({ success: true, message: `${employee_ids.length} employee(s) assigned successfully` });
   } catch (err) {
     res.status(500).json({ error: err.message });

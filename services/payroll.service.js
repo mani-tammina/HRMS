@@ -264,12 +264,12 @@ async function runPayroll(year, month, runBy = null) {
 
     // 1. Fetch only employees who have clocked in during the period
     const [employees] = await conn.query(`
-      SELECT e.id, e.FirstName, e.LastName, e.LocationId,
+      SELECT e.id, e.FirstName, e.LastName, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
              wop.thursday_off, wop.friday_off, wop.saturday_off,
              sp.start_time, mlt.threshold_hours as missing_log_threshold
       FROM employees e
-      INNER JOIN (
+      LEFT JOIN (
           SELECT DISTINCT employee_id 
           FROM attendance 
           WHERE attendance_date BETWEEN ? AND ?
@@ -277,7 +277,9 @@ async function runPayroll(year, month, runBy = null) {
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+      LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
       WHERE e.EmploymentStatus = 'Working'
+        AND (a.employee_id IS NOT NULL OR ap.name = 'No Attendance')
     `, [sd, ed]);
 
     // 2. Fetch all attendance for the period
@@ -387,13 +389,25 @@ async function runPayroll(year, month, runBy = null) {
           weekend_days++;
         } else if (empAtt[dStr]) {
           const record = empAtt[dStr];
+          const isNoAttendance = emp.attendance_policy_name === 'No Attendance';
           if (record.status === 'present') present_days++;
           else if (record.status === 'half-day') present_days += 0.5;
-          else if (record.status === 'penalty') penalty_absent_days++;
-          else if (record.status === 'absent') regular_absent_days++;
+          else if (record.status === 'penalty') {
+            if (!isNoAttendance) penalty_absent_days++;
+            else present_days++;
+          }
+          else if (record.status === 'absent') {
+            if (!isNoAttendance) regular_absent_days++;
+            else present_days++;
+          }
         } else if (!isFuture && dStr !== todayStr) {
-          // No log penalty rule
-          penalty_absent_days++;
+          const isNoAttendance = emp.attendance_policy_name === 'No Attendance';
+          if (!isNoAttendance) {
+            // No log penalty rule
+            penalty_absent_days++;
+          } else {
+            present_days++;
+          }
         }
         curr.setDate(curr.getDate() + 1);
       }

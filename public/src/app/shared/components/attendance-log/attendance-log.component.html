@@ -37,7 +37,7 @@
 
   <!-- Rows -->
   <ion-row *ngFor="let log of currentMonthreport" class="table-row"
-    [ngClass]="{'weekoff-row': log.status === 'weekend', 'holiday-row': log.status === 'holiday', 'leave-row': log.status === 'on-leave', 'leave-pending-row': log.status === 'on-leave' && log.isLeavePending, 'penalty-row': log.status === 'penalty' || log.status === 'absent'}">
+    [ngClass]="{'weekoff-row': log.status === 'weekend', 'holiday-row': log.status === 'holiday', 'leave-row': log.status === 'on-leave', 'leave-pending-row': log.status === 'on-leave' && log.isLeavePending, 'penalty-row': (log.status === 'penalty' || log.status === 'absent') && !log.isNoAttendance && !isNoAttendanceEmployee}">
     <ion-col size="2">
       {{ log.attendance_date | date:'EEE, dd MMM' }}
       <ng-container *ngIf="log.status === 'holiday'">
@@ -59,10 +59,10 @@
       <ng-container *ngIf="log.status === 'weekend'">
         <span class="badge-woff">W-OFF</span>
       </ng-container>
-      <ng-container *ngIf="log.status === 'penalty'">
+      <ng-container *ngIf="log.status === 'penalty' && !log.isNoAttendance && !isNoAttendanceEmployee">
         <span class="badge-penalty">PENALTY</span>
       </ng-container>
-      <ng-container *ngIf="log.status === 'absent'">
+      <ng-container *ngIf="log.status === 'absent' && !log.isNoAttendance && !isNoAttendanceEmployee">
         <span *ngIf="log.notes === 'LOP'; else stdAbsent" class="badge-lop">LOP</span>
         <ng-template #stdAbsent>
           <span class="badge-absent">ABSENT</span>
@@ -137,6 +137,8 @@
               style="color:#2dd4bf;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'On Time'" name="checkmark-circle-outline"
               style="color:#10B981;font-size:18px;"></ion-icon>
+            <ion-icon *ngSwitchCase="'Present'" name="checkmark-circle-outline"
+              style="color:#10B981;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'Penalty'" name="alert-circle-outline"
               style="color:#EF4444;font-size:18px;"></ion-icon>
             <ion-icon *ngSwitchCase="'Holiday'" name="sparkles" style="color:#10B981;font-size:16px;"></ion-icon>
@@ -146,7 +148,7 @@
           </ng-container>
           <div style="display:flex;flex-direction:column;">
             <span
-              [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : (getArrivalStatus(log) === 'Holiday' ? '#047857' : 'inherit'))"
+              [style.color]="getArrivalStatus(log) === 'Late Arrival' ? '#D97706' : (getArrivalStatus(log) === 'regularlise' ? '#2dd4bf' : ((getArrivalStatus(log) === 'Holiday' || getArrivalStatus(log) === 'Present' || getArrivalStatus(log) === 'On Time') ? '#047857' : 'inherit'))"
               style="font-size:13px;font-weight:500;line-height:1;">
               {{ getArrivalStatus(log) }}
             </span>
@@ -157,7 +159,7 @@
         </div>
 
         <!-- Regularization Button for HR -->
-        <ion-button *ngIf="isHRView && (log.status === 'penalty' || log.status === 'absent')" fill="clear"
+        <ion-button *ngIf="isHRView && (log.status === 'penalty' || log.status === 'absent') && !log.isNoAttendance && !isNoAttendanceEmployee" fill="clear"
           color="primary" class="regularize-btn" (click)="openRegularizeModal(log); $event.stopPropagation()">
           <ion-icon name="create-outline" slot="icon-only"></ion-icon>
         </ion-button>

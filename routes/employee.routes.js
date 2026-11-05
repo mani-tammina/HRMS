@@ -106,7 +106,7 @@ const formatEmployeeDates = function(emp) {
 router.get("/", auth, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit) || 20));
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
     const q = (req.query.q || "").trim();
     const status = (req.query.status || "").trim();
@@ -383,6 +383,12 @@ router.post("/", auth, admin, async (req, res) => {
 
     const c = await db();
     const data = { ...req.body, created_at: new Date() };
+    if (!data.attendance_policy_id) {
+      const [noAtt] = await c.query("SELECT id FROM attendance_policies WHERE name = 'No Attendance' LIMIT 1");
+      if (noAtt.length > 0) {
+        data.attendance_policy_id = noAtt[0].id;
+      }
+    }
     const [result] = await c.query("INSERT INTO employees SET ?", data);
     c.end();
     res.json({ id: result.insertId, ...data });
@@ -415,6 +421,7 @@ router.get("/:id", auth, async (req, res) => {
               bu.name as business_unit_name,
               mgr.FirstName as manager_first_name,
               mgr.LastName as manager_last_name,
+       ap.name as attendance_policy_name,
               COALESCE(
                 (SELECT CASE 
                           WHEN combined.notes LIKE '%OUT Missing%' OR combined.notes LIKE '%Auto Clock-Out%' THEN 'Not In Yet'
@@ -457,6 +464,7 @@ router.get("/:id", auth, async (req, res) => {
        LEFT JOIN locations    l   ON e.LocationId    = l.id
        LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
        LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+       LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
        WHERE e.id = ?`,
       [employeeId]
     );
@@ -786,7 +794,7 @@ router.get("/search/query", auth, async (req, res) => {
       return res.status(400).json({ error: "Search query too long (max 100 characters)" });
     }
 
-    const limit = Math.min(2000, Math.max(1, parseInt(req.query.limit) || 20));
+    const limit = Math.min(5000, Math.max(1, parseInt(req.query.limit) || 20));
 
     const c = await db();
     const [r] = await c.query(
@@ -863,7 +871,8 @@ router.get("/profile/me", auth, async (req, res) => {
             b.name as band_name,
             pg.name as pay_grade_name,
             mgr.FirstName as manager_first_name,
-            mgr.LastName as manager_last_name
+            mgr.LastName as manager_last_name,
+            ap.name as attendance_policy_name
          FROM employees e
          LEFT JOIN locations l ON e.LocationId = l.id
          LEFT JOIN departments d ON e.DepartmentId = d.id
@@ -875,6 +884,7 @@ router.get("/profile/me", auth, async (req, res) => {
          LEFT JOIN bands b ON e.BandId = b.id
          LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
          LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+         LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
          LEFT JOIN (
             SELECT t1.employee_id, t1.annual_ctc
             FROM employee_salary_contracts t1

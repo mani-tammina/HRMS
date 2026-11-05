@@ -882,18 +882,23 @@ router.get("/balance", auth, async (req, res) => {
     // 2. Active 24h violations (missing logs)
     const [empSettings] = await c.query(
       `
-      SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
+      SELECT e.id, e.attendance_policy_id, ap.name as attendance_policy_name, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
       WHERE e.id = ?
     `,
       [emp.id],
     );
     const employee = empSettings[0];
+    const isNoAttendance = employee?.attendance_policy_name === 'No Attendance';
+    if (isNoAttendance) {
+      penaltyLop = 0;
+    }
 
-    if (employee) {
+    if (employee && !isNoAttendance) {
       const now = new Date();
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
@@ -1443,18 +1448,23 @@ router.get("/my-leaves", auth, async (req, res) => {
     // 2. Active 24h violations for days with no records
     const [empSettings] = await c.query(
       `
-      SELECT e.id, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
+      SELECT e.id, e.attendance_policy_id, ap.name as attendance_policy_name, sp.start_time, mlt.threshold_hours as missing_log_threshold, wop.* 
       FROM employees e
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
       LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+      LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
       WHERE e.id = ?
     `,
       [emp.id],
     );
     const employee = empSettings[0];
+    const isNoAttendance = employee?.attendance_policy_name === 'No Attendance';
+    if (isNoAttendance) {
+      penaltyLop = 0;
+    }
 
-    if (employee) {
+    if (employee && !isNoAttendance) {
       const now = new Date();
       if (leaveYear <= now.getFullYear()) {
         const startOfYear = new Date(leaveYear, 0, 1);
