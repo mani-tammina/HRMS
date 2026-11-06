@@ -1020,52 +1020,27 @@ router.get("/today", auth, async (req, res) => {
       }
     }
 
-    let isNoAttendanceToday = false;
+    let isNoAttendancePolicy = false;
     if (emp.attendance_policy_id) {
       const [attPol] = await c.query("SELECT name FROM attendance_policies WHERE id = ?", [emp.attendance_policy_id]);
       if (attPol.length > 0 && attPol[0].name === "No Attendance") {
-        isNoAttendanceToday = true;
+        isNoAttendancePolicy = true;
       }
     }
 
     c.end();
 
     if (!attendanceRecord && punches.length === 0) {
-      if (isNoAttendanceToday) {
-        return res.json({
-          has_attendance: true,
-          message: "Exempt from Attendance",
-          punches: [],
-          policyPermissions,
-          is_clocked_in: true,
-          status: "Present",
-          is_no_attendance: true,
-          attendance: {
-            id: 0,
-            employee_id: emp.id,
-            attendance_date: shiftDate,
-            punch_date: shiftDate,
-            status: "present",
-            work_mode: "Office",
-            location: "Office",
-            total_work_hours: "0.00",
-            gross_hours: "0.00",
-            effective_hours: "0.00"
-          },
-          shiftTiming,
-          total_hours: "0.00",
-          effective_hours: "0.00",
-          gross_hours: "0.00",
-          total_break_hours: "0.00",
-          total_punches: 0
-        });
-      }
       return res.json({
         has_attendance: false,
         message: "No attendance record for today",
         punches: [],
         policyPermissions,
-        shiftTiming
+        shiftTiming,
+        is_no_attendance_policy: isNoAttendancePolicy,
+        status: "Not In Yet",
+        attendance_status: "Not In Yet",
+        is_clocked_in: false
       });
     }
 
@@ -2115,17 +2090,14 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     } else if (attMap.has(dStr)) {
       const record = attMap.get(dStr);
       const nLower = String(record.notes || '').toLowerCase();
-      if (record.status === 'present') present_days++;
-      else if (record.status === 'absent') {
-        if (!isNoAttendance) {
-          absent_days++;
-          if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
-            lop_from_attendance++;
-          } else {
-            regular_absent_days++;
-          }
+      if (record.status === 'present') {
+        present_days++;
+      } else if (record.status === 'absent') {
+        absent_days++;
+        if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
+          lop_from_attendance++;
         } else {
-          present_days++;
+          regular_absent_days++;
         }
       } else if (record.status === 'half-day') {
         present_days += 0.5;
@@ -2145,12 +2117,14 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (!isNoAttendance) {
           penalty_count++;
           penalty_absent_days++;
-          absent_days++;
-        } else {
-          present_days++;
         }
+        absent_days++;
       }
     } else if (!isToday) {
+      // Past working day without attendance record = Absent
+      absent_days++;
+      regular_absent_days++;
+
       if (!isNoAttendance) {
         const shiftStartStr = employee?.start_time || '09:00:00';
         const [sh, sm] = shiftStartStr.split(':').map(Number);
@@ -2164,14 +2138,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (now > penaltyThreshold) {
           penalty_count++;
           penalty_absent_days++;
-          absent_days++;
         }
-      } else {
-        present_days++;
-      }
-    } else {
-      if (isNoAttendance) {
-        present_days++;
       }
     }
 
@@ -2181,16 +2148,6 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   if (isNoAttendance) {
     penalty_count = 0;
     penalty_absent_days = 0;
-    absent_days = 0;
-    lop_days = lop_from_leaves;
-    attendance.forEach(a => {
-      if (a.status === 'penalty' || a.status === 'absent') {
-        const nLower = String(a.notes || '').toLowerCase();
-        if (!nLower.includes('lop') && !nLower.includes('ul') && !nLower.includes('loss of pay') && !nLower.includes('unpaid')) {
-          a.status = 'present';
-        }
-      }
-    });
   }
 
   const summary = {
@@ -2687,33 +2644,6 @@ router.get("/report/team", auth, async (req, res) => {
     const uniqueOnLeaveIds = Array.from(
       new Set([...attendanceOnLeaveIds, ...leaveOnLeaveIds])
     );
-        // Add synthetic present records for No Attendance employees who are not on leave and not yet in attendanceMap
-    team.forEach(tm => {
-      const isNoAtt = (tm.attendance_policy_name || '').toLowerCase() === 'no attendance' || Number(tm.attendance_policy_id) === 6;
-      if (isNoAtt && !attendanceMap.has(tm.id) && !uniqueOnLeaveIds.includes(tm.id)) {
-        attendanceMap.set(tm.id, {
-          id: `no_att_${tm.id}`,
-          employee_id: tm.id,
-          attendance_date: targetDate,
-          first_in: null,
-          last_out: null,
-          first_check_in: null,
-          last_check_out: null,
-          total_hours: '0.00',
-          gross_hours: '0.00',
-          total_work_hours: '0.00',
-          is_clocked_in: true,
-          status: 'Present',
-          attendance_status: 'Present',
-          work_mode: 'Office',
-          location: tm.LocationName || 'Office',
-          total_punches: 0,
-          EmployeeNumber: tm.EmployeeNumber,
-          FirstName: tm.FirstName,
-          LastName: tm.LastName
-        });
-      }
-    });
 
     const finalCombinedAttendance = Array.from(attendanceMap.values());
 

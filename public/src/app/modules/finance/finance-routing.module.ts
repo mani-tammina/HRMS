@@ -51,6 +51,14 @@ const routes: Routes = [
     loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
   },
   {
+    path: 'run-payroll/leave-attendance',
+    loadChildren: () => import('./leave-attendance-payable/leave-attendance-payable.module').then(m => m.LeaveAttendancePayablePageModule)
+  },
+  {
+    path: 'leave-attendance-payable',
+    loadChildren: () => import('./leave-attendance-payable/leave-attendance-payable.module').then(m => m.LeaveAttendancePayablePageModule)
+  },
+  {
     path: 'preview-all',
     loadChildren: () => import('./payroll-preview-all/payroll-preview-all.module').then(m => m.PayrollPreviewAllPageModule)
   }

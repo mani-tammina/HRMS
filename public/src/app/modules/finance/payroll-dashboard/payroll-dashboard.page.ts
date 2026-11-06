@@ -32,6 +32,88 @@ export class PayrollDashboardPage implements OnInit {
   dashboardData: PayrollDashboardData | null = null;
   outcomeCollapsed = false;
 
+  // ─── RUN PAYROLL CARD & 6 STEPS STATE ────────────────────────────────────
+  showInputChangesBanner = true;
+  runPayrollStepsOpen = true; // Open by default as in screenshot with upward arrow
+  activityOpen = false;       // Collapsed by default (downward arrow)
+  helpResourcesOpen = true;   // Open by default (upward arrow)
+
+  activeStepModal: any | null = null;
+  showTutorialModal = false;
+  showChangesModal = false;
+  showHelpModal: string | null = null;
+
+  payrollSteps = [
+    {
+      id: 1,
+      title: 'Leave, Attendance & Payable Units',
+      subtitle: 'Last Changes on 04 Nov 2026 03:25 pm BY Hari Siva Sai Mukku',
+      iconType: 'calendar',
+      bgColor: '#e0f2fe',
+      iconColor: '#0284c7',
+      completed: true,
+      description: 'Review employee work days, paid leaves, sandwich deductions, loss of pay (LWP), and finalized payable units for the payroll cycle.'
+    },
+    {
+      id: 2,
+      title: 'New Joinees & Exits',
+      subtitle: 'No Action taken',
+      iconType: 'users',
+      bgColor: '#f3e8ff',
+      iconColor: '#9333ea',
+      completed: false,
+      description: 'Audit prorated salary calculations for staff who joined or separated mid-cycle, including Full & Final settlement inputs.'
+    },
+    {
+      id: 3,
+      title: 'Bonus, Salary Revisions & Overtime',
+      subtitle: 'No Action taken',
+      iconType: 'briefcase',
+      bgColor: '#f3e8ff',
+      iconColor: '#9333ea',
+      completed: false,
+      description: 'Verify performance incentives, effective increment adjustments, and overtime payout hours for the current month.'
+    },
+    {
+      id: 4,
+      title: 'Reimbursement, Adhoc Payment, Deduction',
+      subtitle: 'No Action taken',
+      iconType: 'calc',
+      bgColor: '#e0f2fe',
+      iconColor: '#0284c7',
+      completed: false,
+      description: 'Approve non-taxable expense claims, one-time salary advances, mobile reimbursements, and ad-hoc deductions.'
+    },
+    {
+      id: 5,
+      title: 'Salaries on Hold & Arrears',
+      subtitle: 'No Action taken',
+      iconType: 'hourglass',
+      bgColor: '#ecfdf5',
+      iconColor: '#059669',
+      completed: false,
+      description: 'Manage staff salaries placed on administrative hold and disburse pending salary arrears from previous pay cycles.'
+    },
+    {
+      id: 6,
+      title: 'Override (PT, ESI, TDS, LWF)',
+      subtitle: 'No Action taken',
+      iconType: 'shield',
+      bgColor: '#fef3c7',
+      iconColor: '#d97706',
+      completed: false,
+      description: 'Review manual statutory tax overrides including Professional Tax, Employee State Insurance, TDS, and Labour Welfare Fund.'
+    }
+  ];
+
+  get completedStepsCount(): number {
+    return this.payrollSteps.filter(s => s.completed).length;
+  }
+
+  get completedStepsPercentage(): number {
+    return Math.round((this.completedStepsCount / this.payrollSteps.length) * 100);
+  }
+
   get daysInMonth(): number {
     if (!this.selectedMonth) return 30;
     const parts = this.selectedMonth.split('-');
@@ -61,6 +143,7 @@ export class PayrollDashboardPage implements OnInit {
   }
 
   ionViewWillEnter() {
+    this.loadStepsState();
     this.loadDashboardData(this.selectedMonth);
   }
 
@@ -76,6 +159,7 @@ export class PayrollDashboardPage implements OnInit {
             const eq = this.dashboardData.equation;
             eq.totalPayrollCost = (Number(eq.employeeDeposit) || 0) + (Number(eq.totalDeductions) || 0) + (Number(eq.totalContributions) || 0);
           }
+          this.loadStepsState();
         }
       },
       error: (err) => {
@@ -110,6 +194,137 @@ export class PayrollDashboardPage implements OnInit {
 
   toggleOutcome() {
     this.outcomeCollapsed = !this.outcomeCollapsed;
+  }
+
+  toggleRunPayrollSteps() {
+    this.runPayrollStepsOpen = !this.runPayrollStepsOpen;
+  }
+
+  toggleActivity() {
+    this.activityOpen = !this.activityOpen;
+  }
+
+  toggleHelpResources() {
+    this.helpResourcesOpen = !this.helpResourcesOpen;
+  }
+
+  openStepDetails(step: any) {
+    if (step.id === 1) {
+      this.router.navigate(['/finance/run-payroll/leave-attendance'], {
+        queryParams: { month: this.selectedMonth, step: 1 }
+      });
+      return;
+    }
+    this.activeStepModal = step;
+  }
+
+  closeStepModal() {
+    this.activeStepModal = null;
+  }
+
+  toggleStepComplete(step: any) {
+    step.completed = !step.completed;
+    if (step.completed) {
+      const now = new Date();
+      step.subtitle = `Changes saved on ${now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+      this.toaster.showSuccess(`Step "${step.title}" marked as completed`);
+    } else {
+      step.subtitle = 'No Action taken';
+    }
+    this.saveStepsState();
+    this.closeStepModal();
+  }
+
+  loadStepsState() {
+    try {
+      const key = `payroll_steps_${this.selectedMonth}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((p: any) => {
+            const step = this.payrollSteps.find(s => s.id === p.id);
+            if (step) {
+              step.completed = !!p.completed;
+              if (p.subtitle) step.subtitle = p.subtitle;
+            }
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load steps state:', e);
+    }
+  }
+
+  saveStepsState() {
+    try {
+      const key = `payroll_steps_${this.selectedMonth}`;
+      const data = this.payrollSteps.map(s => ({ id: s.id, completed: s.completed, subtitle: s.subtitle }));
+      localStorage.setItem(key, JSON.stringify(data));
+    } catch (e) {
+      console.warn('Could not save steps state:', e);
+    }
+  }
+
+  openGuidedTutorial() {
+    this.showTutorialModal = true;
+  }
+
+  closeTutorialModal() {
+    this.showTutorialModal = false;
+  }
+
+  openChangesModal() {
+    this.showChangesModal = true;
+  }
+
+  closeChangesModal() {
+    this.showChangesModal = false;
+  }
+
+  openHelpResource(topic: string) {
+    this.showHelpModal = topic;
+  }
+
+  closeHelpModal() {
+    this.showHelpModal = null;
+  }
+
+  processPayrollAction() {
+    this.router.navigate(['/finance/process'], {
+      queryParams: { month: this.selectedMonth }
+    });
+  }
+
+  reviewAllEmployeesAction() {
+    this.router.navigate(['/finance/preview-all'], {
+      queryParams: { month: this.selectedMonth }
+    });
+  }
+
+  async lockPayrollAction() {
+    const alert = await this.alertCtrl.create({
+      header: `Lock Payroll Period`,
+      subHeader: `${this.selectedMonth}`,
+      message: `Are you sure you want to lock the payroll for <strong>${this.selectedMonth}</strong>?<br><br>All input adjustments, payable units, and disbursements will be locked.`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Lock Payroll',
+          handler: () => {
+            this.executeLockPayroll();
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  private executeLockPayroll() {
+    this.toaster.showSuccess(`Payroll for ${this.selectedMonth} locked successfully!`);
+    if (this.dashboardData?.outcome) {
+      this.dashboardData.outcome.isCompleted = true;
+    }
   }
 
   onSubTabClick(tab: any) {

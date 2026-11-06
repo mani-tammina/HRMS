@@ -191,7 +191,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         if (report && report.length > 0) {
           const isNoAtt = (this.employeeProfile?.attendance_policy_name || "").toLowerCase().includes("no attendance") || Number(this.employeeProfile?.attendance_policy_id) === 6 || report.some((l: any) => l.isNoAttendance);
           // Fallback client summary calculation only if monthlySummary was not loaded from API summary
-          if (!this.monthlySummary || (!this.monthlySummary.total_days && !this.monthlySummary.absent_days) || isNoAtt) {
+          if (!this.monthlySummary || (!this.monthlySummary.total_days && !this.monthlySummary.absent_days)) {
             const present_days = report.filter(log => log.status === "present").length;
             const half_days_count = report.filter(log => log.status === "half-day").length;
             const std_absent_days = report.filter(log => log.status === "absent" && log.notes !== "LOP").length;
@@ -200,12 +200,12 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             const penalty_days = report.filter(log => log.status === "penalty").length;
 
             const finalPenalty = isNoAtt ? 0 : penalty_days;
-            const finalAbsent = isNoAtt ? 0 : (std_absent_days + (finalPenalty * 0.5));
-            const lop_days = isNoAtt ? 0 : (explicit_lop + (finalPenalty * 0.5));
+            const finalAbsent = std_absent_days + (finalPenalty * 0.5);
+            const lop_days = explicit_lop + (finalPenalty * 0.5);
 
             this.monthlySummary = {
               ...this.monthlySummary,
-              present_days: isNoAtt ? (report.length - leave_days - (report.filter(l => l.status === "weekend").length) - (report.filter(l => l.status === "holiday").length)) : present_days,
+              present_days: present_days,
               absent_days: finalAbsent,
               leave_days,
               lop_days,
@@ -332,11 +332,7 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
           this.hasApprovedRemote = true;
         }
 
-        const isNoAtt = (this.employeeProfile?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(this.employeeProfile?.attendance_policy_id) === 6;
-        if (isNoAtt && (!punches || punches.length === 0)) {
-          this.status = 'Present';
-          this.isClockedIn = true;
-        } else if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
+        if (isAutoOut || (!res?.attendance && (!punches || punches.length === 0))) {
           this.status = 'NOT In Yet';
           this.isClockedIn = false;
         } else if (res?.on_leave && (!punches || punches.length === 0)) {
@@ -731,14 +727,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     request.subscribe({
       next: (res: any) => {
-                if (res?.summary) {
-          const isNoAtt = (res?.employee?.attendance_policy_name || this.employeeProfile?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(res?.employee?.attendance_policy_id || this.employeeProfile?.attendance_policy_id) === 6;
+        if (res?.summary) {
           this.monthlySummary = {
             ...res.summary,
-            present_days: isNoAtt ? (Number(res.summary.present_days) || (Number(res.summary.total_days || 0) - Number(res.summary.weekend_days || 0) - Number(res.summary.holiday_days || 0) - Number(res.summary.leave_days || 0))) : (Number(res.summary.present_days) || 0),
-            absent_days: isNoAtt ? 0 : (Number(res.summary.absent_days) || 0),
+            present_days: Number(res.summary.present_days) || 0,
+            absent_days: Number(res.summary.absent_days) || 0,
             leave_days: Number(res.summary.leave_days) || 0,
-            lop_days: isNoAtt ? (Number(res.summary.lop_days) || 0) : (Number(res.summary.lop_days) || 0),
+            lop_days: Number(res.summary.lop_days) || 0,
             half_days: Number(res.summary.half_days) || 0
           };
           this.lastAttendance = res?.attendance || [];

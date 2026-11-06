@@ -1,0 +1,881 @@
+<div class="lap-workflow-container">
+
+  <!-- ══════════════════════════════════════════════════════════════
+       TOP HEADER & 4-STEP STEPPER BAR
+  ═══════════════════════════════════════════════════════════════ -->
+  <header class="lap-header">
+    <!-- Left: Page Title -->
+    <div class="header-left">
+      <h1 class="header-title">Leave, Attendance & Payable Units: {{ monthLabel }}</h1>
+    </div>
+
+    <!-- Center: 4-Step Stepper -->
+    <div class="header-stepper">
+      <!-- Step 1: Leave Applied -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1"
+        (click)="goToStep(1)">
+        <span class="step-badge">1</span>
+        <span class="step-label">LEAVE APPLIED</span>
+      </div>
+
+      <div class="stepper-line" [class.completed]="currentStep > 1"></div>
+
+      <!-- Step 2: No Attendance -->
+      <div class="stepper-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2"
+        (click)="goToStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">NO ATTENDANCE</span>
+      </div>
+
+      <div class="stepper-line" [class.completed]="currentStep > 2"></div>
+
+      <!-- Step 3: LOP Summary -->
+      <div class="stepper-item" [class.active]="currentStep === 3" [class.completed]="currentStep > 3"
+        (click)="goToStep(3)">
+        <span class="step-badge">3</span>
+        <span class="step-label">LOP SUMMARY</span>
+      </div>
+
+      <div class="stepper-line" [class.completed]="currentStep > 3"></div>
+
+      <!-- Step 4: LOP Reversal -->
+      <div class="stepper-item" [class.active]="currentStep === 4" [class.completed]="currentStep > 4"
+        (click)="goToStep(4)">
+        <span class="step-badge">4</span>
+        <span class="step-label">LOP REVERSAL</span>
+      </div>
+    </div>
+
+    <!-- Right: Header Actions (Back, Save & Continue, Close X) -->
+    <div class="header-right">
+      <button class="btn-back" type="button" (click)="handleBack()" [disabled]="currentStep === 1">
+        Back
+      </button>
+
+      <button *ngIf="currentStep < 4" class="btn-save-continue" type="button" (click)="handleSaveAndContinue()">
+        Save & Continue
+      </button>
+
+      <button *ngIf="currentStep === 4" class="btn-mark-completed" type="button" (click)="markStepAsCompleted()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+          stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;">
+          <polyline points="20 6 9 17 4 12"></polyline>
+        </svg>
+        Mark as Completed
+      </button>
+
+      <button class="btn-close-header" type="button" (click)="closeWorkflow()" title="Close and return to Payroll Dashboard">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       BODY CONTENT AREA: 2-COLUMN LAYOUT
+  ═══════════════════════════════════════════════════════════════ -->
+  <main class="lap-main-body">
+
+    <!-- Loading Spinner -->
+    <div class="loading-state" *ngIf="isLoading">
+      <div class="spinner"></div>
+      <p>Loading attendance & payable units for {{ monthLabel }}...</p>
+    </div>
+
+    <div class="lap-layout-grid" *ngIf="!isLoading">
+
+      <!-- LEFT MAIN WORKSPACE COLUMN -->
+      <section class="lap-content-column">
+
+        <!-- ──────────────────────────────────────────────────────────
+             STEP 1: LEAVE APPLIED (VALIDATE ALL EMPLOYEE LEAVE REQUESTS)
+        ─────────────────────────────────────────────────────────── -->
+        <div class="step-pane" *ngIf="currentStep === 1">
+          <div class="pane-header">
+            <div class="title-with-pill">
+              <h2 class="pane-title">Employee Leave Requests</h2>
+              <span class="month-pill">{{ monthLabel }}</span>
+            </div>
+            <p class="pane-subdesc">
+              Validate all employee leave requests for {{ monthFull }} {{ year }}. Only approved leave requests are credited as paid days in payroll calculation, while unvalidated or rejected requests will be treated as unapproved absence in Step 2 (No Attendance).
+            </p>
+          </div>
+
+          <!-- Leave Validation Summary Stat Cards -->
+          <div class="leave-validation-stat-grid">
+            <div class="val-stat-card" [class.selected]="selectedLeaveTab === 'all'" (click)="selectedLeaveTab = 'all'">
+              <div class="val-stat-icon all">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                  <line x1="16" y1="2" x2="16" y2="6"></line>
+                  <line x1="8" y1="2" x2="8" y2="6"></line>
+                  <line x1="3" y1="10" x2="21" y2="10"></line>
+                </svg>
+              </div>
+              <div class="val-stat-info">
+                <span class="val-stat-num">{{ totalLeavesCount }}</span>
+                <span class="val-stat-title">Total Requests</span>
+              </div>
+            </div>
+
+            <div class="val-stat-card pending" [class.selected]="selectedLeaveTab === 'pending'" (click)="selectedLeaveTab = 'pending'">
+              <div class="val-stat-icon pending">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12 6 12 12 16 14"></polyline>
+                </svg>
+              </div>
+              <div class="val-stat-info">
+                <span class="val-stat-num pending">{{ pendingLeavesCount }}</span>
+                <span class="val-stat-title">Pending Validation</span>
+              </div>
+              <span class="action-needed-badge" *ngIf="pendingLeavesCount > 0">Action Required</span>
+            </div>
+
+            <div class="val-stat-card approved" [class.selected]="selectedLeaveTab === 'approved'" (click)="selectedLeaveTab = 'approved'">
+              <div class="val-stat-icon approved">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              </div>
+              <div class="val-stat-info">
+                <span class="val-stat-num approved">{{ approvedLeavesCount }}</span>
+                <span class="val-stat-title">Approved / Validated</span>
+              </div>
+            </div>
+
+            <div class="val-stat-card rejected" [class.selected]="selectedLeaveTab === 'rejected'" (click)="selectedLeaveTab = 'rejected'">
+              <div class="val-stat-icon rejected">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <line x1="15" y1="9" x2="9" y2="15"></line>
+                  <line x1="9" y1="9" x2="15" y2="15"></line>
+                </svg>
+              </div>
+              <div class="val-stat-info">
+                <span class="val-stat-num rejected">{{ rejectedLeavesCount }}</span>
+                <span class="val-stat-title">Rejected / LOP</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Filter Toolbar with Bulk Action buttons -->
+          <div class="filter-toolbar">
+            <div class="toolbar-left">
+              <!-- Filter Tabs -->
+              <div class="filter-tabs-pills">
+                <button class="tab-pill" [class.active]="selectedLeaveTab === 'all'" (click)="selectedLeaveTab = 'all'">
+                  All ({{ totalLeavesCount }})
+                </button>
+                <button class="tab-pill" [class.active]="selectedLeaveTab === 'pending'" (click)="selectedLeaveTab = 'pending'">
+                  Pending ({{ pendingLeavesCount }})
+                </button>
+                <button class="tab-pill" [class.active]="selectedLeaveTab === 'approved'" (click)="selectedLeaveTab = 'approved'">
+                  Approved ({{ approvedLeavesCount }})
+                </button>
+                <button class="tab-pill" [class.active]="selectedLeaveTab === 'rejected'" (click)="selectedLeaveTab = 'rejected'">
+                  Rejected ({{ rejectedLeavesCount }})
+                </button>
+              </div>
+
+              <!-- Bulk Action Trigger (when items selected) -->
+              <div class="bulk-selection-actions" *ngIf="selectedLeaveIds.size > 0">
+                <span class="selection-count">{{ selectedLeaveIds.size }} selected</span>
+                <button class="btn-bulk-approve" type="button" (click)="validateSelectedLeaves('approved')">
+                  ✓ Approve Selected
+                </button>
+                <button class="btn-bulk-reject" type="button" (click)="validateSelectedLeaves('rejected')">
+                  ✕ Reject Selected
+                </button>
+              </div>
+            </div>
+
+            <div class="toolbar-right">
+              <!-- Validate All Pending Leaves Button -->
+              <button class="btn-validate-all-pending" type="button" (click)="validateAllPendingLeaves()" [disabled]="pendingLeavesCount === 0" title="Validate and approve all pending leave requests for this month">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                Validate All Pending ({{ pendingLeavesCount }})
+              </button>
+
+              <!-- Search Bar -->
+              <div class="search-input-box">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" [(ngModel)]="leaveSearchTerm" placeholder="Search employee, leave type..." />
+              </div>
+            </div>
+          </div>
+
+          <!-- Leave Validation Table -->
+          <div class="table-card-container">
+            <table class="lap-table">
+              <thead>
+                <tr>
+                  <th style="width: 4%; text-align: center;">
+                    <input type="checkbox" [checked]="isAllLeavesSelected" (change)="toggleSelectAllLeaves($event)" title="Select All" />
+                  </th>
+                  <th style="width: 24%;">EMPLOYEE</th>
+                  <th style="width: 14%;">LEAVE TYPE</th>
+                  <th style="width: 18%;">DATE RANGE</th>
+                  <th style="width: 10%;">DURATION</th>
+                  <th style="width: 16%;">REASON</th>
+                  <th style="width: 14%; text-align: center;">STATUS & VALIDATION</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredLeaves" [class.selected-row]="selectedLeaveIds.has(row.id)">
+                  <td style="text-align: center;">
+                    <input type="checkbox" [checked]="selectedLeaveIds.has(row.id)" (change)="toggleSelectLeave(row, $event)" />
+                  </td>
+                  <td>
+                    <div class="emp-cell" (click)="openLeaveDetail(row)" style="cursor: pointer;">
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                      <div class="emp-meta-sub">
+                        <span class="emp-code">{{ row.employee_code }}</span>
+                        <span class="dept-dot">•</span>
+                        <span class="emp-dept">{{ row.department || 'General' }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="leave-type-chip" [class.chip-sick]="row.leave_type === 'Sick Leave'" [class.chip-casual]="row.leave_type === 'Casual Leave'" [class.chip-earned]="row.leave_type === 'Earned Leave' || row.leave_type === 'Compensatory Off'">
+                      {{ row.leave_type }}
+                    </span>
+                  </td>
+                  <td class="date-cell">
+                    {{ row.start_date | date:'dd MMM yyyy' }}
+                    <span *ngIf="row.start_date !== row.end_date" class="date-to-sep">→ {{ row.end_date | date:'dd MMM yyyy' }}</span>
+                  </td>
+                  <td>
+                    <span class="days-pill" [class.half-day]="row.is_half_day">
+                      {{ row.total_days }} day(s)
+                    </span>
+                  </td>
+                  <td>
+                    <span class="leave-reason-text" [title]="row.reason || 'No reason specified'">
+                      {{ row.reason || '—' }}
+                    </span>
+                  </td>
+                  <td style="text-align: center;">
+                    <!-- When Pending: Show Validation Action Buttons (Approve / Reject) -->
+                    <div class="validation-action-btns" *ngIf="(row.raw_status || row.status || '').toLowerCase() === 'pending'">
+                      <button class="btn-action-approve" type="button" (click)="validateSingleLeave(row, 'approved')" title="Validate & Approve leave request">
+                        ✓ Validate
+                      </button>
+                      <button class="btn-action-reject" type="button" (click)="openRejectModal(row, $event)" title="Reject leave request">
+                        ✕ Reject
+                      </button>
+                    </div>
+
+                    <!-- When Approved: Show Validated Badge + Revert Option -->
+                    <div class="validated-badge-wrapper" *ngIf="(row.raw_status || row.status || '').toLowerCase() === 'approved'">
+                      <span class="status-badge approved">✓ Validated</span>
+                      <button class="btn-revert-action" type="button" (click)="openRejectModal(row, $event)" title="Change to Rejected">
+                        Change
+                      </button>
+                    </div>
+
+                    <!-- When Rejected: Show Rejected Badge + Re-Approve Option -->
+                    <div class="rejected-badge-wrapper" *ngIf="(row.raw_status || row.status || '').toLowerCase() === 'rejected'">
+                      <span class="status-badge rejected">✕ Rejected</span>
+                      <button class="btn-revert-action" type="button" (click)="validateSingleLeave(row, 'approved')" title="Re-approve this leave">
+                        Approve
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredLeaves.length === 0">
+                  <td colspan="7" class="empty-cell">
+                    No leave requests found for "{{ leaveSearchTerm }}" in {{ monthLabel }}.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Card Footer for Step 1 -->
+          <div class="pagination-footer" *ngIf="filteredLeaves.length > 0">
+            <div class="pagination-range-text">
+              Showing {{ filteredLeaves.length }} of {{ totalLeavesCount }} leave requests
+            </div>
+            <div class="pagination-controls">
+              <span class="status-summary-chips">
+                <span class="chip-count-dot orange"></span> {{ pendingLeavesCount }} Pending
+                <span class="chip-count-dot green"></span> {{ approvedLeavesCount }} Approved
+                <span class="chip-count-dot red"></span> {{ rejectedLeavesCount }} Rejected
+              </span>
+            </div>
+          </div>
+
+          <!-- Bottom Notice for Step 1 -->
+          <div class="pane-bottom-info">
+            <span class="info-icon-circle">ℹ</span>
+            <span>Once all leave requests are validated, click <strong>Save & Continue</strong> to proceed to <strong>Step 2: No Attendance</strong> reconciliation.</span>
+          </div>
+        </div>
+
+        <!-- ──────────────────────────────────────────────────────────
+             STEP 2: NO ATTENDANCE (Matches Image 1)
+        ─────────────────────────────────────────────────────────── -->
+        <div class="step-pane" *ngIf="currentStep === 2">
+          <div class="pane-header">
+            <div class="title-with-pill">
+              <h2 class="pane-title">No Attendance</h2>
+              <span class="policy-source-pill" *ngIf="noAttendancePolicy">
+                Policy: {{ noAttendancePolicy.name || 'No Attendance' }}
+              </span>
+              <span class="policy-count-pill">
+                {{ noAttendancePolicyEmployees.length }} Employees Mapped
+              </span>
+            </div>
+            <p class="pane-subdesc">
+              Employees assigned to <strong>{{ noAttendancePolicy?.name || 'No Attendance' }}</strong> policy in <em>Attendance Time Tracking Policy</em>. Review unlogged dates or take employee-level actions.
+            </p>
+          </div>
+
+
+          <!-- Filter Toolbar with Search bar and View Mode Toggle -->
+          <div class="filter-toolbar">
+            <div class="toolbar-left">
+              <!-- View Mode Toggle Pills -->
+              <div class="filter-tabs-pills">
+                <button 
+                  type="button" 
+                  class="tab-pill" 
+                  [class.active]="noAttendanceViewMode === 'dates'" 
+                  (click)="noAttendanceViewMode = 'dates'">
+                  Date Logs ({{ filteredNoAttendance.length }})
+                </button>
+                <button 
+                  type="button" 
+                  class="tab-pill" 
+                  [class.active]="noAttendanceViewMode === 'employees'" 
+                  (click)="noAttendanceViewMode = 'employees'">
+                  Mapped Employees ({{ noAttendancePolicyEmployees.length }})
+                </button>
+              </div>
+
+              <button class="btn-quick-action" type="button" (click)="showBatchActionModal = true" *ngIf="noAttendanceViewMode === 'dates'">
+                Batch Actions ({{ pendingDaysCount }} pending)
+              </button>
+            </div>
+
+            <div class="toolbar-right">
+              <div class="search-input-box">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" [(ngModel)]="searchTerm" placeholder="Search" (input)="currentPage = 1" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Main Table matching Image 1: Dates Mode -->
+          <div class="table-card-container" *ngIf="noAttendanceViewMode === 'dates'">
+            <table class="lap-table">
+              <thead>
+                <tr>
+                  <th style="width: 28%;">EMPLOYEE</th>
+                  <th style="width: 20%;">DATE</th>
+                  <th style="width: 22%;">TOTAL DAYS</th>
+                  <th style="width: 22%;">LEAVE TYPE</th>
+                  <th style="width: 8%; text-align: center;">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of paginatedNoAttendance">
+                  <td>
+                    <div class="emp-cell">
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                    </div>
+                  </td>
+                  <td class="date-cell">{{ row.date }}</td>
+                  <td>
+                    <span [class.text-muted]="row.total_days === 'No action taken'" [class.text-bold]="row.total_days !== 'No action taken'">
+                      {{ row.total_days }}
+                    </span>
+                  </td>
+                  <td>
+                    <span [class.text-muted]="row.leave_type === 'No action taken'" [class.tag-lop]="row.status === 'lop'" [class.tag-present]="row.status === 'regularized'" [class.tag-leave]="row.status === 'leave'">
+                      {{ row.leave_type }}
+                    </span>
+                  </td>
+                  <td style="text-align: center; position: relative;">
+                    <button class="btn-row-action" type="button" (click)="toggleRowDropdown(row, $event)" title="Choose action">
+                      •••
+                    </button>
+
+                    <!-- Dropdown Menu -->
+                    <div class="row-action-dropdown" *ngIf="activeDropdownRowId === row.id" (click)="$event.stopPropagation()">
+                      <button class="dropdown-item" type="button" (click)="applyAction(row, 'lop', $event)">
+                        <span class="dot dot-red"></span> Mark as LOP (Loss of Pay)
+                      </button>
+                      <button class="dropdown-item" type="button" (click)="applyAction(row, 'present', $event)">
+                        <span class="dot dot-green"></span> Regularize as Present
+                      </button>
+                      <button class="dropdown-item" type="button" (click)="applyAction(row, 'leave', $event)">
+                        <span class="dot dot-blue"></span> Apply Leave (Casual / Sick)
+                      </button>
+                      <button class="dropdown-item" type="button" (click)="applyAction(row, 'waive', $event)">
+                        <span class="dot dot-gray"></span> Waive Off / Ignore
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr *ngIf="paginatedNoAttendance.length === 0">
+                  <td colspan="5" class="empty-cell">
+                    No attendance records found matching "{{ searchTerm }}".
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Mapped Employees Mode -->
+          <div class="table-card-container" *ngIf="noAttendanceViewMode === 'employees'">
+            <table class="lap-table">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">EMPLOYEE</th>
+                  <th style="width: 22%;">DEPARTMENT & DESIGNATION</th>
+                  <th style="width: 20%;">ATTENDANCE POLICY</th>
+                  <th style="width: 13%; text-align: center;">UNLOGGED DAYS</th>
+                  <th style="width: 20%; text-align: right;">QUICK ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let emp of filteredPolicyEmployees">
+                  <td>
+                    <div class="emp-cell">
+                      <span class="emp-name">{{ emp.employee_name }}</span>
+                      <div class="emp-meta-sub">
+                        <span class="emp-code">{{ emp.employee_code }}</span>
+                        <span class="dept-dot" *ngIf="emp.email">•</span>
+                        <span class="emp-dept" *ngIf="emp.email">{{ emp.email }}</span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="emp-cell">
+                      <span class="emp-name" style="font-size: 13px; font-weight: 500;">{{ emp.designation || '—' }}</span>
+                      <span class="emp-code">{{ emp.department || 'General' }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="policy-chip-badge">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+                      </svg>
+                      {{ emp.policy_name || 'No Attendance' }}
+                    </span>
+                  </td>
+                  <td style="text-align: center;">
+                    <span class="lop-days-badge has-lop">
+                      {{ emp.no_attendance_days || 31 }} days
+                    </span>
+                  </td>
+                  <td style="text-align: right;">
+                    <div class="emp-quick-actions">
+                      <button class="btn-emp-act present" type="button" (click)="applyActionForEmployee(emp, 'present')" title="Regularize all days as Present">
+                        ✓ All Present
+                      </button>
+                      <button class="btn-emp-act lop" type="button" (click)="applyActionForEmployee(emp, 'lop')" title="Mark all days as Loss of Pay">
+                        ✕ All LOP
+                      </button>
+                      <button class="btn-emp-act waive" type="button" (click)="applyActionForEmployee(emp, 'waive')" title="Waive off all days">
+                        Waive
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredPolicyEmployees.length === 0">
+                  <td colspan="5" class="empty-cell">
+                    No mapped employees found matching "{{ searchTerm }}".
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Footer for Dates Mode matching Image 1: "1 to 50 of 269   Page 1 of 6 > >|" -->
+          <div class="pagination-footer" *ngIf="noAttendanceViewMode === 'dates'">
+            <div class="pagination-range-text">
+              {{ paginationRangeLabel }}
+            </div>
+            <div class="pagination-controls">
+              <span class="page-current-label">Page {{ currentPage }} of {{ totalPages }}</span>
+              <button class="page-nav-btn" type="button" [disabled]="currentPage === 1" (click)="setPage(1)" title="First Page">
+                |&lt;
+              </button>
+              <button class="page-nav-btn" type="button" [disabled]="currentPage === 1" (click)="prevPage()" title="Previous Page">
+                &lt;
+              </button>
+              <button class="page-nav-btn" type="button" [disabled]="currentPage === totalPages" (click)="nextPage()" title="Next Page">
+                &gt;
+              </button>
+              <button class="page-nav-btn" type="button" [disabled]="currentPage === totalPages" (click)="setPage(totalPages)" title="Last Page">
+                &gt;|
+              </button>
+            </div>
+          </div>
+
+          <!-- Footer for Mapped Employees Mode -->
+          <div class="pagination-footer" *ngIf="noAttendanceViewMode === 'employees'">
+            <div class="pagination-range-text">
+              Showing {{ filteredPolicyEmployees.length }} of {{ noAttendancePolicyEmployees.length }} employees mapped to 'No Attendance' policy in Attendance Time Tracking Policy
+            </div>
+          </div>
+        </div>
+
+        <!-- ──────────────────────────────────────────────────────────
+             STEP 3: LOP SUMMARY
+        ─────────────────────────────────────────────────────────── -->
+        <div class="step-pane" *ngIf="currentStep === 3">
+          <div class="pane-header">
+            <h2 class="pane-title">LOP Summary</h2>
+          </div>
+
+          <div class="pane-alert-banner">
+            <p>Summary of Loss of Pay (LOP) days calculated from unregularized attendance, unapproved leaves, and manual overrides for {{ monthLabel }}.</p>
+          </div>
+
+          <div class="filter-toolbar">
+            <div class="toolbar-left">
+              <span class="record-count-badge">{{ lopSummaryRecords.length }} employees</span>
+            </div>
+            <div class="toolbar-right">
+              <div class="search-input-box">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="text" [(ngModel)]="searchTerm" placeholder="Search employees..." />
+              </div>
+            </div>
+          </div>
+
+          <div class="table-card-container">
+            <table class="lap-table">
+              <thead>
+                <tr>
+                  <th style="width: 24%;">EMPLOYEE</th>
+                  <th style="width: 16%;">DEPARTMENT</th>
+                  <th style="width: 12%;">CALENDAR DAYS</th>
+                  <th style="width: 12%;">ATTENDED</th>
+                  <th style="width: 12%;">PAID LEAVES</th>
+                  <th style="width: 12%;">LOP DAYS</th>
+                  <th style="width: 12%;">PAYABLE UNITS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of lopSummaryRecords">
+                  <td>
+                    <div class="emp-cell">
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.department }}</td>
+                  <td>{{ row.calendar_days }}</td>
+                  <td>{{ row.attended_days }}</td>
+                  <td>{{ row.paid_leaves }}</td>
+                  <td>
+                    <span class="lop-days-badge" [class.has-lop]="row.lop_days > 0">
+                      {{ row.lop_days }}
+                    </span>
+                  </td>
+                  <td>
+                    <strong style="color: #4338ca;">{{ row.payable_units }}</strong>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ──────────────────────────────────────────────────────────
+             STEP 4: LOP REVERSAL
+        ─────────────────────────────────────────────────────────── -->
+        <div class="step-pane" *ngIf="currentStep === 4">
+          <div class="pane-header">
+            <h2 class="pane-title">LOP Reversal</h2>
+          </div>
+
+          <div class="pane-alert-banner">
+            <p>Previous month LOP days regularized or approved in the current month to be reversed and refunded in this payroll run.</p>
+          </div>
+
+          <div class="table-card-container">
+            <table class="lap-table">
+              <thead>
+                <tr>
+                  <th style="width: 25%;">EMPLOYEE</th>
+                  <th style="width: 15%;">ORIGINAL MONTH</th>
+                  <th style="width: 15%;">REVERSED DAYS</th>
+                  <th style="width: 25%;">REASON</th>
+                  <th style="width: 10%;">REFUND</th>
+                  <th style="width: 10%;">STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of lopReversalRecords">
+                  <td>
+                    <div class="emp-cell">
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.original_month }}</td>
+                  <td><span class="days-pill green">{{ row.reversed_days }} day(s)</span></td>
+                  <td>{{ row.reason }}</td>
+                  <td><strong>₹{{ row.refund_amount }}</strong></td>
+                  <td><span class="status-badge approved">{{ row.status }}</span></td>
+                </tr>
+
+                <tr *ngIf="lopReversalRecords.length === 0">
+                  <td colspan="6" class="empty-cell">
+                    No LOP reversals recorded for this month.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Bottom Final Action Box on Step 4 -->
+          <div class="step4-completion-box">
+            <div class="completion-info">
+              <h3>All 4 Steps of Leave & Attendance Reconciliation Complete!</h3>
+              <p>Click "Mark as Completed" to save this step and proceed with the remaining payroll workflow.</p>
+            </div>
+            <button class="btn-mark-completed-large" type="button" (click)="markStepAsCompleted()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              Mark as Completed
+            </button>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- RIGHT SIDEBAR COLUMN: NEED HELP CARD -->
+      <aside class="lap-sidebar-column">
+        <div class="help-card">
+          <div class="help-icon-wrapper">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <h3 class="help-card-title">Need help?</h3>
+          <p class="help-card-subtext">If you have questions talk to us, we're here for you.</p>
+          <button class="help-talk-link" type="button" (click)="openHelpDrawer()">
+            Talk to us &rarr;
+          </button>
+        </div>
+      </aside>
+
+    </div>
+  </main>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       STEP 1 WARNING MODAL: PENDING LEAVES NOT VALIDATED
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showPendingLeavesWarningModal" (click)="stayOnStep1()">
+    <div class="warning-modal-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Warning: Unvalidated Leave Requests</h3>
+        <button class="btn-close-modal" type="button" (click)="stayOnStep1()" title="Close">✕</button>
+      </div>
+      <div class="warning-modal-body">
+        <h4 class="warning-strong-headline">
+          There are {{ pendingLeavesCount }} leave request(s) still pending validation for {{ monthLabel }}.
+        </h4>
+        <p class="warning-desc-text">
+          If you proceed without validating them, any unapproved days will be treated as unapproved absence in Step 2 (No Attendance) and may cause unintended Loss of Pay (LOP) deductions for employees.
+        </p>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-skip-step" type="button" (click)="skipPendingLeavesWarning()">
+          Proceed without Validating
+        </button>
+        <button class="btn-go-back" type="button" (click)="validateAllAndProceedToStep2()">
+          ✓ Validate All & Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       STEP 2 WARNING MODAL: NO ATTENDANCE LOGS (Matches Image 2)
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showWarningModal" (click)="goBackToStep2()">
+    <div class="warning-modal-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Warning: Days with No Attendance Logs</h3>
+        <button class="btn-close-modal" type="button" (click)="goBackToStep2()" title="Close">✕</button>
+      </div>
+      <div class="warning-modal-body">
+        <h4 class="warning-strong-headline">
+          There are {{ pendingDaysCount || 269 }} days with no attendance logs.
+        </h4>
+        <p class="warning-desc-text">
+          If you skip this step, and manually override LOP, there might be a mismatch between the actual leave/LOP days and LOP days processed using payroll. It is recommended to take action against all the days with 'no attendance logs' to calculate correct leave/LOP days count.
+        </p>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-skip-step" type="button" (click)="skipWarningStep()">
+          Skip this step
+        </button>
+        <button class="btn-go-back" type="button" (click)="goBackToStep2()">
+          Go back
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       REJECT LEAVE REASON MODAL
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showRejectModal" (click)="closeRejectModal()">
+    <div class="warning-modal-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Reject Leave Request</h3>
+        <button class="btn-close-modal" type="button" (click)="closeRejectModal()">✕</button>
+      </div>
+      <div class="warning-modal-body" *ngIf="rejectModalRow">
+        <p>Reject leave request for <strong>{{ rejectModalRow.employee_name }}</strong> ({{ rejectModalRow.leave_type }}, {{ rejectModalRow.total_days }} day(s)):</p>
+        <div style="margin-top: 10px;">
+          <label style="display: block; font-size: 12.5px; font-weight: 600; color: #475569; margin-bottom: 6px;">Reason for Rejection:</label>
+          <textarea [(ngModel)]="rejectionReasonInput" placeholder="Specify reason (e.g. insufficient notice, critical deliverables, etc.)" style="width: 100%; height: 80px; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; outline: none;"></textarea>
+        </div>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-skip-step" type="button" (click)="closeRejectModal()">Cancel</button>
+        <button class="btn-reject-confirm" type="button" (click)="confirmRejectModal()">
+          ✕ Confirm Rejection (Apply LOP)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       VIEW LEAVE DETAIL MODAL
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="activeLeaveDetailModal" (click)="closeLeaveDetail()">
+    <div class="warning-modal-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Leave Request Details</h3>
+        <button class="btn-close-modal" type="button" (click)="closeLeaveDetail()">✕</button>
+      </div>
+      <div class="warning-modal-body" *ngIf="activeLeaveDetailModal">
+        <div class="detail-grid">
+          <div class="detail-row">
+            <span class="detail-label">Employee</span>
+            <span class="detail-val"><strong>{{ activeLeaveDetailModal.employee_name }}</strong> ({{ activeLeaveDetailModal.employee_code }})</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Department</span>
+            <span class="detail-val">{{ activeLeaveDetailModal.department || '—' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Leave Type</span>
+            <span class="detail-val"><span class="leave-type-chip">{{ activeLeaveDetailModal.leave_type }}</span></span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Duration</span>
+            <span class="detail-val">{{ activeLeaveDetailModal.start_date | date:'dd MMM yyyy' }} to {{ activeLeaveDetailModal.end_date | date:'dd MMM yyyy' }} ({{ activeLeaveDetailModal.total_days }} day(s))</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Employee Reason</span>
+            <span class="detail-val">{{ activeLeaveDetailModal.reason || 'No reason specified' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Validation Status</span>
+            <span class="detail-val">
+              <span class="status-badge" [class.approved]="(activeLeaveDetailModal.raw_status || activeLeaveDetailModal.status || '').toLowerCase() === 'approved'" [class.pending]="(activeLeaveDetailModal.raw_status || activeLeaveDetailModal.status || '').toLowerCase() === 'pending'" [class.rejected]="(activeLeaveDetailModal.raw_status || activeLeaveDetailModal.status || '').toLowerCase() === 'rejected'">
+                {{ activeLeaveDetailModal.status }}
+              </span>
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-skip-step" type="button" (click)="closeLeaveDetail()">Close</button>
+        <button *ngIf="(activeLeaveDetailModal?.raw_status || activeLeaveDetailModal?.status || '').toLowerCase() !== 'approved'" class="btn-go-back" type="button" (click)="validateSingleLeave(activeLeaveDetailModal!, 'approved')">
+          ✓ Approve Request
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       BATCH ACTION MODAL FOR STEP 2
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showBatchActionModal" (click)="showBatchActionModal = false">
+    <div class="batch-modal-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Batch Action for No Attendance Days</h3>
+        <button class="btn-close-modal" type="button" (click)="showBatchActionModal = false">✕</button>
+      </div>
+      <div class="warning-modal-body">
+        <p>Apply action to all {{ pendingDaysCount }} unassigned attendance days in {{ monthLabel }}:</p>
+        <div class="batch-options-group">
+          <label class="batch-radio-label">
+            <input type="radio" name="batchAction" value="lop" [(ngModel)]="selectedBatchAction" />
+            <span><strong>Mark all as Loss of Pay (LOP)</strong> (Deduct from payable days)</span>
+          </label>
+          <label class="batch-radio-label">
+            <input type="radio" name="batchAction" value="present" [(ngModel)]="selectedBatchAction" />
+            <span><strong>Mark all as Present</strong> (Waive loss of pay)</span>
+          </label>
+        </div>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-skip-step" type="button" (click)="showBatchActionModal = false">Cancel</button>
+        <button class="btn-go-back" type="button" (click)="applyBatchAction(selectedBatchAction)">
+          Apply to All Records
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       HELP RESOURCES DRAWER
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showHelpModal" (click)="closeHelpDrawer()">
+    <div class="help-drawer-box" (click)="$event.stopPropagation()">
+      <div class="warning-modal-header">
+        <h3 class="warning-title">Payroll Support & Resources</h3>
+        <button class="btn-close-modal" type="button" (click)="closeHelpDrawer()">✕</button>
+      </div>
+      <div class="warning-modal-body">
+        <p>Frequently asked questions about Leave, Attendance & Payable Units:</p>
+        <ul class="help-faq-list">
+          <li><strong>How are LOP days calculated?</strong> Unrecorded attendance without an approved leave or regularization defaults to LOP.</li>
+          <li><strong>Why validate leave requests first?</strong> Approved leaves count as paid days and prevent unwarranted deductions during Step 2 & 3.</li>
+          <li><strong>Can I override LOP manually?</strong> Yes, you can manually adjust payable units during Step 3 or mark specific days as Present in Step 2.</li>
+          <li><strong>When are prior month regularizations refunded?</strong> Verified regularizations appear in Step 4: LOP Reversal.</li>
+        </ul>
+        <div class="support-contact-info">
+          <p>Need dedicated assistance? Contact HR Payroll Support at <strong>payroll@tammina.com</strong> or extension <strong>401</strong>.</p>
+        </div>
+      </div>
+      <div class="warning-modal-footer">
+        <button class="btn-go-back" type="button" (click)="closeHelpDrawer()">Close</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
