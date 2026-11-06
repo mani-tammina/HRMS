@@ -393,8 +393,12 @@ async function runPayroll(year, month, runBy = null) {
           if (record.status === 'present') present_days++;
           else if (record.status === 'half-day') present_days += 0.5;
           else if (record.status === 'penalty') {
-            if (!isNoAttendance) penalty_absent_days++;
-            else present_days++;
+            if (!isNoAttendance) {
+              penalty_absent_days++;
+              regular_absent_days++;
+            } else {
+              present_days++;
+            }
           }
           else if (record.status === 'absent') {
             if (!isNoAttendance) regular_absent_days++;
@@ -405,6 +409,7 @@ async function runPayroll(year, month, runBy = null) {
           if (!isNoAttendance) {
             // No log penalty rule
             penalty_absent_days++;
+            regular_absent_days++;
           } else {
             present_days++;
           }
@@ -412,8 +417,8 @@ async function runPayroll(year, month, runBy = null) {
         curr.setDate(curr.getDate() + 1);
       }
 
-      const lop_days = (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves;
-      const total_absent = penalty_absent_days + regular_absent_days;
+      const lop_days = (regular_absent_days * 1.0) + lop_from_leaves;
+      const total_absent = regular_absent_days;
       const total_working = present_days + total_absent + leave_days; // Days where work was expected or leave taken
       const paid_days = (new Date(year, month, 0).getDate()) - lop_days;
 

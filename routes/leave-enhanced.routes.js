@@ -877,7 +877,7 @@ router.get("/balance", auth, async (req, res) => {
       [emp.id, leaveYear],
     );
 
-    let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
+    let penaltyLop = (dbPenalties[0].count || 0) * 1.0;
 
     // 2. Active 24h violations (missing logs)
     const [empSettings] = await c.query(
@@ -954,7 +954,7 @@ router.get("/balance", auth, async (req, res) => {
               const threshold = new Date(shiftStart);
               const thresholdHours = employee.missing_log_threshold || 48;
               threshold.setHours(threshold.getHours() + thresholdHours);
-              if (now > threshold) penaltyLop += 0.5;
+              if (now > threshold) penaltyLop += 1.0;
             }
           }
           curr.setDate(curr.getDate() + 1);
@@ -1443,7 +1443,7 @@ router.get("/my-leaves", auth, async (req, res) => {
       [emp.id, leaveYear],
     );
 
-    let penaltyLop = (dbPenalties[0].count || 0) * 0.5;
+    let penaltyLop = (dbPenalties[0].count || 0) * 1.0;
 
     // 2. Active 24h violations for days with no records
     const [empSettings] = await c.query(
@@ -1528,7 +1528,7 @@ router.get("/my-leaves", auth, async (req, res) => {
               threshold.setHours(threshold.getHours() + thresholdHours);
 
               if (now > threshold) {
-                penaltyLop += 0.5;
+                penaltyLop += 1.0;
               }
             }
           }

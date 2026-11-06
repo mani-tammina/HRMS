@@ -2130,6 +2130,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (!isNoAttendance) {
           penalty_count++;
           penalty_absent_days++;
+          regular_absent_days++;
         }
         absent_days++;
       }
@@ -2171,7 +2172,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     leave_days: leave_days,
     weekend_days: weekend_days,
     holiday_days: holiday_days,
-    lop_days: (penalty_absent_days * 0.5) + (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
+    lop_days: (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
     total_work_hours: attendance
       .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
       .toFixed(2),
