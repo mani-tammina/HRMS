@@ -47,7 +47,7 @@ export class AttendanceRequestComponent implements OnInit, OnChanges {
 
   private initializeStaticSections() {
     this.attendanceRequestsHistory = [
-      { type: 'Work From Home / On Duty Requests', dateRange: '', records: [] },
+      { type: 'Work From Home Requests', dateRange: '', records: [] },
       { type: 'Regularization Requests', dateRange: '', records: [] },
       { type: 'Remote Clock In Requests', dateRange: '', records: [] },
       { type: 'Partial Day Requests', dateRange: '', records: [] },
@@ -61,11 +61,11 @@ export class AttendanceRequestComponent implements OnInit, OnChanges {
         const resData = Array.isArray(res) ? res : (res.data || res.requests || []);
         const wfhRecords = resData.filter((item: any) => item.leave_type === 'WFH').map((item: any) => this.mapWFHRecord(item, 'Work From Home'));
         const remoteRecords = resData.filter((item: any) => item.leave_type === 'Remote').map((item: any) => this.mapWFHRecord(item, 'Remote Clock In'));
-        this.assignGroup('Work From Home / On Duty Requests', wfhRecords);
+        this.assignGroup('Work From Home Requests', wfhRecords);
         this.assignGroup('Remote Clock In Requests', remoteRecords);
       },
       error: () => {
-        this.assignGroup('Work From Home / On Duty Requests', []);
+        this.assignGroup('Work From Home Requests', []);
         this.assignGroup('Remote Clock In Requests', []);
       },
     });

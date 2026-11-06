@@ -596,6 +596,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
                 updatedExisting.status = "present";
               }
             }
+            if (updatedExisting.status === 'half-day' || updatedExisting.status === 'half_day') {
+              if (!leaveDetail?.isHalfDay && !updatedExisting.isHalfDay && !updatedExisting.leaveCode) {
+                const nLower = String(updatedExisting.notes || '').toLowerCase();
+                const isRealLeave = ['sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'lop', 'ul', 'loss of pay'].some(t => nLower.includes(t));
+                if (!isRealLeave) {
+                  updatedExisting.status = 'present';
+                }
+              }
+            }
             if (existing.status === 'on-leave') {
               updatedExisting.noLogs = true;
               updatedExisting.leaveType = existing.notes || 'Leave';

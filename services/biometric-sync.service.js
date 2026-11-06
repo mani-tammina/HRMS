@@ -183,9 +183,7 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
   }
 
   let status = 'present';
-  if (grossHours > 0 && grossHours < 4.0) {
-    status = 'half_day';
-  } else if (punches.length === 1 && grossHours === 0) {
+  if (punches.length === 1 && grossHours === 0) {
     try {
       const [empShifts] = await db.query(
         `SELECT sp.name, sp.start_time, sp.end_time FROM employees e LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id WHERE e.id = ?`,

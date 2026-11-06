@@ -1254,7 +1254,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                         if (cellVal === 'UL') cellVal = 'LOP';
                         if (cellVal === 'UL:P') cellVal = 'LOP:P';
                         if (cellVal === 'P:UL') cellVal = 'P:LOP';
-                        if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA') cellVal = 'P';
+                        if (cellVal === 'BA:P' || cellVal === 'P:BA' || cellVal === 'BA' || cellVal === 'OD' || cellVal === 'WFH') cellVal = 'P';
                         empDates.set(k, cellVal);
                     }
                 }
@@ -1300,6 +1300,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
 
             let lCode = (l.type_code || l.leave_type || 'CL').toUpperCase();
             const lType = String(l.leave_type || '').toUpperCase();
+            if (lType.includes('WFH') || lType.includes('REMOTE') || lType.includes('WORK FROM HOME')) lCode = 'P';
             if (lType.includes('SICK') || lType === 'SL') lCode = 'SL';
             else if (lType.includes('CASUAL') || lType === 'CL') lCode = 'CL';
             else if (lType.includes('MATERNITY') || lType === 'ML') lCode = 'ML';
@@ -1321,7 +1322,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                     finalCode = `P:${lCode}`;
                 }
             }
-            if (finalCode === 'BA:P' || finalCode === 'P:BA' || finalCode === 'BA') {
+            if (finalCode === 'BA:P' || finalCode === 'P:BA' || finalCode === 'BA' || finalCode === 'OD' || finalCode === 'WFH') {
                 finalCode = 'P';
             }
 
@@ -1345,6 +1346,36 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                 attMap.set(`${a.employee_id}_${a.att_date}`, { status: a.status, work_mode: a.work_mode, notes: a.notes });
             }
         });
+
+        // Also merge biometric daily records & punches so biometric users are recognized
+        try {
+            const [bdaList] = await c.query(`
+                SELECT employee_id, DATE_FORMAT(attendance_date, '%Y-%m-%d') AS att_date, status, 'Biometric' AS work_mode, 'Biometric Attendance' AS notes
+                FROM biometric_daily_attendance
+                WHERE attendance_date BETWEEN ? AND ?
+            `, [startDateStr, endDateStr]);
+            (bdaList || []).forEach(b => {
+                const k = `${b.employee_id}_${b.att_date}`;
+                if (!attMap.has(k)) {
+                    attMap.set(k, { status: (b.status === 'half_day' || b.status === 'half-day') ? 'present' : (b.status || 'present'), work_mode: 'Biometric', notes: 'Biometric Attendance' });
+                }
+            });
+        } catch (_) { }
+
+        try {
+            const [bpList] = await c.query(`
+                SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') AS att_date, 'present' AS status, 'Biometric' AS work_mode, 'Biometric Punch' AS notes
+                FROM biometric_punches
+                WHERE punch_date BETWEEN ? AND ?
+                GROUP BY employee_id, punch_date
+            `, [startDateStr, endDateStr]);
+            (bpList || []).forEach(bp => {
+                const k = `${bp.employee_id}_${bp.att_date}`;
+                if (!attMap.has(k)) {
+                    attMap.set(k, { status: 'present', work_mode: 'Biometric', notes: 'Biometric Punch' });
+                }
+            });
+        } catch (_) { }
 
         const rowsToExport = employees.map(e => {
             const row = {
@@ -1413,13 +1444,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                         if (att.notes === 'LOP' || att.notes === 'Loss of Pay') {
                             code = 'LOP';
                         } else if (att.status === 'present') {
-                            if (att.work_mode === 'WFH') {
-                                code = 'WFH';
-                            } else if (att.work_mode === 'Remote') {
-                                code = 'OD';
-                            } else {
-                                code = 'P';
-                            }
+                            code = 'P';
                         } else if (att.status === 'half-day') {
                             let halfCode = leaveCode;
                             if (!halfCode || (!halfCode.includes(':P') && !halfCode.includes('P:'))) {
@@ -1458,7 +1483,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                                     }
                                     halfCode = `P:${codePrefix}`;
                                 } else {
-                                    halfCode = leaveCode ? `${leaveCode}:P` : 'CL:P';
+                                    halfCode = (leaveCode && leaveCode !== 'P') ? `${leaveCode}:P` : 'P';
                                 }
                             }
                             code = halfCode;
@@ -1487,7 +1512,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                     }
                 }
 
-                if (code === 'BA:P' || code === 'P:BA' || code === 'BA') {
+                if (code === 'BA:P' || code === 'P:BA' || code === 'BA' || code === 'OD' || code === 'WFH') {
                     code = 'P';
                 }
 

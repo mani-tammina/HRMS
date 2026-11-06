@@ -559,7 +559,7 @@ router.get("/:id/details", auth, async (req, res) => {
                 CONCAT(attendance_date, ' ', COALESCE(last_punch_out, '00:00:00')) as last_check_out,
                 gross_hours as total_hours,
                 'Biometric' as work_mode,
-                CASE WHEN status = 'half_day' THEN 'half-day' ELSE COALESCE(status, 'present') END as status
+                CASE WHEN status = 'half_day' THEN 'present' ELSE COALESCE(status, 'present') END as status
          FROM biometric_daily_attendance
          WHERE employee_id = ? AND attendance_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
            AND attendance_date NOT IN (SELECT attendance_date FROM attendance WHERE employee_id = ?)

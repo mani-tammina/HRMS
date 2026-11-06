@@ -1568,7 +1568,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
             id: bd.id,
             employee_id: bd.employee_id,
             attendance_date: bd.attendance_date ? String(bd.attendance_date).substring(0, 10) : date,
-            status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
+            status: (bd.status === 'half_day' || bd.status === 'half-day') ? 'present' : (bd.status || 'present'),
             total_work_hours: bd.gross_hours || '0.00',
             gross_hours: bd.gross_hours || '0.00',
             first_check_in: bd.first_punch_in ? `${date} ${String(bd.first_punch_in).substring(0, 8)}` : null,
@@ -1868,7 +1868,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         gross_hours: parseFloat(bd.gross_hours) || 0,
         work_mode: 'Biometric',
         location: 'Biometric Device',
-        status: bd.status === 'half_day' ? 'half-day' : (bd.status || 'present'),
+        status: (bd.status === 'half_day' || bd.status === 'half-day') ? 'present' : (bd.status || 'present'),
         approval_status: 'approved',
         punch_in_count: bCounts.in || Number(bd.total_punches) || 1,
         punch_out_count: bCounts.out || (bd.total_punches > 1 ? 1 : 0),
@@ -1960,6 +1960,14 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (dStr === todayDateStr) {
           val.status = 'Not In Yet';
         }
+      }
+    }
+
+    if (val.status === 'half-day' || val.status === 'half_day') {
+      const nLower = String(val.notes || '').toLowerCase();
+      const hasLeaveToken = ['sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'lop', 'ul', 'loss of pay'].some(token => nLower.includes(token));
+      if (!hasLeaveToken) {
+        val.status = 'present';
       }
     }
   });
@@ -2099,14 +2107,19 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         } else {
           regular_absent_days++;
         }
-      } else if (record.status === 'half-day') {
-        present_days += 0.5;
-        half_day_count++;
-        if (leaveTokenArray.some(token => nLower.includes(token))) {
+      } else if (record.status === 'half-day' || record.status === 'half_day') {
+        const hasLeaveToken = leaveTokenArray.some(token => nLower.includes(token));
+        if (hasLeaveToken) {
+          present_days += 0.5;
+          half_day_count++;
           leave_days += 0.5;
           if (nLower.includes('lop') || nLower.includes('ul') || nLower.includes('loss of pay') || nLower.includes('unpaid')) {
             lop_from_attendance += 0.5;
           }
+        } else {
+          // Low effective hours without leave -> Treat as Present!
+          record.status = 'present';
+          present_days++;
         }
       } else if (record.status === 'on-leave') {
         leave_days++;
