@@ -1360,9 +1360,9 @@
 .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(2px);
+  z-index: 99999 !important;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1371,6 +1371,8 @@
 }
 
 .warning-modal-box {
+  position: relative;
+  z-index: 100000;
   background: #ffffff;
   border-radius: 8px;
   width: 100%;

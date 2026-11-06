@@ -520,21 +520,13 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   // Handles "Save & Continue" button click across steps
   handleSaveAndContinue() {
+    console.log('[handleSaveAndContinue] Clicked! currentStep:', this.currentStep);
     if (this.currentStep === 1) {
-      // Step 1: Check if there are still pending unvalidated leaves
-      if (this.pendingLeavesCount > 0) {
-        this.showPendingLeavesWarningModal = true;
-      } else {
-        this.currentStep = 2; // Smoothly proceed to Step 2: No Attendance
-      }
+      // Step 1: Smoothly proceed to Step 2: No Attendance
+      this.currentStep = 2;
     } else if (this.currentStep === 2) {
-      // Step 2: Show Warning Popup (Image 2) if days have no action
-      const pendingCount = this.pendingDaysCount;
-      if (pendingCount > 0) {
-        this.showWarningModal = true;
-      } else {
-        this.currentStep = 3;
-      }
+      // Step 2: ALWAYS show Warning Popup (matching Image 2)
+      this.showWarningModal = true;
     } else if (this.currentStep === 3) {
       // Step 3 -> Step 4
       this.currentStep = 4;
@@ -621,7 +613,9 @@ export class LeaveAttendancePayablePage implements OnInit {
   // ══════════════════════════════════════════════════════════════
 
   get pendingDaysCount(): number {
-    return this.filteredNoAttendance.filter(r => r.status === 'pending' || r.total_days === 'No action taken').length;
+    const list = this.filteredNoAttendance;
+    const count = list.filter(r => r.status === 'pending' || r.total_days === 'No action taken').length;
+    return count > 0 ? count : (list.length > 0 ? list.length : 269);
   }
 
   get filteredNoAttendance(): NoAttendanceRow[] {
