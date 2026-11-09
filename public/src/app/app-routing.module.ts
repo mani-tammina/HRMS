@@ -26,6 +26,12 @@ const routes: Routes = [
     data: { role: ['admin', 'hr', 'manager'] }
   },
   {
+    path: 'biometric',
+    loadChildren: () => import('./modules/biometric/biometric.module').then(m => m.BiometricModule),
+    canActivate: [AuthGuard, RoleGuard],
+    data: { role: ['admin', 'hr'] }
+  },
+  {
     path: 'admin/master-setup',
     loadChildren: () => import('./modules/administration/master-setup/master-setup.module').then(m => m.MasterSetupPageModule),
     canActivate: [AuthGuard, RoleGuard],

@@ -1,0 +1,231 @@
+<div class="daily-records-container">
+  <!-- Filter Bar -->
+  <div class="filter-toolbar-card">
+    <div class="filters-grid">
+      <!-- Search Employee -->
+      <div class="filter-field">
+        <label>Employee Name / Code</label>
+        <div class="input-with-icon">
+          <ion-icon name="search-outline"></ion-icon>
+          <input
+            type="text"
+            [(ngModel)]="searchQuery"
+            (keyup.enter)="applyFilters()"
+            placeholder="Search by name, email, or code..."
+            class="filter-input"
+          />
+        </div>
+      </div>
+
+      <!-- Date Filter -->
+      <div class="filter-field">
+        <label>Attendance Date</label>
+        <input
+          type="date"
+          [(ngModel)]="dateFilter"
+          (change)="applyFilters()"
+          class="filter-input"
+        />
+      </div>
+
+      <!-- Status Filter -->
+      <div class="filter-field">
+        <label>Status</label>
+        <select [(ngModel)]="statusFilter" (change)="applyFilters()" class="filter-select">
+          <option value="">All Statuses</option>
+          <option value="present">Present</option>
+          <option value="half_day">Half Day</option>
+          <option value="absent">Absent</option>
+        </select>
+      </div>
+
+      <!-- Actions -->
+      <div class="filter-actions">
+        <button class="btn btn-primary" (click)="applyFilters()">
+          <ion-icon name="filter-outline"></ion-icon>
+          <span>Filter</span>
+        </button>
+
+        <button class="btn btn-secondary" (click)="clearFilters()" *ngIf="searchQuery || statusFilter || dateFilter">
+          <ion-icon name="close-circle-outline"></ion-icon>
+          <span>Reset</span>
+        </button>
+
+        <button class="btn btn-outline" (click)="loadRecords()">
+          <ion-icon name="refresh-outline" [class.spin]="loading"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Records Table Card -->
+  <div class="table-card" *ngIf="!loading && records.length > 0">
+    <div class="table-meta-bar">
+      <div class="meta-left">
+        <span class="total-badge">{{ totalRecords | number }} Daily Attendance Summaries</span>
+        <span class="date-badge" *ngIf="dateFilter">For {{ dateFilter | date:'longDate' }}</span>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Employee</th>
+          <th>Date</th>
+          <th>First In</th>
+          <th>Last Out</th>
+          <th>Total Punches</th>
+          <th>Gross Hours</th>
+          <th>Status</th>
+          <th class="text-right">Audit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let rec of records">
+          <td>
+            <div class="employee-identity">
+              <div class="avatar-circle">{{ rec.FirstName?.charAt(0) }}{{ rec.LastName?.charAt(0) }}</div>
+              <div class="employee-meta">
+                <span class="employee-name">{{ rec.FirstName }} {{ rec.LastName }}</span>
+                <span class="employee-sub">ID: {{ rec.EmployeeNumber }} • {{ rec.Department || 'Operations' }}</span>
+              </div>
+            </div>
+          </td>
+          <td>
+            <span class="date-pill">{{ rec.attendance_date | date:'mediumDate' }}</span>
+          </td>
+          <td>
+            <span class="time-punch-badge in" *ngIf="rec.first_punch_in">
+              <ion-icon name="log-in-outline"></ion-icon>
+              {{ rec.first_punch_in }}
+            </span>
+            <span class="text-muted" *ngIf="!rec.first_punch_in">—</span>
+          </td>
+          <td>
+            <span class="time-punch-badge out" *ngIf="rec.last_punch_out">
+              <ion-icon name="log-out-outline"></ion-icon>
+              {{ rec.last_punch_out }}
+            </span>
+            <span class="text-muted" *ngIf="!rec.last_punch_out">—</span>
+          </td>
+          <td>
+            <span class="punches-count">{{ rec.total_punches }} punches</span>
+          </td>
+          <td>
+            <span class="hours-badge">{{ rec.gross_hours }} hrs</span>
+          </td>
+          <td>
+            <span class="status-badge" [ngClass]="rec.status">
+              {{ rec.status | uppercase }}
+            </span>
+          </td>
+          <td class="text-right">
+            <button class="btn-timeline" (click)="openPunchesDetail(rec)" title="View punch timeline">
+              <ion-icon name="time-outline"></ion-icon>
+              <span>Timeline</span>
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Pagination -->
+    <div class="pagination-footer">
+      <div class="page-size-selector">
+        <span>Rows:</span>
+        <select [(ngModel)]="pageSize" (change)="currentPage = 1; loadRecords()">
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+        </select>
+      </div>
+
+      <div class="pagination-controls">
+        <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button class="page-nav-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <button class="page-nav-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="empty-loading-state" *ngIf="loading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Calculating biometric attendance records...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-loading-state" *ngIf="!loading && records.length === 0">
+    <ion-icon name="calendar-outline" class="empty-icon"></ion-icon>
+    <h4>No daily records found</h4>
+    <p>No biometric punches recorded for the selected filter criteria.</p>
+  </div>
+
+  <!-- PUNCH TIMELINE MODAL -->
+  <div class="modal-backdrop" *ngIf="showDetailModal && selectedRecord" (click)="closeDetailModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div>
+          <h3>Punch Audit Timeline</h3>
+          <p class="modal-subtitle">
+            {{ selectedRecord.FirstName }} {{ selectedRecord.LastName }} ({{ selectedRecord.EmployeeNumber }}) — {{ selectedRecord.attendance_date | date:'longDate' }}
+          </p>
+        </div>
+        <button class="close-btn" (click)="closeDetailModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div class="timeline-summary-bar">
+          <div class="summary-item">
+            <span class="label">First In</span>
+            <span class="val text-emerald">{{ selectedRecord.first_punch_in || 'N/A' }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Last Out</span>
+            <span class="val text-rose">{{ selectedRecord.last_punch_out || 'N/A' }}</span>
+          </div>
+          <div class="summary-item">
+            <span class="label">Gross Hours</span>
+            <span class="val font-bold">{{ selectedRecord.gross_hours }} hrs</span>
+          </div>
+        </div>
+
+        <h4 class="timeline-section-title">Punch Sequence from Biometric Devices</h4>
+
+        <div class="timeline-track" *ngIf="getPunchesArray(selectedRecord).length > 0">
+          <div class="timeline-node" *ngFor="let p of getPunchesArray(selectedRecord); let idx = index">
+            <div class="node-marker" [ngClass]="(p.direction || '').toLowerCase()">
+              <ion-icon [name]="(p.direction || '').toLowerCase() === 'out' ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
+            </div>
+            <div class="node-content">
+              <div class="node-header">
+                <span class="node-time">{{ p.punch_time_clock || p.punch_time_str || p.punch_time }}</span>
+                <span class="node-direction" [ngClass]="(p.direction || '').toLowerCase()">
+                  {{ (p.direction || 'IN') | uppercase }}
+                </span>
+              </div>
+              <div class="node-device" *ngIf="p.device_id">
+                <ion-icon name="hardware-chip-outline"></ion-icon>
+                <span>Captured by Device #{{ p.device_id }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="empty-state-mini" *ngIf="getPunchesArray(selectedRecord).length === 0">
+          <p>No punch details recorded in raw log payload.</p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeDetailModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+

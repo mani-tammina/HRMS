@@ -1,0 +1,157 @@
+<div class="raw-logs-container">
+  <!-- Filter Toolbar -->
+  <div class="filter-toolbar-card">
+    <div class="filters-grid">
+      <!-- Device Dropdown -->
+      <div class="filter-field">
+        <label>Device Terminal</label>
+        <select [(ngModel)]="selectedDeviceId" (change)="applyFilters()" class="filter-select">
+          <option value="">All Terminal Devices</option>
+          <option *ngFor="let d of devices" [value]="d.deviceId">Device #{{ d.deviceId }} - {{ d.name }}</option>
+        </select>
+      </div>
+
+      <!-- User ID Input -->
+      <div class="filter-field">
+        <label>Biometric User ID</label>
+        <div class="input-with-icon">
+          <ion-icon name="person-outline"></ion-icon>
+          <input
+            type="text"
+            [(ngModel)]="userIdFilter"
+            (keyup.enter)="applyFilters()"
+            placeholder="e.g. STSS-102, 1000"
+            class="filter-input"
+          />
+        </div>
+      </div>
+
+      <!-- Date Filter -->
+      <div class="filter-field">
+        <label>Punch Date</label>
+        <input
+          type="date"
+          [(ngModel)]="dateFilter"
+          (change)="applyFilters()"
+          class="filter-input"
+        />
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="filter-actions">
+        <button class="btn btn-primary" (click)="applyFilters()">
+          <ion-icon name="filter-outline"></ion-icon>
+          <span>Apply</span>
+        </button>
+
+        <button class="btn btn-secondary" (click)="clearFilters()" *ngIf="selectedDeviceId || userIdFilter || dateFilter">
+          <ion-icon name="close-circle-outline"></ion-icon>
+          <span>Reset</span>
+        </button>
+
+        <button class="btn btn-outline" (click)="exportToCsv()" [disabled]="logs.length === 0">
+          <ion-icon name="download-outline"></ion-icon>
+          <span>Export CSV</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Raw Logs Table Card -->
+  <div class="table-card" *ngIf="!loading && logs.length > 0">
+    <div class="table-meta-bar">
+      <div class="meta-left">
+        <span class="total-badge">{{ totalLogs | number }} Total Punch Logs Recorded</span>
+        <span class="device-active-badge" *ngIf="selectedDeviceId">
+          Filtered by Device #{{ selectedDeviceId }}
+        </span>
+      </div>
+
+      <div class="meta-right">
+        <button class="btn-icon-refresh" (click)="loadLogs()" title="Refresh stream">
+          <ion-icon name="refresh-outline" [class.spin]="loading"></ion-icon>
+        </button>
+      </div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Log ID</th>
+          <th>Device</th>
+          <th>Biometric User ID</th>
+          <th>Punch Timestamp</th>
+          <th>Direction</th>
+          <th>Raw Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let log of logs">
+          <td>
+            <span class="log-id">#{{ log.id }}</span>
+          </td>
+          <td>
+            <span class="device-pill">Device #{{ log.device_id }}</span>
+          </td>
+          <td>
+            <span class="bio-user-pill">{{ log.biometric_user_id }}</span>
+          </td>
+          <td>
+            <div class="time-meta">
+              <span class="time-main">{{ log.punch_time | date:'mediumTime' }}</span>
+              <span class="date-sub">{{ log.punch_time | date:'mediumDate' }}</span>
+            </div>
+          </td>
+          <td>
+            <span class="direction-badge" [ngClass]="(log.direction || 'in').toLowerCase()">
+              <ion-icon [name]="(log.direction || '').toLowerCase() === 'out' ? 'log-out-outline' : 'log-in-outline'"></ion-icon>
+              {{ (log.direction || 'IN') | uppercase }}
+            </span>
+          </td>
+          <td>
+            <span class="status-pill processed">
+              <span class="status-dot"></span>
+              {{ log.status || 'PROCESSED' }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <!-- Pagination Footer -->
+    <div class="pagination-footer">
+      <div class="page-size-selector">
+        <span>Rows per page:</span>
+        <select [(ngModel)]="pageSize" (change)="currentPage = 1; loadLogs()">
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+          <option [ngValue]="100">100</option>
+        </select>
+      </div>
+
+      <div class="pagination-controls">
+        <span class="page-info">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button class="page-nav-btn" (click)="prevPage()" [disabled]="currentPage === 1">
+          <ion-icon name="chevron-back-outline"></ion-icon>
+        </button>
+        <button class="page-nav-btn" (click)="nextPage()" [disabled]="currentPage === totalPages">
+          <ion-icon name="chevron-forward-outline"></ion-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div class="empty-loading-state" *ngIf="loading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <p>Streaming raw punch logs from database...</p>
+  </div>
+
+  <!-- Empty State -->
+  <div class="empty-loading-state" *ngIf="!loading && logs.length === 0">
+    <ion-icon name="receipt-outline" class="empty-icon"></ion-icon>
+    <h4>No punch records found</h4>
+    <p>Try modifying your search criteria or clearing filters.</p>
+  </div>
+</div>
+

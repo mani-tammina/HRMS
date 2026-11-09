@@ -47,6 +47,16 @@ export class AppComponent implements OnInit, OnDestroy {
       ]
     },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
+    {
+      title: 'Bio-Metric', icon: 'biometric', roles: ['admin', 'hr'], isExpanded: false, children: [
+        { title: 'Overview', url: '/biometric', icon: 'biometric', roles: ['admin', 'hr'] },
+        { title: 'Devices', url: '/biometric/devices', icon: 'time-tracking', roles: ['admin', 'hr'] },
+        { title: 'Employee Mappings', url: '/biometric/mappings', icon: 'team', roles: ['admin', 'hr'] },
+        { title: 'Raw Punch Logs', url: '/biometric/raw-logs', icon: 'worktrack', roles: ['admin', 'hr'] },
+        { title: 'Daily Attendance', url: '/biometric/daily-records', icon: 'attendance', roles: ['admin', 'hr'] }
+      ]
+    },
+  
   ];
 
   unreadInboxCount = 0;
