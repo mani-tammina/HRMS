@@ -1490,7 +1490,7 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                         } else if (att.status === 'on-leave') {
                             code = leaveCode || 'CL';
                         } else if (att.status === 'absent') {
-                            code = 'A';
+                            code = isHoliday ? 'H' : (isWeekOff ? 'WO' : 'A');
                         } else {
                             code = 'P';
                         }
@@ -1524,19 +1524,31 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                 const isHoliday = holidayDates.has(dateStr);
 
                 if (codeUpper === 'P') {
-                    presentCount++;
-                    if (isWeekOff) wowCount++;
-                    if (isHoliday) wohCount++;
+                    if (isWeekOff) {
+                        wowCount++;
+                    } else if (isHoliday) {
+                        wohCount++;
+                    } else {
+                        presentCount++;
+                    }
                 } else if (codeUpper === 'WFH') {
                     wfhCount++;
-                    presentCount++;
-                    if (isWeekOff) wowCount++;
-                    if (isHoliday) wohCount++;
+                    if (isWeekOff) {
+                        wowCount++;
+                    } else if (isHoliday) {
+                        wohCount++;
+                    } else {
+                        presentCount++;
+                    }
                 } else if (codeUpper === 'OD') {
                     onDutyCount++;
-                    presentCount++;
-                    if (isWeekOff) wowCount++;
-                    if (isHoliday) wohCount++;
+                    if (isWeekOff) {
+                        wowCount++;
+                    } else if (isHoliday) {
+                        wohCount++;
+                    } else {
+                        presentCount++;
+                    }
                 } else if (codeUpper === 'A') {
                     absentCount++;
                 } else if (codeUpper === 'WO') {
@@ -1546,10 +1558,22 @@ router.get("/monthly-attendance/export", auth, roleAuth(["admin", "hr", "manager
                 } else if (codeUpper === 'LOP') {
                     unpaidLeaveCount++;
                 } else if (codeUpper === 'P:LOP' || codeUpper === 'LOP:P') {
-                    presentCount += 0.5;
+                    if (isWeekOff) {
+                        wowCount += 0.5;
+                    } else if (isHoliday) {
+                        wohCount += 0.5;
+                    } else {
+                        presentCount += 0.5;
+                    }
                     unpaidLeaveCount += 0.5;
                 } else if (codeUpper.includes(':P') || codeUpper.includes('P:')) {
-                    presentCount += 0.5;
+                    if (isWeekOff) {
+                        wowCount += 0.5;
+                    } else if (isHoliday) {
+                        wohCount += 0.5;
+                    } else {
+                        presentCount += 0.5;
+                    }
                     paidLeaveCount += 0.5;
                 } else if (['CL', 'SL', 'PL', 'EL', 'ML', 'MRL', 'BL'].includes(codeUpper)) {
                     paidLeaveCount++;

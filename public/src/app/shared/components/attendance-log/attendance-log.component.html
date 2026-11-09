@@ -7,7 +7,7 @@
   <div class="filters">
     <div class="filter-block">
       <button class="btn-secondry" [class.active]="selectedPeriod === '30DAYS'" (click)="filterByPeriod('30DAYS')">
-        30 DAYS
+        Current Month
       </button>
       <button *ngFor="let month of monthButtons" class="btn-secondry" [class.active]="selectedPeriod === month"
         (click)="filterByPeriod(month)">

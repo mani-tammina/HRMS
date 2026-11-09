@@ -478,14 +478,17 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         const allDates = this.getAllDatesBetween(this.startDate, this.endDate, attendanceMap);
 
         const weekOffDays: number[] = [];
-        if (this.weeklyOffPolicy) {
-          if (Number(this.weeklyOffPolicy.sunday_off) === 1) weekOffDays.push(0);
-          if (Number(this.weeklyOffPolicy.monday_off) === 1) weekOffDays.push(1);
-          if (Number(this.weeklyOffPolicy.tuesday_off) === 1) weekOffDays.push(2);
-          if (Number(this.weeklyOffPolicy.wednesday_off) === 1) weekOffDays.push(3);
-          if (Number(this.weeklyOffPolicy.thursday_off) === 1) weekOffDays.push(4);
-          if (Number(this.weeklyOffPolicy.friday_off) === 1) weekOffDays.push(5);
-          if (Number(this.weeklyOffPolicy.saturday_off) === 1) weekOffDays.push(6);
+        const effectiveWop = res?.weekly_off_policy || this.weeklyOffPolicy;
+        if (effectiveWop) {
+          if (Number(effectiveWop.sunday_off) === 1) weekOffDays.push(0);
+          if (Number(effectiveWop.monday_off) === 1) weekOffDays.push(1);
+          if (Number(effectiveWop.tuesday_off) === 1) weekOffDays.push(2);
+          if (Number(effectiveWop.wednesday_off) === 1) weekOffDays.push(3);
+          if (Number(effectiveWop.thursday_off) === 1) weekOffDays.push(4);
+          if (Number(effectiveWop.friday_off) === 1) weekOffDays.push(5);
+          if (Number(effectiveWop.saturday_off) === 1) weekOffDays.push(6);
+        } else {
+          weekOffDays.push(0, 6);
         }
 
         const policyName = (
@@ -587,7 +590,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             };
           }
 
-          if (isWeekOff) return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !existing };
+          if (isWeekOff) {
+            const hasShiftPunches = existing && parseFloat(existing.effective_hours || existing.total_work_hours || '0') >= 4.0;
+            return { ...(existing || {}), attendance_date: date, status: 'weekend', leaveType: 'Full day week off', noLogs: !hasShiftPunches };
+          }
           if (existing) {
             let updatedExisting = { ...existing, noLogs: false };
             if (isNoAttendance) {

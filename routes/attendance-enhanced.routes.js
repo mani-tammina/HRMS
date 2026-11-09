@@ -1717,6 +1717,33 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     bioPunchSummary = bps || [];
   } catch (_) { }
 
+  const [empDetails] = await c.query(`
+    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold,
+           wop.id as weekly_off_policy_id, wop.name as policy_name, wop.policy_code,
+           wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, wop.thursday_off, wop.friday_off, wop.saturday_off
+    FROM employees e
+    LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
+    LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
+    LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
+    LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
+    WHERE e.id = ?
+  `, [targetEmpId]);
+  const employee = empDetails[0];
+
+  const weekOffDays = [];
+  if (employee) {
+    if (employee.sunday_off) weekOffDays.push('sunday');
+    if (employee.monday_off) weekOffDays.push('monday');
+    if (employee.tuesday_off) weekOffDays.push('tuesday');
+    if (employee.wednesday_off) weekOffDays.push('wednesday');
+    if (employee.thursday_off) weekOffDays.push('thursday');
+    if (employee.friday_off) weekOffDays.push('friday');
+    if (employee.saturday_off) weekOffDays.push('saturday');
+  }
+  if (weekOffDays.length === 0) {
+    weekOffDays.push('sunday', 'saturday');
+  }
+
   const effectiveShift = await getEmployeeEffectiveShift(c, targetEmpId);
   const isOvernight = effectiveShift && effectiveShift.is_overnight;
   const cutoffHour = (effectiveShift && effectiveShift.cutoff_hour) || 12;
@@ -1823,12 +1850,16 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
 
   for (const bd of bioDailyRows) {
     const dStr = bd.formatted_date || String(bd.attendance_date).substring(0, 10);
-    // If overnight shift, check if bd was just an orphan morning punch (< cutoffHour) with no shift start on this date
-    if (isOvernight && bd.first_punch_in && String(bd.first_punch_in) < `${cutoffHour}:00:00`) {
+    // If overnight shift or week off, check if bd was just an orphan morning punch (< cutoffHour / 12:00:00) with no shift start on this date
+    const dObj = new Date(dStr);
+    const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    const isDayWeekOff = weekOffDays.includes(dWeekday);
+    const morningThreshold = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+    if ((isOvernight || isDayWeekOff) && bd.first_punch_in && String(bd.first_punch_in) < morningThreshold) {
       const dayPunches = allPunchesMap.get(dStr) || [];
       const hasEveningPunch = dayPunches.some(p => {
         const timePart = String(p.punch_time).split(' ')[1] || '';
-        return timePart >= `${cutoffHour}:00:00`;
+        return timePart >= morningThreshold;
       });
       if (!hasEveningPunch && !combinedAttendanceMap.has(dStr)) {
         continue;
@@ -1898,6 +1929,23 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         }
       }
     } else {
+      const dObj = new Date(dStr);
+      const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+      const isDayWeekOff = weekOffDays.includes(dWeekday);
+      const morningThreshold = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+      if ((isOvernight || isDayWeekOff) && bp.first_punch_in) {
+        const pTimePart = String(bp.first_punch_in).split(' ')[1] || String(bp.first_punch_in);
+        if (pTimePart < morningThreshold) {
+          const dayPunches = allPunchesMap.get(dStr) || [];
+          const hasEveningPunch = dayPunches.some(p => {
+            const timePart = String(p.punch_time).split(' ')[1] || '';
+            return timePart >= morningThreshold;
+          });
+          if (!hasEveningPunch) {
+            continue;
+          }
+        }
+      }
       const startMs = new Date(bp.first_punch_in).getTime();
       const endMs = new Date(bp.last_punch_out).getTime();
       const gross = (bp.total_punches > 1 && endMs > startMs) ? ((endMs - startMs) / (1000 * 60 * 60)).toFixed(2) : '0.00';
@@ -1970,6 +2018,17 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         val.status = 'present';
       }
     }
+
+    const dObj = new Date(dStr);
+    const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
+    if (weekOffDays.includes(dWeekday)) {
+      const dayPunches = allPunchesMap.get(dStr) || [];
+      const morningCutoff = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+      const isOrphan = dayPunches.length === 0 || dayPunches.every(p => (String(p.punch_time).split(' ')[1] || '') < morningCutoff);
+      if (isOrphan) {
+        combinedAttendanceMap.delete(dStr);
+      }
+    }
   });
 
   const attendance = Array.from(combinedAttendanceMap.values()).sort((a, b) => new Date(b.attendance_date).getTime() - new Date(a.attendance_date).getTime());
@@ -1983,16 +2042,6 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   `, [targetEmpId, startStr, endStr, startStr, endStr]);
   const lopDays = Number(lopData[0]?.lop_days) || 0;
 
-  const [empDetails] = await c.query(`
-    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold, wop.* 
-    FROM employees e
-    LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
-    LEFT JOIN missing_log_times mlt ON e.leave_plan_id = mlt.leave_plan_id
-    LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
-    LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
-    WHERE e.id = ?
-  `, [targetEmpId]);
-  const employee = empDetails[0];
   const isNoAttendance = (employee?.attendance_policy_name || '').toLowerCase().includes('no attendance') || Number(employee?.attendance_policy_id) === 6;
 
   const [holidaysList] = await c.query(`
@@ -2023,17 +2072,6 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   let penalty_count = 0;
   let half_day_count = 0;
   let weekend_days = 0;
-
-  const weekOffDays = [];
-  if (employee) {
-    if (employee.sunday_off) weekOffDays.push('sunday');
-    if (employee.monday_off) weekOffDays.push('monday');
-    if (employee.tuesday_off) weekOffDays.push('tuesday');
-    if (employee.wednesday_off) weekOffDays.push('wednesday');
-    if (employee.thursday_off) weekOffDays.push('thursday');
-    if (employee.friday_off) weekOffDays.push('friday');
-    if (employee.saturday_off) weekOffDays.push('saturday');
-  }
 
   const [dbLeaveTypesList] = await c.query("SELECT type_code, type_name FROM leave_types");
   const dynamicLeaveTokens = new Set(['half', 'hd', 'leave', 'loss of pay', 'lop', 'ul', 'sick', 'casual', 'maternity', 'marriage', 'privilege', 'earned', 'sl', 'cl', 'ml', 'mrl', 'pl', 'el']);
