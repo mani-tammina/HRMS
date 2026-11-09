@@ -16,6 +16,7 @@ export class OrgSetupPage implements OnInit {
   env: string = '';
   selectedImageFile: File | null = null;
   imagePreviewUrl: string | null = null;
+  Number = Number;
 
   get isAdminOrHR(): boolean {
     return this.userRole === 'admin' || this.userRole === 'hr';
@@ -80,7 +81,7 @@ export class OrgSetupPage implements OnInit {
   penalties: any[] = []; // Combined or currently selected list
   penaltiesBackup: any[] = [];
   paginatedPenalties: any[] = [];
-  penaltyType: 'missingLogs' | 'lateArrivals' | 'breaks' = 'missingLogs';
+  penaltyType: 'missingLogs' | 'lateArrivals' | 'breaks' | 'shiftPenalties' = 'missingLogs';
 
   // Form Models
   locationName: string = '';
@@ -499,10 +500,19 @@ export class OrgSetupPage implements OnInit {
         this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
         this.calculatePagination('penalties');
       });
+    } else if (this.penaltyType === 'shiftPenalties') {
+      this.adminService.getShiftPenalties().subscribe(res => {
+        this.penalties = res || [];
+        this.penaltiesBackup = JSON.parse(JSON.stringify(this.penalties));
+        this.calculatePagination('penalties');
+      });
     }
     // Load leave plans for dropdown
     if (this.leavePlans.length === 0) {
       this.loadLeavePlans();
+    }
+    if (this.shiftPolicies.length === 0) {
+      this.loadShiftPolicies();
     }
   }
 
@@ -512,15 +522,28 @@ export class OrgSetupPage implements OnInit {
     });
   }
 
-  setPenaltyType(type: 'missingLogs' | 'lateArrivals' | 'breaks') {
+  setPenaltyType(type: 'missingLogs' | 'lateArrivals' | 'breaks' | 'shiftPenalties') {
     this.penaltyType = type;
     this.cancelPenalty();
     this.loadPenalties();
   }
 
   savePenalty() {
-    const payload: any = { leave_plan_id: this.penaltyForm.leave_plan_id };
     let action: any;
+
+    if (this.penaltyType === 'shiftPenalties') {
+      const pType = this.penaltyForm.penalty_type || (Number(this.penaltyForm.penalty_value) === 0.5 ? 'half_day' : 'full_day');
+      const pVal = this.penaltyForm.penalty_value !== undefined ? Number(this.penaltyForm.penalty_value) : (pType === 'half_day' ? 0.5 : 1.0);
+      const payload: any = {
+        leave_plan_id: this.penaltyForm.leave_plan_id,
+        penalty_type: pType,
+        penalty_value: pVal
+      };
+      action = this.editingPenaltyId
+        ? this.adminService.updateShiftPenalty(this.editingPenaltyId, payload)
+        : this.adminService.createShiftPenalty(payload);
+    } else {
+      const payload: any = { leave_plan_id: this.penaltyForm.leave_plan_id };
 
     if (this.penaltyType === 'missingLogs') {
       payload.threshold_hours = this.penaltyForm.threshold_hours;
@@ -537,6 +560,7 @@ export class OrgSetupPage implements OnInit {
       action = this.editingPenaltyId
         ? this.adminService.updateBreakTime(this.editingPenaltyId, payload)
         : this.adminService.createBreakTime(payload);
+    }
     }
 
     if (!action) return;
@@ -555,6 +579,9 @@ export class OrgSetupPage implements OnInit {
 
   editPenalty(p: any) {
     this.penaltyForm = { ...p };
+    if (this.penaltyType === 'shiftPenalties' && !this.penaltyForm.penalty_type) {
+      this.penaltyForm.penalty_type = this.penaltyForm.penalty_value == 0.5 ? 'half_day' : 'full_day';
+    }
     this.editingPenaltyId = p.id;
   }
 
@@ -563,7 +590,9 @@ export class OrgSetupPage implements OnInit {
       ? this.adminService.deleteMissingLogTime(id)
       : this.penaltyType === 'lateArrivals'
         ? this.adminService.deleteLateArrival(id)
-        : this.adminService.deleteBreakTime(id);
+        : this.penaltyType === 'breaks'
+          ? this.adminService.deleteBreakTime(id)
+          : this.adminService.deleteShiftPenalty(id);
 
     action.subscribe(() => {
       this.showToast('Penalty configuration deleted', 'success');
@@ -573,7 +602,7 @@ export class OrgSetupPage implements OnInit {
 
   cancelPenalty() {
     this.editingPenaltyId = null;
-    this.penaltyForm = { leave_plan_id: null, threshold_hours: null, threshold_minutes: null, break_time: null };
+    this.penaltyForm = { leave_plan_id: null, threshold_hours: null, threshold_minutes: null, break_time: null, penalty_type: 'full_day', penalty_value: 1.0 };
   }
 
   // Common Pagination Methods
@@ -889,6 +918,9 @@ export class OrgSetupPage implements OnInit {
       case 'weeklyOff': return !!this.weeklyOffPolicyForm.name && (this.editingWeeklyOffId ? true : !!this.weeklyOffPolicyForm.policy_code);
       case 'announcements': return !!this.announcementForm.title && !!this.announcementForm.body;
       case 'penalties':
+        if (this.penaltyType === 'shiftPenalties') {
+          return !!this.penaltyForm.leave_plan_id && (!!this.penaltyForm.penalty_type || this.penaltyForm.penalty_value !== undefined);
+        }
         return !!this.penaltyForm.leave_plan_id &&
           (this.penaltyType === 'missingLogs' ? !!this.penaltyForm.threshold_hours :
             this.penaltyType === 'lateArrivals' ? !!this.penaltyForm.threshold_minutes :
@@ -896,6 +928,10 @@ export class OrgSetupPage implements OnInit {
       default: return false;
     }
   }
+  getShiftPolicyName(id: number) {
+    return this.shiftPolicies.find(s => s.id === id)?.name || 'Unknown Shift';
+  }
+
   getShiftName(id: number) {
     return this.leavePlans.find(s => s.id === id)?.name ||
       'Unknown Plan';

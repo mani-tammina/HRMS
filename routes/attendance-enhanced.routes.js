@@ -1718,7 +1718,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   } catch (_) { }
 
   const [empDetails] = await c.query(`
-    SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold,
+    SELECT e.id, e.leave_plan_id, e.EmployeeNumber, e.FirstName, e.LastName, e.WorkEmail, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name, sp.id as shift_policy_id, sp.start_time, sp.end_time, sp.name as shift_name, mlt.threshold_hours as missing_log_threshold,
            wop.id as weekly_off_policy_id, wop.name as policy_name, wop.policy_code,
            wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, wop.thursday_off, wop.friday_off, wop.saturday_off
     FROM employees e
@@ -1743,6 +1743,14 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   if (weekOffDays.length === 0) {
     weekOffDays.push('sunday', 'saturday');
   }
+
+  let shiftPenaltyValue = 1.0;
+  try {
+    const [spRows] = await c.query('SELECT penalty_value FROM leave_plan_penalties WHERE leave_plan_id = ?', [employee?.leave_plan_id]);
+    if (spRows.length > 0 && spRows[0].penalty_value !== undefined) {
+      shiftPenaltyValue = Number(spRows[0].penalty_value);
+    }
+  } catch (_) { }
 
   const effectiveShift = await getEmployeeEffectiveShift(c, targetEmpId);
   const isOvernight = effectiveShift && effectiveShift.is_overnight;
@@ -2085,6 +2093,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
   let lop_from_leaves = 0;
   let lop_from_attendance = 0;
   let penalty_absent_days = 0;
+  let penalty_lop = 0;
   let regular_absent_days = 0;
 
   while (curr <= end) {
@@ -2168,6 +2177,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (!isNoAttendance) {
           penalty_count++;
           penalty_absent_days++;
+          penalty_lop += shiftPenaltyValue;
+        } else {
           regular_absent_days++;
         }
         absent_days++;
@@ -2175,7 +2186,6 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     } else if (!isToday) {
       // Past working day without attendance record = Absent
       absent_days++;
-      regular_absent_days++;
 
       if (!isNoAttendance) {
         const shiftStartStr = employee?.start_time || '09:00:00';
@@ -2190,7 +2200,12 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         if (now > penaltyThreshold) {
           penalty_count++;
           penalty_absent_days++;
+          penalty_lop += shiftPenaltyValue;
+        } else {
+          regular_absent_days++;
         }
+      } else {
+        regular_absent_days++;
       }
     }
 
@@ -2210,7 +2225,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     leave_days: leave_days,
     weekend_days: weekend_days,
     holiday_days: holiday_days,
-    lop_days: (regular_absent_days * 1.0) + lop_from_leaves + lop_from_attendance,
+    lop_days: (regular_absent_days * 1.0) + penalty_lop + lop_from_leaves + lop_from_attendance,
     total_work_hours: attendance
       .reduce((sum, a) => sum + (parseFloat(a.gross_hours) || 0), 0)
       .toFixed(2),
@@ -2233,7 +2248,9 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       id: employee.shift_policy_id,
       start_time: employee.start_time,
       end_time: employee.end_time,
-      name: employee.shift_name
+      name: employee.shift_name,
+      penalty_value: shiftPenaltyValue,
+      penalty_type: shiftPenaltyValue === 0.5 ? 'half_day' : 'full_day'
     } : null,
     weekly_off_policy: employee ? {
       id: employee.weekly_off_policy_id,

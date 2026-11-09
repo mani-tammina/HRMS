@@ -264,7 +264,7 @@ async function runPayroll(year, month, runBy = null) {
 
     // 1. Fetch only employees who have clocked in during the period
     const [employees] = await conn.query(`
-      SELECT e.id, e.FirstName, e.LastName, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name,
+      SELECT e.id, e.leave_plan_id, e.FirstName, e.LastName, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
              wop.thursday_off, wop.friday_off, wop.saturday_off,
              sp.start_time, mlt.threshold_hours as missing_log_threshold
@@ -317,9 +317,17 @@ async function runPayroll(year, month, runBy = null) {
 
     const now = new Date();
     const todayStr = now.toDateString();
+    let leavePlanPenaltyMap = new Map();
+    try {
+      const [spList] = await conn.query('SELECT leave_plan_id, penalty_value FROM leave_plan_penalties');
+      (spList || []).forEach(sp => leavePlanPenaltyMap.set(sp.leave_plan_id, Number(sp.penalty_value)));
+    } catch (_) { }
+
     const snapshots = [];
 
     for (const emp of employees) {
+      const penaltyRate = leavePlanPenaltyMap.has(emp.leave_plan_id) ? leavePlanPenaltyMap.get(emp.leave_plan_id) : 1.0;
+      let penalty_lop = 0;
       let present_days = 0;
       let penalty_absent_days = 0;
       let regular_absent_days = 0;
@@ -395,7 +403,7 @@ async function runPayroll(year, month, runBy = null) {
           else if (record.status === 'penalty') {
             if (!isNoAttendance) {
               penalty_absent_days++;
-              regular_absent_days++;
+              penalty_lop += penaltyRate;
             } else {
               present_days++;
             }
@@ -409,7 +417,7 @@ async function runPayroll(year, month, runBy = null) {
           if (!isNoAttendance) {
             // No log penalty rule
             penalty_absent_days++;
-            regular_absent_days++;
+            penalty_lop += penaltyRate;
           } else {
             present_days++;
           }
@@ -417,8 +425,8 @@ async function runPayroll(year, month, runBy = null) {
         curr.setDate(curr.getDate() + 1);
       }
 
-      const lop_days = (regular_absent_days * 1.0) + lop_from_leaves;
-      const total_absent = regular_absent_days;
+      const lop_days = (regular_absent_days * 1.0) + penalty_lop + lop_from_leaves;
+      const total_absent = regular_absent_days + penalty_absent_days;
       const total_working = present_days + total_absent + leave_days; // Days where work was expected or leave taken
       const paid_days = (new Date(year, month, 0).getDate()) - lop_days;
 

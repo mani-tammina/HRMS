@@ -69,7 +69,7 @@
             <div class="header-left">
               <ion-icon [name]="getTabIcon()" class="tab-main-icon"></ion-icon>
               <div>
-                <h3>{{ activeTab === 'penalties' ? (penaltyType === 'missingLogs' ? 'Missing Logs' : penaltyType === 'lateArrivals' ? 'Late Arrivals' : 'Breaks') : (activeTab | titlecase) }} List</h3>
+                <h3>{{ activeTab === 'penalties' ? (penaltyType === 'missingLogs' ? 'Missing Logs' : penaltyType === 'lateArrivals' ? 'Late Arrivals' : penaltyType === 'breaks' ? 'Breaks' : 'Shift Penalties') : (activeTab | titlecase) }} List</h3>
                 <p>Showing {{ getEntityList().length }} registered entries</p>
               </div>
             </div>
@@ -106,6 +106,9 @@
               <ion-segment-button value="breaks">
                 <ion-label>Breaks</ion-label>
               </ion-segment-button>
+              <ion-segment-button value="shiftPenalties">
+                <ion-label>Attendance Penalties</ion-label>
+              </ion-segment-button>
             </ion-segment>
           </div>
 
@@ -137,7 +140,8 @@
                   <th>
                     {{ penaltyType === 'missingLogs' ? 'Threshold (Hours)' : 
                        penaltyType === 'lateArrivals' ? 'Threshold (Minutes)' : 
-                       'Break Time (Minutes)' }}
+                       penaltyType === 'breaks' ? 'Break Time (Minutes)' : 
+                       'Penalty Deduction' }}
                   </th>
                   <th class="text-right">Actions</th>
                 </tr>
@@ -245,7 +249,8 @@
                       <span class="threshold-value">
                         {{ penaltyType === 'missingLogs' ? p.threshold_hours + ' hrs' : 
                            penaltyType === 'lateArrivals' ? p.threshold_minutes + ' mins' : 
-                           p.break_time + ' mins' }}
+                           penaltyType === 'breaks' ? p.break_time + ' mins' : 
+                           (p.penalty_type === 'half_day' || p.penalty_value == 0.5 ? 'Half Day (0.5 LOP)' : 'One Day (1.0 LOP)') }}
                       </span>
                     </td>
                     <td class="text-right">
@@ -486,6 +491,7 @@
 
             <!-- Penalty Form -->
             <ng-container *ngIf="activeTab === 'penalties'">
+              <!-- Leave Plan Dropdown for all penalties -->
               <div class="premium-form-group">
                 <label>Select Leave Plan*</label>
                 <div class="input-wrapper">
@@ -518,6 +524,17 @@
                 <div class="input-wrapper">
                   <ion-icon name="cafe-outline" class="field-icon"></ion-icon>
                   <input type="number" [(ngModel)]="penaltyForm.break_time" placeholder="e.g. 60" />
+                </div>
+              </div>
+
+              <div class="premium-form-group" *ngIf="penaltyType === 'shiftPenalties'">
+                <label>Penalty Deduction (LOP)*</label>
+                <div class="input-wrapper">
+                  <ion-icon name="alert-circle-outline" class="field-icon"></ion-icon>
+                  <select [(ngModel)]="penaltyForm.penalty_type" (ngModelChange)="penaltyForm.penalty_value = ($event === 'half_day' ? 0.5 : 1.0)" class="premium-select">
+                    <option value="full_day">One Day Penalty (1.0 Day LOP)</option>
+                    <option value="half_day">Half Day Penalty (0.5 Day LOP)</option>
+                  </select>
                 </div>
               </div>
             </ng-container>

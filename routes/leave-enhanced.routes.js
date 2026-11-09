@@ -877,7 +877,15 @@ router.get("/balance", auth, async (req, res) => {
       [emp.id, leaveYear],
     );
 
-    let penaltyLop = (dbPenalties[0].count || 0) * 1.0;
+    let penaltyRate = 1.0;
+    try {
+      const [spRows] = await c.query("SELECT penalty_value FROM leave_plan_penalties WHERE leave_plan_id = (SELECT leave_plan_id FROM employees WHERE id = ?)", [emp.id]);
+      if (spRows.length > 0 && spRows[0].penalty_value !== undefined) {
+        penaltyRate = Number(spRows[0].penalty_value);
+      }
+    } catch (_) { }
+
+    let penaltyLop = (dbPenalties[0].count || 0) * penaltyRate;
 
     // 2. Active 24h violations (missing logs)
     const [empSettings] = await c.query(
@@ -954,7 +962,7 @@ router.get("/balance", auth, async (req, res) => {
               const threshold = new Date(shiftStart);
               const thresholdHours = employee.missing_log_threshold || 48;
               threshold.setHours(threshold.getHours() + thresholdHours);
-              if (now > threshold) penaltyLop += 1.0;
+              if (now > threshold) penaltyLop += penaltyRate;
             }
           }
           curr.setDate(curr.getDate() + 1);
@@ -1443,7 +1451,15 @@ router.get("/my-leaves", auth, async (req, res) => {
       [emp.id, leaveYear],
     );
 
-    let penaltyLop = (dbPenalties[0].count || 0) * 1.0;
+    let penaltyRate = 1.0;
+    try {
+      const [spRows] = await c.query("SELECT penalty_value FROM leave_plan_penalties WHERE leave_plan_id = (SELECT leave_plan_id FROM employees WHERE id = ?)", [emp.id]);
+      if (spRows.length > 0 && spRows[0].penalty_value !== undefined) {
+        penaltyRate = Number(spRows[0].penalty_value);
+      }
+    } catch (_) { }
+
+    let penaltyLop = (dbPenalties[0].count || 0) * penaltyRate;
 
     // 2. Active 24h violations for days with no records
     const [empSettings] = await c.query(
@@ -1528,7 +1544,7 @@ router.get("/my-leaves", auth, async (req, res) => {
               threshold.setHours(threshold.getHours() + thresholdHours);
 
               if (now > threshold) {
-                penaltyLop += 1.0;
+                penaltyLop += penaltyRate;
               }
             }
           }

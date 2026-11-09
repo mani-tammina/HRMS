@@ -260,5 +260,31 @@ export class AdminService {
   deleteBreakTime(id: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/master/break-times/${id}`);
   }
+
+  getShiftPenalties(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/master/shift-penalties`);
+  }
+  createShiftPenalty(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/master/shift-penalties`, payload);
+  }
+  updateShiftPenalty(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/master/shift-penalties/${id}`, payload);
+  }
+  deleteShiftPenalty(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/master/shift-penalties/${id}`);
+  }
+
+  getLeavePlanPenalties(): Observable<any[]> {
+    return this.http.get<any[]>(`${this.baseUrl}/master/leave-plan-penalties`);
+  }
+  createLeavePlanPenalty(payload: any): Observable<any> {
+    return this.http.post(`${this.baseUrl}/master/leave-plan-penalties`, payload);
+  }
+  updateLeavePlanPenalty(id: number, payload: any): Observable<any> {
+    return this.http.put(`${this.baseUrl}/master/leave-plan-penalties/${id}`, payload);
+  }
+  deleteLeavePlanPenalty(id: number): Observable<any> {
+    return this.http.delete(`${this.baseUrl}/master/leave-plan-penalties/${id}`);
+  }
 }
 

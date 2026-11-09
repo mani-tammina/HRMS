@@ -733,6 +733,136 @@ router.delete("/master/break-times/:id", auth, roleAuth(["admin", "hr"]), async 
 });
 
 
+// ============ LEAVE PLAN PENALTIES ============
+const getLeavePlanPenaltiesHandler = async (req, res) => {
+  try {
+    const c = await db();
+    await c.query(`
+      CREATE TABLE IF NOT EXISTS leave_plan_penalties (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        leave_plan_id INT NOT NULL,
+        penalty_type ENUM('full_day', 'half_day') NOT NULL DEFAULT 'full_day',
+        penalty_value DECIMAL(3,1) NOT NULL DEFAULT 1.0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY idx_leave_plan (leave_plan_id),
+        FOREIGN KEY (leave_plan_id) REFERENCES leave_plans(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    `);
+
+    const [rows] = await c.query(`
+      SELECT lpp.*, lp.name as leave_plan_name
+      FROM leave_plan_penalties lpp
+      LEFT JOIN leave_plans lp ON lpp.leave_plan_id = lp.id
+      ORDER BY lp.name ASC
+    `);
+    c.end();
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const createLeavePlanPenaltyHandler = async (req, res) => {
+  try {
+    const { leave_plan_id, shift_policy_id, penalty_type, penalty_value } = req.body;
+    const planId = leave_plan_id || shift_policy_id;
+    if (!planId) {
+      return res.status(400).json({ error: "leave_plan_id is required" });
+    }
+    const pType = penalty_type || (Number(penalty_value) === 0.5 ? 'half_day' : 'full_day');
+    const pVal = penalty_value !== undefined ? Number(penalty_value) : (pType === 'half_day' ? 0.5 : 1.0);
+
+    const c = await db();
+    const [existing] = await c.query("SELECT id FROM leave_plan_penalties WHERE leave_plan_id = ?", [planId]);
+    if (existing.length > 0) {
+      c.end();
+      return res.status(409).json({ error: "Penalty configuration for this leave plan already exists" });
+    }
+
+    const [result] = await c.query(
+      "INSERT INTO leave_plan_penalties (leave_plan_id, penalty_type, penalty_value) VALUES (?, ?, ?)",
+      [planId, pType, pVal]
+    );
+    c.end();
+    res.json({ success: true, message: "Leave plan penalty created successfully", id: result.insertId });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const updateLeavePlanPenaltyHandler = async (req, res) => {
+  try {
+    const { leave_plan_id, shift_policy_id, penalty_type, penalty_value } = req.body;
+    const planId = leave_plan_id || shift_policy_id;
+    const c = await db();
+    const updates = [];
+    const values = [];
+
+    if (planId !== undefined) {
+      updates.push("leave_plan_id = ?");
+      values.push(planId);
+    }
+    if (penalty_type !== undefined) {
+      updates.push("penalty_type = ?");
+      values.push(penalty_type);
+    }
+    if (penalty_value !== undefined) {
+      updates.push("penalty_value = ?");
+      values.push(Number(penalty_value));
+    } else if (penalty_type !== undefined) {
+      updates.push("penalty_value = ?");
+      values.push(penalty_type === 'half_day' ? 0.5 : 1.0);
+    }
+
+    if (updates.length === 0) {
+      c.end();
+      return res.status(400).json({ error: "No fields to update" });
+    }
+    values.push(req.params.id);
+    await c.query(`UPDATE leave_plan_penalties SET ${updates.join(", ")} WHERE id = ?`, values);
+    c.end();
+    res.json({ success: true, message: "Leave plan penalty updated successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+const deleteLeavePlanPenaltyHandler = async (req, res) => {
+  try {
+    const c = await db();
+    const [result] = await c.query("DELETE FROM leave_plan_penalties WHERE id = ?", [req.params.id]);
+    c.end();
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "Leave plan penalty not found" });
+    }
+    res.json({ success: true, message: "Leave plan penalty deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+// Route mappings for shift-penalties and leave-plan-penalties (supports both /master/ prefix and direct)
+router.get("/master/shift-penalties", auth, roleAuth(["admin", "hr", "employee", "manager"]), getLeavePlanPenaltiesHandler);
+router.post("/master/shift-penalties", auth, roleAuth(["admin", "hr"]), createLeavePlanPenaltyHandler);
+router.put("/master/shift-penalties/:id", auth, roleAuth(["admin", "hr"]), updateLeavePlanPenaltyHandler);
+router.delete("/master/shift-penalties/:id", auth, roleAuth(["admin", "hr"]), deleteLeavePlanPenaltyHandler);
+
+router.get("/master/leave-plan-penalties", auth, roleAuth(["admin", "hr", "employee", "manager"]), getLeavePlanPenaltiesHandler);
+router.post("/master/leave-plan-penalties", auth, roleAuth(["admin", "hr"]), createLeavePlanPenaltyHandler);
+router.put("/master/leave-plan-penalties/:id", auth, roleAuth(["admin", "hr"]), updateLeavePlanPenaltyHandler);
+router.delete("/master/leave-plan-penalties/:id", auth, roleAuth(["admin", "hr"]), deleteLeavePlanPenaltyHandler);
+
+router.get("/shift-penalties", auth, roleAuth(["admin", "hr", "employee", "manager"]), getLeavePlanPenaltiesHandler);
+router.post("/shift-penalties", auth, roleAuth(["admin", "hr"]), createLeavePlanPenaltyHandler);
+router.put("/shift-penalties/:id", auth, roleAuth(["admin", "hr"]), updateLeavePlanPenaltyHandler);
+router.delete("/shift-penalties/:id", auth, roleAuth(["admin", "hr"]), deleteLeavePlanPenaltyHandler);
+
+router.get("/leave-plan-penalties", auth, roleAuth(["admin", "hr", "employee", "manager"]), getLeavePlanPenaltiesHandler);
+router.post("/leave-plan-penalties", auth, roleAuth(["admin", "hr"]), createLeavePlanPenaltyHandler);
+router.put("/leave-plan-penalties/:id", auth, roleAuth(["admin", "hr"]), updateLeavePlanPenaltyHandler);
+router.delete("/leave-plan-penalties/:id", auth, roleAuth(["admin", "hr"]), deleteLeavePlanPenaltyHandler);
+
 // Enhanced Shift Policies Route
 router.get("/shift-policies", auth, roleAuth(["admin", "hr", "employee", "manager"]), async (req, res) => {
   try {

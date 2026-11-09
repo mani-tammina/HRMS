@@ -199,8 +199,9 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
             const explicit_lop = report.filter(log => log.status === "absent" && log.notes === "LOP").length;
             const penalty_days = report.filter(log => log.status === "penalty").length;
 
-            const finalPenalty = isNoAtt ? 0 : penalty_days;
-            const finalAbsent = std_absent_days + explicit_lop + finalPenalty;
+            const penaltyRate = Number(this.shift_policy?.penalty_value) || 1.0;
+            const finalPenalty = isNoAtt ? 0 : (penalty_days * penaltyRate);
+            const finalAbsent = std_absent_days + explicit_lop + penalty_days;
             const lop_days = std_absent_days + explicit_lop + finalPenalty;
 
             this.monthlySummary = {
