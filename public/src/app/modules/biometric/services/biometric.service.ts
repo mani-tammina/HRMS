@@ -171,6 +171,13 @@ export class BiometricService {
   }
 
   /**
+   * Connect directly to a specific biometric terminal hardware and sync attendance logs
+   */
+  syncDevice(id: number | string): Observable<{ success: boolean; message: string; data?: any }> {
+    return this.http.post<{ success: boolean; message: string; data?: any }>(`${this.baseUrl}/devices/${id}/sync`, {});
+  }
+
+  /**
    * Get raw machine logs with filtering and pagination
    */
   getRawLogs(params: {

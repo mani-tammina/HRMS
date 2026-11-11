@@ -15,6 +15,8 @@ export class BiometricDevicesComponent implements OnInit {
   loading = false;
   searchQuery = '';
   savingDevice = false;
+  syncingDeviceId: string | number | null = null;
+  syncingAll = false;
 
   // Dynamic Locations from Master Data API (/api/locations)
   locationsList: CompanyLocation[] = [];
@@ -222,6 +224,47 @@ export class BiometricDevicesComponent implements OnInit {
       error: (err) => {
         console.error('Error deleting device:', err);
         this.toaster.showError(err.error?.message || 'Failed to delete device.');
+      }
+    });
+  }
+
+  syncDevice(device: BiometricDevice): void {
+    this.syncingDeviceId = device.id;
+    this.biometricService.syncDevice(device.id).subscribe({
+      next: (res) => {
+        this.syncingDeviceId = null;
+        if (res.success) {
+          this.toaster.showSuccess(res.message || `Device "${device.name}" synced successfully.`);
+          this.loadDevices();
+        } else {
+          this.toaster.showError(res.message || `Could not sync device "${device.name}".`);
+        }
+      },
+      error: (err) => {
+        this.syncingDeviceId = null;
+        console.error('Error syncing device:', err);
+        const errMsg = err?.error?.message || `Failed to connect to device "${device.name}". Please check IP & network.`;
+        this.toaster.showError(errMsg);
+      }
+    });
+  }
+
+  syncAllDevices(): void {
+    this.syncingAll = true;
+    this.biometricService.syncNow().subscribe({
+      next: (res) => {
+        this.syncingAll = false;
+        if (res.success) {
+          this.toaster.showSuccess(res.message || 'Direct sync completed for all configured devices.');
+          this.loadDevices();
+        } else {
+          this.toaster.showError(res.message || 'Device sync finished with issues.');
+        }
+      },
+      error: (err) => {
+        this.syncingAll = false;
+        console.error('Error in direct sync:', err);
+        this.toaster.showError('Failed to trigger device synchronization.');
       }
     });
   }

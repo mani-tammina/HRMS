@@ -32,6 +32,11 @@
     </div>
 
     <div class="summary-stat-card actions-card">
+      <button class="btn btn-outline" (click)="syncAllDevices()" [disabled]="syncingAll || loading" title="Directly sync all connected biometric machines">
+        <ion-icon name="sync-outline" [class.spin]="syncingAll"></ion-icon>
+        <span>{{ syncingAll ? 'Syncing...' : 'Sync All' }}</span>
+      </button>
+
       <button class="btn btn-primary" (click)="openAddDeviceModal()">
         <ion-icon name="add-outline"></ion-icon>
         <span>Add Device</span>
@@ -122,6 +127,16 @@
         </div>
 
         <div class="footer-right-actions">
+          <button 
+            class="btn btn-sm btn-outline" 
+            (click)="syncDevice(device)" 
+            [disabled]="syncingDeviceId === device.id" 
+            title="Directly pull attendance logs from this machine"
+          >
+            <ion-icon name="sync-outline" [class.spin]="syncingDeviceId === device.id"></ion-icon>
+            <span>{{ syncingDeviceId === device.id ? 'Connecting...' : 'Sync' }}</span>
+          </button>
+
           <button class="btn btn-sm btn-primary" (click)="inspectLogs(device.deviceId)" title="Inspect raw punch stream">
             <ion-icon name="list-outline"></ion-icon>
             <span>Raw Logs</span>

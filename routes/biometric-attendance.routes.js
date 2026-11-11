@@ -12,7 +12,8 @@ const router = express.Router();
 const { db } = require('../config/database');
 const { auth, admin, hr, manager } = require('../middleware/auth');
 const { findEmployeeByUserId } = require('../utils/helpers');
-const { syncBiometricLogs, getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
+const { getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
+const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches } = require('../services/biometric-direct.service');
 
 // Helper to format date to YYYY-MM-DD
 function getTodayDateStr() {
@@ -52,43 +53,147 @@ router.get('/status', auth, async (req, res) => {
 
 /**
  * @route   POST /api/biometric-attendance/sync-now
- * @desc    Trigger manual sync or backfill from specific log ID
+ * @desc    Trigger direct sync across registered physical terminal devices
  * @access  Private (Admin / HR)
  */
 router.post('/sync-now', auth, hr, async (req, res) => {
   try {
-    const { batchSize = 2000, forceFromLogId = null, syncAll = true, maxBatches } = req.body;
-    const result = await syncBiometricLogs({ batchSize, forceFromLogId, syncAll, maxBatches });
+    const force = req.query.force === 'true';
+    const result = await syncDirectBiometricDevices(null, force);
 
     res.json({
       success: result.success,
       data: result,
-      message: result.success ? 'Biometric synchronization executed successfully.' : result.message || result.error
+      message: result.success 
+        ? `Biometric devices sync completed (${result.devicesCount || 0} device(s) queried).`
+        : result.error || 'Failed to sync devices.'
     });
   } catch (err) {
-    console.error('[BiometricRoute] Manual sync error:', err);
+    console.error('[BiometricRoute] Direct devices sync error:', err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 /**
- * @route   POST /api/biometric-attendance/backfill-all
- * @desc    Trigger full historical backfill from Log ID 0
+ * @route   POST /api/biometric-attendance/devices/:id/sync
+ * @desc    Trigger on-demand sync for a specific physical terminal device
  * @access  Private (Admin / HR)
  */
-router.post('/backfill-all', auth, hr, async (req, res) => {
+router.post('/devices/:id/sync', auth, hr, async (req, res) => {
   try {
-    const { batchSize = 3000 } = req.body;
-    const result = await syncBiometricLogs({ batchSize, forceFromLogId: 0, syncAll: true });
-
+    const id = req.params.id;
+    const force = req.query.force === 'true';
+    const [devices] = await db.query('SELECT * FROM biometric_devices WHERE id = ? OR device_id = ?', [id, String(id)]);
+    if (!devices || devices.length === 0) {
+      return res.status(404).json({ success: false, message: 'Device not found.' });
+    }
+    const result = await syncSingleDevice(devices[0], force);
     res.json({
       success: result.success,
       data: result,
-      message: result.success ? 'Full historical biometric backfill completed successfully.' : result.message || result.error
+      message: result.success 
+        ? `Device "${devices[0].name}" synced successfully. (${result.logsRead || 0} logs read, ${result.rawInserted || 0} new punches)`
+        : (result.error || 'Failed to sync with device.')
     });
   } catch (err) {
-    console.error('[BiometricRoute] Backfill error:', err);
+    console.error('[BiometricRoute] Single device sync error:', err);
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/biometric-attendance/punch
+ * @desc    Direct ingestion of a single punch event from physical machine or gateway
+ * @access  Public / Device Key
+ */
+router.post('/punch', async (req, res) => {
+  try {
+    const { deviceId, biometricUserId, punchTime, direction, rawPayload } = req.body;
+    if (!biometricUserId) {
+      return res.status(400).json({ success: false, message: 'biometricUserId is required.' });
+    }
+    const result = await ingestDirectPunches([{
+      deviceId: deviceId || 'DIRECT_DEVICE',
+      biometricUserId: String(biometricUserId).trim(),
+      punchTime: punchTime || new Date(),
+      direction: direction || 'auto',
+      rawPayload
+    }]);
+
+    res.json({ success: true, message: 'Punch recorded successfully.', data: result });
+  } catch (err) {
+    console.error('[BiometricRoute] Direct punch error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route   POST /api/biometric-attendance/punches/bulk
+ * @desc    Direct batch punch logs ingestion
+ * @access  Private (Admin / HR)
+ */
+router.post('/punches/bulk', auth, hr, async (req, res) => {
+  try {
+    const { deviceId, punches } = req.body;
+    if (!Array.isArray(punches) || punches.length === 0) {
+      return res.status(400).json({ success: false, message: 'Array of punches is required.' });
+    }
+    const formatted = punches.map(p => ({
+      deviceId: p.deviceId || deviceId || 'BULK_IMPORT',
+      biometricUserId: String(p.biometricUserId || p.userId || '').trim(),
+      punchTime: p.punchTime || p.time || new Date(),
+      direction: p.direction || 'auto',
+      rawPayload: p
+    }));
+
+    const result = await ingestDirectPunches(formatted);
+    res.json({ success: true, message: `${result.totalPunchesProcessed} punches processed successfully.`, data: result });
+  } catch (err) {
+    console.error('[BiometricRoute] Bulk punches error:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
+ * @route   ALL /api/biometric-attendance/adms
+ * @route   ALL /api/biometric-attendance/iclock/cdata
+ * @desc    ZKTeco / eSSL ADMS Cloud Server protocol receiver
+ * @access  Public (Machine Push)
+ */
+router.all(['/adms', '/iclock/cdata', '/cdata'], async (req, res) => {
+  try {
+    if (req.method === 'GET') {
+      // ADMS Device handshake
+      return res.send('OK');
+    }
+
+    // POST: parse tab-separated or query string punches
+    const bodyText = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const sn = req.query.SN || req.query.sn || 'ADMS_DEVICE';
+    const lines = bodyText.split('\n');
+    const punches = [];
+
+    for (const line of lines) {
+      const parts = line.trim().split('\t');
+      if (parts.length >= 2) {
+        punches.push({
+          deviceId: sn,
+          biometricUserId: parts[0],
+          punchTime: parts[1],
+          direction: parts[2] === '1' ? 'out' : 'in',
+          rawPayload: line
+        });
+      }
+    }
+
+    if (punches.length > 0) {
+      await ingestDirectPunches(punches);
+    }
+
+    res.send(`OK: ${punches.length}`);
+  } catch (err) {
+    console.warn('[BiometricRoute] ADMS error:', err.message);
+    res.status(500).send('ERROR');
   }
 });
 
@@ -352,7 +457,10 @@ router.get('/devices', auth, hr, async (req, res) => {
           MIN(punch_time) as first_punch_time,
           COUNT(DISTINCT biometric_user_id) as unique_users
         FROM biometric_attendance_raw
-        WHERE device_id IS NOT NULL AND device_id != ''
+        WHERE device_id IS NOT NULL 
+          AND device_id != ''
+          AND punch_time >= '2024-01-01'
+          AND punch_time <= NOW()
         GROUP BY device_id
       ) r ON d.device_id = r.device_id
       ORDER BY d.id ASC

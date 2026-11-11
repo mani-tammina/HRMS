@@ -959,11 +959,9 @@ router.get("/today", auth, async (req, res) => {
         [emp.id, shiftDate]
       );
       if (bioPunches && bioPunches.length > 0) {
-        let bioOpen = false;
         const mappedBio = bioPunches.map(p => {
-          let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-          if (pt === 'in') bioOpen = true;
-          else if (pt === 'out') bioOpen = false;
+          const dir = (p.direction || '').toLowerCase();
+          const pt = dir === 'out' ? 'out' : 'in';
           return {
             ...p,
             punch_type: pt
@@ -1068,7 +1066,7 @@ router.get("/today", auth, async (req, res) => {
       can_punch_in: !isWebClockedIn,
       can_punch_out: isWebClockedIn,
       is_web_clocked_in: isWebClockedIn,
-      is_clocked_in: isWebClockedIn,
+      is_clocked_in: isOverallClockedIn,
       overall_is_clocked_in: isOverallClockedIn,
       is_auto_clocked_out: isAutoOut,
       status: computedStatus,
@@ -2529,7 +2527,7 @@ router.get("/report/team", auth, async (req, res) => {
 
     // Get biometric daily attendance & punches for team members on targetDate
     let bioDailyList = [];
-    let bioPunchesSummary = [];
+    let allBioPunches = [];
     try {
       const [bDaily] = await c.query(
         `SELECT bda.*, e.EmployeeNumber, e.FirstName, e.LastName
@@ -2541,18 +2539,46 @@ router.get("/report/team", auth, async (req, res) => {
       bioDailyList = bDaily || [];
 
       const [bPunches] = await c.query(
-        `SELECT bp.employee_id, 
-                COUNT(*) as punch_count,
-                MIN(bp.punch_time) as first_punch,
-                MAX(bp.punch_time) as last_punch,
-                (SELECT direction FROM biometric_punches WHERE employee_id = bp.employee_id AND punch_date = ? ORDER BY punch_time DESC, id DESC LIMIT 1) as last_direction
+        `SELECT bp.employee_id, bp.punch_time, bp.direction
          FROM biometric_punches bp
          WHERE bp.employee_id IN (?) AND bp.punch_date = ?
-         GROUP BY bp.employee_id`,
-        [targetDate, teamIds, targetDate]
+         ORDER BY bp.employee_id, bp.punch_time ASC`,
+        [teamIds, targetDate]
       );
-      bioPunchesSummary = bPunches || [];
+      allBioPunches = bPunches || [];
     } catch (_) { }
+
+    // Group punches by employee and determine dynamic clocked-in status
+    const bioPunchMap = new Map();
+    const punchesByEmp = new Map();
+    allBioPunches.forEach((p) => {
+      if (!punchesByEmp.has(p.employee_id)) {
+        punchesByEmp.set(p.employee_id, []);
+      }
+      punchesByEmp.get(p.employee_id).push(p);
+    });
+
+    punchesByEmp.forEach((empPunches, empId) => {
+      const firstPunch = empPunches[0]?.punch_time || null;
+      const lastPunch = empPunches[empPunches.length - 1]?.punch_time || null;
+      const lastPunchObj = empPunches[empPunches.length - 1];
+
+      // Biometric floor/door access readers log punches when employees enter.
+      // Having biometric punches for today indicates the employee is present (IN)
+      // unless their last biometric punch specifically has direction = 'out'.
+      const lastDir = (lastPunchObj?.direction || '').toLowerCase();
+      const isClockedOut = lastDir === 'out';
+      const isClockedIn = !isClockedOut;
+
+      bioPunchMap.set(empId, {
+        employee_id: empId,
+        punch_count: empPunches.length,
+        first_punch: firstPunch,
+        last_punch: lastPunch,
+        is_clocked_in: isClockedIn,
+        status: isClockedIn ? 'In' : 'Out'
+      });
+    });
 
     // Get approved leaves for team members for today (covering full/partial day)
     // NOTE: WFH and Remote are working arrangements / work modes, NOT leaves! Exclude them from on_leave!
@@ -2601,14 +2627,25 @@ router.get("/report/team", auth, async (req, res) => {
 
     const attendanceMap = new Map();
     attendance.forEach((a) => {
-      const isClockedIn = a.last_web_punch_type === 'in';
-      const attStatus = isClockedIn ? 'In' : (a.last_web_punch_type === 'out' ? 'Out' : a.status);
-      attendanceMap.set(a.employee_id, {
-        ...a,
-        is_clocked_in: isClockedIn,
-        status: attStatus,
-        attendance_status: attStatus
-      });
+      const hasWebPunches = (a.total_punches || 0) > 0 || a.last_web_punch_type !== null;
+      if (!hasWebPunches) {
+        // Employee has an attendance record placeholder but hasn't actually punched today yet
+        attendanceMap.set(a.employee_id, {
+          ...a,
+          is_clocked_in: false,
+          status: 'Not In Yet',
+          attendance_status: 'Not In Yet'
+        });
+      } else {
+        const isClockedIn = a.last_web_punch_type === 'in';
+        const attStatus = isClockedIn ? 'In' : (a.last_web_punch_type === 'out' ? 'Out' : a.status);
+        attendanceMap.set(a.employee_id, {
+          ...a,
+          is_clocked_in: isClockedIn,
+          status: attStatus,
+          attendance_status: attStatus
+        });
+      }
     });
 
     // If an employee punched in and has an approved/pending WFH/Remote record for today, ensure their work_mode reflects it
@@ -2621,50 +2658,41 @@ router.get("/report/team", auth, async (req, res) => {
       });
     }
 
-    const bioPunchMap = new Map();
-    bioPunchesSummary.forEach((bp) => {
-      bioPunchMap.set(bp.employee_id, bp);
-    });
-
     const teamMap = new Map();
     team.forEach((tm) => {
       teamMap.set(tm.id, tm);
     });
 
-    // Merge biometric daily records
+    // 1. Merge biometric daily records
     bioDailyList.forEach((bd) => {
       const existing = attendanceMap.get(bd.employee_id);
-      const bp = bioPunchMap.get(bd.employee_id);
-      const isBioIn = bp?.last_direction === 'in';
       if (existing) {
-        if (bp) {
-          existing.total_punches = (existing.total_punches || 0) + (bp.punch_count || 0);
-          if (bp.last_punch && (!existing.last_web_punch_time || bp.last_punch > existing.last_web_punch_time)) {
-            existing.is_clocked_in = isBioIn;
-            existing.status = isBioIn ? 'In' : 'Out';
-            existing.attendance_status = isBioIn ? 'In' : 'Out';
-          }
+        existing.gross_hours = bd.gross_hours || existing.gross_hours || '0.00';
+        existing.total_hours = bd.gross_hours || existing.total_hours || '0.00';
+        existing.total_work_hours = bd.gross_hours || existing.total_work_hours || '0.00';
+        if (bd.first_punch_in && !existing.first_in) {
+          existing.first_in = `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}`;
+          existing.first_check_in = existing.first_in;
         }
       } else {
         const empInfo = teamMap.get(bd.employee_id) || bd;
-        const bioStatus = bp ? (isBioIn ? 'In' : 'Out') : (bd.last_punch_out ? 'Out' : 'In');
         attendanceMap.set(bd.employee_id, {
           id: `bio_${bd.id}`,
           employee_id: bd.employee_id,
           attendance_date: targetDate,
-          first_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : (bp?.first_punch || null),
-          last_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : (bp?.last_punch || null),
-          first_check_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : (bp?.first_punch || null),
-          last_check_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : (bp?.last_punch || null),
+          first_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : null,
+          last_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : null,
+          first_check_in: bd.first_punch_in ? `${targetDate} ${String(bd.first_punch_in).substring(0, 8)}` : null,
+          last_check_out: bd.last_punch_out ? `${targetDate} ${String(bd.last_punch_out).substring(0, 8)}` : null,
           total_hours: bd.gross_hours || '0.00',
           gross_hours: bd.gross_hours || '0.00',
           total_work_hours: bd.gross_hours || '0.00',
-          is_clocked_in: bp ? isBioIn : !bd.last_punch_out,
-          status: bioStatus,
-          attendance_status: bioStatus,
+          is_clocked_in: true,
+          status: 'In',
+          attendance_status: 'In',
           work_mode: 'Biometric',
           location: 'Biometric Device',
-          total_punches: bd.total_punches || bp?.punch_count || 1,
+          total_punches: bd.total_punches || 1,
           EmployeeNumber: empInfo.EmployeeNumber,
           FirstName: empInfo.FirstName,
           LastName: empInfo.LastName
@@ -2672,25 +2700,51 @@ router.get("/report/team", auth, async (req, res) => {
       }
     });
 
-    // Also merge any employee who has punches in biometric_punches but not yet daily aggregate
-    bioPunchesSummary.forEach((bp) => {
-      if (!attendanceMap.has(bp.employee_id)) {
-        const empInfo = teamMap.get(bp.employee_id);
+    // 2. Merge latest biometric punch state for each employee
+    bioPunchMap.forEach((bp, empId) => {
+      const isBioIn = bp.is_clocked_in;
+      const bioStatus = isBioIn ? 'In' : 'Out';
+      const existing = attendanceMap.get(empId);
+
+      if (existing) {
+        existing.total_punches = Math.max(existing.total_punches || 0, bp.punch_count || 0);
+        if (!existing.first_in && bp.first_punch) {
+          existing.first_in = bp.first_punch;
+          existing.first_check_in = bp.first_punch;
+        }
+        // Determine whether biometric punch or web punch occurred later
+        const webTime = existing.last_web_punch_time ? new Date(existing.last_web_punch_time).getTime() : 0;
+        const bioTime = bp.last_punch ? new Date(bp.last_punch).getTime() : 0;
+
+        if (bioTime >= webTime) {
+          existing.is_clocked_in = isBioIn;
+          existing.status = bioStatus;
+          existing.attendance_status = bioStatus;
+          if (!isBioIn) {
+            existing.last_out = bp.last_punch;
+            existing.last_check_out = bp.last_punch;
+          } else {
+            existing.last_out = null;
+            existing.last_check_out = null;
+          }
+        }
+      } else {
+        const empInfo = teamMap.get(empId);
         if (empInfo) {
-          attendanceMap.set(bp.employee_id, {
-            id: `bio_p_${bp.employee_id}`,
-            employee_id: bp.employee_id,
+          attendanceMap.set(empId, {
+            id: `bio_p_${empId}`,
+            employee_id: empId,
             attendance_date: targetDate,
             first_in: bp.first_punch,
-            last_out: bp.last_punch !== bp.first_punch ? bp.last_punch : null,
+            last_out: isBioIn ? null : (bp.last_punch !== bp.first_punch ? bp.last_punch : null),
             first_check_in: bp.first_punch,
-            last_check_out: bp.last_punch !== bp.first_punch ? bp.last_punch : null,
+            last_check_out: isBioIn ? null : (bp.last_punch !== bp.first_punch ? bp.last_punch : null),
             total_hours: '0.00',
             gross_hours: '0.00',
             total_work_hours: '0.00',
-            is_clocked_in: bp.last_direction === 'in',
-            status: bp.last_direction === 'in' ? 'In' : 'Out',
-            attendance_status: bp.last_direction === 'in' ? 'In' : 'Out',
+            is_clocked_in: isBioIn,
+            status: bioStatus,
+            attendance_status: bioStatus,
             work_mode: 'Biometric',
             location: 'Biometric Device',
             total_punches: bp.punch_count,

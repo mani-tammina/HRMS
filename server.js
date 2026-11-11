@@ -8,6 +8,19 @@
 // Load environment variables
 require('dotenv').config();
 
+// CRASH PREVENTION: Global unhandled exception & rejection handlers
+// Prevents network socket drops (ECONNRESET, ETIMEDOUT, EPIPE) or library rejections from terminating Node
+process.on('uncaughtException', (err) => {
+    console.error('💥 [Server Crash Prevention] Uncaught Exception caught, server staying alive:', (err && err.message) ? err.message : err);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.warn('⚠️ [Server Crash Prevention] Unhandled Rejection:', (reason && reason.message) ? reason.message : reason);
+});
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require('cors');
@@ -73,7 +86,7 @@ const brandingRoutes = require("./routes/branding.routes");
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
 const complianceChecker = require("./utils/compliance-checker.service");
 const autoClockOutService = require("./services/auto-clockout.service");
-const { syncBiometricLogs } = require("./services/biometric-sync.service");
+const { syncDirectBiometricDevices } = require("./services/biometric-direct.service");
 
 const app = express();
 app.set('trust proxy', true);
@@ -780,25 +793,25 @@ app.get("/api/health", (req, res) => {
         // Start automatic clock-out background service
         autoClockOutService.start();
 
-        // Start automatic periodic biometric synchronization background service
+        // Start automatic periodic direct biometric devices synchronization background service
         if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
             const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
-            console.log(`⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`);
+            console.log(`⏱️  Starting Direct Biometric Devices Auto-Sync (interval: ${biometricIntervalSec}s)...`);
             setTimeout(() => {
-                syncBiometricLogs({ batchSize: 2000, syncAll: true })
+                syncDirectBiometricDevices()
                     .then(res => {
-                        if (res && res.success && res.rowsRead > 0) {
-                            console.log(`✅ [Biometric Sync] Startup sync completed: ${res.rowsRead} rows read, ${res.rowsInserted} inserted. Watermark: ${res.watermarkAfter}`);
+                        if (res && res.success && res.devicesCount > 0) {
+                            console.log(`✅ [Direct Biometric Sync] Initial scan of ${res.devicesCount} device(s) completed.`);
                         }
                     })
-                    .catch(e => console.warn('⚠️ [Biometric Sync] Startup sync warning:', e.message));
-            }, 3000);
+                    .catch(e => console.warn('⚠️ [Direct Biometric Sync] Startup scan warning:', e.message));
+            }, 5000);
 
             setInterval(async () => {
                 try {
-                    await syncBiometricLogs({ batchSize: 2000, syncAll: true });
+                    await syncDirectBiometricDevices();
                 } catch (e) {
-                    console.warn('⚠️ [Biometric Sync] Background interval error:', e.message);
+                    console.warn('⚠️ [Direct Biometric Sync] Background interval error:', e.message);
                 }
             }, biometricIntervalSec * 1000);
         }
