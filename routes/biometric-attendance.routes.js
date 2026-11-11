@@ -15,6 +15,15 @@ const { findEmployeeByUserId } = require('../utils/helpers');
 const { getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
 const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches } = require('../services/biometric-direct.service');
 
+// Biometric role check: Admin, HR, or Networking
+const biometricAuth = (req, res, next) => {
+  const role = (req.user?.role || '').toLowerCase().trim();
+  if (['admin', 'hr', 'networking'].includes(role)) {
+    return next();
+  }
+  return res.status(403).json({ error: "Access denied. Admin, HR, or Networking role required." });
+};
+
 // Helper to format date to YYYY-MM-DD
 function getTodayDateStr() {
   const d = new Date();
@@ -56,7 +65,7 @@ router.get('/status', auth, async (req, res) => {
  * @desc    Trigger direct sync across registered physical terminal devices
  * @access  Private (Admin / HR)
  */
-router.post('/sync-now', auth, hr, async (req, res) => {
+router.post('/sync-now', auth, biometricAuth, async (req, res) => {
   try {
     const force = req.query.force === 'true';
     const result = await syncDirectBiometricDevices(null, force);
@@ -79,7 +88,7 @@ router.post('/sync-now', auth, hr, async (req, res) => {
  * @desc    Trigger on-demand sync for a specific physical terminal device
  * @access  Private (Admin / HR)
  */
-router.post('/devices/:id/sync', auth, hr, async (req, res) => {
+router.post('/devices/:id/sync', auth, biometricAuth, async (req, res) => {
   try {
     const id = req.params.id;
     const force = req.query.force === 'true';
@@ -132,7 +141,7 @@ router.post('/punch', async (req, res) => {
  * @desc    Direct batch punch logs ingestion
  * @access  Private (Admin / HR)
  */
-router.post('/punches/bulk', auth, hr, async (req, res) => {
+router.post('/punches/bulk', auth, biometricAuth, async (req, res) => {
   try {
     const { deviceId, punches } = req.body;
     if (!Array.isArray(punches) || punches.length === 0) {
@@ -313,7 +322,7 @@ router.get('/employee/:id', auth, async (req, res) => {
  * @desc    View raw imported logs from biometric machines
  * @access  Private (Admin / HR)
  */
-router.get('/raw-logs', auth, hr, async (req, res) => {
+router.get('/raw-logs', auth, biometricAuth, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
@@ -366,7 +375,7 @@ router.get('/raw-logs', auth, hr, async (req, res) => {
  * @desc    Get all employee-to-biometric user mappings
  * @access  Private (Admin / HR)
  */
-router.get('/mappings', auth, hr, async (req, res) => {
+router.get('/mappings', auth, biometricAuth, async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT m.*, e.FirstName, e.LastName, e.EmployeeNumber, e.WorkEmail 
@@ -386,7 +395,7 @@ router.get('/mappings', auth, hr, async (req, res) => {
  * @desc    Create or update employee-to-biometric user mapping
  * @access  Private (Admin / HR)
  */
-router.post('/mappings', auth, hr, async (req, res) => {
+router.post('/mappings', auth, biometricAuth, async (req, res) => {
   try {
     const { employeeId, biometricUserId, deviceId, active = 1 } = req.body;
     if (!employeeId || !biometricUserId) {
@@ -414,7 +423,7 @@ router.post('/mappings', auth, hr, async (req, res) => {
  * @desc    Delete employee biometric mapping
  * @access  Private (Admin / HR)
  */
-router.delete('/mappings/:id', auth, hr, async (req, res) => {
+router.delete('/mappings/:id', auth, biometricAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     await db.query('DELETE FROM biometric_employee_map WHERE id = ?', [id]);
@@ -430,7 +439,7 @@ router.delete('/mappings/:id', auth, hr, async (req, res) => {
  * @desc    Get biometric machines/devices list dynamically from database with punch metrics and status
  * @access  Private (Admin / HR)
  */
-router.get('/devices', auth, hr, async (req, res) => {
+router.get('/devices', auth, biometricAuth, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT 
@@ -506,7 +515,7 @@ router.get('/devices', auth, hr, async (req, res) => {
  * @desc    Add a new biometric device or update existing device configuration
  * @access  Private (Admin / HR)
  */
-router.post('/devices', auth, hr, async (req, res) => {
+router.post('/devices', auth, biometricAuth, async (req, res) => {
   try {
     const { deviceId, name, location, deviceType, ipAddress, serialNumber, status = 'active' } = req.body;
     
@@ -555,7 +564,7 @@ router.post('/devices', auth, hr, async (req, res) => {
  * @desc    Update biometric device details by ID
  * @access  Private (Admin / HR)
  */
-router.put('/devices/:id', auth, hr, async (req, res) => {
+router.put('/devices/:id', auth, biometricAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     const { deviceId, name, location, deviceType, ipAddress, serialNumber, status = 'active' } = req.body;
@@ -604,7 +613,7 @@ router.put('/devices/:id', auth, hr, async (req, res) => {
  * @desc    Delete or deactivate a biometric device
  * @access  Private (Admin / HR)
  */
-router.delete('/devices/:id', auth, hr, async (req, res) => {
+router.delete('/devices/:id', auth, biometricAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     await db.query('DELETE FROM biometric_devices WHERE id = ?', [id]);
@@ -620,7 +629,7 @@ router.delete('/devices/:id', auth, hr, async (req, res) => {
  * @desc    Get biometric sync audit logs with pagination
  * @access  Private (Admin / HR)
  */
-router.get('/sync-logs', auth, hr, async (req, res) => {
+router.get('/sync-logs', auth, biometricAuth, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);
@@ -652,7 +661,7 @@ router.get('/sync-logs', auth, hr, async (req, res) => {
  * @desc    Find biometric user IDs from punches that are not yet mapped to an employee
  * @access  Private (Admin / HR)
  */
-router.get('/unmapped-users', auth, hr, async (req, res) => {
+router.get('/unmapped-users', auth, biometricAuth, async (req, res) => {
   try {
     const [rows] = await db.query(`
       SELECT 
@@ -681,7 +690,7 @@ router.get('/unmapped-users', auth, hr, async (req, res) => {
  * @desc    Automatically match unmapped biometric user IDs to employees by EmployeeNumber or ID
  * @access  Private (Admin / HR)
  */
-router.post('/mappings/auto-map', auth, hr, async (req, res) => {
+router.post('/mappings/auto-map', auth, biometricAuth, async (req, res) => {
   try {
     const [matches] = await db.query(`
       SELECT DISTINCT r.biometric_user_id, e.id as employee_id, r.device_id
@@ -722,7 +731,7 @@ router.post('/mappings/auto-map', auth, hr, async (req, res) => {
  * @desc    Get biometric daily attendance records with employee details and filter support
  * @access  Private (Admin / HR / Manager)
  */
-router.get('/daily-records', auth, hr, async (req, res) => {
+router.get('/daily-records', auth, biometricAuth, async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const limit = Math.min(100, parseInt(req.query.limit, 10) || 20);

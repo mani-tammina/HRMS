@@ -56,8 +56,10 @@ export class RolesPage implements OnInit {
         (user.username || '').toLowerCase().includes(this.searchText.toLowerCase()) ||
         (user.EmployeeNumber || '').toString().includes(this.searchText);
 
+      const userRoleLower = (user.role || '').toLowerCase();
+      const selectedRoleLower = (this.selectedRole || '').toLowerCase();
       const matchesRole =
-        this.selectedRole === 'all' || user.role === this.selectedRole;
+        this.selectedRole === 'all' || userRoleLower === selectedRoleLower;
 
       return matchesText && matchesRole;
     });
@@ -67,12 +69,13 @@ export class RolesPage implements OnInit {
     const role = event.detail.value;
     let action;
 
-    switch (role) {
+    switch (role?.toLowerCase()) {
       case 'admin': action = this.adminService.makeAdmin(userId); break;
       case 'finance': action = this.adminService.makeFinance(userId); break;
       case 'manager': action = this.adminService.makeManager(userId); break;
       case 'hr': action = this.adminService.makeHR(userId); break;
       case 'employee': action = this.adminService.makeEmployee(userId); break;
+      case 'networking': action = this.adminService.makeNetworking(userId); break;
     }
 
     if (action) {

@@ -27,33 +27,33 @@ export class AppComponent implements OnInit, OnDestroy {
   currentUrl: string = '';
 
   public appPages = [
-    { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance'] },
-    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'employee'] },
-    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] },
+    { title: 'Home', url: '/Home', icon: 'home', roles: ['employee', 'manager', 'hr', 'finance', 'networking'] },
+    { title: 'Inbox', url: '/inbox', icon: 'inbox-outline', roles: ['manager', 'hr', 'employee', 'networking'] },
+    { title: 'My Team', url: '/MyTeam', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance', 'networking'] },
     { title: 'Time Tracking', url: '/administration/time-tracking', icon: 'time-tracking', roles: ['manager', 'hr'] },
     {
-      title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance'], isExpanded: false, children: [
+      title: 'Job', icon: 'job', roles: ['employee', 'manager', 'hr', 'finance', 'networking'], isExpanded: false, children: [
         { title: 'Onboarding', url: '/onboarding', icon: 'onboarding', roles: ['hr'] },
-        { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance'] },
-        { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance'] },
-        { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance'] }
+        { title: 'Work Track', url: '/workTrack', icon: 'worktrack', roles: ['employee', 'hr', 'finance', 'networking'] },
+        { title: 'Leave', url: '/leaves', icon: 'leave', roles: ['employee', 'manager', 'hr', 'finance', 'networking'] },
+        { title: 'Org Tree', url: '/org-tree', icon: 'team', roles: ['employee', 'manager', 'hr', 'finance', 'networking'] }
       ]
     },
     { title: 'Exit Management', url: '/administration/separation', icon: 'leave', roles: ['admin', 'hr', 'manager'] },
     {
-      title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager', 'finance'], isExpanded: false, children: [
-        { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['hr', 'employee', 'manager', 'finance'] },
+      title: 'My Finance', icon: 'admin', roles: ['admin', 'hr', 'employee', 'manager', 'finance', 'networking'], isExpanded: false, children: [
+        { title: 'My Pay', url: '/MyPay', icon: 'payslip', roles: ['hr', 'employee', 'manager', 'finance', 'networking'] },
         { title: 'Financial Admin', url: '/finance/admin', icon: 'admin', roles: ['admin', 'finance'] }
       ]
     },
     { title: 'Admin', url: '/administration', icon: 'admin', roles: ['admin', 'hr'], exactMatch: true },
     {
-      title: 'Bio-Metric', icon: 'biometric', roles: ['admin', 'hr'], isExpanded: false, children: [
-        { title: 'Overview', url: '/biometric', icon: 'biometric', roles: ['admin', 'hr'] },
-        { title: 'Devices', url: '/biometric/devices', icon: 'time-tracking', roles: ['admin', 'hr'] },
-        { title: 'Employee Mappings', url: '/biometric/mappings', icon: 'team', roles: ['admin', 'hr'] },
-        { title: 'Raw Punch Logs', url: '/biometric/raw-logs', icon: 'worktrack', roles: ['admin', 'hr'] },
-        { title: 'Daily Attendance', url: '/biometric/daily-records', icon: 'attendance', roles: ['admin', 'hr'] }
+      title: 'Bio-Metric', icon: 'biometric', roles: ['admin', 'hr', 'networking'], isExpanded: false, children: [
+        { title: 'Overview', url: '/biometric', icon: 'biometric', roles: ['admin', 'hr', 'networking'] },
+        { title: 'Devices', url: '/biometric/devices', icon: 'time-tracking', roles: ['admin', 'hr', 'networking'] },
+        { title: 'Employee Mappings', url: '/biometric/mappings', icon: 'team', roles: ['admin', 'hr', 'networking'] },
+        { title: 'Raw Punch Logs', url: '/biometric/raw-logs', icon: 'worktrack', roles: ['admin', 'hr', 'networking'] },
+        { title: 'Daily Attendance', url: '/biometric/daily-records', icon: 'attendance', roles: ['admin', 'hr', 'networking'] }
       ]
     },
   

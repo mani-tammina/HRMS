@@ -17,7 +17,7 @@ const routes: Routes = [
     path: 'Home',
     loadChildren: () => import('./modules/dashboard/home/home.module').then(m => m.HomePageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr', 'finance'] }
+    data: { role: ['employee', 'manager', 'hr', 'finance', 'networking'] }
   },
   {
     path: 'administration',
@@ -29,7 +29,7 @@ const routes: Routes = [
     path: 'biometric',
     loadChildren: () => import('./modules/biometric/biometric.module').then(m => m.BiometricModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['admin', 'hr'] }
+    data: { role: ['admin', 'hr', 'networking'] }
   },
   {
     path: 'admin/master-setup',
@@ -69,25 +69,25 @@ const routes: Routes = [
     path: 'leaves',
     loadChildren: () => import('./modules/attendance/leaves/leaves.module').then(m => m.LeavesPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr', 'finance'] }
+    data: { role: ['employee', 'manager', 'hr', 'finance', 'networking'] }
   },
   {
     path: 'MyTeam',
     loadChildren: () => import('./modules/employee/my-team/my-team.module').then(m => m.MyTeamPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['manager', 'hr', 'employee', 'finance'] }
+    data: { role: ['manager', 'hr', 'employee', 'finance', 'networking'] }
   },
   {
     path: 'org-tree',
     loadChildren: () => import('./modules/org-tree/org-tree.module').then(m => m.OrgTreePageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['manager', 'hr', 'employee', 'finance'] }
+    data: { role: ['manager', 'hr', 'employee', 'finance', 'networking'] }
   },
   {
     path: 'workTrack',
     loadChildren: () => import('./modules/attendance/work-track/work-track.module').then(m => m.WorkTrackPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'hr', 'finance'] }
+    data: { role: ['employee', 'hr', 'finance', 'networking'] }
   },
   {
     path: 'profile',
@@ -98,7 +98,7 @@ const routes: Routes = [
     path: 'inbox',
     loadComponent: () => import('./modules/inbox/pages/inbox/inbox.page').then(m => m.InboxPage),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr', 'admin'] }
+    data: { role: ['employee', 'manager', 'hr', 'admin', 'networking'] }
   },
   {
     path: 'Me',
@@ -115,13 +115,13 @@ const routes: Routes = [
     path: 'MyPay',
     loadChildren: () => import('./modules/payroll/payslips/payslips.module').then(m => m.PayslipsPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr', 'finance'] }
+    data: { role: ['employee', 'manager', 'hr', 'finance', 'networking'] }
   },
   {
     path: 'MyTax',
     loadChildren: () => import('./modules/payroll/my-tax/my-tax.module').then(m => m.MyTaxPageModule),
     canActivate: [AuthGuard, RoleGuard],
-    data: { role: ['employee', 'manager', 'hr', 'finance'] }
+    data: { role: ['employee', 'manager', 'hr', 'finance', 'networking'] }
   },
   {
     path: 'finance',
