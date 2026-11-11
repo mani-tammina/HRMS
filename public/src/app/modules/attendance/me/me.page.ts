@@ -113,7 +113,11 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
   showWFHPanel = false;
   wfhFromDate = new Date().toISOString();
   wfhToDate = new Date().toISOString();
-  wfhMinDate = new Date().toISOString();
+  wfhMinDate = (() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 15);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  })();
   wfhActivePicker: 'from' | 'to' | null = null;
   wfhReason = '';
   wfhTotalDays = 1;
@@ -126,6 +130,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
   get wfhSettings(): any {
     return this.policyPermissions?.wfh_settings || {};
+  }
+
+  get wfhCurrentPickerMinDate(): string {
+    if (this.wfhActivePicker === 'to' && this.wfhFromDate) {
+      return this.wfhFromDate.includes('T') ? this.wfhFromDate.split('T')[0] : this.wfhFromDate;
+    }
+    return this.wfhMinDate;
   }
 
   toggleTodayCard() {
@@ -1230,12 +1241,22 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
 
     const settings = this.wfhSettings;
     const today = new Date();
-    if (settings?.wfh_past_dated_limit_days_enabled && settings?.wfh_past_dated_limit_days_value) {
-      const pastDays = Number(settings.wfh_past_dated_limit_days_value);
-      today.setDate(today.getDate() - pastDays);
-      this.wfhMinDate = today.toISOString();
+    if (settings?.wfh_past_dated_limit_months_enabled) {
+      const months = Number(settings.wfh_past_dated_limit_months_value || 1);
+      const minPastDate = new Date(today);
+      minPastDate.setMonth(minPastDate.getMonth() - months);
+      // Ensure at least 15 days back are enabled
+      const fifteenDaysAgo = new Date(today);
+      fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+      const effectiveMin = minPastDate < fifteenDaysAgo ? minPastDate : fifteenDaysAgo;
+      this.wfhMinDate = this.formatDateOnly(effectiveMin);
     } else {
-      this.wfhMinDate = today.toISOString();
+      const pastDays = (settings?.wfh_past_dated_limit_days_enabled && Number(settings.wfh_past_dated_limit_days_value || 0) > 15)
+        ? Number(settings.wfh_past_dated_limit_days_value)
+        : 15;
+      const minPastDate = new Date(today);
+      minPastDate.setDate(minPastDate.getDate() - pastDays);
+      this.wfhMinDate = this.formatDateOnly(minPastDate);
     }
 
     this.wfhCalculateDays();
@@ -1279,6 +1300,9 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       }
     } else {
       this.wfhToDate = date;
+      if (new Date(this.wfhFromDate) > new Date(date)) {
+        this.wfhFromDate = date;
+      }
     }
     this.wfhCalculateDays();
     this.wfhActivePicker = null;
@@ -1315,30 +1339,33 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // 1. Past-dated Days / Months Limit (Options 8 & 9)
-    if (settings.wfh_past_dated_limit_days_enabled) {
-      const pastDaysLimit = Number(settings.wfh_past_dated_limit_days_value || 0);
-      const minPastDate = new Date(today);
-      minPastDate.setDate(minPastDate.getDate() - pastDaysLimit);
-      if (start < minPastDate) {
-        this.wfhValidationError = `Past-dated WFH requests are restricted beyond ${pastDaysLimit} calendar day(s) ago.`;
-        return;
-      }
-    } else if (settings.wfh_past_dated_limit_months_enabled) {
+    // 1. Past-dated Days / Months Limit (Options 8 & 9) - allows at least 15 days before current date
+    const allowedPastDays = (settings.wfh_past_dated_limit_days_enabled && Number(settings.wfh_past_dated_limit_days_value || 0) > 15)
+      ? Number(settings.wfh_past_dated_limit_days_value)
+      : 15;
+
+    if (settings.wfh_past_dated_limit_months_enabled) {
       const months = Number(settings.wfh_past_dated_limit_months_value || 1);
       const minPastDate = new Date(today);
       minPastDate.setMonth(minPastDate.getMonth() - months);
-      if (start < minPastDate) {
+      const fifteenDaysAgo = new Date(today);
+      fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+      const effectiveMin = minPastDate < fifteenDaysAgo ? minPastDate : fifteenDaysAgo;
+      if (start < effectiveMin) {
         this.wfhValidationError = `Past-dated WFH requests are restricted beyond ${months} month(s) ago.`;
         return;
       }
-    } else if (start < today) {
-      this.wfhValidationError = `Past-dated WFH requests are not allowed according to your policy.`;
-      return;
+    } else {
+      const minPastDate = new Date(today);
+      minPastDate.setDate(minPastDate.getDate() - allowedPastDays);
+      if (start < minPastDate) {
+        this.wfhValidationError = `Past-dated WFH requests are restricted beyond ${allowedPastDays} calendar day(s) ago.`;
+        return;
+      }
     }
 
-    // 2. Prior Notice Validation (Option 11)
-    if (settings.wfh_prior_notice_enabled) {
+    // 2. Prior Notice Validation (Option 11) - applies only to future requests
+    if (settings.wfh_prior_notice_enabled && start >= today) {
       const priorNoticeDays = Number(settings.wfh_prior_notice_days || 0);
       const requiredNoticeDate = new Date(today);
       requiredNoticeDate.setDate(requiredNoticeDate.getDate() + priorNoticeDays);
@@ -1348,8 +1375,8 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // 3. Requested No Sooner Than (Option 12)
-    if (settings.wfh_no_sooner_enabled) {
+    // 3. Requested No Sooner Than (Option 12) - applies only to future requests
+    if (settings.wfh_no_sooner_enabled && start >= today) {
       const noSoonerDays = Number(settings.wfh_no_sooner_days || 0);
       const maxFutureDate = new Date(today);
       maxFutureDate.setDate(maxFutureDate.getDate() + (noSoonerDays * 2));

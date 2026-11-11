@@ -136,7 +136,7 @@ export class TimeTrackingWizardPage implements OnInit {
       wfh_past_dated_limit_months_value:    [''],
       wfh_past_dated_limit_months_day:      [''],
       wfh_past_dated_limit_days_enabled:    [false],
-      wfh_past_dated_limit_days_value:      [1],
+      wfh_past_dated_limit_days_value:      [15],
       wfh_restrict_on_days_enabled:         [false],
       wfh_restrict_on_days_type:            ['Holidays & Weekly Offs'],
       wfh_prior_notice_enabled:             [false],
