@@ -506,7 +506,7 @@ router.get('/v2/employees/:employeeId/tax-profile', auth, finance, payrollAdmin.
 router.put('/v2/employees/:employeeId/tax-profile', auth, finance, payrollAdmin.putTaxProfile);
 
 // Bank account (employee-level)
-router.get('/v2/employees/:employeeId/bank-account', auth, finance, payrollAdmin.getBankAccount);
+router.get('/v2/employees/:employeeId/bank-account', auth, resolvePayrollEmployeeContext, payrollAdmin.getBankAccount);
 router.put('/v2/employees/:employeeId/bank-account', auth, finance, payrollAdmin.putBankAccount);
 
 // Payouts

@@ -2139,3 +2139,22 @@ CREATE TABLE IF NOT EXISTS biometric_sync_log (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Employee Bank Details (Bulk Excel Upload & Profile Finance View)
+CREATE TABLE IF NOT EXISTS Employee_BankDetails (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NULL,
+  Empno VARCHAR(50) NOT NULL,
+  Name VARCHAR(255) NULL,
+  Department VARCHAR(150) NULL,
+  PaymentMode VARCHAR(100) NULL,
+  Bank VARCHAR(150) NULL,
+  IFSCCode VARCHAR(30) NULL,
+  BankAccountNo VARCHAR(64) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY ux_employee_bank_details_empno (Empno),
+  INDEX idx_ebd_employee_id (employee_id),
+  CONSTRAINT fk_ebd_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
+

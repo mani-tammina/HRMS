@@ -476,6 +476,38 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not check/create company_branding table:", brandErr.message);
         }
 
+        // Ensure Employee_BankDetails table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS Employee_BankDetails (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    employee_id INT NULL,
+                    Empno VARCHAR(50) NOT NULL,
+                    Name VARCHAR(255) NULL,
+                    Department VARCHAR(150) NULL,
+                    PaymentMode VARCHAR(100) NULL,
+                    Bank VARCHAR(150) NULL,
+                    IFSCCode VARCHAR(30) NULL,
+                    BankAccountNo VARCHAR(64) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY ux_employee_bank_details_empno (Empno),
+                    INDEX idx_ebd_employee_id (employee_id),
+                    CONSTRAINT fk_ebd_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+                )
+            `);
+            // Ensure Employee_BankDetails collation matches employees table to prevent mix-collation JOIN errors
+            const [empStatus] = await conn.query("SHOW TABLE STATUS LIKE 'employees'");
+            const [ebdStatus] = await conn.query("SHOW TABLE STATUS LIKE 'Employee_BankDetails'");
+            if (empStatus[0]?.Collation && ebdStatus[0]?.Collation && empStatus[0].Collation !== ebdStatus[0].Collation) {
+                await conn.query(`ALTER TABLE Employee_BankDetails CONVERT TO CHARACTER SET utf8mb4 COLLATE ${empStatus[0].Collation}`);
+                console.log(`  ✓ Aligned Employee_BankDetails collation to ${empStatus[0].Collation}`);
+            }
+            console.log("  ✓ Verified/Created table: Employee_BankDetails");
+        } catch (bankTableErr) {
+            console.warn("⚠️ Warning: could not check/create Employee_BankDetails table:", bankTableErr.message);
+        }
+
         // Ensure locations table has detailed address columns
         try {
             const [locCols] = await conn.query("DESCRIBE locations");

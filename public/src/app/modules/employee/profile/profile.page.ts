@@ -64,6 +64,16 @@ export class ProfilePage implements OnInit, OnDestroy {
   }
 
   /**
+   * Returns true if the current logged-in user can see the Finance tab.
+   * Allowed when viewing own profile or when user has hr, admin, or finance role.
+   */
+  get canViewFinanceTab(): boolean {
+    if (this.isOwnProfile) return true;
+    const userRole = this.routeGuardService.userRole?.toLowerCase() || '';
+    return userRole === 'hr' || userRole === 'admin' || userRole === 'finance';
+  }
+
+  /**
    * Returns true only if the viewer has the HR/Admin role OR is the direct reporting manager of the viewed employee.
    */
   get canViewLeaves(): boolean {
@@ -186,6 +196,9 @@ export class ProfilePage implements OnInit, OnDestroy {
             if (!this.canViewLeaves && this.selectedSegment === 'leaves') {
               this.selectedSegment = 'about';
             }
+            if (!this.canViewFinanceTab && this.selectedSegment === 'finance') {
+              this.selectedSegment = 'about';
+            }
             this.cdr.detectChanges();
           },
           error: () => {
@@ -227,6 +240,9 @@ export class ProfilePage implements OnInit, OnDestroy {
               this.selectedSegment = 'about';
             }
             if (!this.canViewLeaves && this.selectedSegment === 'leaves') {
+              this.selectedSegment = 'about';
+            }
+            if (!this.canViewFinanceTab && this.selectedSegment === 'finance') {
               this.selectedSegment = 'about';
             }
             this.cdr.detectChanges();

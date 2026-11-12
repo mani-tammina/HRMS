@@ -206,6 +206,30 @@
           </div>
         </div>
       </div>
+
+      <!-- Employee Bank Details Upload Card -->
+      <div class="management-card fade-in-up" style="animation-delay: 0.45s;">
+        <div class="card-accent accent-blue"></div>
+        <div class="card-body">
+          <div class="card-header-row">
+            <div class="card-icon icon-blue">
+              <ion-icon name="card-outline" style="color: #ffffff;"></ion-icon>
+            </div>
+            <span class="status-badge badge-blue">Excel Upload</span>
+          </div>
+          <h3>Employee Bank Details</h3>
+          <p>Bulk upload and manage employee bank account, IFSC code and payment mode details via Excel sheet.</p>
+          <div class="card-footer">
+            <div class="stats">
+              <span class="stat-label">Records Uploaded</span>
+              <span class="stat-value">{{ bankDetailsCount }}</span>
+            </div>
+            <ion-button fill="clear" class="manage-btn" (click)="openBankUploadModal()">
+              Upload Excel <ion-icon name="cloud-upload-outline" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </ion-content>

@@ -1,0 +1,124 @@
+<ion-header class="ion-no-border">
+  <ion-toolbar class="modal-toolbar">
+    <ion-title>Employee Bank Details — Excel Upload</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismiss()" aria-label="Close">
+        <ion-icon name="close-outline" slot="icon-only"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="modal-body-content">
+  <div class="upload-modal-wrapper">
+    <!-- Upload Action Box -->
+    <div class="upload-drop-card">
+      <div class="upload-info">
+        <div class="icon-badge">
+          <ion-icon name="document-text-outline"></ion-icon>
+        </div>
+        <div>
+          <h3>Upload Employee Bank Details Excel</h3>
+          <p>
+            Required columns:
+            <strong>Empno</strong>, <strong>Name</strong>, <strong>Department</strong>,
+            <strong>Payment Mode</strong>, <strong>Bank</strong>, <strong>IFSCCode</strong>,
+            <strong>Bank Account No</strong>
+          </p>
+        </div>
+      </div>
+
+      <div class="upload-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          (click)="downloadTemplate()"
+          [disabled]="isDownloadingTemplate">
+          <ion-icon name="download-outline"></ion-icon>
+          <span>{{ isDownloadingTemplate ? 'Downloading...' : 'Download Template' }}</span>
+        </button>
+
+        <button
+          type="button"
+          class="btn-primary"
+          (click)="bankFileInput.click()"
+          [disabled]="isUploading">
+          <ion-icon name="cloud-upload-outline"></ion-icon>
+          <span>{{ isUploading ? 'Uploading...' : 'Upload Excel Sheet' }}</span>
+        </button>
+
+        <input
+          #bankFileInput
+          type="file"
+          accept=".xlsx,.xls,.csv"
+          hidden
+          (change)="onFileSelected($event)" />
+      </div>
+    </div>
+
+    <!-- Upload Result Summary -->
+    <div class="result-banner" *ngIf="uploadResult">
+      <div class="result-stats">
+        <span class="pill pill-neutral">Processed: {{ uploadResult.processed }}</span>
+        <span class="pill pill-success">Inserted: {{ uploadResult.inserted }}</span>
+        <span class="pill pill-info">Updated: {{ uploadResult.updated }}</span>
+        <span class="pill pill-warn" *ngIf="uploadResult.skipped > 0">Skipped: {{ uploadResult.skipped }}</span>
+      </div>
+      <div class="error-list" *ngIf="uploadResult.errors.length > 0">
+        <p class="error-heading">Row Notices / Errors:</p>
+        <ul>
+          <li *ngFor="let err of uploadResult.errors">{{ err }}</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Search & Table Header -->
+    <div class="table-toolbar">
+      <div class="search-box">
+        <ion-icon name="search-outline"></ion-icon>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          (keyup.enter)="onSearchChange()"
+          placeholder="Search by Empno, Name, Department, Bank, IFSC..." />
+        <button type="button" class="btn-search" (click)="onSearchChange()">Search</button>
+      </div>
+      <div class="record-count">Total Records: <strong>{{ records.length }}</strong></div>
+    </div>
+
+    <!-- Table Preview -->
+    <div class="table-scroll">
+      <div class="loading-box" *ngIf="isLoading">Loading bank details...</div>
+
+      <table class="bank-table" *ngIf="!isLoading && records.length > 0">
+        <thead>
+          <tr>
+            <th>Empno</th>
+            <th>Name</th>
+            <th>Department</th>
+            <th>Payment Mode</th>
+            <th>Bank</th>
+            <th>IFSCCode</th>
+            <th>Bank Account No</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let row of records">
+            <td class="mono">{{ row.Empno || 'N/A' }}</td>
+            <td>{{ row.Name || 'N/A' }}</td>
+            <td>{{ row.Department || 'N/A' }}</td>
+            <td>{{ row.PaymentMode || 'N/A' }}</td>
+            <td>{{ row.Bank || 'N/A' }}</td>
+            <td class="mono">{{ row.IFSCCode || 'N/A' }}</td>
+            <td class="mono">{{ row.BankAccountNo || 'N/A' }}</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="empty-box" *ngIf="!isLoading && records.length === 0">
+        No employee bank details uploaded yet. Download the template and upload an Excel sheet to populate records.
+      </div>
+    </div>
+  </div>
+</ion-content>
+

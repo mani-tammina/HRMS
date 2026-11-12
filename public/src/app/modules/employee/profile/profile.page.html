@@ -227,6 +227,9 @@
           <ion-segment-button value="assets" *ngIf="canViewPrivateTabs">
             <ion-label>Assets</ion-label>
           </ion-segment-button>
+          <ion-segment-button value="finance" *ngIf="canViewFinanceTab">
+            <ion-label>Finance</ion-label>
+          </ion-segment-button>
           <ion-segment-button value="leaves" *ngIf="canViewLeaves" (click)="onLeavesSegmentClick($event)">
             <ion-label>Leaves</ion-label>
           </ion-segment-button>
@@ -247,6 +250,10 @@
         <app-document-tab *ngSwitchCase="'documents'" [currentEmployee]="currentEmployee"></app-document-tab>
         <app-assets-tab *ngSwitchCase="'assets'" [currentEmployee]="currentEmployee"></app-assets-tab>
         <app-leaves-tab *ngSwitchCase="'leaves'" [currentEmployee]="currentEmployee"></app-leaves-tab>
+      </ng-container>
+      <ng-container *ngIf="canViewFinanceTab">
+        <app-finance-tab *ngSwitchCase="'finance'" [currentEmployee]="currentEmployee"
+          [isOwnProfile]="isOwnProfile"></app-finance-tab>
       </ng-container>
     </div>
   </div>

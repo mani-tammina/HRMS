@@ -1624,8 +1624,31 @@ async function getBankAccount(req, res) {
     const employeeId = Number(req.params.employeeId);
     const c = await db();
     const [rows] = await c.query('SELECT * FROM employee_bank_accounts WHERE employee_id = ?', [employeeId]);
+    if (rows.length > 0) {
+      const [ebdRows] = await c.query(
+        'SELECT PaymentMode, Department FROM Employee_BankDetails WHERE employee_id = ? LIMIT 1',
+        [employeeId]
+      );
+      c.end();
+      return res.json({
+        ...rows[0],
+        payment_mode: ebdRows[0]?.PaymentMode || null,
+        department: ebdRows[0]?.Department || null
+      });
+    }
+
+    const [fallbackRows] = await c.query(
+      `SELECT ebd.id, e.id AS employee_id, ebd.Name AS account_holder_name, ebd.Bank AS bank_name,
+              ebd.BankAccountNo AS account_number, ebd.IFSCCode AS ifsc_code, ebd.PaymentMode AS payment_mode,
+              ebd.Department AS department
+       FROM employees e
+       JOIN Employee_BankDetails ebd ON (ebd.employee_id = e.id OR ebd.Empno = e.EmployeeNumber)
+       WHERE e.id = ?
+       LIMIT 1`,
+      [employeeId]
+    );
     c.end();
-    res.json(rows[0] || null);
+    res.json(fallbackRows[0] || null);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
