@@ -108,8 +108,98 @@
       </div>
     </div>
 
+    <!-- Dedicated "No Pending Actions" State (when TAKE ACTION has 0 pending tasks) -->
+    <div class="no-pending-actions-view animate__animated animate__fadeIn"
+      *ngIf="hasLoaded && !loading && !isEmployee && selectedTab !== 'Archived' && hasNoPendingTasks()">
+      <div class="no-pending-card">
+        <!-- Top decorative brand accent line -->
+        <div class="card-top-accent"></div>
+
+        <!-- Hero Icon with layered depth & sparkles -->
+        <div class="hero-icon-container">
+          <div class="sparkle sparkle-1">✦</div>
+          <div class="sparkle sparkle-2">✦</div>
+          <div class="sparkle sparkle-3">✦</div>
+          <div class="hero-icon-squircle">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="hero-check-svg">
+              <path d="M9 11l3 3L22 4"></path>
+              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
+            </svg>
+          </div>
+        </div>
+
+        <!-- All Caught Up Badge -->
+        <div class="caught-up-pill">
+          <span class="pulse-dot"></span>
+          <span>ALL CAUGHT UP</span>
+        </div>
+
+        <!-- Typography -->
+        <h2 class="no-pending-title">No Pending Actions</h2>
+        <p class="no-pending-desc">
+          You're all set! There are no pending requests requiring your review or approval right now.
+        </p>
+
+        <!-- Action Buttons -->
+        <div class="no-pending-actions">
+          <button class="btn btn-view-archive" (click)="selectTab('Archived')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="btn-icon">
+              <polyline points="21 8 21 21 3 21 3 8"></polyline>
+              <rect x="1" y="3" width="22" height="5"></rect>
+              <line x1="10" y1="12" x2="14" y2="12"></line>
+            </svg>
+            View Archive
+          </button>
+
+          <button class="btn btn-refresh-inbox" (click)="loadNotifications(null, true)">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="btn-icon">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            Refresh
+          </button>
+        </div>
+
+        <!-- Quick Management Shortcuts Bar -->
+        <div class="quick-shortcuts-row" *ngIf="isManagerOrHR">
+          <span class="shortcuts-title">Quick Actions:</span>
+          <button class="shortcut-pill" (click)="triggerExportTimesheets()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="shortcut-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Timesheets
+          </button>
+          <button class="shortcut-pill" (click)="triggerExport()">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="shortcut-icon">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+              <polyline points="14 2 14 8 20 8"></polyline>
+            </svg>
+            Export Attendance
+          </button>
+          <button class="shortcut-pill" (click)="triggerUpload()" *ngIf="isHR">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="shortcut-icon">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            Upload Attendance
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Main 3-Column Workspace -->
-    <div class="inbox-three-column-layout">
+    <div class="inbox-three-column-layout"
+      *ngIf="!hasLoaded || loading || isEmployee || selectedTab === 'Archived' || !hasNoPendingTasks()">
 
       <!-- Column 1: Sub-navigation Sidebar -->
       <div class="column-sidebar-nav">
@@ -143,9 +233,20 @@
 
         <!-- Manager / HR View Pending Tasks Sidebar Options -->
         <div class="sidebar-menu-list" *ngIf="!isEmployee">
+          <!-- Archived item when in Archived tab -->
+          <div class="sidebar-menu-item" *ngIf="selectedTab === 'Archived'" [class.active]="selectedTab === 'Archived'"
+            (click)="selectTab('Archived')">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" class="item-icon">
+              <polyline points="21 8 21 21 3 21 3 8"></polyline>
+              <rect x="1" y="3" width="22" height="5"></rect>
+              <line x1="10" y1="12" x2="14" y2="12"></line>
+            </svg>
+            <span class="item-text">All Archived Records</span>
+          </div>
+
           <!-- 1. Leave Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'Leave' || stats.leaveCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.leaveCount > 0"
             [class.active]="selectedTab === 'Leave'" (click)="selectTab('Leave')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -155,12 +256,11 @@
               <line x1="3" y1="10" x2="21" y2="10"></line>
             </svg>
             <span class="item-text">Leave Requests</span>
-            <span class="item-count">({{ stats.leaveCount || 0 }})</span>
+            <span class="item-count">({{ stats.leaveCount }})</span>
           </div>
 
           <!-- 2. Work From Home Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'WFH' || stats.wfhCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.wfhCount > 0"
             [class.active]="selectedTab === 'WFH'" (click)="selectTab('WFH')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -168,12 +268,11 @@
               <polyline points="9 22 9 12 15 12 15 22"></polyline>
             </svg>
             <span class="item-text">Work From Home</span>
-            <span class="item-count">({{ stats.wfhCount || 0 }})</span>
+            <span class="item-count">({{ stats.wfhCount }})</span>
           </div>
 
           <!-- 3. Remote Login Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'Remote' || stats.remoteCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.remoteCount > 0"
             [class.active]="selectedTab === 'Remote'" (click)="selectTab('Remote')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -182,12 +281,11 @@
               <line x1="12" y1="17" x2="12" y2="21"></line>
             </svg>
             <span class="item-text">Remote Login</span>
-            <span class="item-count">({{ stats.remoteCount || 0 }})</span>
+            <span class="item-count">({{ stats.remoteCount }})</span>
           </div>
 
           <!-- 4. Attendance Regularization Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'Attendance' || stats.attendanceCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.attendanceCount > 0"
             [class.active]="selectedTab === 'Attendance'" (click)="selectTab('Attendance')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -195,12 +293,11 @@
               <polyline points="12 6 12 12 16 14"></polyline>
             </svg>
             <span class="item-text">Attendance Regularization</span>
-            <span class="item-count">({{ stats.attendanceCount || 0 }})</span>
+            <span class="item-count">({{ stats.attendanceCount }})</span>
           </div>
 
           <!-- 5. Comp Off Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'CompOff' || stats.compOffCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.compOffCount > 0"
             [class.active]="selectedTab === 'CompOff'" (click)="selectTab('CompOff')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -209,12 +306,11 @@
               <line x1="8" y1="12" x2="16" y2="12"></line>
             </svg>
             <span class="item-text">Comp Off</span>
-            <span class="item-count">({{ stats.compOffCount || 0 }})</span>
+            <span class="item-count">({{ stats.compOffCount }})</span>
           </div>
 
           <!-- 6. Timesheet Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'Timesheet' || stats.timesheetCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.timesheetCount > 0"
             [class.active]="selectedTab === 'Timesheet'" (click)="selectTab('Timesheet')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -222,12 +318,11 @@
               <polyline points="14 2 14 8 20 8"></polyline>
             </svg>
             <span class="item-text">Timesheet Requests</span>
-            <span class="item-count">({{ stats.timesheetCount || 0 }})</span>
+            <span class="item-count">({{ stats.timesheetCount }})</span>
           </div>
 
           <!-- 7. Exit / Resignation Requests -->
-          <div class="sidebar-menu-item"
-            *ngIf="selectedMonth || selectedTab === 'Resignation' || stats.resignationCount > 0 || hasNoPendingTasks()"
+          <div class="sidebar-menu-item" *ngIf="stats.resignationCount > 0"
             [class.active]="selectedTab === 'Resignation'" (click)="selectTab('Resignation')">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
               stroke-width="2" class="item-icon">
@@ -236,7 +331,7 @@
               <line x1="21" y1="12" x2="9" y2="12"></line>
             </svg>
             <span class="item-text">Exit Request</span>
-            <span class="item-count">({{ stats.resignationCount || 0 }})</span>
+            <span class="item-count">({{ stats.resignationCount }})</span>
           </div>
         </div>
       </div>
@@ -285,9 +380,8 @@
             </div>
           </div>
 
-          <app-notification-empty *ngIf="!loading && notifications.length === 0"
-            [message]="'No ' + getTabEmptyTitle() + ' requests found'"
-            [subMessage]="'You have no pending requests in this list.'">
+          <app-notification-empty *ngIf="!loading && notifications.length === 0" [message]="getEmptyTitle()"
+            [subMessage]="getEmptySubMessage()">
           </app-notification-empty>
 
           <div class="request-cards-stack" *ngIf="notifications.length > 0">
