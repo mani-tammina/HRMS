@@ -147,7 +147,7 @@ export class ProfilePage implements OnInit, OnDestroy {
     });
   }
 
-  async loadProfile(empId?: string) {
+  async loadProfile(empId?: string, forceRefresh = false) {
     const loading = await this.loadingController.create({
       message: 'Loading profile...',
       spinner: 'crescent'
@@ -156,14 +156,14 @@ export class ProfilePage implements OnInit, OnDestroy {
 
     const targetId = empId || this.route.snapshot.queryParams['id'];
 
-    this.employeeService.getMyProfile().subscribe({
+    this.employeeService.getMyProfile(forceRefresh).subscribe({
       next: (myProfile: any) => {
         const myId = myProfile?.id || myProfile?.data?.id || (Array.isArray(myProfile?.data) ? myProfile?.data[0]?.id : null);
         this.myEmployeeId = myId ? Number(myId) : null;
         this.isOwnProfile = !targetId || Number(targetId) === Number(myId);
 
         const profileObservable = this.isOwnProfile
-          ? this.employeeService.getMyProfile()
+          ? this.employeeService.getMyProfile(forceRefresh)
           : forkJoin({
             basic: this.employeeService.getEmployeeById(+targetId),
             details: this.employeeService.getEmployeeDetails(+targetId)

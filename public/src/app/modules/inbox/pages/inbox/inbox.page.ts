@@ -638,7 +638,11 @@ export class InboxPage implements OnInit {
     this.inboxService.getTeammatesOnLeave(notification.employee_id, dates.start, dates.end || dates.start).subscribe({
       next: (res) => {
         this.loadingTeammates = false;
-        this.teammatesOnLeave = res?.teammates || [];
+        const teammates = (res?.teammates || []).filter((t: any) => {
+          const type = (t.leave_type_name || '').toLowerCase();
+          return !type.includes('wfh') && !type.includes('remote') && !type.includes('home');
+        });
+        this.teammatesOnLeave = teammates;
       },
       error: (err) => {
         console.error('Failed to check teammates on leave', err);

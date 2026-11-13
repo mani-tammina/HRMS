@@ -346,6 +346,15 @@ export class PayrollDashboardPage implements OnInit {
     this.router.navigate(['/MyPay']);
   }
 
+  goToPaymentPreview(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+    this.router.navigate(['/finance/payment-preview'], {
+      queryParams: { month: this.selectedMonth }
+    });
+  }
+
   viewPayRegister(event?: Event) {
     if (event) {
       event.stopPropagation();

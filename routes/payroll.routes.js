@@ -477,6 +477,15 @@ router.get('/v2/runs/validate', auth, finance, payrollAdmin.validateRun);
 // GET /api/payroll/v2/dashboard?month=YYYY-MM
 router.get('/v2/dashboard', auth, finance, payrollAdmin.getPayrollDashboard);
 
+// GET /api/payroll/v2/payment-batches?month=YYYY-MM
+router.get('/v2/payment-batches', auth, finance, payrollAdmin.getPaymentBatches);
+
+// POST /api/payroll/v2/payment-batches/mark-paid
+router.post('/v2/payment-batches/mark-paid', auth, finance, payrollAdmin.markPaymentBatchPaid);
+
+// GET /api/payroll/v2/payment-batches/export?month=YYYY-MM&format=excel|text
+router.get('/v2/payment-batches/export', auth, finance, payrollAdmin.exportTransferStatement);
+
 // GET /api/payroll/v2/employees/:employeeId/run-status?month=YYYY-MM
 router.get('/v2/employees/:employeeId/run-status', auth, resolvePayrollEmployeeContext, payrollAdmin.getEmployeeRunStatus);
 

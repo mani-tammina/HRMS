@@ -1,0 +1,367 @@
+<div class="payables-container">
+
+  <!-- ═══════════════════════════════════════════════════════════
+       1. TOP HEADER WITH TITLE & CLOSE
+  ════════════════════════════════════════════════════════════ -->
+  <div class="payables-header">
+    <div class="header-title-wrap">
+      <h1 class="header-title">{{ batchData?.monthLabel || ('Employee Payables - ' + selectedMonth) }}</h1>
+    </div>
+    <button class="close-btn" (click)="closePage()" title="Close and return to Payroll Dashboard">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
+      </svg>
+    </button>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       2. TOP TABS (Salaries with dot)
+  ════════════════════════════════════════════════════════════ -->
+  <div class="payables-nav-tabs">
+    <div class="tab-item active">
+      <span class="tab-label">Salaries</span>
+      <span class="yellow-dot"></span>
+      <div class="active-indicator"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       3. SUMMARY EQUATION STRIP
+  ════════════════════════════════════════════════════════════ -->
+  <div class="summary-equation-strip">
+    <div class="eq-group">
+      <div class="eq-label">SALARIES TO BE PAID</div>
+      <div class="eq-value font-bold">₹ {{ formatINR(batchData?.totals?.salariesToBePaid) }}</div>
+    </div>
+
+    <div class="eq-operator">=</div>
+
+    <div class="eq-group">
+      <div class="eq-label">BANK TRANSFER</div>
+      <div class="eq-value">₹ {{ formatINR(batchData?.totals?.bankTransfer) }}</div>
+    </div>
+
+    <div class="eq-operator">+</div>
+
+    <div class="eq-group">
+      <div class="eq-label">CASH PAYMENT</div>
+      <div class="eq-value">₹ {{ formatINR(batchData?.totals?.cashPayment) }}</div>
+    </div>
+
+    <div class="eq-operator">+</div>
+
+    <div class="eq-group">
+      <div class="eq-label">CHEQUE PAYMENT</div>
+      <div class="eq-value">₹ {{ formatINR(batchData?.totals?.chequePayment) }}</div>
+    </div>
+
+    <div class="eq-divider"></div>
+
+    <div class="eq-group">
+      <div class="eq-label">TOTAL EMPLOYEES</div>
+      <div class="eq-value font-bold">{{ batchData?.totals?.totalEmployees || 0 }}</div>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-state" *ngIf="isLoading">
+    <ion-spinner name="crescent" color="primary"></ion-spinner>
+    <span>Loading payment preview batches...</span>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════════
+       4. MAIN TWO-COLUMN CONTENT
+  ════════════════════════════════════════════════════════════ -->
+  <div class="payables-body" *ngIf="!isLoading">
+
+    <!-- ── LEFT SIDEBAR: PAYMENT BATCHES ─────────────────────── -->
+    <div class="batches-sidebar">
+      <h2 class="sidebar-main-title">Payment Batches</h2>
+
+      <div class="sidebar-category-header">BANK TRANSFER</div>
+
+      <!-- Batch Card 1: Default Batch for Bank Transfer -->
+      <div class="batch-card" [class.active]="activeBatchId === 'bank-transfer'" (click)="selectBatch('bank-transfer')">
+        <div class="batch-card-header">
+          <span class="batch-name">Default Batch for Bank Transfer</span>
+          <span class="status-badge" [ngClass]="batchData?.status === 'PAID' ? 'badge-paid' : 'badge-not-paid'">
+            {{ batchData?.status === 'PAID' ? 'PAID' : 'NOT PAID' }}
+          </span>
+        </div>
+        <div class="batch-card-footer">
+          <span class="batch-emp-count">{{ batchData?.totals?.batchedEmployeesCount || 244 }} employees</span>
+        </div>
+      </div>
+
+      <!-- Batch Card 2: Non Batched Employees -->
+      <div class="batch-card" [class.active]="activeBatchId === 'non-batched'" (click)="selectBatch('non-batched')">
+        <div class="batch-card-header">
+          <span class="batch-name">Non Batched Employees</span>
+          <span class="status-badge badge-not-created">BATCH NOT CREATED</span>
+        </div>
+        <div class="batch-card-footer">
+          <span class="batch-emp-count">{{ batchData?.totals?.nonBatchedEmployeesCount || 1 }} employee</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── RIGHT CONTENT PANEL ──────────────────────────────── -->
+    <div class="batch-content-panel">
+
+      <!-- View 1: Default Batch for Bank Transfer -->
+      <ng-container *ngIf="activeBatchId === 'bank-transfer'">
+        <!-- Batch Action Top Bar -->
+        <div class="batch-action-bar">
+          <div class="batch-title-group">
+            <h2 class="batch-title">{{ batchData?.batchDetails?.title || 'Default Batch for Bank Transfer' }}</h2>
+            <div class="batch-subtitle">{{ batchData?.batchDetails?.subtitle || 'Default Batch for Salary' }}</div>
+          </div>
+
+          <div class="batch-actions">
+            <button class="btn-download-statement" (click)="downloadTransferStatement('excel')" [disabled]="isDownloading">
+              <span>Download Transfer Statement</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+
+            <button class="btn-mark-paid" [class.is-paid]="batchData?.isPaid || batchData?.status === 'PAID'" (click)="markAsPaid()" [disabled]="isMarkingPaid || batchData?.isPaid || batchData?.status === 'PAID'">
+              <span *ngIf="!batchData?.isPaid && batchData?.status !== 'PAID'">
+                {{ isMarkingPaid ? 'Processing...' : 'Mark as Paid' }}
+              </span>
+              <span *ngIf="batchData?.isPaid || batchData?.status === 'PAID'">
+                ✓ Paid
+              </span>
+            </button>
+
+            <button class="btn-more-options" title="More options" (click)="loadPaymentBatches()">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+                <circle cx="12" cy="19" r="2"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metadata Strip -->
+        <div class="batch-meta-strip">
+          <div class="meta-item">
+            <span class="meta-label">TOTAL AMOUNT</span>
+            <span class="meta-value font-bold">INR {{ formatINR(batchData?.batchDetails?.totalAmount) }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">EMPLOYEES</span>
+            <span class="meta-value">{{ batchData?.batchDetails?.employeesCount || 244 }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">ACCOUNT NUMBER</span>
+            <span class="meta-value">{{ batchData?.corporateBank?.accountNumber || '--' }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">BANK NAME</span>
+            <span class="meta-value">{{ batchData?.corporateBank?.bankName || 'State Bank of India' }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">IFSC CODE</span>
+            <span class="meta-value">{{ batchData?.corporateBank?.ifscCode || 'SBIN0030434' }}</span>
+          </div>
+          <div class="meta-item meta-statement-links">
+            <span class="meta-label">TRANSFER STATEMENT</span>
+            <span class="statement-links">
+              <a (click)="downloadTransferStatement('text')">TEXT</a>
+              <span class="sep">|</span>
+              <a (click)="downloadTransferStatement('excel')">EXCEL</a>
+              <span class="sep">|</span>
+              <a (click)="downloadTransferStatement('pdf')">PDF</a>
+            </span>
+          </div>
+        </div>
+
+        <!-- Sub Navigation Tabs (Summary | Employees) -->
+        <div class="batch-sub-tabs">
+          <div class="sub-tab-item" [class.active]="activeSubTab === 'summary'" (click)="selectSubTab('summary')">
+            Summary
+          </div>
+          <div class="sub-tab-item" [class.active]="activeSubTab === 'employees'" (click)="selectSubTab('employees')">
+            Employees ({{ batchData?.batchedEmployees?.length || 0 }})
+          </div>
+        </div>
+
+        <!-- Tab Content 1: Summary (Bank Breakdown) -->
+        <div class="sub-tab-content" *ngIf="activeSubTab === 'summary'">
+          <div class="table-section-title">Bank Transfer</div>
+
+          <table class="payables-table">
+            <thead>
+              <tr>
+                <th class="th-name">NAME</th>
+                <th class="th-amount">AMOUNT</th>
+                <th class="th-employees">EMPLOYEES</th>
+                <th class="th-download">DOWNLOAD</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let bank of batchData?.bankSummary">
+                <td class="td-name font-medium">{{ bank.name }}</td>
+                <td class="td-amount">INR {{ formatINR(bank.amount) }}</td>
+                <td class="td-employees">{{ bank.employees }}</td>
+                <td class="td-download">
+                  <a class="download-link" (click)="downloadTransferStatement('text', bank.name)">TEXT</a>
+                  <span class="sep">|</span>
+                  <a class="download-link" (click)="downloadTransferStatement('excel', bank.name)">EXCEL</a>
+                  <span class="sep">|</span>
+                  <a class="download-link" (click)="downloadTransferStatement('pdf', bank.name)">PDF</a>
+                </td>
+              </tr>
+              <tr *ngIf="!batchData?.bankSummary?.length">
+                <td colspan="4" class="empty-cell">No bank records found for this period.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tab Content 2: Employees Breakdown -->
+        <div class="sub-tab-content" *ngIf="activeSubTab === 'employees'">
+          <!-- Filter / Search Toolbar -->
+          <div class="employees-toolbar">
+            <div class="search-box">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <input type="text" [(ngModel)]="searchTerm" placeholder="Search by name, employee # or bank..." />
+              <button class="clear-search" *ngIf="searchTerm" (click)="searchTerm = ''">✕</button>
+            </div>
+
+            <div class="filter-box">
+              <label>Bank Filter:</label>
+              <select [(ngModel)]="selectedBankFilter">
+                <option value="ALL">All Banks</option>
+                <option *ngFor="let b of getUniqueBanks()" [value]="b">{{ b }}</option>
+              </select>
+            </div>
+
+            <div class="record-counter">
+              Showing {{ getFilteredEmployees().length }} of {{ batchData?.batchedEmployees?.length || 0 }} employees
+            </div>
+          </div>
+
+          <!-- Employees Table -->
+          <table class="payables-table">
+            <thead>
+              <tr>
+                <th>EMPLOYEE NUMBER</th>
+                <th>EMPLOYEE NAME</th>
+                <th>BANK NAME</th>
+                <th>ACCOUNT NUMBER</th>
+                <th>IFSC CODE</th>
+                <th class="text-right">NET PAYABLE</th>
+                <th class="text-center">PAYMENT STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let emp of getFilteredEmployees()">
+                <td class="emp-no font-medium">{{ emp.employee_number }}</td>
+                <td>
+                  <div class="font-medium text-dark">{{ emp.full_name }}</div>
+                  <div class="text-muted text-xs">{{ emp.designation }} &bull; {{ emp.department }}</div>
+                </td>
+                <td>{{ emp.bank_name || '--' }}</td>
+                <td class="mono-font">{{ emp.account_number || '--' }}</td>
+                <td class="mono-font">{{ emp.ifsc_code || '--' }}</td>
+                <td class="text-right font-bold text-dark">INR {{ formatINR(emp.net_payable) }}</td>
+                <td class="text-center">
+                  <span class="status-badge" [ngClass]="emp.payment_status === 'PAID' ? 'badge-paid' : 'badge-not-paid'">
+                    {{ emp.payment_status }}
+                  </span>
+                </td>
+              </tr>
+              <tr *ngIf="!getFilteredEmployees().length">
+                <td colspan="7" class="empty-cell">No matching employee records found.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+      <!-- View 2: Non Batched Employees -->
+      <ng-container *ngIf="activeBatchId === 'non-batched'">
+        <!-- Batch Action Top Bar -->
+        <div class="batch-action-bar">
+          <div class="batch-title-group">
+            <h2 class="batch-title">Non Batched Employees</h2>
+            <div class="batch-subtitle">Employees requiring manual cash, cheque, or missing primary bank details</div>
+          </div>
+
+          <div class="batch-actions">
+            <button class="btn-download-statement" (click)="downloadTransferStatement('excel')">
+              <span>Export Non-Batched List</span>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metadata Strip -->
+        <div class="batch-meta-strip">
+          <div class="meta-item">
+            <span class="meta-label">TOTAL AMOUNT</span>
+            <span class="meta-value font-bold">INR {{ formatINR((batchData?.totals?.cashPayment || 0) + (batchData?.totals?.chequePayment || 0)) }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">EMPLOYEES</span>
+            <span class="meta-value">{{ batchData?.totals?.nonBatchedEmployeesCount || 1 }}</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">STATUS</span>
+            <span class="meta-value text-danger">BATCH NOT CREATED</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">PAYMENT MODES</span>
+            <span class="meta-value">Cash / Cheque / Unassigned</span>
+          </div>
+        </div>
+
+        <div class="sub-tab-content">
+          <table class="payables-table">
+            <thead>
+              <tr>
+                <th>EMPLOYEE NUMBER</th>
+                <th>EMPLOYEE NAME</th>
+                <th>DEPARTMENT</th>
+                <th>PAYMENT MODE</th>
+                <th class="text-right">NET PAYABLE</th>
+                <th class="text-center">STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let emp of batchData?.nonBatchedEmployees">
+                <td class="emp-no font-medium">{{ emp.employee_number }}</td>
+                <td class="font-medium text-dark">{{ emp.full_name }}</td>
+                <td>{{ emp.department }}</td>
+                <td><span class="mode-pill">{{ emp.payment_mode }}</span></td>
+                <td class="text-right font-bold text-dark">INR {{ formatINR(emp.net_payable) }}</td>
+                <td class="text-center">
+                  <span class="status-badge badge-not-created">BATCH NOT CREATED</span>
+                </td>
+              </tr>
+              <tr *ngIf="!batchData?.nonBatchedEmployees?.length">
+                <td colspan="6" class="empty-cell">All active employees are batched in the bank transfer statement.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+
+    </div>
+  </div>
+
+</div>
+
