@@ -814,6 +814,24 @@ router.post("/punch-out", auth, async (req, res) => {
 });
 
 /**
+ * Get active biometric devices map for attendance display
+ */
+router.get("/biometric-devices", auth, async (req, res) => {
+  let c;
+  try {
+    c = await db.getConnection();
+    const [devices] = await c.query(
+      "SELECT device_id, name, location FROM biometric_devices WHERE is_active = 1 OR is_active IS NULL ORDER BY CAST(device_id AS UNSIGNED) ASC"
+    );
+    res.json({ success: true, devices: devices || [] });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    if (c) c.release();
+  }
+});
+
+/**
  * Get Today's Attendance Status (Employee)
  */
 router.get("/today", auth, async (req, res) => {
@@ -942,18 +960,15 @@ router.get("/today", auth, async (req, res) => {
         `SELECT bp.id, 0 as attendance_id, bp.employee_id, bp.direction,
                 DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
                 DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
-                null as ip_address, bp.device_id as device_info,
-                CASE 
-                  WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-                  WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
-                  WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
-                  ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
-                END as location,
+                null as ip_address, bp.device_id as device_info, bp.device_id,
+                COALESCE(bd.name, CONCAT('Device #', bp.device_id)) as location,
+                bd.name as device_name,
                 'Biometric Punch' as notes,
                 'biometric' as source,
                 'Biometric' as work_mode,
                 bp.created_at
          FROM biometric_punches bp
+         LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
          WHERE bp.employee_id = ? AND bp.punch_date = ?
          ORDER BY bp.punch_time ASC`,
         [emp.id, shiftDate]
@@ -1126,19 +1141,18 @@ router.post("/bulk-status", auth, async (req, res) => {
            FROM attendance_punches
            WHERE employee_id IN (${placeholders}) AND punch_date = ?
            UNION ALL
-           SELECT employee_id, 
-                  CASE WHEN direction = 'out' THEN 'out' ELSE 'in' END as punch_type, 
-                  punch_time, 
+           SELECT bp.employee_id, 
+                  CASE WHEN bp.direction = 'out' THEN 'out' ELSE 'in' END as punch_type, 
+                  bp.punch_time, 
                   'Biometric' as work_mode, 
-                  CASE 
-                    WHEN device_id = '3' THEN '4th Floor SVS Towers'
-                    WHEN device_id = '2' THEN 'Main Door - 1st floor'
-                    WHEN device_id = '1' THEN '3rd Floor SVS Towers'
-                    ELSE CONCAT(COALESCE(device_id, 'Reader'), ' SVS Towers')
-                  END as location, 
+                  COALESCE(bd.name, CONCAT('Device #', bp.device_id)) as location,
+                  bp.device_id as device_info,
+                  bp.device_id,
+                  bd.name as device_name,
                   'Biometric Punch' as notes
-           FROM biometric_punches
-           WHERE employee_id IN (${placeholders}) AND punch_date = ?
+           FROM biometric_punches bp
+           LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
+           WHERE bp.employee_id IN (${placeholders}) AND bp.punch_date = ?
        ) p
        INNER JOIN (
            SELECT employee_id, MAX(ptime) as max_time
@@ -1483,18 +1497,15 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
       SELECT bp.id, 0 as attendance_id, bp.employee_id, bp.direction,
              DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
              DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
-             null as ip_address, bp.device_id as device_info,
-             CASE 
-               WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-               WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
-               WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
-               ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
-             END as location,
+             null as ip_address, bp.device_id as device_info, bp.device_id,
+             COALESCE(bd.name, CONCAT('Device #', bp.device_id)) as location,
+             bd.name as device_name,
              'Biometric Punch' as notes,
              'biometric' as source,
              'Biometric' as work_mode,
              bp.created_at
       FROM biometric_punches bp
+      LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
       WHERE bp.employee_id = ?
         AND (
           (bp.punch_date = ? OR (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < ?))
@@ -1773,15 +1784,12 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       SELECT bp.employee_id, 
              DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 
              DATE_FORMAT(bp.punch_date, '%Y-%m-%d') as punch_date,
-             bp.direction, bp.device_id,
-             CASE 
-               WHEN bp.device_id = '3' THEN '4th Floor SVS Towers'
-               WHEN bp.device_id = '2' THEN 'Main Door - 1st floor'
-               WHEN bp.device_id = '1' THEN '3rd Floor SVS Towers'
-               ELSE CONCAT(COALESCE(bp.device_id, 'Reader'), ' SVS Towers')
-             END as location,
+             bp.direction, bp.device_id, bp.device_id as device_info,
+             COALESCE(bd.name, CONCAT('Device #', bp.device_id)) as location,
+             bd.name as device_name,
              'biometric' as source
       FROM biometric_punches bp
+      LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
       WHERE bp.employee_id = ? AND bp.punch_date BETWEEN ? AND ?
       ORDER BY bp.punch_time ASC
     `, [targetEmpId, startStr, endStr]);

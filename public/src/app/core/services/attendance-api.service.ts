@@ -129,6 +129,10 @@ export class AttendanceApiService {
     return this.http.get<any>(`${this.BASE_URL}/report/employee/${employeeId}`, { headers: this.getHeaders(), params: httpParams });
   }
 
+  getBiometricDevices(): Observable<any> {
+    return this.http.get(`${this.BASE_URL}/biometric-devices`, { headers: this.getHeaders() });
+  }
+
   getAttendanceDetailsByDate(date: string, employeeId?: number): Observable<any> {
     if (employeeId) {
       return this.http.get(`${this.BASE_URL}/details/${date}/${employeeId}`, { headers: this.getHeaders() });

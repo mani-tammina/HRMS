@@ -92,6 +92,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
   missingLogConfigs: any[] = [];
+  deviceNamesMap: Map<string, string> = new Map();
 
   constructor(
     private attendanceService: AttendanceService,
@@ -195,6 +196,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
     const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
     const holidays$ = this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([])));
+    const devices$ = this.attendanceApi.getBiometricDevices().pipe(catchError(() => of({ devices: [] })));
 
     forkJoin({
       profile: profile$,
@@ -218,6 +220,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
+          if (res.devices?.devices && Array.isArray(res.devices.devices)) {
+            for (const d of res.devices.devices) {
+              if (d.device_id && d.name) {
+                this.deviceNamesMap.set(String(d.device_id).trim(), String(d.name).trim());
+              }
+            }
+          }
           this.todayResponse = res.today;
           this.todayPunches = res.today?.punches || [];
           this.missingLogConfigs = res.missingLogs || [];
@@ -911,22 +920,35 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       );
     };
 
+    const STATIC_DEVICE_NAMES: Record<string, string> = {
+      '1': 'SVS 3rd Floor',
+      '2': 'SVS 1st Floor',
+      '3': 'SVS 4th Floor',
+      '4': 'TSN 3RD SIDE A',
+      '5': 'TSN 3RD SIDE B',
+      '6': 'TSN 1ST FLOOR',
+      '7': 'TSN 2ND SIDE A',
+      '8': 'HYD',
+      '9': 'HYD SITE-B 1',
+      '10': 'HYD SITE-B 2'
+    };
+
     const isBiometric = (p: any): boolean => {
       if (!p) return false;
       const source = (p.source || '').toLowerCase();
       const workMode = (p.work_mode || '').toLowerCase();
       const notes = (p.notes || '').toLowerCase();
       const loc = (p.location || '').toLowerCase();
-      const dev = p.device_info != null ? String(p.device_info).trim() : '';
+      const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : (p.deviceId != null ? p.deviceId : ''))).trim();
 
       if (source === 'biometric' || workMode === 'biometric' || notes.includes('biometric')) {
         return true;
       }
       if (!isUserAgent(dev)) {
-        if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) {
+        if (dev && (/^\d+$/.test(dev) || this.deviceNamesMap.has(dev) || STATIC_DEVICE_NAMES[dev])) {
           return true;
         }
-        if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) {
+        if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || loc.includes('tsn') || loc.includes('hyd') || (loc.includes('floor') && !loc.includes('office'))) {
           return true;
         }
       }
@@ -934,29 +956,61 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     };
 
     const getBiometricLocationTitle = (p: any): string => {
-      const loc = (p.location || '').trim();
-      const dev = p.device_info != null ? String(p.device_info).trim() : '';
+      const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : (p.deviceId != null ? p.deviceId : ''))).trim();
+      const loc = String(p.device_name || p.location || '').trim();
       const lowerLoc = loc.toLowerCase();
 
-      if (lowerLoc.includes('main door') || lowerLoc.includes('door')) {
+      // 1. Dynamic device lookup from database (loaded via getBiometricDevices)
+      if (dev && this.deviceNamesMap.has(dev)) {
+        return this.deviceNamesMap.get(dev)!;
+      }
+
+      // 2. Static device map fallback for all registered devices
+      if (dev && STATIC_DEVICE_NAMES[dev]) {
+        return STATIC_DEVICE_NAMES[dev];
+      }
+
+      // 3. If loc is an official device name or clean location (not legacy SVS Towers fallback or generic reader)
+      if (loc && 
+          !lowerLoc.includes('reader') && 
+          !lowerLoc.startsWith('biometric device') && 
+          !lowerLoc.includes('office') && 
+          !lowerLoc.includes('mozilla') && 
+          !lowerLoc.includes('mumbai') &&
+          !lowerLoc.endsWith('svs towers') &&
+          loc !== 'Main Door - 1st floor') {
         return loc;
       }
-      if (dev === '2' || lowerLoc.includes('1st floor') || lowerLoc.includes('1st') || lowerLoc.includes('device (2)') || lowerLoc.includes('device 2')) {
-        return 'Main Door - 1st floor';
+
+      // 4. Map known site/floor substrings to proper device names
+      if (lowerLoc.includes('tsn 3rd side a') || lowerLoc.includes('side a')) return 'TSN 3RD SIDE A';
+      if (lowerLoc.includes('tsn 3rd side b') || lowerLoc.includes('side b')) return 'TSN 3RD SIDE B';
+      if (lowerLoc.includes('tsn 1st')) return 'TSN 1ST FLOOR';
+      if (lowerLoc.includes('tsn 2nd')) return 'TSN 2ND SIDE A';
+      if (lowerLoc.includes('hyd')) return 'HYD';
+      if (lowerLoc.includes('1st floor') || lowerLoc.includes('main door')) return 'SVS 1st Floor';
+      if (lowerLoc.includes('4th floor')) return 'SVS 4th Floor';
+      if (lowerLoc.includes('3rd floor')) return 'SVS 3rd Floor';
+
+      // 5. Look for device number patterns in loc string e.g. "Device #4" or "4 SVS Towers"
+      const numMatch = loc.match(/(?:device\s*#?|#)\s*(\d+)/i) || loc.match(/^(\d+)\s+svs\s+towers/i);
+      if (numMatch && numMatch[1]) {
+        const num = numMatch[1];
+        if (this.deviceNamesMap.has(num)) return this.deviceNamesMap.get(num)!;
+        if (STATIC_DEVICE_NAMES[num]) return STATIC_DEVICE_NAMES[num];
+        return `Device #${num}`;
       }
-      if (dev === '3' || lowerLoc.includes('4th floor') || lowerLoc.includes('4th') || lowerLoc.includes('device (3)') || lowerLoc.includes('device 3')) {
-        return '4th Floor SVS Towers';
-      }
-      if (dev === '1' || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd') || lowerLoc.includes('device (1)') || lowerLoc.includes('device 1')) {
-        return '3rd Floor SVS Towers';
-      }
+
+      // 6. Generic numeric device fallback
       if (dev && /^\d+$/.test(dev)) {
-        return `${dev} Floor SVS Towers`;
+        return `Device #${dev}`;
       }
-      if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai') && !lowerLoc.includes('mozilla')) {
+
+      if (loc && !lowerLoc.includes('mozilla') && !lowerLoc.includes('chrome')) {
         return loc;
       }
-      return 'Main Door - 1st floor';
+
+      return 'SVS 1st Floor';
     };
 
     const getSoftwarePunchMode = (p: any): string => {
@@ -1084,7 +1138,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     // Sort location groups chronologically by earliest punch
-    const floorOrder = ['Web Clock In', 'Remote Clock In', 'Work From Home', 'Biometric Clock In', 'Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers'];
+    const floorOrder = [
+      'Web Clock In', 'Remote Clock In', 'Work From Home', 'Biometric Clock In',
+      'SVS 1st Floor', 'SVS 3rd Floor', 'SVS 4th Floor',
+      'TSN 1ST FLOOR', 'TSN 2ND SIDE A', 'TSN 3RD SIDE A', 'TSN 3RD SIDE B',
+      'HYD', 'HYD SITE-B 1', 'HYD SITE-B 2',
+      'Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers'
+    ];
     const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
       const timeA = a.sessions?.[0]?.rawTime || 0;
       const timeB = b.sessions?.[0]?.rawTime || 0;

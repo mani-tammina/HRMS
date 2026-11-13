@@ -479,9 +479,19 @@ router.get('/devices', auth, biometricAuth, async (req, res) => {
     const devices = rows.map(r => {
       const lastPunch = r.last_punch_time ? new Date(r.last_punch_time) : null;
       const hoursAgo = lastPunch ? (now - lastPunch) / (1000 * 60 * 60) : 999;
+
+      const lastSync = r.updated_at ? new Date(r.updated_at) : null;
+      const syncMinutesAgo = lastSync ? (now - lastSync) / (1000 * 60) : 99999;
+
+      // Machine is ONLINE if:
+      // 1. It successfully connected/synced with the server recently (within 15 mins), OR
+      // 2. An employee recorded a punch on it within the last 24 hours.
+      const isOnline = syncMinutesAgo <= 15 || hoursAgo < 24;
+      const isIdle = syncMinutesAgo <= 60 || hoursAgo < 72;
+
       const status = r.config_status === 'inactive' 
         ? 'offline' 
-        : (hoursAgo < 24 ? 'online' : (hoursAgo < 72 ? 'idle' : 'offline'));
+        : (isOnline ? 'online' : (isIdle ? 'idle' : 'offline'));
 
       return {
         id: r.id,

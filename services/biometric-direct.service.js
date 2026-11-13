@@ -9,12 +9,51 @@
  */
 
 const ZKLib = require('node-zklib');
+
+// Defensive runtime monkey-patch on node-zklib TCP & UDP to eliminate ERR_STREAM_WRITE_AFTER_END crashes
+try {
+  const ZKLibTCP = require('node-zklib/zklibtcp');
+  if (ZKLibTCP && ZKLibTCP.prototype) {
+    const origWriteMessage = ZKLibTCP.prototype.writeMessage;
+    ZKLibTCP.prototype.writeMessage = function (msg, connect) {
+      if (!this.socket || this.socket.destroyed || this.socket.writableEnded || !this.socket.writable) {
+        return Promise.reject(new Error('SOCKET_NOT_WRITABLE_OR_ENDED'));
+      }
+      return origWriteMessage.call(this, msg, connect);
+    };
+
+    ZKLibTCP.prototype.freeData = async function () {
+      if (!this.socket || this.socket.destroyed || this.socket.writableEnded || !this.socket.writable) {
+        return null;
+      }
+      try {
+        return await this.executeCmd(1008 /* CMD_FREE_DATA */, '');
+      } catch (_) {
+        return null;
+      }
+    };
+  }
+
+  const ZKLibUDP = require('node-zklib/zklibudp');
+  if (ZKLibUDP && ZKLibUDP.prototype) {
+    ZKLibUDP.prototype.freeData = async function () {
+      if (!this.socket) return null;
+      try {
+        return await this.executeCmd(1008 /* CMD_FREE_DATA */, '');
+      } catch (_) {
+        return null;
+      }
+    };
+  }
+} catch (_) {}
+
 const { db } = require('../config/database');
 const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour, getMorningCutoffHour } = require('../utils/shift-helper');
 const { recalculateDailyBiometric, getEmployeeLookupMap } = require('./biometric-sync.service');
 
 const SOURCE_SYSTEM = 'DIRECT_DEVICE';
 let isDirectSyncRunning = false;
+const activeDeviceSyncs = new Set();
 
 function formatDateTime(dateObj) {
   if (!dateObj) return null;
@@ -241,11 +280,17 @@ async function syncSingleDevice(device, forceFullSync = false) {
     port = parseInt(parts[1], 10) || 4370;
   }
 
+  const devLockKey = String(device.id || device.device_id || host);
+  if (activeDeviceSyncs.has(devLockKey)) {
+    return { success: false, message: `Sync already in progress for device #${device.device_id} (${device.name}).` };
+  }
+  activeDeviceSyncs.add(devLockKey);
+
   console.log(`📡 [DirectBiometric] Connecting to Device #${device.device_id} (${device.name}) at ${host}:${port}...`);
 
   // Silent error callback to intercept unhandled socket events from node-zklib
   const safeSocketError = (err) => {
-    // Suppress uncaught socket errors (ECONNRESET, ETIMEDOUT, EPIPE)
+    // Suppress uncaught socket errors (ERR_STREAM_WRITE_AFTER_END, ECONNRESET, ETIMEDOUT, EPIPE)
   };
 
   const zk = new ZKLib(host, port, 10000, 4000);
@@ -262,11 +307,11 @@ async function syncSingleDevice(device, forceFullSync = false) {
       zk.zklibUdp.socket.on('error', safeSocketError);
     }
 
-    // 2. Fetch logs from device with strict 45-second timeout to prevent hung sockets
+    // 2. Fetch logs from device with 90-second timeout to allow large log dumps (70k+ logs)
     const res = await Promise.race([
       zk.getAttendances(),
       new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout of 45s exceeded reading logs from ${host}:${port}`)), 45000)
+        setTimeout(() => reject(new Error(`Timeout of 90s exceeded reading logs from ${host}:${port}`)), 90000)
       )
     ]);
     const records = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
@@ -343,14 +388,8 @@ async function syncSingleDevice(device, forceFullSync = false) {
       WHERE id = ?
     `, [device.id]);
 
-    // 6. Graceful cleanup and disconnect
+    // 6. Graceful cleanup and disconnect (safe listeners remain attached during teardown)
     try {
-      if (zk.zklibTcp && zk.zklibTcp.socket) {
-        zk.zklibTcp.socket.removeAllListeners('error');
-      }
-      if (zk.zklibUdp && zk.zklibUdp.socket) {
-        zk.zklibUdp.socket.removeAllListeners('error');
-      }
       await zk.disconnect();
     } catch (_) {}
 
@@ -365,12 +404,6 @@ async function syncSingleDevice(device, forceFullSync = false) {
   } catch (err) {
     console.warn(`⚠️ [DirectBiometric] Connection error to ${device.name} (${host}:${port}):`, err.message);
     try {
-      if (zk.zklibTcp && zk.zklibTcp.socket) {
-        zk.zklibTcp.socket.removeAllListeners('error');
-      }
-      if (zk.zklibUdp && zk.zklibUdp.socket) {
-        zk.zklibUdp.socket.removeAllListeners('error');
-      }
       await zk.disconnect();
     } catch (_) {}
     return {
@@ -379,6 +412,8 @@ async function syncSingleDevice(device, forceFullSync = false) {
       name: device.name,
       error: err.message
     };
+  } finally {
+    activeDeviceSyncs.delete(devLockKey);
   }
 }
 
