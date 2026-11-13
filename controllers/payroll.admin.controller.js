@@ -1760,46 +1760,37 @@ async function getPaymentBatches(req, res) {
     const isPaid = currentRun && (currentRun.status === 'PAID');
 
     // 2. Fetch all working employees directly mapped from Employee_BankDetails
-    let [employees] = await c.query(`
+    const [employees] = await c.query(`
       SELECT e.id, e.EmployeeNumber, e.FullName, e.DepartmentId,
              COALESCE(bd.Department, dept.name, 'Operations') as Department,
              e.DesignationId, 
              COALESCE(d.name, 'Software Associate') as Designation,
              esc.annual_ctc,
              COALESCE(bd.PaymentMode, 'Bank Transfer') as payment_mode,
-             COALESCE(bd.Bank, ba.bank_name, 'State Bank of India') as bank_name,
-             COALESCE(bd.IFSCCode, ba.ifsc_code, 'SBIN0030434') as ifsc_code,
-             COALESCE(bd.BankAccountNo, ba.account_number, '') as account_number
-      FROM Employee_BankDetails bd
-      JOIN employees e ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
+             CASE 
+                 WHEN bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' THEN bd.Bank
+                 WHEN ba.bank_name IS NOT NULL AND ba.bank_name != '' THEN ba.bank_name
+                 ELSE 'No Bank Details'
+             END as bank_name,
+             CASE 
+                 WHEN bd.IFSCCode IS NOT NULL AND bd.IFSCCode != '' AND bd.IFSCCode != 'N/A' THEN bd.IFSCCode
+                 WHEN ba.ifsc_code IS NOT NULL AND ba.ifsc_code != '' THEN ba.ifsc_code
+                 ELSE 'N/A'
+             END as ifsc_code,
+             CASE 
+                 WHEN bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A' THEN bd.BankAccountNo
+                 WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
+                 ELSE 'N/A'
+             END as account_number
+      FROM employees e
+      LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
       LEFT JOIN departments dept ON dept.id = e.DepartmentId
       LEFT JOIN designations d ON d.id = e.DesignationId
       LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
       LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
       WHERE e.EmploymentStatus = 'Working'
-      ORDER BY bd.id ASC
+      ORDER BY e.id ASC
     `);
-
-    // Fallback if Employee_BankDetails is empty
-    if (!employees || employees.length === 0) {
-      [employees] = await c.query(`
-        SELECT e.id, e.EmployeeNumber, e.FullName, e.DepartmentId, dept.name as Department,
-               e.DesignationId, d.name as Designation,
-               esc.annual_ctc,
-               COALESCE(bd.PaymentMode, 'Bank Transfer') as payment_mode,
-               COALESCE(bd.Bank, ba.bank_name, 'State Bank of India') as bank_name,
-               COALESCE(bd.IFSCCode, ba.ifsc_code, 'SBIN0030434') as ifsc_code,
-               COALESCE(bd.BankAccountNo, ba.account_number, '') as account_number
-        FROM employees e
-        LEFT JOIN departments dept ON dept.id = e.DepartmentId
-        LEFT JOIN designations d ON d.id = e.DesignationId
-        LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
-        LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
-        LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
-        WHERE e.EmploymentStatus = 'Working'
-        ORDER BY e.id ASC
-      `);
-    }
 
     // 3. Fetch slips if run exists
     const slipMap = new Map();
@@ -1835,8 +1826,23 @@ async function getPaymentBatches(req, res) {
       totalSalaries += netPay;
 
       const pMode = String(emp.payment_mode || 'Bank Transfer').trim().toLowerCase();
+      const hasBankDetails = emp.bank_name !== 'No Bank Details' && emp.account_number && emp.account_number !== 'N/A';
 
-      if (pMode === 'cash') {
+      if (!hasBankDetails && pMode !== 'cash' && pMode !== 'cheque') {
+        nonBatchedEmployees.push({
+          id: emp.id,
+          employee_number: emp.EmployeeNumber,
+          full_name: emp.FullName,
+          department: emp.Department || 'Operations',
+          designation: emp.Designation || 'Associate',
+          payment_mode: emp.payment_mode || 'Not Set',
+          bank_name: 'No Bank Details',
+          account_number: 'N/A',
+          ifsc_code: 'N/A',
+          net_payable: netPay,
+          payment_status: 'NO BANK DETAILS'
+        });
+      } else if (pMode === 'cash') {
         cashTotal += netPay;
         nonBatchedEmployees.push({
           id: emp.id,
@@ -1869,7 +1875,7 @@ async function getPaymentBatches(req, res) {
       } else {
         // Bank Transfer
         bankTransferTotal += netPay;
-        const bName = emp.bank_name || 'State Bank of India';
+        const bName = emp.bank_name;
 
         batchedEmployees.push({
           id: emp.id,
@@ -1975,71 +1981,174 @@ async function exportTransferStatement(req, res) {
     const format = (req.query.format || 'excel').toLowerCase();
     const filterBank = req.query.bank ? req.query.bank.trim() : null;
 
+    const parsed = parseMonthInput(monthInput) || { year: new Date().getFullYear(), month: new Date().getMonth() + 1 };
+    const { year, month } = parsed;
+
     c = await db();
 
-    let [employees] = await c.query(`
-      SELECT e.id, e.EmployeeNumber, e.FullName,
-             bd.Bank as bank_name,
-             bd.IFSCCode as ifsc_code,
-             bd.BankAccountNo as account_number,
-             esc.annual_ctc
-      FROM Employee_BankDetails bd
-      JOIN employees e ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
-      LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
-      WHERE e.EmploymentStatus = 'Working' AND (bd.PaymentMode IS NULL OR LOWER(bd.PaymentMode) = 'bank transfer')
-      ORDER BY bd.id ASC
-    `);
+    // 1. Get latest payroll run & slips for this month/cycle to get exact salary
+    const [runs] = await c.query(
+      `SELECT r.* FROM payroll_runs r
+       JOIN payroll_cycles cy ON cy.id = r.cycle_id
+       WHERE cy.year = ? AND cy.month = ?
+       ORDER BY r.id DESC LIMIT 1`,
+      [year, month]
+    );
+    const currentRun = runs[0] || null;
 
-    if (!employees || employees.length === 0) {
-      [employees] = await c.query(`
-        SELECT e.id, e.EmployeeNumber, e.FullName,
-               COALESCE(bd.Bank, ba.bank_name, 'State Bank of India') as bank_name,
-               COALESCE(bd.IFSCCode, ba.ifsc_code, 'SBIN0030434') as ifsc_code,
-               COALESCE(bd.BankAccountNo, ba.account_number, '') as account_number,
-               esc.annual_ctc
-        FROM employees e
-        LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
-        LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
-        LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
-        WHERE e.EmploymentStatus = 'Working'
-        ORDER BY e.id ASC
-      `);
+    const slipMap = new Map();
+    if (currentRun) {
+      try {
+        const [slips] = await c.query(
+          'SELECT employee_id, net_pay, total_net_pay FROM payroll_slips WHERE payroll_run_id = ?',
+          [currentRun.id]
+        );
+        slips.forEach(s => slipMap.set(s.employee_id, Number(s.total_net_pay || s.net_pay || 0)));
+      } catch (_) {}
     }
 
-    const records = [];
-    employees.forEach((emp) => {
-      const bName = emp.bank_name || 'State Bank of India';
-      if (filterBank && bName.toLowerCase() !== filterBank.toLowerCase()) {
-        return;
-      }
-      const accNum = emp.account_number || `4231114${String(emp.id).padStart(4, '0')}`;
-      const netPay = emp.annual_ctc && Number(emp.annual_ctc) > 0 ? Math.round((Number(emp.annual_ctc) / 12) * 0.88) : (25000 + ((emp.id * 890) % 35000));
+    // 2. Query working employees with valid bank mapping
+    let [employees] = await c.query(`
+      SELECT e.id, e.EmployeeNumber, e.FullName, e.DepartmentId,
+             COALESCE(bd.Department, dept.name, 'Operations') as Department,
+             COALESCE(bd.PaymentMode, 'Bank Transfer') as PaymentMode,
+             CASE 
+                 WHEN bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' THEN bd.Bank
+                 WHEN ba.bank_name IS NOT NULL AND ba.bank_name != '' THEN ba.bank_name
+                 ELSE NULL
+             END as Bank,
+             CASE 
+                 WHEN bd.IFSCCode IS NOT NULL AND bd.IFSCCode != '' AND bd.IFSCCode != 'N/A' THEN bd.IFSCCode
+                 WHEN ba.ifsc_code IS NOT NULL AND ba.ifsc_code != '' THEN ba.ifsc_code
+                 ELSE NULL
+             END as IFSCCode,
+             CASE 
+                 WHEN bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A' THEN bd.BankAccountNo
+                 WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
+                 ELSE NULL
+             END as BankAccountNo,
+             esc.annual_ctc
+      FROM employees e
+      LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
+      LEFT JOIN departments dept ON dept.id = e.DepartmentId
+      LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
+      LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
+      WHERE e.EmploymentStatus = 'Working'
+        AND (bd.PaymentMode IS NULL OR LOWER(bd.PaymentMode) = 'bank transfer')
+        AND (
+          (bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' AND bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A')
+          OR
+          (ba.bank_name IS NOT NULL AND ba.bank_name != '' AND ba.account_number IS NOT NULL AND ba.account_number != '')
+        )
+      ORDER BY e.id ASC
+    `);
 
-      records.push({
-        'Employee ID': emp.EmployeeNumber,
-        'Beneficiary Name': emp.FullName,
-        'Account Number': accNum,
-        'IFSC Code': emp.ifsc_code || 'SBIN0030434',
-        'Bank Name': bName,
-        'Amount': netPay,
-        'Payment Mode': 'NEFT/RTGS',
-        'Narration': `Salary for ${monthInput}`
-      });
-    });
+    if (filterBank) {
+      employees = employees.filter(emp => emp.Bank && emp.Bank.toLowerCase() === filterBank.toLowerCase());
+    }
+
+    function formatMonthForBankStatement(mInput) {
+      const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      if (!mInput) {
+        const d = new Date();
+        return `${MONTH_NAMES[d.getMonth()]}, ${d.getFullYear()}`;
+      }
+      const p = String(mInput).split('-');
+      if (p.length >= 2) {
+        const y = parseInt(p[0], 10);
+        const m = parseInt(p[1], 10);
+        if (!isNaN(y) && !isNaN(m) && m >= 1 && m <= 12) {
+          return `${MONTH_NAMES[m - 1]}, ${y}`;
+        }
+      }
+      return mInput;
+    }
 
     if (format === 'text') {
       let txt = "RECORD_TYPE|EMP_ID|BENEFICIARY_NAME|ACCOUNT_NO|IFSC_CODE|AMOUNT|REMARKS\n";
-      records.forEach(r => {
-        txt += `PAY|${r['Employee ID']}|${r['Beneficiary Name']}|${r['Account Number']}|${r['IFSC Code']}|${r['Amount']}|${r['Narration']}\n`;
+      employees.forEach(emp => {
+        let netPay = 0;
+        if (slipMap.has(emp.id)) {
+          netPay = Math.round(slipMap.get(emp.id));
+        } else if (emp.annual_ctc && Number(emp.annual_ctc) > 0) {
+          netPay = Math.round((Number(emp.annual_ctc) / 12) * 0.88);
+        } else {
+          netPay = 25000 + ((emp.id * 890) % 35000);
+        }
+        txt += `PAY|${emp.EmployeeNumber}|${emp.FullName}|${emp.BankAccountNo}|${emp.IFSCCode}|${netPay}|Salary for ${monthInput}\n`;
       });
       res.setHeader('Content-Type', 'text/plain');
       res.setHeader('Content-Disposition', `attachment; filename=Transfer_Statement_${monthInput}.txt`);
       return res.send(txt);
     } else {
+      const monthHeaderStr = formatMonthForBankStatement(monthInput);
+      const titleText = `Bank Transfer Statement for the month of ${monthHeaderStr}`;
+      const currencyText = 'Currency : INR';
+
+      const aoa = [
+        [titleText],
+        [currencyText],
+        [
+          'S NO',
+          'Empno.',
+          'Name',
+          'Department',
+          'Payment Mode',
+          'Bank',
+          'IFSCCode',
+          'Bank Account No',
+          'Payment For',
+          'Amount'
+        ]
+      ];
+
+      employees.forEach((emp, index) => {
+        let netPay = 0;
+        if (slipMap.has(emp.id)) {
+          netPay = Math.round(slipMap.get(emp.id));
+        } else if (emp.annual_ctc && Number(emp.annual_ctc) > 0) {
+          netPay = Math.round((Number(emp.annual_ctc) / 12) * 0.88);
+        } else {
+          netPay = 25000 + ((emp.id * 890) % 35000);
+        }
+
+        aoa.push([
+          index + 1,
+          emp.EmployeeNumber || `STSS-${emp.id}`,
+          emp.FullName || '',
+          emp.Department || 'Operations',
+          emp.PaymentMode || 'Bank Transfer',
+          emp.Bank || '',
+          emp.IFSCCode || '',
+          emp.BankAccountNo || '',
+          'Salary',
+          netPay
+        ]);
+      });
+
       const XLSX = require('xlsx');
       const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(records);
-      XLSX.utils.book_append_sheet(wb, ws, 'Transfer Statement');
+      const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } }
+      ];
+
+      ws['!cols'] = [
+        { wch: 8 },  // S NO
+        { wch: 15 }, // Empno.
+        { wch: 28 }, // Name
+        { wch: 24 }, // Department
+        { wch: 16 }, // Payment Mode
+        { wch: 26 }, // Bank
+        { wch: 16 }, // IFSCCode
+        { wch: 22 }, // Bank Account No
+        { wch: 16 }, // Payment For
+        { wch: 16 }  // Amount
+      ];
+
+      XLSX.utils.book_append_sheet(wb, ws, 'Bank Transfer Statement');
       const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename=Transfer_Statement_${monthInput}.xlsx`);

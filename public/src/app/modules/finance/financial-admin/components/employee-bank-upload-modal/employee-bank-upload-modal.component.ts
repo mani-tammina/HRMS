@@ -19,7 +19,16 @@ export class EmployeeBankUploadModalComponent implements OnInit {
   searchQuery = '';
   selectedFileName = '';
 
+  activeTab: 'all' | 'available' | 'missing' = 'all';
+  selectedPaymentMode = 'ALL';
+
   records: any[] = [];
+  stats = {
+    total: 0,
+    available: 0,
+    missing: 0,
+  };
+
   uploadResult: {
     processed: number;
     inserted: number;
@@ -43,12 +52,89 @@ export class EmployeeBankUploadModalComponent implements OnInit {
     this.financeService.getEmployeeBankDetails(this.searchQuery).subscribe({
       next: (res) => {
         this.records = Array.isArray(res?.data) ? res.data : [];
+        if (res?.stats) {
+          this.stats = res.stats;
+        } else {
+          this.recalculateStats();
+        }
         this.isLoading = false;
       },
       error: (err) => {
         this.isLoading = false;
         this.toaster.showError(err?.error?.message || 'Failed to load bank details');
       },
+    });
+  }
+
+  recalculateStats(): void {
+    this.stats.total = this.records.length;
+    this.stats.available = this.records.filter((r) => this.isBankAvailable(r)).length;
+    this.stats.missing = this.records.filter((r) => !this.isBankAvailable(r)).length;
+  }
+
+  isBankAvailable(row: any): boolean {
+    if (row.bank_status === 'AVAILABLE') return true;
+    if (row.bank_status === 'MISSING') return false;
+    const b = (row.Bank || '').trim();
+    const acc = (row.BankAccountNo || '').trim();
+    return Boolean(b && b !== 'No Bank Details' && b !== 'N/A' && acc && acc !== 'N/A');
+  }
+
+  setTab(tab: 'all' | 'available' | 'missing'): void {
+    this.activeTab = tab;
+  }
+
+  getUniquePaymentModes(): string[] {
+    const modes = new Set<string>();
+    this.records.forEach((r) => {
+      const mode = (r.PaymentMode || 'Not Set').trim();
+      if (mode) modes.add(mode);
+    });
+    return Array.from(modes).sort();
+  }
+
+  getFilteredRecords(): any[] {
+    return this.records.filter((row) => {
+      // 1. Tab filter
+      const available = this.isBankAvailable(row);
+      if (this.activeTab === 'available' && !available) {
+        return false;
+      }
+      if (this.activeTab === 'missing' && available) {
+        return false;
+      }
+
+      // 2. Payment mode filter
+      if (this.selectedPaymentMode !== 'ALL') {
+        const mode = (row.PaymentMode || 'Not Set').trim().toLowerCase();
+        if (mode !== this.selectedPaymentMode.trim().toLowerCase()) {
+          return false;
+        }
+      }
+
+      // 3. Search query filter
+      if (this.searchQuery && this.searchQuery.trim()) {
+        const q = this.searchQuery.trim().toLowerCase();
+        const empno = (row.Empno || '').toLowerCase();
+        const name = (row.Name || '').toLowerCase();
+        const dept = (row.Department || '').toLowerCase();
+        const bank = (row.Bank || '').toLowerCase();
+        const ifsc = (row.IFSCCode || '').toLowerCase();
+        const acc = (row.BankAccountNo || '').toLowerCase();
+        const mode = (row.PaymentMode || '').toLowerCase();
+
+        return (
+          empno.includes(q) ||
+          name.includes(q) ||
+          dept.includes(q) ||
+          bank.includes(q) ||
+          ifsc.includes(q) ||
+          acc.includes(q) ||
+          mode.includes(q)
+        );
+      }
+
+      return true;
     });
   }
 
@@ -115,7 +201,6 @@ export class EmployeeBankUploadModalComponent implements OnInit {
   }
 
   dismiss(): void {
-    this.modalCtrl.dismiss({ count: this.records.length });
+    this.modalCtrl.dismiss({ count: this.stats.available || this.records.length });
   }
 }
-

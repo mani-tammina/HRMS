@@ -166,6 +166,74 @@
   }
 }
 
+/* ── Filter Tabs Bar ─────────────────────────────────────────── */
+.modal-tabs-bar {
+  display: flex;
+  gap: 8px;
+  border-bottom: 2px solid #e2e8f0;
+  padding-bottom: 2px;
+  overflow-x: auto;
+
+  .tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 8px 8px 0 0;
+    position: relative;
+    transition: all 0.18s ease;
+
+    &:hover {
+      color: #1e293b;
+      background: #f1f5f9;
+    }
+
+    &.active {
+      color: #1e73bb;
+      border-bottom: 2px solid #1e73bb;
+      margin-bottom: -4px;
+      background: #ffffff;
+      font-weight: 700;
+    }
+
+    &.tab-btn-warning {
+      &.active {
+        color: #dc2626;
+        border-bottom-color: #dc2626;
+      }
+    }
+  }
+
+  .tab-badge {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-weight: 700;
+
+    &.badge-all {
+      background: #f1f5f9;
+      color: #475569;
+    }
+
+    &.badge-available {
+      background: #dcfce7;
+      color: #15803d;
+    }
+
+    &.badge-missing {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+  }
+}
+
+/* ── Search & Filter Toolbar ──────────────────────────────── */
 .table-toolbar {
   display: flex;
   align-items: center;
@@ -210,18 +278,50 @@
     }
   }
 
+  .filter-dropdown-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: #475569;
+
+    label {
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    select {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 6px 12px;
+      font-size: 12.5px;
+      background: #ffffff;
+      color: #0f172a;
+      outline: none;
+      cursor: pointer;
+      font-weight: 500;
+      transition: border-color 0.2s ease;
+
+      &:focus {
+        border-color: #1e73bb;
+      }
+    }
+  }
+
   .record-count {
     font-size: 13px;
     color: #475569;
+    white-space: nowrap;
   }
 }
 
+/* ── Table Styling ────────────────────────────────────────── */
 .table-scroll {
   background: #ffffff;
   border: 1px solid #e2e8f0;
   border-radius: 10px;
   overflow-x: auto;
-  max-height: 360px;
+  max-height: 420px;
 }
 
 .bank-table {
@@ -236,32 +336,140 @@
     color: #475569;
     font-weight: 700;
     text-align: left;
-    padding: 10px 12px;
+    padding: 11px 14px;
     border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
+    z-index: 2;
   }
 
   td {
-    padding: 10px 12px;
+    padding: 10px 14px;
     color: #1e293b;
     border-bottom: 1px solid #f1f5f9;
     white-space: nowrap;
 
     &.mono {
       font-family: monospace;
+      font-size: 12px;
+    }
+
+    &.font-semibold {
+      font-weight: 600;
+    }
+
+    .emp-name-text {
+      font-weight: 500;
+      color: #0f172a;
+    }
+
+    .bank-name-text {
+      font-weight: 500;
+      color: #1e293b;
     }
   }
 
-  tbody tr:hover {
-    background: #f8fafc;
+  tbody tr {
+    transition: background-color 0.15s ease;
+
+    &:hover {
+      background: #f8fafc;
+    }
+
+    &.row-missing-bank {
+      background: #fffbfb;
+
+      &:hover {
+        background: #fff1f2;
+      }
+    }
+  }
+}
+
+/* ── Badges & Status Pills ────────────────────────────────── */
+.badge-no-bank {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  border: 1px solid #fecaca;
+
+  ion-icon {
+    font-size: 14px;
+  }
+}
+
+.mode-pill {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+
+  &.bank-transfer {
+    background: #eff6ff;
+    color: #1d4ed8;
+  }
+
+  &.cheque {
+    background: #fef3c7;
+    color: #b45309;
+  }
+
+  &.cash {
+    background: #f3e8ff;
+    color: #7e22ce;
+  }
+
+  &.not-set {
+    background: #f1f5f9;
+    color: #64748b;
+  }
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+
+  ion-icon {
+    font-size: 13px;
+  }
+
+  &.status-available {
+    background: #ecfdf5;
+    color: #059669;
+  }
+
+  &.status-missing {
+    background: #fff1f2;
+    color: #e11d48;
   }
 }
 
 .loading-box,
 .empty-box {
-  padding: 28px 16px;
+  padding: 36px 16px;
   text-align: center;
   font-size: 13px;
   color: #64748b;
-}
 
+  .empty-icon {
+    font-size: 36px;
+    color: #cbd5e1;
+    margin-bottom: 8px;
+  }
+
+  p {
+    margin: 0;
+  }
+}

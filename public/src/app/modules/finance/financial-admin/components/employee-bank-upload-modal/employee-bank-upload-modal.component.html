@@ -1,6 +1,6 @@
 <ion-header class="ion-no-border">
   <ion-toolbar class="modal-toolbar">
-    <ion-title>Employee Bank Details — Excel Upload</ion-title>
+    <ion-title>Employee Bank Details — Management & Excel Upload</ion-title>
     <ion-buttons slot="end">
       <ion-button (click)="dismiss()" aria-label="Close">
         <ion-icon name="close-outline" slot="icon-only"></ion-icon>
@@ -72,7 +72,37 @@
       </div>
     </div>
 
-    <!-- Search & Table Header -->
+    <!-- ── Filter Tabs ─────────────────────────────────────────── -->
+    <div class="modal-tabs-bar">
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'all'"
+        (click)="setTab('all')">
+        <span class="tab-title">All Employees</span>
+        <span class="tab-badge badge-all">{{ stats.total }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn"
+        [class.active]="activeTab === 'available'"
+        (click)="setTab('available')">
+        <span class="tab-title">Bank Details Available</span>
+        <span class="tab-badge badge-available">{{ stats.available }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="tab-btn tab-btn-warning"
+        [class.active]="activeTab === 'missing'"
+        (click)="setTab('missing')">
+        <span class="tab-title">No Bank Details</span>
+        <span class="tab-badge badge-missing">{{ stats.missing }}</span>
+      </button>
+    </div>
+
+    <!-- ── Search & Filter Toolbar ──────────────────────────────── -->
     <div class="table-toolbar">
       <div class="search-box">
         <ion-icon name="search-outline"></ion-icon>
@@ -83,14 +113,28 @@
           placeholder="Search by Empno, Name, Department, Bank, IFSC..." />
         <button type="button" class="btn-search" (click)="onSearchChange()">Search</button>
       </div>
-      <div class="record-count">Total Records: <strong>{{ records.length }}</strong></div>
+
+      <!-- Payment Mode Dropdown -->
+      <div class="filter-dropdown-wrap">
+        <label for="paymentModeSelect">Payment Mode:</label>
+        <select id="paymentModeSelect" [(ngModel)]="selectedPaymentMode">
+          <option value="ALL">All Payment Modes</option>
+          <option *ngFor="let mode of getUniquePaymentModes()" [value]="mode">
+            {{ mode }}
+          </option>
+        </select>
+      </div>
+
+      <div class="record-count">
+        Showing <strong>{{ getFilteredRecords().length }}</strong> of {{ records.length }}
+      </div>
     </div>
 
-    <!-- Table Preview -->
+    <!-- ── Table Preview ────────────────────────────────────────── -->
     <div class="table-scroll">
-      <div class="loading-box" *ngIf="isLoading">Loading bank details...</div>
+      <div class="loading-box" *ngIf="isLoading">Loading employee bank records...</div>
 
-      <table class="bank-table" *ngIf="!isLoading && records.length > 0">
+      <table class="bank-table" *ngIf="!isLoading && getFilteredRecords().length > 0">
         <thead>
           <tr>
             <th>Empno</th>
@@ -100,25 +144,47 @@
             <th>Bank</th>
             <th>IFSCCode</th>
             <th>Bank Account No</th>
+            <th class="text-center">Status</th>
           </tr>
         </thead>
         <tbody>
-          <tr *ngFor="let row of records">
-            <td class="mono">{{ row.Empno || 'N/A' }}</td>
-            <td>{{ row.Name || 'N/A' }}</td>
+          <tr *ngFor="let row of getFilteredRecords()" [class.row-missing-bank]="!isBankAvailable(row)">
+            <td class="mono font-semibold">{{ row.Empno || 'N/A' }}</td>
+            <td>
+              <div class="emp-name-text">{{ row.Name || 'N/A' }}</div>
+            </td>
             <td>{{ row.Department || 'N/A' }}</td>
-            <td>{{ row.PaymentMode || 'N/A' }}</td>
-            <td>{{ row.Bank || 'N/A' }}</td>
-            <td class="mono">{{ row.IFSCCode || 'N/A' }}</td>
-            <td class="mono">{{ row.BankAccountNo || 'N/A' }}</td>
+            <td>
+              <span class="mode-pill" [ngClass]="(row.PaymentMode || 'not-set').toLowerCase().replace(' ', '-')">
+                {{ row.PaymentMode || 'Not Set' }}
+              </span>
+            </td>
+            <td>
+              <span *ngIf="isBankAvailable(row)" class="bank-name-text">{{ row.Bank }}</span>
+              <span *ngIf="!isBankAvailable(row)" class="badge-no-bank">
+                <ion-icon name="alert-circle-outline"></ion-icon>
+                No Bank Details
+              </span>
+            </td>
+            <td class="mono">{{ isBankAvailable(row) ? (row.IFSCCode || 'N/A') : '--' }}</td>
+            <td class="mono">{{ isBankAvailable(row) ? (row.BankAccountNo || 'N/A') : '--' }}</td>
+            <td class="text-center">
+              <span
+                class="status-pill"
+                [class.status-available]="isBankAvailable(row)"
+                [class.status-missing]="!isBankAvailable(row)">
+                <ion-icon [name]="isBankAvailable(row) ? 'checkmark-circle' : 'warning'"></ion-icon>
+                <span>{{ isBankAvailable(row) ? 'Available' : 'Pending' }}</span>
+              </span>
+            </td>
           </tr>
         </tbody>
       </table>
 
-      <div class="empty-box" *ngIf="!isLoading && records.length === 0">
-        No employee bank details uploaded yet. Download the template and upload an Excel sheet to populate records.
+      <div class="empty-box" *ngIf="!isLoading && getFilteredRecords().length === 0">
+        <ion-icon name="file-tray-outline" class="empty-icon"></ion-icon>
+        <p>No employee bank records found matching the selected tab and filters.</p>
       </div>
     </div>
   </div>
 </ion-content>
-

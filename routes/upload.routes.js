@@ -1834,17 +1834,75 @@ router.get("/employee-bank-details", auth, roleAuth(["admin", "hr", "finance"]),
         c = await db();
         await ensureEmployeeBankDetailsTable(c);
         const search = String(req.query.q || '').trim();
-        let sql = `SELECT id, employee_id, Empno, Name, Department, PaymentMode, Bank, IFSCCode, BankAccountNo, created_at, updated_at
-                   FROM Employee_BankDetails`;
+
+        let sql = `
+            SELECT 
+                COALESCE(bd.id, e.id) as id,
+                e.id as employee_id,
+                e.EmployeeNumber as Empno,
+                e.FullName as Name,
+                COALESCE(bd.Department, d.name, 'Unassigned') as Department,
+                COALESCE(bd.PaymentMode, 'Not Set') as PaymentMode,
+                CASE 
+                    WHEN bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' THEN bd.Bank
+                    WHEN ba.bank_name IS NOT NULL AND ba.bank_name != '' THEN ba.bank_name
+                    ELSE 'No Bank Details'
+                END as Bank,
+                CASE 
+                    WHEN bd.IFSCCode IS NOT NULL AND bd.IFSCCode != '' AND bd.IFSCCode != 'N/A' THEN bd.IFSCCode
+                    WHEN ba.ifsc_code IS NOT NULL AND ba.ifsc_code != '' THEN ba.ifsc_code
+                    ELSE 'N/A'
+                END as IFSCCode,
+                CASE 
+                    WHEN bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A' THEN bd.BankAccountNo
+                    WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
+                    ELSE 'N/A'
+                END as BankAccountNo,
+                CASE
+                    WHEN (bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' AND bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A')
+                      OR (ba.bank_name IS NOT NULL AND ba.bank_name != '' AND ba.account_number IS NOT NULL AND ba.account_number != '') THEN 'AVAILABLE'
+                    ELSE 'MISSING'
+                END as bank_status,
+                COALESCE(bd.updated_at, bd.created_at, e.created_at) as updated_at
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
+            LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
+            WHERE e.EmploymentStatus = 'Working'
+        `;
         const params = [];
         if (search) {
-            sql += ` WHERE Empno LIKE ? OR Name LIKE ? OR Department LIKE ? OR Bank LIKE ? OR IFSCCode LIKE ? OR BankAccountNo LIKE ?`;
+            sql += ` AND (
+                e.EmployeeNumber LIKE ? 
+                OR e.FullName LIKE ? 
+                OR d.name LIKE ? 
+                OR bd.Department LIKE ? 
+                OR bd.Bank LIKE ? 
+                OR ba.bank_name LIKE ? 
+                OR bd.IFSCCode LIKE ? 
+                OR ba.ifsc_code LIKE ? 
+                OR bd.BankAccountNo LIKE ? 
+                OR ba.account_number LIKE ?
+            )`;
             const like = `%${search}%`;
-            params.push(like, like, like, like, like, like);
+            params.push(like, like, like, like, like, like, like, like, like, like);
         }
-        sql += ` ORDER BY updated_at DESC, id DESC`;
+        sql += ` ORDER BY e.id ASC`;
         const [rows] = await c.query(sql, params);
-        res.json({ success: true, count: rows.length, data: rows });
+
+        const availableCount = rows.filter(r => r.bank_status === 'AVAILABLE').length;
+        const missingCount = rows.filter(r => r.bank_status === 'MISSING').length;
+
+        res.json({
+            success: true,
+            count: rows.length,
+            stats: {
+                total: rows.length,
+                available: availableCount,
+                missing: missingCount
+            },
+            data: rows
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     } finally {
