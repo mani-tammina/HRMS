@@ -1,6 +1,6 @@
-import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, ChangeDetectorRef, HostListener, ViewChild } from '@angular/core';
 import { Router } from '@angular/router';
-import { NavController } from '@ionic/angular';
+import { IonPopover, NavController } from '@ionic/angular';
 import { Subject, takeUntil } from 'rxjs';
 import { environment } from '../../../../environments/environment';
 import { EmployeeService } from '../../services/employee.service';
@@ -61,15 +61,17 @@ export class HeaderComponent implements OnInit, OnDestroy {
     }
   ];
 
+  @ViewChild('profilePopover') profilePopover?: IonPopover;
+
   isViewingEmployeeModal: boolean = false;
   selectedEmployee: any = null;
 
   openEmployeeDetailsModal(emp: any) {
     const id = emp.id || emp.employee_id || emp.EmployeeId;
+    this.closePopover();
     if (id) {
       this.router.navigate(['/profile'], { queryParams: { id } });
     }
-    this.closePopover();
   }
 
   // Profile state
@@ -177,7 +179,18 @@ export class HeaderComponent implements OnInit, OnDestroy {
     this.destroy$.complete();
   }
 
-  logout() {
+  private async dismissProfilePopover(): Promise<void> {
+    if (this.profilePopover) {
+      try {
+        await this.profilePopover.dismiss();
+      } catch {
+        // Ignore if popover is already dismissed
+      }
+    }
+  }
+
+  async logout() {
+    await this.dismissProfilePopover();
     this.authService.logout().subscribe({
       next: () => {
         this.router.navigate(['/login']);
@@ -185,9 +198,10 @@ export class HeaderComponent implements OnInit, OnDestroy {
     });
   }
 
-  viewProfile() {
-    // Navigate to profile details page if available and clear query params to load own profile
-    this.router.navigate(['/profile'], { queryParams: {} });
+  async viewProfile() {
+    await this.dismissProfilePopover();
+    // Use root navigation so Ionic clears any stacked forward views and transitions smoothly
+    await this.navCtrl.navigateRoot(['/profile'], { queryParams: {} });
   }
 
   onSearch() {
