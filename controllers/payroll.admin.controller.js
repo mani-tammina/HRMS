@@ -1022,20 +1022,7 @@ async function getPayrollDashboard(req, res) {
       }
     }
 
-    // Ensure dashboard Employee Deposit aligns with Employee_BankDetails / payment preview total
-    try {
-      const [sumSalaries] = await c.query(`
-        SELECT SUM(ROUND((COALESCE(esc.annual_ctc, 480000) / 12) * 0.88)) as totalNet
-        FROM Employee_BankDetails bd
-        JOIN employees e ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
-        LEFT JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
-        WHERE e.EmploymentStatus = 'Working'
-      `);
-      if (sumSalaries && sumSalaries[0]?.totalNet && Number(sumSalaries[0].totalNet) > 0) {
-        currentFinancials.deposit = Math.round(Number(sumSalaries[0].totalNet));
-        currentFinancials.totalCost = Math.round((currentFinancials.deposit + currentFinancials.deductions + currentFinancials.contributions) * 100) / 100;
-      }
-    } catch (_) {}
+    // Dashboard Employee Deposit comes directly from calculateDryRunFinancials/calculateRunFinancials
 
     let prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
     if (!prevFinancials || prevFinancials.payingCount === 0) {
@@ -1919,7 +1906,7 @@ async function getPaymentBatches(req, res) {
       ORDER BY e.id ASC
     `);
 
-    // 3. Fetch structure compositions for contract net pay calculation
+    // 3. Fetch structure compositions for contract net pay calculation fallback
     const [compositions] = await c.query(`
       SELECT sc.*, 
              COALESCE(mc.code, lc.code) AS component_code,
@@ -1939,6 +1926,18 @@ async function getPaymentBatches(req, res) {
       compMap[comp.template_id].push(comp);
     });
 
+    // 4. Fetch Dry Run calculation for 100% exact alignment with Preview — Dry Run stage
+    const dryRun = await calculateDryRunFinancials(c, year, month);
+    const dryRunMap = new Map();
+    if (dryRun && dryRun.allCalculated) {
+      dryRun.allCalculated.forEach(item => {
+        dryRunMap.set(item.employee_id, item);
+        if (item.employee_number) {
+          dryRunMap.set(item.employee_number.trim().toLowerCase(), item);
+        }
+      });
+    }
+
     let totalSalaries = 0;
     let bankTransferTotal = 0;
     let cashTotal = 0;
@@ -1949,7 +1948,8 @@ async function getPaymentBatches(req, res) {
     const bankSummaryMap = new Map();
 
     employees.forEach((emp) => {
-      const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+      const dryRunItem = dryRunMap.get(emp.id) || (emp.EmployeeNumber ? dryRunMap.get(emp.EmployeeNumber.trim().toLowerCase()) : null);
+      const netPay = dryRunItem ? Number(dryRunItem.total_net || 0) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
 
       totalSalaries += netPay;
 
@@ -2114,7 +2114,7 @@ async function exportTransferStatement(req, res) {
 
     c = await db();
 
-    // 1. Fetch structure compositions for contract net pay calculation
+    // 1. Fetch structure compositions for contract net pay calculation fallback
     const [compositions] = await c.query(`
       SELECT sc.*, 
              COALESCE(mc.code, lc.code) AS component_code,
@@ -2134,7 +2134,19 @@ async function exportTransferStatement(req, res) {
       compMap[comp.template_id].push(comp);
     });
 
-    // 2. Query working employees with valid bank mapping
+    // 2. Fetch Dry Run calculation for 100% exact alignment with Preview — Dry Run stage
+    const dryRun = await calculateDryRunFinancials(c, year, month);
+    const dryRunMap = new Map();
+    if (dryRun && dryRun.allCalculated) {
+      dryRun.allCalculated.forEach(item => {
+        dryRunMap.set(item.employee_id, item);
+        if (item.employee_number) {
+          dryRunMap.set(item.employee_number.trim().toLowerCase(), item);
+        }
+      });
+    }
+
+    // 3. Query working employees with valid bank mapping
     let [employees] = await c.query(`
       SELECT e.id, e.EmployeeNumber, e.FullName, e.DepartmentId,
              COALESCE(bd.Department, dept.name, 'Operations') as Department,
@@ -2195,7 +2207,8 @@ async function exportTransferStatement(req, res) {
     if (format === 'text') {
       let txt = "RECORD_TYPE|EMP_ID|BENEFICIARY_NAME|ACCOUNT_NO|IFSC_CODE|AMOUNT|REMARKS\n";
       employees.forEach(emp => {
-        const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+        const dryRunItem = dryRunMap.get(emp.id) || (emp.EmployeeNumber ? dryRunMap.get(emp.EmployeeNumber.trim().toLowerCase()) : null);
+        const netPay = dryRunItem ? Number(dryRunItem.total_net || 0) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
         txt += `PAY|${emp.EmployeeNumber}|${emp.FullName}|${emp.BankAccountNo}|${emp.IFSCCode}|${netPay}|Salary for ${monthInput}\n`;
       });
       res.setHeader('Content-Type', 'text/plain');
@@ -2224,7 +2237,8 @@ async function exportTransferStatement(req, res) {
       ];
 
       employees.forEach((emp, index) => {
-        const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+        const dryRunItem = dryRunMap.get(emp.id) || (emp.EmployeeNumber ? dryRunMap.get(emp.EmployeeNumber.trim().toLowerCase()) : null);
+        const netPay = dryRunItem ? Number(dryRunItem.total_net || 0) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
 
         aoa.push([
           index + 1,
