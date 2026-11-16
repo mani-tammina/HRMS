@@ -1736,6 +1736,132 @@ async function updatePayoutStatus(req, res) {
   }
 }
 
+function computeContractNetPay(annualCTC, templateId, compMap) {
+  const ctc = Number(annualCTC || 0);
+  if (ctc <= 0) return 0;
+  const monthlyGross = Math.round(ctc / 12);
+  const comps = (compMap && compMap[templateId]) || (compMap && compMap[1]) || [];
+
+  if (!comps.length) {
+    return monthlyGross > 15000 ? (monthlyGross - 3800) : monthlyGross;
+  }
+
+  const basicComp = comps.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
+  let fullMonthlyBasic = 0;
+  if (basicComp) {
+    const override = parseFormulaOverride(basicComp.formula_or_value);
+    let inputVal = Number(basicComp.default_value || 0);
+    let calculation_type = basicComp.calculation_type;
+    if (override) {
+      if (override.calculation_type) calculation_type = override.calculation_type;
+      inputVal = override.value;
+    }
+    if (calculation_type === 'PERCENTAGE') {
+      fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
+    } else {
+      fullMonthlyBasic = inputVal / 12.0;
+    }
+  }
+
+  const computed = {};
+  let totalEarnings = 0;
+  let totalDeductions = 0;
+  let specialIdx = -1;
+
+  const sortedComps = [...comps].sort((a, b) => (a.sequence || 0) - (b.sequence || 0));
+
+  const calculatedComponents = sortedComps.map((r, idx) => {
+    if (r.component_code === 'SPECIAL' || r.component_name === 'Special Allowance') {
+      specialIdx = idx;
+      return { ...r, calculated_amount: 0 };
+    }
+
+    const override = parseFormulaOverride(r.formula_or_value);
+    let calculation_type = r.calculation_type;
+    let inputVal = Number(r.default_value || 0);
+    let percentage_of_code = r.percentage_of_code;
+
+    if (override) {
+      if (override.calculation_type) calculation_type = override.calculation_type;
+      inputVal = override.value;
+      if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
+    }
+
+    const isPT = r.component_code === 'PROF_TAX' || r.component_code === 'PT' || /prof.*tax/i.test(r.component_name || '');
+
+    let amt = 0;
+    if (calculation_type === 'PERCENTAGE') {
+      if (percentage_of_code && computed[percentage_of_code] !== undefined) {
+        amt = (computed[percentage_of_code] * inputVal) / 100.0;
+      } else {
+        amt = (monthlyGross * inputVal) / 100.0;
+      }
+    } else {
+      if (isPT) {
+        amt = inputVal > 1000 ? (inputVal / 12.0) : inputVal;
+      } else {
+        amt = inputVal / 12.0;
+      }
+    }
+
+    const rounded = Math.round(amt);
+    computed[r.component_code] = rounded;
+
+    if (r.component_type === 'EARNING') {
+      totalEarnings += rounded;
+    } else {
+      totalDeductions += rounded;
+    }
+
+    return { ...r, calculated_amount: rounded };
+  });
+
+  if (specialIdx !== -1) {
+    const specialAmt = Math.max(0, monthlyGross - totalEarnings);
+    calculatedComponents[specialIdx].calculated_amount = specialAmt;
+    computed['SPECIAL'] = specialAmt;
+    totalEarnings += specialAmt;
+  }
+
+  let erBundle = 0;
+  let employeePf = 0;
+  let employerPf = 0;
+  let employeeEsi = 0;
+  let employerEsi = 0;
+
+  calculatedComponents.forEach(c => {
+    const isEr = /employer|employeer/i.test(c.component_name) || /_ER$/i.test(c.component_code);
+    const code = (c.component_code || '').toUpperCase();
+    const name = (c.component_name || '').toUpperCase();
+
+    if (isEr) {
+      erBundle += c.calculated_amount;
+      if (code.includes('ESI') || name.includes('ESI')) {
+        employerEsi += c.calculated_amount;
+      } else if (code.includes('PF') || name.includes('PROVIDENT') || name.includes('PF')) {
+        employerPf += c.calculated_amount;
+      }
+    } else if (c.component_type === 'DEDUCTION') {
+      if (code.includes('PF') || name.includes('PF') || name.includes('PROVIDENT')) {
+        employeePf += c.calculated_amount;
+      } else if (code.includes('ESI') || name.includes('ESI')) {
+        employeeEsi += c.calculated_amount;
+      }
+    }
+  });
+
+  if (employerPf === 0 && employeePf > 0) employerPf = employeePf;
+  if (employerEsi === 0 && employeeEsi > 0) employerEsi = Math.round(employeeEsi * (3.25 / 0.75));
+
+  if (specialIdx !== -1) {
+    calculatedComponents[specialIdx].calculated_amount -= erBundle;
+  }
+
+  const finalGross = totalEarnings - erBundle;
+  const finalDeductions = totalDeductions - erBundle;
+  return Math.round(finalGross - finalDeductions);
+}
+
 async function getPaymentBatches(req, res) {
   let c;
   try {
@@ -1765,7 +1891,8 @@ async function getPaymentBatches(req, res) {
              COALESCE(bd.Department, dept.name, 'Operations') as Department,
              e.DesignationId, 
              COALESCE(d.name, 'Software Associate') as Designation,
-             esc.annual_ctc,
+             COALESCE(NULLIF(esc.annual_ctc, 0), NULLIF(e.lpa, 0), 0) as annual_ctc,
+             COALESCE(esc.template_id, 1) as template_id,
              COALESCE(bd.PaymentMode, 'Bank Transfer') as payment_mode,
              CASE 
                  WHEN bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' THEN bd.Bank
@@ -1792,17 +1919,25 @@ async function getPaymentBatches(req, res) {
       ORDER BY e.id ASC
     `);
 
-    // 3. Fetch slips if run exists
-    const slipMap = new Map();
-    if (currentRun) {
-      try {
-        const [slips] = await c.query(
-          'SELECT employee_id, net_pay, total_net_pay FROM payroll_slips WHERE payroll_run_id = ?',
-          [currentRun.id]
-        );
-        slips.forEach(s => slipMap.set(s.employee_id, Number(s.total_net_pay || s.net_pay || 0)));
-      } catch (_) {}
-    }
+    // 3. Fetch structure compositions for contract net pay calculation
+    const [compositions] = await c.query(`
+      SELECT sc.*, 
+             COALESCE(mc.code, lc.code) AS component_code,
+             COALESCE(mc.name, lc.name) AS component_name,
+             COALESCE(mc.component_type, lc.component_type) AS component_type,
+             COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+             COALESCE(mc.value, lc.value) AS default_value,
+             COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+             COALESCE(mc.sequence, lc.sequence) AS sequence
+      FROM structure_composition sc
+      LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+      LEFT JOIN salary_components lc ON lc.id = sc.component_id
+    `);
+    const compMap = {};
+    (compositions || []).forEach(comp => {
+      if (!compMap[comp.template_id]) compMap[comp.template_id] = [];
+      compMap[comp.template_id].push(comp);
+    });
 
     let totalSalaries = 0;
     let bankTransferTotal = 0;
@@ -1814,14 +1949,7 @@ async function getPaymentBatches(req, res) {
     const bankSummaryMap = new Map();
 
     employees.forEach((emp) => {
-      let netPay = 0;
-      if (slipMap.has(emp.id)) {
-        netPay = Math.round(slipMap.get(emp.id));
-      } else if (emp.annual_ctc && Number(emp.annual_ctc) > 0) {
-        netPay = Math.round((Number(emp.annual_ctc) / 12) * 0.88);
-      } else {
-        netPay = 25000 + ((emp.id * 890) % 35000);
-      }
+      const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
 
       totalSalaries += netPay;
 
@@ -1986,26 +2114,25 @@ async function exportTransferStatement(req, res) {
 
     c = await db();
 
-    // 1. Get latest payroll run & slips for this month/cycle to get exact salary
-    const [runs] = await c.query(
-      `SELECT r.* FROM payroll_runs r
-       JOIN payroll_cycles cy ON cy.id = r.cycle_id
-       WHERE cy.year = ? AND cy.month = ?
-       ORDER BY r.id DESC LIMIT 1`,
-      [year, month]
-    );
-    const currentRun = runs[0] || null;
-
-    const slipMap = new Map();
-    if (currentRun) {
-      try {
-        const [slips] = await c.query(
-          'SELECT employee_id, net_pay, total_net_pay FROM payroll_slips WHERE payroll_run_id = ?',
-          [currentRun.id]
-        );
-        slips.forEach(s => slipMap.set(s.employee_id, Number(s.total_net_pay || s.net_pay || 0)));
-      } catch (_) {}
-    }
+    // 1. Fetch structure compositions for contract net pay calculation
+    const [compositions] = await c.query(`
+      SELECT sc.*, 
+             COALESCE(mc.code, lc.code) AS component_code,
+             COALESCE(mc.name, lc.name) AS component_name,
+             COALESCE(mc.component_type, lc.component_type) AS component_type,
+             COALESCE(mc.calculation_type, lc.calculation_type) AS calculation_type,
+             COALESCE(mc.value, lc.value) AS default_value,
+             COALESCE(mc.percentage_of_code, lc.percentage_of_code) AS percentage_of_code,
+             COALESCE(mc.sequence, lc.sequence) AS sequence
+      FROM structure_composition sc
+      LEFT JOIN salary_master_components mc ON mc.component_id = sc.master_component_id
+      LEFT JOIN salary_components lc ON lc.id = sc.component_id
+    `);
+    const compMap = {};
+    (compositions || []).forEach(comp => {
+      if (!compMap[comp.template_id]) compMap[comp.template_id] = [];
+      compMap[comp.template_id].push(comp);
+    });
 
     // 2. Query working employees with valid bank mapping
     let [employees] = await c.query(`
@@ -2027,7 +2154,8 @@ async function exportTransferStatement(req, res) {
                  WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
                  ELSE NULL
              END as BankAccountNo,
-             esc.annual_ctc
+             COALESCE(NULLIF(esc.annual_ctc, 0), NULLIF(e.lpa, 0), 0) as annual_ctc,
+             COALESCE(esc.template_id, 1) as template_id
       FROM employees e
       LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
       LEFT JOIN departments dept ON dept.id = e.DepartmentId
@@ -2067,14 +2195,7 @@ async function exportTransferStatement(req, res) {
     if (format === 'text') {
       let txt = "RECORD_TYPE|EMP_ID|BENEFICIARY_NAME|ACCOUNT_NO|IFSC_CODE|AMOUNT|REMARKS\n";
       employees.forEach(emp => {
-        let netPay = 0;
-        if (slipMap.has(emp.id)) {
-          netPay = Math.round(slipMap.get(emp.id));
-        } else if (emp.annual_ctc && Number(emp.annual_ctc) > 0) {
-          netPay = Math.round((Number(emp.annual_ctc) / 12) * 0.88);
-        } else {
-          netPay = 25000 + ((emp.id * 890) % 35000);
-        }
+        const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
         txt += `PAY|${emp.EmployeeNumber}|${emp.FullName}|${emp.BankAccountNo}|${emp.IFSCCode}|${netPay}|Salary for ${monthInput}\n`;
       });
       res.setHeader('Content-Type', 'text/plain');
@@ -2103,14 +2224,7 @@ async function exportTransferStatement(req, res) {
       ];
 
       employees.forEach((emp, index) => {
-        let netPay = 0;
-        if (slipMap.has(emp.id)) {
-          netPay = Math.round(slipMap.get(emp.id));
-        } else if (emp.annual_ctc && Number(emp.annual_ctc) > 0) {
-          netPay = Math.round((Number(emp.annual_ctc) / 12) * 0.88);
-        } else {
-          netPay = 25000 + ((emp.id * 890) % 35000);
-        }
+        const netPay = computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
 
         aoa.push([
           index + 1,
