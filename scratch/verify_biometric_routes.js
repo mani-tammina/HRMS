@@ -4,7 +4,7 @@ const { JWT_SECRET } = require('../config/constants');
 async function testBiometricSystem() {
   console.log('🧪 Starting Biometric Integration Verification Tests via HTTP...\n');
 
-  const BASE_URL = 'http://localhost:4201';
+  const BASE_URL = 'http://localhost:4203';
 
   // 1. Generate an admin token for testing
   const adminToken = jwt.sign(

@@ -883,7 +883,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       cleanList.push(p);
     }
 
-    const rawPunches = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const rawPunchesSorted = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const rawPunches: any[] = [];
+    for (const p of rawPunchesSorted) {
+      const pMs = this.parsePunchTimeToMs(p.punch_time);
+      const lastP = rawPunches.length > 0 ? rawPunches[rawPunches.length - 1] : null;
+      if (lastP) {
+        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
+        const sameStream = (p.source === lastP.source) || (p.work_mode === lastP.work_mode) || (p.device_id && p.device_id === lastP.device_id);
+        if (sameStream && pMs > 0 && lastMs > 0 && Math.abs(pMs - lastMs) < 60000) {
+          continue; // Debounce rapid duplicate taps
+        }
+      }
+      rawPunches.push(p);
+    }
 
     const getFormattedTime = (dateVal: any): string => {
       if (!dateVal) return '';
@@ -1023,7 +1036,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-        const punchType = (p.punch_type || p.direction || '').toLowerCase();
+        let punchType = (p.punch_type || p.direction || '').toLowerCase();
+        if (punchType === 'auto' || !punchType) {
+          punchType = currentIn ? 'out' : 'in';
+        }
 
         if (punchType === 'in') {
           if (currentIn) {

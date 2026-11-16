@@ -45,6 +45,24 @@ try {
       }
     };
   }
+
+  // Monkey-patch node-zklib utils to parse punchState (byte 31) and full deviceUserId
+  const ZKUtils = require('node-zklib/utils');
+  if (ZKUtils && ZKUtils.decodeRecordData40) {
+    const origDecodeRecordData40 = ZKUtils.decodeRecordData40;
+    ZKUtils.decodeRecordData40 = function (recordData) {
+      const record = origDecodeRecordData40(recordData);
+      if (recordData && recordData.length >= 32) {
+        const fullUserId = recordData.slice(2, 26).toString('ascii').replace(/\0.*$/, '').trim();
+        if (fullUserId && fullUserId.length > (record.deviceUserId || '').length) {
+          record.deviceUserId = fullUserId;
+        }
+        record.verifyType = recordData[26];
+        record.punchState = recordData[31];
+      }
+      return record;
+    };
+  }
 } catch (_) {}
 
 const { db } = require('../config/database');
@@ -98,6 +116,24 @@ async function ensureBiometricTablesExist() {
         INDEX idx_raw_user_log (biometric_user_id, punch_time),
         INDEX idx_raw_punch_time (punch_time),
         INDEX idx_raw_emp (employee_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS biometric_punches (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        employee_id INT NOT NULL,
+        user_id VARCHAR(100) NOT NULL,
+        punch_time DATETIME NOT NULL,
+        punch_date DATE NOT NULL,
+        direction ENUM('in', 'out', 'auto') DEFAULT 'auto',
+        device_id VARCHAR(100) NULL,
+        raw_log_id BIGINT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_punch_time (employee_id, punch_time),
+        INDEX idx_emp_punch_date (employee_id, punch_date),
+        INDEX idx_punch_time (punch_time),
+        FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
@@ -171,7 +207,18 @@ async function ingestDirectPunches(punches) {
   const now = new Date();
   const maxAllowedDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // at most tomorrow
 
-  for (const p of punches) {
+  // Sort chronologically ascending so punch pairing and debounce can be accurately applied
+  const sortedPunches = punches.slice().sort((a, b) => {
+    const tA = a.punchTime instanceof Date ? a.punchTime.getTime() : new Date(String(a.punchTime).replace(' ', 'T')).getTime();
+    const tB = b.punchTime instanceof Date ? b.punchTime.getTime() : new Date(String(b.punchTime).replace(' ', 'T')).getTime();
+    return (tA || 0) - (tB || 0);
+  });
+
+  // Track the most recent punch time (ms) and direction for each employee / user per punchDate
+  // Key: 'EMP:<empId>:<punchDate>' or 'RAW:<userId>:<punchDate>'
+  const trackingState = new Map();
+
+  for (const p of sortedPunches) {
     const userId = String(p.biometricUserId || p.userId || '').trim();
     if (!userId) continue;
 
@@ -197,19 +244,84 @@ async function ingestDirectPunches(punches) {
     const employeeId = employeeMap.get(empKey) || null;
     const empShift = employeeId ? employeeShiftMap.get(employeeId) : null;
     const punchDate = getShiftDateForPunch(empShift, formattedTime);
+    const punchTimeMs = punchDateObj.getTime();
 
-    let dir = 'auto';
+    const trackKey = employeeId ? `EMP:${employeeId}:${punchDate}` : `RAW:${userId}:${punchDate}`;
+
+    // Load initial state from DB if not already loaded in this batch
+    if (!trackingState.has(trackKey)) {
+      let lastTimeMs = 0;
+      let lastDir = 'out'; // so first punch of the day defaults to 'in'
+      try {
+        if (employeeId) {
+          const [lastPunches] = await db.query(
+            `SELECT punch_time, direction FROM biometric_punches 
+             WHERE employee_id = ? AND punch_date = ? 
+             ORDER BY punch_time DESC LIMIT 1`,
+            [employeeId, punchDate]
+          );
+          if (lastPunches && lastPunches.length > 0) {
+            lastTimeMs = new Date(lastPunches[0].punch_time).getTime();
+            lastDir = lastPunches[0].direction || 'in';
+          }
+        } else {
+          const [lastRaw] = await db.query(
+            `SELECT punch_time, direction FROM biometric_attendance_raw 
+             WHERE biometric_user_id = ? AND DATE(punch_time) = ? AND status != 'ignored' 
+             ORDER BY punch_time DESC LIMIT 1`,
+            [userId, punchDate]
+          );
+          if (lastRaw && lastRaw.length > 0) {
+            lastTimeMs = new Date(lastRaw[0].punch_time).getTime();
+            lastDir = lastRaw[0].direction || 'in';
+          }
+        }
+      } catch (_) {}
+      trackingState.set(trackKey, { lastTimeMs, lastDir });
+    }
+
+    const state = trackingState.get(trackKey);
+
+    // Rapid double-tap debounce (ignore repeated taps within 60 seconds)
+    const isRapidDuplicate = state.lastTimeMs > 0 && Math.abs(punchTimeMs - state.lastTimeMs) < 60000;
+
+    let dir = 'in';
     const punchState = p.rawPayload ? p.rawPayload.punchState : undefined;
     if (punchState === 1 || punchState === 2 || punchState === 5) {
       dir = 'out';
-    } else if (punchState === 0 || punchState === 3 || punchState === 4) {
+    } else if (punchState === 3 || punchState === 4) {
       dir = 'in';
     } else {
       const d = String(p.direction || '').toLowerCase();
-      if (d.includes('out') || d === '1') dir = 'out';
-      else if (d.includes('in') || d === '0') dir = 'in';
-      else dir = 'in';
+      if (d === 'out' || d === '1') {
+        dir = 'out';
+      } else if (d === 'in') {
+        dir = 'in';
+      } else {
+        // Toggle direction: alternate from last known direction on this shift date
+        dir = (state.lastDir === 'in') ? 'out' : 'in';
+      }
     }
+
+    if (isRapidDuplicate) {
+      // Record in raw logs as ignored duplicate tap so auditing is preserved without skewing calculations
+      rawInsertRows.push({
+        source_system: SOURCE_SYSTEM,
+        source_log_id: sourceLogId,
+        biometric_user_id: userId,
+        punch_time: formattedTime,
+        device_id: deviceId,
+        direction: dir,
+        raw_payload: JSON.stringify(p.rawPayload || p),
+        status: 'ignored',
+        employee_id: employeeId
+      });
+      continue; // Skip inserting into biometric_punches
+    }
+
+    // Update tracking state for next punch in batch
+    state.lastTimeMs = punchTimeMs;
+    state.lastDir = dir;
 
     rawInsertRows.push({
       source_system: SOURCE_SYSTEM,
@@ -413,10 +525,10 @@ async function syncSingleDevice(device, forceFullSync = false) {
     let ingestResult = { count: 0, rawInserted: 0, mappedPunches: 0, recalculatedDays: 0 };
     if (validRecords.length > 0) {
       const formattedPunches = validRecords.map(r => {
-        let dir = 'in';
+        let dir = 'auto';
         if (r.punchState === 1 || r.punchState === 2 || r.punchState === 5 || r.direction === 'out' || r.direction === '1') {
           dir = 'out';
-        } else if (r.punchState === 0 || r.punchState === 3 || r.punchState === 4 || r.direction === 'in' || r.direction === '0') {
+        } else if (r.punchState === 3 || r.punchState === 4 || (r.direction && r.direction === 'in')) {
           dir = 'in';
         } else if (r.direction && r.direction !== 'auto') {
           dir = r.direction;

@@ -974,9 +974,12 @@ router.get("/today", auth, async (req, res) => {
         [emp.id, shiftDate]
       );
       if (bioPunches && bioPunches.length > 0) {
+        let bioOpen = false;
         const mappedBio = bioPunches.map(p => {
           const dir = (p.direction || '').toLowerCase();
-          const pt = dir === 'out' ? 'out' : 'in';
+          let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
+          if (pt === 'in') bioOpen = true;
+          else if (pt === 'out') bioOpen = false;
           return {
             ...p,
             punch_type: pt
@@ -1547,15 +1550,15 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     return true;
   });
 
-  // Deduplicate rapid consecutive duplicate punches of the same type (e.g. double tap within 5 seconds)
+  // Deduplicate rapid consecutive duplicate punches of the same type or stream (e.g. double tap within 60 seconds)
   const uniquePunches = [];
   punches.forEach(p => {
     const pTime = new Date(p.punch_time).getTime();
     const lastPunch = uniquePunches.length > 0 ? uniquePunches[uniquePunches.length - 1] : null;
     const isDupe = lastPunch &&
-      lastPunch.punch_type === p.punch_type &&
       lastPunch.source === p.source &&
-      Math.abs(pTime - new Date(lastPunch.punch_time).getTime()) < 5000;
+      (lastPunch.punch_type === p.punch_type || p.source === 'biometric') &&
+      Math.abs(pTime - new Date(lastPunch.punch_time).getTime()) < 60000;
     if (!isDupe) {
       uniquePunches.push(p);
     }

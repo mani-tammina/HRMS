@@ -2106,6 +2106,7 @@ CREATE TABLE IF NOT EXISTS biometric_punches (
   raw_log_id BIGINT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_emp_punch_time (employee_id, punch_time),
   INDEX idx_emp_punch_date (employee_id, punch_date),
   INDEX idx_punch_time (punch_time)
 );
