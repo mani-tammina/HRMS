@@ -267,6 +267,23 @@
         border-color: #94a3b8;
         color: #0f172a;
       }
+
+      &.danger-action {
+        background: #fef2f2;
+        border: 1px solid #fecaca;
+        color: #dc2626;
+
+        &:hover:not(:disabled) {
+          background: #fee2e2;
+          border-color: #f87171;
+          color: #b91c1c;
+        }
+
+        &:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+      }
     }
   }
 }
@@ -479,6 +496,37 @@
     display: inline-flex;
     align-items: center;
     gap: 0.75rem;
+
+    .cancel-payroll-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #dc2626;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      transition: all 0.2s;
+
+      &:hover:not(:disabled) {
+        background: #fee2e2;
+        border-color: #f87171;
+        color: #b91c1c;
+        box-shadow: 0 2px 4px rgba(220, 38, 38, 0.15);
+      }
+
+      &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      ion-icon {
+        font-size: 1rem;
+      }
+    }
 
     .payment-preview-btn {
       display: inline-flex;

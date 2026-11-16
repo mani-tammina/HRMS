@@ -31,6 +31,7 @@ export interface PayrollDashboardData {
   payrollProcessedCount: number;
   payrollProcessedRatio: string;
   run: any;
+  hasActiveRun?: boolean;
   equation: {
     totalGross?: number;
     totalPayrollCost: number;

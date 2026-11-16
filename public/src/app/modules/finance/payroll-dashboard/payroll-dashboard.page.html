@@ -70,6 +70,11 @@
       </h2>
 
       <div class="header-actions">
+        <button class="step-btn danger-action" *ngIf="dashboardData?.hasActiveRun || dashboardData?.run || dashboardData?.outcome?.runId" (click)="confirmCancelPayroll()" [disabled]="isCancelling" title="Cancel and Delete Payroll for this month">
+          <ion-icon name="trash-outline"></ion-icon>
+          <span>{{ isCancelling ? 'Cancelling...' : 'Cancel Payroll' }}</span>
+        </button>
+
         <button class="step-btn secondary" (click)="goToRunStepper()">
           <ion-icon name="git-merge-outline"></ion-icon>
           <span>{{ dashboardData?.outcome?.isCompleted ? 'View Process Stepper' : 'Run / Resume Stepper' }}</span>
@@ -461,6 +466,10 @@
 
           <!-- View Pay Register Action -->
           <div class="outcome-actions">
+            <button class="cancel-payroll-btn" *ngIf="dashboardData?.hasActiveRun || dashboardData?.run || dashboardData?.outcome?.runId" (click)="confirmCancelPayroll($event)" [disabled]="isCancelling" title="Cancel and Delete Payroll for this month">
+              <ion-icon name="trash-outline"></ion-icon>
+              <span>{{ isCancelling ? 'Cancelling...' : 'Cancel Payroll' }}</span>
+            </button>
             <button class="payment-preview-btn" (click)="goToPaymentPreview($event)" title="View Payment Batches & Transfer Statements">
               <ion-icon name="card-outline"></ion-icon>
               <span>Payment Preview</span>

@@ -226,6 +226,7 @@ export class PayrollProcessPage implements OnInit {
         this.isCancelling = false;
         try {
           localStorage.removeItem(this.getStorageKey(this.selectedMonth));
+          localStorage.removeItem(`payroll_steps_${this.selectedMonth}`);
         } catch (e) {}
 
         this.runResult = null;

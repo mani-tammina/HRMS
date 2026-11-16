@@ -930,7 +930,8 @@ async function getPayrollDashboard(req, res) {
       `SELECT r.id, r.status, r.total_employees, r.total_gross, r.total_deductions, r.total_net, cy.year, cy.month
        FROM payroll_runs r
        JOIN payroll_cycles cy ON cy.id = r.cycle_id
-       WHERE (cy.year = ? AND cy.month >= 4) OR (cy.year = ? AND cy.month <= 3)
+       WHERE ((cy.year = ? AND cy.month >= 4) OR (cy.year = ? AND cy.month <= 3))
+         AND r.status NOT IN ('FAILED', 'CANCELLED')
        ORDER BY r.id DESC`,
       [fyStart, fyStart + 1]
     );
@@ -979,11 +980,12 @@ async function getPayrollDashboard(req, res) {
       `SELECT r.id, r.status, r.total_employees, r.total_gross, r.total_deductions, r.total_net, cy.year, cy.month
        FROM payroll_runs r
        JOIN payroll_cycles cy ON cy.id = r.cycle_id
-       WHERE cy.year = ? AND cy.month = ?
+       WHERE cy.year = ? AND cy.month = ? AND r.status NOT IN ('FAILED', 'CANCELLED')
        ORDER BY r.id DESC LIMIT 1`,
       [parsed.year, parsed.month]
     );
     const currentRun = selectedRuns[0] || null;
+    const hasActiveRun = !!(currentRun && (currentRun.status === 'COMPLETED' || currentRun.status === 'PAID' || currentRun.status === 'LOCKED' || currentRun.status === 'IN_PROGRESS' || currentRun.status === 'REVIEW' || currentRun.status === 'PROCESSED'));
 
     // 4. Previous Month
     const prevYear = parsed.month === 1 ? parsed.year - 1 : parsed.year;
@@ -992,7 +994,7 @@ async function getPayrollDashboard(req, res) {
       `SELECT r.id, r.status, r.total_employees, r.total_gross, r.total_deductions, r.total_net
        FROM payroll_runs r
        JOIN payroll_cycles cy ON cy.id = r.cycle_id
-       WHERE cy.year = ? AND cy.month = ?
+       WHERE cy.year = ? AND cy.month = ? AND r.status NOT IN ('FAILED', 'CANCELLED')
        ORDER BY r.id DESC LIMIT 1`,
       [prevYear, prevMonth]
     );
@@ -1015,20 +1017,42 @@ async function getPayrollDashboard(req, res) {
       }
     }
 
-    let currentFinancials = await calculateDryRunFinancials(c, parsed.year, parsed.month);
-    if (!currentFinancials || currentFinancials.payingCount === 0) {
-      if (currentRun) {
-        currentFinancials = await calculateRunFinancials(c, currentRun);
+    let currentFinancials = null;
+    if (hasActiveRun) {
+      currentFinancials = await calculateRunFinancials(c, currentRun);
+      if (!currentFinancials || currentFinancials.payingCount === 0) {
+        currentFinancials = await calculateDryRunFinancials(c, parsed.year, parsed.month);
       }
+    } else {
+      // Cleared state when payroll is cancelled / not run
+      currentFinancials = {
+        deposit: 0,
+        deductions: 0,
+        contributions: 0,
+        totalCost: 0,
+        gross: 0,
+        payingCount: 0,
+        pf: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalPf: 0, employees: [] },
+        esi: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalEsi: 0, employees: [] },
+        professionalTax: { employeesPaying: 0, totalTax: 0, amount: 0, employees: [] }
+      };
     }
 
-    // Dashboard Employee Deposit comes directly from calculateDryRunFinancials/calculateRunFinancials
-
-    let prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
-    if (!prevFinancials || prevFinancials.payingCount === 0) {
-      if (prevRun) {
-        prevFinancials = await calculateRunFinancials(c, prevRun);
+    let prevFinancials = null;
+    if (prevRun) {
+      prevFinancials = await calculateRunFinancials(c, prevRun);
+      if (!prevFinancials || prevFinancials.payingCount === 0) {
+        prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
       }
+    } else {
+      prevFinancials = {
+        deposit: 0,
+        deductions: 0,
+        contributions: 0,
+        totalCost: 0,
+        gross: 0,
+        payingCount: 0
+      };
     }
 
     const [summary] = await c.query(
@@ -1075,80 +1099,83 @@ async function getPayrollDashboard(req, res) {
       monthLabel: `${MONTH_NAMES_SHORT[parsed.month - 1]} ${parsed.year}`,
       monthHeading: `${monthNameUpper}-${parsed.year} (${monthNameUpper} 1 - ${monthNameUpper} ${daysInMonth}, ${daysInMonth} days)`,
       totalEmployees,
-      payingEmployees: currentFinancials.payingCount,
+      payingEmployees: hasActiveRun ? currentFinancials.payingCount : 0,
       employeeChanges: {
         joiners,
         leavers
       },
-      payrollProcessedCount: currentFinancials.payingCount,
-      payrollProcessedRatio: `${totalEmployees}/${currentFinancials.payingCount} EMPLOYEES`,
+      payrollProcessedCount: hasActiveRun ? currentFinancials.payingCount : 0,
+      payrollProcessedRatio: hasActiveRun 
+        ? `${totalEmployees}/${currentFinancials.payingCount} EMPLOYEES`
+        : `0/${totalEmployees} EMPLOYEES`,
       run: currentRun,
+      hasActiveRun,
       equation: {
-        totalGross: currentFinancials.gross,
-        totalPayrollCost: currentFinancials.totalCost,
-        employeeDeposit: currentFinancials.deposit,
-        totalDeductions: currentFinancials.deductions,
-        totalContributions: currentFinancials.contributions,
-        totalDeductionsContributions: Math.round((currentFinancials.deductions + currentFinancials.contributions) * 100) / 100,
+        totalGross: hasActiveRun ? currentFinancials.gross : 0,
+        totalPayrollCost: hasActiveRun ? currentFinancials.totalCost : 0,
+        employeeDeposit: hasActiveRun ? currentFinancials.deposit : 0,
+        totalDeductions: hasActiveRun ? currentFinancials.deductions : 0,
+        totalContributions: hasActiveRun ? currentFinancials.contributions : 0,
+        totalDeductionsContributions: hasActiveRun ? Math.round((currentFinancials.deductions + currentFinancials.contributions) * 100) / 100 : 0,
         prevMonthLabel: prevMonthNameUpper,
         prevMonthCost: prevFinancials.totalCost,
         prevMonthGross: prevFinancials.gross,
         prevMonthDeposit: prevFinancials.deposit,
         prevMonthDeductions: prevFinancials.deductions,
         prevMonthContributions: prevFinancials.contributions,
-        costDelta: Math.round((currentFinancials.totalCost - prevFinancials.totalCost) * 100) / 100,
-        grossDelta: Math.round((currentFinancials.gross - prevFinancials.gross) * 100) / 100,
-        depositDelta: Math.round((currentFinancials.deposit - prevFinancials.deposit) * 100) / 100,
-        deductionsDelta: Math.round((currentFinancials.deductions - prevFinancials.deductions) * 100) / 100,
-        contributionsDelta: Math.round((currentFinancials.contributions - prevFinancials.contributions) * 100) / 100
+        costDelta: hasActiveRun ? Math.round((currentFinancials.totalCost - prevFinancials.totalCost) * 100) / 100 : 0,
+        grossDelta: hasActiveRun ? Math.round((currentFinancials.gross - prevFinancials.gross) * 100) / 100 : 0,
+        depositDelta: hasActiveRun ? Math.round((currentFinancials.deposit - prevFinancials.deposit) * 100) / 100 : 0,
+        deductionsDelta: hasActiveRun ? Math.round((currentFinancials.deductions - prevFinancials.deductions) * 100) / 100 : 0,
+        contributionsDelta: hasActiveRun ? Math.round((currentFinancials.contributions - prevFinancials.contributions) * 100) / 100 : 0
       },
       outcome: {
         runId: currentRun?.id || null,
-        status: currentRun?.status || null,
-        noOfEmployees: currentFinancials.payingCount || currentRun?.total_employees || 0,
+        status: currentRun?.status || (hasActiveRun ? null : 'UNPROCESSED'),
+        noOfEmployees: hasActiveRun ? (currentFinancials.payingCount || currentRun?.total_employees || 0) : 0,
         payslipsReleased: payslipsCount,
         payslipsOnHold: 0,
         isCompleted: currentRun ? (currentRun.status === 'COMPLETED' || currentRun.status === 'PAID') : false,
         statutoryCards: {
           incomeTax: {
             title: 'Income Tax (ITR)',
-            employeesCount: 5,
+            employeesCount: hasActiveRun ? 5 : 0,
             initiationDate: `07-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
             endDate: `${daysInMonth}-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
             status: currentRun ? 'UPLOADED' : 'PENDING'
           },
           providentFund: {
             title: 'Provident Fund (PF)',
-            employeesCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            employeeShare: currentFinancials.pf?.employeeShare ?? 0,
-            employerShare: currentFinancials.pf?.employerShare ?? 0,
-            totalPf: currentFinancials.pf?.totalPf ?? 0,
-            linkedRecordsCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            employees: currentFinancials.pf?.employees || []
+            employeesCount: hasActiveRun ? (currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            employeeShare: hasActiveRun ? (currentFinancials.pf?.employeeShare ?? 0) : 0,
+            employerShare: hasActiveRun ? (currentFinancials.pf?.employerShare ?? 0) : 0,
+            totalPf: hasActiveRun ? (currentFinancials.pf?.totalPf ?? 0) : 0,
+            linkedRecordsCount: hasActiveRun ? (currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            employees: hasActiveRun ? (currentFinancials.pf?.employees || []) : []
           },
           esi: {
             title: 'Employee State Insurance (ESI)',
-            employeesCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            employeeShare: currentFinancials.esi?.employeeShare ?? 0,
-            employerShare: currentFinancials.esi?.employerShare ?? 0,
-            totalEsi: currentFinancials.esi?.totalEsi ?? 0,
-            registeredRecordsCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            employees: currentFinancials.esi?.employees || []
+            employeesCount: hasActiveRun ? (currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            employeeShare: hasActiveRun ? (currentFinancials.esi?.employeeShare ?? 0) : 0,
+            employerShare: hasActiveRun ? (currentFinancials.esi?.employerShare ?? 0) : 0,
+            totalEsi: hasActiveRun ? (currentFinancials.esi?.totalEsi ?? 0) : 0,
+            registeredRecordsCount: hasActiveRun ? (currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            employees: hasActiveRun ? (currentFinancials.esi?.employees || []) : []
           },
           professionalTax: {
             title: 'Professional Tax',
-            employeesCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            totalTax: currentFinancials.professionalTax?.totalTax ?? 0,
-            amount: currentFinancials.professionalTax?.totalTax ?? 0,
-            relatedRecordsCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 3,
-            employees: currentFinancials.professionalTax?.employees || []
+            employeesCount: hasActiveRun ? (currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            totalTax: hasActiveRun ? (currentFinancials.professionalTax?.totalTax ?? 0) : 0,
+            amount: hasActiveRun ? (currentFinancials.professionalTax?.totalTax ?? 0) : 0,
+            relatedRecordsCount: hasActiveRun ? (currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
+            employees: hasActiveRun ? (currentFinancials.professionalTax?.employees || []) : []
           },
           deductionComponents: {
             title: 'Deduction Components',
             componentName: 'PF - Data Change',
-            lastExecutionDate: `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            lastUmbrellaPlanDate: `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
-            totalEmployees: Math.round(totalEmployees * 0.91) || 233
+            lastExecutionDate: hasActiveRun ? `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}` : 'N/A',
+            lastUmbrellaPlanDate: hasActiveRun ? `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}` : 'N/A',
+            totalEmployees: hasActiveRun ? (Math.round(totalEmployees * 0.91) || 233) : 0
           }
         }
       },

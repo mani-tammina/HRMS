@@ -327,6 +327,57 @@ export class PayrollDashboardPage implements OnInit {
     }
   }
 
+  isCancelling = false;
+
+  async confirmCancelPayroll(event?: Event) {
+    if (event) {
+      event.stopPropagation();
+    }
+
+    const alert = await this.alertCtrl.create({
+      header: 'Cancel & Clear Payroll',
+      subHeader: `Month: ${this.selectedMonth}`,
+      message: `Are you sure you want to cancel and clear the payroll for <strong>${this.selectedMonth}</strong>? All generated run records, payslips, and payment batches will be deleted, and this dashboard will be completely reset.`,
+      buttons: [
+        { text: 'Keep Payroll', role: 'cancel' },
+        {
+          text: 'Yes, Cancel & Clear',
+          role: 'destructive',
+          handler: () => this.executeCancelPayroll()
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  executeCancelPayroll() {
+    const runId = this.dashboardData?.run?.id || this.dashboardData?.outcome?.runId || null;
+    this.isCancelling = true;
+
+    this.payrollApi.cancelPayrollRun(runId, this.selectedMonth).subscribe({
+      next: (res) => {
+        this.isCancelling = false;
+        try {
+          localStorage.removeItem(`payroll_steps_${this.selectedMonth}`);
+          localStorage.removeItem(`payroll_stage_${this.selectedMonth}`);
+        } catch (e) {}
+
+        this.payrollSteps.forEach(s => {
+          s.completed = false;
+          s.subtitle = 'Pending';
+        });
+
+        this.toaster.showSuccess(`Payroll for ${this.selectedMonth} has been cancelled and cleared.`);
+        this.loadDashboardData(this.selectedMonth);
+      },
+      error: (err) => {
+        this.isCancelling = false;
+        this.toaster.showError('Failed to cancel payroll: ' + (err?.error?.error || err?.message || 'Server error'));
+        console.error('Error cancelling payroll:', err);
+      }
+    });
+  }
+
   onSubTabClick(tab: any) {
     this.activeSubTab = tab.label;
     if (tab.route) {
