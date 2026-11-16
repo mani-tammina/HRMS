@@ -54,6 +54,58 @@ const { recalculateDailyBiometric, getEmployeeLookupMap } = require('./biometric
 const SOURCE_SYSTEM = 'DIRECT_DEVICE';
 let isDirectSyncRunning = false;
 const activeDeviceSyncs = new Set();
+let tablesInitialized = false;
+
+/**
+ * Ensure core biometric tables (specifically biometric_devices) exist before running queries
+ */
+async function ensureBiometricTablesExist() {
+  if (tablesInitialized) return;
+  try {
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS biometric_devices (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        device_id VARCHAR(100) NOT NULL UNIQUE,
+        name VARCHAR(255) NOT NULL,
+        location VARCHAR(255) DEFAULT NULL,
+        device_type VARCHAR(100) DEFAULT 'Biometric / Fingerprint & Face',
+        ip_address VARCHAR(100) DEFAULT NULL,
+        port INT DEFAULT 4370,
+        serial_number VARCHAR(100) DEFAULT NULL,
+        status ENUM('active','inactive') DEFAULT 'active',
+        is_active TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_device_id (device_id),
+        INDEX idx_status (status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS biometric_attendance_raw (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        source_system VARCHAR(50) DEFAULT 'DIRECT_DEVICE',
+        source_log_id VARCHAR(100) NOT NULL,
+        biometric_user_id VARCHAR(100) NOT NULL,
+        punch_time DATETIME NOT NULL,
+        device_id VARCHAR(100) NULL,
+        direction VARCHAR(50) NULL,
+        raw_payload JSON NULL,
+        status ENUM('processed', 'ignored', 'pending') DEFAULT 'pending',
+        employee_id INT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_source_log (source_system, source_log_id),
+        INDEX idx_raw_user_log (biometric_user_id, punch_time),
+        INDEX idx_raw_punch_time (punch_time),
+        INDEX idx_raw_emp (employee_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    tablesInitialized = true;
+  } catch (err) {
+    console.warn('[DirectBiometric] Table auto-creation notice:', err.message);
+  }
+}
 
 function formatDateTime(dateObj) {
   if (!dateObj) return null;
@@ -425,6 +477,9 @@ async function syncDirectBiometricDevices(targetDeviceId = null, forceFullSync =
     return { success: false, message: 'Direct biometric device sync is already running.' };
   }
 
+  // Ensure table exists before executing query
+  await ensureBiometricTablesExist();
+
   isDirectSyncRunning = true;
   try {
     let query = "SELECT * FROM biometric_devices WHERE status != 'inactive'";
@@ -471,12 +526,21 @@ async function syncDirectBiometricDevices(targetDeviceId = null, forceFullSync =
     };
   } catch (err) {
     isDirectSyncRunning = false;
-    console.error('❌ [DirectBiometric] Sync loop error:', err);
+    if (err && (err.code === 'ER_NO_SUCH_TABLE' || err.errno === 1146)) {
+      console.warn(`⚠️ [DirectBiometric] Table biometric_devices missing (${err.message}). Auto-creating table...`);
+      try {
+        tablesInitialized = false;
+        await ensureBiometricTablesExist();
+      } catch (_) {}
+    } else {
+      console.error('❌ [DirectBiometric] Sync loop error:', err);
+    }
     return { success: false, error: err.message };
   }
 }
 
 module.exports = {
+  ensureBiometricTablesExist,
   ingestDirectPunches,
   syncSingleDevice,
   syncDirectBiometricDevices

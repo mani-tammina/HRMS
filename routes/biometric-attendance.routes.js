@@ -13,7 +13,7 @@ const { db } = require('../config/database');
 const { auth, admin, hr, manager } = require('../middleware/auth');
 const { findEmployeeByUserId } = require('../utils/helpers');
 const { getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
-const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches } = require('../services/biometric-direct.service');
+const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches, ensureBiometricTablesExist } = require('../services/biometric-direct.service');
 
 // Biometric role check: Admin, HR, or Networking
 const biometricAuth = (req, res, next) => {
@@ -441,6 +441,7 @@ router.delete('/mappings/:id', auth, biometricAuth, async (req, res) => {
  */
 router.get('/devices', auth, biometricAuth, async (req, res) => {
   try {
+    await ensureBiometricTablesExist();
     const [rows] = await db.query(`
       SELECT 
         d.id,
@@ -527,6 +528,7 @@ router.get('/devices', auth, biometricAuth, async (req, res) => {
  */
 router.post('/devices', auth, biometricAuth, async (req, res) => {
   try {
+    await ensureBiometricTablesExist();
     const { deviceId, name, location, deviceType, ipAddress, serialNumber, status = 'active' } = req.body;
     
     if (!deviceId || !String(deviceId).trim()) {
