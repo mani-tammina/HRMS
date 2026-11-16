@@ -461,6 +461,10 @@
 
           <!-- View Pay Register Action -->
           <div class="outcome-actions">
+            <button class="payment-preview-btn" (click)="goToPaymentPreview($event)" title="View Payment Batches & Transfer Statements">
+              <ion-icon name="card-outline"></ion-icon>
+              <span>Payment Preview</span>
+            </button>
             <button class="view-register-btn" (click)="viewPayRegister($event)" [disabled]="isDownloadingRegister">
               <ion-icon name="print-outline"></ion-icon>
               <span>{{ isDownloadingRegister ? 'Exporting...' : 'View Pay Register' }}</span>
@@ -468,7 +472,6 @@
           </div>
         </div>
 
-        <!-- Accordion Body -->
         <!-- Accordion Body -->
         <div class="outcome-body" *ngIf="!outcomeCollapsed">
 
@@ -497,6 +500,10 @@
               </div>
             </div>
             <div class="card-action">
+              <button class="outline-purple-btn" (click)="goToPaymentPreview($event)">
+                <ion-icon name="card-outline" style="vertical-align: middle; margin-right: 4px;"></ion-icon>
+                Payment Preview
+              </button>
               <button class="primary-purple-btn" (click)="managePayslips()">
                 Manage payslips and F&amp;F Statements
               </button>

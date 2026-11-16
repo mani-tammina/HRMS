@@ -518,7 +518,13 @@ router.get("/:id/details", auth, async (req, res) => {
               ap.name as attendance_policy_name,
               acs.name as attendance_capture_scheme_name,
               hl.name as holiday_list_name,
-              ep.name as expense_policy_name
+              ep.name as expense_policy_name,
+              ebd.PaymentMode as payment_mode,
+              ebd.Bank as bank_name,
+              ebd.IFSCCode as ifsc_code,
+              ebd.BankAccountNo as AccountNumber,
+              ebd.Name as account_holder_name,
+              ebd.Department as bank_department
            FROM employees e
            LEFT JOIN locations l ON e.LocationId = l.id
            LEFT JOIN departments d ON e.DepartmentId = d.id
@@ -538,6 +544,7 @@ router.get("/:id/details", auth, async (req, res) => {
            LEFT JOIN attendance_capture_schemes acs ON e.attendance_capture_scheme_id = acs.id
            LEFT JOIN holiday_lists hl ON e.holiday_list_id = hl.id
            LEFT JOIN expense_policies ep ON e.expense_policy_id = ep.id
+           LEFT JOIN Employee_BankDetails ebd ON (ebd.employee_id = e.id OR (ebd.employee_id IS NULL AND ebd.Empno = e.EmployeeNumber))
            WHERE e.id = ?`,
       [requestedEmployeeId],
     );
@@ -847,71 +854,85 @@ router.get("/search/query", auth, async (req, res) => {
 
 // Get my profile
 router.get("/profile/me", auth, async (req, res) => {
-  const emp = await findEmployeeByUserId(req.user.id);
-  if (!emp) return res.status(404).json({ error: "Employee not found" });
+  let c = null;
+  try {
+    const emp = await findEmployeeByUserId(req.user.id);
+    if (!emp) return res.status(404).json({ error: "Employee not found" });
 
-  const c = await db();
-  const [rows] = await c.query(
-    `SELECT 
-            e.*,
-            COALESCE(esc.annual_ctc, e.lpa) as lpa,
-            l.name as location_name,
-            l.address_line1 as location_address_line1,
-            l.city as location_city,
-            l.state as location_state,
-            l.postal_code as location_postal_code,
-            l.country as location_country,
-            l.phone_number as location_phone_number,
-            d.name as department_name,
-            sd.name as sub_department_name,
-            des.name as designation_name,
-            des2.name as secondary_designation_name,
-            bu.name as business_unit_name,
-            le.name as legal_entity_name,
-            b.name as band_name,
-            pg.name as pay_grade_name,
-            mgr.FirstName as manager_first_name,
-            mgr.LastName as manager_last_name,
-            ap.name as attendance_policy_name
-         FROM employees e
-         LEFT JOIN locations l ON e.LocationId = l.id
-         LEFT JOIN departments d ON e.DepartmentId = d.id
-         LEFT JOIN sub_departments sd ON e.SubDepartmentId = sd.id
-         LEFT JOIN designations des ON e.DesignationId = des.id
-         LEFT JOIN designations des2 ON e.SecondaryDesignationId = des2.id
-         LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
-         LEFT JOIN legal_entities le ON e.LegalEntityId = le.id
-         LEFT JOIN bands b ON e.BandId = b.id
-         LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
-         LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
-         LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
-         LEFT JOIN (
-            SELECT t1.employee_id, t1.annual_ctc
-            FROM employee_salary_contracts t1
-            INNER JOIN (
-                SELECT employee_id, MAX(effective_from) as max_from
-                FROM employee_salary_contracts
-                GROUP BY employee_id
-            ) t2 ON t1.employee_id = t2.employee_id AND t1.effective_from = t2.max_from
-         ) esc ON esc.employee_id = e.id
-         WHERE e.id = ?
-         LIMIT 1`,
-    [emp.id],
-  );
-  c.end();
+    c = await db();
+    const [rows] = await c.query(
+      `SELECT 
+              e.*,
+              COALESCE(esc.annual_ctc, e.lpa) as lpa,
+              l.name as location_name,
+              l.address_line1 as location_address_line1,
+              l.city as location_city,
+              l.state as location_state,
+              l.postal_code as location_postal_code,
+              l.country as location_country,
+              l.phone_number as location_phone_number,
+              d.name as department_name,
+              sd.name as sub_department_name,
+              des.name as designation_name,
+              des2.name as secondary_designation_name,
+              bu.name as business_unit_name,
+              le.name as legal_entity_name,
+              b.name as band_name,
+              pg.name as pay_grade_name,
+              mgr.FirstName as manager_first_name,
+              mgr.LastName as manager_last_name,
+              ap.name as attendance_policy_name,
+              ebd.PaymentMode as payment_mode,
+              ebd.Bank as bank_name,
+              ebd.IFSCCode as ifsc_code,
+              ebd.BankAccountNo as AccountNumber,
+              ebd.Name as account_holder_name,
+              ebd.Department as bank_department
+           FROM employees e
+           LEFT JOIN locations l ON e.LocationId = l.id
+           LEFT JOIN departments d ON e.DepartmentId = d.id
+           LEFT JOIN sub_departments sd ON e.SubDepartmentId = sd.id
+           LEFT JOIN designations des ON e.DesignationId = des.id
+           LEFT JOIN designations des2 ON e.SecondaryDesignationId = des2.id
+           LEFT JOIN business_units bu ON e.BusinessUnitId = bu.id
+           LEFT JOIN legal_entities le ON e.LegalEntityId = le.id
+           LEFT JOIN bands b ON e.BandId = b.id
+           LEFT JOIN pay_grades pg ON e.PayGradeId = pg.id
+           LEFT JOIN employees mgr ON e.reporting_manager_id = mgr.id
+           LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
+           LEFT JOIN Employee_BankDetails ebd ON (ebd.employee_id = e.id OR (ebd.employee_id IS NULL AND ebd.Empno = e.EmployeeNumber))
+           LEFT JOIN (
+              SELECT t1.employee_id, t1.annual_ctc
+              FROM employee_salary_contracts t1
+              INNER JOIN (
+                  SELECT employee_id, MAX(effective_from) as max_from
+                  FROM employee_salary_contracts
+                  GROUP BY employee_id
+              ) t2 ON t1.employee_id = t2.employee_id AND t1.effective_from = t2.max_from
+           ) esc ON esc.employee_id = e.id
+           WHERE e.id = ?
+           LIMIT 1`,
+      [emp.id],
+    );
 
-  if (rows.length === 0)
-    return res.status(404).json({ error: "Profile not found" });
+    if (rows.length === 0)
+      return res.status(404).json({ error: "Profile not found" });
 
-  const profile = formatEmployeeDates(rows[0]);
-  const phoneVal = profile.mobile_number || profile.PhoneNumber || null;
-  profile.mobile_number = phoneVal;
-  profile.PhoneNumber = phoneVal;
-  profile['mobile_phone'] = phoneVal;
-  profile['Mobile Phone'] = phoneVal;
-  profile['MobilePhone'] = phoneVal;
+    const profile = formatEmployeeDates(rows[0]);
+    const phoneVal = profile.mobile_number || profile.PhoneNumber || null;
+    profile.mobile_number = phoneVal;
+    profile.PhoneNumber = phoneVal;
+    profile['mobile_phone'] = phoneVal;
+    profile['Mobile Phone'] = phoneVal;
+    profile['MobilePhone'] = phoneVal;
 
-  res.json(profile);
+    res.json(profile);
+  } catch (error) {
+    console.error("Error fetching /profile/me:", error);
+    res.status(500).json({ error: "Failed to fetch profile" });
+  } finally {
+    if (c) await c.end();
+  }
 });
 
 // Update my profile

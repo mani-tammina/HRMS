@@ -1199,14 +1199,16 @@ export class WorkTrackPage implements OnInit, OnDestroy {
 
     fetchObservable.subscribe({
       next: (res: any) => {
-        this.myTimesheets = res?.data || res || [];
+        this.myTimesheets = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
         this.currentPage = 1;
         this.updatePagination();
         this.loadingList = false;
+        this.cdr.detectChanges();
         this.checkRouteParamsAndEdit();
       },
       error: () => {
         this.loadingList = false;
+        this.cdr.detectChanges();
         this.showToast('Failed to load timesheets');
       },
     });
@@ -1437,18 +1439,25 @@ export class WorkTrackPage implements OnInit, OnDestroy {
   }
 
   getApprovedCount(): number {
-    if (!this.myTimesheets) return 0;
-    return this.myTimesheets.filter(t => (t.status || '').toLowerCase() === 'approved').length;
+    if (!this.myTimesheets || !Array.isArray(this.myTimesheets)) return 0;
+    return this.myTimesheets.filter(t => {
+      const s = (t?.status || '').toLowerCase();
+      return s === 'approved' || s === 'verified';
+    }).length;
   }
 
   getPendingCount(): number {
-    if (!this.myTimesheets) return 0;
-    return this.myTimesheets.filter(t => (t.status || '').toLowerCase() === 'submitted' || (t.status || '').toLowerCase() === 'pending').length;
+    if (!this.myTimesheets || !Array.isArray(this.myTimesheets)) return 0;
+    return this.myTimesheets.filter(t => {
+      const s = (t?.status || '').toLowerCase();
+      return s === 'submitted' || s === 'pending';
+    }).length;
   }
 
   getTotalHoursSum(): number {
-    if (!this.myTimesheets) return 0;
-    return this.myTimesheets.reduce((sum, t) => sum + (parseFloat(t.total_hours) || 0), 0);
+    if (!this.myTimesheets || !Array.isArray(this.myTimesheets)) return 0;
+    const total = this.myTimesheets.reduce((sum, t) => sum + (parseFloat(t?.total_hours) || 0), 0);
+    return Math.round(total * 100) / 100;
   }
 
   formatDate(date: Date): string {

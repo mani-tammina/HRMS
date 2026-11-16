@@ -1,0 +1,407 @@
+<div class="finance-container" *ngIf="currentEmployee">
+  <!-- Sub-navigation bar matching Finance view -->
+  <div class="finance-subnav">
+    <button
+      type="button"
+      class="subnav-tab"
+      [class.active]="activeSubTab === 'summary'"
+      (click)="selectSubTab('summary')">
+      Summary
+    </button>
+    <button
+      type="button"
+      class="subnav-tab"
+      [class.active]="activeSubTab === 'pay'"
+      (click)="selectSubTab('pay')">
+      Pay
+    </button>
+    <button
+      type="button"
+      class="subnav-tab"
+      [class.active]="activeSubTab === 'tax'"
+      (click)="selectSubTab('tax')">
+      Manage Tax
+    </button>
+  </div>
+
+  <!-- SUMMARY SUB-TAB -->
+  <ng-container *ngIf="activeSubTab === 'summary'">
+    <!-- Payroll Summary Full-Width Card -->
+    <div class="finance-card payroll-summary-card">
+      <div class="summary-title">Payroll summary</div>
+      <div class="summary-metrics-grid">
+        <div class="metric-item">
+          <span class="field-label">LAST PROCESSED CYCLE</span>
+          <span class="field-value" [class.muted-na]="lastProcessedCycle === 'N/A'">{{ lastProcessedCycle }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="field-label">WORKING DAYS</span>
+          <span class="field-value" [class.muted-na]="workingDays === 'N/A'">{{ workingDays }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="field-label">LOSS OF PAY</span>
+          <span class="field-value" [class.muted-na]="lossOfPayDays === 'N/A'">{{ lossOfPayDays }}</span>
+        </div>
+        <div class="metric-item">
+          <span class="field-label">PAYSLIP</span>
+          <ng-container *ngIf="hasPayslip && isOwnProfile; else noPayslipLink">
+            <a class="payslip-link" (click)="openPayslipsPage()">View payslip</a>
+          </ng-container>
+          <ng-template #noPayslipLink>
+            <span class="field-value" [class.muted-na]="!hasPayslip">{{ hasPayslip ? 'Available' : 'N/A' }}</span>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-Column Detail Grid -->
+    <div class="finance-columns-grid">
+      <!-- LEFT COLUMN -->
+      <div class="finance-col-left">
+        <!-- Payment Information Card -->
+        <div class="finance-card">
+          <div class="card-top-header">
+            <div class="card-title-group">
+              <span class="card-title">Payment Information</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="single-field-row">
+              <span class="field-label">PAYMENT MODE</span>
+              <span class="field-value" [class.muted-na]="paymentMode === 'N/A'">{{ paymentMode }}</span>
+            </div>
+
+            <div class="sub-section-title">Account Information</div>
+
+            <div class="fields-grid cols-5">
+              <div class="field-item">
+                <span class="field-label">BANK NAME</span>
+                <span class="field-value" [class.muted-na]="bankName === 'N/A'">{{ bankName }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">ACCOUNT NUMBER</span>
+                <span class="field-value" [class.muted-na]="accountNumber === 'N/A'">{{ accountNumber }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">IFSC CODE</span>
+                <span class="field-value" [class.muted-na]="ifscCode === 'N/A'">{{ ifscCode }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">NAME ON THE ACCOUNT</span>
+                <span class="field-value" [class.muted-na]="accountHolderName === 'N/A'">{{ accountHolderName }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">BRANCH</span>
+                <span class="field-value" [class.muted-na]="bankBranch === 'N/A'">{{ bankBranch }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Statutory Information Card -->
+        <div class="finance-card">
+          <div class="card-top-header">
+            <div class="card-title-group">
+              <span class="card-title">Statutory Information</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- PF Account Information -->
+            <div class="sub-section-title with-icon">
+              <ion-icon name="shield-checkmark-outline" class="section-icon"></ion-icon>
+              <span>PF Account Information</span>
+            </div>
+
+            <div class="single-field-row">
+              <span class="field-label">PF STATUS</span>
+              <span class="field-value" [class.muted-na]="pfStatus === 'N/A'">{{ pfStatus }}</span>
+            </div>
+
+            <div class="fields-grid cols-4">
+              <div class="field-item">
+                <span class="field-label">PF NUMBER</span>
+                <span class="field-value" [class.muted-na]="pfNumber === 'N/A'">{{ pfNumber }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">UNIVERSAL ACCOUNT NUMBER</span>
+                <span class="field-value" [class.muted-na]="uanNumber === 'N/A'">{{ uanNumber }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">PF JOIN DATE</span>
+                <span class="field-value" [class.muted-na]="pfJoinDate === 'N/A'">{{ pfJoinDate }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">NAME ON THE ACCOUNT</span>
+                <span class="field-value" [class.muted-na]="pfAccountName === 'N/A'">{{ pfAccountName }}</span>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- ESI Account Information -->
+            <div class="sub-section-title with-icon">
+              <ion-icon name="medkit-outline" class="section-icon"></ion-icon>
+              <span>ESI Account Information</span>
+            </div>
+
+            <div class="fields-grid cols-2">
+              <div class="field-item">
+                <span class="field-label">ESI STATUS</span>
+                <span class="field-value" [class.muted-na]="esiStatus === 'N/A'">{{ esiStatus }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">ESI NUMBER</span>
+                <span class="field-value" [class.muted-na]="esiNumber === 'N/A'">{{ esiNumber }}</span>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- PT Details -->
+            <div class="sub-section-title">PT Details</div>
+
+            <div class="fields-grid cols-2">
+              <div class="field-item">
+                <span class="field-label">STATE</span>
+                <span class="field-value" [class.muted-na]="ptState === 'N/A'">{{ ptState }}</span>
+              </div>
+              <div class="field-item">
+                <span class="field-label">REGISTERED LOCATION</span>
+                <span class="field-value" [class.muted-na]="ptRegisteredLocation === 'N/A'">{{ ptRegisteredLocation }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="finance-col-right">
+        <!-- Identity Information Card -->
+        <div class="finance-card">
+          <div class="card-top-header">
+            <div class="card-title-group">
+              <span class="card-title">Identity Information</span>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <!-- PAN Card Block -->
+            <div class="identity-block">
+              <div class="identity-header-row">
+                <div class="doc-badge-title">
+                  <span class="country-flag" aria-hidden="true">🇮🇳</span>
+                  <span class="doc-name">PAN Card</span>
+                  <span class="status-badge verified" *ngIf="hasPanDetails">VERIFIED</span>
+                  <span class="status-badge pending" *ngIf="!hasPanDetails">N/A</span>
+                </div>
+                <div class="doc-meta" *ngIf="panDocCountLabel">
+                  <ion-icon name="attach-outline"></ion-icon>
+                  <span>{{ panDocCountLabel }}</span>
+                </div>
+              </div>
+
+              <div class="fields-grid cols-2">
+                <div class="field-item">
+                  <span class="field-label">PERMANENT ACCOUNT NUMBER (PAN)</span>
+                  <span class="field-value" [class.muted-na]="panNumber === 'N/A'">{{ panNumber }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">NAME</span>
+                  <span class="field-value" [class.muted-na]="panName === 'N/A'">{{ panName }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">DATE OF BIRTH</span>
+                  <span class="field-value" [class.muted-na]="panDob === 'N/A'">{{ panDob }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">FATHER'S NAME</span>
+                  <span class="field-value" [class.muted-na]="fathersName === 'N/A'">{{ fathersName }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Photo ID Block -->
+            <div class="identity-block">
+              <div class="sub-section-title">Photo ID</div>
+              <div class="identity-header-row">
+                <div class="doc-badge-title">
+                  <span class="country-flag" aria-hidden="true">🇮🇳</span>
+                  <span class="doc-name">Aadhaar Card</span>
+                  <span class="status-badge verified" *ngIf="hasAadhaarDetails">VERIFIED</span>
+                  <span class="status-badge pending" *ngIf="!hasAadhaarDetails">N/A</span>
+                </div>
+                <div class="doc-meta" *ngIf="aadhaarDocCountLabel">
+                  <ion-icon name="attach-outline"></ion-icon>
+                  <span>{{ aadhaarDocCountLabel }}</span>
+                </div>
+              </div>
+
+              <div class="fields-grid cols-2">
+                <div class="field-item">
+                  <span class="field-label">AADHAAR NUMBER</span>
+                  <span class="field-value" [class.muted-na]="aadhaarNumber === 'N/A'">{{ aadhaarNumber }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">ENROLMENT NUMBER</span>
+                  <span class="field-value" [class.muted-na]="enrolmentNumber === 'N/A'">{{ enrolmentNumber }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">DATE OF BIRTH</span>
+                  <span class="field-value" [class.muted-na]="aadhaarDob === 'N/A'">{{ aadhaarDob }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">NAME</span>
+                  <span class="field-value" [class.muted-na]="aadhaarName === 'N/A'">{{ aadhaarName }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">ADDRESS</span>
+                  <span class="field-value" [class.muted-na]="formattedAddress === 'N/A'">{{ formattedAddress }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">GENDER</span>
+                  <span class="field-value" [class.muted-na]="aadhaarGender === 'N/A'">{{ aadhaarGender }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="section-divider"></div>
+
+            <!-- Address Proof Block -->
+            <div class="identity-block">
+              <div class="sub-section-title">Address Proof</div>
+              <div class="identity-header-row">
+                <div class="doc-badge-title">
+                  <span class="country-flag" aria-hidden="true">🇮🇳</span>
+                  <span class="doc-name">Aadhaar Card</span>
+                  <span class="status-badge verified" *ngIf="hasAadhaarDetails">VERIFIED</span>
+                  <span class="status-badge pending" *ngIf="!hasAadhaarDetails">N/A</span>
+                </div>
+                <div class="doc-meta" *ngIf="aadhaarDocCountLabel">
+                  <ion-icon name="attach-outline"></ion-icon>
+                  <span>{{ aadhaarDocCountLabel }}</span>
+                </div>
+              </div>
+
+              <div class="fields-grid cols-2">
+                <div class="field-item">
+                  <span class="field-label">AADHAAR NUMBER</span>
+                  <span class="field-value" [class.muted-na]="aadhaarNumber === 'N/A'">{{ aadhaarNumber }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">ENROLMENT NUMBER</span>
+                  <span class="field-value" [class.muted-na]="enrolmentNumber === 'N/A'">{{ enrolmentNumber }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">DATE OF BIRTH</span>
+                  <span class="field-value" [class.muted-na]="aadhaarDob === 'N/A'">{{ aadhaarDob }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">NAME</span>
+                  <span class="field-value" [class.muted-na]="aadhaarName === 'N/A'">{{ aadhaarName }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">ADDRESS</span>
+                  <span class="field-value" [class.muted-na]="formattedAddress === 'N/A'">{{ formattedAddress }}</span>
+                </div>
+                <div class="field-item">
+                  <span class="field-label">GENDER</span>
+                  <span class="field-value" [class.muted-na]="aadhaarGender === 'N/A'">{{ aadhaarGender }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- PAY SUB-TAB (READ-ONLY) -->
+  <ng-container *ngIf="activeSubTab === 'pay'">
+    <div class="finance-card">
+      <div class="card-top-header">
+        <div class="card-title-group">
+          <span class="card-title">Payslips History</span>
+        </div>
+        <button *ngIf="isOwnProfile" type="button" class="action-link-btn" (click)="openPayslipsPage()">
+          Open My Pay
+          <ion-icon name="open-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div *ngIf="payslips.length === 0" class="empty-readonly-state">
+          <p class="empty-title">No payslips available yet</p>
+          <p class="empty-subtitle">Status: <span class="muted-na">N/A</span> until payroll is processed and released.</p>
+        </div>
+
+        <div class="payslips-readonly-list" *ngIf="payslips.length > 0">
+          <div class="payslip-row" *ngFor="let p of payslips">
+            <div class="field-item">
+              <span class="field-label">CYCLE</span>
+              <span class="field-value">{{ p.cycle_label || p.month_label || p.payroll_month || p.month || 'N/A' }}</span>
+            </div>
+            <div class="field-item">
+              <span class="field-label">WORKING DAYS</span>
+              <span class="field-value">{{ p.working_days ?? p.total_days ?? 'N/A' }}</span>
+            </div>
+            <div class="field-item">
+              <span class="field-label">GROSS PAY</span>
+              <span class="field-value">{{ p.gross_salary ?? p.monthly_gross ?? 'N/A' }}</span>
+            </div>
+            <div class="field-item">
+              <span class="field-label">NET PAY</span>
+              <span class="field-value">{{ p.net_salary ?? p.net_pay ?? 'N/A' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- MANAGE TAX SUB-TAB (READ-ONLY) -->
+  <ng-container *ngIf="activeSubTab === 'tax'">
+    <div class="finance-card">
+      <div class="card-top-header">
+        <div class="card-title-group">
+          <span class="card-title">Tax Profile</span>
+        </div>
+        <button *ngIf="isOwnProfile" type="button" class="action-link-btn" (click)="openMyTaxPage()">
+          Open My Tax
+          <ion-icon name="open-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div class="fields-grid cols-4">
+          <div class="field-item">
+            <span class="field-label">PAN NUMBER</span>
+            <span class="field-value" [class.muted-na]="panNumber === 'N/A'">{{ panNumber }}</span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">TAX REGIME</span>
+            <span class="field-value" [class.muted-na]="!taxProfile?.tax_regime && !taxProfile?.regime">
+              {{ taxProfile?.tax_regime || taxProfile?.regime || 'N/A' }}
+            </span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">FINANCIAL YEAR</span>
+            <span class="field-value" [class.muted-na]="!taxProfile?.financial_year">
+              {{ taxProfile?.financial_year || 'N/A' }}
+            </span>
+          </div>
+          <div class="field-item">
+            <span class="field-label">TAXABLE INCOME</span>
+            <span class="field-value" [class.muted-na]="taxProfile?.taxable_income === undefined || taxProfile?.taxable_income === null">
+              {{ taxProfile?.taxable_income ?? 'N/A' }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+</div>
+

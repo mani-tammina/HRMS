@@ -1,7 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { FinanceAdminService } from '../../../core/services/finance-admin.service';
 import { ToasterService } from '../../../core/services/toaster.service';
-import { AlertController, LoadingController } from '@ionic/angular';
+import { AlertController, LoadingController, ModalController } from '@ionic/angular';
+import { EmployeeBankUploadModalComponent } from './components/employee-bank-upload-modal/employee-bank-upload-modal.component';
 
 @Component({
   selector: 'app-financial-admin',
@@ -11,15 +12,44 @@ import { AlertController, LoadingController } from '@ionic/angular';
 })
 export class FinancialAdminPage implements OnInit {
   isLoading = false;
+  bankDetailsCount = 0;
 
   constructor(
     private financeService: FinanceAdminService,
     private toaster: ToasterService,
     private alertCtrl: AlertController,
-    private loadingCtrl: LoadingController
+    private loadingCtrl: LoadingController,
+    private modalCtrl: ModalController
   ) {}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.loadBankDetailsCount();
+  }
+
+  loadBankDetailsCount() {
+    this.financeService.getEmployeeBankDetails().subscribe({
+      next: (res) => {
+        this.bankDetailsCount = res?.count ?? (Array.isArray(res?.data) ? res.data.length : 0);
+      },
+      error: () => {
+        this.bankDetailsCount = 0;
+      }
+    });
+  }
+
+  async openBankUploadModal() {
+    const modal = await this.modalCtrl.create({
+      component: EmployeeBankUploadModalComponent,
+      cssClass: 'employee-bank-upload-modal'
+    });
+    await modal.present();
+    const { data } = await modal.onDidDismiss();
+    if (data && typeof data.count === 'number') {
+      this.bankDetailsCount = data.count;
+    } else {
+      this.loadBankDetailsCount();
+    }
+  }
 
   async onRestoreDefaults() {
     const alert = await this.alertCtrl.create({

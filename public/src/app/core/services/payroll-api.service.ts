@@ -983,4 +983,33 @@ export class PayrollApiService {
       headers: this.getHeaders()
     });
   }
+
+  /** GET /api/payroll/v2/payment-batches?month=YYYY-MM — Payment preview & batch details */
+  getPaymentBatches(month: string): Observable<any> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get<any>(`${this.baseUrl}/payroll/v2/payment-batches`, {
+      headers: this.getHeaders(),
+      params
+    });
+  }
+
+  /** POST /api/payroll/v2/payment-batches/mark-paid — Mark payment batch / run as paid */
+  markPaymentBatchPaid(payload: { month?: string; runId?: number }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/payroll/v2/payment-batches/mark-paid`, payload, {
+      headers: this.getHeaders()
+    });
+  }
+
+  /** GET /api/payroll/v2/payment-batches/export — Download transfer statement */
+  exportTransferStatement(month: string, format: string = 'excel', bank?: string): Observable<Blob> {
+    let params = new HttpParams().set('month', month).set('format', format);
+    if (bank) {
+      params = params.set('bank', bank);
+    }
+    return this.http.get(`${this.baseUrl}/payroll/v2/payment-batches/export`, {
+      headers: this.getHeaders(),
+      params,
+      responseType: 'blob'
+    });
+  }
 }

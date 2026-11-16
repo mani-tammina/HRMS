@@ -496,7 +496,7 @@
         <ion-icon name="calendar-clear-outline"></ion-icon>
         Selecting {{ wfhActivePicker === 'from' ? 'start' : 'end' }} date
       </div>
-      <ion-datetime presentation="date" [min]="wfhMinDate"
+      <ion-datetime presentation="date" [min]="wfhCurrentPickerMinDate"
         [value]="wfhActivePicker === 'from' ? wfhFromDate : wfhToDate" (ionChange)="wfhOnDateSelected($event)">
       </ion-datetime>
     </div>
