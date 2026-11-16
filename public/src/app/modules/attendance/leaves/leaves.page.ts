@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
@@ -12,6 +12,7 @@ import { AttendanceApiService } from '../../../core/services/attendance-api.serv
 import { ManagerTimesheetApprovalsComponent } from '../../../shared/components/manager-timesheet-approvals/manager-timesheet-approvals.component';
 import { ManagerLeaveApprovalsComponent } from '../../../shared/components/manager-leave-approvals/manager-leave-approvals.component';
 import { ManagerWfhApprovalsComponent } from '../../../shared/components/manager-wfh-approvals/manager-wfh-approvals.component';
+import { LeaveRequestComponent } from '../../../shared/components/leave-request/leave-request.component';
 
 @Component({
   selector: 'app-leaves',
@@ -20,6 +21,7 @@ import { ManagerWfhApprovalsComponent } from '../../../shared/components/manager
   standalone: false,
 })
 export class LeavesPage implements OnInit, OnDestroy {
+  @ViewChild(LeaveRequestComponent) leaveRequestComp?: LeaveRequestComponent;
   private destroy$ = new Subject<void>();
   currentYear = new Date().getFullYear();
 
@@ -461,7 +463,12 @@ export class LeavesPage implements OnInit, OnDestroy {
   }
 
   /* ===================== MODALS ===================== */
-  openLeaveModal() { this.IsOpenleavePopup = true; }
+  openLeaveModal() {
+    this.IsOpenleavePopup = true;
+    setTimeout(() => {
+      this.leaveRequestComp?.refresh();
+    }, 100);
+  }
 
   closeleavePopup() { this.IsOpenleavePopup = false; }
 

@@ -182,15 +182,26 @@ export class LeaveRequestComponent implements OnInit {
     this.employeeLeaves.getLeaveBalance(this.currentYear).subscribe({
       next: (res: any) => {
         const balances = res.balances || [];
-        this.leaveTypes = balances.map((item: any) => ({
-          id: item.leave_type_id,
-          name: item.type_name,
-          code: item.type_code,
-          available: Number(item.available_days) || 0,
-          pending: Number(item.pending_days) || 0
-        }));
+        this.leaveTypes = balances.map((item: any) => {
+          const rawAvailable = Number(item.available_days) || 0;
+          const pending = Number(item.pending_days) || 0;
+          const trulyAvailable = Math.max(0, rawAvailable - pending);
+          return {
+            id: item.leave_type_id,
+            name: item.type_name,
+            code: item.type_code,
+            available: trulyAvailable,
+            raw_available: rawAvailable,
+            pending: pending
+          };
+        });
       }
     });
+  }
+
+  refresh() {
+    this.loadLeaveBalance();
+    this.loadPendingLeaves();
   }
 
   submitRequest() {
@@ -209,13 +220,13 @@ export class LeaveRequestComponent implements OnInit {
 
     // For LOP (Loss of Pay), we bypass the balance check as per requirements
     const isLOP = (selectedLeave.code || '').toUpperCase() === 'LOP';
-    const trulyAvailable = selectedLeave.available - selectedLeave.pending;
+    const trulyAvailable = selectedLeave.available;
 
     if (!isLOP && this.total_days > trulyAvailable) {
-      if (selectedLeave.available <= 0 || trulyAvailable <= 0) {
-        this.presentToast('Your assigned leaves are applied please check', 'warning');
+      if (trulyAvailable <= 0) {
+        this.presentToast('Your assigned leaves are already applied or exhausted, please check', 'warning');
       } else {
-        this.presentToast(`Only ${trulyAvailable} days available (considering pending requests)`, 'warning');
+        this.presentToast(`Only ${trulyAvailable} day(s) available (considering applied requests)`, 'warning');
       }
       return;
     }
@@ -319,6 +330,7 @@ export class LeaveRequestComponent implements OnInit {
         this.presentToast('Leave request submitted successfully', 'success');
         this.leaveSubmitted.emit();
         this.loadPendingLeaves();
+        this.loadLeaveBalance();
       },
       error: (err) => {
         this.presentToast(err?.error?.error || 'Failed to submit leave', 'danger');
