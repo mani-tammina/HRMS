@@ -1891,7 +1891,7 @@ async function getPaymentBatches(req, res) {
              COALESCE(bd.Department, dept.name, 'Operations') as Department,
              e.DesignationId, 
              COALESCE(d.name, 'Software Associate') as Designation,
-             COALESCE(NULLIF(esc.annual_ctc, 0), NULLIF(e.lpa, 0), 0) as annual_ctc,
+             COALESCE(NULLIF(e.lpa, 0), NULLIF(esc.annual_ctc, 0), 0) as annual_ctc,
              COALESCE(esc.template_id, 1) as template_id,
              COALESCE(bd.PaymentMode, 'Bank Transfer') as payment_mode,
              CASE 
@@ -2154,7 +2154,7 @@ async function exportTransferStatement(req, res) {
                  WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
                  ELSE NULL
              END as BankAccountNo,
-             COALESCE(NULLIF(esc.annual_ctc, 0), NULLIF(e.lpa, 0), 0) as annual_ctc,
+             COALESCE(NULLIF(e.lpa, 0), NULLIF(esc.annual_ctc, 0), 0) as annual_ctc,
              COALESCE(esc.template_id, 1) as template_id
       FROM employees e
       LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
