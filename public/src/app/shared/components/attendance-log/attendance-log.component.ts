@@ -883,21 +883,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       cleanList.push(p);
     }
 
-    const rawPunchesSorted = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-    const rawPunches: any[] = [];
-    for (const p of rawPunchesSorted) {
-      const pMs = this.parsePunchTimeToMs(p.punch_time);
-      const lastP = rawPunches.length > 0 ? rawPunches[rawPunches.length - 1] : null;
-      if (lastP) {
-        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
-        const sameStream = (p.source === lastP.source) || (p.work_mode === lastP.work_mode) || (p.device_id && p.device_id === lastP.device_id);
-        if (sameStream && pMs > 0 && lastMs > 0 && Math.abs(pMs - lastMs) < 60000) {
-          continue; // Debounce rapid duplicate taps
-        }
-      }
-      rawPunches.push(p);
-    }
-
     const getFormattedTime = (dateVal: any): string => {
       if (!dateVal) return '';
       const ms = this.parsePunchTimeToMs(dateVal);
@@ -990,6 +975,36 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return 'Web Clock In';
     };
 
+    // Group each punch mode individually (Web Clock In, Remote Clock In, Work From Home, Biometric Device / Floor)
+    const getPunchGroupName = (p: any): string => {
+      if (isBiometric(p)) {
+        return getBiometricLocationTitle(p);
+      }
+      return getSoftwarePunchMode(p);
+    };
+
+    const rawPunchesSorted = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const rawPunches: any[] = [];
+    for (const p of rawPunchesSorted) {
+      const pMs = this.parsePunchTimeToMs(p.punch_time);
+      const lastP = rawPunches.length > 0 ? rawPunches[rawPunches.length - 1] : null;
+      if (lastP) {
+        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
+        const groupP = getPunchGroupName(p);
+        const groupLast = getPunchGroupName(lastP);
+        // ONLY debounce if it is the EXACT same device/floor AND same punch direction/type
+        const sameDevice = groupP && groupLast && groupP === groupLast;
+        const pDir = (p.punch_type || p.direction || '').toLowerCase();
+        const lastDir = (lastP.punch_type || lastP.direction || '').toLowerCase();
+        const sameDirection = pDir && lastDir ? pDir === lastDir : true;
+
+        if (sameDevice && sameDirection && pMs > 0 && lastMs > 0 && Math.abs(pMs - lastMs) < 60000) {
+          continue; // Debounce rapid duplicate taps on the same device and direction
+        }
+      }
+      rawPunches.push(p);
+    }
+
     const getGroupIcon = (name: string): string => {
       const lower = name.toLowerCase();
       if (lower.includes('floor') || lower.includes('door') || lower.includes('svs') || lower.includes('biometric')) return 'finger-print-outline';
@@ -1011,13 +1026,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       groupsMap.get(groupName)!.sessions.push(session);
     };
 
-    // Group each punch mode individually (Web Clock In, Remote Clock In, Work From Home, Biometric Clock In)
-    const getPunchGroupName = (p: any): string => {
-      if (isBiometric(p)) {
-        return getBiometricLocationTitle(p);
-      }
-      return getSoftwarePunchMode(p);
-    };
+
 
     const modePunchesMap = new Map<string, any[]>();
     for (const p of rawPunches) {
