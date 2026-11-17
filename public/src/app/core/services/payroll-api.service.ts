@@ -156,7 +156,7 @@ export interface V2RunSummary {
   completed_at: string;
   employee_count: number;
   total_gross: number;
-  total_net: number;
+  total_net?: number;
 }
 
 export interface BankAccountPayload {

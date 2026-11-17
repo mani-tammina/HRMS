@@ -75,7 +75,7 @@ router.get('/v2/run', auth, finance, async (req, res) => {
     try {
         c = await db();
         const [rows] = await c.query(
-            `SELECT r.id as run_id, r.status, r.started_at, r.completed_at, COUNT(s.id) as employee_count, SUM(s.gross_earnings) as total_gross, SUM(s.net_pay) as total_net
+            `SELECT r.id as run_id, r.status, r.started_at, r.completed_at, COUNT(s.id) as employee_count, SUM(s.gross_earnings) as total_gross
              FROM payroll_runs r
              JOIN payroll_cycles cy ON cy.id = r.cycle_id
              LEFT JOIN payroll_employee_salaries s ON s.run_id = r.id
@@ -1077,27 +1077,99 @@ router.get("/v2/leave-attendance-payable", auth, async (req, res) => {
             action_status: 'No action taken'
         }));
 
-        // 4. Step 3: LOP Summary
-        const lopSummary = workingEmployees.slice(0, 30).map((emp, i) => {
-            const name = emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || `Employee ${emp.id}`;
-            const code = emp.EmployeeNumber || `STSS-${String(emp.id).padStart(3, '0')}`;
-            const lopDays = i % 5 === 0 ? 1 : (i % 8 === 0 ? 2 : 0);
-            const paidLeaves = (i % 4);
-            const attendedDays = Math.max(0, daysInMonth - lopDays - paidLeaves);
-            const payableUnits = daysInMonth - lopDays;
-            return {
-                id: emp.id,
-                employee_name: name,
-                employee_code: code,
-                department: emp.department_name || 'General',
-                calendar_days: daysInMonth,
-                attended_days: attendedDays,
-                paid_leaves: paidLeaves,
-                lop_days: lopDays,
-                payable_units: payableUnits,
-                status: lopDays > 0 ? 'LOP Applied' : 'Full Pay'
-            };
-        });
+        // 4. Step 3: LOP Summary — ONLY employees who have LOPs of that generated payroll month
+        const [snapshotRows] = await c.query(`
+            SELECT pas.id, pas.employee_id, pas.lop_days, pas.working_days, pas.paid_days, pas.notes,
+                   e.EmployeeNumber, e.FullName, e.FirstName, e.LastName,
+                   d.name as department_name, des.name as designation_name
+            FROM payroll_attendance_snapshots pas
+            JOIN payroll_cycles cy ON cy.id = pas.cycle_id
+            JOIN employees e ON e.id = pas.employee_id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE cy.year = ? AND cy.month = ? AND pas.lop_days > 0
+            ORDER BY pas.lop_days DESC, e.EmployeeNumber ASC
+        `, [year, monthNum]);
+
+        let lopSummary = [];
+        if (snapshotRows && snapshotRows.length > 0) {
+            lopSummary = snapshotRows.map(row => {
+                const name = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim() || `Employee ${row.employee_id}`;
+                const code = row.EmployeeNumber || `STSS-${String(row.employee_id).padStart(3, '0')}`;
+                const actualLop = Number(row.lop_days) || 0;
+                let adjustment = null;
+                let comment = '';
+                if (row.notes) {
+                    try {
+                        const parsed = JSON.parse(row.notes);
+                        adjustment = parsed.adjustment !== undefined ? parsed.adjustment : null;
+                        comment = parsed.comment || '';
+                    } catch (e) {
+                        comment = row.notes;
+                    }
+                }
+                const adjVal = (adjustment !== null && !isNaN(Number(adjustment))) ? Number(adjustment) : 0;
+                const finalLop = Math.max(0, actualLop + adjVal);
+
+                return {
+                    id: row.id,
+                    employee_id: row.employee_id,
+                    employee_name: name,
+                    employee_code: code,
+                    department: row.department_name || 'General',
+                    designation: row.designation_name || 'Staff',
+                    actual_lop: actualLop,
+                    adjustment: adjustment,
+                    final_lop: finalLop,
+                    comment: comment,
+                    calendar_days: Number(row.working_days) || daysInMonth,
+                    paid_days: Number(row.paid_days) || (daysInMonth - finalLop),
+                    payable_units: Number(row.paid_days) || (daysInMonth - finalLop),
+                    status: 'LOP Applied'
+                };
+            });
+        } else {
+            // If no cycle snapshots exist yet, check leaves for any explicit LOP/unpaid leaves for that month
+            const [leaveRows] = await c.query(`
+                SELECT l.employee_id, SUM(l.total_days) as lop_days,
+                       e.EmployeeNumber, e.FullName, e.FirstName, e.LastName,
+                       d.name as department_name, des.name as designation_name
+                FROM leaves l
+                JOIN leave_types lt ON lt.id = l.leave_type_id
+                JOIN employees e ON e.id = l.employee_id
+                LEFT JOIN departments d ON e.DepartmentId = d.id
+                LEFT JOIN designations des ON e.DesignationId = des.id
+                WHERE (l.start_date LIKE ? OR l.end_date LIKE ?)
+                  AND (lt.type_code IN ('LOP', 'UL') OR lt.is_paid = 0 OR LOWER(lt.type_name) LIKE '%loss of pay%' OR LOWER(lt.type_name) LIKE '%unpaid%')
+                GROUP BY l.employee_id
+                HAVING lop_days > 0
+                ORDER BY lop_days DESC
+            `, [`${monthParam}%`, `${monthParam}%`]);
+
+            if (leaveRows && leaveRows.length > 0) {
+                lopSummary = leaveRows.map((row, idx) => {
+                    const name = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim() || `Employee ${row.employee_id}`;
+                    const code = row.EmployeeNumber || `STSS-${String(row.employee_id).padStart(3, '0')}`;
+                    const actualLop = Number(row.lop_days) || 0;
+                    return {
+                        id: 2000 + idx,
+                        employee_id: row.employee_id,
+                        employee_name: name,
+                        employee_code: code,
+                        department: row.department_name || 'General',
+                        designation: row.designation_name || 'Staff',
+                        actual_lop: actualLop,
+                        adjustment: null,
+                        final_lop: actualLop,
+                        comment: '',
+                        calendar_days: daysInMonth,
+                        paid_days: Math.max(0, daysInMonth - actualLop),
+                        payable_units: Math.max(0, daysInMonth - actualLop),
+                        status: 'LOP Applied'
+                    };
+                });
+            }
+        }
 
         // 5. Step 4: LOP Reversal
         const prevMonthIdx = (mIdx + 11) % 12;
@@ -1131,7 +1203,14 @@ router.get("/v2/leave-attendance-payable", auth, async (req, res) => {
             leaveApplied: leaves,
             noAttendance: noAttendanceRecords,
             lopSummary: lopSummary,
-            lopReversals: lopReversals
+            lopReversals: lopReversals,
+            workingEmployees: (workingEmployees || []).map(e => ({
+                id: e.id,
+                employee_name: e.FullName || `${e.FirstName || ''} ${e.LastName || ''}`.trim(),
+                employee_code: e.EmployeeNumber || `STSS-${String(e.id).padStart(3, '0')}`,
+                department: e.department_name || 'General',
+                designation: e.designation_name || 'Staff'
+            }))
         });
     } catch (err) {
         console.error("Error in /v2/leave-attendance-payable:", err);
@@ -1231,6 +1310,69 @@ router.post("/v2/leave-attendance-payable/validate-all-leaves", auth, async (req
         });
     } catch (err) {
         console.error("Error in validate-all-leaves:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// Save LOP Summary overrides (Actual LOP, Adjustment, Final LOP, Comments)
+router.post("/v2/leave-attendance-payable/save-lop-summary", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month, records } = req.body;
+        if (!month || !records || !Array.isArray(records)) {
+            return res.json({ success: true, message: "No records to save" });
+        }
+        c = await db();
+        const [yStr, mStr] = month.split('-');
+        const year = parseInt(yStr, 10);
+        const monthNum = parseInt(mStr, 10);
+
+        // Find cycle for this month
+        const [cycles] = await c.query(`SELECT id FROM payroll_cycles WHERE year = ? AND month = ? LIMIT 1`, [year, monthNum]);
+        const cycleId = cycles[0]?.id;
+
+        if (cycleId) {
+            for (const rec of records) {
+                const empId = rec.employee_id;
+                if (!empId) continue;
+                const finalLop = Number(rec.final_lop !== undefined ? rec.final_lop : rec.actual_lop) || 0;
+                const notesPayload = JSON.stringify({
+                    adjustment: rec.adjustment !== null && rec.adjustment !== undefined ? Number(rec.adjustment) : null,
+                    comment: rec.comment || '',
+                    original_actual_lop: rec.actual_lop
+                });
+
+                // Update snapshot record if it exists
+                const [upd] = await c.query(`
+                    UPDATE payroll_attendance_snapshots
+                    SET lop_days = ?, notes = ?
+                    WHERE cycle_id = ? AND employee_id = ?
+                `, [finalLop, notesPayload, cycleId, empId]);
+
+                // If not in snapshots (e.g. manually added employee), insert it
+                if (upd.affectedRows === 0) {
+                    const daysInMonth = new Date(year, monthNum, 0).getDate();
+                    const paidDays = Math.max(0, daysInMonth - finalLop);
+                    await c.query(`
+                        INSERT INTO payroll_attendance_snapshots 
+                        (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, notes, snapshot_ts)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NOW())
+                        ON DUPLICATE KEY UPDATE lop_days = VALUES(lop_days), notes = VALUES(notes)
+                    `, [cycleId, empId, daysInMonth, paidDays, finalLop, paidDays, finalLop, notesPayload]);
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: "Loss of Pay summary saved successfully",
+            count: records.length,
+            month: month
+        });
+    } catch (err) {
+        console.error("Error in save-lop-summary:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (c) await c.end();
