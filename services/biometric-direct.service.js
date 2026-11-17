@@ -246,7 +246,7 @@ async function ingestDirectPunches(punches) {
     const punchDate = getShiftDateForPunch(empShift, formattedTime);
     const punchTimeMs = punchDateObj.getTime();
 
-    const trackKey = employeeId ? `EMP:${employeeId}:${punchDate}` : `RAW:${userId}:${punchDate}`;
+    const trackKey = employeeId ? `EMP:${employeeId}:${deviceId}:${punchDate}` : `RAW:${userId}:${deviceId}:${punchDate}`;
 
     // Load initial state from DB if not already loaded in this batch
     if (!trackingState.has(trackKey)) {
@@ -256,9 +256,9 @@ async function ingestDirectPunches(punches) {
         if (employeeId) {
           const [lastPunches] = await db.query(
             `SELECT punch_time, direction FROM biometric_punches 
-             WHERE employee_id = ? AND punch_date = ? 
+             WHERE employee_id = ? AND device_id = ? AND punch_date = ? 
              ORDER BY punch_time DESC LIMIT 1`,
-            [employeeId, punchDate]
+            [employeeId, deviceId, punchDate]
           );
           if (lastPunches && lastPunches.length > 0) {
             lastTimeMs = new Date(lastPunches[0].punch_time).getTime();
@@ -267,9 +267,9 @@ async function ingestDirectPunches(punches) {
         } else {
           const [lastRaw] = await db.query(
             `SELECT punch_time, direction FROM biometric_attendance_raw 
-             WHERE biometric_user_id = ? AND DATE(punch_time) = ? AND status != 'ignored' 
+             WHERE biometric_user_id = ? AND device_id = ? AND DATE(punch_time) = ? AND status != 'ignored' 
              ORDER BY punch_time DESC LIMIT 1`,
-            [userId, punchDate]
+            [userId, deviceId, punchDate]
           );
           if (lastRaw && lastRaw.length > 0) {
             lastTimeMs = new Date(lastRaw[0].punch_time).getTime();
@@ -282,26 +282,26 @@ async function ingestDirectPunches(punches) {
 
     const state = trackingState.get(trackKey);
 
-    // Rapid double-tap debounce (ignore repeated taps within 60 seconds)
-    const isRapidDuplicate = state.lastTimeMs > 0 && Math.abs(punchTimeMs - state.lastTimeMs) < 60000;
-
     let dir = 'in';
     const punchState = p.rawPayload ? p.rawPayload.punchState : undefined;
     if (punchState === 1 || punchState === 2 || punchState === 5) {
       dir = 'out';
-    } else if (punchState === 3 || punchState === 4) {
+    } else if (punchState === 0 || punchState === 3 || punchState === 4) {
       dir = 'in';
     } else {
       const d = String(p.direction || '').toLowerCase();
       if (d === 'out' || d === '1') {
         dir = 'out';
-      } else if (d === 'in') {
+      } else if (d === 'in' || d === '0') {
         dir = 'in';
       } else {
-        // Toggle direction: alternate from last known direction on this shift date
+        // Toggle direction: alternate from last known direction on this shift date for this device
         dir = (state.lastDir === 'in') ? 'out' : 'in';
       }
     }
+
+    // Rapid double-tap debounce (ignore repeated taps within 60 seconds on the SAME device and SAME direction)
+    const isRapidDuplicate = state.lastTimeMs > 0 && Math.abs(punchTimeMs - state.lastTimeMs) < 60000 && state.lastDir === dir;
 
     if (isRapidDuplicate) {
       // Record in raw logs as ignored duplicate tap so auditing is preserved without skewing calculations
@@ -528,7 +528,7 @@ async function syncSingleDevice(device, forceFullSync = false) {
         let dir = 'auto';
         if (r.punchState === 1 || r.punchState === 2 || r.punchState === 5 || r.direction === 'out' || r.direction === '1') {
           dir = 'out';
-        } else if (r.punchState === 3 || r.punchState === 4 || (r.direction && r.direction === 'in')) {
+        } else if (r.punchState === 0 || r.punchState === 3 || r.punchState === 4 || (r.direction && (r.direction === 'in' || r.direction === '0'))) {
           dir = 'in';
         } else if (r.direction && r.direction !== 'auto') {
           dir = r.direction;

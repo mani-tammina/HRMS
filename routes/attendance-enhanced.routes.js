@@ -974,12 +974,14 @@ router.get("/today", auth, async (req, res) => {
         [emp.id, shiftDate]
       );
       if (bioPunches && bioPunches.length > 0) {
-        let bioOpen = false;
+        const bioOpenByDevice = new Map();
         const mappedBio = bioPunches.map(p => {
           const dir = (p.direction || '').toLowerCase();
-          let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-          if (pt === 'in') bioOpen = true;
-          else if (pt === 'out') bioOpen = false;
+          const devKey = String(p.device_id || p.location || 'default');
+          const devOpen = bioOpenByDevice.get(devKey) || false;
+          let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (devOpen ? 'out' : 'in'));
+          if (pt === 'in') bioOpenByDevice.set(devKey, true);
+          else if (pt === 'out') bioOpenByDevice.set(devKey, false);
           return {
             ...p,
             punch_type: pt
@@ -1520,11 +1522,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     const [bioPunches] = await c.query(bioQuery, bioParams);
 
     if (bioPunches && bioPunches.length > 0) {
-      let bioOpen = false;
+      const bioOpenByDevice = new Map();
       const mappedBioPunches = bioPunches.map(p => {
-        let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-        if (pt === 'in') bioOpen = true;
-        else if (pt === 'out') bioOpen = false;
+        const dir = (p.direction || '').toLowerCase();
+        const devKey = String(p.device_id || p.location || 'default');
+        const devOpen = bioOpenByDevice.get(devKey) || false;
+        let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (devOpen ? 'out' : 'in'));
+        if (pt === 'in') bioOpenByDevice.set(devKey, true);
+        else if (pt === 'out') bioOpenByDevice.set(devKey, false);
         return {
           ...p,
           punch_type: pt
@@ -1550,15 +1555,27 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     return true;
   });
 
-  // Deduplicate rapid consecutive duplicate punches of the same type or stream (e.g. double tap within 60 seconds)
+  // Deduplicate rapid consecutive duplicate punches of the same type on the SAME device & stream (e.g. double tap within 60 seconds)
   const uniquePunches = [];
   punches.forEach(p => {
     const pTime = new Date(p.punch_time).getTime();
     const lastPunch = uniquePunches.length > 0 ? uniquePunches[uniquePunches.length - 1] : null;
-    const isDupe = lastPunch &&
-      lastPunch.source === p.source &&
-      (lastPunch.punch_type === p.punch_type || p.source === 'biometric') &&
-      Math.abs(pTime - new Date(lastPunch.punch_time).getTime()) < 60000;
+    let isDupe = false;
+    if (lastPunch) {
+      const timeDiff = Math.abs(pTime - new Date(lastPunch.punch_time).getTime());
+      if (timeDiff < 60000) {
+        const sameSource = (p.source || 'web') === (lastPunch.source || 'web');
+        const pDev = String(p.device_id || p.device_info || p.location || '').trim();
+        const lastDev = String(lastPunch.device_id || lastPunch.device_info || lastPunch.location || '').trim();
+        const sameDevice = (pDev && lastDev) ? pDev === lastDev : true;
+        const pType = (p.punch_type || p.direction || '').toLowerCase();
+        const lastType = (lastPunch.punch_type || lastPunch.direction || '').toLowerCase();
+        const sameType = pType && lastType ? pType === lastType : true;
+        if (sameSource && sameDevice && sameType) {
+          isDupe = true;
+        }
+      }
+    }
     if (!isDupe) {
       uniquePunches.push(p);
     }
