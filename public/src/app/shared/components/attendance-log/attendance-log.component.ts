@@ -1199,7 +1199,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return false;
     };
 
-    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    // Filter out synthetic 'Biometric Check-In' punches which duplicate real biometric logs
+    const cleanPunches = rawPunches.filter(p => !(p.notes || '').includes('Biometric Check-In'));
+
+    const punches = cleanPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
     let earliestInMs: number | null = null;
     let latestOutMs: number | null = null;
     let hasAnyValidOut = false;
@@ -1212,43 +1215,66 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       }
     }
 
-    const bioPunches = punches.filter(p => isBio(p));
-    const webPunches = punches.filter(p => !isBio(p));
+    const uniquePunches: any[] = [];
+    for (const p of punches) {
+      const pMs = this.parsePunchTimeToMs(p.punch_time);
+      const lastP = uniquePunches.length ? uniquePunches[uniquePunches.length - 1] : null;
+      if (lastP) {
+        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
+        const sameSource = (p.source || 'web') === (lastP.source || 'web');
+        const pDev = String(p.device_id || p.device_info || p.location || '').trim();
+        const lastDev = String(lastP.device_id || lastP.device_info || lastP.location || '').trim();
+        if (pMs === lastMs && sameSource && pDev === lastDev) {
+          continue;
+        }
+      }
+      uniquePunches.push(p);
+    }
+
+    const bioPunches = uniquePunches.filter(p => isBio(p));
+    const webPunches = uniquePunches.filter(p => !isBio(p));
     const workIntervals: { start: number; end: number }[] = [];
 
     if (bioPunches.length > 0) {
-      let bioCurrentIn: any = null;
+      // Group bio punches by device/location stream so multi-floor punches alternate cleanly per floor
+      const bioStreamMap = new Map<string, any[]>();
+      for (const bp of bioPunches) {
+        const streamKey = String(bp.device_id || bp.location || 'default').trim();
+        if (!bioStreamMap.has(streamKey)) bioStreamMap.set(streamKey, []);
+        bioStreamMap.get(streamKey)!.push(bp);
+      }
+
       let firstBioInMs: number | null = null;
       let lastBioOutMs: number | null = null;
 
-      for (let i = 0; i < bioPunches.length; i++) {
-        const p = bioPunches[i];
-        const pMs = this.parsePunchTimeToMs(p.punch_time);
-        // The biometric devices strictly alternate IN and OUT (without an IN there is no OUT)
-        const pt = bioCurrentIn ? 'out' : 'in';
-
-        if (pt === 'in') {
-          if (firstBioInMs === null) firstBioInMs = pMs;
-          bioCurrentIn = p;
-        } else {
-          const inMs = this.parsePunchTimeToMs(bioCurrentIn.punch_time);
-          if (pMs > inMs) {
-            workIntervals.push({ start: inMs, end: pMs });
-            hasAnyValidOut = true;
-            lastBioOutMs = pMs;
+      bioStreamMap.forEach((streamPunches) => {
+        streamPunches.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+        let currentIn: any = null;
+        for (const p of streamPunches) {
+          const pMs = this.parsePunchTimeToMs(p.punch_time);
+          const pt = currentIn ? 'out' : 'in';
+          if (pt === 'in') {
+            if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;
+            currentIn = p;
+          } else {
+            const inMs = this.parsePunchTimeToMs(currentIn.punch_time);
+            if (pMs > inMs) {
+              workIntervals.push({ start: inMs, end: pMs });
+              hasAnyValidOut = true;
+              if (lastBioOutMs === null || pMs > lastBioOutMs) lastBioOutMs = pMs;
+            }
+            currentIn = null;
           }
-          bioCurrentIn = null;
         }
-      }
-
-      if (bioCurrentIn) {
-        const inMs = this.parsePunchTimeToMs(bioCurrentIn.punch_time);
-        const nowMs = Date.now();
-        if (isToday && nowMs > inMs) {
-          workIntervals.push({ start: inMs, end: nowMs });
-          if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+        if (currentIn && isToday) {
+          const inMs = this.parsePunchTimeToMs(currentIn.punch_time);
+          const nowMs = Date.now();
+          if (nowMs > inMs) {
+            workIntervals.push({ start: inMs, end: nowMs });
+            if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+          }
         }
-      }
+      });
 
       // Include completed non-overlapping web sessions before first bio punch or after last bio punch
       if (webPunches.length > 0) {
