@@ -1314,60 +1314,140 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
   if (!rawPunches || !rawPunches.length) {
     return { totalWorkHours: '0.00', grossHours: '0.00', totalBreakHours: '0.00' };
   }
-  const punches = rawPunches.slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-  const workIntervals = [];
+
+  const parseTime = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'number') return val;
+    if (val instanceof Date) return val.getTime();
+    if (typeof val === 'string') {
+      const clean = val.trim();
+      if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+        return new Date(`${clean.replace(' ', 'T')}+05:30`).getTime();
+      }
+      return new Date(clean).getTime();
+    }
+    return 0;
+  };
+
+  const isUserAgent = (dev) => {
+    const lower = (dev || '').toLowerCase();
+    return lower.includes('mozilla') || lower.includes('applewebkit') || lower.includes('chrome') || lower.includes('safari') || lower.includes('windows nt') || dev.length > 20;
+  };
+
+  const isBio = (p) => {
+    if (!p) return false;
+    const src = (p.source || '').toLowerCase();
+    const wm = (p.work_mode || '').toLowerCase();
+    const notes = (p.notes || '').toLowerCase();
+    const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : '')).trim();
+    if (src === 'biometric' || wm === 'biometric' || notes.includes('biometric')) return true;
+    if (!isUserAgent(dev) && (dev && (/^\d+$/.test(dev) || dev.toLowerCase().includes('device') || dev.toLowerCase().includes('floor') || dev.toLowerCase().includes('svs')))) return true;
+    return false;
+  };
+
+  const punches = rawPunches.slice().sort((a, b) => parseTime(a.punch_time) - parseTime(b.punch_time));
   let earliestInMs = null;
   let latestOutMs = null;
-  let currentIn = null;
 
-  for (let i = 0; i < punches.length; i++) {
-    const p = punches[i];
-    const pTimeMs = new Date(p.punch_time).getTime();
-    const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-    
-    // The biometric devices are configured for alternate IN and OUT.
-    // Without an IN punch there will be no OUT punch.
-    // Do not skip any logs even if they are within a few seconds time interval.
-    let punchType = (p.punch_type || p.direction || '').toLowerCase();
-    if (punchType === 'auto' || !punchType || p.source === 'biometric' || p.work_mode === 'Biometric') {
-      punchType = currentIn ? 'out' : 'in';
-    }
-
-    if (punchType === 'in') {
-      if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
-        earliestInMs = pTimeMs;
-      }
-      if (currentIn) {
-        const prevInTimeMs = new Date(currentIn.punch_time).getTime();
-        if (pTimeMs > prevInTimeMs) {
-          workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
-          if (latestOutMs === null || pTimeMs > latestOutMs) {
-            latestOutMs = pTimeMs;
-          }
-        }
-      }
-      currentIn = p;
-    } else if (punchType === 'out') {
-      if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
-        latestOutMs = pTimeMs;
-      }
-      if (currentIn && !isAutoOut) {
-        const inTimeMs = new Date(currentIn.punch_time).getTime();
-        if (pTimeMs > inTimeMs) {
-          workIntervals.push({ start: inTimeMs, end: pTimeMs });
-        }
-      }
-      currentIn = null;
+  for (const p of punches) {
+    const t = parseTime(p.punch_time);
+    if (t > 0) {
+      if (earliestInMs === null || t < earliestInMs) earliestInMs = t;
+      if (latestOutMs === null || t > latestOutMs) latestOutMs = t;
     }
   }
 
-  if (currentIn && isToday) {
-    const inTimeMs = new Date(currentIn.punch_time).getTime();
-    const nowMs = Date.now();
-    if (nowMs > inTimeMs) {
-      workIntervals.push({ start: inTimeMs, end: nowMs });
-      if (latestOutMs === null || nowMs > latestOutMs) {
-        latestOutMs = nowMs;
+  const bioPunches = punches.filter(p => isBio(p));
+  const webPunches = punches.filter(p => !isBio(p));
+  const workIntervals = [];
+
+  if (bioPunches.length > 0) {
+    let bioCurrentIn = null;
+    let firstBioInMs = null;
+    let lastBioOutMs = null;
+
+    for (let i = 0; i < bioPunches.length; i++) {
+      const p = bioPunches[i];
+      const pMs = parseTime(p.punch_time);
+      // Biometric devices strictly alternate IN and OUT (without an IN there is no OUT)
+      const pt = bioCurrentIn ? 'out' : 'in';
+
+      if (pt === 'in') {
+        if (firstBioInMs === null) firstBioInMs = pMs;
+        bioCurrentIn = p;
+      } else {
+        const inMs = parseTime(bioCurrentIn.punch_time);
+        if (pMs > inMs) {
+          workIntervals.push({ start: inMs, end: pMs });
+          lastBioOutMs = pMs;
+        }
+        bioCurrentIn = null;
+      }
+    }
+
+    if (bioCurrentIn) {
+      const inMs = parseTime(bioCurrentIn.punch_time);
+      const nowMs = Date.now();
+      if (isToday && nowMs > inMs) {
+        workIntervals.push({ start: inMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+      }
+    }
+
+    // Include completed non-overlapping web sessions before first bio punch or after last bio punch
+    if (webPunches.length > 0) {
+      let webCurrentIn = null;
+      for (const wp of webPunches) {
+        const wpMs = parseTime(wp.punch_time);
+        const wpt = (wp.punch_type || wp.direction || '').toLowerCase();
+        const isAuto = (wp.notes || '').includes('OUT Missing') || (wp.notes || '').includes('Auto Clock-Out');
+
+        if (wpt === 'in') {
+          webCurrentIn = wp;
+        } else if (wpt === 'out') {
+          if (webCurrentIn && !isAuto) {
+            const winMs = parseTime(webCurrentIn.punch_time);
+            if (wpMs > winMs) {
+              if (firstBioInMs !== null && wpMs <= firstBioInMs) {
+                workIntervals.push({ start: winMs, end: wpMs });
+              } else if (lastBioOutMs !== null && winMs >= lastBioOutMs) {
+                workIntervals.push({ start: winMs, end: wpMs });
+              }
+            }
+          }
+          webCurrentIn = null;
+        }
+      }
+    }
+  } else {
+    // Web only (no biometric punches)
+    let webCurrentIn = null;
+    for (const p of webPunches) {
+      const pMs = parseTime(p.punch_time);
+      const pt = (p.punch_type || p.direction || '').toLowerCase();
+      const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+
+      if (pt === 'in') {
+        if (webCurrentIn) {
+          const prevMs = parseTime(webCurrentIn.punch_time);
+          if (pMs > prevMs) workIntervals.push({ start: prevMs, end: pMs });
+        }
+        webCurrentIn = p;
+      } else if (pt === 'out') {
+        if (webCurrentIn && !isAuto) {
+          const inMs = parseTime(webCurrentIn.punch_time);
+          if (pMs > inMs) workIntervals.push({ start: inMs, end: pMs });
+        }
+        webCurrentIn = null;
+      }
+    }
+
+    if (webCurrentIn && isToday) {
+      const inMs = parseTime(webCurrentIn.punch_time);
+      const nowMs = Date.now();
+      if (nowMs > inMs) {
+        workIntervals.push({ start: inMs, end: nowMs });
+        if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
       }
     }
   }
@@ -1387,7 +1467,8 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
 
   let grossHours = '0.00';
   if (earliestInMs !== null) {
-    const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+    const nowMs = Date.now();
+    const endMs = isToday && nowMs > (latestOutMs || 0) ? nowMs : (latestOutMs !== null ? latestOutMs : earliestInMs);
     if (endMs > earliestInMs) {
       grossHours = ((endMs - earliestInMs) / (1000 * 60 * 60)).toFixed(2);
     }
