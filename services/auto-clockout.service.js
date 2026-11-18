@@ -219,6 +219,8 @@ class AutoClockOutService {
     let earliestInMs = null;
     let latestOutMs = null;
     for (const p of cleanPunches) {
+      const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAuto) continue; // Do not use auto clock-out to determine earliest or latest punch times
       const t = parseTime(p.punch_time);
       if (t > 0) {
         if (earliestInMs === null || t < earliestInMs) earliestInMs = t;
@@ -271,13 +273,21 @@ class AutoClockOutService {
           if (wpt === 'in') {
             webCurrentIn = wp;
           } else if (wpt === 'out') {
+            // If auto web checkout, do not calculate/add effective hours
             if (webCurrentIn && !isAuto) {
               const winMs = parseTime(webCurrentIn.punch_time);
               if (wpMs > winMs) {
-                if (firstBioInMs !== null && wpMs <= firstBioInMs) {
-                  workIntervals.push({ start: winMs, end: wpMs });
-                } else if (lastBioOutMs !== null && winMs >= lastBioOutMs) {
-                  workIntervals.push({ start: winMs, end: wpMs });
+                // Pre-biometric web work
+                if (firstBioInMs !== null && winMs < firstBioInMs) {
+                  workIntervals.push({ start: winMs, end: Math.min(wpMs, firstBioInMs) });
+                }
+                // Post-biometric web work (manual checkout only)
+                const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+                if (effectiveBioOut !== null && wpMs > effectiveBioOut) {
+                  const postBioStart = Math.max(winMs, effectiveBioOut);
+                  if (wpMs > postBioStart) {
+                    workIntervals.push({ start: postBioStart, end: wpMs });
+                  }
                 }
               }
             }

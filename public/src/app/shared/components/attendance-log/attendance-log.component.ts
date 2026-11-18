@@ -1208,6 +1208,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     let hasAnyValidOut = false;
 
     for (const p of punches) {
+      const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAuto) continue; // Do not use auto clock-out to determine earliest or latest punch times
       const t = this.parsePunchTimeToMs(p.punch_time);
       if (t > 0) {
         if (earliestInMs === null || t < earliestInMs) earliestInMs = t;
@@ -1287,19 +1289,40 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           if (wpt === 'in') {
             webCurrentIn = wp;
           } else if (wpt === 'out') {
+            // If auto web checkout, do not calculate/add effective hours
             if (webCurrentIn && !isAuto) {
               const winMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
               if (wpMs > winMs) {
-                if (firstBioInMs !== null && wpMs <= firstBioInMs) {
-                  workIntervals.push({ start: winMs, end: wpMs });
+                // Pre-biometric web work
+                if (firstBioInMs !== null && winMs < firstBioInMs) {
+                  workIntervals.push({ start: winMs, end: Math.min(wpMs, firstBioInMs) });
                   hasAnyValidOut = true;
-                } else if (lastBioOutMs !== null && winMs >= lastBioOutMs) {
-                  workIntervals.push({ start: winMs, end: wpMs });
-                  hasAnyValidOut = true;
+                }
+                // Post-biometric web work (manual checkout only)
+                const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+                if (effectiveBioOut !== null && wpMs > effectiveBioOut) {
+                  const postBioStart = Math.max(winMs, effectiveBioOut);
+                  if (wpMs > postBioStart) {
+                    workIntervals.push({ start: postBioStart, end: wpMs });
+                    hasAnyValidOut = true;
+                  }
                 }
               }
             }
             webCurrentIn = null;
+          }
+        }
+
+        if (webCurrentIn && isToday) {
+          const winMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+          const nowMs = Date.now();
+          const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+          if (effectiveBioOut !== null && nowMs > effectiveBioOut) {
+            const postBioStart = Math.max(winMs, effectiveBioOut);
+            if (nowMs > postBioStart) {
+              workIntervals.push({ start: postBioStart, end: nowMs });
+              if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+            }
           }
         }
       }
