@@ -356,6 +356,17 @@ router.get('/raw-logs', auth, biometricAuth, async (req, res) => {
       [...params, limit, offset]
     );
 
+    // Ensure raw logs direction strictly alternates: 1st=IN, 2nd=OUT, 3rd=IN, 4th=OUT per user per day
+    const userDatePunches = new Map();
+    const sortedAsc = (logs || []).slice().sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+    for (const l of sortedAsc) {
+      const dStr = String(l.punch_time).substring(0, 10);
+      const uKey = `${l.biometric_user_id}_${dStr}`;
+      const count = userDatePunches.get(uKey) || 0;
+      l.direction = (count % 2 === 0) ? 'in' : 'out';
+      userDatePunches.set(uKey, count + 1);
+    }
+
     res.json({
       success: true,
       data: {

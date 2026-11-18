@@ -69,8 +69,26 @@ export class BiometricRawLogsComponent implements OnInit, OnChanges {
       next: (res) => {
         this.loading = false;
         if (res.success && res.data) {
-          this.logs = res.data.logs || [];
+          const rawLogs = res.data.logs || [];
           this.totalLogs = res.data.total || 0;
+
+          // Strictly alternate IN and OUT per employee per day (1st=IN, 2nd=OUT, 3rd=IN, 4th=OUT...)
+          const userDateMap = new Map<string, any[]>();
+          for (const l of rawLogs) {
+            const dateStr = String(l.punch_time).substring(0, 10);
+            const key = `${l.biometric_user_id}_${dateStr}`;
+            if (!userDateMap.has(key)) userDateMap.set(key, []);
+            userDateMap.get(key)!.push(l);
+          }
+
+          userDateMap.forEach((userLogs) => {
+            userLogs.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+            for (let i = 0; i < userLogs.length; i++) {
+              userLogs[i].direction = (i % 2 === 0) ? 'in' : 'out';
+            }
+          });
+
+          this.logs = rawLogs;
         }
       },
       error: (err) => {
