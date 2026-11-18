@@ -975,9 +975,12 @@ router.get("/today", auth, async (req, res) => {
       );
       if (bioPunches && bioPunches.length > 0) {
         bioPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-        const mappedBio = bioPunches.map((p, idx) => {
-          // Strict alternating rule: 1st=in, 2nd=out, 3rd=in, 4th=out...
-          const pt = (idx % 2 === 0) ? 'in' : 'out';
+        const bioOpenByDevice = new Map();
+        const mappedBio = bioPunches.map((p) => {
+          const devKey = String(p.device_id || p.location || 'default').trim();
+          const devOpen = bioOpenByDevice.get(devKey) || false;
+          const pt = devOpen ? 'out' : 'in';
+          bioOpenByDevice.set(devKey, !devOpen);
           return {
             ...p,
             punch_type: pt,
@@ -1186,10 +1189,27 @@ router.post("/bulk-status", auth, async (req, res) => {
       if (!bioPunchesByEmp.has(p.employee_id)) bioPunchesByEmp.set(p.employee_id, []);
       bioPunchesByEmp.get(p.employee_id).push(p);
     });
-    bioPunchesByEmp.forEach((punches, empId) => {
-      punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-      // Strict alternating rule: 1st=in, 2nd=out... odd=in, even=out
-      bioParityMap.set(empId, (punches.length % 2 !== 0) ? 'in' : 'out');
+    bioPunchesByEmp.forEach((empPunches, empId) => {
+      const bioStreamMap = new Map();
+      empPunches.forEach(p => {
+        const streamKey = String(p.device_id || 'default').trim();
+        if (!bioStreamMap.has(streamKey)) bioStreamMap.set(streamKey, []);
+        bioStreamMap.get(streamKey).push(p);
+      });
+      let anyStreamOpen = false;
+      bioStreamMap.forEach((streamPunches) => {
+        streamPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+        const unique = [];
+        streamPunches.forEach(p => {
+          if (!unique.length || unique[unique.length - 1].punch_time !== p.punch_time) {
+            unique.push(p);
+          }
+        });
+        if (unique.length % 2 !== 0) {
+          anyStreamOpen = true;
+        }
+      });
+      bioParityMap.set(empId, anyStreamOpen ? 'in' : 'out');
     });
 
     c.end();
@@ -2709,7 +2729,7 @@ router.get("/report/team", auth, async (req, res) => {
       bioDailyList = bDaily || [];
 
       const [bPunches] = await c.query(
-        `SELECT bp.employee_id, bp.punch_time, bp.direction
+        `SELECT bp.employee_id, bp.punch_time, bp.direction, bp.device_id
          FROM biometric_punches bp
          WHERE bp.employee_id IN (?) AND bp.punch_date = ?
          ORDER BY bp.employee_id, bp.punch_time ASC`,
@@ -2729,26 +2749,40 @@ router.get("/report/team", auth, async (req, res) => {
     });
 
     punchesByEmp.forEach((empPunches, empId) => {
-      // Sort punches chronologically
       empPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
       const firstPunch = empPunches[0]?.punch_time || null;
       const lastPunch = empPunches[empPunches.length - 1]?.punch_time || null;
 
-      // The biometric devices are configured for alternate in and out so without an in punch there will be no out punch.
-      // Strict alternating rule:
-      // 1st punch = IN, 2nd punch = OUT, 3rd punch = IN, 4th punch = OUT...
-      // Odd total punches = currently IN (Clocked In)
-      // Even total punches = currently OUT (Clocked Out)
-      const isClockedIn = empPunches.length % 2 !== 0;
+      // Group by device stream
+      const bioStreamMap = new Map();
+      empPunches.forEach(p => {
+        const streamKey = String(p.device_id || 'default').trim();
+        if (!bioStreamMap.has(streamKey)) bioStreamMap.set(streamKey, []);
+        bioStreamMap.get(streamKey).push(p);
+      });
+
+      let anyStreamOpen = false;
+      bioStreamMap.forEach((streamPunches) => {
+        streamPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+        const unique = [];
+        streamPunches.forEach(p => {
+          if (!unique.length || unique[unique.length - 1].punch_time !== p.punch_time) {
+            unique.push(p);
+          }
+        });
+        if (unique.length % 2 !== 0) {
+          anyStreamOpen = true;
+        }
+      });
 
       bioPunchMap.set(empId, {
         employee_id: empId,
         punch_count: empPunches.length,
         first_punch: firstPunch,
         last_punch: lastPunch,
-        is_clocked_in: isClockedIn,
-        status: isClockedIn ? 'In' : 'Out'
+        is_clocked_in: anyStreamOpen,
+        status: anyStreamOpen ? 'In' : 'Out'
       });
     });
 
@@ -3034,7 +3068,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
   // Get all web punches for this attendance
   const [punches] = await connection.query(
     `SELECT id, punch_type, punch_time, notes, 'web' as source FROM attendance_punches
-         WHERE attendance_id = ? 
+         WHERE attendance_id = ? AND (notes IS NULL OR notes != 'Biometric Check-In')
          ORDER BY punch_time ASC, id ASC`,
     [attendanceId]
   );
@@ -3050,7 +3084,7 @@ async function calculateAndUpdateHours(connection, attendanceId) {
     const attDate = attRows[0].att_date;
     try {
       const [bioPunches] = await connection.query(
-        `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
+        `SELECT id, direction, device_id, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
          FROM biometric_punches
          WHERE employee_id = ? AND (
            punch_date = ? 
@@ -3061,13 +3095,16 @@ async function calculateAndUpdateHours(connection, attendanceId) {
         [empId, attDate, attDate, attDate, attDate]
       );
       if (bioPunches && bioPunches.length > 0) {
-        let bioOpen = false;
+        const bioOpenByDevice = new Map();
         const mappedBio = bioPunches.map(p => {
-          let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-          if (pt === 'in') bioOpen = true;
-          else if (pt === 'out') bioOpen = false;
+          const devKey = String(p.device_id || 'default').trim();
+          const devOpen = bioOpenByDevice.get(devKey) || false;
+          const pt = devOpen ? 'out' : 'in';
+          bioOpenByDevice.set(devKey, !devOpen);
           return { ...p, punch_type: pt };
         });
+        const bioTimes = new Set(mappedBio.map(b => b.punch_time));
+        allPunches = allPunches.filter(p => !bioTimes.has(p.punch_time));
         allPunches = [...allPunches, ...mappedBio];
       }
     } catch (_) { }
