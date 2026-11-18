@@ -20,6 +20,13 @@ function isOvernightShift(startTime, endTime, shiftName = '') {
     return true;
   }
   if (!startTime || !endTime) return false;
+  const [sH, sM] = String(startTime).split(':').map(Number);
+  const [eH, eM] = String(endTime).split(':').map(Number);
+  // Guard against daytime shifts where end_time was mistyped in 12-hour format (e.g. 07:00 instead of 19:00):
+  // A daytime shift starting at 07:00-12:00 cannot realistically be a 20+ hour shift unless explicitly named night/graveyard.
+  if (sH >= 7 && sH <= 12 && eH < sH && (24 - sH + eH) > 16) {
+    return false;
+  }
   const s = String(startTime).slice(0, 5);
   const e = String(endTime).slice(0, 5);
   return s > e;

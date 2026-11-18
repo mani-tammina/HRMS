@@ -1524,12 +1524,12 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     if (bioPunches && bioPunches.length > 0) {
       const bioOpenByDevice = new Map();
       const mappedBioPunches = bioPunches.map(p => {
-        const dir = (p.direction || '').toLowerCase();
         const devKey = String(p.device_id || p.location || 'default');
         const devOpen = bioOpenByDevice.get(devKey) || false;
-        let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (devOpen ? 'out' : 'in'));
-        if (pt === 'in') bioOpenByDevice.set(devKey, true);
-        else if (pt === 'out') bioOpenByDevice.set(devKey, false);
+        // On a per-floor/device basis, punches strictly alternate:
+        // When not open, a punch is IN. When open, a punch is OUT.
+        const pt = devOpen ? 'out' : 'in';
+        bioOpenByDevice.set(devKey, !devOpen);
         return {
           ...p,
           punch_type: pt
@@ -1545,9 +1545,14 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
 
   punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
-  // Filter out any obsolete auto-out punches if the employee continued working with later punches
+  // Filter out any obsolete auto-out punches if the employee continued working with later punches,
+  // or if real biometric punches already cover the day (prevent phantom web clock-outs).
+  const hasBioDetails = punches.some(p => p.source === 'biometric');
   punches = punches.filter((p, idx) => {
     const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+    if (isAutoOut && hasBioDetails) {
+      return false; // Drop synthetic auto-out when real biometric punches exist
+    }
     if (isAutoOut) {
       const hasLater = punches.slice(idx + 1).some(lp => !(lp.notes || '').includes('OUT Missing'));
       if (hasLater) return false;
@@ -1823,11 +1828,12 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     }
     const mappedBioRange = [];
     bioByDate.forEach((dayBioPunches) => {
-      let bioOpen = false;
+      const bioOpenByDevice = new Map();
       for (const p of dayBioPunches) {
-        let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-        if (pt === 'in') bioOpen = true;
-        else if (pt === 'out') bioOpen = false;
+        const devKey = String(p.device_id || p.location || 'default');
+        const devOpen = bioOpenByDevice.get(devKey) || false;
+        const pt = devOpen ? 'out' : 'in';
+        bioOpenByDevice.set(devKey, !devOpen);
         mappedBioRange.push({ ...p, punch_type: pt });
       }
     });
@@ -1888,7 +1894,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     const dObj = new Date(dStr);
     const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     const isDayWeekOff = weekOffDays.includes(dWeekday);
-    const morningThreshold = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+    const cutoffHourVal = Number(cutoffHour) || 12;
+    const morningThreshold = isOvernight ? `${String(Math.floor(cutoffHourVal)).padStart(2, '0')}:${String(Math.round((cutoffHourVal % 1) * 60)).padStart(2, '0')}:00` : '12:00:00';
     if ((isOvernight || isDayWeekOff) && bd.first_punch_in && String(bd.first_punch_in) < morningThreshold) {
       const dayPunches = allPunchesMap.get(dStr) || [];
       const hasEveningPunch = dayPunches.some(p => {
@@ -1966,7 +1973,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       const dObj = new Date(dStr);
       const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
       const isDayWeekOff = weekOffDays.includes(dWeekday);
-      const morningThreshold = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+      const cutoffHourVal = Number(cutoffHour) || 12;
+    const morningThreshold = isOvernight ? `${String(Math.floor(cutoffHourVal)).padStart(2, '0')}:${String(Math.round((cutoffHourVal % 1) * 60)).padStart(2, '0')}:00` : '12:00:00';
       if ((isOvernight || isDayWeekOff) && bp.first_punch_in) {
         const pTimePart = String(bp.first_punch_in).split(' ')[1] || String(bp.first_punch_in);
         if (pTimePart < morningThreshold) {
@@ -2057,7 +2065,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     const dWeekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
     if (weekOffDays.includes(dWeekday)) {
       const dayPunches = allPunchesMap.get(dStr) || [];
-      const morningCutoff = isOvernight ? `${cutoffHour}:00:00` : '12:00:00';
+      const cutoffHourVal = Number(cutoffHour) || 12;
+      const morningCutoff = isOvernight ? `${String(Math.floor(cutoffHourVal)).padStart(2, '0')}:${String(Math.round((cutoffHourVal % 1) * 60)).padStart(2, '0')}:00` : '12:00:00';
       const isOrphan = dayPunches.length === 0 || dayPunches.every(p => (String(p.punch_time).split(' ')[1] || '') < morningCutoff);
       if (isOrphan) {
         combinedAttendanceMap.delete(dStr);

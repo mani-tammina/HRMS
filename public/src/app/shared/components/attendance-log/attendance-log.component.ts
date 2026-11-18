@@ -851,60 +851,6 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (!this.selectedLog) return;
 
     const sourcePunches = Array.isArray(punches) ? punches : [];
-    const bioPunchSecs = new Set(
-      sourcePunches
-        .filter(p => p.source === 'biometric' || p.work_mode === 'Biometric')
-        .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
-    );
-
-    const isToday = this.islogToday(this.selectedLog.attendance_date);
-    const isOngoing = isToday || this.isOngoingOvernight(this.selectedLog.attendance_date);
-
-    const cleanList: any[] = [];
-    for (let i = 0; i < sourcePunches.length; i++) {
-      const p = sourcePunches[i];
-      if ((p.notes || '').includes('Biometric Check-In')) {
-        continue;
-      }
-      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      if (isAutoOut) {
-        const hasLaterPunches = sourcePunches.slice(i + 1).some(laterP => !(laterP.notes || '').includes('OUT Missing'));
-        if (hasLaterPunches || isOngoing) {
-          continue; // Obsolete or premature auto-out: drop so session continues seamlessly!
-        }
-      }
-      const isWeb = p.source === 'web' || !p.source;
-      if (isWeb) {
-        const pSec = Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000);
-        if (bioPunchSecs.has(pSec)) {
-          continue;
-        }
-      }
-      cleanList.push(p);
-    }
-
-    const getFormattedTime = (dateVal: any): string => {
-      if (!dateVal) return '';
-      const ms = this.parsePunchTimeToMs(dateVal);
-      if (ms > 0) {
-        const d = new Date(ms);
-        const formatted = new Intl.DateTimeFormat('en-IN', {
-          timeZone: 'Asia/Kolkata',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: false
-        }).format(d);
-        return formatted.replace(/^0(\d:)/, '$1');
-      }
-      if (typeof dateVal === 'string' && dateVal.includes(':')) {
-        const parts = dateVal.split(' ');
-        const t = parts.length > 1 ? parts[1] : parts[0];
-        const clean = t.split('.')[0];
-        return clean.replace(/^0(\d:)/, '$1');
-      }
-      return String(dateVal);
-    };
 
     const isUserAgent = (dev: string) => {
       const lower = dev.toLowerCase();
@@ -934,6 +880,72 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         }
       }
       return false;
+    };
+
+    const hasBioPunches = sourcePunches.some(p => isBiometric(p));
+    const bioPunchSecs = new Set(
+      sourcePunches
+        .filter(p => isBiometric(p))
+        .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
+    );
+
+    const isToday = this.islogToday(this.selectedLog.attendance_date);
+    const isOngoing = isToday || this.isOngoingOvernight(this.selectedLog.attendance_date);
+
+    const cleanList: any[] = [];
+    for (let i = 0; i < sourcePunches.length; i++) {
+      const p = sourcePunches[i];
+      if ((p.notes || '').includes('Biometric Check-In')) {
+        continue;
+      }
+      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAutoOut) {
+        const hasLaterPunches = sourcePunches.slice(i + 1).some(laterP => !(laterP.notes || '').includes('OUT Missing'));
+        if (hasLaterPunches || isOngoing || hasBioPunches) {
+          continue; // Obsolete, premature, or redundant auto-out: drop so session continues seamlessly!
+        }
+      }
+      const isWeb = p.source === 'web' || !p.source;
+      if (isWeb) {
+        const pSec = Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000);
+        if (bioPunchSecs.has(pSec)) {
+          continue;
+        }
+        // If employee has real biometric punches on this day, drop orphan web OUT punches that have no corresponding web IN
+        if (hasBioPunches) {
+          const pType = (p.punch_type || p.direction || '').toLowerCase();
+          if (pType === 'out') {
+            const hasWebIn = sourcePunches.some(wp => (wp.source === 'web' || !wp.source) && (wp.punch_type === 'in' || wp.direction === 'in'));
+            if (!hasWebIn) {
+              continue;
+            }
+          }
+        }
+      }
+      cleanList.push(p);
+    }
+
+    const getFormattedTime = (dateVal: any): string => {
+      if (!dateVal) return '';
+      const ms = this.parsePunchTimeToMs(dateVal);
+      if (ms > 0) {
+        const d = new Date(ms);
+        const formatted = new Intl.DateTimeFormat('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: false
+        }).format(d);
+        return formatted.replace(/^0(\d:)/, '$1');
+      }
+      if (typeof dateVal === 'string' && dateVal.includes(':')) {
+        const parts = dateVal.split(' ');
+        const t = parts.length > 1 ? parts[1] : parts[0];
+        const clean = t.split('.')[0];
+        return clean.replace(/^0(\d:)/, '$1');
+      }
+      return String(dateVal);
     };
 
     const getBiometricLocationTitle = (p: any): string => {
@@ -1040,13 +1052,20 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     // Process each mode individually into punch session rows
     modePunchesMap.forEach((streamPunches, modeName) => {
       streamPunches.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+      const isBioStream = streamPunches.some(p => isBiometric(p));
       let currentIn: any = null;
 
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         let punchType = (p.punch_type || p.direction || '').toLowerCase();
-        if (punchType === 'auto' || !punchType) {
+        
+        // For biometric floor devices:
+        // Each floor device is connected to a specific floor and punches strictly alternate:
+        // First punch on this device = IN, second punch = OUT, third = IN, fourth = OUT...
+        if (isBioStream) {
+          punchType = currentIn ? 'out' : 'in';
+        } else if (punchType === 'auto' || !punchType) {
           punchType = currentIn ? 'out' : 'in';
         }
 
@@ -1383,12 +1402,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   isOngoingOvernight(attDate: any): boolean {
     if (!attDate) return false;
+    // ONLY consider overnight if shiftPolicy is actually configured as overnight!
+    const isOvernightPolicy = !!(this.shiftPolicy?.is_overnight ||
+      (this.shiftPolicy?.start_time && this.shiftPolicy?.end_time && this.shiftPolicy.end_time < this.shiftPolicy.start_time));
+    if (!isOvernightPolicy) {
+      return false; // Day shift cannot be ongoing on the next day!
+    }
     const logDateStr = this.formatDateOnly(attDate);
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const yesterdayStr = this.formatDateOnly(yesterday);
     if (logDateStr === yesterdayStr) {
       const curHour = new Date().getHours() + new Date().getMinutes() / 60;
-      return curHour < 12.0; // Early morning hours: shift from yesterday is still ongoing!
+      const cutoff = Number(this.shiftPolicy?.cutoff_hour) || 12.0;
+      return curHour < cutoff;
     }
     return false;
   }
