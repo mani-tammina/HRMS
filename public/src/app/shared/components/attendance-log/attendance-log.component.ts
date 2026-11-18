@@ -1045,26 +1045,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-        const isBio = isBiometric(p);
-
         let punchType = (p.punch_type || p.direction || '').toLowerCase();
-        if (isBio) {
-          // For biometric floor devices: employees simply tap their finger to enter and exit.
-          // Punches on each floor device alternate naturally:
-          // 1st punch = IN, 2nd punch = OUT, 3rd punch = IN, 4th punch = OUT, etc.
-          // Never create a phantom "IN: MISSING" on a floor device!
-          if (isAutoOut) {
-            punchType = 'out';
-          } else if (!currentIn) {
-            punchType = 'in';
-          } else {
-            punchType = 'out';
-          }
-        } else {
-          // Web / Software punch mode
-          if (punchType === 'auto' || !punchType) {
-            punchType = currentIn ? 'out' : 'in';
-          }
+        if (punchType === 'auto' || !punchType) {
+          punchType = currentIn ? 'out' : 'in';
         }
 
         if (punchType === 'in') {
@@ -1072,9 +1055,9 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
               inTime: getFormattedTime(currentIn.punch_time),
-              outTime: isOngoing ? 'In Progress' : 'MISSING',
-              isMissingOut: !isOngoing,
-              isAutoOut: false,
+              outTime: 'MISSING',
+              isMissingOut: true,
+              isAutoOut: true,
               notes: currentIn.notes
             });
           }

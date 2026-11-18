@@ -65,14 +65,42 @@ try {
   }
 } catch (_) {}
 
+const net = require('net');
 const { db } = require('../config/database');
 const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour, getMorningCutoffHour } = require('../utils/shift-helper');
 const { recalculateDailyBiometric, getEmployeeLookupMap } = require('./biometric-sync.service');
 
 const SOURCE_SYSTEM = 'DIRECT_DEVICE';
-let isDirectSyncRunning = false;
-const activeDeviceSyncs = new Set();
+const activeDevicePromises = new Map();
+let activeFullSyncPromise = null;
 let tablesInitialized = false;
+
+/**
+ * Fast TCP probe to test device reachability before establishing full ZKLib protocol handshake
+ */
+function checkDeviceReachability(host, port = 4370, timeoutMs = 1500) {
+  return new Promise((resolve) => {
+    const s = new net.Socket();
+    s.setTimeout(timeoutMs);
+    s.once('connect', () => {
+      s.destroy();
+      resolve(true);
+    });
+    s.once('timeout', () => {
+      s.destroy();
+      resolve(false);
+    });
+    s.once('error', () => {
+      s.destroy();
+      resolve(false);
+    });
+    try {
+      s.connect(port, host);
+    } catch (_) {
+      resolve(false);
+    }
+  });
+}
 
 /**
  * Ensure core biometric tables (specifically biometric_devices) exist before running queries
@@ -115,6 +143,7 @@ async function ensureBiometricTablesExist() {
         UNIQUE KEY uk_source_log (source_system, source_log_id),
         INDEX idx_raw_user_log (biometric_user_id, punch_time),
         INDEX idx_raw_punch_time (punch_time),
+        INDEX idx_raw_device_time (device_id, punch_time),
         INDEX idx_raw_emp (employee_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
@@ -445,166 +474,197 @@ async function syncSingleDevice(device, forceFullSync = false) {
   }
 
   const devLockKey = String(device.id || device.device_id || host);
-  if (activeDeviceSyncs.has(devLockKey)) {
-    return { success: false, message: `Sync already in progress for device #${device.device_id} (${device.name}).` };
+  // If this device is already actively syncing, join the active promise seamlessly
+  if (activeDevicePromises.has(devLockKey)) {
+    return await activeDevicePromises.get(devLockKey);
   }
-  activeDeviceSyncs.add(devLockKey);
 
-  console.log(`📡 [DirectBiometric] Connecting to Device #${device.device_id} (${device.name}) at ${host}:${port}...`);
-
-  // Silent error callback to intercept unhandled socket events from node-zklib
-  const safeSocketError = (err) => {
-    // Suppress uncaught socket errors (ERR_STREAM_WRITE_AFTER_END, ECONNRESET, ETIMEDOUT, EPIPE)
-  };
-
-  const zk = new ZKLib(host, port, 10000, 4000);
-
-  try {
-    // 1. Establish socket connection with safe error listeners
-    await zk.createSocket(safeSocketError, safeSocketError);
-
-    // Attach persistent error listeners on underlying TCP/UDP sockets
-    if (zk.zklibTcp && zk.zklibTcp.socket) {
-      zk.zklibTcp.socket.on('error', safeSocketError);
-    }
-    if (zk.zklibUdp && zk.zklibUdp.socket) {
-      zk.zklibUdp.socket.on('error', safeSocketError);
+  const doSync = async () => {
+    // 1. Fast TCP pre-flight reachability check (1.5s timeout)
+    const isOnline = await checkDeviceReachability(host, port, 1500);
+    if (!isOnline) {
+      console.log(`⚠️ [DirectBiometric] Device #${device.device_id} (${device.name}) at ${host}:${port} is unreachable/offline.`);
+      return {
+        success: false,
+        deviceId: device.device_id,
+        name: device.name,
+        error: `Device "${device.name}" (${host}:${port}) is unreachable or offline.`
+      };
     }
 
-    // 2. Fetch logs from device with 90-second timeout to allow large log dumps (70k+ logs)
-    const res = await Promise.race([
-      zk.getAttendances(),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error(`Timeout of 90s exceeded reading logs from ${host}:${port}`)), 90000)
-      )
-    ]);
-    const records = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
+    console.log(`📡 [DirectBiometric] Connecting to Device #${device.device_id} (${device.name}) at ${host}:${port}...`);
 
-    console.log(`📥 [DirectBiometric] Fetched ${records.length} logs from Device #${device.device_id} (${device.name})`);
+    // Silent error callback to intercept unhandled socket events from node-zklib
+    const safeSocketError = (err) => {
+      // Suppress uncaught socket errors (ERR_STREAM_WRITE_AFTER_END, ECONNRESET, ETIMEDOUT, EPIPE)
+    };
 
-    // 3. Incremental Sync: determine latest punch time already in MySQL for this device
-    let cutoffDate = null;
-    if (!forceFullSync) {
-      try {
-        const [latestRows] = await db.query(
-          `SELECT MAX(punch_time) as maxPunchTime 
-           FROM biometric_attendance_raw 
-           WHERE (device_id = ? OR device_id = ?) 
-             AND punch_time >= '2024-01-01' 
-             AND punch_time <= NOW()`,
-          [device.id, String(device.device_id)]
-        );
-        if (latestRows && latestRows[0] && latestRows[0].maxPunchTime) {
-          const maxTime = new Date(latestRows[0].maxPunchTime);
-          if (!isNaN(maxTime.getTime())) {
-            // 2-hour safety overlap window to ensure no in-flight punches are missed
-            cutoffDate = new Date(maxTime.getTime() - 2 * 60 * 60 * 1000);
-          }
-        }
-      } catch (err) {
-        console.warn(`[DirectBiometric] Note: checking max punch time for device #${device.device_id}:`, err.message);
+    const zk = new ZKLib(host, port, 10000, 4000);
+
+    try {
+      // 2. Establish socket connection with safe error listeners
+      await zk.createSocket(safeSocketError, safeSocketError);
+
+      // Attach persistent error listeners on underlying TCP/UDP sockets
+      if (zk.zklibTcp && zk.zklibTcp.socket) {
+        zk.zklibTcp.socket.on('error', safeSocketError);
       }
-    }
+      if (zk.zklibUdp && zk.zklibUdp.socket) {
+        zk.zklibUdp.socket.on('error', safeSocketError);
+      }
 
-    const now = new Date();
-    const maxAllowedDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+      // 3. Fetch logs from device with timeout to allow large log dumps (70k+ logs)
+      const res = await Promise.race([
+        zk.getAttendances(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`Timeout of 90s exceeded reading logs from ${host}:${port}`)), 90000)
+        )
+      ]);
+      const records = (res && res.data) ? res.data : (Array.isArray(res) ? res : []);
 
-    // 4. Filter only valid, recent/new records
-    const validRecords = records.filter(r => {
-      if (!r.recordTime) return false;
-      const d = r.recordTime instanceof Date ? r.recordTime : new Date(r.recordTime);
-      if (isNaN(d.getTime())) return false;
-      const yr = d.getFullYear();
-      if (yr < 2024 || d > maxAllowedDate) return false;
-      if (cutoffDate && d < cutoffDate) return false;
-      return true;
-    });
+      console.log(`📥 [DirectBiometric] Fetched ${records.length} logs from Device #${device.device_id} (${device.name})`);
 
-    console.log(`⚡ [DirectBiometric] Device #${device.device_id}: ${validRecords.length} new/recent punch(es) to process (incremental cutoff: ${cutoffDate ? cutoffDate.toISOString() : 'full'}).`);
-
-    let ingestResult = { count: 0, rawInserted: 0, mappedPunches: 0, recalculatedDays: 0 };
-    if (validRecords.length > 0) {
-      const formattedPunches = validRecords.map(r => {
-        let dir = 'auto';
-        if (r.punchState === 1 || r.punchState === 2 || r.punchState === 5 || r.direction === 'out' || r.direction === '1') {
-          dir = 'out';
-        } else if (r.punchState === 0 || r.punchState === 3 || r.punchState === 4 || (r.direction && (r.direction === 'in' || r.direction === '0'))) {
-          dir = 'in';
-        } else if (r.direction && r.direction !== 'auto') {
-          dir = r.direction;
+      // 4. Incremental Sync: determine latest punch time already in MySQL for this device
+      let cutoffDate = null;
+      if (!forceFullSync) {
+        try {
+          const [latestRows] = await db.query(
+            `SELECT MAX(punch_time) as maxPunchTime 
+             FROM biometric_attendance_raw 
+             WHERE (device_id = ? OR device_id = ?) 
+               AND punch_time >= '2024-01-01' 
+               AND punch_time <= NOW()`,
+            [device.id, String(device.device_id)]
+          );
+          if (latestRows && latestRows[0] && latestRows[0].maxPunchTime) {
+            const maxTime = new Date(latestRows[0].maxPunchTime);
+            if (!isNaN(maxTime.getTime())) {
+              // 2-hour safety overlap window to ensure no in-flight punches are missed
+              cutoffDate = new Date(maxTime.getTime() - 2 * 60 * 60 * 1000);
+            }
+          }
+        } catch (err) {
+          console.warn(`[DirectBiometric] Note: checking max punch time for device #${device.device_id}:`, err.message);
         }
-        return {
-          deviceId: String(device.device_id),
-          biometricUserId: String(r.deviceUserId || r.userId || ''),
-          punchTime: r.recordTime,
-          direction: dir,
-          rawPayload: r
-        };
+      }
+
+      const now = new Date();
+      const maxAllowedDate = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
+      // 5. Filter only valid, recent/new records
+      const validRecords = records.filter(r => {
+        if (!r.recordTime) return false;
+        const d = r.recordTime instanceof Date ? r.recordTime : new Date(r.recordTime);
+        if (isNaN(d.getTime())) return false;
+        const yr = d.getFullYear();
+        if (yr < 2024 || d > maxAllowedDate) return false;
+        if (cutoffDate && d < cutoffDate) return false;
+        return true;
       });
 
-      ingestResult = await ingestDirectPunches(formattedPunches);
+      console.log(`⚡ [DirectBiometric] Device #${device.device_id}: ${validRecords.length} new/recent punch(es) to process (incremental cutoff: ${cutoffDate ? cutoffDate.toISOString() : 'full'}).`);
+
+      let ingestResult = { count: 0, rawInserted: 0, mappedPunches: 0, recalculatedDays: 0 };
+      if (validRecords.length > 0) {
+        const formattedPunches = validRecords.map(r => {
+          let dir = 'auto';
+          if (r.punchState === 1 || r.punchState === 2 || r.punchState === 5 || r.direction === 'out' || r.direction === '1') {
+            dir = 'out';
+          } else if (r.punchState === 0 || r.punchState === 3 || r.punchState === 4 || (r.direction && (r.direction === 'in' || r.direction === '0'))) {
+            dir = 'in';
+          } else if (r.direction && r.direction !== 'auto') {
+            dir = r.direction;
+          }
+          return {
+            deviceId: String(device.device_id),
+            biometricUserId: String(r.deviceUserId || r.userId || ''),
+            punchTime: r.recordTime,
+            direction: dir,
+            rawPayload: r
+          };
+        });
+
+        ingestResult = await ingestDirectPunches(formattedPunches);
+      }
+
+      // 6. Update device status and punch count
+      await db.query(`
+        UPDATE biometric_devices 
+        SET status = 'active', updated_at = NOW() 
+        WHERE id = ?
+      `, [device.id]);
+
+      // 7. Graceful cleanup and disconnect (safe listeners remain attached during teardown; guaranteed 1.5s max)
+      try {
+        await Promise.race([
+          zk.disconnect(),
+          new Promise(resolve => setTimeout(resolve, 1500))
+        ]);
+      } catch (_) {}
+
+      return {
+        success: true,
+        deviceId: device.device_id,
+        name: device.name,
+        logsRead: records.length,
+        recentLogsProcessed: validRecords.length,
+        ...ingestResult
+      };
+    } catch (err) {
+      console.warn(`⚠️ [DirectBiometric] Connection error to ${device.name} (${host}:${port}):`, err.message);
+      try {
+        await Promise.race([
+          zk.disconnect(),
+          new Promise(resolve => setTimeout(resolve, 1500))
+        ]);
+      } catch (_) {}
+      return {
+        success: false,
+        deviceId: device.device_id,
+        name: device.name,
+        error: err.message
+      };
     }
+  };
 
-    // 5. Update device status and punch count
-    await db.query(`
-      UPDATE biometric_devices 
-      SET status = 'active', updated_at = NOW() 
-      WHERE id = ?
-    `, [device.id]);
-
-    // 6. Graceful cleanup and disconnect (safe listeners remain attached during teardown)
-    try {
-      await zk.disconnect();
-    } catch (_) {}
-
-    return {
-      success: true,
-      deviceId: device.device_id,
-      name: device.name,
-      logsRead: records.length,
-      recentLogsProcessed: validRecords.length,
-      ...ingestResult
-    };
-  } catch (err) {
-    console.warn(`⚠️ [DirectBiometric] Connection error to ${device.name} (${host}:${port}):`, err.message);
-    try {
-      await zk.disconnect();
-    } catch (_) {}
-    return {
-      success: false,
-      deviceId: device.device_id,
-      name: device.name,
-      error: err.message
-    };
+  const syncPromise = doSync();
+  activeDevicePromises.set(devLockKey, syncPromise);
+  try {
+    return await syncPromise;
   } finally {
-    activeDeviceSyncs.delete(devLockKey);
+    activeDevicePromises.delete(devLockKey);
   }
 }
 
 /**
- * Scan all active devices in biometric_devices table and sync their logs directly
+ * Scan all active devices in biometric_devices table and sync their logs directly in parallel
  */
 async function syncDirectBiometricDevices(targetDeviceId = null, forceFullSync = false) {
-  if (isDirectSyncRunning) {
-    return { success: false, message: 'Direct biometric device sync is already running.' };
+  // If targeted at a single device, run that device's sync directly
+  if (targetDeviceId) {
+    await ensureBiometricTablesExist();
+    const [devices] = await db.query(
+      "SELECT * FROM biometric_devices WHERE (id = ? OR device_id = ?)",
+      [targetDeviceId, String(targetDeviceId)]
+    );
+    if (!devices || devices.length === 0) {
+      return { success: false, message: 'Device not found.' };
+    }
+    return await syncSingleDevice(devices[0], forceFullSync);
   }
 
-  // Ensure table exists before executing query
-  await ensureBiometricTablesExist();
+  // If a full sync is already running, join it rather than rejecting with an error
+  if (activeFullSyncPromise) {
+    return await activeFullSyncPromise;
+  }
 
-  isDirectSyncRunning = true;
-  try {
-    let query = "SELECT * FROM biometric_devices WHERE status != 'inactive'";
-    const params = [];
-    if (targetDeviceId) {
-      query += " AND (id = ? OR device_id = ?)";
-      params.push(targetDeviceId, String(targetDeviceId));
-    }
+  const doFullSync = async () => {
+    // Ensure table exists before executing query
+    await ensureBiometricTablesExist();
 
-    const [devices] = await db.query(query, params);
+    const [devices] = await db.query("SELECT * FROM biometric_devices WHERE status != 'inactive'");
 
     if (!devices || devices.length === 0) {
-      isDirectSyncRunning = false;
       return {
         success: true,
         message: 'No active terminal devices found in biometric_devices table.',
@@ -613,41 +673,52 @@ async function syncDirectBiometricDevices(targetDeviceId = null, forceFullSync =
       };
     }
 
-    console.log(`🚀 [DirectBiometric] Starting direct sync across ${devices.length} registered terminal device(s)...`);
+    console.log(`🚀 [DirectBiometric] Starting direct parallel sync across ${devices.length} registered terminal device(s)...`);
 
-    const results = [];
-    for (const dev of devices) {
+    // Run all device syncs concurrently in parallel
+    const syncPromises = devices.map(async (dev) => {
       if (dev.ip_address) {
-        const devRes = await syncSingleDevice(dev, forceFullSync);
-        results.push(devRes);
+        return await syncSingleDevice(dev, forceFullSync);
       } else {
-        results.push({
+        return {
           success: false,
           deviceId: dev.device_id,
           name: dev.name,
           message: 'Device has no IP address configured.'
-        });
+        };
       }
-    }
+    });
 
-    isDirectSyncRunning = false;
+    const settled = await Promise.allSettled(syncPromises);
+    const results = settled.map((s, idx) => {
+      if (s.status === 'fulfilled') return s.value;
+      return {
+        success: false,
+        deviceId: devices[idx].device_id,
+        name: devices[idx].name,
+        error: s.reason?.message || 'Sync failed unexpectedly.'
+      };
+    });
+
+    const successfulCount = results.filter(r => r.success).length;
+    console.log(`✅ [DirectBiometric] Direct sync finished: ${successfulCount}/${devices.length} device(s) online & synced.`);
+
     return {
       success: true,
       devicesCount: devices.length,
+      onlineCount: successfulCount,
       results
     };
+  };
+
+  activeFullSyncPromise = doFullSync();
+  try {
+    return await activeFullSyncPromise;
   } catch (err) {
-    isDirectSyncRunning = false;
-    if (err && (err.code === 'ER_NO_SUCH_TABLE' || err.errno === 1146)) {
-      console.warn(`⚠️ [DirectBiometric] Table biometric_devices missing (${err.message}). Auto-creating table...`);
-      try {
-        tablesInitialized = false;
-        await ensureBiometricTablesExist();
-      } catch (_) {}
-    } else {
-      console.error('❌ [DirectBiometric] Sync loop error:', err);
-    }
+    console.error('❌ [DirectBiometric] Sync loop error:', err);
     return { success: false, error: err.message };
+  } finally {
+    activeFullSyncPromise = null;
   }
 }
 

@@ -341,8 +341,8 @@ router.get('/raw-logs', auth, biometricAuth, async (req, res) => {
       params.push(String(deviceId));
     }
     if (date) {
-      whereClause += ' AND DATE(punch_time) = ?';
-      params.push(date);
+      whereClause += ' AND punch_time >= ? AND punch_time <= ?';
+      params.push(`${date} 00:00:00`, `${date} 23:59:59`);
     }
 
     const [totalRows] = await db.query(

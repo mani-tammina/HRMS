@@ -852,7 +852,7 @@ app.get("/api/health", (req, res) => {
 
         // Start automatic periodic direct biometric devices synchronization background service
         if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
-            const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '60', 10);
+            const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '30', 10);
             console.log(`⏱️  Starting Direct Biometric Devices Auto-Sync (interval: ${biometricIntervalSec}s)...`);
             setTimeout(() => {
                 syncDirectBiometricDevices()
