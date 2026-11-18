@@ -1055,25 +1055,24 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-        let punchType = (p.punch_type || p.direction || '').toLowerCase();
         
-        // For biometric floor devices:
-        // Each floor device is connected to a specific floor and punches strictly alternate:
-        // First punch on this device = IN, second punch = OUT, third = IN, fourth = OUT...
-        if (isBioStream) {
-          punchType = currentIn ? 'out' : 'in';
-        } else if (punchType === 'auto' || !punchType) {
+        // The biometric devices are configured for alternate IN and OUT.
+        // Without an IN punch there will be no OUT punch.
+        // Therefore, every punch strictly alternates: IN -> OUT -> IN -> OUT...
+        let punchType = (p.punch_type || p.direction || '').toLowerCase();
+        if (isBioStream || punchType === 'auto' || !punchType) {
           punchType = currentIn ? 'out' : 'in';
         }
 
         if (punchType === 'in') {
           if (currentIn) {
+            // If already punched in and another in is received, close previous session gracefully
             addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
               inTime: getFormattedTime(currentIn.punch_time),
-              outTime: 'MISSING',
-              isMissingOut: true,
-              isAutoOut: true,
+              outTime: getFormattedTime(p.punch_time),
+              isMissingOut: false,
+              isAutoOut: false,
               notes: currentIn.notes
             });
           }
@@ -1090,14 +1089,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             });
             currentIn = null;
           } else {
-            addSessionToGroup(modeName, {
-              rawTime: this.parsePunchTimeToMs(p.punch_time),
-              inTime: 'MISSING',
-              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-              isMissingOut: false,
-              isAutoOut: isAutoOut,
-              notes: p.notes
-            });
+            // Without an IN punch there can be no OUT punch: treat as starting IN session
+            currentIn = p;
           }
         }
       }
@@ -1194,7 +1187,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const p = punches[i];
       const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
       const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
+      let punchType = (p.punch_type || p.direction || '').toLowerCase();
+      // Biometric machines strictly alternate IN and OUT (without an IN there is no OUT)
+      if (punchType === 'auto' || !punchType || p.source === 'biometric' || p.work_mode === 'Biometric') {
+        punchType = currentInPunch ? 'out' : 'in';
+      }
 
       if (punchType === 'in') {
         if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
@@ -1202,19 +1199,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         }
         if (currentInPunch) {
           const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-          const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
-          if (gapMinutes >= 5) {
-            // Save preceding work interval before starting new in-session
+          if (pTimeMs > prevInTimeMs) {
             workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
             hasAnyValidOut = true;
             if (latestOutMs === null || pTimeMs > latestOutMs) {
               latestOutMs = pTimeMs;
             }
-            currentInPunch = p;
           }
-        } else {
-          currentInPunch = p;
         }
+        currentInPunch = p;
       } else if (punchType === 'out') {
         if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
           latestOutMs = pTimeMs;

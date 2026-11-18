@@ -311,23 +311,11 @@ async function ingestDirectPunches(punches) {
 
     const state = trackingState.get(trackKey);
 
-    let dir = 'in';
-    const punchState = p.rawPayload ? p.rawPayload.punchState : undefined;
-    if (punchState === 1 || punchState === 2 || punchState === 5) {
-      dir = 'out';
-    } else if (punchState === 0 || punchState === 3 || punchState === 4) {
-      dir = 'in';
-    } else {
-      const d = String(p.direction || '').toLowerCase();
-      if (d === 'out' || d === '1') {
-        dir = 'out';
-      } else if (d === 'in' || d === '0') {
-        dir = 'in';
-      } else {
-        // Toggle direction: alternate from last known direction on this shift date for this device
-        dir = (state.lastDir === 'in') ? 'out' : 'in';
-      }
-    }
+    // The biometric devices are configured for alternate IN and OUT.
+    // Without an IN punch there will be no OUT punch.
+    // Every punch strictly alternates: (not IN -> IN, IN -> OUT).
+    // Do not skip any logs even if they are within a few seconds time interval.
+    let dir = (state.lastDir === 'in') ? 'out' : 'in';
 
     // Check if this exact punch is already recorded in biometric_punches from a previous sync
     const isExactExisting = state.lastTimeMs === punchTimeMs && state.lastDir === dir;

@@ -1300,7 +1300,14 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
     const p = punches[i];
     const pTimeMs = new Date(p.punch_time).getTime();
     const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-    const punchType = (p.punch_type || '').toLowerCase();
+    
+    // The biometric devices are configured for alternate IN and OUT.
+    // Without an IN punch there will be no OUT punch.
+    // Do not skip any logs even if they are within a few seconds time interval.
+    let punchType = (p.punch_type || p.direction || '').toLowerCase();
+    if (punchType === 'auto' || !punchType || p.source === 'biometric' || p.work_mode === 'Biometric') {
+      punchType = currentIn ? 'out' : 'in';
+    }
 
     if (punchType === 'in') {
       if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
@@ -1308,19 +1315,14 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
       }
       if (currentIn) {
         const prevInTimeMs = new Date(currentIn.punch_time).getTime();
-        const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
-        if (gapMinutes >= 5) {
-          // Meaningful gap: previous work session was ongoing. Save it so hours are not lost!
+        if (pTimeMs > prevInTimeMs) {
           workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
           if (latestOutMs === null || pTimeMs > latestOutMs) {
             latestOutMs = pTimeMs;
           }
-          currentIn = p;
         }
-        // Rapid duplicate (< 5 mins): retain the earlier in-punch
-      } else {
-        currentIn = p;
       }
+      currentIn = p;
     } else if (punchType === 'out') {
       if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
         latestOutMs = pTimeMs;
