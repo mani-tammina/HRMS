@@ -1637,3 +1637,56 @@ ion-toast.wip-custom-toast {
     }
   }
 }
+
+// ─── Inbox Chat Modal (On top of everything with blurred backdrop) ───
+ion-modal.inbox-chat-modal {
+  --width: clamp(640px, 54vw, 880px);
+  --max-width: 94vw;
+  --height: clamp(620px, 82vh, 880px);
+  --max-height: 92vh;
+  --border-radius: 18px;
+  --backdrop-opacity: 1;
+  --ion-backdrop-color: rgba(15, 23, 42, 0.45);
+  --box-shadow: 0 28px 64px -12px rgba(15, 23, 42, 0.35), 0 12px 28px -6px rgba(63, 81, 181, 0.22);
+  z-index: 30000 !important;
+  align-items: center;
+  justify-content: center;
+
+  &::part(backdrop) {
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+  }
+
+  &::part(content) {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    transition: width 0.22s ease, height 0.22s ease, max-width 0.22s ease, max-height 0.22s ease, border-radius 0.22s ease;
+  }
+
+  @media (max-width: 768px) {
+    --width: 96vw;
+    --max-width: 96vw;
+    --height: 88vh;
+    --max-height: 90vh;
+    --border-radius: 18px;
+
+    &::part(content) {
+      border-radius: 18px;
+    }
+  }
+
+  &.inbox-chat-modal--fullscreen {
+    --width: 100vw;
+    --max-width: 100vw;
+    --height: 100vh;
+    --max-height: 100vh;
+    --border-radius: 0;
+
+    &::part(content) {
+      border-radius: 0;
+      border: none;
+    }
+  }
+}

@@ -13,7 +13,8 @@
     "biometric:worker": "node workers/biometric-sync.worker.js",
     "biometric:sync": "node -e \"require('./services/biometric-sync.service').syncBiometricLogs().then(console.log)\"",
     "start:cluster": "node cluster.js",
-    "prod:cluster": "cross-env NODE_ENV=production node cluster.js"
+    "prod:cluster": "cross-env NODE_ENV=production node cluster.js",
+    "openui:prompt": "node open-ui-server/generate-openui-prompt.mjs"
   },
   "keywords": [],
   "author": "",
@@ -23,6 +24,7 @@
     "@capacitor/android": "^8.4.1",
     "@capacitor/cli": "^8.4.1",
     "@capacitor/core": "^8.4.1",
+    "@openuidev/lang-core": "^0.4.1",
     "adm-zip": "^0.6.0",
     "bcryptjs": "^3.0.3",
     "body-parser": "^2.2.1",
@@ -46,7 +48,8 @@
     "validator": "^13.15.26",
     "winston": "^3.19.0",
     "xlsx": "^0.18.5",
-    "yamljs": "^0.3.0"
+    "yamljs": "^0.3.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "cross-env": "^7.0.3"
