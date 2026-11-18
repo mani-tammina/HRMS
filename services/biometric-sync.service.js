@@ -383,7 +383,7 @@ async function syncBiometricLogs(options = {}) {
           device_id: log.DeviceId ? String(log.DeviceId) : null,
           direction: log.Direction ? String(log.Direction) : null,
           raw_payload: JSON.stringify(log),
-          status: employeeId ? 'processed' : 'pending',
+          status: 'processed',
           employee_id: employeeId
         });
 

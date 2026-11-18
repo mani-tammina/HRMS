@@ -351,7 +351,8 @@ router.get('/raw-logs', auth, biometricAuth, async (req, res) => {
     );
 
     const [logs] = await db.query(
-      `SELECT * FROM biometric_attendance_raw ${whereClause} ORDER BY punch_time DESC LIMIT ? OFFSET ?`,
+      `SELECT id, source_system, source_log_id, biometric_user_id, punch_time, device_id, direction, raw_payload, 'processed' as status, employee_id, created_at 
+       FROM biometric_attendance_raw ${whereClause} ORDER BY punch_time DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );
 
