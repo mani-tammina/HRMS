@@ -1004,14 +1004,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
         const groupP = getPunchGroupName(p);
         const groupLast = getPunchGroupName(lastP);
-        // ONLY debounce if it is the EXACT same device/floor AND same punch direction/type
         const sameDevice = groupP && groupLast && groupP === groupLast;
-        const pDir = (p.punch_type || p.direction || '').toLowerCase();
-        const lastDir = (lastP.punch_type || lastP.direction || '').toLowerCase();
-        const sameDirection = pDir && lastDir ? pDir === lastDir : true;
 
-        if (sameDevice && sameDirection && pMs > 0 && lastMs > 0 && Math.abs(pMs - lastMs) < 60000) {
-          continue; // Debounce rapid duplicate taps on the same device and direction
+        // Only skip exact duplicate timestamps on the same device (e.g. multi-sync of exact same event)
+        if (sameDevice && pMs > 0 && lastMs > 0 && pMs === lastMs) {
+          continue;
         }
       }
       rawPunches.push(p);

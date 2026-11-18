@@ -1560,7 +1560,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     return true;
   });
 
-  // Deduplicate rapid consecutive duplicate punches of the same type on the SAME device & stream (e.g. double tap within 60 seconds)
+  // Deduplicate exact duplicate punches with identical timestamp on the SAME device & stream
   const uniquePunches = [];
   punches.forEach(p => {
     const pTime = new Date(p.punch_time).getTime();
@@ -1568,15 +1568,12 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     let isDupe = false;
     if (lastPunch) {
       const timeDiff = Math.abs(pTime - new Date(lastPunch.punch_time).getTime());
-      if (timeDiff < 60000) {
+      if (timeDiff === 0) {
         const sameSource = (p.source || 'web') === (lastPunch.source || 'web');
         const pDev = String(p.device_id || p.device_info || p.location || '').trim();
         const lastDev = String(lastPunch.device_id || lastPunch.device_info || lastPunch.location || '').trim();
         const sameDevice = (pDev && lastDev) ? pDev === lastDev : true;
-        const pType = (p.punch_type || p.direction || '').toLowerCase();
-        const lastType = (lastPunch.punch_type || lastPunch.direction || '').toLowerCase();
-        const sameType = pType && lastType ? pType === lastType : true;
-        if (sameSource && sameDevice && sameType) {
+        if (sameSource && sameDevice) {
           isDupe = true;
         }
       }
