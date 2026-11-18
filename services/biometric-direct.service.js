@@ -329,8 +329,25 @@ async function ingestDirectPunches(punches) {
       }
     }
 
+    // Check if this exact punch is already recorded in biometric_punches from a previous sync
+    const isExactExisting = state.lastTimeMs === punchTimeMs && state.lastDir === dir;
+    if (isExactExisting) {
+      rawInsertRows.push({
+        source_system: SOURCE_SYSTEM,
+        source_log_id: sourceLogId,
+        biometric_user_id: userId,
+        punch_time: formattedTime,
+        device_id: deviceId,
+        direction: dir,
+        raw_payload: JSON.stringify(p.rawPayload || p),
+        status: employeeId ? 'processed' : 'pending',
+        employee_id: employeeId
+      });
+      continue; // Already processed into biometric_punches
+    }
+
     // Rapid double-tap debounce (ignore repeated taps within 60 seconds on the SAME device and SAME direction)
-    const isRapidDuplicate = state.lastTimeMs > 0 && Math.abs(punchTimeMs - state.lastTimeMs) < 60000 && state.lastDir === dir;
+    const isRapidDuplicate = state.lastTimeMs > 0 && (punchTimeMs - state.lastTimeMs) > 0 && (punchTimeMs - state.lastTimeMs) < 60000 && state.lastDir === dir;
 
     if (isRapidDuplicate) {
       // Record in raw logs as ignored duplicate tap so auditing is preserved without skewing calculations

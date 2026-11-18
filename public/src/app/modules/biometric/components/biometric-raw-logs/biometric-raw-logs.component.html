@@ -109,9 +109,9 @@
             </span>
           </td>
           <td>
-            <span class="status-pill processed">
+            <span class="status-pill" [ngClass]="(log.status || 'processed').toLowerCase()">
               <span class="status-dot"></span>
-              {{ log.status || 'PROCESSED' }}
+              {{ (log.status || 'PROCESSED') | uppercase }}
             </span>
           </td>
         </tr>
