@@ -236,7 +236,7 @@ async function ingestDirectPunches(punches) {
   const now = new Date();
   const maxAllowedDate = new Date(now.getTime() + 24 * 60 * 60 * 1000); // at most tomorrow
 
-  // Sort chronologically ascending so punch pairing and debounce can be accurately applied
+  // Sort chronologically ascending so punch pairing can be accurately applied
   const sortedPunches = punches.slice().sort((a, b) => {
     const tA = a.punchTime instanceof Date ? a.punchTime.getTime() : new Date(String(a.punchTime).replace(' ', 'T')).getTime();
     const tB = b.punchTime instanceof Date ? b.punchTime.getTime() : new Date(String(b.punchTime).replace(' ', 'T')).getTime();
