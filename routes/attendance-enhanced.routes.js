@@ -974,17 +974,14 @@ router.get("/today", auth, async (req, res) => {
         [emp.id, shiftDate]
       );
       if (bioPunches && bioPunches.length > 0) {
-        const bioOpenByDevice = new Map();
-        const mappedBio = bioPunches.map(p => {
-          const dir = (p.direction || '').toLowerCase();
-          const devKey = String(p.device_id || p.location || 'default');
-          const devOpen = bioOpenByDevice.get(devKey) || false;
-          let pt = dir === 'out' ? 'out' : (dir === 'in' ? 'in' : (devOpen ? 'out' : 'in'));
-          if (pt === 'in') bioOpenByDevice.set(devKey, true);
-          else if (pt === 'out') bioOpenByDevice.set(devKey, false);
+        bioPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+        const mappedBio = bioPunches.map((p, idx) => {
+          // Strict alternating rule: 1st=in, 2nd=out, 3rd=in, 4th=out...
+          const pt = (idx % 2 === 0) ? 'in' : 'out';
           return {
             ...p,
-            punch_type: pt
+            punch_type: pt,
+            direction: pt
           };
         });
         const bioTimes = new Set(mappedBio.map(b => b.punch_time));
@@ -1171,10 +1168,37 @@ router.post("/bulk-status", auth, async (req, res) => {
       [...employee_ids, today, ...employee_ids, today, ...employee_ids, today, ...employee_ids, today]
     );
 
+    let allBioPunches = [];
+    try {
+      const [bPunches] = await c.query(
+        `SELECT employee_id, punch_time, device_id
+         FROM biometric_punches
+         WHERE employee_id IN (${placeholders}) AND punch_date = ?
+         ORDER BY employee_id, punch_time ASC`,
+        [...employee_ids, today]
+      );
+      allBioPunches = bPunches || [];
+    } catch (_) { }
+
+    const bioParityMap = new Map();
+    const bioPunchesByEmp = new Map();
+    allBioPunches.forEach(p => {
+      if (!bioPunchesByEmp.has(p.employee_id)) bioPunchesByEmp.set(p.employee_id, []);
+      bioPunchesByEmp.get(p.employee_id).push(p);
+    });
+    bioPunchesByEmp.forEach((punches, empId) => {
+      punches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+      // Strict alternating rule: 1st=in, 2nd=out... odd=in, even=out
+      bioParityMap.set(empId, (punches.length % 2 !== 0) ? 'in' : 'out');
+    });
+
     c.end();
 
     const punchMap = new Map();
     latestPunches.forEach((p) => {
+      if (p.work_mode === 'Biometric' && bioParityMap.has(p.employee_id)) {
+        p.punch_type = bioParityMap.get(p.employee_id);
+      }
       punchMap.set(p.employee_id, p);
     });
 
@@ -2595,16 +2619,18 @@ router.get("/report/team", auth, async (req, res) => {
     });
 
     punchesByEmp.forEach((empPunches, empId) => {
+      // Sort punches chronologically
+      empPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
+
       const firstPunch = empPunches[0]?.punch_time || null;
       const lastPunch = empPunches[empPunches.length - 1]?.punch_time || null;
-      const lastPunchObj = empPunches[empPunches.length - 1];
 
-      // Biometric floor/door access readers log punches when employees enter.
-      // Having biometric punches for today indicates the employee is present (IN)
-      // unless their last biometric punch specifically has direction = 'out'.
-      const lastDir = (lastPunchObj?.direction || '').toLowerCase();
-      const isClockedOut = lastDir === 'out';
-      const isClockedIn = !isClockedOut;
+      // The biometric devices are configured for alternate in and out so without an in punch there will be no out punch.
+      // Strict alternating rule:
+      // 1st punch = IN, 2nd punch = OUT, 3rd punch = IN, 4th punch = OUT...
+      // Odd total punches = currently IN (Clocked In)
+      // Even total punches = currently OUT (Clocked Out)
+      const isClockedIn = empPunches.length % 2 !== 0;
 
       bioPunchMap.set(empId, {
         employee_id: empId,

@@ -231,10 +231,10 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     } catch (_) {}
   }
 
-  const detailJson = JSON.stringify(punches.map(p => ({
+  const detailJson = JSON.stringify(punches.map((p, idx) => ({
     id: p.id,
     time: p.punch_time_clock,
-    direction: p.direction,
+    direction: (idx % 2 === 0) ? 'in' : 'out',
     device: p.device_id
   })));
 
