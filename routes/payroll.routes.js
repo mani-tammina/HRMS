@@ -1171,24 +1171,8 @@ router.get("/v2/leave-attendance-payable", auth, async (req, res) => {
             }
         }
 
-        // 5. Step 4: LOP Reversal
-        const prevMonthIdx = (mIdx + 11) % 12;
-        const prevMonthLabel = `${monthNamesShort[prevMonthIdx]}-${mIdx === 0 ? year - 1 : year}`;
-        const lopReversals = workingEmployees.slice(2, 6).map((emp, i) => {
-            const name = emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim() || `Employee ${emp.id}`;
-            const code = emp.EmployeeNumber || `STSS-${String(emp.id).padStart(3, '0')}`;
-            return {
-                id: 500 + i,
-                employee_name: name,
-                employee_code: code,
-                original_month: prevMonthLabel,
-                reversed_days: 1.0,
-                reason: 'Biometric punch regularization approved by Manager',
-                approved_by: 'HR Admin',
-                refund_amount: 1850 + (i * 350),
-                status: 'Eligible for Refund'
-            };
-        });
+        // 5. Step 4: LOP Reversal - only from actual records, never mock dummy employees
+        const lopReversals = [];
 
         res.json({
             success: true,

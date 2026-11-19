@@ -1187,9 +1187,9 @@ export class LeaveAttendancePayablePage implements OnInit {
       });
     });
 
-    // Also preserve any manually added employees in Step 4 that weren't in Step 3
+    // Only preserve employees who were explicitly added manually in Step 4 via "+ Add Employee" or Import
     existingMap.forEach((rev, code) => {
-      if (!sourceList.some(r => r.employee_code === code) && !this.deletedReversalCodes.has(code)) {
+      if ((rev as any)._manuallyAdded && !this.deletedReversalCodes.has(code) && !sourceList.some(r => r.employee_code === code)) {
         updatedList.push(rev);
       }
     });
@@ -1302,7 +1302,7 @@ export class LeaveAttendancePayablePage implements OnInit {
               const emp = (this.workingEmployees || []).find(e => e.employee_code === String(code).trim());
               if (emp) {
                 const actual = Number(row['Actual LOP'] || row['actual_lop'] || revDays);
-                this.lopReversalRecords.unshift({
+                const importedRow: LopReversalRow = {
                   id: Date.now() + Math.floor(Math.random() * 1000),
                   employee_id: emp.id,
                   employee_name: emp.employee_name,
@@ -1318,7 +1318,10 @@ export class LeaveAttendancePayablePage implements OnInit {
                   reason: row['Comment'] || row['reason'] || 'Imported reversal',
                   comment: row['Comment'] || row['reason'] || 'Imported reversal',
                   status: revDays > 0 ? 'Eligible for Refund' : 'No Reversal'
-                });
+                };
+                (importedRow as any)._manuallyAdded = true;
+                this.deletedReversalCodes.delete(emp.employee_code);
+                this.lopReversalRecords.unshift(importedRow);
                 importedCount++;
               }
             }
@@ -1422,6 +1425,7 @@ export class LeaveAttendancePayablePage implements OnInit {
       status: rev > 0 ? 'Eligible for Refund' : 'No Reversal'
     };
 
+    (newRow as any)._manuallyAdded = true;
     this.deletedReversalCodes.delete(this.newReversalEmployeeCode);
     this.lopReversalRecords.unshift(newRow);
     this.reversalPage = 1;
