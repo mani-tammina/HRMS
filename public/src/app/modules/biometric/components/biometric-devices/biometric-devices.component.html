@@ -19,8 +19,14 @@
         <span class="label">Online Terminals</span>
         <div class="stat-meta-row">
           <span class="value text-emerald">{{ onlineDevicesCount }}</span>
-          <span class="live-indicator-pill" title="Live TCP ping polling every 1 sec">
-            <span class="live-beacon"></span> Live 1s
+          <span 
+            class="live-indicator-pill" 
+            [class.paused]="pingIntervalSec === 0" 
+            [title]="pingIntervalSec === 0 ? 'Live ping paused (manual mode)' : 'Hardware TCP ping active every ' + pingIntervalSec + 's'"
+          >
+            <span class="live-beacon" *ngIf="pingIntervalSec > 0"></span>
+            <span class="paused-dot" *ngIf="pingIntervalSec === 0"></span>
+            {{ pingIntervalSec > 0 ? ('Live ' + pingIntervalSec + 's') : 'Paused' }}
           </span>
         </div>
       </div>
@@ -69,6 +75,30 @@
     </div>
 
     <div class="toolbar-right">
+      <div class="ping-rate-bar">
+        <div class="ping-select-wrap">
+          <ion-icon name="timer-outline"></ion-icon>
+          <select 
+            class="ping-interval-dropdown" 
+            [(ngModel)]="pingIntervalSec" 
+            (change)="onPingIntervalChange()"
+            title="Choose live ping frequency"
+          >
+            <option *ngFor="let opt of pingIntervalOptions" [value]="opt.value">{{ opt.label }}</option>
+          </select>
+        </div>
+
+        <button 
+          class="btn btn-sm btn-ping-now" 
+          (click)="pingNow()" 
+          [disabled]="isPingingNow" 
+          title="Send immediate TCP probe to all devices"
+        >
+          <ion-icon name="radio-outline" [class.spin]="isPingingNow"></ion-icon>
+          <span>{{ isPingingNow ? 'Pinging...' : 'Ping Now' }}</span>
+        </button>
+      </div>
+
       <span class="device-count-text">{{ filteredDevices.length }} of {{ devices.length }} devices</span>
     </div>
   </div>

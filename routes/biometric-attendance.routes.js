@@ -14,7 +14,7 @@ const { auth, admin, hr, manager } = require('../middleware/auth');
 const { findEmployeeByUserId } = require('../utils/helpers');
 const { getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
 const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches, ensureBiometricTablesExist } = require('../services/biometric-direct.service');
-const { getDeviceStatusMap, refreshDeviceList } = require('../services/biometric-ping.service');
+const { getDeviceStatusMap, refreshDeviceList, pingAllDevices, setPingInterval, getCurrentIntervalMs } = require('../services/biometric-ping.service');
 
 // Biometric role check: Admin, HR, or Networking
 const biometricAuth = (req, res, next) => {
@@ -449,15 +449,25 @@ router.delete('/mappings/:id', auth, biometricAuth, async (req, res) => {
 
 /**
  * @route   GET /api/biometric-attendance/devices/live-ping
- * @desc    Ultra-fast in-memory live TCP reachability & latency status of all biometric devices
+ * @desc    Get live TCP reachability & latency status of all biometric devices
+ *          Query params:
+ *          - force=true (triggers immediate real-time socket probe)
+ *          - interval=X (adjusts the daemon ping interval between 3s and 300s)
  * @access  Private (Admin / HR / Networking)
  */
-router.get('/devices/live-ping', auth, biometricAuth, (req, res) => {
+router.get('/devices/live-ping', auth, biometricAuth, async (req, res) => {
   try {
+    if (req.query.interval) {
+      setPingInterval(req.query.interval);
+    }
+    if (req.query.force === 'true') {
+      await pingAllDevices();
+    }
     const statusMap = getDeviceStatusMap();
     res.json({
       success: true,
       timestamp: new Date().toISOString(),
+      currentIntervalSec: Math.round(getCurrentIntervalMs() / 1000),
       data: statusMap
     });
   } catch (err) {

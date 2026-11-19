@@ -145,15 +145,36 @@ async function pingAllDevices() {
   }
 }
 
+let currentIntervalMs = 30000;
+
 /**
- * Start the 1-second ping loop
+ * Start the periodic ping loop (default: 30 seconds to protect hardware)
  */
-function startPingService(intervalMs = 1000) {
+function startPingService(intervalMs = 30000) {
   if (pingIntervalId) return;
+  currentIntervalMs = intervalMs;
   // Trigger immediate initial run
   pingAllDevices().catch(() => {});
   pingIntervalId = setInterval(pingAllDevices, intervalMs);
-  console.log(`📡 [BiometricPingService] Started live ping loop (${intervalMs}ms interval).`);
+  console.log(`📡 [BiometricPingService] Started live ping loop (${intervalMs / 1000}s interval).`);
+}
+
+/**
+ * Dynamically adjust background ping interval (between 3s and 300s)
+ */
+function setPingInterval(intervalSec) {
+  const sec = Math.max(3, Math.min(300, parseInt(intervalSec, 10) || 30));
+  currentIntervalMs = sec * 1000;
+  if (pingIntervalId) {
+    clearInterval(pingIntervalId);
+    pingIntervalId = null;
+  }
+  startPingService(currentIntervalMs);
+  return sec;
+}
+
+function getCurrentIntervalMs() {
+  return currentIntervalMs;
 }
 
 /**
@@ -177,8 +198,8 @@ function getDeviceStatusMap() {
   return result;
 }
 
-// Automatically start background ping loop
-startPingService(1000);
+// Automatically start background ping loop with safe 30s interval
+startPingService(30000);
 
 module.exports = {
   probeDevice,
@@ -186,6 +207,8 @@ module.exports = {
   refreshDeviceList,
   startPingService,
   stopPingService,
+  setPingInterval,
+  getCurrentIntervalMs,
   getDeviceStatusMap
 };
 

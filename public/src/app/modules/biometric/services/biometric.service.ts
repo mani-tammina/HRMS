@@ -146,11 +146,24 @@ export class BiometricService {
 
   /**
    * Get ultra-fast live TCP reachability & latency status of all devices (< 2ms response)
+   * Supports force refresh and dynamic background interval adjustment
    */
-  getDevicesLivePing(): Observable<{ success: boolean; timestamp: string; data: Record<string, DeviceLivePingStatus> }> {
-    return this.http.get<{ success: boolean; timestamp: string; data: Record<string, DeviceLivePingStatus> }>(
-      `${this.baseUrl}/devices/live-ping`
-    );
+  getDevicesLivePing(options: { force?: boolean; interval?: number } = {}): Observable<{
+    success: boolean;
+    timestamp: string;
+    currentIntervalSec?: number;
+    data: Record<string, DeviceLivePingStatus>;
+  }> {
+    let params = new HttpParams();
+    if (options.force) params = params.set('force', 'true');
+    if (options.interval) params = params.set('interval', options.interval.toString());
+
+    return this.http.get<{
+      success: boolean;
+      timestamp: string;
+      currentIntervalSec?: number;
+      data: Record<string, DeviceLivePingStatus>;
+    }>(`${this.baseUrl}/devices/live-ping`, { params });
   }
 
   /**

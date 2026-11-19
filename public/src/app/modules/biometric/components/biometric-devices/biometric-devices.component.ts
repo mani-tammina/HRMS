@@ -1,6 +1,6 @@
 import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
-import { Subject, timer } from 'rxjs';
-import { switchMap, takeUntil } from 'rxjs/operators';
+import { Subject, Subscription, timer } from 'rxjs';
+import { filter, switchMap, takeUntil } from 'rxjs/operators';
 import { BiometricDevice, BiometricService, CompanyLocation, DeviceLivePingStatus } from '../../services/biometric.service';
 import { ToasterService } from '../../../../core/services/toaster.service';
 
@@ -14,8 +14,22 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   @Output() viewDeviceLogs = new EventEmitter<string>();
 
   private destroy$ = new Subject<void>();
+  private pingSubscription: Subscription | null = null;
   liveStatusMap: Record<string, DeviceLivePingStatus> = {};
   lastPingTimestamp: string | null = null;
+
+  // Configurable User Ping Rate
+  pingIntervalSec: number = 30;
+  isPingingNow = false;
+  readonly pingIntervalOptions = [
+    { label: '5s (Fast Debug)', value: 5 },
+    { label: '10s', value: 10 },
+    { label: '15s', value: 15 },
+    { label: '30s (Recommended)', value: 30 },
+    { label: '60s (1 min)', value: 60 },
+    { label: '120s (2 min)', value: 120 },
+    { label: 'Paused (Manual)', value: 0 }
+  ];
 
   devices: BiometricDevice[] = [];
   loading = false;
@@ -58,21 +72,83 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    const saved = localStorage.getItem('biometric_ping_interval_sec');
+    if (saved !== null) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed >= 0) {
+        this.pingIntervalSec = parsed;
+      }
+    }
+
     this.loadDevices();
     this.loadLocations();
     this.startLivePingPolling();
+    this.setupVisibilityListener();
   }
 
   ngOnDestroy(): void {
+    this.stopLivePingPolling();
     this.destroy$.next();
     this.destroy$.complete();
   }
 
+  onPingIntervalChange(): void {
+    localStorage.setItem('biometric_ping_interval_sec', String(this.pingIntervalSec));
+    if (this.pingIntervalSec > 0) {
+      // Sync desired interval with backend daemon and restart timer
+      this.biometricService.getDevicesLivePing({ interval: this.pingIntervalSec }).subscribe({
+        next: (res) => {
+          if (res?.success && res.data) {
+            this.liveStatusMap = res.data;
+            this.lastPingTimestamp = res.timestamp;
+            this.applyLivePingStatus();
+          }
+        }
+      });
+      this.startLivePingPolling();
+      this.toaster.showSuccess(`Live ping rate set to every ${this.pingIntervalSec}s.`);
+    } else {
+      this.stopLivePingPolling();
+      this.toaster.showInfo('Live auto-ping paused. Click "Ping Now" anytime for manual checks.');
+    }
+  }
+
+  pingNow(): void {
+    this.isPingingNow = true;
+    this.biometricService.getDevicesLivePing({ force: true }).subscribe({
+      next: (res) => {
+        this.isPingingNow = false;
+        if (res?.success && res.data) {
+          this.liveStatusMap = res.data;
+          this.lastPingTimestamp = res.timestamp;
+          this.applyLivePingStatus();
+          this.toaster.showSuccess('Device status updated via instant ping.');
+        }
+      },
+      error: (err) => {
+        this.isPingingNow = false;
+        console.error('Error during manual ping:', err);
+        this.toaster.showError('Failed to ping devices.');
+      }
+    });
+  }
+
+  stopLivePingPolling(): void {
+    if (this.pingSubscription) {
+      this.pingSubscription.unsubscribe();
+      this.pingSubscription = null;
+    }
+  }
+
   startLivePingPolling(): void {
-    // Poll live reachability every 1 second (1000ms) with non-overlapping switchMap
-    timer(500, 1000)
+    this.stopLivePingPolling();
+    if (this.pingIntervalSec <= 0) return;
+
+    // Poll live reachability every user-configured seconds with non-overlapping switchMap
+    this.pingSubscription = timer(500, this.pingIntervalSec * 1000)
       .pipe(
         takeUntil(this.destroy$),
+        filter(() => typeof document === 'undefined' || !document.hidden),
         switchMap(() => this.biometricService.getDevicesLivePing())
       )
       .subscribe({
@@ -87,6 +163,29 @@ export class BiometricDevicesComponent implements OnInit, OnDestroy {
           console.warn('[BiometricLivePing] Polling error:', err);
         }
       });
+  }
+
+  private setupVisibilityListener(): void {
+    // When admin returns to the tab after it was hidden, immediately trigger fresh ping
+    if (typeof document !== 'undefined') {
+      const handleVisibility = () => {
+        if (!document.hidden && this.pingIntervalSec > 0) {
+          this.biometricService.getDevicesLivePing().pipe(takeUntil(this.destroy$)).subscribe({
+            next: (res) => {
+              if (res?.success && res.data) {
+                this.liveStatusMap = res.data;
+                this.lastPingTimestamp = res.timestamp;
+                this.applyLivePingStatus();
+              }
+            }
+          });
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibility);
+      this.destroy$.subscribe(() => {
+        document.removeEventListener('visibilitychange', handleVisibility);
+      });
+    }
   }
 
   applyLivePingStatus(): void {
