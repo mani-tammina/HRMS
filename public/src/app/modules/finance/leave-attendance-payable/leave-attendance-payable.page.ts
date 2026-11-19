@@ -665,7 +665,8 @@ export class LeaveAttendancePayablePage implements OnInit {
     // Post to mark-complete which finalizes LOP and updates employee attendance of that month
     this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/mark-complete`, {
       month: this.selectedMonth,
-      records: this.lopReversalRecords
+      records: this.lopReversalRecords,
+      summaryRecords: this.lopSummaryRecords
     }).subscribe({
       next: (res) => {
         this.isLoading = false;

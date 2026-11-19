@@ -2451,6 +2451,38 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
         : 0,
   };
 
+  // If a finalized payroll snapshot exists for this employee and period, synchronize summary with finalized payroll metrics
+  try {
+    const rMonthNum = parseInt(month) || (start.getMonth() + 1);
+    const rYearNum = parseInt(year) || start.getFullYear();
+    const [snapshotRows] = await c.query(`
+      SELECT pas.* 
+      FROM payroll_attendance_snapshots pas
+      JOIN payroll_cycles pc ON pas.cycle_id = pc.id
+      WHERE pas.employee_id = ? AND pc.year = ? AND pc.month = ?
+      LIMIT 1
+    `, [targetEmpId, rYearNum, rMonthNum]);
+
+    if (snapshotRows.length > 0) {
+      const snap = snapshotRows[0];
+      const snapLop = Number(snap.lop_days) || 0;
+      summary.lop_days = snapLop;
+      if (snap.total_absent !== null && snap.total_absent !== undefined) {
+        summary.absent_days = Number(snap.total_absent);
+      } else {
+        summary.absent_days = snapLop;
+      }
+      if (snap.total_present !== null && snap.total_present !== undefined) {
+        summary.present_days = Number(snap.total_present);
+      }
+      if (snap.paid_days !== null && snap.paid_days !== undefined) {
+        summary.paid_days = Number(snap.paid_days);
+      }
+    }
+  } catch (err) {
+    console.warn("Could not check payroll snapshot for attendance summary:", err.message);
+  }
+
   return {
     attendance,
     summary,

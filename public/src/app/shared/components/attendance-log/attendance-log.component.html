@@ -63,7 +63,7 @@
         <span class="badge-penalty">PENALTY</span>
       </ng-container>
       <ng-container *ngIf="log.status === 'absent' && !log.isNoAttendance && !isNoAttendanceEmployee">
-        <span *ngIf="log.notes === 'LOP'; else stdAbsent" class="badge-lop">LOP</span>
+        <span *ngIf="log.notes === 'LOP' || (log.notes && log.notes.includes('LOP')); else stdAbsent" class="badge-lop">LOP</span>
         <ng-template #stdAbsent>
           <span class="badge-absent">ABSENT</span>
         </ng-template>
