@@ -1,0 +1,454 @@
+<div class="nje-workflow-container">
+
+  <!-- ============================================
+       TOP HEADER & WORKFLOW STEPPER
+       ============================================ -->
+  <header class="nje-header">
+    <!-- Left: Month / Workflow Title -->
+    <div class="header-left">
+      <h1 class="header-title">New Joinees &amp; Exits: {{ monthLabel }}</h1>
+    </div>
+
+    <!-- Center: Stepper (3 Steps matching screenshot) -->
+    <nav class="header-stepper" aria-label="Payroll Step 2 Stepper">
+      <!-- Step 1: NEW JOINEES -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="setStep(1)">
+        <span class="step-badge">1</span>
+        <span class="step-label">NEW JOINEES</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 2: EMPLOYEES IN EXIT PROCESS -->
+      <div class="stepper-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="setStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">EMPLOYEES IN EXIT PROCESS</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 3: FULL & FINAL SETTLEMENT -->
+      <div class="stepper-item" [class.active]="currentStep === 3" (click)="setStep(3)">
+        <span class="step-badge">3</span>
+        <span class="step-label">FULL &amp; FINAL SETTLEMENT</span>
+      </div>
+    </nav>
+
+    <!-- Right: Header Actions -->
+    <div class="header-right">
+      <button class="btn-back" type="button" (click)="handleBack()" [disabled]="currentStep === 1">
+        Back
+      </button>
+
+      <button *ngIf="currentStep < 3" class="btn-save-close" type="button" (click)="saveAndClose()">
+        Save &amp; Close
+      </button>
+
+      <button *ngIf="currentStep < 3" class="btn-save-continue" type="button" (click)="saveAndContinue()">
+        Save &amp; Continue
+      </button>
+
+      <button *ngIf="currentStep === 3" class="btn-mark-completed" type="button" (click)="markStepAsCompleted()">
+        Mark as Complete
+      </button>
+
+      <button class="btn-close-header" type="button" (click)="closeWorkflow()" title="Close and return to Payroll Dashboard">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT: SPLIT VIEW (TABLE + HELP PANEL)
+       ============================================ -->
+  <div class="nje-content-body">
+    <!-- Left: Step Content & Tables -->
+    <main class="nje-main-content">
+
+      <!-- ====================================================
+           STEP 1: NEW JOINEES (MATCHING SCREENSHOT)
+           ==================================================== -->
+      <section *ngIf="currentStep === 1" class="step-section">
+        <!-- Top Search Bar -->
+        <div class="table-toolbar">
+          <div class="toolbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="joineesSearchTerm" placeholder="Search" class="search-input" />
+          </div>
+        </div>
+
+        <!-- New Joinees Data Table -->
+        <div class="table-card">
+          <table class="nje-table">
+            <thead>
+              <tr>
+                <th class="col-expand"></th>
+                <th class="col-employee">EMPLOYEE</th>
+                <th class="col-doj">DATE OF JOINING</th>
+                <th class="col-units">NO. OF UNITS WORKED</th>
+                <th class="col-salary">SALARY</th>
+                <th class="col-action">PAY ACTION</th>
+                <th class="col-comments">COMMENTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredNewJoinees; let idx = index">
+                <tr class="data-row" [class.row-expanded]="row.expanded">
+                  <!-- Expand Chevron -->
+                  <td class="col-expand">
+                    <button type="button" class="btn-chevron" (click)="toggleRow(row)" [attr.aria-expanded]="row.expanded">
+                      <span class="chevron-icon" [class.rotated]="row.expanded">›</span>
+                    </button>
+                  </td>
+
+                  <!-- Employee Code & Name (2 lines) -->
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+
+                  <!-- Date of Joining -->
+                  <td class="col-doj">
+                    <span class="text-regular">{{ row.date_of_joining }}</span>
+                  </td>
+
+                  <!-- Units Worked -->
+                  <td class="col-units">
+                    <span class="text-regular">{{ row.units_worked_label }}</span>
+                  </td>
+
+                  <!-- Prorated Salary -->
+                  <td class="col-salary">
+                    <span class="text-regular">{{ row.salary_formatted }}</span>
+                  </td>
+
+                  <!-- Pay Action Dropdown -->
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="nje-select">
+                        <option value="Process as salary">Process as salary</option>
+                        <option value="Hold salary">Hold salary</option>
+                        <option value="Do not process">Do not process</option>
+                      </select>
+                    </div>
+                  </td>
+
+                  <!-- Comments Input & Bubble Icon -->
+                  <td class="col-comments">
+                    <div class="comment-field-wrap">
+                      <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
+                      <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)" title="Add / View Comment">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Expanded Row: Salary Breakdown details -->
+                <tr *ngIf="row.expanded" class="expand-detail-row">
+                  <td colspan="7">
+                    <div class="expanded-card">
+                      <div class="exp-header">
+                        <h4>Prorated Calculation for {{ row.employee_name }} ({{ row.employee_code }})</h4>
+                        <span class="exp-badge">{{ row.pay_action }}</span>
+                      </div>
+                      <div class="exp-grid">
+                        <div class="exp-item">
+                          <span class="exp-label">Department</span>
+                          <span class="exp-value">{{ row.department || 'General' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Designation</span>
+                          <span class="exp-value">{{ row.designation || 'Staff' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Monthly Gross</span>
+                          <span class="exp-value">INR {{ (row.monthly_salary || 0).toLocaleString('en-IN') }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Units Worked</span>
+                          <span class="exp-value">{{ row.no_of_units_worked }} Days</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Prorated Gross Payable</span>
+                          <span class="exp-value text-purple">{{ row.salary_formatted }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Formula</span>
+                          <span class="exp-value text-muted">(Monthly Gross / Month Days) × Units Worked</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
+
+              <tr *ngIf="filteredNewJoinees.length === 0">
+                <td colspan="7" class="no-records-cell">
+                  <p>No new joinees found for {{ monthLabel }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Table Footer Pagination -->
+          <div class="table-footer">
+            <span class="footer-count">1 to {{ filteredNewJoinees.length }} of {{ filteredNewJoinees.length }}</span>
+            <div class="footer-nav">
+              <button class="btn-page" disabled>‹</button>
+              <span class="page-indicator">Page 1 of 1</span>
+              <button class="btn-page" disabled>›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 2: EMPLOYEES IN EXIT PROCESS
+           ==================================================== -->
+      <section *ngIf="currentStep === 2" class="step-section">
+        <div class="table-toolbar">
+          <div class="toolbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="exitsSearchTerm" placeholder="Search exiting employees" class="search-input" />
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="nje-table">
+            <thead>
+              <tr>
+                <th class="col-expand"></th>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>RESIGNATION DATE</th>
+                <th>LAST WORKING DAY</th>
+                <th>NOTICE DAYS</th>
+                <th>STATUS</th>
+                <th>PAY ACTION</th>
+                <th>COMMENTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredExits" class="data-row">
+                <td class="col-expand">
+                  <button type="button" class="btn-chevron" (click)="toggleRow(row)">
+                    <span class="chevron-icon" [class.rotated]="row.expanded">›</span>
+                  </button>
+                </td>
+                <td class="col-employee">
+                  <div class="emp-meta">
+                    <span class="emp-code">{{ row.employee_code }}</span>
+                    <span class="emp-name">{{ row.employee_name }}</span>
+                  </div>
+                </td>
+                <td>{{ row.resignation_date }}</td>
+                <td>{{ row.last_working_day }}</td>
+                <td>{{ row.notice_served_days }} / {{ row.notice_period_days }} Days</td>
+                <td>
+                  <span class="badge-status">{{ row.status }}</span>
+                </td>
+                <td class="col-action">
+                  <div class="select-wrapper">
+                    <select [(ngModel)]="row.pay_action" class="nje-select">
+                      <option value="Hold in F&F">Hold in F&F</option>
+                      <option value="Process as salary">Process as salary</option>
+                      <option value="Process as F&F">Process as F&F</option>
+                      <option value="Stop payment">Stop payment</option>
+                    </select>
+                  </div>
+                </td>
+                <td class="col-comments">
+                  <div class="comment-field-wrap">
+                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
+                    <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr *ngIf="filteredExits.length === 0">
+                <td colspan="8" class="no-records-cell">
+                  <p>No employees in exit process for {{ monthLabel }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="table-footer">
+            <span class="footer-count">1 to {{ filteredExits.length }} of {{ filteredExits.length }}</span>
+            <div class="footer-nav">
+              <button class="btn-page" disabled>‹</button>
+              <span class="page-indicator">Page 1 of 1</span>
+              <button class="btn-page" disabled>›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 3: FULL & FINAL SETTLEMENT
+           ==================================================== -->
+      <section *ngIf="currentStep === 3" class="step-section">
+        <div class="table-toolbar">
+          <div class="toolbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="settlementSearchTerm" placeholder="Search settlement records" class="search-input" />
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="nje-table">
+            <thead>
+              <tr>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>LAST WORKING DAY</th>
+                <th>PAYABLE DAYS</th>
+                <th>EARNED SALARY</th>
+                <th>LEAVE ENCASHMENT</th>
+                <th>NET F&amp;F PAYABLE</th>
+                <th>STATUS</th>
+                <th>COMMENTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredSettlements" class="data-row">
+                <td class="col-employee">
+                  <div class="emp-meta">
+                    <span class="emp-code">{{ row.employee_code }}</span>
+                    <span class="emp-name">{{ row.employee_name }}</span>
+                  </div>
+                </td>
+                <td>{{ row.last_working_day }}</td>
+                <td>{{ row.payable_days }} Days</td>
+                <td>INR {{ (row.earned_salary || 0).toLocaleString('en-IN') }}</td>
+                <td>INR {{ (row.leave_encashment_amount || 0).toLocaleString('en-IN') }}</td>
+                <td>
+                  <strong class="text-success">INR {{ (row.net_settlement_payable || 0).toLocaleString('en-IN') }}</strong>
+                </td>
+                <td>
+                  <span class="badge-status badge-approved">{{ row.status }}</span>
+                </td>
+                <td class="col-comments">
+                  <div class="comment-field-wrap">
+                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
+                    <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <tr *ngIf="filteredSettlements.length === 0">
+                <td colspan="8" class="no-records-cell">
+                  <p>No full &amp; final settlements pending for {{ monthLabel }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="table-footer">
+            <span class="footer-count">1 to {{ filteredSettlements.length }} of {{ filteredSettlements.length }}</span>
+            <div class="footer-nav">
+              <button class="btn-page" disabled>‹</button>
+              <span class="page-indicator">Page 1 of 1</span>
+              <button class="btn-page" disabled>›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Right: Help Resources Sidebar (Matching Screenshot) -->
+    <aside class="nje-side-col">
+      <div class="help-card">
+        <div class="help-card-header" (click)="toggleHelpResources()">
+          <span class="help-card-title">Help Resources</span>
+          <span class="help-arrow" [class.rotated]="!helpResourcesOpen">∧</span>
+        </div>
+
+        <div class="help-card-body" *ngIf="helpResourcesOpen">
+          <ul class="help-links-list">
+            <li class="help-link-item" (click)="toggleHelpItem(1)">
+              <div class="link-row">
+                <span class="link-text">How is prorated salary calculated for new joinees?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 1" class="help-answer">
+                Prorated salary is calculated as (Monthly Gross ÷ Total Calendar Days in Month) × Units Worked from Date of Joining to month-end.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(2)">
+              <div class="link-row">
+                <span class="link-text">When should an employee's salary be held?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 2" class="help-answer">
+                Hold salary when bank details are unverified, onboarding documentation is pending, or when an exiting employee requires F&amp;F settlement clearances.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(3)">
+              <div class="link-row">
+                <span class="link-text">How does notice shortfall recovery work?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 3" class="help-answer">
+                Any shortfall in mandatory notice days is deducted as per the daily gross rate during Full &amp; Final settlement calculation.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(4)">
+              <div class="link-row">
+                <span class="link-text">Can new joinees be excluded from this month's payroll?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 4" class="help-answer">
+                Yes, select "Hold salary" or "Do not process" in the Pay Action dropdown to defer payment to subsequent payroll cycles.
+              </p>
+            </li>
+          </ul>
+
+          <!-- Talk to us bottom card -->
+          <div class="talk-to-us-card">
+            <div class="talk-icon-circle">?</div>
+            <span class="talk-title">Still need help?</span>
+            <a href="javascript:void(0)" class="talk-link">Talk to us →</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================================
+       COMMENT MODAL
+       ============================================ -->
+  <div *ngIf="showCommentModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Comments for {{ activeCommentRow?.employee_name }} ({{ activeCommentRow?.employee_code }})</h3>
+        <button type="button" class="btn-close-modal" (click)="closeCommentModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label">Audit Note / Remark</label>
+        <textarea [(ngModel)]="tempCommentText" rows="4" placeholder="Enter payroll comment or remarks..." class="modal-textarea"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeCommentModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="saveCommentFromModal()">Save Comment</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
