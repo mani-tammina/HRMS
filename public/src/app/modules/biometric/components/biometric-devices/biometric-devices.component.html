@@ -17,7 +17,12 @@
       </div>
       <div class="stat-meta">
         <span class="label">Online Terminals</span>
-        <span class="value text-emerald">{{ onlineDevicesCount }}</span>
+        <div class="stat-meta-row">
+          <span class="value text-emerald">{{ onlineDevicesCount }}</span>
+          <span class="live-indicator-pill" title="Live TCP ping polling every 1 sec">
+            <span class="live-beacon"></span> Live 1s
+          </span>
+        </div>
       </div>
     </div>
 
@@ -84,12 +89,24 @@
           </p>
         </div>
         <div class="device-status-badge" [ngClass]="device.status">
-          <span class="status-dot"></span>
-          {{ device.status | uppercase }}
+          <span class="status-dot" [class.live-pulse]="device.status === 'online'"></span>
+          <span>{{ device.status | uppercase }}</span>
+          <span class="latency-tag" *ngIf="device.status === 'online' && device.latency != null">{{ device.latency }}ms</span>
         </div>
       </div>
 
       <div class="device-card-body">
+        <div class="spec-row">
+          <span class="spec-label">Live Ping:</span>
+          <span class="spec-value" [ngClass]="device.status === 'online' ? 'text-live-online' : 'text-live-offline'">
+            <ng-container *ngIf="device.status === 'online'">
+              Responsive <span *ngIf="device.latency != null">({{ device.latency }}ms)</span>
+            </ng-container>
+            <ng-container *ngIf="device.status !== 'online'">
+              Unreachable
+            </ng-container>
+          </span>
+        </div>
         <div class="spec-row">
           <span class="spec-label">Machine Type:</span>
           <span class="spec-value">{{ device.type }}</span>

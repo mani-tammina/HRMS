@@ -1,5 +1,7 @@
-import { Component, EventEmitter, OnInit, Output } from '@angular/core';
-import { BiometricDevice, BiometricService, CompanyLocation } from '../../services/biometric.service';
+import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import { Subject, timer } from 'rxjs';
+import { switchMap, takeUntil } from 'rxjs/operators';
+import { BiometricDevice, BiometricService, CompanyLocation, DeviceLivePingStatus } from '../../services/biometric.service';
 import { ToasterService } from '../../../../core/services/toaster.service';
 
 @Component({
@@ -8,8 +10,12 @@ import { ToasterService } from '../../../../core/services/toaster.service';
   styleUrls: ['./biometric-devices.component.scss'],
   standalone: false
 })
-export class BiometricDevicesComponent implements OnInit {
+export class BiometricDevicesComponent implements OnInit, OnDestroy {
   @Output() viewDeviceLogs = new EventEmitter<string>();
+
+  private destroy$ = new Subject<void>();
+  liveStatusMap: Record<string, DeviceLivePingStatus> = {};
+  lastPingTimestamp: string | null = null;
 
   devices: BiometricDevice[] = [];
   loading = false;
@@ -54,6 +60,47 @@ export class BiometricDevicesComponent implements OnInit {
   ngOnInit(): void {
     this.loadDevices();
     this.loadLocations();
+    this.startLivePingPolling();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  startLivePingPolling(): void {
+    // Poll live reachability every 1 second (1000ms) with non-overlapping switchMap
+    timer(500, 1000)
+      .pipe(
+        takeUntil(this.destroy$),
+        switchMap(() => this.biometricService.getDevicesLivePing())
+      )
+      .subscribe({
+        next: (res) => {
+          if (res?.success && res.data) {
+            this.liveStatusMap = res.data;
+            this.lastPingTimestamp = res.timestamp;
+            this.applyLivePingStatus();
+          }
+        },
+        error: (err) => {
+          console.warn('[BiometricLivePing] Polling error:', err);
+        }
+      });
+  }
+
+  applyLivePingStatus(): void {
+    if (!this.devices || this.devices.length === 0) return;
+    for (const dev of this.devices) {
+      const ping = this.liveStatusMap[String(dev.deviceId)];
+      if (ping) {
+        if (dev.configStatus !== 'inactive') {
+          dev.status = ping.online ? 'online' : 'offline';
+          dev.isOnline = ping.online;
+        }
+        dev.latency = ping.latency;
+      }
+    }
   }
 
   loadLocations(): void {
@@ -82,6 +129,7 @@ export class BiometricDevicesComponent implements OnInit {
         this.loading = false;
         if (res.success && res.data) {
           this.devices = res.data;
+          this.applyLivePingStatus();
         }
       },
       error: (err) => {
