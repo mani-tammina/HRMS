@@ -1374,19 +1374,156 @@ router.post("/v2/leave-attendance-payable/save-lop-summary", auth, async (req, r
     }
 });
 
-// Save LOP reversals
+// Save LOP reversals and update employee attendance of that month
 router.post("/v2/leave-attendance-payable/save-lop-reversals", auth, async (req, res) => {
     let c = null;
     try {
         const { month, records } = req.body;
-        if (!month || !records || !Array.isArray(records)) {
-            return res.json({ success: true, message: "No records to save" });
+        if (!records || !Array.isArray(records) || records.length === 0) {
+            return res.json({ success: true, message: "No reversals to apply" });
         }
+        c = await db();
+
+        const monthMap = {
+            JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+            JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12
+        };
+
+        const now = new Date();
+        const updatedEmployees = [];
+
+        for (const rec of records) {
+            const reversedDays = Number(rec.reversed_days) || 0;
+            if (reversedDays <= 0) continue;
+
+            // Resolve employee id
+            let empId = rec.employee_id;
+            if (!empId && rec.employee_code) {
+                const [empRows] = await c.query(`SELECT id FROM employees WHERE EmployeeNumber = ? LIMIT 1`, [rec.employee_code]);
+                if (empRows.length > 0) empId = empRows[0].id;
+            }
+            if (!empId) continue;
+
+            // Determine target year & month
+            let targetYear, targetMonthNum;
+            const targetMonthRaw = rec.lop_month || rec.original_month || month || '';
+            if (targetMonthRaw.includes('-')) {
+                const parts = targetMonthRaw.split('-');
+                if (parts[0].length === 4) {
+                    targetYear = parseInt(parts[0], 10);
+                    targetMonthNum = parseInt(parts[1], 10);
+                } else if (monthMap[parts[0].toUpperCase()]) {
+                    targetMonthNum = monthMap[parts[0].toUpperCase()];
+                    targetYear = parseInt(parts[1], 10);
+                }
+            }
+            if (!targetYear || !targetMonthNum) {
+                const defaultParts = (month || '2026-11').split('-');
+                targetYear = parseInt(defaultParts[0], 10) || 2026;
+                targetMonthNum = parseInt(defaultParts[1], 10) || 11;
+            }
+
+            const targetMonthStr = `${targetYear}-${String(targetMonthNum).padStart(2, '0')}`;
+            const daysInTargetMonth = new Date(targetYear, targetMonthNum, 0).getDate();
+
+            // 1. Update payroll_attendance_snapshots for that month
+            const [cycles] = await c.query(
+                `SELECT id FROM payroll_cycles WHERE year = ? AND month = ? LIMIT 1`,
+                [targetYear, targetMonthNum]
+            );
+            let cycleId = cycles[0]?.id;
+            if (!cycleId) {
+                const startDate = `${targetMonthStr}-01`;
+                const endDate = `${targetMonthStr}-${String(daysInTargetMonth).padStart(2, '0')}`;
+                const [cyRes] = await c.query(
+                    `INSERT INTO payroll_cycles (year, month, start_date, end_date, status, created_at) VALUES (?, ?, ?, ?, 'OPEN', NOW())`,
+                    [targetYear, targetMonthNum, startDate, endDate]
+                );
+                cycleId = cyRes.insertId;
+            }
+
+            if (cycleId) {
+                const reversalNote = JSON.stringify({
+                    reversal_applied: true,
+                    reversed_days: reversedDays,
+                    reversed_at: now.toISOString(),
+                    comment: rec.comment || rec.reason || 'LOP Reversed to Present in Payroll'
+                });
+
+                const [snapUpd] = await c.query(`
+                    UPDATE payroll_attendance_snapshots
+                    SET lop_days = GREATEST(0, lop_days - ?),
+                        paid_days = LEAST(working_days, paid_days + ?),
+                        total_present = LEAST(working_days, total_present + ?),
+                        total_absent = GREATEST(0, total_absent - ?),
+                        notes = ?
+                    WHERE cycle_id = ? AND employee_id = ?
+                `, [reversedDays, reversedDays, reversedDays, reversedDays, reversalNote, cycleId, empId]);
+
+                if (snapUpd.affectedRows === 0) {
+                    const paidDays = Math.min(daysInTargetMonth, daysInTargetMonth);
+                    await c.query(`
+                        INSERT INTO payroll_attendance_snapshots
+                        (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, notes, snapshot_ts)
+                        VALUES (?, ?, ?, ?, 0, ?, 0, 0, ?, NOW())
+                        ON DUPLICATE KEY UPDATE 
+                            lop_days = GREATEST(0, lop_days - VALUES(lop_days)),
+                            paid_days = LEAST(working_days, paid_days + VALUES(paid_days))
+                    `, [cycleId, empId, daysInTargetMonth, paidDays, paidDays, reversalNote]);
+                }
+            }
+
+            // 2. Update daily attendance records in 'attendance' table for that month
+            const [absentRows] = await c.query(`
+                SELECT id FROM attendance
+                WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+                  AND status IN ('absent', 'half-day')
+                ORDER BY attendance_date ASC
+                LIMIT ?
+            `, [empId, targetMonthStr, Math.ceil(reversedDays)]);
+
+            if (absentRows.length > 0) {
+                const ids = absentRows.map(r => r.id);
+                await c.query(`
+                    UPDATE attendance
+                    SET status = 'present',
+                        approval_status = 'approved',
+                        notes = CONCAT(COALESCE(notes, ''), ' [LOP Reversed to Present: ', ?, ']')
+                    WHERE id IN (?)
+                `, [rec.comment || 'Reversed in Payroll', ids]);
+            } else {
+                for (let d = 1; d <= Math.min(daysInTargetMonth, Math.ceil(reversedDays)); d++) {
+                    const dateStr = `${targetMonthStr}-${String(d).padStart(2, '0')}`;
+                    await c.query(`
+                        INSERT INTO attendance (employee_id, attendance_date, punch_date, status, approval_status, notes, created_at, updated_at)
+                        VALUES (?, ?, ?, 'present', 'approved', ?, NOW(), NOW())
+                        ON DUPLICATE KEY UPDATE status = 'present', approval_status = 'approved'
+                    `, [empId, dateStr, dateStr, rec.comment || 'LOP Reversed to Present in Payroll']);
+                }
+            }
+
+            // 3. Update 'biometric_daily_attendance' table if absent/half_day records exist
+            await c.query(`
+                UPDATE biometric_daily_attendance
+                SET status = 'present'
+                WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+                  AND status IN ('absent', 'half_day')
+                LIMIT ?
+            `, [empId, targetMonthStr, Math.ceil(reversedDays)]);
+
+            updatedEmployees.push({
+                employee_id: empId,
+                employee_code: rec.employee_code,
+                month: targetMonthStr,
+                reversed_days: reversedDays
+            });
+        }
+
         res.json({
             success: true,
-            message: "Loss of Pay reversals saved successfully",
-            count: records.length,
-            month: month
+            message: `Loss of pay reversed and attendance updated for ${updatedEmployees.length} employee(s) for ${month}`,
+            updatedCount: updatedEmployees.length,
+            updatedEmployees: updatedEmployees
         });
     } catch (err) {
         console.error("Error in save-lop-reversals:", err);

@@ -713,16 +713,19 @@
                       step="0.5" 
                       min="0"
                       [max]="row.actual_lop"
-                      class="lop-input-box" 
+                      class="lop-input-box disabled-input" 
+                      [disabled]="true"
                       [(ngModel)]="row.reversed_days" 
-                      (ngModelChange)="onReversalDaysChange(row)" 
+                      title="LOP Reversal days are locked in disabled mode"
                       placeholder="0" />
                   </td>
                   <td>
                     <input 
                       type="text" 
-                      class="lop-comment-box" 
+                      class="lop-comment-box disabled-input" 
+                      [disabled]="true"
                       [(ngModel)]="row.comment" 
+                      title="Comment is locked in disabled mode"
                       placeholder="" />
                   </td>
                   <td style="text-align: center;">

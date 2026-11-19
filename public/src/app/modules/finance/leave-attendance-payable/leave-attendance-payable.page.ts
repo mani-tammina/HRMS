@@ -689,6 +689,14 @@ export class LeaveAttendancePayablePage implements OnInit {
     }
     localStorage.setItem(key, JSON.stringify(steps));
 
+    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/save-lop-reversals`, {
+      month: this.selectedMonth,
+      records: this.lopReversalRecords
+    }).subscribe({
+      next: () => {},
+      error: () => {}
+    });
+
     this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/mark-complete`, {
       month: this.selectedMonth,
       reversalRecords: this.lopReversalRecords
@@ -1154,10 +1162,12 @@ export class LeaveAttendancePayablePage implements OnInit {
       const existing = existingMap.get(r.employee_code);
       const actual = Number(r.actual_lop) || 0;
       let revDays = 0;
-      if (existing && existing.reversed_days !== undefined && existing.reversed_days !== null) {
+      if (existing && existing.reversed_days !== undefined && existing.reversed_days !== null && Number(existing.reversed_days) > 0) {
         revDays = Number(existing.reversed_days) || 0;
       } else if (r.adjustment !== null && r.adjustment !== undefined && Number(r.adjustment) < 0) {
         revDays = Math.abs(Number(r.adjustment));
+      } else {
+        revDays = Number(r.actual_lop) || 0;
       }
 
       const finalLop = Math.max(0, actual - revDays);

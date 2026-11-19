@@ -1741,6 +1741,17 @@
       border-color: #5840bb;
       box-shadow: 0 0 0 2px rgba(88, 64, 187, 0.12);
     }
+
+    &.disabled-input,
+    &:disabled {
+      background-color: #f8fafc;
+      color: #334155;
+      border-color: #e2e8f0;
+      cursor: not-allowed;
+      font-weight: 600;
+      opacity: 0.92;
+      user-select: none;
+    }
   }
 
   .lop-comment-box {
@@ -1759,6 +1770,16 @@
     &:focus {
       border-color: #5840bb;
       box-shadow: 0 0 0 2px rgba(88, 64, 187, 0.12);
+    }
+
+    &.disabled-input,
+    &:disabled {
+      background-color: #f8fafc;
+      color: #64748b;
+      border-color: #e2e8f0;
+      cursor: not-allowed;
+      opacity: 0.92;
+      user-select: none;
     }
   }
 
