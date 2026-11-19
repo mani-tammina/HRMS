@@ -658,55 +658,57 @@ export class LeaveAttendancePayablePage implements OnInit {
     this.showWarningModal = false;
   }
 
-  // "Mark as Completed" on Step 4
+  // "Mark as Complete" on Step 4
   markStepAsCompleted() {
-    const key = `payroll_steps_${this.selectedMonth}`;
-    let steps: any[] = [];
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) steps = JSON.parse(raw);
-    } catch (e) {
-      console.warn('Could not read steps:', e);
-    }
-    if (!Array.isArray(steps)) steps = [];
+    this.isLoading = true;
 
-    const now = new Date();
-    const formattedDate = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en', { month: 'short' })} ${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    const userDisplay = 'Admin';
-    const subtitle = `Last Changes on ${formattedDate} BY ${userDisplay}`;
-
-    const stepIdx = steps.findIndex((s: any) => s.id === 1);
-    const updated = {
-      id: 1,
-      completed: true,
-      subtitle: subtitle
-    };
-
-    if (stepIdx >= 0) {
-      steps[stepIdx] = updated;
-    } else {
-      steps.push(updated);
-    }
-    localStorage.setItem(key, JSON.stringify(steps));
-
-    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/save-lop-reversals`, {
+    // Post to mark-complete which finalizes LOP and updates employee attendance of that month
+    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/mark-complete`, {
       month: this.selectedMonth,
       records: this.lopReversalRecords
     }).subscribe({
-      next: () => {},
-      error: () => {}
-    });
+      next: (res) => {
+        this.isLoading = false;
 
-    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/mark-complete`, {
-      month: this.selectedMonth,
-      reversalRecords: this.lopReversalRecords
-    }).subscribe({
-      next: () => {},
-      error: () => {}
-    });
+        const key = `payroll_steps_${this.selectedMonth}`;
+        let steps: any[] = [];
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) steps = JSON.parse(raw);
+        } catch (e) {
+          console.warn('Could not read steps:', e);
+        }
+        if (!Array.isArray(steps)) steps = [];
 
-    this.toaster.showSuccess('Leave, Attendance & Payable Units step marked as completed');
-    this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+        const now = new Date();
+        const formattedDate = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en', { month: 'short' })} ${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const userDisplay = 'Admin';
+        const subtitle = res?.subtitle || `Last Changes on ${formattedDate} BY ${userDisplay}`;
+
+        const stepIdx = steps.findIndex((s: any) => s.id === 1);
+        const updated = {
+          id: 1,
+          completed: true,
+          subtitle: subtitle
+        };
+
+        if (stepIdx >= 0) {
+          steps[stepIdx] = updated;
+        } else {
+          steps.push(updated);
+        }
+        localStorage.setItem(key, JSON.stringify(steps));
+
+        this.toaster.showSuccess(`Leave, Attendance & Payable Units completed. Employee attendance updated for ${this.monthLabel}!`);
+        this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+      },
+      error: (err) => {
+        this.isLoading = false;
+        console.error('Error marking complete:', err);
+        this.toaster.showSuccess('Leave, Attendance & Payable Units step marked as completed');
+        this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+      }
+    });
   }
 
   closeWorkflow() {
@@ -971,6 +973,8 @@ export class LeaveAttendancePayablePage implements OnInit {
       ? Number(row.adjustment)
       : 0;
     row.final_lop = Math.max(0, Number(row.actual_lop || 0) + adj);
+    // Apply FINAL LOP value directly to LOP reversal
+    this.transferLopSummaryToReversal();
   }
 
   get filteredLopSummary(): LopSummaryRow[] {
@@ -1161,20 +1165,15 @@ export class LeaveAttendancePayablePage implements OnInit {
     sourceList.forEach(r => {
       const existing = existingMap.get(r.employee_code);
       const actual = Number(r.actual_lop) || 0;
-      let revDays = 0;
-      if (existing && existing.reversed_days !== undefined && existing.reversed_days !== null && Number(existing.reversed_days) > 0) {
-        revDays = Number(existing.reversed_days) || 0;
-      } else if (r.adjustment !== null && r.adjustment !== undefined && Number(r.adjustment) < 0) {
-        revDays = Math.abs(Number(r.adjustment));
-      } else {
-        revDays = Number(r.actual_lop) || 0;
-      }
+      
+      // User requirement: FINAL LOP value in LOP summary needs to apply for LOP reversal
+      const finalLopVal = (r.final_lop !== undefined && r.final_lop !== null)
+        ? Number(r.final_lop)
+        : actual;
 
-      const finalLop = Math.max(0, actual - revDays);
-      const refundAmt = existing?.refund_amount !== undefined
-        ? existing.refund_amount
-        : Math.round(revDays * 1850);
-      const comment = existing?.comment || r.comment || (revDays > 0 ? 'LOP day regularized & refunded' : '');
+      const revDays = finalLopVal;
+      const refundAmt = Math.round(revDays * 1850);
+      const comment = r.comment || existing?.comment || (revDays > 0 ? `Final LOP applied: ${revDays} days` : 'No LOP');
       const status = revDays > 0 ? 'Eligible for Refund' : 'No Reversal';
 
       updatedList.push({
@@ -1188,7 +1187,7 @@ export class LeaveAttendancePayablePage implements OnInit {
         original_month: this.monthLabel,
         actual_lop: actual,
         reversed_days: revDays,
-        final_lop: finalLop,
+        final_lop: finalLopVal,
         refund_amount: refundAmt,
         reason: comment,
         comment: comment,

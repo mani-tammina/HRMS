@@ -1533,13 +1533,139 @@ router.post("/v2/leave-attendance-payable/save-lop-reversals", auth, async (req,
     }
 });
 
-// Mark Leave, Attendance & Payable Units step as complete
+// Mark Leave, Attendance & Payable Units step as complete and update employee attendance of that month
 router.post("/v2/leave-attendance-payable/mark-complete", auth, async (req, res) => {
+    let c = null;
     try {
-        const { month } = req.body;
+        const { month, records, reversalRecords } = req.body;
+        const targetRecords = records || reversalRecords || [];
+        c = await db();
+
+        const monthMap = {
+            JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+            JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12
+        };
+
         const now = new Date();
         const userName = req.user ? (req.user.name || req.user.username || 'Admin') : 'Admin';
         const subtitle = `Last Changes on ${now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} BY ${userName}`;
+
+        const updatedEmployees = [];
+
+        if (Array.isArray(targetRecords) && targetRecords.length > 0) {
+            for (const rec of targetRecords) {
+                // Resolve employee id
+                let empId = rec.employee_id;
+                if (!empId && rec.employee_code) {
+                    const [empRows] = await c.query(`SELECT id FROM employees WHERE EmployeeNumber = ? LIMIT 1`, [rec.employee_code]);
+                    if (empRows.length > 0) empId = empRows[0].id;
+                }
+                if (!empId) continue;
+
+                // The finalized LOP days from LOP reversal (which came from Step 3 FINAL LOP)
+                const lopDays = Number(rec.reversed_days !== undefined && rec.reversed_days !== null ? rec.reversed_days : (rec.final_lop !== undefined ? rec.final_lop : rec.actual_lop)) || 0;
+
+                // Determine target year & month
+                let targetYear, targetMonthNum;
+                const targetMonthRaw = rec.lop_month || rec.original_month || month || '';
+                if (targetMonthRaw.includes('-')) {
+                    const parts = targetMonthRaw.split('-');
+                    if (parts[0].length === 4) {
+                        targetYear = parseInt(parts[0], 10);
+                        targetMonthNum = parseInt(parts[1], 10);
+                    } else if (monthMap[parts[0].toUpperCase()]) {
+                        targetMonthNum = monthMap[parts[0].toUpperCase()];
+                        targetYear = parseInt(parts[1], 10);
+                    }
+                }
+                if (!targetYear || !targetMonthNum) {
+                    const defaultParts = (month || '2026-11').split('-');
+                    targetYear = parseInt(defaultParts[0], 10) || 2026;
+                    targetMonthNum = parseInt(defaultParts[1], 10) || 11;
+                }
+
+                const targetMonthStr = `${targetYear}-${String(targetMonthNum).padStart(2, '0')}`;
+                const daysInTargetMonth = new Date(targetYear, targetMonthNum, 0).getDate();
+                const paidDays = Math.max(0, daysInTargetMonth - lopDays);
+
+                // 1. Update or create cycle
+                const [cycles] = await c.query(
+                    `SELECT id FROM payroll_cycles WHERE year = ? AND month = ? LIMIT 1`,
+                    [targetYear, targetMonthNum]
+                );
+                let cycleId = cycles[0]?.id;
+                if (!cycleId) {
+                    const startDate = `${targetMonthStr}-01`;
+                    const endDate = `${targetMonthStr}-${String(daysInTargetMonth).padStart(2, '0')}`;
+                    const [cyRes] = await c.query(
+                        `INSERT INTO payroll_cycles (year, month, start_date, end_date, status, created_at) VALUES (?, ?, ?, ?, 'OPEN', NOW())`,
+                        [targetYear, targetMonthNum, startDate, endDate]
+                    );
+                    cycleId = cyRes.insertId;
+                }
+
+                if (cycleId) {
+                    const auditNote = JSON.stringify({
+                        finalized_lop_days: lopDays,
+                        paid_days: paidDays,
+                        completed_by: userName,
+                        completed_at: now.toISOString(),
+                        comment: rec.comment || rec.reason || 'LOP finalized on Mark as Completed'
+                    });
+
+                    // 2. Update payroll_attendance_snapshots with the finalized LOP days
+                    await c.query(`
+                        INSERT INTO payroll_attendance_snapshots
+                        (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, notes, snapshot_ts)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, NOW())
+                        ON DUPLICATE KEY UPDATE 
+                            lop_days = VALUES(lop_days),
+                            paid_days = VALUES(paid_days),
+                            total_present = VALUES(total_present),
+                            total_absent = VALUES(total_absent),
+                            notes = VALUES(notes),
+                            snapshot_ts = NOW()
+                    `, [cycleId, empId, daysInTargetMonth, paidDays, lopDays, paidDays, lopDays, auditNote]);
+                }
+
+                // 3. Update daily attendance records in 'attendance' table
+                const [absentRows] = await c.query(`
+                    SELECT id FROM attendance
+                    WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+                      AND status IN ('absent', 'half-day')
+                    ORDER BY attendance_date ASC
+                `, [empId, targetMonthStr]);
+
+                if (absentRows.length > lopDays) {
+                    const toRegularizeCount = absentRows.length - lopDays;
+                    const idsToRegularize = absentRows.slice(0, toRegularizeCount).map(r => r.id);
+                    await c.query(`
+                        UPDATE attendance
+                        SET status = 'present',
+                            approval_status = 'approved',
+                            notes = CONCAT(COALESCE(notes, ''), ' [Regularized via Payroll LOP Finalization]')
+                        WHERE id IN (?)
+                    `, [idsToRegularize]);
+                }
+
+                if (lopDays === 0) {
+                    await c.query(`
+                        UPDATE biometric_daily_attendance
+                        SET status = 'present'
+                        WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+                          AND status IN ('absent', 'half_day')
+                    `, [empId, targetMonthStr]);
+                }
+
+                updatedEmployees.push({
+                    employee_id: empId,
+                    employee_code: rec.employee_code,
+                    final_lop: lopDays,
+                    paid_days: paidDays,
+                    month: targetMonthStr
+                });
+            }
+        }
 
         res.json({
             success: true,
@@ -1547,10 +1673,14 @@ router.post("/v2/leave-attendance-payable/mark-complete", auth, async (req, res)
             stepId: 1,
             month: month,
             subtitle: subtitle,
-            message: "Leave, Attendance & Payable Units marked as completed"
+            message: `Leave, Attendance & Payable Units marked as completed. Attendance updated for ${updatedEmployees.length} employee(s).`,
+            updatedEmployees: updatedEmployees
         });
     } catch (err) {
+        console.error("Error in mark-complete:", err);
         res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
     }
 });
 
