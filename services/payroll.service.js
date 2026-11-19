@@ -262,7 +262,7 @@ async function runPayroll(year, month, runBy = null) {
     );
     const runId = runRes.insertId;
 
-    // 1. Fetch only employees who have clocked in during the period
+    // 1. Fetch only employees who have clocked in during the period (web or biometric)
     const [employees] = await conn.query(`
       SELECT e.id, e.leave_plan_id, e.FirstName, e.LastName, e.LocationId, e.attendance_policy_id, ap.name as attendance_policy_name,
              wop.sunday_off, wop.monday_off, wop.tuesday_off, wop.wednesday_off, 
@@ -273,6 +273,10 @@ async function runPayroll(year, month, runBy = null) {
           SELECT DISTINCT employee_id 
           FROM attendance 
           WHERE attendance_date BETWEEN ? AND ?
+          UNION
+          SELECT DISTINCT employee_id 
+          FROM biometric_daily_attendance 
+          WHERE attendance_date BETWEEN ? AND ?
       ) a ON e.id = a.employee_id
       LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
       LEFT JOIN shift_policies sp ON e.shift_policy_id = sp.id
@@ -280,13 +284,22 @@ async function runPayroll(year, month, runBy = null) {
       LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
       WHERE e.EmploymentStatus = 'Working'
         AND (a.employee_id IS NOT NULL OR ap.name = 'No Attendance')
-    `, [sd, ed]);
+    `, [sd, ed, sd, ed]);
 
-    // 2. Fetch all attendance for the period
+    // 2. Fetch all attendance for the period (both web and biometric)
     const [attendance] = await conn.query(`
       SELECT employee_id, attendance_date, status FROM attendance 
       WHERE attendance_date BETWEEN ? AND ?
-    `, [sd, ed]);
+      `, [sd, ed]);
+
+    let bioAttendance = [];
+    try {
+      const [bda] = await conn.query(`
+        SELECT employee_id, attendance_date, status FROM biometric_daily_attendance
+        WHERE attendance_date BETWEEN ? AND ?
+      `, [sd, ed]);
+      bioAttendance = bda || [];
+    } catch (_) { }
 
     const attMap = {};
     attendance.forEach(a => {
@@ -294,13 +307,25 @@ async function runPayroll(year, month, runBy = null) {
       attMap[a.employee_id][new Date(a.attendance_date).toDateString()] = a;
     });
 
+    bioAttendance.forEach(b => {
+      if (!attMap[b.employee_id]) attMap[b.employee_id] = {};
+      const dStr = new Date(b.attendance_date).toDateString();
+      if (!attMap[b.employee_id][dStr]) {
+        attMap[b.employee_id][dStr] = {
+          employee_id: b.employee_id,
+          attendance_date: b.attendance_date,
+          status: (b.status === 'half_day' || b.status === 'half-day') ? 'present' : (b.status || 'present')
+        };
+      }
+    });
+
     // 3. Fetch all approved leaves for the period
     const [allLeaves] = await conn.query(`
       SELECT l.employee_id, l.start_date, l.end_date, lt.type_code, lt.is_paid, l.is_half_day
       FROM leaves l
       INNER JOIN leave_types lt ON l.leave_type_id = lt.id
-      WHERE l.status = 'approved' AND (l.start_date <= ? AND l.end_date >= ?)
-    `, [ed, sd]);
+      WHERE l.status = 'approved' AND(l.start_date <= ? AND l.end_date >= ?)
+      `, [ed, sd]);
 
     const leavesByEmp = {};
     allLeaves.forEach(l => {
@@ -313,7 +338,7 @@ async function runPayroll(year, month, runBy = null) {
       SELECT holiday_date, holiday_name, location_id, applicable_locations
       FROM holidays
       WHERE is_active = 1 AND holiday_date BETWEEN ? AND ?
-    `, [sd, ed]);
+      `, [sd, ed]);
 
     const now = new Date();
     const todayStr = now.toDateString();
@@ -447,8 +472,8 @@ async function runPayroll(year, month, runBy = null) {
     // Insert snapshots
     for (const s of snapshots) {
       await conn.query(
-        `INSERT INTO payroll_attendance_snapshots (cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, snapshot_ts)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+        `INSERT INTO payroll_attendance_snapshots(cycle_id, employee_id, working_days, paid_days, lop_days, total_present, total_absent, total_leave, snapshot_ts)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
         [cycleId, s.employee_id, s.working_days, s.paid_days, s.lop_days, s.total_present, s.total_absent, s.total_leave]
       );
     }
@@ -595,8 +620,8 @@ async function runPayroll(year, month, runBy = null) {
       const monthlyGross = Number(structure.ctc_amount || 0) / 12;
       const empNet = Math.max(0, monthlyGross - deductions);
       const [salaryRes] = await conn.query(
-        `INSERT INTO payroll_employee_salaries (run_id, cycle_id, employee_id, structure_id, gross_earnings, total_deductions, net_pay, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+        `INSERT INTO payroll_employee_salaries(run_id, cycle_id, employee_id, structure_id, gross_earnings, total_deductions, net_pay, created_at)
+    VALUES(?, ?, ?, ?, ?, ?, ?, NOW())`,
         [runId, cycleId, employeeId, structure.id, monthlyGross.toFixed(2), deductions.toFixed(2), empNet.toFixed(2)]
       );
       const employeeSalaryId = salaryRes.insertId;
@@ -605,8 +630,8 @@ async function runPayroll(year, month, runBy = null) {
       for (const comp of components) {
         const amt = Number(computed[comp.code] || 0).toFixed(2);
         await conn.query(
-          `INSERT INTO payroll_salary_breakups (employee_salary_id, component_code, component_name, component_type, amount, taxable, prorated, metadata)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO payroll_salary_breakups(employee_salary_id, component_code, component_name, component_type, amount, taxable, prorated, metadata)
+    VALUES(?, ?, ?, ?, ?, ?, ?, ?)`,
           [employeeSalaryId, comp.code, comp.name, comp.component_type, amt, comp.taxable, comp.prorated, null]
         );
       }
@@ -614,29 +639,29 @@ async function runPayroll(year, month, runBy = null) {
       // Insert PF, ESI, TDS, and PT as payroll_tax_deductions lines for payslip summary
       if (pfAmountEmp > 0) {
         await conn.query(
-          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO payroll_tax_deductions(employee_salary_id, deduction_code, deduction_name, amount, metadata)
+    VALUES(?, ?, ?, ?, ?)`,
           [employeeSalaryId, 'PF_EMP', 'Employee PF', pfAmountEmp.toFixed(2), null]
         );
       }
       if (esiAmountEmp > 0) {
         await conn.query(
-          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO payroll_tax_deductions(employee_salary_id, deduction_code, deduction_name, amount, metadata)
+    VALUES(?, ?, ?, ?, ?)`,
           [employeeSalaryId, 'ESI_EE', 'Employee ESI', esiAmountEmp.toFixed(2), null]
         );
       }
       if (ptAmount > 0) {
         await conn.query(
-          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO payroll_tax_deductions(employee_salary_id, deduction_code, deduction_name, amount, metadata)
+    VALUES(?, ?, ?, ?, ?)`,
           [employeeSalaryId, 'PT', 'Professional Tax', ptAmount.toFixed(2), null]
         );
       }
       if (tds > 0) {
         await conn.query(
-          `INSERT INTO payroll_tax_deductions (employee_salary_id, deduction_code, deduction_name, amount, metadata)
-           VALUES (?, ?, ?, ?, ?)`,
+          `INSERT INTO payroll_tax_deductions(employee_salary_id, deduction_code, deduction_name, amount, metadata)
+    VALUES(?, ?, ?, ?, ?)`,
           [employeeSalaryId, 'TDS', 'Income Tax (TDS)', tds.toFixed(2), null]
         );
       }
@@ -644,11 +669,11 @@ async function runPayroll(year, month, runBy = null) {
       // Create payslip JSON snapshot
       // Create payslip JSON snapshot
       const [breakupsRows] = await conn.query(
-        `SELECT component_code, component_name, component_type, amount, taxable, prorated FROM payroll_salary_breakups WHERE employee_salary_id = ?`,
+        `SELECT component_code, component_name, component_type, amount, taxable, prorated FROM payroll_salary_breakups WHERE employee_salary_id = ? `,
         [employeeSalaryId]
       );
       const [taxLinesRows] = await conn.query(
-        `SELECT deduction_code, deduction_name, amount FROM payroll_tax_deductions WHERE employee_salary_id = ?`,
+        `SELECT deduction_code, deduction_name, amount FROM payroll_tax_deductions WHERE employee_salary_id = ? `,
         [employeeSalaryId]
       );
 
@@ -718,7 +743,7 @@ async function runPayroll(year, month, runBy = null) {
       };
 
       await conn.query(
-        `INSERT INTO payroll_payslips (employee_salary_id, payslip_json, generated_at) VALUES (?, ?, NOW())`,
+        `INSERT INTO payroll_payslips(employee_salary_id, payslip_json, generated_at) VALUES(?, ?, NOW())`,
         [employeeSalaryId, JSON.stringify(payslip)]
       );
 
@@ -731,7 +756,7 @@ async function runPayroll(year, month, runBy = null) {
 
     // Update run totals and mark completed
     await conn.query(
-      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = ?, total_net = ?, completed_at = NOW() WHERE id = ?`,
+      `UPDATE payroll_runs SET status = ?, total_employees = ?, total_gross = ?, total_deductions = ?, total_net = ?, completed_at = NOW() WHERE id = ? `,
       ['COMPLETED', totalEmployeesCount, totalGross.toFixed(2), totalDeductions.toFixed(2), totalNet.toFixed(2), runId]
     );
 
@@ -756,8 +781,8 @@ async function getPayslipsForEmployee(employeeId, limit = 20) {
      JOIN payroll_employee_salaries s ON s.id = p.employee_salary_id
      JOIN payroll_runs r ON r.id = s.run_id
      WHERE s.employee_id = ?
-     ORDER BY p.generated_at DESC
-     LIMIT ?`,
+      ORDER BY p.generated_at DESC
+    LIMIT ? `,
     [employeeId, limit]
   );
   c.end();
@@ -773,7 +798,7 @@ async function getPayslipDetail(employeeId, year, month) {
      JOIN payroll_runs r ON r.id = s.run_id
      JOIN payroll_cycles c ON c.id = r.cycle_id
      WHERE s.employee_id = ? AND c.year = ? AND c.month = ?
-     ORDER BY p.generated_at DESC
+      ORDER BY p.generated_at DESC
      LIMIT 1`,
     [employeeId, year, month]
   );
@@ -822,19 +847,22 @@ async function getSalaryStructureForEmployee(employeeId, options = {}) {
 }
 
 async function getPayrollAttendanceImpact(year, month, employeeId) {
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
+  const startDate = `${ year } -${ String(month).padStart(2, '0') }-01`;
   const lastDay = new Date(year, month, 0).getDate();
-  const endDate = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+  const endDate = `${ year } -${ String(month).padStart(2, '0') } -${ lastDay } `;
   const c = await db();
   const [rows] = await c.query(
     `SELECT employee_id, COUNT(*) as working_days,
-            SUM(CASE WHEN status='present' OR status='late' THEN 1 WHEN status='half-day' THEN 0.5 ELSE 0 END) as present_days,
-            SUM(CASE WHEN status='absent' THEN 1 ELSE 0 END) as absent_days,
-            SUM(CASE WHEN status='on-leave' OR status='leave' THEN 1 ELSE 0 END) as leave_days
-     FROM attendance
-     WHERE attendance_date BETWEEN ? AND ? AND employee_id = ?
+      SUM(CASE WHEN status = 'present' OR status = 'late' THEN 1 WHEN status = 'half-day' OR status = 'half_day' THEN 0.5 ELSE 0 END) as present_days,
+      SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days,
+      SUM(CASE WHEN status = 'on-leave' OR status = 'leave' THEN 1 ELSE 0 END) as leave_days
+      FROM(
+        SELECT employee_id, attendance_date, status FROM attendance WHERE attendance_date BETWEEN ? AND ? AND employee_id = ?
+          UNION
+       SELECT employee_id, attendance_date, status FROM biometric_daily_attendance WHERE attendance_date BETWEEN ? AND ? AND employee_id = ?
+     ) combined_att
      GROUP BY employee_id`,
-    [startDate, endDate, employeeId]
+    [startDate, endDate, employeeId, startDate, endDate, employeeId]
   );
   c.end();
   return rows[0] || { employee_id: employeeId, working_days: 0, present_days: 0, absent_days: 0, leave_days: 0 };
@@ -846,13 +874,13 @@ async function exportPayrollRun(runId) {
   try {
     const [rows] = await c.query(
       `SELECT e.EmployeeNumber, e.FullName, d.name as Designation, dept.name as Department,
-              p.payslip_json
+      p.payslip_json
        FROM payroll_employee_salaries s
        JOIN employees e ON e.id = s.employee_id
        LEFT JOIN designations d ON d.id = e.DesignationId
        LEFT JOIN departments dept ON dept.id = e.DepartmentId
        JOIN payroll_payslips p ON p.employee_salary_id = s.id
-       WHERE s.run_id = ?`,
+       WHERE s.run_id = ? `,
       [runId]
     );
 
