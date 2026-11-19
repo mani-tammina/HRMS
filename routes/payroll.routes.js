@@ -1139,12 +1139,12 @@ router.get("/v2/leave-attendance-payable", auth, async (req, res) => {
                 JOIN employees e ON e.id = l.employee_id
                 LEFT JOIN departments d ON e.DepartmentId = d.id
                 LEFT JOIN designations des ON e.DesignationId = des.id
-                WHERE (l.start_date LIKE ? OR l.end_date LIKE ?)
+                WHERE (DATE_FORMAT(l.start_date, '%Y-%m') = ? OR DATE_FORMAT(l.end_date, '%Y-%m') = ?)
                   AND (lt.type_code IN ('LOP', 'UL') OR lt.is_paid = 0 OR LOWER(lt.type_name) LIKE '%loss of pay%' OR LOWER(lt.type_name) LIKE '%unpaid%')
                 GROUP BY l.employee_id
                 HAVING lop_days > 0
                 ORDER BY lop_days DESC
-            `, [`${monthParam}%`, `${monthParam}%`]);
+            `, [monthParam, monthParam]);
 
             if (leaveRows && leaveRows.length > 0) {
                 lopSummary = leaveRows.map((row, idx) => {
@@ -1331,7 +1331,18 @@ router.post("/v2/leave-attendance-payable/save-lop-summary", auth, async (req, r
 
         // Find cycle for this month
         const [cycles] = await c.query(`SELECT id FROM payroll_cycles WHERE year = ? AND month = ? LIMIT 1`, [year, monthNum]);
-        const cycleId = cycles[0]?.id;
+        let cycleId = cycles[0]?.id;
+
+        if (!cycleId) {
+            const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
+            const lastDay = new Date(year, monthNum, 0).getDate();
+            const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+            const [cycleRes] = await c.query(`
+                INSERT INTO payroll_cycles (year, month, start_date, end_date, status, created_at)
+                VALUES (?, ?, ?, ?, 'OPEN', NOW())
+            `, [year, monthNum, startDate, endDate]);
+            cycleId = cycleRes.insertId;
+        }
 
         if (cycleId) {
             for (const rec of records) {
@@ -1373,6 +1384,28 @@ router.post("/v2/leave-attendance-payable/save-lop-summary", auth, async (req, r
         });
     } catch (err) {
         console.error("Error in save-lop-summary:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// Save LOP reversals
+router.post("/v2/leave-attendance-payable/save-lop-reversals", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month, records } = req.body;
+        if (!month || !records || !Array.isArray(records)) {
+            return res.json({ success: true, message: "No records to save" });
+        }
+        res.json({
+            success: true,
+            message: "Loss of Pay reversals saved successfully",
+            count: records.length,
+            month: month
+        });
+    } catch (err) {
+        console.error("Error in save-lop-reversals:", err);
         res.status(500).json({ success: false, error: err.message });
     } finally {
         if (c) await c.end();

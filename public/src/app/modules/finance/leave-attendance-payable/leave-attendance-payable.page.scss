@@ -147,7 +147,12 @@
     }
   }
 
-  .btn-save-continue {
+  .btn-save-continue,
+  .btn-save-close,
+  .btn-mark-completed {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     background: #5840bb;
     color: #ffffff;
     border: none;
@@ -162,24 +167,6 @@
     &:hover {
       background: #4a33a8;
       box-shadow: 0 2px 4px rgba(88, 64, 187, 0.3);
-    }
-  }
-
-  .btn-mark-completed {
-    display: inline-flex;
-    align-items: center;
-    background: #16a34a;
-    color: #ffffff;
-    border: none;
-    padding: 7px 18px;
-    border-radius: 6px;
-    font-size: 13.5px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s ease;
-
-    &:hover {
-      background: #15803d;
     }
   }
 
@@ -1636,6 +1623,36 @@
         border-color: #94a3b8;
       }
     }
+
+    .btn-outline-purple {
+      background: #ffffff;
+      border: 1.5px solid #5840bb;
+      color: #5840bb;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 7px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+
+      &:hover {
+        background: #f5f3ff;
+        border-color: #4a33a8;
+        color: #4a33a8;
+      }
+    }
+
+    .toolbar-or-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: #64748b;
+      margin: 0 4px;
+      text-transform: uppercase;
+    }
   }
 
   .toolbar-right {
@@ -1702,6 +1719,12 @@
     font-weight: 400;
   }
 
+  .lop-month-cell {
+    font-size: 13px;
+    color: #334155;
+    font-weight: 500;
+  }
+
   .lop-input-box {
     width: 90px;
     height: 32px;
@@ -1737,6 +1760,45 @@
       border-color: #5840bb;
       box-shadow: 0 0 0 2px rgba(88, 64, 187, 0.12);
     }
+  }
+
+  .btn-action-delete {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 5px 7px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #ef4444;
+    transition: all 0.15s ease;
+
+    &:hover {
+      background: #fef2f2;
+      color: #dc2626;
+    }
+  }
+
+  .empty-cell.no-records-found {
+    text-align: center;
+    padding: 60px 20px;
+    color: #64748b;
+    font-size: 14px;
+    font-weight: 400;
+    background: #ffffff;
+    letter-spacing: 0.1px;
+  }
+}
+
+.pagination-footer.pagination-footer-right {
+  justify-content: flex-end;
+  gap: 20px;
+
+  .pagination-right-group {
+    display: flex;
+    align-items: center;
+    gap: 20px;
   }
 }
 
