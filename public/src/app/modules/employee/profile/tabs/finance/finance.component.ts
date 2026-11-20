@@ -337,5 +337,26 @@ export class FinanceTabComponent implements OnChanges, OnDestroy {
   get aadhaarDocCountLabel(): string | null {
     return this.getDocumentCountLabel(['aadhaar', 'aadhar']);
   }
+
+  navigateToSalaryRevision(): void {
+    const empId = this.currentEmployee?.id || this.currentEmployee?.EmployeeId;
+    if (!empId) {
+      this.router.navigate(['/finance/assignment']);
+      return;
+    }
+
+    const empName = this.currentEmployee?.FullName || this.currentEmployee?.name || '';
+    const empEmail = this.currentEmployee?.WorkEmail || this.currentEmployee?.email || '';
+
+    this.router.navigate(['/finance/assignment'], {
+      queryParams: {
+        employeeId: empId,
+        name: empName,
+        email: empEmail,
+        action: 'create',
+        from: 'profile'
+      }
+    });
+  }
 }
 

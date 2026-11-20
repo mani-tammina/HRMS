@@ -620,7 +620,64 @@ exports.deleteAllContracts = async (req, res) => {
   }
 };
 
-exports.terminateContract = async (req, res) => {
+exports.deleteContract = async (req, res) => {
+  let c;
+  try {
+    c = await db();
+    await ensureTemplateModelTables(c);
+    const contractId = req.params.contract_id;
+    const isTerminate = req.query.action === 'terminate' || req.body?.action === 'terminate';
+
+    if (isTerminate) {
+      const effectiveTo = (req.body && req.body.effective_to) ? req.body.effective_to : new Date().toISOString().slice(0, 10);
+      const [result] = await c.query(
+        `UPDATE employee_salary_contracts
+         SET status = 'Superseded', effective_to = ?, updated_at = NOW()
+         WHERE contract_id = ?`,
+        [effectiveTo, contractId]
+      );
+      c.end();
+      return res.json({ success: result.affectedRows > 0, message: 'Contract terminated successfully' });
+    }
+
+    // Default: Permanently DELETE the contract record
+    const [contractRows] = await c.query(
+      "SELECT employee_id FROM employee_salary_contracts WHERE contract_id = ?",
+      [contractId]
+    );
+
+    const [result] = await c.query(
+      "DELETE FROM employee_salary_contracts WHERE contract_id = ?",
+      [contractId]
+    );
+
+    if (contractRows.length > 0) {
+      const employeeId = contractRows[0].employee_id;
+      await c.query(
+        `UPDATE employees e
+         SET e.lpa = COALESCE((
+            SELECT annual_ctc 
+            FROM employee_salary_contracts 
+            WHERE employee_id = e.id 
+            ORDER BY effective_from DESC, contract_id DESC 
+            LIMIT 1
+         ), 0)
+         WHERE e.id = ?`,
+        [employeeId]
+      );
+    }
+
+    c.end();
+    return res.json({ success: result.affectedRows > 0, message: 'Contract deleted successfully' });
+  } catch (err) {
+    if (c) c.end();
+    res.status(500).json({ error: err.message });
+  }
+};
+
+exports.terminateContract = exports.deleteContract;
+
+exports.oldTerminateContract = async (req, res) => {
   try {
     const c = await db();
     await ensureTemplateModelTables(c);

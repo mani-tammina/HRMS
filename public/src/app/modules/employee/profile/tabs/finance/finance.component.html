@@ -28,7 +28,18 @@
   <ng-container *ngIf="activeSubTab === 'summary'">
     <!-- Payroll Summary Full-Width Card -->
     <div class="finance-card payroll-summary-card">
-      <div class="summary-title">Payroll summary</div>
+      <div class="summary-header-row">
+        <div class="summary-title">Payroll summary</div>
+        <button
+          type="button"
+          class="btn-salary-revision"
+          (click)="navigateToSalaryRevision()"
+          title="Manage & Revise Salary Contract">
+          <ion-icon name="trending-up-outline"></ion-icon>
+          <span>Salary Revision</span>
+        </button>
+      </div>
+
       <div class="summary-metrics-grid">
         <div class="metric-item">
           <span class="field-label">LAST PROCESSED CYCLE</span>

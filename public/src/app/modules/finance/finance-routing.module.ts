@@ -59,6 +59,14 @@ const routes: Routes = [
     loadChildren: () => import('./new-joinees-exits/new-joinees-exits.module').then(m => m.NewJoineesExitsPageModule)
   },
   {
+    path: 'run-payroll/bonus-revisions-overtime',
+    loadChildren: () => import('./bonus-revisions-overtime/bonus-revisions-overtime.module').then(m => m.BonusRevisionsOvertimePageModule)
+  },
+  {
+    path: 'bonus-revisions-overtime',
+    loadChildren: () => import('./bonus-revisions-overtime/bonus-revisions-overtime.module').then(m => m.BonusRevisionsOvertimePageModule)
+  },
+  {
     path: 'dashboard',
     loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
   },

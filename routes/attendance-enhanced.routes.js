@@ -2460,7 +2460,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       FROM payroll_attendance_snapshots pas
       JOIN payroll_cycles pc ON pas.cycle_id = pc.id
       WHERE pas.employee_id = ? AND pc.year = ? AND pc.month = ?
-        AND pc.status IN ('LOCKED', 'PROCESSED')
+      ORDER BY pas.id DESC
       LIMIT 1
     `, [targetEmpId, rYearNum, rMonthNum]);
 

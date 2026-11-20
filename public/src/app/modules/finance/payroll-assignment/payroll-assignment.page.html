@@ -3,7 +3,7 @@
     <ion-buttons slot="start">
       <ion-button (click)="deselectEmployee()">
         <ion-icon name="arrow-back-outline"></ion-icon>
-        <span style="margin-left: 8px;">Back to Employee List</span>
+        <span style="margin-left: 8px;">{{ isFromProfile ? 'Back to Profile' : 'Back to Employee List' }}</span>
       </ion-button>
     </ion-buttons>
     <ion-title>Manage Contracts - {{ selectedEmployee.name }}</ion-title>
@@ -326,10 +326,10 @@
                   <ion-icon name="create-outline"></ion-icon>
                   <span>Manage</span>
                 </button>
-                <button *ngIf="contract.status?.toLowerCase() === 'active'" class="action-circle term"
-                  title="Terminate Membership" (click)="deleteContract(contract.id || contract.contract_id)">
+                <button class="action-circle del"
+                  title="Delete Contract" (click)="deleteContract(contract.id || contract.contract_id)">
                   <ion-icon name="trash-outline"></ion-icon>
-                  <span>Terminate</span>
+                  <span>Delete</span>
                 </button>
               </div>
             </div>
@@ -339,134 +339,304 @@
     </div>
   </div>
 
-  <!-- 🔮 Assignment/Edit Modal -->
-  <ion-modal [isOpen]="isModalOpen" (didDismiss)="closeModal()" class="assignment-modal glass-modal">
+  <!-- 🔮 Revise Salary Modal (matches screenshot exactly) -->
+  <ion-modal [isOpen]="isModalOpen" (didDismiss)="closeModal()" class="revise-salary-modal">
     <ng-template>
-      <div class="modal-wrapper animate-in">
-        <div class="modal-header-gradient">
-
-          <div class="header-main d-flex">
-            <div class="modal-icon-badge">
-              <ion-icon [name]="editingContractId ? 'create-outline' : 'sparkles-outline'"></ion-icon>
-            </div>
-            <div style="margin-left: 15px;">
-              <h2>{{ editingContractId ? 'Edit Contract' : 'New Assignment' }}</h2>
-              <p>Define salary structure and fiscal commitment</p>
-            </div>
-
+      <div class="revise-modal-wrapper animate-in">
+        
+        <!-- Modal Top Header -->
+        <div class="revise-top-header">
+          <div class="header-left">
+            <h2 class="revise-modal-title">Revise Salary</h2>
           </div>
-          <div class="header-action close-algn">
-            <ion-button fill="clear" (click)="closeModal()">
-              <ion-icon name="close-outline" slot="icon-only"></ion-icon>
-            </ion-button>
+          <div class="header-right-actions">
+            <button type="button" class="btn-cancel" (click)="closeModal()">Cancel</button>
+            <button type="button" class="btn-revise" [disabled]="isSaving" (click)="saveAssignment()">
+              <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
+              <span *ngIf="!isSaving">Revise</span>
+            </button>
           </div>
         </div>
 
-        <ion-content class="modal-body-content">
-          <div class="form-container">
+        <!-- Employee Summary Strip -->
+        <div class="revise-emp-strip" *ngIf="selectedEmployee">
+          <div class="emp-profile-block">
+            <div class="emp-avatar-circle">
+              {{ (selectedEmployee.name ? selectedEmployee.name.charAt(0) : 'M') | uppercase }}
+            </div>
+            <div class="emp-name-designation">
+              <span class="emp-full-name">{{ selectedEmployee.name || 'Meesala Siva Devi Ganesh' }}</span>
+              <span class="emp-designation-text">{{ employeeDesignation }}</span>
+            </div>
+          </div>
 
-            <!-- Employee Banner -->
-            <div *ngIf="selectedEmployee" class="emp-summary-card">
-              <div class="s-avatar">{{ selectedEmployee.name.charAt(0) }}</div>
-              <div class="s-meta">
-                <span class="s-name">{{ selectedEmployee.name }}</span>
-                <span class="s-sub">{{ selectedEmployee.email }}</span>
-              </div>
-              <div class="s-badge">EMPLOYEE</div>
+          <div class="emp-strip-divider"></div>
+
+          <div class="emp-meta-metrics">
+            <div class="meta-item">
+              <span class="meta-lbl">DATE OF JOINING</span>
+              <span class="meta-val">{{ employeeJoinDate }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">LEGAL ENTITY</span>
+              <span class="meta-val" [title]="employeeLegalEntity">{{ employeeLegalEntity }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">DEPARTMENT</span>
+              <span class="meta-val">{{ employeeDepartment }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">CURRENT SALARY</span>
+              <span class="meta-val">INR {{ formatInr(employeeCurrentCtc) }}</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">REMUNERATION</span>
+              <span class="meta-val">Annual</span>
+            </div>
+            <div class="meta-item">
+              <span class="meta-lbl">BONUS</span>
+              <span class="meta-val">INR {{ formatInr(employeeBonus) }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scrollable Modal Body -->
+        <div class="revise-modal-body">
+          <div class="revise-grid">
+
+            <!-- Left Column: New salary details & Bonus Details -->
+            <div class="grid-col-left">
+              <h3 class="section-title">New salary details</h3>
+
+              <form [formGroup]="assignmentForm" class="salary-form">
+                
+                <!-- Row 1: New salary OR Percentage Change -->
+                <div class="salary-inputs-duo">
+                  <div class="duo-field">
+                    <label class="control-label">New salary</label>
+                    <div class="input-with-prefix">
+                      <span class="input-addon addon-prefix">INR</span>
+                      <input 
+                        type="number" 
+                        formControlName="annual_ctc" 
+                        placeholder="Enter Amount" 
+                        class="form-control-clean"
+                        (input)="onNewSalaryChange($event)" />
+                    </div>
+                  </div>
+
+                  <div class="duo-or-badge">
+                    <span>or</span>
+                  </div>
+
+                  <div class="duo-field">
+                    <label class="control-label">Percentage Change</label>
+                    <div class="input-with-suffix">
+                      <input 
+                        type="text" 
+                        [value]="percentageChange" 
+                        placeholder="Enter Value" 
+                        class="form-control-clean"
+                        (input)="onPercentageChange($event)" />
+                      <span class="input-addon addon-suffix">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Row 2: Salary structure type & Revision Effective Date -->
+                <div class="structure-date-row">
+                  <div class="row-field">
+                    <label class="control-label">Salary structure type</label>
+                    <div class="select-wrapper-clean">
+                      <select formControlName="template_id" class="form-control-clean select-clean">
+                        <option *ngIf="templates.length === 0" [value]="1">Ranged based structure</option>
+                        <option *ngFor="let t of templates" [value]="t.template_id || t.id">
+                          {{ t.template_name || t.name }}
+                        </option>
+                      </select>
+                      <ion-icon name="chevron-down-outline" class="select-arrow"></ion-icon>
+                    </div>
+                  </div>
+
+                  <div class="row-field">
+                    <label class="control-label">When is this revision effective from ?</label>
+                    <div class="date-wrapper-clean">
+                      <input 
+                        type="date" 
+                        formControlName="effective_from" 
+                        class="form-control-clean date-clean" />
+                      <ion-icon name="calendar-outline" class="date-icon"></ion-icon>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Add Note Action -->
+                <div class="note-section">
+                  <button type="button" class="btn-toggle-note" (click)="toggleNoteField()">
+                    <span class="plus-symbol">{{ showNoteField ? '−' : '+' }}</span>
+                    <span>{{ showNoteField ? 'Hide Note' : 'Add Note' }}</span>
+                  </button>
+
+                  <div *ngIf="showNoteField" class="note-box animate-in">
+                    <textarea 
+                      formControlName="notes" 
+                      rows="3" 
+                      class="form-control-clean textarea-clean" 
+                      placeholder="Add remarks or notes about this revision..."></textarea>
+                  </div>
+                </div>
+
+                <!-- Bonus Details Section -->
+                <div class="bonus-section-wrapper">
+                  <h3 class="section-title">Bonus Details</h3>
+
+                  <div class="bonus-checkbox-container">
+                    <label class="clean-checkbox-label">
+                      <input type="checkbox" formControlName="bonus_included" />
+                      <span class="checkbox-text">
+                        Bonus amount is included in the new salary of INR {{ formatInr(newSalaryAmount) }}
+                      </span>
+                    </label>
+                  </div>
+
+                  <!-- Add Bonus Button -->
+                  <div *ngIf="!showBonusFields" class="add-bonus-action-wrap">
+                    <button type="button" class="btn-add-bonus-outline" (click)="toggleBonusFields()">
+                      + Add Bonus
+                    </button>
+                  </div>
+
+                  <!-- Bonus Input Controls -->
+                  <div *ngIf="showBonusFields" class="bonus-fields-box animate-in">
+                    <div class="bonus-fields-row">
+                      <div class="bonus-field bonus-type-col">
+                        <label class="control-label">Bonus Type</label>
+                        <div class="select-wrapper-clean">
+                          <select formControlName="bonus_type" class="form-control-clean select-clean">
+                            <option value="Annual Bonus">Annual Bonus</option>
+                            <option value="Performance Bonus">Performance Bonus</option>
+                            <option value="Retention Bonus">Retention Bonus</option>
+                            <option value="Joining Bonus">Joining Bonus</option>
+                            <option value="Variable Pay">Variable Pay</option>
+                          </select>
+                          <ion-icon name="chevron-down-outline" class="select-arrow"></ion-icon>
+                        </div>
+                      </div>
+
+                      <div class="bonus-field bonus-amt-col">
+                        <label class="control-label">Bonus Amount</label>
+                        <div class="input-with-prefix">
+                          <span class="input-addon addon-prefix">INR</span>
+                          <input 
+                            type="number" 
+                            formControlName="bonus_amount" 
+                            placeholder="Enter Amount" 
+                            class="form-control-clean" />
+                        </div>
+                      </div>
+
+                      <button type="button" class="btn-trash-bonus" (click)="removeBonus()" title="Remove Bonus">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </form>
             </div>
 
-            <form [formGroup]="assignmentForm" class="beauty-form">
-
-              <div class="form-section">
-                <div class="section-title">
-                  <ion-icon name="layers-outline"></ion-icon>
-                  Payroll Configuration
-                </div>
-
-                <div class="form-group-lux">
-                  <label>Salary Template</label>
-                  <div class="select-wrapper">
-                    <select formControlName="template_id" class="lux-input">
-                      <option value="">Choose a Template...</option>
-                      <option *ngFor="let temp of templates" [value]="temp.template_id || temp.id">
-                        {{ temp.template_name || temp.name }}
-                      </option>
-                    </select>
-                    <ion-icon name="chevron-down-outline" class="select-chevron"></ion-icon>
+            <!-- Right Column: Salary Breakup Card -->
+            <div class="grid-col-right">
+              <div class="salary-breakup-card">
+                
+                <!-- Card Header -->
+                <div class="breakup-card-header">
+                  <div class="breakup-title-block">
+                    <h4 class="breakup-heading">Salary Breakup</h4>
+                    <span class="breakup-subtitle">Effective from: {{ effectiveDateDisplay }}</span>
                   </div>
-                  <p class="input-hint">Map components based on the selected pattern.</p>
+
+                  <div class="detailed-breakup-toggle">
+                    <label class="switch-container">
+                      <input 
+                        type="checkbox" 
+                        [checked]="detailedBreakup" 
+                        (change)="toggleDetailedBreakup()" />
+                      <span class="switch-slider"></span>
+                    </label>
+                    <span class="switch-label-text">Detailed breakup</span>
+                  </div>
                 </div>
+
+                <!-- Equation Bar: REGULAR SALARY + BONUS = TOTAL -->
+                <div class="breakup-equation-bar">
+                  <div class="eq-cell">
+                    <span class="eq-tag">REGULAR SALARY</span>
+                    <span class="eq-amount">INR {{ formatInr(regularSalary) }}</span>
+                  </div>
+                  <div class="eq-sym">+</div>
+                  <div class="eq-cell">
+                    <span class="eq-tag">BONUS</span>
+                    <span class="eq-amount">INR {{ formatInr(bonusAmount) }}</span>
+                  </div>
+                  <div class="eq-sym">=</div>
+                  <div class="eq-cell">
+                    <span class="eq-tag">TOTAL</span>
+                    <span class="eq-amount bold-total">INR {{ formatInr(totalSalary) }}</span>
+                  </div>
+                </div>
+
+                <!-- Detailed Breakup Table -->
+                <div *ngIf="detailedBreakup" class="detailed-breakup-wrapper animate-in">
+                  <table class="clean-breakup-table">
+                    <thead>
+                      <tr>
+                        <th>SALARY COMPONENTS</th>
+                        <th class="text-right">MONTHLY</th>
+                        <th class="text-right">ANNUAL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td class="comp-name">Basic Salary (50%)</td>
+                        <td class="text-right">INR {{ formatInr(basicMonthly) }}</td>
+                        <td class="text-right">INR {{ formatInr(basicAnnual) }}</td>
+                      </tr>
+                      <tr>
+                        <td class="comp-name">House Rent Allowance (HRA) (20%)</td>
+                        <td class="text-right">INR {{ formatInr(hraMonthly) }}</td>
+                        <td class="text-right">INR {{ formatInr(hraAnnual) }}</td>
+                      </tr>
+                      <tr>
+                        <td class="comp-name">Special Allowance (30%)</td>
+                        <td class="text-right">INR {{ formatInr(specialMonthly) }}</td>
+                        <td class="text-right">INR {{ formatInr(specialAnnual) }}</td>
+                      </tr>
+                      <tr class="subtotal-row">
+                        <td class="comp-name">Total Regular Salary</td>
+                        <td class="text-right semibold">INR {{ formatInr(regularMonthly) }}</td>
+                        <td class="text-right semibold">INR {{ formatInr(regularSalary) }}</td>
+                      </tr>
+                      <tr *ngIf="bonusAmount > 0">
+                        <td class="comp-name">Bonus / Variable Pay</td>
+                        <td class="text-right">INR {{ formatInr(bonusMonthly) }}</td>
+                        <td class="text-right">INR {{ formatInr(bonusAmount) }}</td>
+                      </tr>
+                      <tr class="total-ctc-row">
+                        <td class="comp-name bold-ctc">Cost to Company (Total Annual CTC)</td>
+                        <td class="text-right bold-ctc text-purple">INR {{ formatInr(totalMonthly) }}</td>
+                        <td class="text-right bold-ctc text-purple">INR {{ formatInr(totalSalary) }}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
               </div>
+            </div>
 
-              <div class="form-section">
-                <div class="section-title">
-                  <ion-icon name="cash-outline"></ion-icon>
-                  Compensation Details
-                </div>
-
-                <div class="form-group-lux">
-                  <label>Annual CTC (Gross)</label>
-                  <div class="input-wrapper-lux">
-                    <span class="curr-prefix">₹</span>
-                    <input type="number" formControlName="annual_ctc" class="lux-input" placeholder="e.g. 15,00,000" />
-                  </div>
-                  <div class="monthly-preview" *ngIf="assignmentForm.get('annual_ctc')?.value">
-                    Est. Monthly Gross: <strong>{{ formatCurrency(assignmentForm.get('annual_ctc')?.value / 12)
-                      }}</strong>
-                  </div>
-                </div>
-
-                <div class="grid-row">
-                  <div class="form-group-lux">
-                    <label>Valid From</label>
-                    <input type="date" formControlName="effective_from" class="lux-input" />
-                  </div>
-                  <div class="form-group-lux">
-                    <label>Valid Until</label>
-                    <input type="date" formControlName="effective_to" class="lux-input" placeholder="Ongoing" />
-                  </div>
-                </div>
-              </div>
-
-              <div class="form-section no-border" *ngIf="editingContractId">
-                <div class="section-title">
-                  <ion-icon name="shield-checkmark-outline"></ion-icon>
-                  Lifecycle Management
-                </div>
-                <div class="form-group-lux">
-                  <label>Contract Status</label>
-                  <div class="status-grid">
-                    <button type="button" class="st-option"
-                      [class.active-st]="assignmentForm.get('status')?.value === 'Active'"
-                      (click)="assignmentForm.patchValue({status: 'Active'})">
-                      Active
-                    </button>
-                    <button type="button" class="st-option inv"
-                      [class.active-st-inv]="assignmentForm.get('status')?.value === 'Inactive'"
-                      (click)="assignmentForm.patchValue({status: 'Inactive'})">
-                      Inactive
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-            </form>
           </div>
-        </ion-content>
-
-        <div class="modal-footer-lux">
-          <div class="footer-note">
-            <ion-icon name="information-circle-outline"></ion-icon>
-            {{ editingContractId ? 'Changes will reflect in the next payroll execution.' : 'A new assignment replaces
-            any previous active pattern.' }}
-          </div>
-          <button class="prime-action-btn" [disabled]="assignmentForm.invalid || isSaving" (click)="saveAssignment()">
-            <ion-spinner *ngIf="isSaving" name="crescent"></ion-spinner>
-            <span *ngIf="!isSaving">
-              {{ editingContractId ? 'Update Assignment' : 'Assign Structure' }}
-            </span>
-          </button>
         </div>
+
       </div>
     </ng-template>
   </ion-modal>

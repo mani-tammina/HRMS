@@ -1,0 +1,674 @@
+<div class="bro-workflow-container">
+
+  <!-- ============================================
+       TOP HEADER & WORKFLOW STEPPER
+       ============================================ -->
+  <header class="bro-header">
+    <div class="header-left">
+      <h1 class="header-title">Employee Salary Changes: {{ monthLabel }}</h1>
+    </div>
+
+    <!-- Center: 4-Step Stepper -->
+    <nav class="header-stepper" aria-label="Step 4 Stepper">
+      <!-- Step 1: BONUS -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="setStep(1)">
+        <span class="step-badge">1</span>
+        <span class="step-label">BONUS</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 2: SALARY REVISION -->
+      <div class="stepper-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="setStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">SALARY REVISION</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 3: OVERTIME PAYMENT -->
+      <div class="stepper-item" [class.active]="currentStep === 3" [class.completed]="currentStep > 3" (click)="setStep(3)">
+        <span class="step-badge">3</span>
+        <span class="step-label">OVERTIME PAYMENT</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 4: SHIFT ALLOWANCE -->
+      <div class="stepper-item" [class.active]="currentStep === 4" (click)="setStep(4)">
+        <span class="step-badge">4</span>
+        <span class="step-label">SHIFT ALLOWANCE</span>
+      </div>
+    </nav>
+
+    <!-- Right: Header Actions -->
+    <div class="header-right">
+      <button class="btn-back" type="button" (click)="handleBack()" [disabled]="currentStep === 1">
+        Back
+      </button>
+
+      <button *ngIf="currentStep < 4" class="btn-save-continue" type="button" (click)="saveAndContinue()">
+        Save &amp; Continue
+      </button>
+
+      <button *ngIf="currentStep === 4" class="btn-mark-completed" type="button" (click)="markStepAsCompleted()">
+        Mark as Complete
+      </button>
+
+      <button class="btn-close-header" type="button" (click)="closeWorkflow()" title="Close and return to Payroll Dashboard">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT: SPLIT VIEW (TABLE + HELP PANEL)
+       ============================================ -->
+  <div class="bro-content-body">
+    <main class="bro-main-content">
+
+      <!-- ====================================================
+           STEP 1: BONUS / INCENTIVES
+           ==================================================== -->
+      <section *ngIf="currentStep === 1" class="step-section">
+        <div class="table-toolbar">
+          <div class="toolbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="bonusSearchTerm" placeholder="Search employee or bonus type" class="search-input" />
+          </div>
+          <div class="toolbar-actions">
+            <button type="button" class="btn-add-emp" (click)="goToImportPage()">
+              <span>+ Add Bonus / Incentive</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="bro-table">
+            <thead>
+              <tr>
+                <th class="col-expand"></th>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>BONUS TYPE</th>
+                <th>BASE SALARY</th>
+                <th>BONUS AMOUNT</th>
+                <th>PAY ACTION</th>
+                <th>COMMENTS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <ng-container *ngFor="let row of filteredBonus">
+                <tr class="data-row" [class.row-expanded]="row.expanded">
+                  <td class="col-expand">
+                    <button type="button" class="btn-chevron" (click)="toggleRow(row)" [attr.aria-expanded]="row.expanded">
+                      <span class="chevron-icon" [class.rotated]="row.expanded">›</span>
+                    </button>
+                  </td>
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.bonus_type" class="bro-select">
+                        <option value="Performance Bonus">Performance Bonus</option>
+                        <option value="Festival Bonus">Festival Bonus</option>
+                        <option value="Variable Pay">Variable Pay</option>
+                        <option value="Joining Bonus">Joining Bonus</option>
+                        <option value="Ex-Gratia">Ex-Gratia</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td>{{ row.base_salary_formatted }}</td>
+                  <td>
+                    <div class="input-money-wrap">
+                      <span class="prefix">INR</span>
+                      <input type="number" [(ngModel)]="row.bonus_amount" (ngModelChange)="onBonusChanged(row)" class="input-money" />
+                    </div>
+                  </td>
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="bro-select">
+                        <option value="Process with salary">Process with salary</option>
+                        <option value="Hold bonus">Hold bonus</option>
+                        <option value="Do not process">Do not process</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td class="col-comments">
+                    <div class="comment-field-wrap">
+                      <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
+                      <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)" title="Add remarks">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </button>
+                      <button type="button" class="btn-delete-row" (click)="deleteRow(1, row)" title="Remove record">✕</button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Expanded Row for Bonus -->
+                <tr *ngIf="row.expanded" class="expand-detail-row">
+                  <td colspan="7">
+                    <div class="expanded-card">
+                      <div class="exp-header">
+                        <h4>Bonus Allocation Details for {{ row.employee_name }} ({{ row.employee_code }})</h4>
+                        <span class="exp-badge">{{ row.pay_action }}</span>
+                      </div>
+                      <div class="exp-grid">
+                        <div class="exp-item">
+                          <span class="exp-label">Department</span>
+                          <span class="exp-value">{{ row.department || 'General' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Designation</span>
+                          <span class="exp-value">{{ row.designation || 'Staff' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Monthly Gross</span>
+                          <span class="exp-value">{{ row.base_salary_formatted }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Approved Bonus</span>
+                          <span class="exp-value text-purple font-semibold">{{ row.bonus_amount_formatted }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Taxability</span>
+                          <span class="exp-value">{{ row.taxable_status || 'Fully Taxable (TDS applies)' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Audit Remarks</span>
+                          <span class="exp-value text-muted">{{ row.comments || 'No remarks recorded' }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
+
+              <tr *ngIf="filteredBonus.length === 0">
+                <td colspan="7" class="no-records-cell">
+                  <p>No bonus or incentive records found for {{ monthLabel }}</p>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="table-footer">
+            <span class="footer-count">1 to {{ filteredBonus.length }} of {{ filteredBonus.length }}</span>
+            <div class="footer-nav">
+              <button class="btn-page" disabled>‹</button>
+              <span class="page-indicator">Page 1 of 1</span>
+              <button class="btn-page" disabled>›</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 2: SALARY REVISION
+           ==================================================== -->
+      <section *ngIf="currentStep === 2" class="step-section">
+        <div class="revision-card">
+          <div class="revision-card-header">
+            <h2 class="revision-title">Salary Revision</h2>
+          </div>
+
+          <!-- Info Alert Banner -->
+          <div class="revision-info-banner">
+            All pending revisions (including on-hold revisions from past months) will be displayed here.
+          </div>
+
+          <!-- Search Toolbar (Right-aligned) -->
+          <div class="revision-toolbar">
+            <div class="revision-search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" [(ngModel)]="revisionSearchTerm" placeholder="Search" class="revision-search-input" />
+            </div>
+          </div>
+
+          <!-- Table Container -->
+          <div class="revision-table-container">
+            <table class="revision-table">
+              <thead>
+                <tr>
+                  <th class="col-employee">
+                    <span class="th-content">
+                      EMPLOYEE
+                      <span class="sort-icon">∧</span>
+                    </span>
+                  </th>
+                  <th>OLD SALARY</th>
+                  <th>NEW SALARY</th>
+                  <th>CHANGE %</th>
+                  <th>GROSS PAY THIS MONTH</th>
+                  <th>REVISION ACTION</th>
+                  <th>COMMENT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredRevisions" class="data-row">
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.previous_monthly ? ('INR ' + row.previous_monthly.toLocaleString('en-IN')) : row.previous_ctc_formatted }}</td>
+                  <td>{{ row.revised_monthly ? ('INR ' + row.revised_monthly.toLocaleString('en-IN')) : row.revised_ctc_formatted }}</td>
+                  <td>{{ row.hike_percentage }}</td>
+                  <td>INR {{ ((row.revised_monthly || 0) + (row.arrears_amount || 0)).toLocaleString('en-IN') }}</td>
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="bro-select">
+                        <option value="Process as salary">Process as salary</option>
+                        <option value="Process revision & arrears">Process revision &amp; arrears</option>
+                        <option value="Hold revision">Hold revision</option>
+                        <option value="Do not process">Do not process</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td class="col-comment">
+                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="table-comment-input" />
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredRevisions.length === 0" class="no-records-row">
+                  <td colspan="7" class="no-records-cell">
+                    <p class="no-records-text">No records found</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Pagination Footer -->
+            <div class="table-pagination-footer">
+              <span class="pagination-count">
+                {{ filteredRevisions.length === 0 ? '0 to 0 of 0' : ('1 to ' + filteredRevisions.length + ' of ' + filteredRevisions.length) }}
+              </span>
+              <div class="pagination-controls">
+                <button type="button" class="btn-page-ctrl" disabled title="First page">|&lt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Previous page">&lt;</button>
+                <span class="page-label">Page {{ filteredRevisions.length === 0 ? '0 of 0' : '1 of 1' }}</span>
+                <button type="button" class="btn-page-ctrl" disabled title="Next page">&gt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Last page">&gt;|</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 3: OVERTIME PAYMENT
+           ==================================================== -->
+      <section *ngIf="currentStep === 3" class="step-section">
+        <div class="revision-card">
+          <div class="revision-card-header">
+            <h2 class="revision-title">Overtime Payment</h2>
+          </div>
+
+          <div class="revision-info-banner">
+            Approved overtime hours and calculated payouts will be displayed here.
+          </div>
+
+          <div class="revision-toolbar">
+            <div class="revision-search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" [(ngModel)]="overtimeSearchTerm" placeholder="Search" class="revision-search-input" />
+            </div>
+          </div>
+
+          <div class="revision-table-container">
+            <table class="revision-table">
+              <thead>
+                <tr>
+                  <th class="col-employee">
+                    <span class="th-content">
+                      EMPLOYEE
+                      <span class="sort-icon">∧</span>
+                    </span>
+                  </th>
+                  <th>HOURLY RATE</th>
+                  <th>OT HOURS</th>
+                  <th>MULTIPLIER</th>
+                  <th>OT PAYOUT</th>
+                  <th>PAY ACTION</th>
+                  <th>COMMENT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredOvertime" class="data-row">
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.hourly_rate_formatted }}</td>
+                  <td>
+                    <div class="input-hours-wrap">
+                      <input type="number" [(ngModel)]="row.ot_hours" (ngModelChange)="onOtChanged(row)" min="0" max="100" class="input-hours" />
+                      <span class="suffix">hrs</span>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.multiplier" (ngModelChange)="onOtChanged(row)" class="bro-select">
+                        <option [value]="1.5">1.5x (Standard OT)</option>
+                        <option [value]="2.0">2.0x (Holiday/Weekend)</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td>
+                    <strong class="text-emerald">{{ row.ot_amount_formatted }}</strong>
+                  </td>
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="bro-select">
+                        <option value="Process OT payout">Process OT payout</option>
+                        <option value="Hold OT">Hold OT</option>
+                        <option value="Do not process">Do not process</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td class="col-comment">
+                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="table-comment-input" />
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredOvertime.length === 0" class="no-records-row">
+                  <td colspan="7" class="no-records-cell">
+                    <p class="no-records-text">No records found</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="table-pagination-footer">
+              <span class="pagination-count">
+                {{ filteredOvertime.length === 0 ? '0 to 0 of 0' : ('1 to ' + filteredOvertime.length + ' of ' + filteredOvertime.length) }}
+              </span>
+              <div class="pagination-controls">
+                <button type="button" class="btn-page-ctrl" disabled title="First page">|&lt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Previous page">&lt;</button>
+                <span class="page-label">Page {{ filteredOvertime.length === 0 ? '0 of 0' : '1 of 1' }}</span>
+                <button type="button" class="btn-page-ctrl" disabled title="Next page">&gt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Last page">&gt;|</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 4: SHIFT ALLOWANCE
+           ==================================================== -->
+      <section *ngIf="currentStep === 4" class="step-section">
+        <div class="revision-card">
+          <div class="revision-card-header">
+            <h2 class="revision-title">Shift Allowance</h2>
+          </div>
+
+          <div class="revision-info-banner">
+            All shift allowances and night shift premiums applicable for {{ monthLabel }} will be displayed here.
+          </div>
+
+          <div class="revision-toolbar">
+            <div class="revision-search-wrap">
+              <span class="search-icon">🔍</span>
+              <input type="text" [(ngModel)]="shiftAllowanceSearchTerm" placeholder="Search" class="revision-search-input" />
+            </div>
+          </div>
+
+          <div class="revision-table-container">
+            <table class="revision-table">
+              <thead>
+                <tr>
+                  <th class="col-employee">
+                    <span class="th-content">
+                      EMPLOYEE
+                      <span class="sort-icon">∧</span>
+                    </span>
+                  </th>
+                  <th>SHIFT TYPE</th>
+                  <th>SHIFTS WORKED</th>
+                  <th>ALLOWANCE RATE</th>
+                  <th>TOTAL ALLOWANCE</th>
+                  <th>ACTION</th>
+                  <th>COMMENT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredShiftAllowance" class="data-row">
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.shift_type || 'Night Shift' }}</td>
+                  <td>{{ row.shifts_worked || 0 }}</td>
+                  <td>INR {{ (row.allowance_rate || 500).toLocaleString('en-IN') }}</td>
+                  <td>INR {{ (row.total_allowance || 0).toLocaleString('en-IN') }}</td>
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="bro-select">
+                        <option value="Process with salary">Process with salary</option>
+                        <option value="Hold allowance">Hold allowance</option>
+                        <option value="Do not process">Do not process</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td class="col-comment">
+                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="table-comment-input" />
+                  </td>
+                </tr>
+
+                <tr *ngIf="filteredShiftAllowance.length === 0" class="no-records-row">
+                  <td colspan="7" class="no-records-cell">
+                    <p class="no-records-text">No records found</p>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div class="table-pagination-footer">
+              <span class="pagination-count">
+                {{ filteredShiftAllowance.length === 0 ? '0 to 0 of 0' : ('1 to ' + filteredShiftAllowance.length + ' of ' + filteredShiftAllowance.length) }}
+              </span>
+              <div class="pagination-controls">
+                <button type="button" class="btn-page-ctrl" disabled title="First page">|&lt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Previous page">&lt;</button>
+                <span class="page-label">Page {{ filteredShiftAllowance.length === 0 ? '0 of 0' : '1 of 1' }}</span>
+                <button type="button" class="btn-page-ctrl" disabled title="Next page">&gt;</button>
+                <button type="button" class="btn-page-ctrl" disabled title="Last page">&gt;|</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Right: Help Resources Sidebar -->
+    <aside class="bro-side-col">
+      <!-- Exact "Need help?" widget matching screenshot for Salary Revision -->
+      <div class="need-help-card" *ngIf="currentStep === 2">
+        <div class="help-circle-icon">?</div>
+        <h3 class="need-help-title">Need help?</h3>
+        <p class="need-help-desc">If you have questions talk to us, we're here for you.</p>
+        <a href="javascript:void(0)" class="need-help-link">Talk to us →</a>
+      </div>
+
+      <!-- Help Resources Accordion for other steps -->
+      <div class="help-card" *ngIf="currentStep !== 2">
+        <div class="help-card-header" (click)="toggleHelpResources()">
+          <span class="help-card-title">Help Resources</span>
+          <span class="help-arrow" [class.rotated]="!helpResourcesOpen">∧</span>
+        </div>
+
+        <div class="help-card-body" *ngIf="helpResourcesOpen">
+          <ul class="help-links-list">
+            <li class="help-link-item" (click)="toggleHelpItem(1)">
+              <div class="link-row">
+                <span class="link-text">How is the hourly overtime rate calculated?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 1" class="help-answer">
+                Statutory OT rate is calculated as: Monthly Gross Salary ÷ (26 working days × 8 hours per day). Normal overtime applies at 1.5x, and holiday/weekend overtime at 2.0x.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(2)">
+              <div class="link-row">
+                <span class="link-text">How are revision arrears computed?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 2" class="help-answer">
+                Arrears equal the difference between revised monthly gross and previous monthly gross multiplied by the number of retroactively applicable months.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(3)">
+              <div class="link-row">
+                <span class="link-text">Is performance bonus subject to TDS?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 3" class="help-answer">
+                Yes, performance bonuses and ex-gratia are treated as taxable salary additions in the payout month and are subjected to normal income tax deduction.
+              </p>
+            </li>
+
+            <li class="help-link-item" (click)="toggleHelpItem(4)">
+              <div class="link-row">
+                <span class="link-text">Can bonus or overtime payouts be held?</span>
+                <span class="link-arrow">↗</span>
+              </div>
+              <p *ngIf="openedHelpItem === 4" class="help-answer">
+                Yes, select "Hold bonus" or "Hold OT" in the Pay Action dropdown to defer disbursement to subsequent pay cycles.
+              </p>
+            </li>
+          </ul>
+
+          <div class="talk-to-us-card">
+            <div class="talk-icon-circle">?</div>
+            <span class="talk-title">Still need help?</span>
+            <a href="javascript:void(0)" class="talk-link">Talk to us →</a>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================================
+       COMMENT MODAL
+       ============================================ -->
+  <div *ngIf="showCommentModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Remarks for {{ activeCommentRow?.employee_name }} ({{ activeCommentRow?.employee_code }})</h3>
+        <button type="button" class="btn-close-modal" (click)="closeCommentModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <label class="modal-label">Audit / Payroll Remark</label>
+        <textarea [(ngModel)]="tempCommentText" rows="4" placeholder="Enter remark or calculation note..." class="modal-textarea"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeCommentModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="saveCommentFromModal()">Save Remark</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       ADD EMPLOYEE MODAL (STEP 1, 2, 3)
+       ============================================ -->
+  <div *ngIf="showAddModal" class="modal-backdrop">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 *ngIf="currentStep === 1">Add Bonus / Incentive Allocation</h3>
+        <h3 *ngIf="currentStep === 2">Add Salary Revision &amp; Arrears</h3>
+        <h3 *ngIf="currentStep === 3">Add Overtime Payout Record</h3>
+        <button type="button" class="btn-close-modal" (click)="closeAddModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group-modal">
+          <label class="modal-label">Select Employee *</label>
+          <select [(ngModel)]="selectedEmpId" class="modal-select">
+            <option [ngValue]="null" disabled>-- Choose active staff member --</option>
+            <option *ngFor="let emp of availableEmployeesToAdd" [value]="emp.id">
+              {{ emp.employee_name }} ({{ emp.employee_code }}) - {{ emp.department || 'General' }}
+            </option>
+          </select>
+        </div>
+
+        <!-- Step 1 Fields -->
+        <ng-container *ngIf="currentStep === 1">
+          <div class="form-group-modal">
+            <label class="modal-label">Bonus Type</label>
+            <select [(ngModel)]="newBonusType" class="modal-select">
+              <option value="Performance Bonus">Performance Bonus</option>
+              <option value="Festival Bonus">Festival Bonus</option>
+              <option value="Variable Pay">Variable Pay</option>
+              <option value="Joining Bonus">Joining Bonus</option>
+              <option value="Ex-Gratia">Ex-Gratia</option>
+            </select>
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Bonus Amount (INR) *</label>
+            <input type="number" [(ngModel)]="newBonusAmount" placeholder="e.g. 25000" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Remarks / Justification</label>
+            <input type="text" [(ngModel)]="newBonusComment" placeholder="Approval reference or note..." class="modal-input" />
+          </div>
+        </ng-container>
+
+        <!-- Step 2 Fields -->
+        <ng-container *ngIf="currentStep === 2">
+          <div class="form-group-modal">
+            <label class="modal-label">Hike Percentage (%) *</label>
+            <input type="number" [(ngModel)]="newHikePct" placeholder="e.g. 12" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Arrears Months Applicable</label>
+            <input type="number" [(ngModel)]="newArrearsMonths" placeholder="e.g. 1" min="1" max="12" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Remarks</label>
+            <input type="text" [(ngModel)]="newRevisionComment" placeholder="Appraisal cycle note..." class="modal-input" />
+          </div>
+        </ng-container>
+
+        <!-- Step 3 Fields -->
+        <ng-container *ngIf="currentStep === 3">
+          <div class="form-group-modal">
+            <label class="modal-label">Overtime Hours *</label>
+            <input type="number" [(ngModel)]="newOtHours" placeholder="e.g. 10" min="1" max="120" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Multiplier</label>
+            <select [(ngModel)]="newOtMultiplier" class="modal-select">
+              <option [value]="1.5">1.5x (Standard Overtime)</option>
+              <option [value]="2.0">2.0x (Holiday / Weekend OT)</option>
+            </select>
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Remarks</label>
+            <input type="text" [(ngModel)]="newOtComment" placeholder="Shift / Timesheet reference..." class="modal-input" />
+          </div>
+        </ng-container>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeAddModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="confirmAdd()">Add Record</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+

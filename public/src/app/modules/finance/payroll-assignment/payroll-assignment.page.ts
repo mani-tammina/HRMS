@@ -1,5 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ActivatedRoute, Router } from '@angular/router';
+import { Location } from '@angular/common';
 import { FinanceAdminService, EmployeeInfo } from '../../../core/services/finance-admin.service';
 import { PayrollService } from '../../../core/services/payroll-service.service';
 import { ToasterService } from '../../../core/services/toaster.service';
@@ -32,7 +34,15 @@ export class PayrollAssignmentPage implements OnInit {
   isLoadingContracts = false;
   assignmentForm: FormGroup;
   isSaving = false;
+  isFromProfile: boolean = false;
   private searchSubject = new Subject<string>();
+
+  // Revise Salary Modal State & Calculations
+  percentageChange: string = '';
+  showNoteField: boolean = false;
+  showBonusFields: boolean = false;
+  detailedBreakup: boolean = false;
+  Math = Math;
 
   constructor(
     private financeService: FinanceAdminService,
@@ -40,14 +50,21 @@ export class PayrollAssignmentPage implements OnInit {
     private toaster: ToasterService,
     private fb: FormBuilder,
     private loadingCtrl: LoadingController,
-    private alertCtrl: AlertController
+    private alertCtrl: AlertController,
+    private route: ActivatedRoute,
+    private router: Router,
+    private location: Location
   ) {
     this.assignmentForm = this.fb.group({
       template_id: ['', Validators.required],
       annual_ctc: ['', [Validators.required, Validators.min(0)]],
       effective_from: [new Date().toISOString().split('T')[0], Validators.required],
       effective_to: [''],
-      status: ['Active', Validators.required]
+      status: ['Active', Validators.required],
+      notes: [''],
+      bonus_included: [false],
+      bonus_type: ['Annual Bonus'],
+      bonus_amount: [0]
     });
   }
 
@@ -146,10 +163,54 @@ export class PayrollAssignmentPage implements OnInit {
         this.allEmployees = this.mapEmployeeContracts(res.data || []);
         this.applyFilter();
         this.isLoading = false;
+        this.checkRouteQueryParams();
       },
       error: () => {
         this.isLoading = false;
         this.toaster.showError('Failed to load employees');
+      }
+    });
+  }
+
+  checkRouteQueryParams() {
+    this.route.queryParams.subscribe(params => {
+      const empId = params['employeeId'] || params['empId'] || params['id'];
+      this.isFromProfile = params['from'] === 'profile';
+      if (!empId) return;
+
+      const targetId = Number(empId);
+      const matched = this.allEmployees.find(e => Number(e.id) === targetId);
+
+      if (matched) {
+        this.selectEmployee(matched);
+        if (params['action'] === 'create' || params['create'] === 'true') {
+          setTimeout(() => {
+            this.openAssignmentModal();
+          }, 350);
+        }
+      } else {
+        // Fallback EmployeeInfo so Manage Contracts view renders seamlessly
+        const fallbackEmp: EmployeeInfo = {
+          id: targetId,
+          name: params['name'] || `Employee #${targetId}`,
+          email: params['email'] || '',
+          designation: 'Staff',
+          department: 'General',
+          salary: 0,
+          joinDate: '',
+          status: 'Working',
+          assignmentStatus: 'Not Assigned',
+          assignedStructureName: 'Senior Structure',
+          annualCtc: 0,
+          contractsCount: 0
+        };
+        this.selectedEmployee = fallbackEmp;
+        this.loadEmployeeContracts(targetId);
+        if (params['action'] === 'create' || params['create'] === 'true') {
+          setTimeout(() => {
+            this.openAssignmentModal();
+          }, 350);
+        }
       }
     });
   }
@@ -219,44 +280,247 @@ export class PayrollAssignmentPage implements OnInit {
     });
   }
 
+  // --- Employee Info Getters for Revise Modal ---
+  get employeeCurrentCtc(): number {
+    if (this.selectedEmployee) {
+      if (this.selectedEmployee.annualCtc && Number(this.selectedEmployee.annualCtc) > 0) {
+        return Number(this.selectedEmployee.annualCtc);
+      }
+      if (this.selectedEmployee.salary && Number(this.selectedEmployee.salary) > 0) {
+        return Number(this.selectedEmployee.salary);
+      }
+      const activeContract = this.employeeContracts?.find((c: any) => c.status?.toLowerCase() === 'active');
+      if (activeContract && activeContract.annual_ctc) {
+        return Number(activeContract.annual_ctc);
+      }
+    }
+    return 800280;
+  }
+
+  get employeeDepartment(): string {
+    return this.selectedEmployee?.department || 'IT Services Technology';
+  }
+
+  get employeeDesignation(): string {
+    return this.selectedEmployee?.designation || 'Sr. Software Engineer(UI)';
+  }
+
+  get employeeLegalEntity(): string {
+    return (this.selectedEmployee as any)?.legal_entity || 'Sree Tammina Software solutions Pvt. Ltd.';
+  }
+
+  get employeeJoinDate(): string {
+    const d = this.selectedEmployee?.joinDate || (this.selectedEmployee as any)?.date_of_joining;
+    if (d) {
+      return this.formatDateDisplay(d);
+    }
+    return 'Jan 20, 2025';
+  }
+
+  get employeeBonus(): number {
+    return (this.selectedEmployee as any)?.bonus || 0;
+  }
+
+  // --- Revise Salary Calculations & Getters ---
+  get newSalaryAmount(): number {
+    return Number(this.assignmentForm.get('annual_ctc')?.value) || 0;
+  }
+
+  get bonusAmount(): number {
+    return this.showBonusFields ? (Number(this.assignmentForm.get('bonus_amount')?.value) || 0) : 0;
+  }
+
+  get isBonusIncluded(): boolean {
+    return !!this.assignmentForm.get('bonus_included')?.value;
+  }
+
+  get regularSalary(): number {
+    if (this.isBonusIncluded) {
+      return Math.max(0, this.newSalaryAmount - this.bonusAmount);
+    }
+    return this.newSalaryAmount;
+  }
+
+  get totalSalary(): number {
+    if (this.isBonusIncluded) {
+      return this.newSalaryAmount;
+    }
+    return this.newSalaryAmount + this.bonusAmount;
+  }
+
+  get effectiveDateDisplay(): string {
+    const eff = this.assignmentForm.get('effective_from')?.value;
+    return eff ? this.formatDateDisplay(eff) : 'No date specified';
+  }
+
+  get basicAnnual(): number { return Math.round(this.regularSalary * 0.50); }
+  get basicMonthly(): number { return Math.round(this.basicAnnual / 12); }
+
+  get hraAnnual(): number { return Math.round(this.regularSalary * 0.20); }
+  get hraMonthly(): number { return Math.round(this.hraAnnual / 12); }
+
+  get specialAnnual(): number { return Math.max(0, this.regularSalary - this.basicAnnual - this.hraAnnual); }
+  get specialMonthly(): number { return Math.round(this.specialAnnual / 12); }
+
+  get regularMonthly(): number { return Math.round(this.regularSalary / 12); }
+  get bonusMonthly(): number { return Math.round(this.bonusAmount / 12); }
+  get totalMonthly(): number { return Math.round(this.totalSalary / 12); }
+
+  formatInr(val: number): string {
+    return (val || 0).toLocaleString('en-IN');
+  }
+
+  formatDateDisplay(dateVal: any): string {
+    if (!dateVal) return 'No date specified';
+    try {
+      const d = new Date(dateVal);
+      if (isNaN(d.getTime())) return String(dateVal);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return String(dateVal);
+    }
+  }
+
+  // --- Revision Handlers ---
+  onNewSalaryChange(event: any) {
+    const raw = event?.target?.value ?? event;
+    const val = Number(raw) || 0;
+    this.assignmentForm.patchValue({ annual_ctc: val }, { emitEvent: false });
+    const base = this.employeeCurrentCtc;
+    if (base > 0 && val > 0) {
+      const diff = val - base;
+      const pct = (diff / base) * 100;
+      this.percentageChange = (pct >= 0 ? '+' : '') + pct.toFixed(1);
+    } else {
+      this.percentageChange = '';
+    }
+  }
+
+  onPercentageChange(event: any) {
+    const raw = event?.target?.value ?? event;
+    this.percentageChange = raw;
+    const pct = parseFloat(raw);
+    const base = this.employeeCurrentCtc;
+    if (!isNaN(pct) && base > 0) {
+      const calculated = Math.round(base * (1 + pct / 100));
+      this.assignmentForm.patchValue({ annual_ctc: calculated }, { emitEvent: false });
+    }
+  }
+
+  toggleNoteField() {
+    this.showNoteField = !this.showNoteField;
+  }
+
+  toggleBonusFields() {
+    this.showBonusFields = !this.showBonusFields;
+    if (!this.showBonusFields) {
+      this.assignmentForm.patchValue({ bonus_amount: 0, bonus_included: false });
+    }
+  }
+
+  removeBonus() {
+    this.showBonusFields = false;
+    this.assignmentForm.patchValue({ bonus_amount: 0, bonus_included: false });
+  }
+
+  toggleDetailedBreakup() {
+    this.detailedBreakup = !this.detailedBreakup;
+  }
+
   openAssignmentModal(contract?: any) {
     if (!this.selectedEmployee) return;
 
+    this.percentageChange = '';
+    this.showNoteField = false;
+    this.showBonusFields = false;
+    this.detailedBreakup = false;
+
+    const defaultTemplateId = this.templates.length > 0
+      ? (this.templates[0].template_id || this.templates[0].id)
+      : 1;
+
     if (contract) {
       this.editingContractId = contract.id || contract.contract_id;
+      const ctc = contract.annual_ctc || 0;
       this.assignmentForm.patchValue({
-        template_id: contract.template_id,
-        annual_ctc: contract.annual_ctc,
-        effective_from: contract.effective_from?.split('T')[0],
-        effective_to: contract.effective_to?.split('T')[0],
-        status: contract.status || 'Active'
+        template_id: contract.template_id || defaultTemplateId,
+        annual_ctc: ctc,
+        effective_from: contract.effective_from?.split('T')[0] || new Date().toISOString().split('T')[0],
+        effective_to: contract.effective_to?.split('T')[0] || '',
+        status: contract.status || 'Active',
+        notes: contract.notes || '',
+        bonus_included: !!contract.bonus_included,
+        bonus_type: contract.bonus_type || 'Annual Bonus',
+        bonus_amount: contract.bonus_amount || 0
       });
+      if (contract.notes) this.showNoteField = true;
+      if (Number(contract.bonus_amount) > 0) this.showBonusFields = true;
+
+      const base = this.employeeCurrentCtc;
+      if (base > 0 && ctc > 0) {
+        const pct = ((ctc - base) / base) * 100;
+        this.percentageChange = (pct >= 0 ? '+' : '') + pct.toFixed(1);
+      }
     } else {
       this.editingContractId = null;
       this.assignmentForm.reset({
-        template_id: '',
-        annual_ctc: this.selectedEmployee.salary || '',
+        template_id: defaultTemplateId,
+        annual_ctc: '',
         effective_from: new Date().toISOString().split('T')[0],
         effective_to: '',
-        status: 'Active'
+        status: 'Active',
+        notes: '',
+        bonus_included: false,
+        bonus_type: 'Annual Bonus',
+        bonus_amount: 0
       });
     }
     this.isModalOpen = true;
   }
 
   async saveAssignment() {
-    if (this.assignmentForm.invalid || !this.selectedEmployee) return;
+    if (!this.selectedEmployee) return;
+
+    const annualCtc = Number(this.assignmentForm.get('annual_ctc')?.value);
+    if (!annualCtc || annualCtc <= 0) {
+      this.toaster.showWarning('Please enter a valid salary amount');
+      return;
+    }
+
+    const effectiveFrom = this.assignmentForm.get('effective_from')?.value;
+    if (!effectiveFrom) {
+      this.toaster.showWarning('Please select an effective date');
+      return;
+    }
+
+    let templateId = Number(this.assignmentForm.get('template_id')?.value);
+    if (!templateId || isNaN(templateId)) {
+      if (this.templates.length > 0) {
+        templateId = Number(this.templates[0].template_id || this.templates[0].id || 1);
+      } else {
+        templateId = 1;
+      }
+    }
 
     this.isSaving = true;
     const loading = await this.loadingCtrl.create({
-      message: this.editingContractId ? 'Updating Contract...' : 'Creating Contract...',
+      message: this.editingContractId ? 'Updating Contract...' : 'Revising Salary...',
       cssClass: 'glass-loading'
     });
     await loading.present();
 
+    const formVal = this.assignmentForm.value;
     const payload = {
       employee_id: this.selectedEmployee.id,
-      ...this.assignmentForm.value
+      template_id: templateId,
+      annual_ctc: annualCtc,
+      effective_from: effectiveFrom,
+      effective_to: formVal.effective_to || null,
+      status: formVal.status || 'Active',
+      notes: formVal.notes || '',
+      bonus_included: formVal.bonus_included ? 1 : 0,
+      bonus_type: formVal.bonus_type || '',
+      bonus_amount: Number(formVal.bonus_amount) || 0
     };
 
     const request = this.editingContractId
@@ -268,7 +532,7 @@ export class PayrollAssignmentPage implements OnInit {
         this.isSaving = false;
         this.isModalOpen = false;
         loading.dismiss();
-        this.toaster.showSuccess(`Contract ${this.editingContractId ? 'updated' : 'created'} successfully.`);
+        this.toaster.showSuccess(`Salary ${this.editingContractId ? 'updated' : 'revised'} successfully.`);
         this.refreshContracts(() => {
           if (this.selectedEmployee) {
             this.loadEmployeeContracts(this.selectedEmployee.id);
@@ -278,12 +542,65 @@ export class PayrollAssignmentPage implements OnInit {
       error: (err) => {
         this.isSaving = false;
         loading.dismiss();
-        this.toaster.showError(err.error?.message || 'Operation failed');
+        this.toaster.showError(err.error?.message || 'Failed to save salary revision');
       }
     });
   }
 
   async deleteContract(contractId: number) {
+    const contract = this.employeeContracts.find(c => (c.id || c.contract_id) === contractId);
+    const isActive = contract?.status?.toLowerCase() === 'active';
+
+    if (isActive) {
+      const alert = await this.alertCtrl.create({
+        header: 'Delete / Terminate Contract',
+        message: 'This is an active salary contract. Would you like to terminate it (set end date) or delete it permanently?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'secondary'
+          },
+          {
+            text: 'Terminate',
+            handler: () => {
+              this.promptTermination(contractId);
+            }
+          },
+          {
+            text: 'Delete Permanently',
+            cssClass: 'danger',
+            handler: () => {
+              this.executeContractDeletion(contractId);
+            }
+          }
+        ]
+      });
+      await alert.present();
+    } else {
+      const alert = await this.alertCtrl.create({
+        header: 'Delete Contract',
+        message: 'Are you sure you want to permanently delete this contract? This action cannot be undone.',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            cssClass: 'secondary'
+          },
+          {
+            text: 'Delete',
+            cssClass: 'danger',
+            handler: () => {
+              this.executeContractDeletion(contractId);
+            }
+          }
+        ]
+      });
+      await alert.present();
+    }
+  }
+
+  private async promptTermination(contractId: number) {
     const alert = await this.alertCtrl.create({
       header: 'Terminate Contract',
       message: 'Setting an end date will deactivate this payroll structure for the employee. Please select the effective last date.',
@@ -299,8 +616,7 @@ export class PayrollAssignmentPage implements OnInit {
         {
           text: 'Cancel',
           role: 'cancel',
-          cssClass: 'secondary',
-          handler: () => true
+          cssClass: 'secondary'
         },
         {
           text: 'Terminate Now',
@@ -316,8 +632,31 @@ export class PayrollAssignmentPage implements OnInit {
         }
       ]
     });
-
     await alert.present();
+  }
+
+  private async executeContractDeletion(contractId: number) {
+    const loading = await this.loadingCtrl.create({
+      message: 'Deleting Contract...',
+      cssClass: 'glass-loading'
+    });
+    await loading.present();
+
+    this.financeService.deleteContract(contractId).subscribe({
+      next: () => {
+        loading.dismiss();
+        this.toaster.showSuccess('Contract deleted successfully');
+        this.refreshContracts(() => {
+          if (this.selectedEmployee) {
+            this.loadEmployeeContracts(this.selectedEmployee.id);
+          }
+        });
+      },
+      error: (err) => {
+        loading.dismiss();
+        this.toaster.showError(err.error?.message || 'Failed to delete contract');
+      }
+    });
   }
 
   private async executeTermination(contractId: number, effectiveTo: string) {
@@ -355,8 +694,20 @@ export class PayrollAssignmentPage implements OnInit {
 
 
   deselectEmployee() {
+    if (this.isFromProfile) {
+      this.isFromProfile = false;
+      this.selectedEmployee = null;
+      this.employeeContracts = [];
+      this.location.back();
+      return;
+    }
     this.selectedEmployee = null;
     this.employeeContracts = [];
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: {},
+      replaceUrl: true
+    });
   }
 
   // --- Bulk Import ---

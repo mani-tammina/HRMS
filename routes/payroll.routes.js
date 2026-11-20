@@ -1662,12 +1662,12 @@ router.post("/v2/leave-attendance-payable/mark-complete", auth, async (req, res)
         const userName = req.user ? (req.user.name || req.user.username || 'Admin') : 'Admin';
         const subtitle = `Last Changes on ${now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })} at ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} BY ${userName}`;
 
-        // Aggregate unique employees from records, reversalRecords, summaryRecords
+        // Priority order: summaryRecords (Step 3 user adjustments) > reversalRecords (Step 2) > records (Step 1)
         const empMap = new Map();
         const allSources = [
-            ...(Array.isArray(records) ? records : []),
+            ...(Array.isArray(summaryRecords) ? summaryRecords : []),
             ...(Array.isArray(reversalRecords) ? reversalRecords : []),
-            ...(Array.isArray(summaryRecords) ? summaryRecords : [])
+            ...(Array.isArray(records) ? records : [])
         ];
 
         for (const rec of allSources) {
@@ -1708,11 +1708,12 @@ router.post("/v2/leave-attendance-payable/mark-complete", auth, async (req, res)
                 targetMonthNum = parseInt(defaultParts[1], 10) || 11;
             }
 
-            // The finalized LOP days from LOP reversal (which came from Step 3 FINAL LOP)
+            // The finalized LOP days: final_lop from LOP summary takes top priority,
+            // then reversed_days if in reversal flow, otherwise actual_lop
             const lopDays = Number(
-                rec.reversed_days !== undefined && rec.reversed_days !== null
-                    ? rec.reversed_days
-                    : (rec.final_lop !== undefined && rec.final_lop !== null ? rec.final_lop : rec.actual_lop)
+                rec.final_lop !== undefined && rec.final_lop !== null
+                    ? rec.final_lop
+                    : (rec.reversed_days !== undefined && rec.reversed_days !== null ? rec.reversed_days : rec.actual_lop)
             ) || 0;
 
             const comment = rec.comment || rec.reason || 'LOP finalized on Mark as Completed';
@@ -1953,6 +1954,382 @@ router.post("/v2/new-joinees-exits/mark-complete", auth, async (req, res) => {
     } catch (err) {
         console.error("Error in mark-complete:", err);
         res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/* =========================================================================
+   STEP 3: BONUS, SALARY REVISIONS & OVERTIME ENDPOINTS
+   ========================================================================= */
+
+router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month } = req.query;
+        const [yStr, mStr] = (month || '2026-11').split('-');
+        const year = parseInt(yStr, 10) || 2026;
+        const monthNum = parseInt(mStr, 10) || 11;
+        const targetMonth = month || `${year}-${String(monthNum).padStart(2, '0')}`;
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const mShort = monthNames[monthNum - 1];
+
+        c = await db();
+
+        // Query active staff for employee selector
+        const [employees] = await c.query(`
+            SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   e.DateJoined, d.name AS DepartmentName, des.name AS DesignationName,
+                   esc.annual_ctc, e.lpa
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id
+            WHERE (e.EmploymentStatus != 'Relieved' OR e.EmploymentStatus IS NULL)
+            ORDER BY e.id ASC
+        `);
+
+        const workingEmployees = employees.map(emp => {
+            const annualCtc = Number(emp.annual_ctc) || Number(emp.lpa) || 0;
+            const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+            return {
+                id: emp.id,
+                employee_code: emp.EmployeeNumber,
+                employee_name: emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim(),
+                department: emp.DepartmentName || 'General',
+                designation: emp.DesignationName || 'Staff',
+                monthly_salary: monthlyGross,
+                annual_ctc: annualCtc
+            };
+        });
+
+        // Load REAL adjustments from database for this month (NO DYNAMIC DUMMY VALUES)
+        let bonusRecords = [];
+        let revisionRecords = [];
+        let overtimeRecords = [];
+
+        try {
+            const [adjRows] = await c.query(`
+                SELECT pa.*, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                       d.name AS DepartmentName, des.name AS DesignationName,
+                       esc.annual_ctc, e.lpa
+                FROM payroll_adjustments pa
+                JOIN employees e ON pa.employee_id = e.id
+                LEFT JOIN departments d ON e.DepartmentId = d.id
+                LEFT JOIN designations des ON e.DesignationId = des.id
+                LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id
+                WHERE pa.payroll_month = ?
+                ORDER BY pa.id ASC
+            `, [targetMonth]);
+
+            if (adjRows && adjRows.length > 0) {
+                for (const row of adjRows) {
+                    const empName = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim();
+                    const annualCtc = Number(row.annual_ctc) || Number(row.lpa) || 0;
+                    const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+                    let parsedReason = {};
+                    try {
+                        parsedReason = typeof row.reason === 'string' && row.reason.startsWith('{')
+                            ? JSON.parse(row.reason)
+                            : { comments: row.reason || '' };
+                    } catch (_) {
+                        parsedReason = { comments: row.reason || '' };
+                    }
+
+                    if (row.adjustment_type === 'BONUS') {
+                        const amt = Math.round(Number(row.amount) || 0);
+                        bonusRecords.push({
+                            id: row.employee_id,
+                            employee_code: row.EmployeeNumber,
+                            employee_name: empName,
+                            department: row.DepartmentName || 'General',
+                            designation: row.DesignationName || 'Staff',
+                            bonus_type: parsedReason.bonus_type || 'Performance Bonus',
+                            base_salary: monthlyGross,
+                            base_salary_formatted: `INR ${monthlyGross.toLocaleString('en-IN')}`,
+                            bonus_amount: amt,
+                            bonus_amount_formatted: `INR ${amt.toLocaleString('en-IN')}`,
+                            pay_action: parsedReason.pay_action || 'Process with salary',
+                            taxable_status: 'Fully Taxable',
+                            comments: parsedReason.comments || '',
+                            expanded: false
+                        });
+                    } else if (row.adjustment_type === 'ARREAR') {
+                        const amt = Math.round(Number(row.amount) || 0);
+                        const prevCtc = Number(parsedReason.previous_ctc) || annualCtc;
+                        const revCtc = Number(parsedReason.revised_ctc) || annualCtc;
+                        revisionRecords.push({
+                            id: row.employee_id,
+                            employee_code: row.EmployeeNumber,
+                            employee_name: empName,
+                            department: row.DepartmentName || 'General',
+                            designation: row.DesignationName || 'Staff',
+                            previous_ctc: prevCtc,
+                            previous_ctc_formatted: `INR ${prevCtc.toLocaleString('en-IN')}`,
+                            revised_ctc: revCtc,
+                            revised_ctc_formatted: `INR ${revCtc.toLocaleString('en-IN')}`,
+                            hike_percentage: parsedReason.hike_percentage || '0%',
+                            previous_monthly: Math.round(prevCtc / 12),
+                            revised_monthly: Math.round(revCtc / 12),
+                            monthly_increment: Number(parsedReason.monthly_increment) || 0,
+                            effective_date: parsedReason.effective_date || `01 ${mShort} ${year}`,
+                            arrears_applicable: true,
+                            arrears_months: Number(parsedReason.arrears_months) || 1,
+                            arrears_amount: amt,
+                            arrears_amount_formatted: `INR ${amt.toLocaleString('en-IN')}`,
+                            status: 'Approved',
+                            pay_action: parsedReason.pay_action || 'Process revision & arrears',
+                            comments: parsedReason.comments || '',
+                            expanded: false
+                        });
+                    } else if (row.adjustment_type === 'CORRECTION') {
+                        const amt = Math.round(Number(row.amount) || 0);
+                        const hourlyRate = Math.round(monthlyGross / (26 * 8)) || 100;
+                        const otHours = Number(parsedReason.ot_hours) || 0;
+                        const mult = Number(parsedReason.multiplier) || 1.5;
+                        overtimeRecords.push({
+                            id: row.employee_id,
+                            employee_code: row.EmployeeNumber,
+                            employee_name: empName,
+                            department: row.DepartmentName || 'Operations',
+                            designation: row.DesignationName || 'Staff',
+                            monthly_salary: monthlyGross,
+                            hourly_rate: hourlyRate,
+                            hourly_rate_formatted: `INR ${hourlyRate.toLocaleString('en-IN')} / hr`,
+                            ot_hours: otHours,
+                            multiplier: mult,
+                            multiplier_label: mult === 2.0 ? '2.0x (Holiday/Weekend)' : '1.5x (Standard OT)',
+                            ot_amount: amt,
+                            ot_amount_formatted: `INR ${amt.toLocaleString('en-IN')}`,
+                            pay_action: parsedReason.pay_action || 'Process OT payout',
+                            comments: parsedReason.comments || '',
+                            expanded: false
+                        });
+                    }
+                }
+            }
+        } catch (adjErr) {
+            console.warn("Could not query payroll_adjustments:", adjErr.message);
+        }
+
+        const totalBonus = bonusRecords.reduce((sum, r) => sum + (r.bonus_amount || 0), 0);
+        const totalRevisions = revisionRecords.reduce((sum, r) => sum + (r.arrears_amount || 0), 0);
+        const totalOvertime = overtimeRecords.reduce((sum, r) => sum + (r.ot_amount || 0), 0);
+
+        res.json({
+            success: true,
+            month: targetMonth,
+            bonusRecords,
+            revisionRecords,
+            overtimeRecords,
+            workingEmployees,
+            summary: {
+                totalBonus,
+                totalRevisions,
+                totalOvertime,
+                totalCombined: totalBonus + totalRevisions + totalOvertime
+            }
+        });
+    } catch (err) {
+        console.error("Error in /v2/bonus-revisions-overtime:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+router.post("/v2/bonus-revisions-overtime/save-step", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month, step, records } = req.body;
+        const [yStr, mStr] = (month || '2026-11').split('-');
+        const targetMonth = month || `${yStr}-${mStr}`;
+        c = await db();
+
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (step === 1) {
+            // Save Bonus records
+            await c.query(`DELETE FROM payroll_adjustments WHERE payroll_month = ? AND adjustment_type = 'BONUS'`, [targetMonth]);
+            if (Array.isArray(records)) {
+                for (const rec of records) {
+                    const amt = Number(rec.bonus_amount) || 0;
+                    if (amt > 0) {
+                        const reason = JSON.stringify({
+                            bonus_type: rec.bonus_type || 'Performance Bonus',
+                            pay_action: rec.pay_action || 'Process with salary',
+                            comments: rec.comments || ''
+                        });
+                        await c.query(`
+                            INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                            VALUES (?, ?, 'BONUS', ?, ?, ?, NOW())
+                        `, [rec.id, targetMonth, amt, reason, userId]);
+                    }
+                }
+            }
+        } else if (step === 2) {
+            // Save Salary Revision records
+            await c.query(`DELETE FROM payroll_adjustments WHERE payroll_month = ? AND adjustment_type = 'ARREAR'`, [targetMonth]);
+            if (Array.isArray(records)) {
+                for (const rec of records) {
+                    const amt = Number(rec.arrears_amount) || 0;
+                    if (amt > 0) {
+                        const reason = JSON.stringify({
+                            previous_ctc: rec.previous_ctc,
+                            revised_ctc: rec.revised_ctc,
+                            hike_percentage: rec.hike_percentage,
+                            effective_date: rec.effective_date,
+                            arrears_months: rec.arrears_months,
+                            pay_action: rec.pay_action,
+                            comments: rec.comments
+                        });
+                        await c.query(`
+                            INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                            VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
+                        `, [rec.id, targetMonth, amt, reason, userId]);
+                    }
+                }
+            }
+        } else if (step === 3) {
+            // Save Overtime records
+            await c.query(`DELETE FROM payroll_adjustments WHERE payroll_month = ? AND adjustment_type = 'CORRECTION'`, [targetMonth]);
+            if (Array.isArray(records)) {
+                for (const rec of records) {
+                    const amt = Number(rec.ot_amount) || 0;
+                    if (amt > 0) {
+                        const reason = JSON.stringify({
+                            ot_hours: rec.ot_hours,
+                            hourly_rate: rec.hourly_rate,
+                            multiplier: rec.multiplier,
+                            pay_action: rec.pay_action,
+                            comments: rec.comments
+                        });
+                        await c.query(`
+                            INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                            VALUES (?, ?, 'CORRECTION', ?, ?, ?, NOW())
+                        `, [rec.id, targetMonth, amt, reason, userId]);
+                    }
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Step ${step} data saved successfully for ${targetMonth}`,
+            count: Array.isArray(records) ? records.length : 0
+        });
+    } catch (err) {
+        console.error("Error in bonus-revisions-overtime save-step:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+router.post("/v2/bonus-revisions-overtime/mark-complete", auth, async (req, res) => {
+    try {
+        const { month, bonusRecords, revisionRecords, overtimeRecords } = req.body;
+        const now = new Date();
+        const userName = req.user ? (req.user.name || req.user.username || 'Admin') : 'Admin';
+        const formattedDate = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en', { month: 'short' })} ${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const subtitle = `Last Changes on ${formattedDate} BY ${userName}`;
+
+        res.json({
+            success: true,
+            completed: true,
+            stepId: 3,
+            month: month,
+            subtitle: subtitle,
+            message: `Bonus, Salary Revisions & Overtime marked as completed for ${month}`
+        });
+    } catch (err) {
+        console.error("Error in bonus-revisions-overtime mark-complete:", err);
+        res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+router.post("/v2/bonus-revisions-overtime/bulk-import-bonus", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month, records } = req.body;
+        const [yStr, mStr] = (month || '2026-11').split('-');
+        const targetMonth = month || `${yStr}-${mStr}`;
+        c = await db();
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!Array.isArray(records) || records.length === 0) {
+            return res.json({ success: true, message: 'No records to import', importedCount: 0, skippedCount: 0 });
+        }
+
+        // Fetch all employees to match by EmployeeNumber
+        const [allEmps] = await c.query('SELECT id, EmployeeNumber, FirstName, LastName, FullName FROM employees');
+        const empMap = new Map();
+        for (const e of allEmps) {
+            if (e.EmployeeNumber) {
+                empMap.set(e.EmployeeNumber.trim().toUpperCase(), e);
+            }
+        }
+
+        let importedCount = 0;
+        let skippedCount = 0;
+
+        for (const rec of records) {
+            const empCode = (rec.employee_code || rec.employee_number || '').toString().trim().toUpperCase();
+            const emp = empMap.get(empCode);
+            const amt = Math.round(Number(rec.amount) || Number(rec.bonus_amount) || 0);
+
+            if (!emp || amt <= 0) {
+                skippedCount++;
+                continue;
+            }
+
+            // Updation of existing payments is not possible with Excel import
+            const [existing] = await c.query(
+                `SELECT id FROM payroll_adjustments WHERE employee_id = ? AND payroll_month = ? AND adjustment_type = 'BONUS'`,
+                [emp.id, targetMonth]
+            );
+
+            if (existing && existing.length > 0) {
+                skippedCount++;
+                continue;
+            }
+
+            const bonusType = rec.bonus_type || rec.payment_type || 'Performance Bonus';
+            const comments = rec.comments || rec.remarks || '';
+            const reason = JSON.stringify({
+                bonus_type: bonusType,
+                pay_action: 'Process with salary',
+                comments: comments
+            });
+
+            await c.query(`
+                INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                VALUES (?, ?, 'BONUS', ?, ?, ?, NOW())
+            `, [emp.id, targetMonth, amt, reason, userId]);
+
+            importedCount++;
+        }
+
+        res.json({
+            success: true,
+            importedCount,
+            skippedCount,
+            message: `Successfully imported ${importedCount} payments for ${targetMonth}${skippedCount > 0 ? ` (${skippedCount} skipped)` : ''}`
+        });
+    } catch (err) {
+        console.error("Error in bulk-import-bonus:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+router.get("/v2/bonus-revisions-overtime/download-template", (req, res) => {
+    const path = require("path");
+    const fs = require("fs");
+    const filePath = path.join(__dirname, '..', 'Interact One Time Payments Import - Sree Tammina Software Solutions Pvt. Ltd..xlsx');
+    if (fs.existsSync(filePath)) {
+        res.download(filePath, 'Interact One Time Payments Import - Sree Tammina Software Solutions Pvt. Ltd..xlsx');
+    } else {
+        res.status(404).send('Template file not found');
     }
 });
 

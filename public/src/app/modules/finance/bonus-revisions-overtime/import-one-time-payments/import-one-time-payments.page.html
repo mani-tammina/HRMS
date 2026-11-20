@@ -1,0 +1,513 @@
+<div class="import-page-container">
+
+  <!-- ============================================
+       TOP HEADER & STEPPER
+       ============================================ -->
+  <header class="import-header">
+    <div class="header-left">
+      <h1 class="header-title">Import One time payments</h1>
+    </div>
+
+    <div class="header-stepper">
+      <!-- Step 1: Upload -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="goToStep(1)">
+        <span class="step-badge">1</span>
+        <span class="step-label">Upload</span>
+      </div>
+
+      <span class="stepper-arrow">&gt;</span>
+
+      <!-- Step 2: Map Columns -->
+      <div class="stepper-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="goToStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">Map Columns</span>
+      </div>
+
+      <span class="stepper-arrow">&gt;</span>
+
+      <!-- Step 3: Review & Import -->
+      <div class="stepper-item" [class.active]="currentStep === 3" (click)="goToStep(3)">
+        <span class="step-badge">3</span>
+        <span class="step-label">Review &amp; Import</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <button class="btn-back-header" type="button" (click)="goBack()" title="Back to Bonus, Revisions & Overtime">
+        <span>← Back</span>
+      </button>
+      <button class="btn-close-header" type="button" (click)="goBack()" title="Close">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================
+       SUBTITLE COPY
+       ============================================ -->
+  <div class="import-subtitle-bar">
+    <p class="subtitle-text">
+      You can Import One time payments in bulk using the Excel file import here. Follow the instructions below. Please ensure you read all the upload instructions before filling in the excel template.
+    </p>
+  </div>
+
+  <!-- ============================================
+       STEP 1: UPLOAD DATA & INSTRUCTIONS
+       ============================================ -->
+  <div *ngIf="currentStep === 1" class="step1-two-columns">
+
+    <!-- LEFT COLUMN: Upload data -->
+    <div class="column-upload-data">
+      <h2 class="column-title">Upload data</h2>
+
+      <ol class="upload-steps-list">
+        <!-- Step 1 item -->
+        <li class="step-row">
+          <span class="step-num-badge">1</span>
+          <span class="step-instruction">
+            Download the
+            <a class="template-link" href="javascript:void(0)" (click)="downloadTemplate()">Excel Template</a>
+          </span>
+        </li>
+
+        <!-- Step 2 item -->
+        <li class="step-row">
+          <span class="step-num-badge">2</span>
+          <span class="step-instruction">Read the upload instructions on the right before uploading</span>
+        </li>
+
+        <!-- Step 3 item -->
+        <li class="step-row">
+          <span class="step-num-badge">3</span>
+          <span class="step-instruction">Fill in the information in the Excel template</span>
+        </li>
+
+        <!-- Step 4 item -->
+        <li class="step-row step-row-upload">
+          <span class="step-num-badge">4</span>
+          <span class="step-instruction">Upload the excel sheet</span>
+          
+          <button type="button" class="btn-upload-excel" (click)="fileInput.click()">
+            Upload Excel File
+          </button>
+
+          <span class="info-icon" (click)="toggleUploadInfo()" title="Supported: .xlsx, .xls, .csv (Max 5MB)">ⓘ</span>
+
+          <!-- Hidden File Input -->
+          <input #fileInput type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" style="display: none;" />
+        </li>
+      </ol>
+
+      <!-- Info Tooltip Box -->
+      <div *ngIf="showUploadInfo" class="upload-info-box">
+        <p><strong>Supported Formats:</strong> .xlsx, .xls, .csv</p>
+        <p><strong>Required Columns:</strong> Employee Number, Payment Type, Amount</p>
+        <p><strong>Note:</strong> Maximum file size 5MB. Ensure header row is in row 1.</p>
+      </div>
+    </div>
+
+    <!-- RIGHT COLUMN: Upload instructions -->
+    <div class="column-instructions">
+      <h2 class="column-title">Upload instructions</h2>
+
+      <!-- Yellow Alert Box -->
+      <div class="instructions-alert-box">
+        <span class="alert-icon">⚠</span>
+        <span class="alert-text">Read these instructions before uploading the file.</span>
+      </div>
+
+      <!-- Bullet points -->
+      <ul class="instructions-bullets">
+        <li class="bullet-item">
+          <span class="circle-bullet">○</span>
+          <span class="bullet-text">Employee Number, Payment Type and Amount are required fields.</span>
+        </li>
+        <li class="bullet-item">
+          <span class="circle-bullet">○</span>
+          <span class="bullet-text">Updation of existing payments is not possible with Excel import.</span>
+        </li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- ============================================
+       STEP 2: UPLOADED EMPLOYEE PAYMENTS & CRUD
+       ============================================ -->
+  <div *ngIf="currentStep === 2" class="step2-map-columns">
+    <div class="map-card">
+      <div class="map-card-header">
+        <div>
+          <h2 class="map-title">Uploaded Employee Payments</h2>
+          <p class="map-desc">Review, edit, add or remove employee payment records before final review.</p>
+        </div>
+        <div class="file-tag">
+          <span class="file-icon">📄</span>
+          <span class="file-name">{{ selectedFileName }}</span>
+          <span class="file-rows">({{ uploadedRecords.length }} records loaded)</span>
+          <button type="button" class="btn-change-file" (click)="fileInput2.click()">Change File</button>
+          <input #fileInput2 type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" style="display: none;" />
+        </div>
+      </div>
+
+      <!-- ============================================
+           UPLOADED EMPLOYEES CRUD TABLE
+           ============================================ -->
+      <div class="uploaded-records-section">
+        <div class="records-section-header">
+          <div class="section-title-wrap">
+            <div class="stats-pills">
+              <span class="pill-records">{{ filteredUploadedRecords.length }} Records</span>
+              <span class="pill-total">Total: INR {{ totalUploadedAmount.toLocaleString('en-IN') }}</span>
+            </div>
+          </div>
+
+          <div class="section-actions-wrap">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" [(ngModel)]="uploadedSearchTerm" placeholder="Search employee code, name or payment type..." class="search-input" />
+            </div>
+            <button type="button" class="btn-add-record" (click)="openAddRecordModal()">
+              <span>+ Add Employee Payment</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="records-table-container">
+          <table class="records-table">
+            <thead>
+              <tr>
+                <th style="width: 50px;">#</th>
+                <th>EMPLOYEE NUMBER</th>
+                <th>EMPLOYEE NAME</th>
+                <th>DEPARTMENT</th>
+                <th>PAYMENT TYPE</th>
+                <th>AMOUNT</th>
+                <th>REMARKS / COMMENTS</th>
+                <th style="width: 100px; text-align: center;">ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let rec of filteredUploadedRecords">
+                <td>{{ rec.rowNumber }}</td>
+                <td>
+                  <span class="code-tag">{{ rec.employee_number }}</span>
+                </td>
+                <td>
+                  <span class="emp-name-text">{{ rec.employee_name }}</span>
+                </td>
+                <td>{{ rec.department }}</td>
+                <td>
+                  <span class="payment-badge">{{ rec.payment_type }}</span>
+                </td>
+                <td>
+                  <span class="amount-text">INR {{ rec.amount.toLocaleString('en-IN') }}</span>
+                </td>
+                <td>
+                  <span class="remarks-text">{{ rec.remarks || '—' }}</span>
+                </td>
+                <td style="text-align: center;">
+                  <div class="row-actions">
+                    <button type="button" class="btn-action-edit" (click)="openEditRecordModal(rec)" title="Edit Payment">
+                      ✏️
+                    </button>
+                    <button type="button" class="btn-action-delete" (click)="deleteUploadedRecord(rec)" title="Delete Payment">
+                      🗑️
+                    </button>
+                  </div>
+                </td>
+              </tr>
+              <tr *ngIf="filteredUploadedRecords.length === 0">
+                <td colspan="8" class="empty-records-state">
+                  No employee payment records found. Click "+ Add Employee Payment" to add records manually or re-upload your Excel file.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="map-actions-bar">
+        <button type="button" class="btn-map-back" (click)="goToStep(1)">
+          ← Back to Upload
+        </button>
+        <button type="button" class="btn-map-continue" [disabled]="uploadedRecords.length === 0" (click)="continueToReview()">
+          Continue to Review &amp; Import ({{ uploadedRecords.length }}) →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       STEP 3: REVIEW & IMPORT
+       ============================================ -->
+  <div *ngIf="currentStep === 3" class="step3-review-import">
+
+    <!-- KPI Summary Cards -->
+    <div class="review-kpi-strip">
+      <div class="review-kpi-card">
+        <span class="kpi-label">TOTAL ROWS IN FILE</span>
+        <span class="kpi-val">{{ totalRows }}</span>
+      </div>
+      <div class="review-kpi-card">
+        <span class="kpi-label">READY TO IMPORT</span>
+        <span class="kpi-val text-green">{{ validCount }}</span>
+      </div>
+      <div class="review-kpi-card">
+        <span class="kpi-label">SKIPPED (EXISTING)</span>
+        <span class="kpi-val text-amber">{{ skippedCount }}</span>
+      </div>
+      <div class="review-kpi-card">
+        <span class="kpi-label">INVALID / NOT FOUND</span>
+        <span class="kpi-val text-red">{{ invalidCount }}</span>
+      </div>
+      <div class="review-kpi-card highlight">
+        <span class="kpi-label">TOTAL PAYOUT AMOUNT</span>
+        <span class="kpi-val text-purple">INR {{ totalValidAmount.toLocaleString('en-IN') }}</span>
+      </div>
+    </div>
+
+    <!-- Review Table Card -->
+    <div class="review-card">
+      <div class="review-toolbar">
+        <div class="review-search">
+          <span class="search-icon">🔍</span>
+          <input type="text" [(ngModel)]="previewSearchTerm" placeholder="Search employee code, name or status" class="review-search-input" />
+        </div>
+        <div class="review-actions">
+          <button type="button" class="btn-review-back" (click)="goToStep(2)">
+            ← Back to Map Columns
+          </button>
+          <button type="button" class="btn-do-import" [disabled]="validCount === 0 || isImporting" (click)="importPayments()">
+            <span *ngIf="!isImporting">Import {{ validCount }} Payments</span>
+            <span *ngIf="isImporting">Importing...</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="table-container">
+        <table class="review-table">
+          <thead>
+            <tr>
+              <th style="width: 50px;">#</th>
+              <th>EMPLOYEE</th>
+              <th>DEPARTMENT</th>
+              <th>PAYMENT TYPE</th>
+              <th>AMOUNT</th>
+              <th>STATUS</th>
+              <th>COMMENTS / REMARKS</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let row of filteredPreviewRows" [class.row-valid]="row.status === 'VALID'" [class.row-invalid]="row.status === 'INVALID'" [class.row-skipped]="row.status === 'SKIPPED'">
+              <td>{{ row.rowNumber }}</td>
+              <td>
+                <div class="emp-meta">
+                  <span class="emp-code">{{ row.employee_number }}</span>
+                  <span class="emp-name">{{ row.employee_name }}</span>
+                </div>
+              </td>
+              <td>{{ row.department }}</td>
+              <td>
+                <span class="badge-type">{{ row.payment_type }}</span>
+              </td>
+              <td>
+                <span class="amt-val">{{ row.amount_formatted }}</span>
+              </td>
+              <td>
+                <span *ngIf="row.status === 'VALID'" class="status-badge badge-valid">
+                  ✓ Ready
+                </span>
+                <span *ngIf="row.status === 'SKIPPED'" class="status-badge badge-skipped" [title]="row.statusMessage">
+                  ⚠ Skipped
+                </span>
+                <span *ngIf="row.status === 'INVALID'" class="status-badge badge-invalid" [title]="row.statusMessage">
+                  ✕ Invalid
+                </span>
+                <div class="status-tip" *ngIf="row.status !== 'VALID'">
+                  {{ row.statusMessage }}
+                </div>
+              </td>
+              <td>
+                <span class="remarks-val">{{ row.remarks || '—' }}</span>
+              </td>
+            </tr>
+            <tr *ngIf="filteredPreviewRows.length === 0">
+              <td colspan="7" class="empty-state">
+                No matching records found.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ============================================
+       VALIDATION LOADER OVERLAY
+       ============================================ -->
+  <div *ngIf="isValidating" class="validation-loader-backdrop">
+    <div class="validation-loader-card">
+      <div class="spinner-ring"></div>
+      <h3 class="loader-title">Validating File Data...</h3>
+      <p class="loader-sub">Verifying employee numbers and matching employee names with company records...</p>
+      <div class="loader-progress-track">
+        <div class="loader-progress-bar"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       VALIDATION ERROR MODAL
+       ============================================ -->
+  <div *ngIf="showValidationModal" class="validation-error-backdrop">
+    <div class="validation-error-card">
+      <div class="error-modal-header">
+        <div class="header-title-wrap">
+          <span class="warning-icon">⚠️</span>
+          <div>
+            <h3 class="error-title">Employee Validation Failed</h3>
+            <p class="error-sub">Found {{ validationErrors.length }} mismatch(es) between Employee Number and Employee Name</p>
+          </div>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeValidationModal()">✕</button>
+      </div>
+
+      <div class="error-modal-body">
+        <p class="error-info-text">
+          Please correct the employee details in your Excel file and re-upload. The employee numbers must match the registered names in company records before mapping columns.
+        </p>
+
+        <div class="error-table-wrapper">
+          <table class="error-table">
+            <thead>
+              <tr>
+                <th style="width: 70px;">ROW #</th>
+                <th>EMPLOYEE NUMBER</th>
+                <th>NAME IN FILE</th>
+                <th>SYSTEM REGISTERED NAME</th>
+                <th>STATUS</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let err of validationErrors">
+                <td>{{ err.rowNumber }}</td>
+                <td><span class="badge-code">{{ err.employeeNumber }}</span></td>
+                <td><span class="name-file">{{ err.fileEmployeeName }}</span></td>
+                <td><span class="name-expected">{{ err.systemEmployeeName }}</span></td>
+                <td><span class="badge-mismatch">Mismatch</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="error-modal-footer">
+        <button type="button" class="btn-dismiss" (click)="closeValidationModal()">
+          Close
+        </button>
+        <button type="button" class="btn-reupload" (click)="reuploadFile(fileInputRetry)">
+          Re-upload Corrected File
+        </button>
+        <input #fileInputRetry type="file" (change)="onFileSelected($event)" accept=".xlsx, .xls, .csv" style="display: none;" />
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       ADD EMPLOYEE RECORD MODAL
+       ============================================ -->
+  <div *ngIf="showAddRecordModal" class="crud-modal-backdrop">
+    <div class="crud-modal-card">
+      <div class="modal-card-header">
+        <h3 class="modal-card-title">Add Employee Payment</h3>
+        <button type="button" class="btn-modal-close" (click)="closeAddRecordModal()">✕</button>
+      </div>
+
+      <div class="modal-card-body">
+        <div class="form-group">
+          <label class="form-label">Select Employee <span class="req">*</span></label>
+          <select [(ngModel)]="newRecordEmpId" class="form-select">
+            <option [ngValue]="null" disabled>-- Choose Active Employee --</option>
+            <option *ngFor="let emp of workingEmployees" [value]="emp.id">
+              {{ emp.employee_code }} - {{ emp.employee_name }} ({{ emp.department }})
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Payment Type <span class="req">*</span></label>
+          <select [(ngModel)]="newRecordPaymentType" class="form-select">
+            <option *ngFor="let opt of paymentTypeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (INR) <span class="req">*</span></label>
+          <div class="money-input-wrap">
+            <span class="money-prefix">INR</span>
+            <input type="number" [(ngModel)]="newRecordAmount" placeholder="e.g. 15000" class="money-input" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Remarks / Comments (Optional)</label>
+          <input type="text" [(ngModel)]="newRecordRemarks" placeholder="Reason or note for this payment" class="form-input" />
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button type="button" class="btn-cancel" (click)="closeAddRecordModal()">Cancel</button>
+        <button type="button" class="btn-save" (click)="saveNewRecord()">+ Add Payment</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       EDIT EMPLOYEE RECORD MODAL
+       ============================================ -->
+  <div *ngIf="showEditRecordModal" class="crud-modal-backdrop">
+    <div class="crud-modal-card">
+      <div class="modal-card-header">
+        <h3 class="modal-card-title">Edit Employee Payment</h3>
+        <button type="button" class="btn-modal-close" (click)="closeEditRecordModal()">✕</button>
+      </div>
+
+      <div class="modal-card-body">
+        <div class="employee-static-pill" *ngIf="activeEditRecord">
+          <span class="emp-pill-code">{{ activeEditRecord.employee_number }}</span>
+          <span class="emp-pill-name">{{ activeEditRecord.employee_name }}</span>
+          <span class="emp-pill-dept">({{ activeEditRecord.department }})</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Payment Type <span class="req">*</span></label>
+          <select [(ngModel)]="editRecordPaymentType" class="form-select">
+            <option *ngFor="let opt of paymentTypeOptions" [value]="opt">{{ opt }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (INR) <span class="req">*</span></label>
+          <div class="money-input-wrap">
+            <span class="money-prefix">INR</span>
+            <input type="number" [(ngModel)]="editRecordAmount" placeholder="e.g. 15000" class="money-input" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Remarks / Comments</label>
+          <input type="text" [(ngModel)]="editRecordRemarks" placeholder="Reason or note for this payment" class="form-input" />
+        </div>
+      </div>
+
+      <div class="modal-card-footer">
+        <button type="button" class="btn-cancel" (click)="closeEditRecordModal()">Cancel</button>
+        <button type="button" class="btn-save" (click)="saveEditedRecord()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+

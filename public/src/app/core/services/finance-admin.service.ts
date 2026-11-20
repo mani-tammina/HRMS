@@ -227,6 +227,11 @@ export class FinanceAdminService {
     return this.http.delete<any>(url, { params, headers: this.getHeaders() });
   }
 
+  deleteContract(contractId: number): Observable<any> {
+    const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
+    return this.http.delete<any>(url, { headers: this.getHeaders() });
+  }
+
   terminateContract(contractId: number, payload: any): Observable<any> {
     const url = `${this.baseUrl}/payroll-master/contracts/${contractId}`;
     return this.http.delete<any>(url, { body: payload, headers: this.getHeaders() });

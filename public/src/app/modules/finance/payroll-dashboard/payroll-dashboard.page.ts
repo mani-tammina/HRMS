@@ -243,6 +243,23 @@ export class PayrollDashboardPage implements OnInit {
       });
       return;
     }
+    if (step.id === 3) {
+      this.router.navigate(['/finance/run-payroll/bonus-revisions-overtime'], {
+        queryParams: { month: this.selectedMonth, step: 1 }
+      }).then(success => {
+        if (!success) {
+          this.router.navigate(['/finance/bonus-revisions-overtime'], {
+            queryParams: { month: this.selectedMonth, step: 1 }
+          });
+        }
+      }).catch(err => {
+        console.error('Navigation to bonus-revisions-overtime failed:', err);
+        this.router.navigate(['/finance/bonus-revisions-overtime'], {
+          queryParams: { month: this.selectedMonth, step: 1 }
+        });
+      });
+      return;
+    }
     this.activeStepModal = step;
   }
 
