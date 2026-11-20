@@ -32,6 +32,7 @@
     "@capacitor/keyboard": "7.0.1",
     "@capacitor/status-bar": "7.0.1",
     "@ionic/angular": "^8.0.0",
+    "@openuidev/angular-lang": "^0.4.2",
     "animate.css": "^4.1.1",
     "chart.js": "^4.5.1",
     "emailjs": "^4.0.3",
@@ -50,6 +51,7 @@
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0",
     "xlsx": "^0.18.5",
+    "zod": "^4.6.7",
     "zone.js": "~0.15.0"
   },
   "devDependencies": {

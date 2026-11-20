@@ -700,11 +700,26 @@
     </div>
 
     <!-- Floating Chat / Help Bubble Icon on Bottom Right Corner -->
-    <div class="floating-chat-bubble" title="Help & Feedback">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
+    <div
+      class="floating-chat-bubble"
+      [class.is-open]="isChatOpen"
+      role="button"
+      tabindex="0"
+      [attr.aria-expanded]="isChatOpen"
+      [title]="isChatOpen ? 'Close Chat' : 'Help & Feedback'"
+      (click)="toggleChatWindow()"
+      (keydown.enter)="toggleChatWindow()"
+      (keydown.space)="toggleChatWindow(); $event.preventDefault()">
+      <svg *ngIf="!isChatOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"
         style="width: 22px; height: 22px; color: #ffffff;">
         <path
           d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z" />
+      </svg>
+      <svg *ngIf="isChatOpen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"
+        style="width: 20px; height: 20px; color: #ffffff;">
+        <line x1="18" y1="6" x2="6" y2="18"></line>
+        <line x1="6" y1="6" x2="18" y2="18"></line>
       </svg>
     </div>
   </div>

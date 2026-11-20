@@ -1,0 +1,376 @@
+<div
+  class="chat-window-container"
+  [class.chat-window-container--fullscreen]="isFullScreen"
+  role="dialog"
+  aria-label="HRMS Inbox Chat Window"
+  (keydown.escape)="handleEscapeKey()"
+>
+  <!-- Top Header -->
+  <div class="chat-header">
+    <div class="chat-header-info">
+      <!-- Mobile Fullscreen History Toggle -->
+      <button
+        *ngIf="isFullScreen"
+        type="button"
+        class="mobile-sidebar-toggle"
+        title="Toggle chat history"
+        aria-label="Toggle chat history"
+        (click)="toggleMobileSidebar()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="6" x2="21" y2="6"></line>
+          <line x1="3" y1="12" x2="21" y2="12"></line>
+          <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+      </button>
+
+      <div class="bot-avatar-badge">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="bot-icon">
+          <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-3 11H7v-2h10v2zm0-4H7V7h10v2z" />
+        </svg>
+        <span class="online-indicator"></span>
+      </div>
+      <div class="header-text">
+        <div class="chat-title">
+          {{ isFullScreen ? activeSessionTitle : 'HRMS Support Chat' }}
+        </div>
+        <div class="chat-subtitle">
+          <span class="status-dot"></span>
+          Online • Inbox Assistant
+        </div>
+      </div>
+    </div>
+
+    <!-- Exact 3 Window Control Buttons: Minimize (-), Expand/Restore (Rectangle), Close (X) -->
+    <div class="chat-header-actions">
+      <!-- 1. Minimize (preserves chat) -->
+      <button
+        type="button"
+        class="header-action-btn"
+        title="Minimize chat (keeps conversation)"
+        aria-label="Minimize chat"
+        (click)="onMinimize()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      </button>
+
+      <!-- 2. Resize Rectangle: One rectangle when half-screen, two overlapping rectangles when full-screen -->
+      <button
+        type="button"
+        class="header-action-btn"
+        [title]="isFullScreen ? 'Restore to half screen' : 'Expand to full screen'"
+        [attr.aria-label]="isFullScreen ? 'Restore to half screen' : 'Expand to full screen'"
+        (click)="toggleFullScreen()"
+      >
+        <!-- Collapsed (Half Screen) -> Single Small Rectangle -->
+        <svg *ngIf="!isFullScreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="5" y="5" width="14" height="14" rx="2"></rect>
+        </svg>
+        <!-- Enlarged (Full Screen) -> Two Overlapping Small Rectangles -->
+        <svg *ngIf="isFullScreen" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+          stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="8" width="11" height="11" rx="1.8"></rect>
+          <path d="M9 8V6a1.8 1.8 0 0 1 1.8-1.8h7.4A1.8 1.8 0 0 1 20 6v7.4A1.8 1.8 0 0 1 18.2 15H15"></path>
+        </svg>
+      </button>
+
+      <!-- 3. Close (closes popup; saved chat history stays in DB) -->
+      <button
+        type="button"
+        class="header-action-btn header-action-btn--close"
+        title="Close chat"
+        aria-label="Close chat"
+        (click)="onClose()"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main Workspace (Left Chat History Sidebar in Full Screen + Active Conversation Area) -->
+  <div class="chat-workspace">
+    <!-- Left Chat History Sidebar (Visible on Full Screen) -->
+    <aside
+      class="chat-history-sidebar"
+      *ngIf="isFullScreen"
+      [class.is-mobile-open]="showMobileSidebar"
+      aria-label="Chat history"
+    >
+      <div class="sidebar-top">
+        <button
+          type="button"
+          class="new-chat-btn"
+          (click)="createNewChat()"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          <span>New Chat</span>
+        </button>
+      </div>
+
+      <div class="history-section-header">
+        <span>Chat History</span>
+        <span class="history-count-badge">{{ chatSessions.length }}</span>
+      </div>
+
+      <div class="history-list">
+        <div class="history-loading-state" *ngIf="isLoadingHistory">
+          Loading chat history...
+        </div>
+        <div
+          class="history-item"
+          *ngFor="let session of chatSessions; trackBy: trackBySessionId"
+          [class.is-active]="session.id === currentSessionId"
+          [class.has-menu-open]="openMenuSessionId === session.id"
+          (click)="selectSession(session)"
+        >
+          <div class="history-item-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </div>
+
+          <!-- Normal Display vs Inline Rename Input -->
+          <div class="history-item-content" *ngIf="renamingSessionId !== session.id">
+            <div class="history-item-title" [title]="session.title">{{ session.title }}</div>
+            <div class="history-item-date">{{ session.dateGroup }}</div>
+          </div>
+
+          <div
+            class="history-rename-box"
+            *ngIf="renamingSessionId === session.id"
+            (click)="$event.stopPropagation()"
+          >
+            <input
+              #renameInput
+              type="text"
+              class="history-rename-input"
+              [(ngModel)]="renameDraft"
+              maxlength="60"
+              aria-label="Rename chat history"
+              (keydown.enter)="confirmRenameSession(session, $event); $event.preventDefault()"
+              (keydown.escape)="cancelRenameSession($event); $event.stopPropagation()"
+            />
+            <button
+              type="button"
+              class="rename-action-btn rename-action-btn--save"
+              title="Save name"
+              aria-label="Save name"
+              (click)="confirmRenameSession(session, $event)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="rename-action-btn rename-action-btn--cancel"
+              title="Cancel rename"
+              aria-label="Cancel rename"
+              (click)="cancelRenameSession($event)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+          </div>
+
+          <!-- 3-Dot Menu for Every History Item -->
+          <div class="history-menu-wrapper" *ngIf="renamingSessionId !== session.id">
+            <button
+              type="button"
+              class="history-dots-btn"
+              title="More options"
+              aria-label="History options"
+              [attr.aria-expanded]="openMenuSessionId === session.id"
+              (click)="toggleHistoryMenu(session.id, $event)"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+                <circle cx="12" cy="5" r="2"></circle>
+                <circle cx="12" cy="12" r="2"></circle>
+                <circle cx="12" cy="19" r="2"></circle>
+              </svg>
+            </button>
+
+            <div
+              class="history-dropdown-menu"
+              *ngIf="openMenuSessionId === session.id"
+              (click)="$event.stopPropagation()"
+            >
+              <button
+                type="button"
+                class="history-dropdown-item"
+                (click)="startRenameSession(session, $event)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                <span>Rename</span>
+              </button>
+              <button
+                type="button"
+                class="history-dropdown-item history-dropdown-item--danger"
+                (click)="deleteSession(session.id, $event)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                </svg>
+                <span>Delete</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Mobile drawer backdrop when sidebar open on narrow fullscreen viewports -->
+    <div
+      class="mobile-sidebar-backdrop"
+      *ngIf="isFullScreen && showMobileSidebar"
+      (click)="toggleMobileSidebar()"
+    ></div>
+
+    <!-- Main Chat Conversation Column -->
+    <div class="chat-main-column">
+      <!-- Optional Context Strip when a request is selected -->
+      <div class="chat-context-strip" *ngIf="selectedNotification">
+        <span class="context-dot"></span>
+        <span class="context-label">Viewing:</span>
+        <span class="context-value" [title]="contextSummary">{{ contextSummary }}</span>
+      </div>
+
+      <!-- Messages Body -->
+      <div class="chat-messages-body" #messagesContainer>
+        <div class="chat-day-divider">
+          <span>{{ activeSessionDateGroup }}</span>
+        </div>
+
+        <div class="chat-loading-messages" *ngIf="isLoadingMessages && messages.length === 0">
+          Loading conversation...
+        </div>
+
+        <div
+          class="message-row"
+          *ngFor="let msg of messages; trackBy: trackByMessageId"
+          [class.message-row--user]="msg.sender === 'user'"
+          [class.message-row--bot]="msg.sender === 'bot'"
+        >
+          <div class="msg-avatar msg-avatar--bot" *ngIf="msg.sender === 'bot'" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4h3V5.73A2 2 0 0 1 12 2zm-3 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
+            </svg>
+          </div>
+
+          <div
+            class="msg-bubble-wrapper"
+            [class.msg-bubble-wrapper--openui]="msg.sender === 'bot' && !!msg.openuiResponse"
+          >
+            <div
+              class="msg-bubble"
+              [class.msg-bubble--user]="msg.sender === 'user'"
+              [class.msg-bubble--bot]="msg.sender === 'bot'"
+              [class.msg-bubble--openui]="msg.sender === 'bot' && !!msg.openuiResponse"
+            >
+              <ng-container *ngIf="msg.sender === 'bot' && msg.openuiResponse; else plainMessageText">
+                <openui-renderer
+                  [response]="msg.openuiResponse"
+                  [library]="openuiLibrary"
+                  [isStreaming]="!!msg.isStreaming"
+                  [toolProvider]="toolProvider"
+                  (action)="handleOpenUiAction($event)"
+                  (error)="handleOpenUiError($event)"
+                />
+              </ng-container>
+              <ng-template #plainMessageText>
+                <span class="msg-text">{{ msg.text }}</span>
+              </ng-template>
+            </div>
+            <div class="msg-meta">
+              <span class="msg-time">{{ formatTime(msg.timestamp) }}</span>
+              <span class="msg-status" *ngIf="msg.sender === 'user'">✓✓</span>
+            </div>
+          </div>
+
+          <div class="msg-avatar msg-avatar--user" *ngIf="msg.sender === 'user'" aria-hidden="true">
+            {{ userInitials }}
+          </div>
+        </div>
+
+        <!-- Typing Indicator -->
+        <div class="message-row message-row--bot" *ngIf="isTyping">
+          <div class="msg-avatar msg-avatar--bot" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h3a4 4 0 0 1 4 4v5a4 4 0 0 1-4 4H8a4 4 0 0 1-4-4v-5a4 4 0 0 1 4-4h3V5.73A2 2 0 0 1 12 2zm-3 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm6 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" />
+            </svg>
+          </div>
+          <div class="msg-bubble msg-bubble--bot typing-bubble" aria-label="Assistant is typing">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Suggestion Chips -->
+      <div class="quick-suggestions-bar" *ngIf="quickSuggestions.length > 0">
+        <button
+          type="button"
+          class="suggestion-chip"
+          *ngFor="let chip of quickSuggestions"
+          [disabled]="isBusy"
+          (click)="sendQuickPrompt(chip)"
+        >
+          {{ chip }}
+        </button>
+      </div>
+
+      <!-- Input Footer -->
+      <div class="chat-input-footer">
+        <div class="input-box-container">
+          <textarea
+            #messageInput
+            [(ngModel)]="draftMessage"
+            (keydown)="onKeyDown($event)"
+            placeholder="Type a message..."
+            rows="1"
+            maxlength="1000"
+            class="chat-textarea"
+            aria-label="Chat message input"
+          ></textarea>
+          <button
+            type="button"
+            class="send-btn"
+            [disabled]="!draftMessage.trim() || isBusy"
+            (click)="sendMessage()"
+            title="Send message"
+            aria-label="Send message"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

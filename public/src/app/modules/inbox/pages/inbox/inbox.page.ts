@@ -1,20 +1,27 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 import { AlertController, LoadingController, ModalController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
 
 import { InboxNotification } from '../../models/notification.model';
 import { InboxService } from '../../services/inbox.service';
 import { LeaverequestService } from 'src/app/core/services/leaverequest.service';
 import { TimesheetService } from 'src/app/core/services/timesheet.service';
 import { SeparationService } from 'src/app/core/services/separation.service';
+import { EmployeeService } from 'src/app/core/services/employee.service';
 import { ToasterService } from 'src/app/core/services/toaster.service';
 import { RouteGuardService } from 'src/app/core/services/route-guard.service';
 import { TimesheetPreviewComponent } from 'src/app/modules/attendance/work-track/timesheet-preview.component';
 import { environment } from 'src/environments/environment';
 import { NotificationEmptyComponent } from '../../components/notification-empty/notification-empty.component';
+import {
+  ChatWindowComponent,
+  ChatMessage,
+  ChatSession,
+} from '../../components/chat-window/chat-window.component';
 import * as XLSX from 'xlsx';
 import * as ExcelJS from 'exceljs';
 
@@ -30,7 +37,7 @@ import * as ExcelJS from 'exceljs';
     NotificationEmptyComponent
   ]
 })
-export class InboxPage implements OnInit {
+export class InboxPage implements OnInit, OnDestroy {
   notifications: InboxNotification[] = [];
   page = 1;
   limit = 10;
@@ -59,6 +66,12 @@ export class InboxPage implements OnInit {
   rejectedCount = 0;
 
   isModalOpen = false;
+  isChatOpen = false;
+  isChatFullScreen = false;
+  currentUserName = '';
+  chatMessages: ChatMessage[] = [];
+  chatSessions: ChatSession[] | null = null;
+  activeChatSessionId: string | null = null;
   selectedNotification: InboxNotification | null = null;
   rejectReasonText = '';
   teammatesOnLeave: any[] = [];
@@ -66,6 +79,10 @@ export class InboxPage implements OnInit {
 
   hasLoaded = false;
   private hasInitialized = false;
+  private destroy$ = new Subject<void>();
+  private chatModal: HTMLIonModalElement | null = null;
+  private isOpeningChat = false;
+  private chatCacheToken = '';
 
   stats: any = {
     totalRequests: 0,
@@ -88,6 +105,7 @@ export class InboxPage implements OnInit {
     private leaveRequestService: LeaverequestService,
     private timesheetService: TimesheetService,
     private separationService: SeparationService,
+    private employeeService: EmployeeService,
     private toaster: ToasterService,
     private auth: RouteGuardService,
     private alertCtrl: AlertController,
@@ -98,6 +116,18 @@ export class InboxPage implements OnInit {
 
   ngOnInit() {
     this.initRoleAccess();
+    const cachedEmp = this.employeeService.getCurrentEmployee();
+    if (cachedEmp) {
+      this.currentUserName = cachedEmp.FullName || `${cachedEmp.FirstName || ''} ${cachedEmp.LastName || ''}`.trim();
+    }
+    this.employeeService.currentEmployee$
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((emp) => {
+        if (emp) {
+          this.currentUserName = emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim();
+        }
+      });
+
     if (this.isEmployee) {
       this.selectedTab = 'Rejected';
     } else {
@@ -108,11 +138,36 @@ export class InboxPage implements OnInit {
     this.hasInitialized = true;
   }
 
+  ngOnDestroy() {
+    this.destroy$.next();
+    this.destroy$.complete();
+    if (this.chatModal) {
+      this.chatModal.dismiss().catch(() => {});
+      this.chatModal = null;
+    }
+  }
+
   ionViewWillEnter() {
+    this.ensureChatCacheMatchesCurrentUser();
     this.initRoleAccess();
     if (this.hasInitialized) {
       // Reload on re-entering view
       this.loadNotifications(null, true);
+    }
+  }
+
+  private ensureChatCacheMatchesCurrentUser(): void {
+    const currentToken =
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      '';
+    if (this.chatCacheToken !== currentToken) {
+      this.chatCacheToken = currentToken;
+      this.chatMessages = [];
+      this.chatSessions = null;
+      this.activeChatSessionId = null;
+      this.isChatFullScreen = false;
     }
   }
 
@@ -193,6 +248,89 @@ export class InboxPage implements OnInit {
       if (!target.closest('.reports-dropdown-wrapper')) {
         this.showReportsDropdown = false;
       }
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey() {
+    if (this.isChatOpen) {
+      this.closeChatWindow('minimize');
+    }
+  }
+
+  async toggleChatWindow() {
+    if (this.isChatOpen) {
+      await this.closeChatWindow('minimize');
+      return;
+    }
+    if (this.isOpeningChat) {
+      return;
+    }
+
+    this.ensureChatCacheMatchesCurrentUser();
+    this.isOpeningChat = true;
+    try {
+      const cssClasses = this.isChatFullScreen
+        ? ['inbox-chat-modal', 'inbox-chat-modal--fullscreen']
+        : ['inbox-chat-modal'];
+
+      const modal = await this.modalCtrl.create({
+        component: ChatWindowComponent,
+        cssClass: cssClasses,
+        backdropDismiss: true,
+        keyboardClose: true,
+        componentProps: {
+          isOpen: true,
+          selectedNotification: this.selectedNotification,
+          stats: this.stats,
+          isEmployee: this.isEmployee,
+          isHR: this.isHR,
+          isManager: this.isManager,
+          rejectedCount: this.rejectedCount,
+          userName: this.currentUserName,
+          messages: this.chatMessages,
+          sessions: this.chatSessions,
+          activeSessionId: this.activeChatSessionId,
+          isFullScreen: this.isChatFullScreen,
+          onMessagesChange: (msgs: ChatMessage[]) => {
+            this.chatMessages = msgs;
+          },
+          onSessionsChange: (sessions: ChatSession[], activeSessionId: string) => {
+            this.chatSessions = sessions && sessions.length > 0 ? sessions : null;
+            this.activeChatSessionId = activeSessionId || null;
+          },
+          onFullScreenChange: (full: boolean) => {
+            this.isChatFullScreen = full;
+          }
+        }
+      });
+
+      this.chatModal = modal;
+      this.isChatOpen = true;
+
+      modal.onDidDismiss().then((detail) => {
+        this.isChatOpen = false;
+        this.chatModal = null;
+        if (detail?.role === 'close') {
+          this.chatMessages = [];
+          this.chatSessions = null;
+          this.activeChatSessionId = null;
+          this.isChatFullScreen = false;
+        }
+      });
+
+      await modal.present();
+    } finally {
+      this.isOpeningChat = false;
+    }
+  }
+
+  async closeChatWindow(role: 'minimize' | 'close' = 'minimize') {
+    this.isChatOpen = false;
+    if (this.chatModal) {
+      const modal = this.chatModal;
+      this.chatModal = null;
+      await modal.dismiss(null, role).catch(() => {});
     }
   }
 

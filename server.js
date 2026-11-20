@@ -6,7 +6,7 @@
  */
 
 // Load environment variables
-require('dotenv').config();
+require("dotenv").config();
 
 // CRASH PREVENTION: Global unhandled exception & rejection handlers
 // Prevents network socket drops (ECONNRESET, ETIMEDOUT, EPIPE) or library rejections from terminating Node
@@ -23,7 +23,7 @@ process.on('unhandledRejection', (reason, promise) => {
 
 const express = require("express");
 const bodyParser = require("body-parser");
-const cors = require('cors');
+const cors = require("cors");
 const path = require("path");
 const multer = require("multer");
 const swaggerUi = require("swagger-ui-express");
@@ -38,12 +38,15 @@ const swaggerSpec = require("./swagger/swagger.spec.js");
 const { DB, db } = require("./config/database");
 const { JWT_SECRET } = require("./config/constants");
 
-
 // Import middleware
 const { auth, admin, hr, manager, roleAuth } = require("./middleware/auth");
 
 // Import utilities
-const { findEmployeeByUserId, toMySQLDateTime, getOrCreateMaster } = require("./utils/helpers");
+const {
+  findEmployeeByUserId,
+  toMySQLDateTime,
+  getOrCreateMaster,
+} = require("./utils/helpers");
 const { excel } = require("./utils/excelReader");
 
 // Import route modules
@@ -87,19 +90,27 @@ const timesheetNotificationService = require("./utils/timesheet-notification.ser
 const complianceChecker = require("./utils/compliance-checker.service");
 const autoClockOutService = require("./services/auto-clockout.service");
 const { syncDirectBiometricDevices } = require("./services/biometric-direct.service");
+const {
+  router: aiRoute,
+  createAiCredsIfNotExist,
+} = require("./routes/ai.routes.js");
+const {
+  router: aiBS,
+  ensureChatHistoryTables,
+} = require("./routes/ai-chat-history.routes.js");
 
 const app = express();
-app.set('trust proxy', true);
+app.set("trust proxy", true);
 const upload = multer({ dest: "uploads/" });
 
 // CORS Configuration for Production
-const allowedOrigins = (process.env.ALLOWED_ORIGINS || 'http://localhost:4203')
-    .split(',')
-    .map(o => o.trim())
-    .filter(Boolean);
+const allowedOrigins = (process.env.ALLOWED_ORIGINS || "http://localhost:4203")
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
 
-console.log('🌐 Allowed CORS origins:', allowedOrigins);
-console.log('✅ Finance Master Configuration Engine integrated'); // Integration confirmation
+console.log("🌐 Allowed CORS origins:", allowedOrigins);
+console.log("✅ Finance Master Configuration Engine integrated"); // Integration confirmation
 
 const compression = require("compression");
 
@@ -110,35 +121,42 @@ app.use(compression());
 app.use(bodyParser.json());
 
 app.use(
-    cors({
-        origin: true,
-    })
+  cors({
+    origin: true,
+  }),
 );
 
 // Serve static files from public/www/browser folder (where Angular build outputs)
 // IMPORTANT: This must come BEFORE the catch-all route
-app.use(express.static(path.join(__dirname, 'public', 'www', 'browser'), {
-    maxAge: process.env.NODE_ENV === 'production' ? '1y' : '0',
+app.use(
+  express.static(path.join(__dirname, "public", "www", "browser"), {
+    maxAge: process.env.NODE_ENV === "production" ? "1y" : "0",
     etag: true,
     setHeaders: (res, filePath) => {
-        // Hashed bundle files can be cached permanently (immutable)
-        if (filePath.match(/\.[a-f0-9]{8,}\.(js|css)$/) || filePath.match(/chunk-[A-Za-z0-9_-]+\.js$/)) {
-            res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        } else if (filePath.endsWith('.html')) {
-            // HTML must not be cached aggressively to pick up new chunk hashes on deployment
-            res.setHeader('Cache-Control', 'no-cache, must-revalidate');
-        } else if (filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)) {
-            res.setHeader('Cache-Control', 'public, max-age=86400');
-        }
-    }
-}));
+      // Hashed bundle files can be cached permanently (immutable)
+      if (
+        filePath.match(/\.[a-f0-9]{8,}\.(js|css)$/) ||
+        filePath.match(/chunk-[A-Za-z0-9_-]+\.js$/)
+      ) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      } else if (filePath.endsWith(".html")) {
+        // HTML must not be cached aggressively to pick up new chunk hashes on deployment
+        res.setHeader("Cache-Control", "no-cache, must-revalidate");
+      } else if (
+        filePath.match(/\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot)$/)
+      ) {
+        res.setHeader("Cache-Control", "public, max-age=86400");
+      }
+    },
+  }),
+);
 
 // Serve uploaded files (profile images, documents, etc.)
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // SPA fallback - serve index.html for root path
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'www', 'browser', 'index.html'));
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "www", "browser", "index.html"));
 });
 
 // SPA fallback - serve index.html for non-API routes (client-side routing)
@@ -150,173 +168,195 @@ app.get('/', (req, res) => {
 //   (?!.*uploads)  - must NOT contain /uploads
 //   (?!.*api-docs) - must NOT contain /api-docs
 app.get(/^(?!.*\.)(?!.*api|.*uploads|.*api-docs).*$/, (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'www', 'browser', 'index.html'));
+  res.sendFile(path.join(__dirname, "public", "www", "browser", "index.html"));
 });
 
 // Swagger JSON endpoint (needed for Swagger UI)
-app.get('/api-docs.json', (req, res) => {
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.json(swaggerSpec);
+app.get("/api-docs.json", (req, res) => {
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.json(swaggerSpec);
 });
 
 /* ============ FRONTEND DIAGNOSTICS ENDPOINT ============ */
 
-app.get('/api/diagnostics', (req, res) => {
-    const fs = require('fs');
-    const browserPath = path.join(__dirname, 'public', 'www', 'browser');
+app.get("/api/diagnostics", (req, res) => {
+  const fs = require("fs");
+  const browserPath = path.join(__dirname, "public", "www", "browser");
 
-    const diagnostics = {
-        timestamp: new Date().toISOString(),
-        server: {
-            nodeVersion: process.version,
-            environment: process.env.NODE_ENV || 'development',
-            port: process.env.PORT || 3000,
-            platform: process.platform
-        },
-        frontend: {
-            buildPath: browserPath,
-            exists: fs.existsSync(browserPath),
-            files: {
-                indexHtml: fs.existsSync(path.join(browserPath, 'index.html')),
-                mainJs: fs.readdirSync(browserPath).filter(f => f.startsWith('main-')).length > 0,
-                polyfillsJs: fs.readdirSync(browserPath).filter(f => f.startsWith('polyfills-')).length > 0,
-                stylesCss: fs.readdirSync(browserPath).filter(f => f.startsWith('styles-')).length > 0,
-            },
-            fileList: fs.existsSync(browserPath) ?
-                fs.readdirSync(browserPath)
-                    .filter(f => f.match(/\.(js|css|html|map)$/))
-                    .map(f => ({
-                        name: f,
-                        size: fs.statSync(path.join(browserPath, f)).size,
-                        modified: fs.statSync(path.join(browserPath, f)).mtime
-                    }))
-                    .sort((a, b) => a.name.localeCompare(b.name))
-                : []
-        },
-        staticServing: {
-            middleware: 'express.static configured for /public/www/browser',
-            spaFallback: 'Regex: /^(?!.*)(?!.*api|.*uploads|.*api-docs).*$/',
-            corsEnabled: true
-        },
-        status: '✅ Frontend build detected - UI should render properly'
-    };
+  const diagnostics = {
+    timestamp: new Date().toISOString(),
+    server: {
+      nodeVersion: process.version,
+      environment: process.env.NODE_ENV || "development",
+      port: process.env.PORT || 3000,
+      platform: process.platform,
+    },
+    frontend: {
+      buildPath: browserPath,
+      exists: fs.existsSync(browserPath),
+      files: {
+        indexHtml: fs.existsSync(path.join(browserPath, "index.html")),
+        mainJs:
+          fs.readdirSync(browserPath).filter((f) => f.startsWith("main-"))
+            .length > 0,
+        polyfillsJs:
+          fs.readdirSync(browserPath).filter((f) => f.startsWith("polyfills-"))
+            .length > 0,
+        stylesCss:
+          fs.readdirSync(browserPath).filter((f) => f.startsWith("styles-"))
+            .length > 0,
+      },
+      fileList: fs.existsSync(browserPath)
+        ? fs
+            .readdirSync(browserPath)
+            .filter((f) => f.match(/\.(js|css|html|map)$/))
+            .map((f) => ({
+              name: f,
+              size: fs.statSync(path.join(browserPath, f)).size,
+              modified: fs.statSync(path.join(browserPath, f)).mtime,
+            }))
+            .sort((a, b) => a.name.localeCompare(b.name))
+        : [],
+    },
+    staticServing: {
+      middleware: "express.static configured for /public/www/browser",
+      spaFallback: "Regex: /^(?!.*)(?!.*api|.*uploads|.*api-docs).*$/",
+      corsEnabled: true,
+    },
+    status: "✅ Frontend build detected - UI should render properly",
+  };
 
-    res.json(diagnostics);
+  res.json(diagnostics);
 });
 
 /* ============ DATABASE INITIALIZATION ============ */
 
 async function initializeDatabase() {
-    const pool = mysql.createPool({
-        host: "localhost",
-        user: "root",
-        password: "root",
-        waitForConnections: true,
-        connectionLimit: 1500,
-        queueLimit: 100
-    });
+  const pool = mysql.createPool({
+    host: "localhost",
+    user: "root",
+    password: "root",
+    waitForConnections: true,
+    connectionLimit: 1500,
+    queueLimit: 100,
+  });
 
-    const conn = await pool.getConnection();
+  const conn = await pool.getConnection();
 
+  try {
+    const schemaPath = path.join(__dirname, "schema.sql");
+
+    const targetDb = process.env.DB_NAME || "hrms_db_new";
+    await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
+    await conn.query(`USE \`${targetDb}\``);
+
+    // Check if database tables already exist to avoid re-running all 150+ SQL statements on every restart
+    const [existingTables] = await conn.query("SHOW TABLES LIKE 'users'");
+    const isDbInitialized = existingTables && existingTables.length > 0;
+
+    if (!fs.existsSync(schemaPath)) {
+      console.warn(
+        "⚠️ schema.sql not found, skipping file-based initialization",
+      );
+      console.log(`✅ Database ${targetDb} verified (minimal setup)`);
+    } else if (isDbInitialized && process.env.FORCE_DB_INIT !== "true") {
+      console.log(
+        `✅ Database ${targetDb} schema already initialized. Skipping full schema.sql execution.`,
+      );
+    } else {
+      console.log("📄 Reading schema from schema.sql...");
+      const schemaSQL = fs.readFileSync(schemaPath, "utf8");
+      console.log(`✅ Using database ${targetDb}`);
+
+      const sqlWithoutComments = schemaSQL
+        .split("\n")
+        .map((line) => {
+          const commentIndex = line.indexOf("--");
+          if (commentIndex >= 0) return line.substring(0, commentIndex);
+          return line;
+        })
+        .join("\n");
+
+      const statements = sqlWithoutComments
+        .split(";")
+        .map((s) => s.trim())
+        .filter((s) => {
+          if (s.length === 0) return false;
+          const upper = s.toUpperCase();
+          if (upper.includes("CREATE DATABASE")) return false;
+          if (upper.startsWith("USE ")) return false;
+          return true;
+        });
+
+      console.log(`📊 Executing ${statements.length} SQL statements...`);
+
+      let successCount = 0;
+      let skipCount = 0;
+
+      for (let i = 0; i < statements.length; i++) {
+        const statement = statements[i];
+        try {
+          await conn.query(statement);
+          successCount++;
+          if (statement.toUpperCase().includes("CREATE TABLE")) {
+            const match = statement.match(/CREATE TABLE.*?`?(\w+)`?\s*\(/i);
+            if (match) console.log(`  ✓ Created table: ${match[1]}`);
+          }
+        } catch (err) {
+          if (
+            err.message.includes("Duplicate") ||
+            err.message.includes("already exists") ||
+            err.message.includes("Multiple primary key")
+          ) {
+            skipCount++;
+          } else {
+            console.error(`❌ Error on statement ${i + 1}:`);
+            console.error(`   SQL: ${statement.substring(0, 100)}...`);
+            console.error(`   Error: ${err.message}`);
+            throw err;
+          }
+        }
+      }
+
+      console.log(
+        `✅ Database initialization complete: ${successCount} executed, ${skipCount} skipped`,
+      );
+    }
+
+    // Ensure phone columns exist in employees table
     try {
-        const schemaPath = path.join(__dirname, 'schema.sql');
+      console.log("📋 Checking employees table columns for phone fields...");
+      const [columns] = await conn.query("DESCRIBE employees");
+      const columnNames = columns.map((col) => col.Field);
 
-        const targetDb = process.env.DB_NAME || 'hrms_db_new';
-        await conn.query(`CREATE DATABASE IF NOT EXISTS \`${targetDb}\``);
-        await conn.query(`USE \`${targetDb}\``);
+      const columnsToAdd = [
+        { name: "mobile_number", type: "VARCHAR(20) NULL" },
+        { name: "residence_number", type: "VARCHAR(20) NULL" },
+        { name: "PhoneNumber", type: "VARCHAR(20) NULL" },
+      ];
 
-        // Check if database tables already exist to avoid re-running all 150+ SQL statements on every restart
-        const [existingTables] = await conn.query("SHOW TABLES LIKE 'users'");
-        const isDbInitialized = existingTables && existingTables.length > 0;
-
-        if (!fs.existsSync(schemaPath)) {
-            console.warn('⚠️ schema.sql not found, skipping file-based initialization');
-            console.log(`✅ Database ${targetDb} verified (minimal setup)`);
-        } else if (isDbInitialized && process.env.FORCE_DB_INIT !== 'true') {
-            console.log(`✅ Database ${targetDb} schema already initialized. Skipping full schema.sql execution.`);
-        } else {
-            console.log('📄 Reading schema from schema.sql...');
-            const schemaSQL = fs.readFileSync(schemaPath, 'utf8');
-            console.log(`✅ Using database ${targetDb}`);
-
-            const sqlWithoutComments = schemaSQL
-                .split('\n')
-                .map(line => {
-                    const commentIndex = line.indexOf('--');
-                    if (commentIndex >= 0) return line.substring(0, commentIndex);
-                    return line;
-                })
-                .join('\n');
-
-            const statements = sqlWithoutComments
-                .split(';')
-                .map(s => s.trim())
-                .filter(s => {
-                    if (s.length === 0) return false;
-                    const upper = s.toUpperCase();
-                    if (upper.includes('CREATE DATABASE')) return false;
-                    if (upper.startsWith('USE ')) return false;
-                    return true;
-                });
-
-            console.log(`📊 Executing ${statements.length} SQL statements...`);
-
-            let successCount = 0;
-            let skipCount = 0;
-
-            for (let i = 0; i < statements.length; i++) {
-                const statement = statements[i];
-                try {
-                    await conn.query(statement);
-                    successCount++;
-                    if (statement.toUpperCase().includes('CREATE TABLE')) {
-                        const match = statement.match(/CREATE TABLE.*?`?(\w+)`?\s*\(/i);
-                        if (match) console.log(`  ✓ Created table: ${match[1]}`);
-                    }
-                } catch (err) {
-                    if (err.message.includes('Duplicate') ||
-                        err.message.includes('already exists') ||
-                        err.message.includes('Multiple primary key')) {
-                        skipCount++;
-                    } else {
-                        console.error(`❌ Error on statement ${i + 1}:`);
-                        console.error(`   SQL: ${statement.substring(0, 100)}...`);
-                        console.error(`   Error: ${err.message}`);
-                        throw err;
-                    }
-                }
-            }
-
-            console.log(`✅ Database initialization complete: ${successCount} executed, ${skipCount} skipped`);
+      for (const col of columnsToAdd) {
+        if (!columnNames.includes(col.name)) {
+          console.log(
+            `   ⚡ Adding missing column "${col.name}" to employees table...`,
+          );
+          await conn.query(
+            `ALTER TABLE employees ADD COLUMN ${col.name} ${col.type}`,
+          );
+          console.log(`   ✓ Column "${col.name}" added successfully.`);
         }
+      }
+    } catch (colErr) {
+      console.warn(
+        "⚠️ Warning: could not verify/add phone columns:",
+        colErr.message,
+      );
+    }
 
-        // Ensure phone columns exist in employees table
-        try {
-            console.log("📋 Checking employees table columns for phone fields...");
-            const [columns] = await conn.query('DESCRIBE employees');
-            const columnNames = columns.map(col => col.Field);
-
-            const columnsToAdd = [
-                { name: 'mobile_number', type: 'VARCHAR(20) NULL' },
-                { name: 'residence_number', type: 'VARCHAR(20) NULL' },
-                { name: 'PhoneNumber', type: 'VARCHAR(20) NULL' }
-            ];
-
-            for (const col of columnsToAdd) {
-                if (!columnNames.includes(col.name)) {
-                    console.log(`   ⚡ Adding missing column "${col.name}" to employees table...`);
-                    await conn.query(`ALTER TABLE employees ADD COLUMN ${col.name} ${col.type}`);
-                    console.log(`   ✓ Column "${col.name}" added successfully.`);
-                }
-            }
-        } catch (colErr) {
-            console.warn("⚠️ Warning: could not verify/add phone columns:", colErr.message);
-        }
-
-        // Ensure comp_off_requests table exists
-        try {
-            await conn.query(`
+    // Ensure comp_off_requests table exists
+    try {
+      await conn.query(`
                 CREATE TABLE IF NOT EXISTS comp_off_requests (
                     id INT PRIMARY KEY AUTO_INCREMENT,
                     employee_id INT NOT NULL,
@@ -333,14 +373,17 @@ async function initializeDatabase() {
                     FOREIGN KEY (approver_id) REFERENCES users(id)
                 )
             `);
-            console.log("✅ Verified comp_off_requests table exists");
-        } catch (tableErr) {
-            console.warn("⚠️ Warning: could not verify/create comp_off_requests table:", tableErr.message);
-        }
+      console.log("✅ Verified comp_off_requests table exists");
+    } catch (tableErr) {
+      console.warn(
+        "⚠️ Warning: could not verify/create comp_off_requests table:",
+        tableErr.message,
+      );
+    }
 
-        // Ensure inbox_notifications table exists
-        try {
-            await conn.query(`
+    // Ensure inbox_notifications table exists
+    try {
+      await conn.query(`
                 CREATE TABLE IF NOT EXISTS inbox_notifications (
                     notification_id INT PRIMARY KEY AUTO_INCREMENT,
                     employee_id INT NOT NULL,
@@ -369,46 +412,67 @@ async function initializeDatabase() {
                     INDEX idx_created_at (created_at)
                 )
             `);
-            console.log("✅ Verified inbox_notifications table exists");
-        } catch (tableErr) {
-            console.warn("⚠️ Warning: could not verify/create inbox_notifications table:", tableErr.message);
-        }
+      console.log("✅ Verified inbox_notifications table exists");
+    } catch (tableErr) {
+      console.warn(
+        "⚠️ Warning: could not verify/create inbox_notifications table:",
+        tableErr.message,
+      );
+    }
 
-        // Ensure comp_off_requests status column supports 'cancelled'
-        try {
-            const [cols] = await conn.query("DESCRIBE comp_off_requests");
-            const statusCol = cols.find(c => c.Field === 'status');
-            if (statusCol && !statusCol.Type.includes('cancelled')) {
-                console.log("🔄 Updating comp_off_requests.status ENUM to include 'cancelled'...");
-                await conn.query("ALTER TABLE comp_off_requests MODIFY COLUMN status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending'");
-                console.log("✅ Updated comp_off_requests.status ENUM");
-            }
-        } catch (alterErr) {
-            console.warn("⚠️ Warning: could not update comp_off_requests.status ENUM:", alterErr.message);
-        }
+    // Ensure comp_off_requests status column supports 'cancelled'
+    try {
+      const [cols] = await conn.query("DESCRIBE comp_off_requests");
+      const statusCol = cols.find((c) => c.Field === "status");
+      if (statusCol && !statusCol.Type.includes("cancelled")) {
+        console.log(
+          "🔄 Updating comp_off_requests.status ENUM to include 'cancelled'...",
+        );
+        await conn.query(
+          "ALTER TABLE comp_off_requests MODIFY COLUMN status ENUM('pending', 'approved', 'rejected', 'cancelled') DEFAULT 'pending'",
+        );
+        console.log("✅ Updated comp_off_requests.status ENUM");
+      }
+    } catch (alterErr) {
+      console.warn(
+        "⚠️ Warning: could not update comp_off_requests.status ENUM:",
+        alterErr.message,
+      );
+    }
 
-        // Ensure resignations ENUM columns support 'Send Back' and 'Return'
-        try {
-            const [cols] = await conn.query("DESCRIBE resignations");
-            const managerActionCol = cols.find(c => c.Field === 'manager_action');
-            if (managerActionCol && !managerActionCol.Type.includes('Send Back')) {
-                console.log("🔄 Updating resignations.manager_action ENUM to include 'Send Back'...");
-                await conn.query("ALTER TABLE resignations MODIFY COLUMN manager_action ENUM('Approve','Retain','Reject','Pending','Send Back') DEFAULT 'Pending'");
-                console.log("✅ Updated resignations.manager_action ENUM");
-            }
-            const hrActionCol = cols.find(c => c.Field === 'hr_action');
-            if (hrActionCol && !hrActionCol.Type.includes('Return')) {
-                console.log("🔄 Updating resignations.hr_action ENUM to include 'Return'...");
-                await conn.query("ALTER TABLE resignations MODIFY COLUMN hr_action ENUM('Approve','Reject','Pending','Return') DEFAULT 'Pending'");
-                console.log("✅ Updated resignations.hr_action ENUM");
-            }
-        } catch (alterErr) {
-            console.warn("⚠️ Warning: could not verify/alter resignations ENUM columns:", alterErr.message);
-        }
+    // Ensure resignations ENUM columns support 'Send Back' and 'Return'
+    try {
+      const [cols] = await conn.query("DESCRIBE resignations");
+      const managerActionCol = cols.find((c) => c.Field === "manager_action");
+      if (managerActionCol && !managerActionCol.Type.includes("Send Back")) {
+        console.log(
+          "🔄 Updating resignations.manager_action ENUM to include 'Send Back'...",
+        );
+        await conn.query(
+          "ALTER TABLE resignations MODIFY COLUMN manager_action ENUM('Approve','Retain','Reject','Pending','Send Back') DEFAULT 'Pending'",
+        );
+        console.log("✅ Updated resignations.manager_action ENUM");
+      }
+      const hrActionCol = cols.find((c) => c.Field === "hr_action");
+      if (hrActionCol && !hrActionCol.Type.includes("Return")) {
+        console.log(
+          "🔄 Updating resignations.hr_action ENUM to include 'Return'...",
+        );
+        await conn.query(
+          "ALTER TABLE resignations MODIFY COLUMN hr_action ENUM('Approve','Reject','Pending','Return') DEFAULT 'Pending'",
+        );
+        console.log("✅ Updated resignations.hr_action ENUM");
+      }
+    } catch (alterErr) {
+      console.warn(
+        "⚠️ Warning: could not verify/alter resignations ENUM columns:",
+        alterErr.message,
+      );
+    }
 
-        // Check/Create otp_verifications table dynamically
-        try {
-            await conn.query(`
+    // Check/Create otp_verifications table dynamically
+    try {
+      await conn.query(`
                 CREATE TABLE IF NOT EXISTS otp_verifications (
                     id INT PRIMARY KEY AUTO_INCREMENT,
                     email VARCHAR(255) NOT NULL UNIQUE,
@@ -417,46 +481,68 @@ async function initializeDatabase() {
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             `);
-            console.log("  ✓ Checked/Created table: otp_verifications");
-        } catch (otpTableErr) {
-            console.warn("⚠️ Warning: could not check/create otp_verifications table:", otpTableErr.message);
-        }
+      console.log("  ✓ Checked/Created table: otp_verifications");
+    } catch (otpTableErr) {
+      console.warn(
+        "⚠️ Warning: could not check/create otp_verifications table:",
+        otpTableErr.message,
+      );
+    }
 
-        // Verify timesheets table columns
-        try {
-            const [cols] = await conn.query("DESCRIBE timesheets");
-            const colNames = cols.map(c => c.Field);
-            if (!colNames.includes('week_start_date')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN week_start_date DATE NULL AFTER date");
-            }
-            if (!colNames.includes('week_end_date')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN week_end_date DATE NULL AFTER week_start_date");
-            }
-            if (!colNames.includes('rejection_reason')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN rejection_reason TEXT NULL");
-            }
-            if (!colNames.includes('rejected_by')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN rejected_by INT NULL");
-            }
-            if (!colNames.includes('rejected_at')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN rejected_at TIMESTAMP NULL");
-            }
-            if (!colNames.includes('approved_by')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN approved_by INT NULL");
-            }
-            if (!colNames.includes('approved_at')) {
-                await conn.query("ALTER TABLE timesheets ADD COLUMN approved_at TIMESTAMP NULL");
-            }
-            await conn.query("ALTER TABLE timesheets MODIFY COLUMN date DATE NULL");
-            await conn.query("ALTER TABLE timesheets MODIFY COLUMN status ENUM('draft', 'submitted', 'pending', 'verified', 'approved', 'rejected') DEFAULT 'pending'");
-            console.log("  ✓ Verified/Updated table columns: timesheets");
-        } catch (tsColErr) {
-            console.warn("⚠️ Warning: could not verify timesheets table columns:", tsColErr.message);
-        }
+    // Verify timesheets table columns
+    try {
+      const [cols] = await conn.query("DESCRIBE timesheets");
+      const colNames = cols.map((c) => c.Field);
+      if (!colNames.includes("week_start_date")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN week_start_date DATE NULL AFTER date",
+        );
+      }
+      if (!colNames.includes("week_end_date")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN week_end_date DATE NULL AFTER week_start_date",
+        );
+      }
+      if (!colNames.includes("rejection_reason")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN rejection_reason TEXT NULL",
+        );
+      }
+      if (!colNames.includes("rejected_by")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN rejected_by INT NULL",
+        );
+      }
+      if (!colNames.includes("rejected_at")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN rejected_at TIMESTAMP NULL",
+        );
+      }
+      if (!colNames.includes("approved_by")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN approved_by INT NULL",
+        );
+      }
+      if (!colNames.includes("approved_at")) {
+        await conn.query(
+          "ALTER TABLE timesheets ADD COLUMN approved_at TIMESTAMP NULL",
+        );
+      }
+      await conn.query("ALTER TABLE timesheets MODIFY COLUMN date DATE NULL");
+      await conn.query(
+        "ALTER TABLE timesheets MODIFY COLUMN status ENUM('draft', 'submitted', 'pending', 'verified', 'approved', 'rejected') DEFAULT 'pending'",
+      );
+      console.log("  ✓ Verified/Updated table columns: timesheets");
+    } catch (tsColErr) {
+      console.warn(
+        "⚠️ Warning: could not verify timesheets table columns:",
+        tsColErr.message,
+      );
+    }
 
-        // Ensure company_branding table exists
-        try {
-            await conn.query(`
+    // Ensure company_branding table exists
+    try {
+      await conn.query(`
                 CREATE TABLE IF NOT EXISTS company_branding (
                     id INT PRIMARY KEY AUTO_INCREMENT,
                     company_name VARCHAR(255) NOT NULL DEFAULT 'Tech Tammina',
@@ -484,10 +570,13 @@ async function initializeDatabase() {
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
             `);
-            console.log("  ✓ Verified/Created table: company_branding");
-        } catch (brandErr) {
-            console.warn("⚠️ Warning: could not check/create company_branding table:", brandErr.message);
-        }
+      console.log("  ✓ Verified/Created table: company_branding");
+    } catch (brandErr) {
+      console.warn(
+        "⚠️ Warning: could not check/create company_branding table:",
+        brandErr.message,
+      );
+    }
 
         // Ensure Employee_BankDetails table exists
         try {
@@ -546,102 +635,231 @@ async function initializeDatabase() {
             console.warn("⚠️ Warning: could not check/create biometric_devices table:", bioDevErr.message);
         }
 
-        // Ensure locations table has detailed address columns
-        try {
-            const [locCols] = await conn.query("DESCRIBE locations");
-            const locColNames = locCols.map(c => c.Field);
-            const locColumnsToAdd = [
-                { name: 'address_line1', type: 'VARCHAR(255) NULL' },
-                { name: 'address_line2', type: 'VARCHAR(255) NULL' },
-                { name: 'city', type: 'VARCHAR(100) NULL' },
-                { name: 'state', type: 'VARCHAR(100) NULL' },
-                { name: 'postal_code', type: 'VARCHAR(50) NULL' },
-                { name: 'phone_number', type: 'VARCHAR(50) NULL' },
-                { name: 'email', type: 'VARCHAR(255) NULL' },
-                { name: 'timezone', type: 'VARCHAR(100) NULL' },
-                { name: 'is_headquarters', type: 'TINYINT(1) DEFAULT 0' }
-            ];
+    // Ensure locations table has detailed address columns
+    try {
+      const [locCols] = await conn.query("DESCRIBE locations");
+      const locColNames = locCols.map((c) => c.Field);
+      const locColumnsToAdd = [
+        { name: "address_line1", type: "VARCHAR(255) NULL" },
+        { name: "address_line2", type: "VARCHAR(255) NULL" },
+        { name: "city", type: "VARCHAR(100) NULL" },
+        { name: "state", type: "VARCHAR(100) NULL" },
+        { name: "postal_code", type: "VARCHAR(50) NULL" },
+        { name: "phone_number", type: "VARCHAR(50) NULL" },
+        { name: "email", type: "VARCHAR(255) NULL" },
+        { name: "timezone", type: "VARCHAR(100) NULL" },
+        { name: "is_headquarters", type: "TINYINT(1) DEFAULT 0" },
+      ];
 
-            for (const col of locColumnsToAdd) {
-                if (!locColNames.includes(col.name)) {
-                    console.log(`   ⚡ Adding missing column "${col.name}" to locations table...`);
-                    await conn.query(`ALTER TABLE locations ADD COLUMN ${col.name} ${col.type}`);
-                }
-            }
-            console.log("  ✓ Verified/Updated table columns: locations");
-        } catch (locErr) {
-            console.warn("⚠️ Warning: could not check/update locations address columns:", locErr.message);
+      for (const col of locColumnsToAdd) {
+        if (!locColNames.includes(col.name)) {
+          console.log(
+            `   ⚡ Adding missing column "${col.name}" to locations table...`,
+          );
+          await conn.query(
+            `ALTER TABLE locations ADD COLUMN ${col.name} ${col.type}`,
+          );
         }
-
-    } catch (error) {
-        console.error("❌ Database initialization error:", error.message);
-        throw error;
-    } finally {
-        await conn.release();
-        await pool.end();
+      }
+      console.log("  ✓ Verified/Updated table columns: locations");
+    } catch (locErr) {
+      console.warn(
+        "⚠️ Warning: could not check/update locations address columns:",
+        locErr.message,
+      );
     }
+  } catch (error) {
+    console.error("❌ Database initialization error:", error.message);
+    throw error;
+  } finally {
+    await conn.release();
+    await pool.end();
+  }
 }
 
 async function ensureAdminUser() {
-    const conn = await mysql.createConnection({
-        host: DB.host,
-        user: DB.user,
-        password: DB.password,
-        database: DB.database
-    });
-    try {
-        const [rows] = await conn.execute('SELECT id FROM users WHERE username = ? LIMIT 1', ['admin']);
-        if (rows.length) {
-            console.log('✅ Default admin already exists');
-            return;
-        }
-        const hashed = await bcrypt.hash('admin123', 10);
-        await conn.execute(
-            'INSERT INTO users (username, password_hash, role, full_name, created_at) VALUES (?, ?, ?, ?, NOW())',
-            ['admin', hashed, 'admin', 'Default Admin']
-        );
-        console.log('✅ Default admin created: username="admin" password="admin123"');
-    } catch (err) {
-        console.error('Failed to create default admin:', err.message);
-        throw err;
-    } finally {
-        await conn.end();
+  const conn = await mysql.createConnection({
+    host: DB.host,
+    user: DB.user,
+    password: DB.password,
+    database: DB.database,
+  });
+  try {
+    const [rows] = await conn.execute(
+      "SELECT id FROM users WHERE username = ? LIMIT 1",
+      ["admin"],
+    );
+    if (rows.length) {
+      console.log("✅ Default admin already exists");
+      return;
     }
+    const hashed = await bcrypt.hash("admin123", 10);
+    await conn.execute(
+      "INSERT INTO users (username, password_hash, role, full_name, created_at) VALUES (?, ?, ?, ?, NOW())",
+      ["admin", hashed, "admin", "Default Admin"],
+    );
+    console.log(
+      '✅ Default admin created: username="admin" password="admin123"',
+    );
+  } catch (err) {
+    console.error("Failed to create default admin:", err.message);
+    throw err;
+  } finally {
+    await conn.end();
+  }
 }
 
 /* ============ ACCESS MATRIX ============ */
 
 const ACCESS_MATRIX = {
-    description: "Role access (allowed = true). Roles: admin, hr, manager, finance, employee",
-    matrix: {
-        "/api/login": { admin: true, hr: true, manager: true, employee: true, method: "POST", note: "public auth" },
-        "/api/onboarding/set-password": { admin: true, hr: true, manager: true, employee: true, method: "POST" },
-        "/api/employees": { "GET": { admin: true, hr: true, manager: true, employee: false }, "POST": { admin: true, hr: true, manager: false, employee: false } },
-        "/api/employees/search": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
-        "/api/profile": { "GET": { admin: true, hr: true, manager: true, employee: true }, "PUT": { admin: true, hr: true, manager: true, employee: true } },
-        "/api/payslips/{employee_id}": { admin: true, hr: true, manager: true, employee: true, note: "employee can view own only" },
-        "/api/payslips/{employee_id}/{slip_id}": { admin: true, hr: true, manager: true, employee: true, note: "employee can view own only" },
-        "/api/upload/employees": { admin: true, hr: true, manager: false, employee: false, method: "POST" },
-        "/api/upload/payroll": { admin: true, hr: true, finance: true, manager: false, employee: false, method: "POST" },
-        "/api/upload/holidays": { admin: true, hr: true, manager: false, employee: false, method: "POST" },
-        "/api/attendance": { "POST": { admin: true, hr: true, manager: true, employee: true }, "GET /api/attendance/{date}": { admin: true, hr: true, manager: true, employee: false } },
-        "/api/attendance-report": { admin: true, hr: true, manager: true, employee: false, method: "GET" },
-        "/api/timesheets": { "POST": { admin: true, hr: true, manager: true, employee: true }, "GET": { admin: true, hr: true, manager: true, employee: true } },
-        "/api/leaves": { "GET": { admin: true, hr: true, manager: true, employee: true }, "POST": { admin: true, hr: true, manager: true, employee: true } },
-        "/api/leaves/{id}": { "PUT": { admin: true, hr: true, manager: true, employee: false } },
-        "/api/announcements": { "GET": { admin: true, hr: true, manager: true, employee: true }, "POST": { admin: true, hr: true, manager: false, employee: false } },
-        "/api/support": { "GET": { admin: true, hr: true, manager: true, employee: true }, "POST": { admin: true, hr: true, manager: true, employee: true } },
-        "/api/holidays": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
-        "/api/birthdays": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
-        "/api/anniversaries": { admin: true, hr: true, manager: true, employee: true, method: "GET" },
-        "/api/birthday-wishes": { "POST": { admin: true, hr: true, manager: true, employee: true }, "GET /api/birthday-wishes/{employee_id}": { admin: true, hr: true, manager: true, employee: true } },
-        "/api/support": { admin: true, hr: true, manager: true, employee: true },
-        "/api/access-matrix": { admin: true, hr: true, manager: true, employee: true, method: "GET", note: "Returns this matrix" }
-    }
+  description:
+    "Role access (allowed = true). Roles: admin, hr, manager, finance, employee",
+  matrix: {
+    "/api/login": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "POST",
+      note: "public auth",
+    },
+    "/api/onboarding/set-password": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "POST",
+    },
+    "/api/employees": {
+      GET: { admin: true, hr: true, manager: true, employee: false },
+      POST: { admin: true, hr: true, manager: false, employee: false },
+    },
+    "/api/employees/search": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "GET",
+    },
+    "/api/profile": {
+      GET: { admin: true, hr: true, manager: true, employee: true },
+      PUT: { admin: true, hr: true, manager: true, employee: true },
+    },
+    "/api/payslips/{employee_id}": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      note: "employee can view own only",
+    },
+    "/api/payslips/{employee_id}/{slip_id}": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      note: "employee can view own only",
+    },
+    "/api/upload/employees": {
+      admin: true,
+      hr: true,
+      manager: false,
+      employee: false,
+      method: "POST",
+    },
+    "/api/upload/payroll": {
+      admin: true,
+      hr: true,
+      finance: true,
+      manager: false,
+      employee: false,
+      method: "POST",
+    },
+    "/api/upload/holidays": {
+      admin: true,
+      hr: true,
+      manager: false,
+      employee: false,
+      method: "POST",
+    },
+    "/api/attendance": {
+      POST: { admin: true, hr: true, manager: true, employee: true },
+      "GET /api/attendance/{date}": {
+        admin: true,
+        hr: true,
+        manager: true,
+        employee: false,
+      },
+    },
+    "/api/attendance-report": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: false,
+      method: "GET",
+    },
+    "/api/timesheets": {
+      POST: { admin: true, hr: true, manager: true, employee: true },
+      GET: { admin: true, hr: true, manager: true, employee: true },
+    },
+    "/api/leaves": {
+      GET: { admin: true, hr: true, manager: true, employee: true },
+      POST: { admin: true, hr: true, manager: true, employee: true },
+    },
+    "/api/leaves/{id}": {
+      PUT: { admin: true, hr: true, manager: true, employee: false },
+    },
+    "/api/announcements": {
+      GET: { admin: true, hr: true, manager: true, employee: true },
+      POST: { admin: true, hr: true, manager: false, employee: false },
+    },
+    "/api/support": {
+      GET: { admin: true, hr: true, manager: true, employee: true },
+      POST: { admin: true, hr: true, manager: true, employee: true },
+    },
+    "/api/holidays": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "GET",
+    },
+    "/api/birthdays": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "GET",
+    },
+    "/api/anniversaries": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "GET",
+    },
+    "/api/birthday-wishes": {
+      POST: { admin: true, hr: true, manager: true, employee: true },
+      "GET /api/birthday-wishes/{employee_id}": {
+        admin: true,
+        hr: true,
+        manager: true,
+        employee: true,
+      },
+    },
+    "/api/support": { admin: true, hr: true, manager: true, employee: true },
+    "/api/access-matrix": {
+      admin: true,
+      hr: true,
+      manager: true,
+      employee: true,
+      method: "GET",
+      note: "Returns this matrix",
+    },
+  },
 };
 
 app.get("/api/access-matrix", auth, async (req, res) => {
-    res.json(ACCESS_MATRIX);
+  res.json(ACCESS_MATRIX);
 });
 
 /* ============ MOUNT MODULAR ROUTES ============ */
@@ -721,7 +939,9 @@ app.use("/api/reports/analytics", reportRoutesEnhanced); // Enhanced analytics e
 app.use("/api/reports/export", reportRoutesEnhanced); // Enhanced export endpoints
 
 // Notification Routes
+const openuiChatRoutes = require("./routes/openui-chat.routes");
 app.use("/api/notifications", notificationRoutesEnhanced); // Enhanced notification system
+app.use("/api/inbox/chat", openuiChatRoutes);
 app.use("/api/inbox", inboxRoutes);
 
 // Work Updates Routes (Employee)
@@ -759,96 +979,114 @@ app.use("/api/biometric-attendance", biometricAttendanceRoutes);
 
 // Serve Swagger UI
 app.use("/api-docs", swaggerUi.serve);
-app.get("/api-docs", swaggerUi.setup(swaggerSpec, {
+app.get(
+  "/api-docs",
+  swaggerUi.setup(swaggerSpec, {
     swaggerOptions: {
-        persistAuthorization: true,
-        displayOperationId: false,
-        supportedSubmitMethods: ['get', 'post', 'put', 'delete', 'patch'],
-        tryItOutEnabled: true
+      persistAuthorization: true,
+      displayOperationId: false,
+      supportedSubmitMethods: ["get", "post", "put", "delete", "patch"],
+      tryItOutEnabled: true,
     },
     customCss: `.swagger-ui .topbar {background-color:#1976d2}`,
-    customSiteTitle: "HRMS API Documentation - Modular"
-}));
+    customSiteTitle: "HRMS API Documentation - Modular",
+  }),
+);
 
 /* ============ HEALTH CHECK ============ */
 
+/*Ai ROutes*/
+app.use("/api/update-me-integration/", aiRoute);
+app.use("/api/update-me-integration/", aiBS);
+/*Ai ROutes*/
+
 app.get("/api/health", (req, res) => {
-    res.json({
-        status: "OK",
-        timestamp: new Date(),
-        server: "HRMS API v2.0 (Modular Structure)",
-        modules: {
-            auth: "✓ Loaded",
-            masters: "✓ Loaded",
-            onboarding: "✓ Loaded",
-            employees: "✓ Loaded",
-            attendance: "✓ Loaded",
-            leaves: "✓ Loaded",
-            payroll: "✓ Loaded",
-            uploads: "✓ Loaded",
-            timesheets: "✓ Loaded",
-            announcements: "✓ Loaded",
-            support: "✓ Loaded",
-            birthdays: "✓ Loaded",
-            holidays: "✓ Loaded",
-            reports: "✓ Loaded",
-            notifications: "✓ Loaded",
-            projects: "✓ Loaded",
-            assets: "✓ Loaded",
-            dashboard: "✓ Loaded",
-            admin_timesheet: "✓ Loaded"
-        }
-    });
+  res.json({
+    status: "OK",
+    timestamp: new Date(),
+    server: "HRMS API v2.0 (Modular Structure)",
+    modules: {
+      auth: "✓ Loaded",
+      masters: "✓ Loaded",
+      onboarding: "✓ Loaded",
+      employees: "✓ Loaded",
+      attendance: "✓ Loaded",
+      leaves: "✓ Loaded",
+      payroll: "✓ Loaded",
+      uploads: "✓ Loaded",
+      timesheets: "✓ Loaded",
+      announcements: "✓ Loaded",
+      support: "✓ Loaded",
+      birthdays: "✓ Loaded",
+      holidays: "✓ Loaded",
+      reports: "✓ Loaded",
+      notifications: "✓ Loaded",
+      projects: "✓ Loaded",
+      assets: "✓ Loaded",
+      dashboard: "✓ Loaded",
+      admin_timesheet: "✓ Loaded",
+    },
+  });
 });
 
 /* ============ START SERVER ============ */
 
 (async function startServer() {
+  try {
+    console.log("🔄 Initializing database...");
+    await initializeDatabase();
+    console.log("✅ Database initialized\n");
+    console.log("🔄 Initializing AI User...");
+    await createAiCredsIfNotExist();
+    console.log("✅ Ai User initialized\n");
+    console.log("🔄 Initializing AI Chat History tables...");
+    await ensureChatHistoryTables();
+    console.log("✅ AI Chat History tables initialized\n");
+    // console.log("🔄 Running database migrations...");
+    // const connection = await db.getConnection();
+    // try {
+    //     await runMigrations(connection);
+    // } finally {
+    //     connection.release();
+    // }
+    // console.log("✅ Migrations completed\n");
+
+    console.log("🔄 Creating default admin user...");
+    await ensureAdminUser();
+    console.log("✅ Admin user ready\n");
+
+    // Migrate existing WFH/Remote notifications to Attendance Regularization
     try {
-        console.log("🔄 Initializing database...");
-        await initializeDatabase();
-        console.log("✅ Database initialized\n");
-
-        // console.log("🔄 Running database migrations...");
-        // const connection = await db.getConnection();
-        // try {
-        //     await runMigrations(connection);
-        // } finally {
-        //     connection.release();
-        // }
-        // console.log("✅ Migrations completed\n");
-
-        console.log("🔄 Creating default admin user...");
-        await ensureAdminUser();
-        console.log("✅ Admin user ready\n");
-
-        // Migrate existing WFH/Remote notifications to Attendance Regularization
-        try {
-            const conn = await db();
-            await conn.query(
-                `UPDATE inbox_notifications 
+      const conn = await db();
+      await conn.query(
+        `UPDATE inbox_notifications 
                  SET request_type = 'Attendance Regularization' 
                  WHERE request_type = 'Leave Request' 
-                 AND (title LIKE '%Work From Home%' OR title LIKE '%Remote%' OR description LIKE '%Requested WFH%' OR description LIKE '%Requested Remote%')`
-            );
-            await conn.end();
-            console.log("✅ Existing WFH/Remote notifications migrated to Attendance Regularization\n");
-        } catch (migErr) {
-            console.warn("⚠️  Error migrating WFH/Remote notifications on startup:", migErr.message);
-        }
+                 AND (title LIKE '%Work From Home%' OR title LIKE '%Remote%' OR description LIKE '%Requested WFH%' OR description LIKE '%Requested Remote%')`,
+      );
+      await conn.end();
+      console.log(
+        "✅ Existing WFH/Remote notifications migrated to Attendance Regularization\n",
+      );
+    } catch (migErr) {
+      console.warn(
+        "⚠️  Error migrating WFH/Remote notifications on startup:",
+        migErr.message,
+      );
+    }
 
-        const PORT = process.env.PORT || 3000;
-        const ENV = process.env.NODE_ENV || 'development';
+    const PORT = process.env.PORT || 3000;
+    const ENV = process.env.NODE_ENV || "development";
 
-        // Start timesheet notification service
-        timesheetNotificationService.start();
-        console.log("✅ Timesheet notification service started");
+    // Start timesheet notification service
+    timesheetNotificationService.start();
+    console.log("✅ Timesheet notification service started");
 
-        // Start compliance checker service
-        complianceChecker.start();
+    // Start compliance checker service
+    complianceChecker.start();
 
-        // Start automatic clock-out background service
-        autoClockOutService.start();
+    // Start automatic clock-out background service
+    autoClockOutService.start();
 
         // Start automatic periodic direct biometric devices synchronization background service
         if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
@@ -873,29 +1111,31 @@ app.get("/api/health", (req, res) => {
             }, biometricIntervalSec * 1000);
         }
 
-        app.listen(PORT, () => {
-            console.log(`\n╔══════════════════════════════════════════════╗`);
-            console.log(`║     HRMS API Server (Modular)                ║`);
-            console.log(`╠══════════════════════════════════════════════╣`);
-            console.log(`║ Environment: ${ENV.padEnd(32)} ║`);
-            console.log(`║ Port: ${String(PORT).padEnd(39)} ║`);
-            console.log(`║ API Docs: http://localhost:${PORT}/api-docs     ║`);
-            console.log(`║ Home: http://localhost:${PORT}/                 ║`);
-            console.log(`║ API Base: ${(process.env.API_BASE_URL || `http://localhost:${PORT}`).padEnd(33)} ║`);
-            console.log(`║ Default Login: admin / admin123              ║`);
-            console.log(`║                                              ║`);
-            console.log(`║ 📁 Modular Structure:                        ║`);
-            console.log(`║   ├── config/    (DB & Constants)            ║`);
-            console.log(`║   ├── middleware/ (Auth & Guards)            ║`);
-            console.log(`║   ├── routes/    (API Endpoints)             ║`);
-            console.log(`║   ├── utils/     (Helpers & Excel)           ║`);
-            console.log(`║   └── swagger/   (API Documentation)         ║`);
-            console.log(`╚══════════════════════════════════════════════╝`);
-        });
-    } catch (err) {
-        console.error("❌ Failed to start server:", err.message);
-        process.exit(1);
-    }
+    app.listen(PORT, () => {
+      console.log(`\n╔══════════════════════════════════════════════╗`);
+      console.log(`║     HRMS API Server (Modular)                ║`);
+      console.log(`╠══════════════════════════════════════════════╣`);
+      console.log(`║ Environment: ${ENV.padEnd(32)} ║`);
+      console.log(`║ Port: ${String(PORT).padEnd(39)} ║`);
+      console.log(`║ API Docs: http://localhost:${PORT}/api-docs     ║`);
+      console.log(`║ Home: http://localhost:${PORT}/                 ║`);
+      console.log(
+        `║ API Base: ${(process.env.API_BASE_URL || `http://localhost:${PORT}`).padEnd(33)} ║`,
+      );
+      console.log(`║ Default Login: admin / admin123              ║`);
+      console.log(`║                                              ║`);
+      console.log(`║ 📁 Modular Structure:                        ║`);
+      console.log(`║   ├── config/    (DB & Constants)            ║`);
+      console.log(`║   ├── middleware/ (Auth & Guards)            ║`);
+      console.log(`║   ├── routes/    (API Endpoints)             ║`);
+      console.log(`║   ├── utils/     (Helpers & Excel)           ║`);
+      console.log(`║   └── swagger/   (API Documentation)         ║`);
+      console.log(`╚══════════════════════════════════════════════╝`);
+    });
+  } catch (err) {
+    console.error("❌ Failed to start server:", err.message);
+    process.exit(1);
+  }
 })();
 
 module.exports = app;
