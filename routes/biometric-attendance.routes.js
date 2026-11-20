@@ -14,6 +14,7 @@ const { auth, admin, hr, manager } = require('../middleware/auth');
 const { findEmployeeByUserId } = require('../utils/helpers');
 const { getSyncState, recalculateDailyBiometric } = require('../services/biometric-sync.service');
 const { syncDirectBiometricDevices, syncSingleDevice, ingestDirectPunches, ensureBiometricTablesExist } = require('../services/biometric-direct.service');
+const { getDeviceStatusMap, refreshDeviceList, pingAllDevices, setPingInterval, getCurrentIntervalMs } = require('../services/biometric-ping.service');
 
 // Biometric role check: Admin, HR, or Networking
 const biometricAuth = (req, res, next) => {
@@ -447,6 +448,34 @@ router.delete('/mappings/:id', auth, biometricAuth, async (req, res) => {
 });
 
 /**
+ * @route   GET /api/biometric-attendance/devices/live-ping
+ * @desc    Get live TCP reachability & latency status of all biometric devices
+ *          Query params:
+ *          - force=true (triggers immediate real-time socket probe)
+ *          - interval=X (adjusts the daemon ping interval between 3s and 300s)
+ * @access  Private (Admin / HR / Networking)
+ */
+router.get('/devices/live-ping', auth, biometricAuth, async (req, res) => {
+  try {
+    if (req.query.interval) {
+      setPingInterval(req.query.interval);
+    }
+    if (req.query.force === 'true') {
+      await pingAllDevices();
+    }
+    const statusMap = getDeviceStatusMap();
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      currentIntervalSec: Math.round(getCurrentIntervalMs() / 1000),
+      data: statusMap
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
  * @route   GET /api/biometric-attendance/devices
  * @desc    Get biometric machines/devices list dynamically from database with punch metrics and status
  * @access  Private (Admin / HR)
@@ -488,23 +517,29 @@ router.get('/devices', auth, biometricAuth, async (req, res) => {
       ORDER BY d.id ASC
     `);
 
+    const liveStatus = getDeviceStatusMap();
     const now = new Date();
     const devices = rows.map(r => {
+      const devPing = liveStatus[String(r.device_id)];
       const lastPunch = r.last_punch_time ? new Date(r.last_punch_time) : null;
       const hoursAgo = lastPunch ? (now - lastPunch) / (1000 * 60 * 60) : 999;
 
       const lastSync = r.updated_at ? new Date(r.updated_at) : null;
       const syncMinutesAgo = lastSync ? (now - lastSync) / (1000 * 60) : 99999;
 
-      // Machine is ONLINE if:
-      // 1. It successfully connected/synced with the server recently (within 15 mins), OR
-      // 2. An employee recorded a punch on it within the last 24 hours.
-      const isOnline = syncMinutesAgo <= 15 || hoursAgo < 24;
-      const isIdle = syncMinutesAgo <= 60 || hoursAgo < 72;
+      let status = 'offline';
+      let latency = null;
 
-      const status = r.config_status === 'inactive' 
-        ? 'offline' 
-        : (isOnline ? 'online' : (isIdle ? 'idle' : 'offline'));
+      if (r.config_status === 'inactive') {
+        status = 'offline';
+      } else if (devPing) {
+        status = devPing.online ? 'online' : 'offline';
+        latency = devPing.latency != null ? devPing.latency : null;
+      } else {
+        const isOnline = syncMinutesAgo <= 15 || hoursAgo < 24;
+        const isIdle = syncMinutesAgo <= 60 || hoursAgo < 72;
+        status = isOnline ? 'online' : (isIdle ? 'idle' : 'offline');
+      }
 
       return {
         id: r.id,
@@ -521,6 +556,7 @@ router.get('/devices', auth, biometricAuth, async (req, res) => {
         firstPunchTime: r.first_punch_time,
         status: status,
         isOnline: status === 'online',
+        latency: latency,
         createdAt: r.created_at,
         updatedAt: r.updated_at
       };
@@ -571,6 +607,7 @@ router.post('/devices', auth, biometricAuth, async (req, res) => {
     `, [cleanDeviceId, cleanName, cleanLocation, cleanType, cleanIp, cleanSerial, cleanStatus]);
 
     const [savedRows] = await db.query('SELECT * FROM biometric_devices WHERE device_id = ?', [cleanDeviceId]);
+    refreshDeviceList().catch(() => {});
 
     res.json({
       success: true,
@@ -620,6 +657,7 @@ router.put('/devices/:id', auth, biometricAuth, async (req, res) => {
     ]);
 
     const [updatedRows] = await db.query('SELECT * FROM biometric_devices WHERE id = ?', [id]);
+    refreshDeviceList().catch(() => {});
 
     res.json({
       success: true,
@@ -641,6 +679,7 @@ router.delete('/devices/:id', auth, biometricAuth, async (req, res) => {
   try {
     const id = parseInt(req.params.id, 10);
     await db.query('DELETE FROM biometric_devices WHERE id = ?', [id]);
+    refreshDeviceList().catch(() => {});
     res.json({ success: true, message: 'Biometric device deleted successfully.' });
   } catch (err) {
     console.error('[BiometricRoute] Delete device error:', err);

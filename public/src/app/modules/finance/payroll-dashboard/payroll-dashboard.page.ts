@@ -212,6 +212,34 @@ export class PayrollDashboardPage implements OnInit {
     if (step.id === 1) {
       this.router.navigate(['/finance/run-payroll/leave-attendance'], {
         queryParams: { month: this.selectedMonth, step: 1 }
+      }).then(success => {
+        if (!success) {
+          this.router.navigate(['/finance/leave-attendance-payable'], {
+            queryParams: { month: this.selectedMonth, step: 1 }
+          });
+        }
+      }).catch(err => {
+        console.error('Navigation to leave-attendance failed:', err);
+        this.router.navigate(['/finance/leave-attendance-payable'], {
+          queryParams: { month: this.selectedMonth, step: 1 }
+        });
+      });
+      return;
+    }
+    if (step.id === 2) {
+      this.router.navigate(['/finance/run-payroll/new-joinees-exits'], {
+        queryParams: { month: this.selectedMonth, step: 1 }
+      }).then(success => {
+        if (!success) {
+          this.router.navigate(['/finance/new-joinees-exits'], {
+            queryParams: { month: this.selectedMonth, step: 1 }
+          });
+        }
+      }).catch(err => {
+        console.error('Navigation to new-joinees-exits failed:', err);
+        this.router.navigate(['/finance/new-joinees-exits'], {
+          queryParams: { month: this.selectedMonth, step: 1 }
+        });
       });
       return;
     }

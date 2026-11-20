@@ -43,20 +43,29 @@ const routes: Routes = [
     loadChildren: () => import('./payroll-process/payroll-process.module').then(m => m.PayrollProcessPageModule)
   },
   {
-    path: 'dashboard',
-    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
-  },
-  {
-    path: 'run-payroll',
-    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
-  },
-  {
     path: 'run-payroll/leave-attendance',
     loadChildren: () => import('./leave-attendance-payable/leave-attendance-payable.module').then(m => m.LeaveAttendancePayablePageModule)
   },
   {
     path: 'leave-attendance-payable',
     loadChildren: () => import('./leave-attendance-payable/leave-attendance-payable.module').then(m => m.LeaveAttendancePayablePageModule)
+  },
+  {
+    path: 'run-payroll/new-joinees-exits',
+    loadChildren: () => import('./new-joinees-exits/new-joinees-exits.module').then(m => m.NewJoineesExitsPageModule)
+  },
+  {
+    path: 'new-joinees-exits',
+    loadChildren: () => import('./new-joinees-exits/new-joinees-exits.module').then(m => m.NewJoineesExitsPageModule)
+  },
+  {
+    path: 'dashboard',
+    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
+  },
+  {
+    path: 'run-payroll',
+    pathMatch: 'full',
+    loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
   },
   {
     path: 'preview-all',

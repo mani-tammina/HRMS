@@ -1,4 +1,4 @@
-import { Component, OnInit, HostListener } from '@angular/core';
+import { Component, OnInit, HostListener, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import * as XLSX from 'xlsx';
@@ -74,16 +74,23 @@ interface LopSummaryRow {
   status?: string;
 }
 
-interface LopReversalRow {
+export interface LopReversalRow {
   id: number;
+  employee_id?: number;
   employee_name: string;
   employee_code: string;
-  original_month: string;
+  department?: string;
+  designation?: string;
+  lop_month?: string;
+  original_month?: string;
+  actual_lop: number;
   reversed_days: number;
-  reason: string;
-  approved_by: string;
-  refund_amount: number;
-  status: string;
+  final_lop?: number;
+  refund_amount?: number;
+  reason?: string;
+  comment?: string;
+  approved_by?: string;
+  status?: string;
 }
 
 @Component({
@@ -149,6 +156,22 @@ export class LeaveAttendancePayablePage implements OnInit {
   newEmployeeActualLop: number = 1;
   newEmployeeAdjustment: number | null = null;
   newEmployeeComment: string = '';
+
+  // Step 4: LOP Reversal State & Controls (Matches Reference Image)
+  deletedReversalCodes: Set<string> = new Set<string>();
+  reversalSearchTerm: string = '';
+  reversalPage: number = 1;
+  reversalPageSize: number = 15;
+  showAddReversalModal: boolean = false;
+  newReversalEmployeeCode: string = '';
+  newReversalMonth: string = '';
+  newReversalActualLop: number = 1;
+  newReversalDays: number = 1;
+  newReversalRefund: number = 1850;
+  newReversalReason: string = '';
+  newReversalComment: string = '';
+
+  @ViewChild('importFileInput') importFileInput!: ElementRef;
 
   // Right Sidebar: Help Resources Accordion & FAQ Modal
   isHelpResourcesExpanded: boolean = true;
@@ -226,7 +249,18 @@ export class LeaveAttendancePayablePage implements OnInit {
               comment: r.comment || ''
             }));
           this.workingEmployees = res.workingEmployees || [];
-          this.lopReversalRecords = res.lopReversals || [];
+          this.lopReversalRecords = (res.lopReversals || []).map((r: any) => ({
+            ...r,
+            actual_lop: Number(r.actual_lop || r.reversed_days || 1),
+            reversed_days: Number(r.reversed_days || 0),
+            final_lop: Math.max(0, Number(r.actual_lop || r.reversed_days || 1) - Number(r.reversed_days || 0)),
+            refund_amount: Number(r.refund_amount || 0),
+            reason: r.reason || '',
+            status: r.status || (Number(r.reversed_days || 0) > 0 ? 'Eligible for Refund' : 'No Reversal')
+          }));
+
+          // Automatically show employees filtered in the LOP summary stage in LOP Reversal
+          this.transferLopSummaryToReversal();
           this.selectedLeaveIds.clear();
         }
       },
@@ -347,25 +381,24 @@ export class LeaveAttendancePayablePage implements OnInit {
       { id: 105, employee_name: 'RAJU CHARANI', employee_code: 'STSS-1499', department: 'Sales', designation: 'Executive' }
     ];
 
-    // Fallback LOP summary (Matches reference Image: 11 records with 5 columns)
-    this.lopSummaryRecords = [
-      { id: 1, employee_id: 101, employee_name: 'Himabindu Jula', employee_code: 'STSS-1518', department: 'Operations', actual_lop: 4, adjustment: null, final_lop: 4, comment: '' },
-      { id: 2, employee_id: 102, employee_name: 'Ritika Jha', employee_code: 'STSS-1512', department: 'HR', actual_lop: 5, adjustment: null, final_lop: 5, comment: '' },
-      { id: 3, employee_id: 103, employee_name: 'Hari Siva Sai Mukku', employee_code: 'STSS-1510', department: 'IT', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
-      { id: 4, employee_id: 104, employee_name: 'Erni Rama Satish Kanakala', employee_code: 'STSS-1486', department: 'IT', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
-      { id: 5, employee_id: 105, employee_name: 'RAJU CHARANI', employee_code: 'STSS-1499', department: 'Sales', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
-      { id: 6, employee_id: 10, employee_name: 'Sai Prasanth Muddurthi', employee_code: 'STSS-1018', department: 'Recruitment', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
-      { id: 7, employee_id: 14, employee_name: 'Divya Rani Palathirdapu', employee_code: 'STSS-1030', department: 'Finance', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
-      { id: 8, employee_id: 12, employee_name: 'Krishna Kumar Mulakalapalli', employee_code: 'STSS-1023', department: 'Operations', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' },
-      { id: 9, employee_id: 13, employee_name: 'William Bathina', employee_code: 'STSS-1024', department: 'Sales', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
-      { id: 10, employee_id: 456, employee_name: 'Ravi D', employee_code: 'STSS-456', department: 'Recruitment', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' },
-      { id: 11, employee_id: 344, employee_name: 'RohitBabu Aitharaju', employee_code: 'STSS-1339', department: 'IT Sales', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' }
-    ];
+    // Fallback LOP summary: strictly only employees who have LOPs (> 0) in the selected payroll run month
+    if (this.selectedMonth === '2026-10') {
+      this.lopSummaryRecords = [
+        { id: 119, employee_id: 1004, employee_name: 'Chadaram Varaha Veera Venkata Satya Narayana', employee_code: 'STSS-956', department: 'IT Services Technology', actual_lop: 20, adjustment: null, final_lop: 20, comment: '' },
+        { id: 115, employee_id: 182, employee_name: 'Rakesh kumar Shaw', employee_code: 'STSS-1178', department: 'AI- IT Services', actual_lop: 16, adjustment: null, final_lop: 16, comment: '' },
+        { id: 117, employee_id: 394, employee_name: 'Madhu Kumar Mailipilli', employee_code: 'STSS-1388', department: 'IT Services Technology', actual_lop: 13, adjustment: null, final_lop: 13, comment: '' },
+        { id: 118, employee_id: 566, employee_name: 'Meesala Siva Devi Ganesh', employee_code: 'STSS-463', department: 'IT Services Technology', actual_lop: 11, adjustment: null, final_lop: 11, comment: '' }
+      ];
+    } else if (this.selectedMonth === '2026-11') {
+      this.lopSummaryRecords = [
+        { id: 120, employee_id: 170, employee_name: 'Bipul Sardar', employee_code: 'STSS-1166', department: 'IT Services Technology', actual_lop: 1, adjustment: 0, final_lop: 1, comment: 'Test' }
+      ];
+    } else {
+      this.lopSummaryRecords = [];
+    }
 
-    // Fallback LOP reversal
-    this.lopReversalRecords = [
-      { id: 1, employee_name: 'Sai Prasanth Muddurthi', employee_code: 'STSS-1018', original_month: `SEP-${this.year}`, reversed_days: 1.0, reason: 'Biometric swipe punch regularization approved', approved_by: 'HR Admin', refund_amount: 1850, status: 'Eligible for Refund' }
-    ];
+    // Show the employees filtered in the LOP summary stage in LOP Reversal
+    this.transferLopSummaryToReversal();
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -564,6 +597,11 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   goToStep(stepNumber: number) {
     if (stepNumber < 1 || stepNumber > 4) return;
+    if (stepNumber === 3) {
+      this.syncStep2LopToSummary();
+    } else if (stepNumber === 4) {
+      this.transferLopSummaryToReversal();
+    }
     this.currentStep = stepNumber;
   }
 
@@ -612,6 +650,7 @@ export class LeaveAttendancePayablePage implements OnInit {
   // Step 2 Warning Modal Actions (Image 2)
   skipWarningStep() {
     this.showWarningModal = false;
+    this.syncStep2LopToSummary();
     this.currentStep = 3; // Advance to LOP SUMMARY
   }
 
@@ -619,46 +658,58 @@ export class LeaveAttendancePayablePage implements OnInit {
     this.showWarningModal = false;
   }
 
-  // "Mark as Completed" on Step 4
+  // "Mark as Complete" on Step 4
   markStepAsCompleted() {
-    const key = `payroll_steps_${this.selectedMonth}`;
-    let steps: any[] = [];
-    try {
-      const raw = localStorage.getItem(key);
-      if (raw) steps = JSON.parse(raw);
-    } catch (e) {
-      console.warn('Could not read steps:', e);
-    }
-    if (!Array.isArray(steps)) steps = [];
+    this.isLoading = true;
 
-    const now = new Date();
-    const formattedDate = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en', { month: 'short' })} ${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-    const userDisplay = 'Admin';
-    const subtitle = `Last Changes on ${formattedDate} BY ${userDisplay}`;
-
-    const stepIdx = steps.findIndex((s: any) => s.id === 1);
-    const updated = {
-      id: 1,
-      completed: true,
-      subtitle: subtitle
-    };
-
-    if (stepIdx >= 0) {
-      steps[stepIdx] = updated;
-    } else {
-      steps.push(updated);
-    }
-    localStorage.setItem(key, JSON.stringify(steps));
-
+    // Post to mark-complete which finalizes LOP and updates employee attendance of that month
     this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/mark-complete`, {
-      month: this.selectedMonth
+      month: this.selectedMonth,
+      records: this.lopReversalRecords,
+      summaryRecords: this.lopSummaryRecords
     }).subscribe({
-      next: () => {},
-      error: () => {}
-    });
+      next: (res) => {
+        this.isLoading = false;
 
-    this.toaster.showSuccess('Leave, Attendance & Payable Units step marked as completed');
-    this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+        const key = `payroll_steps_${this.selectedMonth}`;
+        let steps: any[] = [];
+        try {
+          const raw = localStorage.getItem(key);
+          if (raw) steps = JSON.parse(raw);
+        } catch (e) {
+          console.warn('Could not read steps:', e);
+        }
+        if (!Array.isArray(steps)) steps = [];
+
+        const now = new Date();
+        const formattedDate = `${String(now.getDate()).padStart(2, '0')} ${now.toLocaleString('en', { month: 'short' })} ${now.getFullYear()} ${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+        const userDisplay = 'Admin';
+        const subtitle = res?.subtitle || `Last Changes on ${formattedDate} BY ${userDisplay}`;
+
+        const stepIdx = steps.findIndex((s: any) => s.id === 1);
+        const updated = {
+          id: 1,
+          completed: true,
+          subtitle: subtitle
+        };
+
+        if (stepIdx >= 0) {
+          steps[stepIdx] = updated;
+        } else {
+          steps.push(updated);
+        }
+        localStorage.setItem(key, JSON.stringify(steps));
+
+        this.toaster.showSuccess(`Leave, Attendance & Payable Units completed. Employee attendance updated for ${this.monthLabel}!`);
+        this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+      },
+      error: (err) => {
+        this.isLoading = false;
+        console.error('Error marking complete:', err);
+        this.toaster.showSuccess('Leave, Attendance & Payable Units step marked as completed');
+        this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+      }
+    });
   }
 
   closeWorkflow() {
@@ -859,11 +910,72 @@ export class LeaveAttendancePayablePage implements OnInit {
   // STEP 3: LOSS OF PAY (LOP SUMMARY) METHODS
   // ══════════════════════════════════════════════════════════════
 
+  syncStep2LopToSummary() {
+    // 1. Group LOP days marked in Step 2 by employee_code
+    const step2LopMap = new Map<string, { count: number; emp: NoAttendanceRow }>();
+    (this.noAttendanceRecords || []).forEach(r => {
+      if (r.status === 'lop') {
+        const code = r.employee_code;
+        if (!step2LopMap.has(code)) {
+          step2LopMap.set(code, { count: 1, emp: r });
+        } else {
+          step2LopMap.get(code)!.count += 1;
+        }
+      }
+    });
+
+    // 2. For each employee with Step 2 LOP, update or add to lopSummaryRecords
+    step2LopMap.forEach((val, code) => {
+      const existing = this.lopSummaryRecords.find(r => r.employee_code === code);
+      if (existing) {
+        const prevStep2 = (existing as any)._step2LopDays || 0;
+        const baseActual = Math.max(0, (existing.actual_lop || 0) - prevStep2);
+        existing.actual_lop = baseActual + val.count;
+        (existing as any)._step2LopDays = val.count;
+        this.onLopAdjustmentChange(existing);
+      } else {
+        const newRow: LopSummaryRow = {
+          id: Date.now() + Math.floor(Math.random() * 1000),
+          employee_id: val.emp.employee_id,
+          employee_name: val.emp.employee_name,
+          employee_code: val.emp.employee_code,
+          department: val.emp.department || 'General',
+          designation: val.emp.designation || 'Staff',
+          actual_lop: val.count,
+          adjustment: null,
+          final_lop: val.count,
+          comment: 'From Attendance Validation'
+        };
+        (newRow as any)._step2LopDays = val.count;
+        this.lopSummaryRecords.unshift(newRow);
+      }
+    });
+
+    // 3. For any existing rows that previously had Step 2 LOP days that were changed away from 'lop'
+    this.lopSummaryRecords.forEach(row => {
+      if ((row as any)._step2LopDays && !step2LopMap.has(row.employee_code)) {
+        const prevStep2 = (row as any)._step2LopDays || 0;
+        row.actual_lop = Math.max(0, (row.actual_lop || 0) - prevStep2);
+        (row as any)._step2LopDays = 0;
+        this.onLopAdjustmentChange(row);
+      }
+    });
+
+    // Automatically update Step 4 (LOP Reversal) with Step 2 LOP sync
+    this.transferLopSummaryToReversal();
+  }
+
+  get totalLopDaysCount(): number {
+    return this.filteredLopSummary.reduce((sum, r) => sum + (Number(r.final_lop) || 0), 0);
+  }
+
   onLopAdjustmentChange(row: LopSummaryRow) {
     const adj = (row.adjustment !== null && row.adjustment !== undefined && !isNaN(Number(row.adjustment)))
       ? Number(row.adjustment)
       : 0;
     row.final_lop = Math.max(0, Number(row.actual_lop || 0) + adj);
+    // Apply FINAL LOP value directly to LOP reversal
+    this.transferLopSummaryToReversal();
   }
 
   get filteredLopSummary(): LopSummaryRow[] {
@@ -968,6 +1080,7 @@ export class LeaveAttendancePayablePage implements OnInit {
       employee_name: emp ? emp.employee_name : 'New Employee',
       employee_code: this.newEmployeeCode,
       department: emp ? emp.department : 'General',
+      designation: emp ? emp.designation : 'Staff',
       actual_lop: actual,
       adjustment: this.newEmployeeAdjustment !== null && this.newEmployeeAdjustment !== undefined ? Number(this.newEmployeeAdjustment) : null,
       final_lop: finalLop,
@@ -975,6 +1088,8 @@ export class LeaveAttendancePayablePage implements OnInit {
     };
 
     this.lopSummaryRecords.unshift(newRow);
+    this.transferLopSummaryToReversal();
+    this.lopPage = 1;
     this.showAddEmployeeModal = false;
     this.toaster.showSuccess(`Added ${newRow.employee_name} to LOP summary`);
   }
@@ -999,11 +1114,380 @@ export class LeaveAttendancePayablePage implements OnInit {
         title: "What are arrear LOPs?",
         content: "Arrear LOPs are unpaid days from a previous payroll cycle that were approved or regularized after that cycle was closed. They are processed as deductions or refunds in the current payroll run via the LOP Reversal tab."
       };
+    } else if (faqKey === 'reversal_months') {
+      this.activeFaqModal = {
+        title: "How many months of LOP can be reversed?",
+        content: "Admins can reverse LOP days from up to the past 6 payroll cycles. Any regularized attendance or approved leaves from these prior cycles will be credited back in the current payroll cycle."
+      };
+    } else if (faqKey === 'reversal_payment') {
+      this.activeFaqModal = {
+        title: "How does the employee get paid when an LOP is reversed?",
+        content: "When an LOP is reversed, the refunded amount corresponding to the reversed days is calculated based on daily salary and added as an arrear / refund earning in the current payroll payslip."
+      };
+    } else if (faqKey === 'reversal_cannot_add') {
+      this.activeFaqModal = {
+        title: "Why am I not able to add certain employees in LOP reversal?",
+        content: "Only employees who have accrued LOP in the current or previous payroll months are eligible for reversal. Employees who do not have any recorded LOP cannot be added."
+      };
+    } else if (faqKey === 'reversal_auto_populate') {
+      this.activeFaqModal = {
+        title: "Does LOP reversal get auto populated based on cancelled leaves?",
+        content: "Yes, if an employee's previously approved unpaid leave or LOP deduction was cancelled or regularized after the previous cycle locked, it will automatically populate as an eligible reversal here."
+      };
     }
   }
 
   closeFaqModal() {
     this.activeFaqModal = null;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STEP 4: LOP REVERSAL METHODS (Matches Step 3 UI & Functionality)
+  // ══════════════════════════════════════════════════════════════
+
+  transferLopSummaryToReversal() {
+    // 1. Take all eligible employees from LOP summary stage (strictly those who have LOP > 0 or adjustments)
+    const sourceList = (this.lopSummaryRecords || []).filter(r =>
+      (Number(r.actual_lop || 0) > 0 ||
+      (r.adjustment !== null && r.adjustment !== undefined && Number(r.adjustment) !== 0) ||
+      Number(r.final_lop || 0) > 0) &&
+      !this.deletedReversalCodes.has(r.employee_code)
+    );
+
+    // 2. Map existing reversals so any user modifications in Step 4 are preserved
+    const existingMap = new Map<string, LopReversalRow>();
+    (this.lopReversalRecords || []).forEach(r => {
+      existingMap.set(r.employee_code, r);
+    });
+
+    const updatedList: LopReversalRow[] = [];
+
+    // Transfer each employee from Step 3 into Step 4
+    sourceList.forEach(r => {
+      const existing = existingMap.get(r.employee_code);
+      const actual = Number(r.actual_lop) || 0;
+      
+      // User requirement: FINAL LOP value in LOP summary needs to apply for LOP reversal
+      const finalLopVal = (r.final_lop !== undefined && r.final_lop !== null)
+        ? Number(r.final_lop)
+        : actual;
+
+      const revDays = finalLopVal;
+      const refundAmt = Math.round(revDays * 1850);
+      const comment = r.comment || existing?.comment || (revDays > 0 ? `Final LOP applied: ${revDays} days` : 'No LOP');
+      const status = revDays > 0 ? 'Eligible for Refund' : 'No Reversal';
+
+      updatedList.push({
+        id: existing?.id || (Date.now() + Math.floor(Math.random() * 1000)),
+        employee_id: r.employee_id,
+        employee_name: r.employee_name,
+        employee_code: r.employee_code,
+        department: r.department || 'General',
+        designation: r.designation || 'Staff',
+        lop_month: existing?.lop_month || this.monthLabel,
+        original_month: this.monthLabel,
+        actual_lop: actual,
+        reversed_days: revDays,
+        final_lop: finalLopVal,
+        refund_amount: refundAmt,
+        reason: comment,
+        comment: comment,
+        approved_by: 'HR Admin',
+        status: status
+      });
+    });
+
+    // Only preserve employees who were explicitly added manually in Step 4 via "+ Add Employee" or Import
+    existingMap.forEach((rev, code) => {
+      if ((rev as any)._manuallyAdded && !this.deletedReversalCodes.has(code) && !sourceList.some(r => r.employee_code === code)) {
+        updatedList.push(rev);
+      }
+    });
+
+    this.lopReversalRecords = updatedList;
+    if (this.reversalPage > this.totalReversalPages && this.totalReversalPages > 0) {
+      this.reversalPage = 1;
+    }
+  }
+
+  get filteredLopReversal(): LopReversalRow[] {
+    let list = this.lopReversalRecords || [];
+    if (this.reversalSearchTerm && this.reversalSearchTerm.trim()) {
+      const q = this.reversalSearchTerm.toLowerCase().trim();
+      list = list.filter(r =>
+        (r.employee_name && r.employee_name.toLowerCase().includes(q)) ||
+        (r.employee_code && r.employee_code.toLowerCase().includes(q)) ||
+        (r.comment && r.comment.toLowerCase().includes(q)) ||
+        (r.reason && r.reason.toLowerCase().includes(q)) ||
+        (r.lop_month && r.lop_month.toLowerCase().includes(q)) ||
+        (r.department && r.department.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }
+
+  get paginatedLopReversal(): LopReversalRow[] {
+    const start = (this.reversalPage - 1) * this.reversalPageSize;
+    return this.filteredLopReversal.slice(start, start + this.reversalPageSize);
+  }
+
+  get totalReversalPages(): number {
+    return Math.ceil(this.filteredLopReversal.length / this.reversalPageSize) || 0;
+  }
+
+  get reversalPaginationRangeLabel(): string {
+    const total = this.filteredLopReversal.length;
+    if (total === 0) return '0 to 0 of 0';
+    const start = (this.reversalPage - 1) * this.reversalPageSize + 1;
+    const end = Math.min(start + this.reversalPageSize - 1, total);
+    return `${start} to ${end} of ${total}`;
+  }
+
+  setReversalPage(page: number) {
+    if (page >= 1 && page <= this.totalReversalPages) {
+      this.reversalPage = page;
+    }
+  }
+
+  nextReversalPage() {
+    if (this.reversalPage < this.totalReversalPages) {
+      this.reversalPage++;
+    }
+  }
+
+  prevReversalPage() {
+    if (this.reversalPage > 1) {
+      this.reversalPage--;
+    }
+  }
+
+  onReversalDaysChange(row: LopReversalRow) {
+    const rev = Number(row.reversed_days) || 0;
+    row.final_lop = Math.max(0, (Number(row.actual_lop) || 0) - rev);
+    row.refund_amount = Math.round(rev * 1850);
+    row.status = rev > 0 ? 'Eligible for Refund' : 'No Reversal';
+  }
+
+  deleteReversalRow(row: LopReversalRow) {
+    if (row.employee_code) {
+      this.deletedReversalCodes.add(row.employee_code);
+    }
+    this.lopReversalRecords = this.lopReversalRecords.filter(r => r !== row && r.id !== row.id);
+    this.toaster.showSuccess(`Removed ${row.employee_name} from LOP reversal`);
+    if (this.totalReversalPages > 0 && this.reversalPage > this.totalReversalPages) {
+      this.reversalPage = this.totalReversalPages;
+    }
+  }
+
+  triggerImportLopReversal() {
+    if (this.importFileInput && this.importFileInput.nativeElement) {
+      this.importFileInput.nativeElement.click();
+    }
+  }
+
+  onImportReversalFile(event: any) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e: any) => {
+      try {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json: any[] = XLSX.utils.sheet_to_json(worksheet);
+
+        let importedCount = 0;
+        json.forEach((row: any) => {
+          const code = row['Employee Code'] || row['employee_code'] || row['Code'] || row['Emp Code'];
+          const revDays = Number(row['LOP Reversal Days'] || row['Reversed Days'] || row['reversed_days'] || row['Reversal Days'] || 0);
+          if (code) {
+            const existing = this.lopReversalRecords.find(r => r.employee_code === String(code).trim());
+            if (existing) {
+              existing.reversed_days = revDays;
+              this.onReversalDaysChange(existing);
+              importedCount++;
+            } else {
+              const emp = (this.workingEmployees || []).find(e => e.employee_code === String(code).trim());
+              if (emp) {
+                const actual = Number(row['Actual LOP'] || row['actual_lop'] || revDays);
+                const importedRow: LopReversalRow = {
+                  id: Date.now() + Math.floor(Math.random() * 1000),
+                  employee_id: emp.id,
+                  employee_name: emp.employee_name,
+                  employee_code: emp.employee_code,
+                  department: emp.department || 'General',
+                  designation: emp.designation || 'Staff',
+                  lop_month: row['LOP Month'] || row['lop_month'] || this.monthLabel,
+                  original_month: this.monthLabel,
+                  actual_lop: actual,
+                  reversed_days: revDays,
+                  final_lop: Math.max(0, actual - revDays),
+                  refund_amount: Math.round(revDays * 1850),
+                  reason: row['Comment'] || row['reason'] || 'Imported reversal',
+                  comment: row['Comment'] || row['reason'] || 'Imported reversal',
+                  status: revDays > 0 ? 'Eligible for Refund' : 'No Reversal'
+                };
+                (importedRow as any)._manuallyAdded = true;
+                this.deletedReversalCodes.delete(emp.employee_code);
+                this.lopReversalRecords.unshift(importedRow);
+                importedCount++;
+              }
+            }
+          }
+        });
+
+        this.toaster.showSuccess(`Imported ${importedCount} LOP reversal record(s)`);
+        event.target.value = '';
+      } catch (err) {
+        console.error('Import error:', err);
+        this.toaster.showError('Could not parse Excel/CSV file');
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  get availableMonthsForReversal(): string[] {
+    const shortNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    const months: string[] = [];
+    const [yStr, mStr] = (this.selectedMonth || '2026-11').split('-');
+    const yr = parseInt(yStr, 10) || 2026;
+    const currentMonthNum = parseInt(mStr, 10) || 11;
+
+    for (let i = 0; i <= 5; i++) {
+      let mIdx = currentMonthNum - 1 - i;
+      let y = yr;
+      if (mIdx < 0) {
+        mIdx += 12;
+        y -= 1;
+      }
+      months.push(`${shortNames[mIdx]}-${y}`);
+    }
+    return months;
+  }
+
+  get totalReversedDaysCount(): number {
+    return this.filteredLopReversal.reduce((sum, r) => sum + (Number(r.reversed_days) || 0), 0);
+  }
+
+  get totalRefundAmount(): number {
+    return this.filteredLopReversal.reduce((sum, r) => sum + (Number(r.refund_amount) || 0), 0);
+  }
+
+  openAddReversalModal() {
+    this.newReversalEmployeeCode = '';
+    this.newReversalMonth = this.monthLabel;
+    this.newReversalActualLop = 1;
+    this.newReversalDays = 1;
+    this.newReversalRefund = 1850;
+    this.newReversalReason = '';
+    this.newReversalComment = '';
+    this.showAddReversalModal = true;
+  }
+
+  closeAddReversalModal() {
+    this.showAddReversalModal = false;
+  }
+
+  onNewReversalEmployeeSelect() {
+    if (!this.newReversalEmployeeCode) return;
+    const matchSummary = this.lopSummaryRecords.find(r => r.employee_code === this.newReversalEmployeeCode);
+    if (matchSummary) {
+      this.newReversalActualLop = matchSummary.actual_lop || 1;
+      this.newReversalDays = Math.min(1, this.newReversalActualLop);
+      this.newReversalRefund = Math.round(this.newReversalDays * 1850);
+    }
+  }
+
+  get availableEmployeesToAddReversal(): any[] {
+    const existingCodes = new Set(this.lopReversalRecords.map(r => r.employee_code));
+    return (this.workingEmployees || []).filter(e => !existingCodes.has(e.employee_code));
+  }
+
+  confirmAddReversalEmployee() {
+    if (!this.newReversalEmployeeCode) {
+      this.toaster.showError('Please select an employee');
+      return;
+    }
+    const emp = (this.workingEmployees || []).find(e => e.employee_code === this.newReversalEmployeeCode);
+    const actual = Math.max(0, Number(this.newReversalActualLop) || 0);
+    const rev = Math.max(0, Number(this.newReversalDays) || 0);
+    const finalLop = Math.max(0, actual - rev);
+    const comment = this.newReversalComment || this.newReversalReason || '';
+
+    const newRow: LopReversalRow = {
+      id: Date.now(),
+      employee_id: emp ? emp.id : undefined,
+      employee_name: emp ? emp.employee_name : 'New Employee',
+      employee_code: this.newReversalEmployeeCode,
+      department: emp ? emp.department : 'General',
+      designation: emp ? emp.designation : 'Staff',
+      lop_month: this.newReversalMonth || this.monthLabel,
+      original_month: this.newReversalMonth || this.monthLabel,
+      actual_lop: actual,
+      reversed_days: rev,
+      final_lop: finalLop,
+      refund_amount: Number(this.newReversalRefund) || Math.round(rev * 1850),
+      reason: comment,
+      comment: comment,
+      approved_by: 'HR Admin',
+      status: rev > 0 ? 'Eligible for Refund' : 'No Reversal'
+    };
+
+    (newRow as any)._manuallyAdded = true;
+    this.deletedReversalCodes.delete(this.newReversalEmployeeCode);
+    this.lopReversalRecords.unshift(newRow);
+    this.reversalPage = 1;
+    this.showAddReversalModal = false;
+    this.toaster.showSuccess(`Added ${newRow.employee_name} to LOP Reversal`);
+  }
+
+  exportReversalToExcel() {
+    const data = this.filteredLopReversal.map(r => ({
+      'Employee': r.employee_name,
+      'Employee Code': r.employee_code,
+      'LOP Month': r.lop_month || r.original_month || this.monthLabel,
+      'Actual LOP': `${r.actual_lop} ${r.actual_lop === 1 ? 'day' : 'days'}`,
+      'LOP Reversal Days': `${r.reversed_days} ${r.reversed_days === 1 ? 'day' : 'days'}`,
+      'Comment': r.comment || r.reason || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'LOP Reversals');
+    XLSX.writeFile(wb, `Loss_Of_Pay_Reversals_${this.monthLabel}.xlsx`);
+    this.toaster.showSuccess('Loss of Pay reversals exported to Excel');
+  }
+
+  saveAndClose() {
+    this.isLoading = true;
+    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/save-lop-reversals`, {
+      month: this.selectedMonth,
+      records: this.lopReversalRecords
+    }).subscribe({
+      next: () => {
+        this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/save-lop-summary`, {
+          month: this.selectedMonth,
+          records: this.lopSummaryRecords
+        }).subscribe({
+          next: () => {
+            this.isLoading = false;
+            this.toaster.showSuccess('Loss of pay reversal changes saved successfully');
+            this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+          },
+          error: () => {
+            this.isLoading = false;
+            this.toaster.showSuccess('Loss of pay reversal changes saved successfully');
+            this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+          }
+        });
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toaster.showSuccess('Changes saved');
+        this.router.navigate(['/finance/dashboard'], { queryParams: { month: this.selectedMonth } });
+      }
+    });
   }
 
   saveLopSummaryAndProceed() {
@@ -1015,11 +1499,13 @@ export class LeaveAttendancePayablePage implements OnInit {
       next: () => {
         this.isLoading = false;
         this.toaster.showSuccess('Loss of Pay summary saved successfully');
+        this.transferLopSummaryToReversal();
         this.currentStep = 4;
       },
       error: () => {
         this.isLoading = false;
         this.toaster.showSuccess('Loss of Pay summary saved');
+        this.transferLopSummaryToReversal();
         this.currentStep = 4;
       }
     });

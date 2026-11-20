@@ -911,55 +911,193 @@ export class HomePage implements OnInit, OnDestroy {
       return { totalWorkHours: '0.00', grossHours: '0.00', totalWorkMinutes: 0, grossMinutes: 0, hasAnyValidOut: false };
     }
 
-    const punches = rawPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
-    const workIntervals: { start: number; end: number }[] = [];
+    const isUserAgent = (dev: string) => {
+      const lower = (dev || '').toLowerCase();
+      return (
+        lower.includes('mozilla') ||
+        lower.includes('applewebkit') ||
+        lower.includes('chrome') ||
+        lower.includes('safari') ||
+        lower.includes('windows nt') ||
+        dev.length > 20
+      );
+    };
+
+    const isBio = (p: any): boolean => {
+      if (!p) return false;
+      const src = (p.source || '').toLowerCase();
+      const wm = (p.work_mode || '').toLowerCase();
+      const notes = (p.notes || '').toLowerCase();
+      const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : (p.deviceId != null ? p.deviceId : ''))).trim();
+      if (src === 'biometric' || wm === 'biometric' || notes.includes('biometric')) return true;
+      if (!isUserAgent(dev) && (dev && (/^\d+$/.test(dev) || dev.toLowerCase().includes('device') || dev.toLowerCase().includes('floor') || dev.toLowerCase().includes('svs')))) {
+        return true;
+      }
+      return false;
+    };
+
+    // Filter out synthetic 'Biometric Check-In' punches which duplicate real biometric logs
+    const cleanPunches = rawPunches.filter(p => !(p.notes || '').includes('Biometric Check-In'));
+
+    const punches = cleanPunches.slice().sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
     let earliestInMs: number | null = null;
     let latestOutMs: number | null = null;
     let hasAnyValidOut = false;
-    let currentInPunch: any = null;
 
-    for (let i = 0; i < punches.length; i++) {
-      const p = punches[i];
-      const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
-      const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
-
-      if (punchType === 'in') {
-        if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
-          earliestInMs = pTimeMs;
-        }
-        if (currentInPunch) {
-          const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-          if (pTimeMs > prevInTimeMs && (pTimeMs - prevInTimeMs) >= 5 * 60 * 1000) {
-            workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
-            if (latestOutMs === null || pTimeMs > latestOutMs) {
-              latestOutMs = pTimeMs;
-            }
-          }
-        }
-        currentInPunch = p;
-      } else if (punchType === 'out') {
-        if (currentInPunch && !isAutoOut) {
-          const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-          if (pTimeMs > inTimeMs) {
-            workIntervals.push({ start: inTimeMs, end: pTimeMs });
-            hasAnyValidOut = true;
-            if (latestOutMs === null || pTimeMs > latestOutMs) {
-              latestOutMs = pTimeMs;
-            }
-          }
-        }
-        currentInPunch = null;
+    for (const p of punches) {
+      const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAuto) continue; // Do not use auto clock-out to determine earliest or latest punch times
+      const t = this.parsePunchTimeToMs(p.punch_time);
+      if (t > 0) {
+        if (earliestInMs === null || t < earliestInMs) earliestInMs = t;
+        if (latestOutMs === null || t > latestOutMs) latestOutMs = t;
       }
     }
 
-    if (currentInPunch && isToday) {
-      const inTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-      const nowMs = Date.now();
-      if (nowMs > inTimeMs) {
-        workIntervals.push({ start: inTimeMs, end: nowMs });
-        if (latestOutMs === null || nowMs > latestOutMs) {
-          latestOutMs = nowMs;
+    const uniquePunches: any[] = [];
+    for (const p of punches) {
+      const pMs = this.parsePunchTimeToMs(p.punch_time);
+      const lastP = uniquePunches.length ? uniquePunches[uniquePunches.length - 1] : null;
+      if (lastP) {
+        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
+        const sameSource = (p.source || 'web') === (lastP.source || 'web');
+        const pDev = String(p.device_id || p.device_info || p.location || '').trim();
+        const lastDev = String(lastP.device_id || lastP.device_info || lastP.location || '').trim();
+        if (pMs === lastMs && sameSource && pDev === lastDev) {
+          continue;
+        }
+      }
+      uniquePunches.push(p);
+    }
+
+    const bioPunches = uniquePunches.filter(p => isBio(p));
+    const webPunches = uniquePunches.filter(p => !isBio(p));
+    const workIntervals: { start: number; end: number }[] = [];
+
+    if (bioPunches.length > 0) {
+      // Group bio punches by device/location stream so multi-floor punches alternate cleanly per floor
+      const bioStreamMap = new Map<string, any[]>();
+      for (const bp of bioPunches) {
+        const streamKey = String(bp.device_id || bp.location || 'default').trim();
+        if (!bioStreamMap.has(streamKey)) bioStreamMap.set(streamKey, []);
+        bioStreamMap.get(streamKey)!.push(bp);
+      }
+
+      let firstBioInMs: number | null = null;
+      let lastBioOutMs: number | null = null;
+
+      bioStreamMap.forEach((streamPunches) => {
+        streamPunches.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+        let currentIn: any = null;
+        for (const p of streamPunches) {
+          const pMs = this.parsePunchTimeToMs(p.punch_time);
+          const pt = currentIn ? 'out' : 'in';
+          if (pt === 'in') {
+            if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;
+            currentIn = p;
+          } else {
+            const inMs = this.parsePunchTimeToMs(currentIn.punch_time);
+            if (pMs > inMs) {
+              workIntervals.push({ start: inMs, end: pMs });
+              hasAnyValidOut = true;
+              if (lastBioOutMs === null || pMs > lastBioOutMs) lastBioOutMs = pMs;
+            }
+            currentIn = null;
+          }
+        }
+        if (currentIn && isToday) {
+          const inMs = this.parsePunchTimeToMs(currentIn.punch_time);
+          const nowMs = Date.now();
+          if (nowMs > inMs) {
+            workIntervals.push({ start: inMs, end: nowMs });
+            if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+          }
+        }
+      });
+
+      // Include completed non-overlapping web sessions before first bio punch or after last bio punch
+      if (webPunches.length > 0) {
+        let webCurrentIn: any = null;
+        for (const wp of webPunches) {
+          const wpMs = this.parsePunchTimeToMs(wp.punch_time);
+          const wpt = (wp.punch_type || wp.direction || '').toLowerCase();
+          const isAuto = (wp.notes || '').includes('OUT Missing') || (wp.notes || '').includes('Auto Clock-Out');
+
+          if (wpt === 'in') {
+            webCurrentIn = wp;
+          } else if (wpt === 'out') {
+            // If auto web checkout, do not calculate/add effective hours
+            if (webCurrentIn && !isAuto) {
+              const winMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+              if (wpMs > winMs) {
+                // Pre-biometric web work
+                if (firstBioInMs !== null && winMs < firstBioInMs) {
+                  workIntervals.push({ start: winMs, end: Math.min(wpMs, firstBioInMs) });
+                  hasAnyValidOut = true;
+                }
+                // Post-biometric web work (manual checkout only)
+                const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+                if (effectiveBioOut !== null && wpMs > effectiveBioOut) {
+                  const postBioStart = Math.max(winMs, effectiveBioOut);
+                  if (wpMs > postBioStart) {
+                    workIntervals.push({ start: postBioStart, end: wpMs });
+                    hasAnyValidOut = true;
+                  }
+                }
+              }
+            }
+            webCurrentIn = null;
+          }
+        }
+
+        if (webCurrentIn && isToday) {
+          const winMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+          const nowMs = Date.now();
+          const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+          if (effectiveBioOut !== null && nowMs > effectiveBioOut) {
+            const postBioStart = Math.max(winMs, effectiveBioOut);
+            if (nowMs > postBioStart) {
+              workIntervals.push({ start: postBioStart, end: nowMs });
+              if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
+            }
+          }
+        }
+      }
+    } else {
+      // Web only
+      let webCurrentIn: any = null;
+      for (const p of webPunches) {
+        const pMs = this.parsePunchTimeToMs(p.punch_time);
+        const pt = (p.punch_type || p.direction || '').toLowerCase();
+        const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+
+        if (pt === 'in') {
+          if (webCurrentIn) {
+            const prevMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+            if (pMs > prevMs) {
+              workIntervals.push({ start: prevMs, end: pMs });
+              hasAnyValidOut = true;
+            }
+          }
+          webCurrentIn = p;
+        } else if (pt === 'out') {
+          if (webCurrentIn && !isAuto) {
+            const inMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+            if (pMs > inMs) {
+              workIntervals.push({ start: inMs, end: pMs });
+              hasAnyValidOut = true;
+            }
+          }
+          webCurrentIn = null;
+        }
+      }
+
+      if (webCurrentIn && isToday) {
+        const inMs = this.parsePunchTimeToMs(webCurrentIn.punch_time);
+        const nowMs = Date.now();
+        if (nowMs > inMs) {
+          workIntervals.push({ start: inMs, end: nowMs });
+          if (latestOutMs === null || nowMs > latestOutMs) latestOutMs = nowMs;
         }
       }
     }
@@ -982,7 +1120,8 @@ export class HomePage implements OnInit, OnDestroy {
 
     let grossMinutes = 0;
     if (earliestInMs !== null) {
-      const endMs = latestOutMs !== null ? latestOutMs : (isToday ? Date.now() : earliestInMs);
+      const nowMs = Date.now();
+      const endMs = isToday && nowMs > (latestOutMs || 0) ? nowMs : (latestOutMs !== null ? latestOutMs : earliestInMs);
       if (endMs > earliestInMs) {
         grossMinutes = (endMs - earliestInMs) / (1000 * 60);
       }

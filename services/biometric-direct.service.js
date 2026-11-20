@@ -19,6 +19,10 @@ try {
       if (!this.socket || this.socket.destroyed || this.socket.writableEnded || !this.socket.writable) {
         return Promise.reject(new Error('SOCKET_NOT_WRITABLE_OR_ENDED'));
       }
+      // Boost initial connection handshake timeout to 6000ms for busy or WAN devices
+      if (connect && (!this.timeout || this.timeout < 6000)) {
+        this.timeout = 6000;
+      }
       return origWriteMessage.call(this, msg, connect);
     };
 
@@ -78,7 +82,7 @@ let tablesInitialized = false;
 /**
  * Fast TCP probe to test device reachability before establishing full ZKLib protocol handshake
  */
-function checkDeviceReachability(host, port = 4370, timeoutMs = 1500) {
+function checkDeviceReachability(host, port = 4370, timeoutMs = 3500) {
   return new Promise((resolve) => {
     const s = new net.Socket();
     s.setTimeout(timeoutMs);
@@ -247,6 +251,88 @@ async function ingestDirectPunches(punches) {
   // Key: 'EMP:<empId>:<punchDate>' or 'RAW:<userId>:<punchDate>'
   const trackingState = new Map();
 
+  // 1. Pre-collect unique employees, raw users, and dates for fast batch pre-loading
+  const batchEmpIds = new Set();
+  const batchRawUsers = new Set();
+  const batchDates = new Set();
+
+  for (const p of sortedPunches) {
+    const userId = String(p.biometricUserId || p.userId || '').trim();
+    if (!userId) continue;
+    const formattedTime = p.punchTime instanceof Date
+      ? formatDateTime(p.punchTime)
+      : String(p.punchTime).replace('T', ' ').substring(0, 19);
+    if (!formattedTime || formattedTime.length < 10) continue;
+    const empKey = userId.toUpperCase();
+    const employeeId = employeeMap.get(empKey) || null;
+    const empShift = employeeId ? employeeShiftMap.get(employeeId) : null;
+    const punchDate = getShiftDateForPunch(empShift, formattedTime);
+    if (employeeId) {
+      batchEmpIds.add(employeeId);
+    } else {
+      batchRawUsers.add(userId);
+    }
+    if (punchDate) batchDates.add(punchDate);
+  }
+
+  // 2. High-speed bulk DB query: pre-populate trackingState in 1 query instead of thousands in a loop
+  const dateArr = Array.from(batchDates);
+  if (dateArr.length > 0) {
+    const empArr = Array.from(batchEmpIds);
+    if (empArr.length > 0) {
+      for (let i = 0; i < empArr.length; i += 500) {
+        const chunkEmps = empArr.slice(i, i + 500);
+        try {
+          const [existingRows] = await db.query(
+            `SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') as punch_date, punch_time 
+             FROM biometric_punches 
+             WHERE employee_id IN (?) AND punch_date IN (?) 
+             ORDER BY employee_id, punch_date, punch_time ASC`,
+            [chunkEmps, dateArr]
+          );
+          for (const r of existingRows) {
+            const trackKey = `EMP:${r.employee_id}:${r.punch_date}`;
+            if (!trackingState.has(trackKey)) {
+              trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
+            }
+            const st = trackingState.get(trackKey);
+            st.punchCount++;
+            st.existingTimestamps.add(new Date(r.punch_time).getTime());
+          }
+        } catch (err) {
+          console.warn('[DirectBiometric] Bulk load existing punches warning:', err.message);
+        }
+      }
+    }
+
+    const rawArr = Array.from(batchRawUsers);
+    if (rawArr.length > 0) {
+      for (let i = 0; i < rawArr.length; i += 500) {
+        const chunkRaw = rawArr.slice(i, i + 500);
+        try {
+          const [existingRaw] = await db.query(
+            `SELECT biometric_user_id, DATE_FORMAT(punch_time, '%Y-%m-%d') as punch_date, punch_time 
+             FROM biometric_attendance_raw 
+             WHERE biometric_user_id IN (?) AND DATE(punch_time) IN (?) 
+             ORDER BY biometric_user_id, punch_time ASC`,
+            [chunkRaw, dateArr]
+          );
+          for (const r of existingRaw) {
+            const trackKey = `RAW:${r.biometric_user_id}:${r.punch_date}`;
+            if (!trackingState.has(trackKey)) {
+              trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
+            }
+            const st = trackingState.get(trackKey);
+            st.punchCount++;
+            st.existingTimestamps.add(new Date(r.punch_time).getTime());
+          }
+        } catch (err) {
+          console.warn('[DirectBiometric] Bulk load existing raw warning:', err.message);
+        }
+      }
+    }
+  }
+
   for (const p of sortedPunches) {
     const userId = String(p.biometricUserId || p.userId || '').trim();
     if (!userId) continue;
@@ -277,36 +363,9 @@ async function ingestDirectPunches(punches) {
 
     const trackKey = employeeId ? `EMP:${employeeId}:${punchDate}` : `RAW:${userId}:${punchDate}`;
 
-    // Load initial state from DB if not already loaded in this batch
+    // Initialize state in-memory if no prior records existed (zero DB calls needed inside loop)
     if (!trackingState.has(trackKey)) {
-      let punchCount = 0;
-      const existingTimestamps = new Set();
-      try {
-        if (employeeId) {
-          const [existingRows] = await db.query(
-            `SELECT punch_time FROM biometric_punches 
-             WHERE employee_id = ? AND punch_date = ? 
-             ORDER BY punch_time ASC`,
-            [employeeId, punchDate]
-          );
-          if (existingRows && existingRows.length > 0) {
-            punchCount = existingRows.length;
-            existingRows.forEach(r => existingTimestamps.add(new Date(r.punch_time).getTime()));
-          }
-        } else {
-          const [lastRaw] = await db.query(
-            `SELECT punch_time FROM biometric_attendance_raw 
-             WHERE biometric_user_id = ? AND DATE(punch_time) = ? 
-             ORDER BY punch_time ASC`,
-            [userId, punchDate]
-          );
-          if (lastRaw && lastRaw.length > 0) {
-            punchCount = lastRaw.length;
-            lastRaw.forEach(r => existingTimestamps.add(new Date(r.punch_time).getTime()));
-          }
-        }
-      } catch (_) {}
-      trackingState.set(trackKey, { punchCount, existingTimestamps });
+      trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
     }
 
     const state = trackingState.get(trackKey);
@@ -366,9 +425,9 @@ async function ingestDirectPunches(punches) {
 
   let totalInserted = 0;
 
-  // Insert raw logs (chunks of 200)
-  for (let i = 0; i < rawInsertRows.length; i += 200) {
-    const chunk = rawInsertRows.slice(i, i + 200);
+  // Insert raw logs (chunks of 500 for maximum throughput)
+  for (let i = 0; i < rawInsertRows.length; i += 500) {
+    const chunk = rawInsertRows.slice(i, i + 500);
     const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
     const params = [];
     for (const r of chunk) {
@@ -393,9 +452,9 @@ async function ingestDirectPunches(punches) {
     }
   }
 
-  // Insert mapped punches (chunks of 200)
-  for (let i = 0; i < punchInsertRows.length; i += 200) {
-    const chunk = punchInsertRows.slice(i, i + 200);
+  // Insert mapped punches (chunks of 500)
+  for (let i = 0; i < punchInsertRows.length; i += 500) {
+    const chunk = punchInsertRows.slice(i, i + 500);
     const placeholders = chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
     const params = [];
     for (const r of chunk) {
@@ -417,17 +476,22 @@ async function ingestDirectPunches(punches) {
     }
   }
 
-  // Recalculate daily attendance for affected employees and dates
+  // Recalculate daily attendance for affected employees and dates in parallel batches of 20
   let recalculatedCount = 0;
-  for (const item of affectedEmpDates) {
-    const [empIdStr, dateStr] = item.split(':');
-    const empId = Number(empIdStr);
-    try {
-      await recalculateDailyBiometric(empId, dateStr);
-      recalculatedCount++;
-    } catch (calcErr) {
-      console.error(`[DirectBiometric] Recalculate error for emp ${empId} on ${dateStr}:`, calcErr.message);
-    }
+  const affectedList = Array.from(affectedEmpDates);
+  const CALC_BATCH_SIZE = 20;
+  for (let i = 0; i < affectedList.length; i += CALC_BATCH_SIZE) {
+    const batch = affectedList.slice(i, i + CALC_BATCH_SIZE);
+    await Promise.allSettled(batch.map(async (item) => {
+      const [empIdStr, dateStr] = item.split(':');
+      const empId = Number(empIdStr);
+      try {
+        await recalculateDailyBiometric(empId, dateStr);
+        recalculatedCount++;
+      } catch (calcErr) {
+        console.error(`[DirectBiometric] Recalculate error for emp ${empId} on ${dateStr}:`, calcErr.message);
+      }
+    }));
   }
 
   return {
@@ -514,19 +578,21 @@ async function syncSingleDevice(device, forceFullSync = false) {
       if (!forceFullSync) {
         try {
           const [latestRows] = await db.query(
-            `SELECT MAX(punch_time) as maxPunchTime 
+            `SELECT MAX(punch_time) as maxPunchTime, COUNT(*) as logCount 
              FROM biometric_attendance_raw 
              WHERE (device_id = ? OR device_id = ?) 
                AND punch_time >= '2024-01-01' 
-               AND punch_time <= NOW()`,
+               AND punch_time <= DATE_ADD(NOW(), INTERVAL 1 DAY)`,
             [device.id, String(device.device_id)]
           );
-          if (latestRows && latestRows[0] && latestRows[0].maxPunchTime) {
+          if (latestRows && latestRows[0] && latestRows[0].logCount >= 100 && latestRows[0].maxPunchTime) {
             const maxTime = new Date(latestRows[0].maxPunchTime);
             if (!isNaN(maxTime.getTime())) {
-              // 2-hour safety overlap window to ensure no in-flight punches are missed
-              cutoffDate = new Date(maxTime.getTime() - 2 * 60 * 60 * 1000);
+              // 5-minute safety overlap window to ensure in-flight punches aren't missed without re-processing hours of history
+              cutoffDate = new Date(maxTime.getTime() - 5 * 60 * 1000);
             }
+          } else {
+            console.log(`📦 [DirectBiometric] Device #${device.device_id} (${device.name}) has < 100 logs in MySQL; performing full backfill.`);
           }
         } catch (err) {
           console.warn(`[DirectBiometric] Note: checking max punch time for device #${device.device_id}:`, err.message);
@@ -588,7 +654,8 @@ async function syncSingleDevice(device, forceFullSync = false) {
         ...ingestResult
       };
     } catch (err) {
-      console.warn(`⚠️ [DirectBiometric] Connection error to ${device.name} (${host}:${port}):`, err.message);
+      const errMsg = (err.err && err.err.message) || (typeof err.toast === 'function' ? err.toast() : null) || err.message || String(err);
+      console.warn(`⚠️ [DirectBiometric] Connection error to ${device.name} (${host}:${port}):`, errMsg);
       try {
         await Promise.race([
           zk.disconnect(),
@@ -599,7 +666,7 @@ async function syncSingleDevice(device, forceFullSync = false) {
         success: false,
         deviceId: device.device_id,
         name: device.name,
-        error: err.message
+        error: errMsg
       };
     }
   };
@@ -650,32 +717,41 @@ async function syncDirectBiometricDevices(targetDeviceId = null, forceFullSync =
       };
     }
 
-    console.log(`🚀 [DirectBiometric] Starting direct parallel sync across ${devices.length} registered terminal device(s)...`);
+    console.log(`🚀 [DirectBiometric] Starting direct sync across ${devices.length} registered terminal device(s)...`);
 
-    // Run all device syncs concurrently in parallel
-    const syncPromises = devices.map(async (dev) => {
-      if (dev.ip_address) {
-        return await syncSingleDevice(dev, forceFullSync);
-      } else {
-        return {
-          success: false,
-          deviceId: dev.device_id,
-          name: dev.name,
-          message: 'Device has no IP address configured.'
-        };
+    // Run device syncs in paced batches of 2 to preserve VPN router throughput and socket stability
+    const results = [];
+    const BATCH_SIZE = 2;
+    for (let i = 0; i < devices.length; i += BATCH_SIZE) {
+      const chunk = devices.slice(i, i + BATCH_SIZE);
+      const chunkPromises = chunk.map(async (dev) => {
+        if (dev.ip_address) {
+          return await syncSingleDevice(dev, forceFullSync);
+        } else {
+          return {
+            success: false,
+            deviceId: dev.device_id,
+            name: dev.name,
+            message: 'Device has no IP address configured.'
+          };
+        }
+      });
+
+      const settled = await Promise.allSettled(chunkPromises);
+      for (let j = 0; j < settled.length; j++) {
+        const s = settled[j];
+        if (s.status === 'fulfilled') {
+          results.push(s.value);
+        } else {
+          results.push({
+            success: false,
+            deviceId: chunk[j].device_id,
+            name: chunk[j].name,
+            error: s.reason?.message || 'Sync failed unexpectedly.'
+          });
+        }
       }
-    });
-
-    const settled = await Promise.allSettled(syncPromises);
-    const results = settled.map((s, idx) => {
-      if (s.status === 'fulfilled') return s.value;
-      return {
-        success: false,
-        deviceId: devices[idx].device_id,
-        name: devices[idx].name,
-        error: s.reason?.message || 'Sync failed unexpectedly.'
-      };
-    });
+    }
 
     const successfulCount = results.filter(r => r.success).length;
     console.log(`✅ [DirectBiometric] Direct sync finished: ${successfulCount}/${devices.length} device(s) online & synced.`);

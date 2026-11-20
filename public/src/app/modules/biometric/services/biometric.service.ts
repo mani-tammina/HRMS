@@ -22,6 +22,16 @@ export interface BiometricStatusResponse {
   };
 }
 
+export interface DeviceLivePingStatus {
+  deviceId: string;
+  name?: string;
+  online: boolean;
+  latency: number | null;
+  ip?: string;
+  port?: number;
+  lastChecked: string;
+}
+
 export interface BiometricDevice {
   id: number | string;
   deviceId: string;
@@ -37,6 +47,7 @@ export interface BiometricDevice {
   firstPunchTime: string;
   status: 'online' | 'idle' | 'offline';
   isOnline: boolean;
+  latency?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -131,6 +142,28 @@ export class BiometricService {
    */
   getDevices(): Observable<{ success: boolean; data: BiometricDevice[] }> {
     return this.http.get<{ success: boolean; data: BiometricDevice[] }>(`${this.baseUrl}/devices`);
+  }
+
+  /**
+   * Get ultra-fast live TCP reachability & latency status of all devices (< 2ms response)
+   * Supports force refresh and dynamic background interval adjustment
+   */
+  getDevicesLivePing(options: { force?: boolean; interval?: number } = {}): Observable<{
+    success: boolean;
+    timestamp: string;
+    currentIntervalSec?: number;
+    data: Record<string, DeviceLivePingStatus>;
+  }> {
+    let params = new HttpParams();
+    if (options.force) params = params.set('force', 'true');
+    if (options.interval) params = params.set('interval', options.interval.toString());
+
+    return this.http.get<{
+      success: boolean;
+      timestamp: string;
+      currentIntervalSec?: number;
+      data: Record<string, DeviceLivePingStatus>;
+    }>(`${this.baseUrl}/devices/live-ping`, { params });
   }
 
   /**

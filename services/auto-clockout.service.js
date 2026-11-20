@@ -147,7 +147,7 @@ class AutoClockOutService {
   async calculateAndUpdateHours(connection, attendanceId) {
     const [punches] = await connection.query(
       `SELECT id, punch_type, punch_time, notes, 'web' as source FROM attendance_punches
-       WHERE attendance_id = ? 
+       WHERE attendance_id = ? AND (notes IS NULL OR notes != 'Biometric Check-In')
        ORDER BY punch_time ASC, id ASC`,
       [attendanceId]
     );
@@ -163,7 +163,7 @@ class AutoClockOutService {
       const attDate = attRows[0].att_date;
       try {
         const [bioPunches] = await connection.query(
-          `SELECT id, direction, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
+          `SELECT id, direction, device_id, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
            FROM biometric_punches
            WHERE employee_id = ? AND (
              punch_date = ? 
@@ -174,13 +174,16 @@ class AutoClockOutService {
           [empId, attDate, attDate, attDate, attDate]
         );
         if (bioPunches && bioPunches.length > 0) {
-          let bioOpen = false;
+          const bioOpenByDevice = new Map();
           const mappedBio = bioPunches.map(p => {
-            let pt = p.direction === 'out' ? 'out' : (p.direction === 'in' ? 'in' : (bioOpen ? 'out' : 'in'));
-            if (pt === 'in') bioOpen = true;
-            else if (pt === 'out') bioOpen = false;
+            const devKey = String(p.device_id || 'default').trim();
+            const devOpen = bioOpenByDevice.get(devKey) || false;
+            const pt = devOpen ? 'out' : 'in';
+            bioOpenByDevice.set(devKey, !devOpen);
             return { ...p, punch_type: pt };
           });
+          const bioTimes = new Set(mappedBio.map(b => b.punch_time));
+          allPunches = allPunches.filter(p => !bioTimes.has(p.punch_time));
           allPunches = [...allPunches, ...mappedBio];
         }
       } catch (_) {}
@@ -188,54 +191,162 @@ class AutoClockOutService {
 
     allPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
 
-    let totalWorkMinutes = 0;
-    let totalBreakMinutes = 0;
-    let lastPunchIn = null;
-    let prevValidOut = null;
-    let lastValidCheckOut = null;
-    let earliestCheckIn = allPunches.length > 0 ? allPunches[0].punch_time : null;
+    const parseTime = (val) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      if (val instanceof Date) return val.getTime();
+      if (typeof val === 'string') {
+        const clean = val.trim();
+        if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2})?(\.\d+)?$/.test(clean)) {
+          return new Date(`${clean.replace(' ', 'T')}+05:30`).getTime();
+        }
+        return new Date(clean).getTime();
+      }
+      return 0;
+    };
 
-    for (let i = 0; i < allPunches.length; i++) {
-      const punch = allPunches[i];
-      const punchTime = new Date(punch.punch_time);
-      const isAutoOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
+    const isBio = (p) => {
+      if (!p) return false;
+      const src = (p.source || '').toLowerCase();
+      const notes = (p.notes || '').toLowerCase();
+      const dev = String(p.device_id != null ? p.device_id : '').trim();
+      if (src === 'biometric' || (notes.includes('biometric') && !notes.includes('biometric check-in'))) return true;
+      if (dev && (/^\d+$/.test(dev) || dev.toLowerCase().includes('device') || dev.toLowerCase().includes('floor') || dev.toLowerCase().includes('svs'))) return true;
+      return false;
+    };
 
-      if (punch.punch_type === 'in') {
-        if (lastPunchIn === null) {
-          lastPunchIn = punchTime;
-          if (prevValidOut !== null) {
-            const breakMinutes = (punchTime - prevValidOut) / (1000 * 60);
-            if (breakMinutes > 0) {
-              totalBreakMinutes += breakMinutes;
+    const cleanPunches = allPunches.filter(p => !(p.notes || '').includes('Biometric Check-In'));
+    let earliestInMs = null;
+    let latestOutMs = null;
+    for (const p of cleanPunches) {
+      const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+      if (isAuto) continue; // Do not use auto clock-out to determine earliest or latest punch times
+      const t = parseTime(p.punch_time);
+      if (t > 0) {
+        if (earliestInMs === null || t < earliestInMs) earliestInMs = t;
+        if (latestOutMs === null || t > latestOutMs) latestOutMs = t;
+      }
+    }
+
+    const bioPunches = cleanPunches.filter(p => isBio(p));
+    const webPunches = cleanPunches.filter(p => !isBio(p));
+    const workIntervals = [];
+
+    if (bioPunches.length > 0) {
+      const bioStreamMap = new Map();
+      for (const bp of bioPunches) {
+        const streamKey = String(bp.device_id || 'default').trim();
+        if (!bioStreamMap.has(streamKey)) bioStreamMap.set(streamKey, []);
+        bioStreamMap.get(streamKey).push(bp);
+      }
+
+      let firstBioInMs = null;
+      let lastBioOutMs = null;
+
+      bioStreamMap.forEach((streamPunches) => {
+        streamPunches.sort((a, b) => parseTime(a.punch_time) - parseTime(b.punch_time));
+        let currentIn = null;
+        for (const p of streamPunches) {
+          const pMs = parseTime(p.punch_time);
+          const pt = currentIn ? 'out' : 'in';
+          if (pt === 'in') {
+            if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;
+            currentIn = p;
+          } else {
+            const inMs = parseTime(currentIn.punch_time);
+            if (pMs > inMs) {
+              workIntervals.push({ start: inMs, end: pMs });
+              if (lastBioOutMs === null || pMs > lastBioOutMs) lastBioOutMs = pMs;
             }
-          }
-        } else {
-          // Another IN without an OUT: if gap >= 5 mins, save work and start new session
-          const gap = (punchTime - lastPunchIn) / (1000 * 60);
-          if (gap >= 5) {
-            totalWorkMinutes += gap;
-            prevValidOut = punchTime;
-            lastPunchIn = punchTime;
+            currentIn = null;
           }
         }
-      } else if (punch.punch_type === 'out') {
-        if (lastPunchIn !== null) {
-          if (!isAutoOut) {
-            const workMinutes = (punchTime - lastPunchIn) / (1000 * 60);
-            if (workMinutes > 0) {
-              totalWorkMinutes += workMinutes;
-              prevValidOut = punchTime;
-              lastValidCheckOut = punch.punch_time;
+      });
+
+      if (webPunches.length > 0) {
+        let webCurrentIn = null;
+        for (const wp of webPunches) {
+          const wpMs = parseTime(wp.punch_time);
+          const wpt = (wp.punch_type || wp.direction || '').toLowerCase();
+          const isAuto = (wp.notes || '').includes('OUT Missing') || (wp.notes || '').includes('Auto Clock-Out');
+
+          if (wpt === 'in') {
+            webCurrentIn = wp;
+          } else if (wpt === 'out') {
+            // If auto web checkout, do not calculate/add effective hours
+            if (webCurrentIn && !isAuto) {
+              const winMs = parseTime(webCurrentIn.punch_time);
+              if (wpMs > winMs) {
+                // Pre-biometric web work
+                if (firstBioInMs !== null && winMs < firstBioInMs) {
+                  workIntervals.push({ start: winMs, end: Math.min(wpMs, firstBioInMs) });
+                }
+                // Post-biometric web work (manual checkout only)
+                const effectiveBioOut = lastBioOutMs !== null ? lastBioOutMs : firstBioInMs;
+                if (effectiveBioOut !== null && wpMs > effectiveBioOut) {
+                  const postBioStart = Math.max(winMs, effectiveBioOut);
+                  if (wpMs > postBioStart) {
+                    workIntervals.push({ start: postBioStart, end: wpMs });
+                  }
+                }
+              }
             }
+            webCurrentIn = null;
           }
-          lastPunchIn = null;
+        }
+      }
+    } else {
+      let webCurrentIn = null;
+      for (const p of webPunches) {
+        const pMs = parseTime(p.punch_time);
+        const pt = (p.punch_type || p.direction || '').toLowerCase();
+        const isAuto = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
+
+        if (pt === 'in') {
+          if (webCurrentIn) {
+            const prevMs = parseTime(webCurrentIn.punch_time);
+            if (pMs > prevMs) workIntervals.push({ start: prevMs, end: pMs });
+          }
+          webCurrentIn = p;
+        } else if (pt === 'out') {
+          if (webCurrentIn && !isAuto) {
+            const inMs = parseTime(webCurrentIn.punch_time);
+            if (pMs > inMs) workIntervals.push({ start: inMs, end: pMs });
+          }
+          webCurrentIn = null;
         }
       }
     }
 
+    workIntervals.sort((a, b) => a.start - b.start);
+    const mergedIntervals = [];
+    for (const interval of workIntervals) {
+      if (!mergedIntervals.length || mergedIntervals[mergedIntervals.length - 1].end < interval.start) {
+        mergedIntervals.push({ ...interval });
+      } else {
+        mergedIntervals[mergedIntervals.length - 1].end = Math.max(
+          mergedIntervals[mergedIntervals.length - 1].end,
+          interval.end
+        );
+      }
+    }
+
+    const totalWorkMs = mergedIntervals.reduce((acc, curr) => acc + (curr.end - curr.start), 0);
+    const totalWorkMinutes = totalWorkMs / (1000 * 60);
+
+    let grossMinutes = 0;
+    if (earliestInMs !== null && latestOutMs !== null && latestOutMs > earliestInMs) {
+      grossMinutes = (latestOutMs - earliestInMs) / (1000 * 60);
+    }
+    const totalBreakMinutes = Math.max(0, grossMinutes - totalWorkMinutes);
+
     const totalWorkHours = (totalWorkMinutes / 60).toFixed(2);
     const totalBreakHours = (totalBreakMinutes / 60).toFixed(2);
-    const grossHours = (parseFloat(totalWorkHours) + parseFloat(totalBreakHours)).toFixed(2);
+    const grossHours = (grossMinutes / 60).toFixed(2);
+
+    const earliestCheckIn = cleanPunches.length > 0 ? cleanPunches[0].punch_time : null;
+    const lastPunch = cleanPunches.length > 0 ? cleanPunches[cleanPunches.length - 1] : null;
+    const lastValidCheckOut = lastPunch && lastPunch.punch_type === 'out' ? lastPunch.punch_time : null;
 
     await connection.query(
       `UPDATE attendance 

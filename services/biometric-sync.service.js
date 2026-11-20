@@ -231,12 +231,19 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     } catch (_) {}
   }
 
-  const detailJson = JSON.stringify(punches.map((p, idx) => ({
-    id: p.id,
-    time: p.punch_time_clock,
-    direction: (idx % 2 === 0) ? 'in' : 'out',
-    device: p.device_id
-  })));
+  const bioOpenByDevice = new Map();
+  const detailJson = JSON.stringify(punches.map((p) => {
+    const devKey = String(p.device_id || 'default').trim();
+    const devOpen = bioOpenByDevice.get(devKey) || false;
+    const dir = devOpen ? 'out' : 'in';
+    bioOpenByDevice.set(devKey, !devOpen);
+    return {
+      id: p.id,
+      time: p.punch_time_clock,
+      direction: dir,
+      device: p.device_id
+    };
+  }));
 
   await db.query(
     `INSERT INTO biometric_daily_attendance 
