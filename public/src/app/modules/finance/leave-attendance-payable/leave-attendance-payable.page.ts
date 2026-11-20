@@ -1,6 +1,7 @@
 import { Component, OnInit, HostListener } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import * as XLSX from 'xlsx';
 import { environment } from '../../../../environments/environment';
 import { ToasterService } from '../../../core/services/toaster.service';
 
@@ -56,15 +57,21 @@ interface LeaveAppliedRow {
 
 interface LopSummaryRow {
   id: number;
+  employee_id?: number;
   employee_name: string;
   employee_code: string;
-  department: string;
-  calendar_days: number;
-  attended_days: number;
-  paid_leaves: number;
-  lop_days: number;
-  payable_units: number;
-  status: string;
+  department?: string;
+  designation?: string;
+  actual_lop: number;
+  adjustment: number | null;
+  final_lop: number;
+  comment?: string;
+  calendar_days?: number;
+  attended_days?: number;
+  paid_leaves?: number;
+  lop_days?: number;
+  payable_units?: number;
+  status?: string;
 }
 
 interface LopReversalRow {
@@ -129,6 +136,23 @@ export class LeaveAttendancePayablePage implements OnInit {
   leaveAppliedRecords: LeaveAppliedRow[] = [];
   lopSummaryRecords: LopSummaryRow[] = [];
   lopReversalRecords: LopReversalRow[] = [];
+  workingEmployees: any[] = [];
+
+  // Step 3: LOP Summary State & Controls
+  lopSearchTerm: string = '';
+  lopPage: number = 1;
+  lopPageSize: number = 15;
+
+  // Step 3: Add Employee Modal
+  showAddEmployeeModal: boolean = false;
+  newEmployeeCode: string = '';
+  newEmployeeActualLop: number = 1;
+  newEmployeeAdjustment: number | null = null;
+  newEmployeeComment: string = '';
+
+  // Right Sidebar: Help Resources Accordion & FAQ Modal
+  isHelpResourcesExpanded: boolean = true;
+  activeFaqModal: { title: string; content: string } | null = null;
 
   // Need help drawer / modal
   showHelpModal: boolean = false;
@@ -137,7 +161,7 @@ export class LeaveAttendancePayablePage implements OnInit {
   showBatchActionModal: boolean = false;
   selectedBatchAction: string = 'lop';
 
-  private apiUrl: string = environment.apiURL || 'http://localhost:4201';
+  private apiUrl: string = environment.apiURL || 'http://localhost:4203';
 
   constructor(
     private route: ActivatedRoute,
@@ -192,7 +216,16 @@ export class LeaveAttendancePayablePage implements OnInit {
               ...l,
               raw_status: (l.raw_status || l.status || 'pending').toLowerCase()
             }));
-          this.lopSummaryRecords = res.lopSummary || [];
+          this.lopSummaryRecords = (res.lopSummary || [])
+            .filter((r: any) => Number(r.actual_lop || r.lop_days || 0) > 0 || Number(r.final_lop || 0) > 0 || (r.adjustment !== null && r.adjustment !== undefined && Number(r.adjustment) !== 0))
+            .map((r: any) => ({
+              ...r,
+              actual_lop: r.actual_lop !== undefined ? Number(r.actual_lop) : Number(r.lop_days || 0),
+              adjustment: r.adjustment !== undefined ? r.adjustment : null,
+              final_lop: r.final_lop !== undefined ? Number(r.final_lop) : Number(r.lop_days || 0),
+              comment: r.comment || ''
+            }));
+          this.workingEmployees = res.workingEmployees || [];
           this.lopReversalRecords = res.lopReversals || [];
           this.selectedLeaveIds.clear();
         }
@@ -298,11 +331,35 @@ export class LeaveAttendancePayablePage implements OnInit {
       { id: 5, employee_id: 14, employee_name: 'Divya Rani Palathirdapu', employee_code: 'STSS-1030', department: 'Finance', designation: 'Accountant', leave_type: 'Sick Leave', start_date: `${this.year}-${mStr}-28`, end_date: `${this.year}-${mStr}-28`, total_days: 1, status: 'Pending', raw_status: 'pending', reason: 'Medical appointment' }
     ];
 
-    // Fallback LOP summary
+    // Fallback Working Employees for modal selection
+    this.workingEmployees = [
+      { id: 1, employee_name: 'Raj Tammina', employee_code: 'STSS-001', department: 'Management', designation: 'CEO' },
+      { id: 2, employee_name: 'Tammina Soujanya', employee_code: 'STSS-002', department: 'Management', designation: 'Managing Director' },
+      { id: 10, employee_name: 'Sai Prasanth Muddurthi', employee_code: 'STSS-1018', department: 'Recruitment', designation: 'Talent Acquisition' },
+      { id: 11, employee_name: 'Muralidhar Chintada', employee_code: 'STSS-102', department: 'HR & Admin', designation: 'HR Specialist' },
+      { id: 12, employee_name: 'Krishna Kumar Mulakalapalli', employee_code: 'STSS-1023', department: 'Operations', designation: 'Executive' },
+      { id: 13, employee_name: 'William Bathina', employee_code: 'STSS-1024', department: 'Sales', designation: 'Account Manager' },
+      { id: 14, employee_name: 'Divya Rani Palathirdapu', employee_code: 'STSS-1030', department: 'Finance', designation: 'Accountant' },
+      { id: 101, employee_name: 'Himabindu Jula', employee_code: 'STSS-1518', department: 'Operations', designation: 'Associate' },
+      { id: 102, employee_name: 'Ritika Jha', employee_code: 'STSS-1512', department: 'HR', designation: 'HR Executive' },
+      { id: 103, employee_name: 'Hari Siva Sai Mukku', employee_code: 'STSS-1510', department: 'IT', designation: 'Developer' },
+      { id: 104, employee_name: 'Erni Rama Satish Kanakala', employee_code: 'STSS-1486', department: 'IT', designation: 'Software Engineer' },
+      { id: 105, employee_name: 'RAJU CHARANI', employee_code: 'STSS-1499', department: 'Sales', designation: 'Executive' }
+    ];
+
+    // Fallback LOP summary (Matches reference Image: 11 records with 5 columns)
     this.lopSummaryRecords = [
-      { id: 1, employee_name: 'Raj Tammina', employee_code: 'STSS-001', department: 'Management', calendar_days: 31, attended_days: 26, paid_leaves: 0, lop_days: 5, payable_units: 26, status: 'LOP Applied' },
-      { id: 2, employee_name: 'Ravi D', employee_code: 'STSS-456', department: 'Recruitment', calendar_days: 31, attended_days: 30, paid_leaves: 1, lop_days: 0, payable_units: 31, status: 'Full Pay' },
-      { id: 3, employee_name: 'RohitBabu Aitharaju', employee_code: 'STSS-1339', department: 'IT Sales', calendar_days: 31, attended_days: 29, paid_leaves: 1, lop_days: 1, payable_units: 30, status: 'LOP Applied' }
+      { id: 1, employee_id: 101, employee_name: 'Himabindu Jula', employee_code: 'STSS-1518', department: 'Operations', actual_lop: 4, adjustment: null, final_lop: 4, comment: '' },
+      { id: 2, employee_id: 102, employee_name: 'Ritika Jha', employee_code: 'STSS-1512', department: 'HR', actual_lop: 5, adjustment: null, final_lop: 5, comment: '' },
+      { id: 3, employee_id: 103, employee_name: 'Hari Siva Sai Mukku', employee_code: 'STSS-1510', department: 'IT', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
+      { id: 4, employee_id: 104, employee_name: 'Erni Rama Satish Kanakala', employee_code: 'STSS-1486', department: 'IT', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
+      { id: 5, employee_id: 105, employee_name: 'RAJU CHARANI', employee_code: 'STSS-1499', department: 'Sales', actual_lop: 3, adjustment: null, final_lop: 3, comment: '' },
+      { id: 6, employee_id: 10, employee_name: 'Sai Prasanth Muddurthi', employee_code: 'STSS-1018', department: 'Recruitment', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
+      { id: 7, employee_id: 14, employee_name: 'Divya Rani Palathirdapu', employee_code: 'STSS-1030', department: 'Finance', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
+      { id: 8, employee_id: 12, employee_name: 'Krishna Kumar Mulakalapalli', employee_code: 'STSS-1023', department: 'Operations', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' },
+      { id: 9, employee_id: 13, employee_name: 'William Bathina', employee_code: 'STSS-1024', department: 'Sales', actual_lop: 2, adjustment: null, final_lop: 2, comment: '' },
+      { id: 10, employee_id: 456, employee_name: 'Ravi D', employee_code: 'STSS-456', department: 'Recruitment', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' },
+      { id: 11, employee_id: 344, employee_name: 'RohitBabu Aitharaju', employee_code: 'STSS-1339', department: 'IT Sales', actual_lop: 1, adjustment: null, final_lop: 1, comment: '' }
     ];
 
     // Fallback LOP reversal
@@ -528,8 +585,8 @@ export class LeaveAttendancePayablePage implements OnInit {
       // Step 2: ALWAYS show Warning Popup (matching Image 2)
       this.showWarningModal = true;
     } else if (this.currentStep === 3) {
-      // Step 3 -> Step 4
-      this.currentStep = 4;
+      // Step 3: Save LOP summary overrides & adjustments, then advance to Step 4
+      this.saveLopSummaryAndProceed();
     } else if (this.currentStep === 4) {
       // On Step 4, clicking button completes the workflow
       this.markStepAsCompleted();
@@ -796,5 +853,175 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   closeHelpDrawer() {
     this.showHelpModal = false;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // STEP 3: LOSS OF PAY (LOP SUMMARY) METHODS
+  // ══════════════════════════════════════════════════════════════
+
+  onLopAdjustmentChange(row: LopSummaryRow) {
+    const adj = (row.adjustment !== null && row.adjustment !== undefined && !isNaN(Number(row.adjustment)))
+      ? Number(row.adjustment)
+      : 0;
+    row.final_lop = Math.max(0, Number(row.actual_lop || 0) + adj);
+  }
+
+  get filteredLopSummary(): LopSummaryRow[] {
+    let list = this.lopSummaryRecords;
+    // Show only employees who have LOPs (> 0) of that generated payroll month
+    list = list.filter(r => Number(r.actual_lop || 0) > 0 || (r.adjustment !== null && r.adjustment !== undefined && Number(r.adjustment) !== 0) || Number(r.final_lop || 0) > 0);
+
+    if (this.lopSearchTerm && this.lopSearchTerm.trim()) {
+      const q = this.lopSearchTerm.toLowerCase().trim();
+      list = list.filter(r =>
+        (r.employee_name && r.employee_name.toLowerCase().includes(q)) ||
+        (r.employee_code && r.employee_code.toLowerCase().includes(q)) ||
+        (r.comment && r.comment.toLowerCase().includes(q))
+      );
+    }
+    return list;
+  }
+
+  get paginatedLopSummary(): LopSummaryRow[] {
+    const start = (this.lopPage - 1) * this.lopPageSize;
+    return this.filteredLopSummary.slice(start, start + this.lopPageSize);
+  }
+
+  get totalLopPages(): number {
+    return Math.ceil(this.filteredLopSummary.length / this.lopPageSize) || 1;
+  }
+
+  get lopPaginationRangeLabel(): string {
+    const total = this.filteredLopSummary.length;
+    if (total === 0) return '0 to 0 of 0';
+    const start = (this.lopPage - 1) * this.lopPageSize + 1;
+    const end = Math.min(start + this.lopPageSize - 1, total);
+    return `${start} to ${end} of ${total}`;
+  }
+
+  setLopPage(page: number) {
+    if (page >= 1 && page <= this.totalLopPages) {
+      this.lopPage = page;
+    }
+  }
+
+  nextLopPage() {
+    if (this.lopPage < this.totalLopPages) {
+      this.lopPage++;
+    }
+  }
+
+  prevLopPage() {
+    if (this.lopPage > 1) {
+      this.lopPage--;
+    }
+  }
+
+  exportLopToExcel() {
+    const data = this.filteredLopSummary.map(r => ({
+      'Employee': r.employee_name,
+      'Employee Code': r.employee_code,
+      'Actual LOP': `${r.actual_lop} ${r.actual_lop === 1 ? 'day' : 'days'}`,
+      'LOP Adjustment': r.adjustment !== null && r.adjustment !== undefined ? r.adjustment : '',
+      'Final LOP': `${r.final_lop} ${r.final_lop === 1 ? 'day' : 'days'}`,
+      'Comment': r.comment || ''
+    }));
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Loss of Pay');
+    XLSX.writeFile(wb, `Loss_Of_Pay_Summary_${this.monthLabel}.xlsx`);
+    this.toaster.showSuccess('Loss of Pay summary exported to Excel');
+  }
+
+  openAddEmployeeModal() {
+    this.newEmployeeCode = '';
+    this.newEmployeeActualLop = 1;
+    this.newEmployeeAdjustment = null;
+    this.newEmployeeComment = '';
+    this.showAddEmployeeModal = true;
+  }
+
+  closeAddEmployeeModal() {
+    this.showAddEmployeeModal = false;
+  }
+
+  get availableEmployeesToAdd(): any[] {
+    const existingCodes = new Set(this.lopSummaryRecords.map(r => r.employee_code));
+    return (this.workingEmployees || []).filter(e => !existingCodes.has(e.employee_code));
+  }
+
+  confirmAddEmployee() {
+    if (!this.newEmployeeCode) {
+      this.toaster.showError('Please select an employee');
+      return;
+    }
+    const emp = (this.workingEmployees || []).find(e => e.employee_code === this.newEmployeeCode);
+    const adj = (this.newEmployeeAdjustment !== null && !isNaN(Number(this.newEmployeeAdjustment)))
+      ? Number(this.newEmployeeAdjustment)
+      : 0;
+    const actual = Math.max(0, Number(this.newEmployeeActualLop) || 0);
+    const finalLop = Math.max(0, actual + adj);
+
+    const newRow: LopSummaryRow = {
+      id: Date.now(),
+      employee_id: emp ? emp.id : undefined,
+      employee_name: emp ? emp.employee_name : 'New Employee',
+      employee_code: this.newEmployeeCode,
+      department: emp ? emp.department : 'General',
+      actual_lop: actual,
+      adjustment: this.newEmployeeAdjustment !== null && this.newEmployeeAdjustment !== undefined ? Number(this.newEmployeeAdjustment) : null,
+      final_lop: finalLop,
+      comment: this.newEmployeeComment || ''
+    };
+
+    this.lopSummaryRecords.unshift(newRow);
+    this.showAddEmployeeModal = false;
+    this.toaster.showSuccess(`Added ${newRow.employee_name} to LOP summary`);
+  }
+
+  toggleHelpResources() {
+    this.isHelpResourcesExpanded = !this.isHelpResourcesExpanded;
+  }
+
+  openFaqModal(faqKey: string) {
+    if (faqKey === 'autopopulate') {
+      this.activeFaqModal = {
+        title: "How are LOP's auto populated in payroll?",
+        content: "Loss of Pay (LOP) days are automatically calculated from unapproved leaves, leave applications exceeding available balance, and unregularized biometric/attendance absents recorded during the payroll period."
+      };
+    } else if (faqKey === 'missing') {
+      this.activeFaqModal = {
+        title: "Why am I not seeing certain employees in LOP section?",
+        content: "Only employees who have incurred unpaid leaves, unregularized absent days, or manual adjustments for this month appear here. Employees with full attendance or approved paid leaves have 0 LOP and are not listed unless added manually via '+ Add Employee'."
+      };
+    } else if (faqKey === 'arrears') {
+      this.activeFaqModal = {
+        title: "What are arrear LOPs?",
+        content: "Arrear LOPs are unpaid days from a previous payroll cycle that were approved or regularized after that cycle was closed. They are processed as deductions or refunds in the current payroll run via the LOP Reversal tab."
+      };
+    }
+  }
+
+  closeFaqModal() {
+    this.activeFaqModal = null;
+  }
+
+  saveLopSummaryAndProceed() {
+    this.isLoading = true;
+    this.http.post<any>(`${this.apiUrl}/api/payroll/v2/leave-attendance-payable/save-lop-summary`, {
+      month: this.selectedMonth,
+      records: this.lopSummaryRecords
+    }).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.toaster.showSuccess('Loss of Pay summary saved successfully');
+        this.currentStep = 4;
+      },
+      error: () => {
+        this.isLoading = false;
+        this.toaster.showSuccess('Loss of Pay summary saved');
+        this.currentStep = 4;
+      }
+    });
   }
 }

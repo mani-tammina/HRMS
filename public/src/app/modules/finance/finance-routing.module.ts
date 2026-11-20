@@ -61,6 +61,10 @@ const routes: Routes = [
   {
     path: 'preview-all',
     loadChildren: () => import('./payroll-preview-all/payroll-preview-all.module').then(m => m.PayrollPreviewAllPageModule)
+  },
+  {
+    path: 'payment-preview',
+    loadChildren: () => import('./payment-preview/payment-preview.module').then(m => m.PaymentPreviewPageModule)
   }
 ];
 

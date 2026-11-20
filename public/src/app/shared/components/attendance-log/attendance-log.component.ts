@@ -92,6 +92,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
   }
   weeklyOffPolicy: WeeklyOffPolicy | null = null;
   missingLogConfigs: any[] = [];
+  deviceNamesMap: Map<string, string> = new Map();
 
   constructor(
     private attendanceService: AttendanceService,
@@ -195,6 +196,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
     const missingLogTimes$ = this.adminService.getMissingLogTimes().pipe(catchError(() => of([])));
     const holidays$ = this.holidayService.getHolidays({ year: this.currentYear }).pipe(catchError(() => of([])));
+    const devices$ = this.attendanceApi.getBiometricDevices().pipe(catchError(() => of({ devices: [] })));
 
     forkJoin({
       profile: profile$,
@@ -218,6 +220,13 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
           const shiftPolicies = Array.isArray(res.shiftPolicies) ? res.shiftPolicies : (res.shiftPolicies?.data || []);
           this.shiftPolicy = (shiftPolicies || []).find((p: any) => p.id === sId) || null;
 
+          if (res.devices?.devices && Array.isArray(res.devices.devices)) {
+            for (const d of res.devices.devices) {
+              if (d.device_id && d.name) {
+                this.deviceNamesMap.set(String(d.device_id).trim(), String(d.name).trim());
+              }
+            }
+          }
           this.todayResponse = res.today;
           this.todayPunches = res.today?.punches || [];
           this.missingLogConfigs = res.missingLogs || [];
@@ -842,9 +851,41 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     if (!this.selectedLog) return;
 
     const sourcePunches = Array.isArray(punches) ? punches : [];
+
+    const isUserAgent = (dev: string) => {
+      const lower = dev.toLowerCase();
+      return (
+        lower.includes('mozilla') ||
+        lower.includes('applewebkit') ||
+        lower.includes('chrome') ||
+        lower.includes('safari') ||
+        lower.includes('windows nt') ||
+        dev.length > 20
+      );
+    };
+
+    const isBiometric = (p: any): boolean => {
+      if (!p) return false;
+      const source = (p.source || '').toLowerCase();
+      const workMode = (p.work_mode || '').toLowerCase();
+      const notes = (p.notes || '').toLowerCase();
+      const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : '')).trim();
+
+      if (source === 'biometric' || workMode === 'biometric' || notes.includes('biometric')) {
+        return true;
+      }
+      if (!isUserAgent(dev)) {
+        if (dev && (/^\d+$/.test(dev) || this.deviceNamesMap.has(dev))) {
+          return true;
+        }
+      }
+      return false;
+    };
+
+    const hasBioPunches = sourcePunches.some(p => isBiometric(p));
     const bioPunchSecs = new Set(
       sourcePunches
-        .filter(p => p.source === 'biometric' || p.work_mode === 'Biometric')
+        .filter(p => isBiometric(p))
         .map(p => Math.floor(this.parsePunchTimeToMs(p.punch_time) / 1000))
     );
 
@@ -860,8 +901,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
       if (isAutoOut) {
         const hasLaterPunches = sourcePunches.slice(i + 1).some(laterP => !(laterP.notes || '').includes('OUT Missing'));
-        if (hasLaterPunches || isOngoing) {
-          continue; // Obsolete or premature auto-out: drop so session continues seamlessly!
+        if (hasLaterPunches || isOngoing || hasBioPunches) {
+          continue; // Obsolete, premature, or redundant auto-out: drop so session continues seamlessly!
         }
       }
       const isWeb = p.source === 'web' || !p.source;
@@ -870,11 +911,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         if (bioPunchSecs.has(pSec)) {
           continue;
         }
+        // If employee has real biometric punches on this day, drop orphan web OUT punches that have no corresponding web IN
+        if (hasBioPunches) {
+          const pType = (p.punch_type || p.direction || '').toLowerCase();
+          if (pType === 'out') {
+            const hasWebIn = sourcePunches.some(wp => (wp.source === 'web' || !wp.source) && (wp.punch_type === 'in' || wp.direction === 'in'));
+            if (!hasWebIn) {
+              continue;
+            }
+          }
+        }
       }
       cleanList.push(p);
     }
-
-    const rawPunches = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
 
     const getFormattedTime = (dateVal: any): string => {
       if (!dateVal) return '';
@@ -899,64 +948,26 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       return String(dateVal);
     };
 
-    const isUserAgent = (dev: string) => {
-      const lower = dev.toLowerCase();
-      return (
-        lower.includes('mozilla') ||
-        lower.includes('applewebkit') ||
-        lower.includes('chrome') ||
-        lower.includes('safari') ||
-        lower.includes('windows nt') ||
-        dev.length > 20
-      );
-    };
-
-    const isBiometric = (p: any): boolean => {
-      if (!p) return false;
-      const source = (p.source || '').toLowerCase();
-      const workMode = (p.work_mode || '').toLowerCase();
-      const notes = (p.notes || '').toLowerCase();
-      const loc = (p.location || '').toLowerCase();
-      const dev = p.device_info != null ? String(p.device_info).trim() : '';
-
-      if (source === 'biometric' || workMode === 'biometric' || notes.includes('biometric')) {
-        return true;
-      }
-      if (!isUserAgent(dev)) {
-        if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) {
-          return true;
-        }
-        if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) {
-          return true;
-        }
-      }
-      return false;
-    };
-
     const getBiometricLocationTitle = (p: any): string => {
-      const loc = (p.location || '').trim();
-      const dev = p.device_info != null ? String(p.device_info).trim() : '';
-      const lowerLoc = loc.toLowerCase();
+      const dev = String(p.device_info != null ? p.device_info : (p.device_id != null ? p.device_id : (p.deviceId != null ? p.deviceId : ''))).trim();
+      const loc = String(p.device_name || p.location || '').trim();
 
-      if (lowerLoc.includes('main door') || lowerLoc.includes('door')) {
+      // 1. Dynamic device lookup from database (loaded via getBiometricDevices)
+      if (dev && this.deviceNamesMap.has(dev)) {
+        return this.deviceNamesMap.get(dev)!;
+      }
+
+      // 2. If the backend returned a device name / location directly from biometric_devices, use it
+      if (loc && !loc.toLowerCase().includes('mozilla') && !loc.toLowerCase().includes('applewebkit')) {
         return loc;
       }
-      if (dev === '2' || lowerLoc.includes('1st floor') || lowerLoc.includes('1st') || lowerLoc.includes('device (2)') || lowerLoc.includes('device 2')) {
-        return 'Main Door - 1st floor';
-      }
-      if (dev === '3' || lowerLoc.includes('4th floor') || lowerLoc.includes('4th') || lowerLoc.includes('device (3)') || lowerLoc.includes('device 3')) {
-        return '4th Floor SVS Towers';
-      }
-      if (dev === '1' || lowerLoc.includes('3rd floor') || lowerLoc.includes('3rd') || lowerLoc.includes('device (1)') || lowerLoc.includes('device 1')) {
-        return '3rd Floor SVS Towers';
-      }
+
+      // 3. Fallback to Device #ID if only numeric ID is available
       if (dev && /^\d+$/.test(dev)) {
-        return `${dev} Floor SVS Towers`;
+        return `Device #${dev}`;
       }
-      if (loc && !lowerLoc.includes('reader') && !lowerLoc.includes('device ()') && !lowerLoc.startsWith('biometric device') && !lowerLoc.includes('office') && !lowerLoc.includes('mumbai') && !lowerLoc.includes('mozilla')) {
-        return loc;
-      }
-      return 'Main Door - 1st floor';
+
+      return loc || 'Biometric Punch';
     };
 
     const getSoftwarePunchMode = (p: any): string => {
@@ -975,6 +986,33 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       }
       return 'Web Clock In';
     };
+
+    // Group each punch mode individually (Web Clock In, Remote Clock In, Work From Home, Biometric Device / Floor)
+    const getPunchGroupName = (p: any): string => {
+      if (isBiometric(p)) {
+        return getBiometricLocationTitle(p);
+      }
+      return getSoftwarePunchMode(p);
+    };
+
+    const rawPunchesSorted = cleanList.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+    const rawPunches: any[] = [];
+    for (const p of rawPunchesSorted) {
+      const pMs = this.parsePunchTimeToMs(p.punch_time);
+      const lastP = rawPunches.length > 0 ? rawPunches[rawPunches.length - 1] : null;
+      if (lastP) {
+        const lastMs = this.parsePunchTimeToMs(lastP.punch_time);
+        const groupP = getPunchGroupName(p);
+        const groupLast = getPunchGroupName(lastP);
+        const sameDevice = groupP && groupLast && groupP === groupLast;
+
+        // Only skip exact duplicate timestamps on the same device (e.g. multi-sync of exact same event)
+        if (sameDevice && pMs > 0 && lastMs > 0 && pMs === lastMs) {
+          continue;
+        }
+      }
+      rawPunches.push(p);
+    }
 
     const getGroupIcon = (name: string): string => {
       const lower = name.toLowerCase();
@@ -997,13 +1035,7 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       groupsMap.get(groupName)!.sessions.push(session);
     };
 
-    // Group each punch mode individually (Web Clock In, Remote Clock In, Work From Home, Biometric Clock In)
-    const getPunchGroupName = (p: any): string => {
-      if (isBiometric(p)) {
-        return getBiometricLocationTitle(p);
-      }
-      return getSoftwarePunchMode(p);
-    };
+
 
     const modePunchesMap = new Map<string, any[]>();
     for (const p of rawPunches) {
@@ -1017,21 +1049,30 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     // Process each mode individually into punch session rows
     modePunchesMap.forEach((streamPunches, modeName) => {
       streamPunches.sort((a, b) => this.parsePunchTimeToMs(a.punch_time) - this.parsePunchTimeToMs(b.punch_time));
+      const isBioStream = streamPunches.some(p => isBiometric(p));
       let currentIn: any = null;
 
       for (let i = 0; i < streamPunches.length; i++) {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-        const punchType = (p.punch_type || p.direction || '').toLowerCase();
+        
+        // The biometric devices are configured for alternate IN and OUT.
+        // Without an IN punch there will be no OUT punch.
+        // Therefore, every punch strictly alternates: IN -> OUT -> IN -> OUT...
+        let punchType = (p.punch_type || p.direction || '').toLowerCase();
+        if (isBioStream || punchType === 'auto' || !punchType) {
+          punchType = currentIn ? 'out' : 'in';
+        }
 
         if (punchType === 'in') {
           if (currentIn) {
+            // If already punched in and another in is received, close previous session gracefully
             addSessionToGroup(modeName, {
               rawTime: this.parsePunchTimeToMs(currentIn.punch_time),
               inTime: getFormattedTime(currentIn.punch_time),
-              outTime: 'MISSING',
-              isMissingOut: true,
-              isAutoOut: true,
+              outTime: getFormattedTime(p.punch_time),
+              isMissingOut: false,
+              isAutoOut: false,
               notes: currentIn.notes
             });
           }
@@ -1048,14 +1089,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             });
             currentIn = null;
           } else {
-            addSessionToGroup(modeName, {
-              rawTime: this.parsePunchTimeToMs(p.punch_time),
-              inTime: 'MISSING',
-              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-              isMissingOut: false,
-              isAutoOut: isAutoOut,
-              notes: p.notes
-            });
+            // Without an IN punch there can be no OUT punch: treat as starting IN session
+            currentIn = p;
           }
         }
       }
@@ -1084,18 +1119,12 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     // Sort location groups chronologically by earliest punch
-    const floorOrder = ['Web Clock In', 'Remote Clock In', 'Work From Home', 'Biometric Clock In', 'Main Door - 1st floor', '1st Floor SVS Towers', '4th Floor SVS Towers', '3rd Floor SVS Towers'];
     const sortedGroups = Array.from(groupsMap.values()).sort((a, b) => {
       const timeA = a.sessions?.[0]?.rawTime || 0;
       const timeB = b.sessions?.[0]?.rawTime || 0;
       if (timeA && timeB && timeA !== timeB) {
         return timeA - timeB;
       }
-      const idxA = floorOrder.indexOf(a.locationName);
-      const idxB = floorOrder.indexOf(b.locationName);
-      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
-      if (idxA !== -1) return -1;
-      if (idxB !== -1) return 1;
       return a.locationName.localeCompare(b.locationName);
     });
 
@@ -1158,7 +1187,11 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
       const p = punches[i];
       const pTimeMs = this.parsePunchTimeToMs(p.punch_time);
       const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
-      const punchType = (p.punch_type || '').toLowerCase();
+      let punchType = (p.punch_type || p.direction || '').toLowerCase();
+      // Biometric machines strictly alternate IN and OUT (without an IN there is no OUT)
+      if (punchType === 'auto' || !punchType || p.source === 'biometric' || p.work_mode === 'Biometric') {
+        punchType = currentInPunch ? 'out' : 'in';
+      }
 
       if (punchType === 'in') {
         if (earliestInMs === null || (pTimeMs > 0 && pTimeMs < earliestInMs)) {
@@ -1166,19 +1199,15 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         }
         if (currentInPunch) {
           const prevInTimeMs = this.parsePunchTimeToMs(currentInPunch.punch_time);
-          const gapMinutes = (pTimeMs - prevInTimeMs) / (1000 * 60);
-          if (gapMinutes >= 5) {
-            // Save preceding work interval before starting new in-session
+          if (pTimeMs > prevInTimeMs) {
             workIntervals.push({ start: prevInTimeMs, end: pTimeMs });
             hasAnyValidOut = true;
             if (latestOutMs === null || pTimeMs > latestOutMs) {
               latestOutMs = pTimeMs;
             }
-            currentInPunch = p;
           }
-        } else {
-          currentInPunch = p;
         }
+        currentInPunch = p;
       } else if (punchType === 'out') {
         if (pTimeMs > 0 && (latestOutMs === null || pTimeMs > latestOutMs)) {
           latestOutMs = pTimeMs;
@@ -1363,12 +1392,19 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
 
   isOngoingOvernight(attDate: any): boolean {
     if (!attDate) return false;
+    // ONLY consider overnight if shiftPolicy is actually configured as overnight!
+    const isOvernightPolicy = !!(this.shiftPolicy?.is_overnight ||
+      (this.shiftPolicy?.start_time && this.shiftPolicy?.end_time && this.shiftPolicy.end_time < this.shiftPolicy.start_time));
+    if (!isOvernightPolicy) {
+      return false; // Day shift cannot be ongoing on the next day!
+    }
     const logDateStr = this.formatDateOnly(attDate);
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const yesterdayStr = this.formatDateOnly(yesterday);
     if (logDateStr === yesterdayStr) {
       const curHour = new Date().getHours() + new Date().getMinutes() / 60;
-      return curHour < 12.0; // Early morning hours: shift from yesterday is still ongoing!
+      const cutoff = Number(this.shiftPolicy?.cutoff_hour) || 12.0;
+      return curHour < cutoff;
     }
     return false;
   }

@@ -8,6 +8,19 @@
 // Load environment variables
 require("dotenv").config();
 
+// CRASH PREVENTION: Global unhandled exception & rejection handlers
+// Prevents network socket drops (ECONNRESET, ETIMEDOUT, EPIPE) or library rejections from terminating Node
+process.on('uncaughtException', (err) => {
+    console.error('💥 [Server Crash Prevention] Uncaught Exception caught, server staying alive:', (err && err.message) ? err.message : err);
+    if (err && err.stack) {
+        console.error(err.stack);
+    }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.warn('⚠️ [Server Crash Prevention] Unhandled Rejection:', (reason && reason.message) ? reason.message : reason);
+});
+
 const express = require("express");
 const bodyParser = require("body-parser");
 const cors = require("cors");
@@ -76,7 +89,7 @@ const brandingRoutes = require("./routes/branding.routes");
 const timesheetNotificationService = require("./utils/timesheet-notification.service");
 const complianceChecker = require("./utils/compliance-checker.service");
 const autoClockOutService = require("./services/auto-clockout.service");
-const { syncBiometricLogs } = require("./services/biometric-sync.service");
+const { syncDirectBiometricDevices } = require("./services/biometric-direct.service");
 const {
   router: aiRoute,
   createAiCredsIfNotExist,
@@ -565,6 +578,63 @@ async function initializeDatabase() {
       );
     }
 
+        // Ensure Employee_BankDetails table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS Employee_BankDetails (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    employee_id INT NULL,
+                    Empno VARCHAR(50) NOT NULL,
+                    Name VARCHAR(255) NULL,
+                    Department VARCHAR(150) NULL,
+                    PaymentMode VARCHAR(100) NULL,
+                    Bank VARCHAR(150) NULL,
+                    IFSCCode VARCHAR(30) NULL,
+                    BankAccountNo VARCHAR(64) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    UNIQUE KEY ux_employee_bank_details_empno (Empno),
+                    INDEX idx_ebd_employee_id (employee_id),
+                    CONSTRAINT fk_ebd_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+                )
+            `);
+            // Ensure Employee_BankDetails collation matches employees table to prevent mix-collation JOIN errors
+            const [empStatus] = await conn.query("SHOW TABLE STATUS LIKE 'employees'");
+            const [ebdStatus] = await conn.query("SHOW TABLE STATUS LIKE 'Employee_BankDetails'");
+            if (empStatus[0]?.Collation && ebdStatus[0]?.Collation && empStatus[0].Collation !== ebdStatus[0].Collation) {
+                await conn.query(`ALTER TABLE Employee_BankDetails CONVERT TO CHARACTER SET utf8mb4 COLLATE ${empStatus[0].Collation}`);
+                console.log(`  ✓ Aligned Employee_BankDetails collation to ${empStatus[0].Collation}`);
+            }
+            console.log("  ✓ Verified/Created table: Employee_BankDetails");
+        } catch (bankTableErr) {
+            console.warn("⚠️ Warning: could not check/create Employee_BankDetails table:", bankTableErr.message);
+        }
+
+        // Ensure biometric_devices table exists
+        try {
+            await conn.query(`
+                CREATE TABLE IF NOT EXISTS biometric_devices (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    device_id VARCHAR(100) NOT NULL UNIQUE,
+                    name VARCHAR(255) NOT NULL,
+                    location VARCHAR(255) DEFAULT NULL,
+                    device_type VARCHAR(100) DEFAULT 'Biometric / Fingerprint & Face',
+                    ip_address VARCHAR(100) DEFAULT NULL,
+                    port INT DEFAULT 4370,
+                    serial_number VARCHAR(100) DEFAULT NULL,
+                    status ENUM('active','inactive') DEFAULT 'active',
+                    is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    INDEX idx_device_id (device_id),
+                    INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+            `);
+            console.log("  ✓ Verified/Created table: biometric_devices");
+        } catch (bioDevErr) {
+            console.warn("⚠️ Warning: could not check/create biometric_devices table:", bioDevErr.message);
+        }
+
     // Ensure locations table has detailed address columns
     try {
       const [locCols] = await conn.query("DESCRIBE locations");
@@ -1018,43 +1088,28 @@ app.get("/api/health", (req, res) => {
     // Start automatic clock-out background service
     autoClockOutService.start();
 
-    // Start automatic periodic biometric synchronization background service
-    if (process.env.ENABLE_BIOMETRIC_SYNC !== "false") {
-      const biometricIntervalSec = parseInt(
-        process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || "60",
-        10,
-      );
-      console.log(
-        `⏱️  Starting Biometric Auto-Sync Background Service (interval: ${biometricIntervalSec}s)...`,
-      );
-      setTimeout(() => {
-        syncBiometricLogs({ batchSize: 2000, syncAll: true })
-          .then((res) => {
-            if (res && res.success && res.rowsRead > 0) {
-              console.log(
-                `✅ [Biometric Sync] Startup sync completed: ${res.rowsRead} rows read, ${res.rowsInserted} inserted. Watermark: ${res.watermarkAfter}`,
-              );
-            }
-          })
-          .catch((e) =>
-            console.warn(
-              "⚠️ [Biometric Sync] Startup sync warning:",
-              e.message,
-            ),
-          );
-      }, 3000);
+        // Start automatic periodic direct biometric devices synchronization background service
+        if (process.env.ENABLE_BIOMETRIC_SYNC !== 'false') {
+            const biometricIntervalSec = parseInt(process.env.BIOMETRIC_SYNC_INTERVAL_SECONDS || '30', 10);
+            console.log(`⏱️  Starting Direct Biometric Devices Auto-Sync (interval: ${biometricIntervalSec}s)...`);
+            setTimeout(() => {
+                syncDirectBiometricDevices()
+                    .then(res => {
+                        if (res && res.success && res.devicesCount > 0) {
+                            console.log(`✅ [Direct Biometric Sync] Initial scan of ${res.devicesCount} device(s) completed.`);
+                        }
+                    })
+                    .catch(e => console.warn('⚠️ [Direct Biometric Sync] Startup scan warning:', e.message));
+            }, 5000);
 
-      setInterval(async () => {
-        try {
-          await syncBiometricLogs({ batchSize: 2000, syncAll: true });
-        } catch (e) {
-          console.warn(
-            "⚠️ [Biometric Sync] Background interval error:",
-            e.message,
-          );
+            setInterval(async () => {
+                try {
+                    await syncDirectBiometricDevices();
+                } catch (e) {
+                    console.warn('⚠️ [Direct Biometric Sync] Background interval error:', e.message);
+                }
+            }, biometricIntervalSec * 1000);
         }
-      }, biometricIntervalSec * 1000);
-    }
 
     app.listen(PORT, () => {
       console.log(`\n╔══════════════════════════════════════════════╗`);

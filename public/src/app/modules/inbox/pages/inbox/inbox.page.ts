@@ -77,6 +77,7 @@ export class InboxPage implements OnInit, OnDestroy {
   teammatesOnLeave: any[] = [];
   loadingTeammates = false;
 
+  hasLoaded = false;
   private hasInitialized = false;
   private destroy$ = new Subject<void>();
   private chatModal: HTMLIonModalElement | null = null;
@@ -776,7 +777,11 @@ export class InboxPage implements OnInit, OnDestroy {
     this.inboxService.getTeammatesOnLeave(notification.employee_id, dates.start, dates.end || dates.start).subscribe({
       next: (res) => {
         this.loadingTeammates = false;
-        this.teammatesOnLeave = res?.teammates || [];
+        const teammates = (res?.teammates || []).filter((t: any) => {
+          const type = (t.leave_type_name || '').toLowerCase();
+          return !type.includes('wfh') && !type.includes('remote') && !type.includes('home');
+        });
+        this.teammatesOnLeave = teammates;
       },
       error: (err) => {
         console.error('Failed to check teammates on leave', err);
@@ -934,6 +939,7 @@ export class InboxPage implements OnInit, OnDestroy {
           }
         }
         this.loading = false;
+        this.hasLoaded = true;
         if (event) {
           event.target.complete();
         }
@@ -941,6 +947,7 @@ export class InboxPage implements OnInit, OnDestroy {
       error: (err: any) => {
         console.error('Failed to load requests', err);
         this.loading = false;
+        this.hasLoaded = true;
         this.toaster.showError('Failed to load inbox requests');
         if (event) {
           event.target.complete();
@@ -962,19 +969,65 @@ export class InboxPage implements OnInit, OnDestroy {
       this.selectedNotification = null;
       this.rejectReasonText = '';
       this.loadNotifications(null, true);
+    } else {
+      this.loadNotifications(null, true);
     }
   }
 
   hasNoPendingTasks(): boolean {
+    if (this.notifications && this.notifications.length > 0) {
+      return false;
+    }
+    if (this.stats?.pending && this.stats.pending > 0) {
+      return false;
+    }
     return !(
-      (this.stats.leaveCount && this.stats.leaveCount > 0) ||
-      (this.stats.wfhCount && this.stats.wfhCount > 0) ||
-      (this.stats.remoteCount && this.stats.remoteCount > 0) ||
-      (this.stats.attendanceCount && this.stats.attendanceCount > 0) ||
-      (this.stats.compOffCount && this.stats.compOffCount > 0) ||
-      (this.stats.timesheetCount && this.stats.timesheetCount > 0) ||
-      (this.stats.resignationCount && this.stats.resignationCount > 0)
+      (this.stats?.leaveCount && this.stats.leaveCount > 0) ||
+      (this.stats?.wfhCount && this.stats.wfhCount > 0) ||
+      (this.stats?.remoteCount && this.stats.remoteCount > 0) ||
+      (this.stats?.attendanceCount && this.stats.attendanceCount > 0) ||
+      (this.stats?.compOffCount && this.stats.compOffCount > 0) ||
+      (this.stats?.timesheetCount && this.stats.timesheetCount > 0) ||
+      (this.stats?.resignationCount && this.stats.resignationCount > 0)
     );
+  }
+
+  get pendingCategories(): { key: string; label: string; count: number }[] {
+    return [
+      { key: 'Leave', label: 'Leave Requests', count: this.stats?.leaveCount || 0 },
+      { key: 'WFH', label: 'Work From Home', count: this.stats?.wfhCount || 0 },
+      { key: 'Remote', label: 'Remote Login', count: this.stats?.remoteCount || 0 },
+      { key: 'Attendance', label: 'Attendance Regularization', count: this.stats?.attendanceCount || 0 },
+      { key: 'CompOff', label: 'Comp Off', count: this.stats?.compOffCount || 0 },
+      { key: 'Timesheet', label: 'Timesheet Requests', count: this.stats?.timesheetCount || 0 },
+      { key: 'Resignation', label: 'Exit Request', count: this.stats?.resignationCount || 0 }
+    ];
+  }
+
+  getEmptyTitle(): string {
+    if (this.searchQuery) {
+      return 'No matching requests found';
+    }
+    if (this.selectedTab === 'Archived') {
+      return 'No archived requests found';
+    }
+    if (this.selectedTab === 'Rejected') {
+      return 'No rejected requests found';
+    }
+    return `No ${this.getTabEmptyTitle()} requests found`;
+  }
+
+  getEmptySubMessage(): string {
+    if (this.searchQuery) {
+      return `No requests matched "${this.searchQuery}". Try a different keyword.`;
+    }
+    if (this.selectedTab === 'Archived') {
+      return 'You have no archived requests in this list.';
+    }
+    if (this.selectedTab === 'Rejected') {
+      return 'You have no rejected requests.';
+    }
+    return 'You have no pending requests in this list.';
   }
 
   getDefaultPendingTab(): string {

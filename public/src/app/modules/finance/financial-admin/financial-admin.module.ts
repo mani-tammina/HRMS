@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { RouterModule, Routes } from '@angular/router';
 import { FinancialAdminPage } from './financial-admin.page';
+import { EmployeeBankUploadModalComponent } from './components/employee-bank-upload-modal/employee-bank-upload-modal.component';
 
 const routes: Routes = [
   {
@@ -17,7 +18,8 @@ const routes: Routes = [
     CommonModule,
     FormsModule,
     IonicModule,
-    RouterModule.forChild(routes)
+    RouterModule.forChild(routes),
+    EmployeeBankUploadModalComponent
   ],
   declarations: [FinancialAdminPage]
 })

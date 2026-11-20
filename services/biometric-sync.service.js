@@ -68,19 +68,43 @@ async function getEmployeeLookupMap() {
       'SELECT biometric_user_id, employee_id FROM biometric_employee_map WHERE active = 1'
     );
     for (const r of mappedRows) {
-      map.set(String(r.biometric_user_id).trim().toUpperCase(), r.employee_id);
+      const bId = String(r.biometric_user_id).trim().toUpperCase();
+      map.set(bId, r.employee_id);
+      if (bId.startsWith('STSS-')) {
+        map.set(bId.replace(/^STSS-/, ''), r.employee_id);
+      }
     }
   } catch (_) {}
 
-  // 2. Fallback to employees table EmployeeNumber
+  // 2. Fallback to employees table EmployeeNumber & attendance_number
   try {
     const [empRows] = await db.query(
-      'SELECT id, EmployeeNumber FROM employees WHERE EmployeeNumber IS NOT NULL'
+      'SELECT id, EmployeeNumber, attendance_number FROM employees WHERE EmployeeNumber IS NOT NULL'
     );
     for (const emp of empRows) {
-      const key = String(emp.EmployeeNumber).trim().toUpperCase();
-      if (!map.has(key)) {
-        map.set(key, emp.id);
+      const empNum = String(emp.EmployeeNumber).trim().toUpperCase();
+      if (!map.has(empNum)) {
+        map.set(empNum, emp.id);
+      }
+      // If EmployeeNumber is "STSS-1003", also map "1003"
+      if (empNum.startsWith('STSS-')) {
+        const rawNum = empNum.replace(/^STSS-/, '').trim();
+        if (rawNum && !map.has(rawNum)) {
+          map.set(rawNum, emp.id);
+        }
+      }
+      // Map attendance_number if present
+      if (emp.attendance_number) {
+        const attNum = String(emp.attendance_number).trim().toUpperCase();
+        if (!map.has(attNum)) {
+          map.set(attNum, emp.id);
+        }
+        if (attNum.startsWith('STSS-')) {
+          const rawAtt = attNum.replace(/^STSS-/, '').trim();
+          if (rawAtt && !map.has(rawAtt)) {
+            map.set(rawAtt, emp.id);
+          }
+        }
       }
     }
   } catch (_) {}
@@ -207,10 +231,10 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     } catch (_) {}
   }
 
-  const detailJson = JSON.stringify(punches.map(p => ({
+  const detailJson = JSON.stringify(punches.map((p, idx) => ({
     id: p.id,
     time: p.punch_time_clock,
-    direction: p.direction,
+    direction: (idx % 2 === 0) ? 'in' : 'out',
     device: p.device_id
   })));
 
@@ -359,7 +383,7 @@ async function syncBiometricLogs(options = {}) {
           device_id: log.DeviceId ? String(log.DeviceId) : null,
           direction: log.Direction ? String(log.Direction) : null,
           raw_payload: JSON.stringify(log),
-          status: employeeId ? 'processed' : 'ignored',
+          status: 'processed',
           employee_id: employeeId
         });
 

@@ -34,7 +34,7 @@ function request(urlStr, options, body = null) {
 
 async function run() {
   // Fetch all departments
-  const deptsUrl = 'http://localhost:4201/api/departments';
+  const deptsUrl = 'http://localhost:4203/api/departments';
   let deptsResponse = await request(deptsUrl, {
     headers: { 'Authorization': `Bearer ${token}`, 'Accept': 'application/json' }
   });
@@ -59,7 +59,7 @@ async function run() {
       is_active: 1
     });
 
-    const postUrl = 'http://localhost:4201/api/separation/notice-periods';
+    const postUrl = 'http://localhost:4203/api/separation/notice-periods';
     const postRes = await request(postUrl, { method: 'POST', headers }, payload);
     console.log(`Response for ${dept.name} (${days} days): ${postRes.statusCode} ${postRes.body}`);
   }

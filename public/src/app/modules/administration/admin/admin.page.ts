@@ -151,6 +151,18 @@ export class AdminPage implements OnInit {
       tags: ['Biometrics', 'Policies', 'Punches'],
       colorTheme: 'slate',
       badge: 'Attendance'
+    },
+    {
+      id: 'biometric-sync',
+      title: 'Biometric Devices & Sync',
+      category: 'operations',
+      categoryLabel: 'Operations & Policy',
+      description: 'Synchronize physical biometric punch machines, view device health, map employees, and review machine attendance.',
+      icon: 'finger-print-outline',
+      route: '/biometric',
+      tags: ['Biometric', 'Devices', 'Terminal', 'Sync'],
+      colorTheme: 'blue',
+      badge: 'Hardware'
     }
   ];
 

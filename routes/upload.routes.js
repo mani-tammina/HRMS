@@ -6,6 +6,8 @@
 const express = require("express");
 const router = express.Router();
 const multer = require("multer");
+const fs = require("fs");
+const XLSX = require("xlsx");
 const { db } = require("../config/database");
 const { auth, admin, hr, roleAuth } = require("../middleware/auth");
 const { getOrCreateMaster, findEmployeeByUserId } = require("../utils/helpers");
@@ -1768,6 +1770,296 @@ router.post("/payroll-contracts", auth, roleAuth(["admin", "hr"]), upload.single
         res.status(500).json({ success: false, message: error.message });
     } finally {
         if (c) c.end();
+    }
+});
+
+/* ============ EMPLOYEE BANK DETAILS (LIST, TEMPLATE, BULK EXCEL UPLOAD) ============ */
+
+function normalizeBankHeaderKey(key) {
+    return String(key || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function parseBankDetailsSheet(filePath) {
+    const wb = XLSX.readFile(filePath, { cellDates: false });
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: null, raw: false });
+
+    let headerRowIndex = 0;
+    for (let i = 0; i < Math.min(20, rawRows.length); i++) {
+        const nonEmpty = (rawRows[i] || []).filter(cell => cell !== null && cell !== undefined && String(cell).trim() !== '').length;
+        if (nonEmpty >= 3) {
+            headerRowIndex = i;
+            break;
+        }
+    }
+
+    const rows = XLSX.utils.sheet_to_json(sheet, { range: headerRowIndex, defval: null, raw: false });
+    return rows.filter(row => Object.values(row).some(v => v !== null && v !== undefined && String(v).trim() !== ''));
+}
+
+function pickBankField(normalizedRow, aliases) {
+    for (const alias of aliases) {
+        const val = normalizedRow[alias];
+        if (val !== undefined && val !== null && String(val).trim() !== '') {
+            return String(val).trim();
+        }
+    }
+    return null;
+}
+
+async function ensureEmployeeBankDetailsTable(conn) {
+    await conn.query(`
+        CREATE TABLE IF NOT EXISTS Employee_BankDetails (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            employee_id INT NULL,
+            Empno VARCHAR(50) NOT NULL,
+            Name VARCHAR(255) NULL,
+            Department VARCHAR(150) NULL,
+            PaymentMode VARCHAR(100) NULL,
+            Bank VARCHAR(150) NULL,
+            IFSCCode VARCHAR(30) NULL,
+            BankAccountNo VARCHAR(64) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY ux_employee_bank_details_empno (Empno),
+            INDEX idx_ebd_employee_id (employee_id),
+            CONSTRAINT fk_ebd_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+        )
+    `);
+}
+
+router.get("/employee-bank-details", auth, roleAuth(["admin", "hr", "finance"]), async (req, res) => {
+    let c = null;
+    try {
+        c = await db();
+        await ensureEmployeeBankDetailsTable(c);
+        const search = String(req.query.q || '').trim();
+
+        let sql = `
+            SELECT 
+                COALESCE(bd.id, e.id) as id,
+                e.id as employee_id,
+                e.EmployeeNumber as Empno,
+                e.FullName as Name,
+                COALESCE(bd.Department, d.name, 'Unassigned') as Department,
+                COALESCE(bd.PaymentMode, 'Not Set') as PaymentMode,
+                CASE 
+                    WHEN bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' THEN bd.Bank
+                    WHEN ba.bank_name IS NOT NULL AND ba.bank_name != '' THEN ba.bank_name
+                    ELSE 'No Bank Details'
+                END as Bank,
+                CASE 
+                    WHEN bd.IFSCCode IS NOT NULL AND bd.IFSCCode != '' AND bd.IFSCCode != 'N/A' THEN bd.IFSCCode
+                    WHEN ba.ifsc_code IS NOT NULL AND ba.ifsc_code != '' THEN ba.ifsc_code
+                    ELSE 'N/A'
+                END as IFSCCode,
+                CASE 
+                    WHEN bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A' THEN bd.BankAccountNo
+                    WHEN ba.account_number IS NOT NULL AND ba.account_number != '' THEN ba.account_number
+                    ELSE 'N/A'
+                END as BankAccountNo,
+                CASE
+                    WHEN (bd.Bank IS NOT NULL AND bd.Bank != '' AND bd.Bank != 'N/A' AND bd.BankAccountNo IS NOT NULL AND bd.BankAccountNo != '' AND bd.BankAccountNo != 'N/A')
+                      OR (ba.bank_name IS NOT NULL AND ba.bank_name != '' AND ba.account_number IS NOT NULL AND ba.account_number != '') THEN 'AVAILABLE'
+                    ELSE 'MISSING'
+                END as bank_status,
+                COALESCE(bd.updated_at, bd.created_at, e.created_at) as updated_at
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN Employee_BankDetails bd ON (bd.employee_id = e.id OR TRIM(LOWER(bd.Empno)) = TRIM(LOWER(e.EmployeeNumber)))
+            LEFT JOIN employee_bank_accounts ba ON ba.employee_id = e.id AND ba.is_primary = 1
+            WHERE e.EmploymentStatus = 'Working'
+        `;
+        const params = [];
+        if (search) {
+            sql += ` AND (
+                e.EmployeeNumber LIKE ? 
+                OR e.FullName LIKE ? 
+                OR d.name LIKE ? 
+                OR bd.Department LIKE ? 
+                OR bd.Bank LIKE ? 
+                OR ba.bank_name LIKE ? 
+                OR bd.IFSCCode LIKE ? 
+                OR ba.ifsc_code LIKE ? 
+                OR bd.BankAccountNo LIKE ? 
+                OR ba.account_number LIKE ?
+            )`;
+            const like = `%${search}%`;
+            params.push(like, like, like, like, like, like, like, like, like, like);
+        }
+        sql += ` ORDER BY e.id ASC`;
+        const [rows] = await c.query(sql, params);
+
+        const availableCount = rows.filter(r => r.bank_status === 'AVAILABLE').length;
+        const missingCount = rows.filter(r => r.bank_status === 'MISSING').length;
+
+        res.json({
+            success: true,
+            count: rows.length,
+            stats: {
+                total: rows.length,
+                available: availableCount,
+                missing: missingCount
+            },
+            data: rows
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+router.get("/employee-bank-details/template", auth, roleAuth(["admin", "hr", "finance"]), async (req, res) => {
+    try {
+        const sheetData = [
+            ['Empno', 'Name', 'Department', 'Payment Mode', 'Bank', 'IFSCCode', 'Bank Account No'],
+            ['EMP001', 'John Doe', 'Engineering', 'Bank Transfer', 'State Bank of India', 'SBIN0001234', '123456789012']
+        ];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet(sheetData);
+        ws['!cols'] = [
+            { wch: 15 },
+            { wch: 24 },
+            { wch: 20 },
+            { wch: 18 },
+            { wch: 24 },
+            { wch: 16 },
+            { wch: 22 }
+        ];
+        XLSX.utils.book_append_sheet(wb, ws, "Employee_BankDetails");
+        const buffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+        res.setHeader("Content-Disposition", 'attachment; filename="Employee_BankDetails_Template.xlsx"');
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        res.send(buffer);
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+router.post("/employee-bank-details", auth, roleAuth(["admin", "hr", "finance"]), upload.single("file"), async (req, res) => {
+    if (!req.file) {
+        return res.status(400).json({ success: false, message: "No Excel or CSV file uploaded." });
+    }
+
+    let c = null;
+    try {
+        const rows = parseBankDetailsSheet(req.file.path);
+        if (!rows || rows.length === 0) {
+            return res.status(400).json({ success: false, message: "Uploaded file is empty or formatted incorrectly." });
+        }
+
+        c = await db();
+        await ensureEmployeeBankDetailsTable(c);
+        await c.beginTransaction();
+
+        let inserted = 0;
+        let updated = 0;
+        let skipped = 0;
+        const errors = [];
+
+        for (let idx = 0; idx < rows.length; idx++) {
+            const rawRow = rows[idx];
+            const rowNum = idx + 2;
+            const norm = {};
+            for (const key of Object.keys(rawRow)) {
+                norm[normalizeBankHeaderKey(key)] = rawRow[key];
+            }
+
+            const empNo = pickBankField(norm, ['empno', 'employeenumber', 'empcode', 'employeecode', 'empid', 'employeeid']);
+            if (!empNo) {
+                skipped++;
+                errors.push(`Row ${rowNum}: Missing Empno`);
+                continue;
+            }
+
+            try {
+                const [empRows] = await c.query(
+                    `SELECT e.id, e.FullName, d.name AS dept_name
+                     FROM employees e
+                     LEFT JOIN departments d ON e.DepartmentId = d.id
+                     WHERE TRIM(LOWER(e.EmployeeNumber)) = TRIM(LOWER(?))
+                     LIMIT 1`,
+                    [empNo]
+                );
+
+                const employeeId = empRows.length > 0 ? empRows[0].id : null;
+                const name = pickBankField(norm, ['name', 'employeename', 'fullname', 'accountholdername', 'nameontheaccount'])
+                    || (empRows[0]?.FullName || null);
+                const department = pickBankField(norm, ['department', 'dept', 'departmentname'])
+                    || (empRows[0]?.dept_name || null);
+                const paymentMode = pickBankField(norm, ['paymentmode', 'modeofpayment', 'mode']);
+                const bank = pickBankField(norm, ['bank', 'bankname']);
+                const ifscRaw = pickBankField(norm, ['ifsccode', 'ifsc']);
+                const ifscCode = ifscRaw ? ifscRaw.toUpperCase() : null;
+                const bankAccountNo = pickBankField(norm, ['bankaccountno', 'bankaccountnumber', 'accountno', 'accountnumber', 'accno']);
+
+                if (!bank && !bankAccountNo && !ifscCode && !paymentMode) {
+                    skipped++;
+                    errors.push(`Row ${rowNum} (${empNo}): No bank or payment details found`);
+                    continue;
+                }
+
+                const [existing] = await c.query(
+                    'SELECT id FROM Employee_BankDetails WHERE TRIM(LOWER(Empno)) = TRIM(LOWER(?)) LIMIT 1',
+                    [empNo]
+                );
+
+                if (existing.length > 0) {
+                    await c.query(
+                        `UPDATE Employee_BankDetails
+                         SET employee_id = ?, Name = ?, Department = ?, PaymentMode = ?, Bank = ?, IFSCCode = ?, BankAccountNo = ?, updated_at = CURRENT_TIMESTAMP
+                         WHERE id = ?`,
+                        [employeeId, name, department, paymentMode, bank, ifscCode, bankAccountNo, existing[0].id]
+                    );
+                    updated++;
+                } else {
+                    await c.query(
+                        `INSERT INTO Employee_BankDetails (employee_id, Empno, Name, Department, PaymentMode, Bank, IFSCCode, BankAccountNo)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [employeeId, empNo, name, department, paymentMode, bank, ifscCode, bankAccountNo]
+                    );
+                    inserted++;
+                }
+
+                // Keep employee_bank_accounts synced when employee exists and bank + account number are present
+                if (employeeId && bank && bankAccountNo) {
+                    await c.query(
+                        `INSERT INTO employee_bank_accounts (employee_id, account_holder_name, bank_name, account_number, ifsc_code, is_primary)
+                         VALUES (?, ?, ?, ?, ?, 1)
+                         ON DUPLICATE KEY UPDATE
+                           account_holder_name = VALUES(account_holder_name),
+                           bank_name = VALUES(bank_name),
+                           ifsc_code = VALUES(ifsc_code),
+                           is_primary = 1,
+                           updated_at = NOW()`,
+                        [employeeId, name || empNo, bank, bankAccountNo, ifscCode]
+                    );
+                }
+            } catch (rowErr) {
+                skipped++;
+                errors.push(`Row ${rowNum} (${empNo}): ${rowErr.message}`);
+            }
+        }
+
+        await c.commit();
+        res.json({
+            success: true,
+            message: 'Employee bank details uploaded successfully',
+            processed: rows.length,
+            inserted,
+            updated,
+            skipped,
+            errors: errors.slice(0, 25)
+        });
+    } catch (error) {
+        if (c) await c.rollback();
+        res.status(500).json({ success: false, message: error.message });
+    } finally {
+        if (req.file?.path && fs.existsSync(req.file.path)) {
+            try { fs.unlinkSync(req.file.path); } catch (_) {}
+        }
+        if (c) await c.end();
     }
 });
 

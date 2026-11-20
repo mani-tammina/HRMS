@@ -840,7 +840,7 @@ router.get("/balance", auth, async (req, res) => {
                 lt.max_carry_forward_days,
                 lt.bg_color,
                 lt.icon_path,
-                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
+                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND LOWER(l.status) = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id
             WHERE elb.employee_id = ? AND elb.leave_year = ?
@@ -1068,7 +1068,7 @@ router.get("/balance/:employeeId", auth, async (req, res) => {
                 lt.max_carry_forward_days,
                 lt.bg_color,
                 lt.icon_path,
-                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND l.status = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
+                COALESCE((SELECT SUM(l.total_days) FROM leaves l WHERE l.employee_id = elb.employee_id AND l.leave_type_id = elb.leave_type_id AND LOWER(l.status) = 'pending' AND YEAR(l.start_date) = elb.leave_year), 0) as pending_days
             FROM employee_leave_balances elb
             INNER JOIN leave_types lt ON elb.leave_type_id = lt.id
             WHERE elb.employee_id = ? AND elb.leave_year = ?
@@ -1265,7 +1265,7 @@ router.post("/apply", auth, async (req, res) => {
       const [pendingData] = await c.query(
         `SELECT SUM(total_days) as pending_days 
                FROM leaves 
-               WHERE employee_id = ? AND leave_type_id = ? AND status = 'pending' AND YEAR(start_date) = ?`,
+               WHERE employee_id = ? AND leave_type_id = ? AND LOWER(status) = 'pending' AND YEAR(start_date) = ?`,
         [emp.id, leave_type_id, leaveYear],
       );
       const pendingDays = pendingData[0].pending_days || 0;

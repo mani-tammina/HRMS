@@ -50,7 +50,7 @@ export class AdminService {
   private env = environment;
   private baseUrl = `${this.env.apiURL}/api`;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) { }
 
   /* ===================== LOCATIONS ===================== */
   getLocations(): Observable<any[]> {
@@ -208,6 +208,9 @@ export class AdminService {
   }
   makeFinance(userId: number): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/users/${userId}/make-finance`, {});
+  }
+  makeNetworking(userId: number): Observable<any> {
+    return this.http.post(`${this.baseUrl}/auth/users/${userId}/make-networking`, {});
   }
   createUser(payload: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/auth/user/create`, payload);

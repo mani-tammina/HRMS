@@ -424,6 +424,21 @@ router.get("/teammates-on-leave", auth, async (req, res) => {
                   OR ( ? IS NOT NULL AND e.DepartmentId = ? )
               )
               AND LOWER(l.status) IN ('approved', 'pending')
+              AND (
+                  (l.leave_type IS NULL OR (
+                      l.leave_type NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+                      AND l.leave_type NOT LIKE '%WFH%'
+                      AND l.leave_type NOT LIKE '%Remote%'
+                      AND l.leave_type NOT LIKE '%Work From Home%'
+                  ))
+                  AND
+                  (lt.type_name IS NULL OR (
+                      lt.type_name NOT IN ('WFH', 'Remote', 'Work From Home', 'Remote Login')
+                      AND lt.type_name NOT LIKE '%WFH%'
+                      AND lt.type_name NOT LIKE '%Remote%'
+                      AND lt.type_name NOT LIKE '%Work From Home%'
+                  ))
+              )
               AND l.start_date <= ? AND l.end_date >= ?
             ORDER BY FIELD(LOWER(l.status), 'approved', 'pending'), l.start_date ASC
         `;

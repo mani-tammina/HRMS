@@ -128,6 +128,13 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
     return this.policyPermissions?.wfh_settings || {};
   }
 
+  get wfhCurrentPickerMinDate(): string {
+    if (this.wfhActivePicker === 'to' && this.wfhFromDate) {
+      return this.wfhFromDate.includes('T') ? this.wfhFromDate.split('T')[0] : this.wfhFromDate;
+    }
+    return this.wfhMinDate;
+  }
+
   toggleTodayCard() {
     this.isTodayCardExpanded = !this.isTodayCardExpanded;
   }
@@ -1279,6 +1286,9 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
       }
     } else {
       this.wfhToDate = date;
+      if (new Date(this.wfhFromDate) > new Date(date)) {
+        this.wfhFromDate = date;
+      }
     }
     this.wfhCalculateDays();
     this.wfhActivePicker = null;

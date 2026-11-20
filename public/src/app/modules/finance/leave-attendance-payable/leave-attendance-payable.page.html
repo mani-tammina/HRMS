@@ -537,68 +537,109 @@
         </div>
 
         <!-- ──────────────────────────────────────────────────────────
-             STEP 3: LOP SUMMARY
+             STEP 3: LOP SUMMARY (Loss of Pay — Matches Reference Image)
         ─────────────────────────────────────────────────────────── -->
         <div class="step-pane" *ngIf="currentStep === 3">
           <div class="pane-header">
-            <h2 class="pane-title">LOP Summary</h2>
+            <h2 class="pane-title">Loss of Pay</h2>
           </div>
 
-          <div class="pane-alert-banner">
-            <p>Summary of Loss of Pay (LOP) days calculated from unregularized attendance, unapproved leaves, and manual overrides for {{ monthLabel }}.</p>
+          <!-- Alert/Info Banner (Light Cyan/Blue) -->
+          <div class="lop-info-banner">
+            All employees' LOP summaries for this month will be displayed below. Admin can override LOP days, if required.
           </div>
 
-          <div class="filter-toolbar">
+          <!-- Action Toolbar: + Add Employee | Search | Download (Import LOP Days excluded per user request) -->
+          <div class="lop-action-toolbar">
             <div class="toolbar-left">
-              <span class="record-count-badge">{{ lopSummaryRecords.length }} employees</span>
+              <button type="button" class="btn-add-employee" (click)="openAddEmployeeModal()">
+                + Add Employee
+              </button>
             </div>
+
             <div class="toolbar-right">
               <div class="search-input-box">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <circle cx="11" cy="11" r="8"></circle>
                   <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                 </svg>
-                <input type="text" [(ngModel)]="searchTerm" placeholder="Search employees..." />
+                <input type="text" [(ngModel)]="lopSearchTerm" placeholder="Search" (input)="lopPage = 1" />
               </div>
+              <button type="button" class="btn-icon-download" (click)="exportLopToExcel()" title="Export LOP Summary to Excel">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+              </button>
             </div>
           </div>
 
+          <!-- Main Table matching Image: 5 Columns -->
           <div class="table-card-container">
-            <table class="lap-table">
+            <table class="lap-table lop-summary-table">
               <thead>
                 <tr>
-                  <th style="width: 24%;">EMPLOYEE</th>
-                  <th style="width: 16%;">DEPARTMENT</th>
-                  <th style="width: 12%;">CALENDAR DAYS</th>
-                  <th style="width: 12%;">ATTENDED</th>
-                  <th style="width: 12%;">PAID LEAVES</th>
-                  <th style="width: 12%;">LOP DAYS</th>
-                  <th style="width: 12%;">PAYABLE UNITS</th>
+                  <th style="width: 30%;">EMPLOYEE</th>
+                  <th style="width: 17%;">ACTUAL LOP</th>
+                  <th style="width: 18%;">LOP ADJUSTMENT</th>
+                  <th style="width: 17%;">FINAL LOP</th>
+                  <th style="width: 18%;">COMMENT</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of lopSummaryRecords">
+                <tr *ngFor="let row of paginatedLopSummary">
                   <td>
                     <div class="emp-cell">
                       <span class="emp-name">{{ row.employee_name }}</span>
                       <span class="emp-code">{{ row.employee_code }}</span>
                     </div>
                   </td>
-                  <td>{{ row.department }}</td>
-                  <td>{{ row.calendar_days }}</td>
-                  <td>{{ row.attended_days }}</td>
-                  <td>{{ row.paid_leaves }}</td>
-                  <td>
-                    <span class="lop-days-badge" [class.has-lop]="row.lop_days > 0">
-                      {{ row.lop_days }}
-                    </span>
+                  <td class="lop-days-cell">
+                    {{ row.actual_lop }} {{ row.actual_lop === 1 ? 'day' : 'days' }}
                   </td>
                   <td>
-                    <strong style="color: #4338ca;">{{ row.payable_units }}</strong>
+                    <input 
+                      type="number" 
+                      step="0.5" 
+                      class="lop-input-box" 
+                      [(ngModel)]="row.adjustment" 
+                      (ngModelChange)="onLopAdjustmentChange(row)" 
+                      placeholder="" />
+                  </td>
+                  <td class="lop-days-cell">
+                    {{ row.final_lop }} {{ row.final_lop === 1 ? 'day' : 'days' }}
+                  </td>
+                  <td>
+                    <input 
+                      type="text" 
+                      class="lop-comment-box" 
+                      [(ngModel)]="row.comment" 
+                      placeholder="" />
+                  </td>
+                </tr>
+
+                <tr *ngIf="paginatedLopSummary.length === 0">
+                  <td colspan="5" class="empty-cell">
+                    {{ lopSearchTerm ? 'No LOP records found matching "' + lopSearchTerm + '"' : 'No employees with Loss of Pay (LOP) for ' + monthLabel + '.' }}
                   </td>
                 </tr>
               </tbody>
             </table>
+          </div>
+
+          <!-- Pagination Footer matching Image: "1 to 11 of 11    Page 1 of 1" -->
+          <div class="pagination-footer" *ngIf="filteredLopSummary.length > 0">
+            <div class="pagination-range-text">
+              {{ lopPaginationRangeLabel }}
+            </div>
+            <div class="pagination-controls">
+              <span class="page-current-label">Page {{ lopPage }} of {{ totalLopPages }}</span>
+              <button class="page-nav-btn" type="button" [disabled]="lopPage === 1" (click)="setLopPage(1)" title="First Page">|&lt;</button>
+              <button class="page-nav-btn" type="button" [disabled]="lopPage === 1" (click)="prevLopPage()" title="Previous Page">&lt;</button>
+              <button class="page-nav-btn" type="button" [disabled]="lopPage === totalLopPages" (click)="nextLopPage()" title="Next Page">&gt;</button>
+              <button class="page-nav-btn" type="button" [disabled]="lopPage === totalLopPages" (click)="setLopPage(totalLopPages)" title="Last Page">&gt;|</button>
+            </div>
           </div>
         </div>
 
@@ -667,8 +708,42 @@
 
       </section>
 
-      <!-- RIGHT SIDEBAR COLUMN: NEED HELP CARD -->
+      <!-- RIGHT SIDEBAR COLUMN: HELP RESOURCES & STILL NEED HELP (Matches Image) -->
       <aside class="lap-sidebar-column">
+        <!-- Help Resources Accordion Card -->
+        <div class="help-resources-card">
+          <div class="help-resources-header" (click)="toggleHelpResources()">
+            <h3 class="help-resources-title">Help Resources</h3>
+            <svg class="chevron-icon" [class.rotated]="!isHelpResourcesExpanded" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </div>
+          <div class="help-resources-body" *ngIf="isHelpResourcesExpanded">
+            <a class="help-faq-item" (click)="openFaqModal('autopopulate')">
+              <span class="faq-text">How are LOP's auto populated in payroll?</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+              </svg>
+            </a>
+            <a class="help-faq-item" (click)="openFaqModal('missing')">
+              <span class="faq-text">Why am I not seeing certain employees in LOP section?</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+              </svg>
+            </a>
+            <a class="help-faq-item" (click)="openFaqModal('arrears')">
+              <span class="faq-text">What are arrear LOPs?</span>
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+              </svg>
+            </a>
+          </div>
+        </div>
+
+        <!-- Still Need Help Card -->
         <div class="help-card">
           <div class="help-icon-wrapper">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -677,8 +752,8 @@
               <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
           </div>
-          <h3 class="help-card-title">Need help?</h3>
-          <p class="help-card-subtext">If you have questions talk to us, we're here for you.</p>
+          <h3 class="help-card-title">Still need help?</h3>
+          <p class="help-card-subtext">If your question isn't answered above, we're here for you.</p>
           <button class="help-talk-link" type="button" (click)="openHelpDrawer()">
             Talk to us &rarr;
           </button>
@@ -873,6 +948,63 @@
       </div>
       <div class="warning-modal-footer">
         <button class="btn-go-back" type="button" (click)="closeHelpDrawer()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ADD EMPLOYEE MODAL (STEP 3)
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="showAddEmployeeModal" (click)="closeAddEmployeeModal()">
+    <div class="lop-modal-box" (click)="$event.stopPropagation()">
+      <div class="lop-modal-header">
+        <h3 class="lop-modal-title">Add Employee to LOP Summary</h3>
+        <button class="btn-close-modal" type="button" (click)="closeAddEmployeeModal()">✕</button>
+      </div>
+      <div class="lop-modal-body">
+        <div class="lop-form-group">
+          <label class="lop-form-label">Select Employee *</label>
+          <select [(ngModel)]="newEmployeeCode" class="lop-modal-select">
+            <option value="" disabled>-- Select an active employee --</option>
+            <option *ngFor="let emp of availableEmployeesToAdd" [value]="emp.employee_code">
+              {{ emp.employee_name }} ({{ emp.employee_code }}) - {{ emp.department || 'General' }}
+            </option>
+          </select>
+        </div>
+        <div class="lop-form-group">
+          <label class="lop-form-label">Actual LOP Days *</label>
+          <input type="number" min="0" step="0.5" [(ngModel)]="newEmployeeActualLop" class="lop-modal-input" placeholder="e.g. 1" />
+        </div>
+        <div class="lop-form-group">
+          <label class="lop-form-label">LOP Adjustment (Optional)</label>
+          <input type="number" step="0.5" [(ngModel)]="newEmployeeAdjustment" class="lop-modal-input" placeholder="e.g. 0 or -1" />
+        </div>
+        <div class="lop-form-group">
+          <label class="lop-form-label">Comment / Justification (Optional)</label>
+          <input type="text" [(ngModel)]="newEmployeeComment" class="lop-modal-input" placeholder="e.g. Unapproved absent days" />
+        </div>
+      </div>
+      <div class="lop-modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeAddEmployeeModal()">Cancel</button>
+        <button type="button" class="btn-modal-submit" [disabled]="!newEmployeeCode" (click)="confirmAddEmployee()">Add Employee</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       HELP RESOURCE FAQ DETAIL MODAL
+  ═══════════════════════════════════════════════════════════════ -->
+  <div class="modal-overlay" *ngIf="activeFaqModal" (click)="closeFaqModal()">
+    <div class="lop-modal-box faq-modal-box" (click)="$event.stopPropagation()">
+      <div class="lop-modal-header">
+        <h3 class="lop-modal-title">{{ activeFaqModal.title }}</h3>
+        <button class="btn-close-modal" type="button" (click)="closeFaqModal()">✕</button>
+      </div>
+      <div class="lop-modal-body">
+        <p class="faq-modal-text">{{ activeFaqModal.content }}</p>
+      </div>
+      <div class="lop-modal-footer">
+        <button type="button" class="btn-modal-submit" (click)="closeFaqModal()">Got it</button>
       </div>
     </div>
   </div>

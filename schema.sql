@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   id INT PRIMARY KEY AUTO_INCREMENT,
   username VARCHAR(50) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
-  role ENUM('admin','employee', 'hr', 'manager', 'finance', 'ai') DEFAULT 'employee',
+  role ENUM('admin','employee', 'hr', 'manager', 'finance', 'ai', 'networking') DEFAULT 'employee',
   full_name VARCHAR(100),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -2044,6 +2044,24 @@ CREATE TABLE IF NOT EXISTS employee_documents (
 -- Dedicated Biometric Attendance Tables
 -- ============================================
 
+-- 0. Registered physical biometric hardware terminals / devices
+CREATE TABLE IF NOT EXISTS biometric_devices (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  device_id VARCHAR(100) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  location VARCHAR(255) DEFAULT NULL,
+  device_type VARCHAR(100) DEFAULT 'Biometric / Fingerprint & Face',
+  ip_address VARCHAR(100) DEFAULT NULL,
+  port INT DEFAULT 4370,
+  serial_number VARCHAR(100) DEFAULT NULL,
+  status ENUM('active','inactive') DEFAULT 'active',
+  is_active TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_device_id (device_id),
+  INDEX idx_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- 1. Raw imported punches from Microsoft SQL Server (DeviceLogs)
 CREATE TABLE IF NOT EXISTS biometric_attendance_raw (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -2088,6 +2106,7 @@ CREATE TABLE IF NOT EXISTS biometric_punches (
   raw_log_id BIGINT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE,
+  UNIQUE KEY uk_emp_punch_time (employee_id, punch_time),
   INDEX idx_emp_punch_date (employee_id, punch_date),
   INDEX idx_punch_time (punch_time)
 );
@@ -2138,4 +2157,23 @@ CREATE TABLE IF NOT EXISTS biometric_sync_log (
   error_message TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Employee Bank Details (Bulk Excel Upload & Profile Finance View)
+CREATE TABLE IF NOT EXISTS Employee_BankDetails (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  employee_id INT NULL,
+  Empno VARCHAR(50) NOT NULL,
+  Name VARCHAR(255) NULL,
+  Department VARCHAR(150) NULL,
+  PaymentMode VARCHAR(100) NULL,
+  Bank VARCHAR(150) NULL,
+  IFSCCode VARCHAR(30) NULL,
+  BankAccountNo VARCHAR(64) NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY ux_employee_bank_details_empno (Empno),
+  INDEX idx_ebd_employee_id (employee_id),
+  CONSTRAINT fk_ebd_employee FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL
+);
+
 

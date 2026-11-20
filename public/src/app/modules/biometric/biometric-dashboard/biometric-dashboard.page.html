@@ -1,0 +1,309 @@
+<ion-content [fullscreen]="true" class="biometric-page-content">
+  <div class="biometric-container">
+
+    <!-- TOP HEADER BAR -->
+    <header class="biometric-header-bar">
+      <div class="header-left">
+        <div class="header-title-row">
+          <div class="header-icon-badge">
+            <ion-icon name="finger-print-outline"></ion-icon>
+          </div>
+          <div>
+            <h1 class="page-title">Biometric Device Hub</h1>
+            <p class="page-subtitle">
+              Manage physical terminal devices, map employee biometric IDs, and monitor real-time attendance punches.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="header-right">
+        <!-- Quick Refresh -->
+        <button class="btn btn-outline" (click)="refreshAll()" [disabled]="loading" title="Refresh all data">
+          <ion-icon name="refresh-outline" [class.spin]="loading"></ion-icon>
+          <span>Refresh</span>
+        </button>
+
+        <!-- Add Device Quick Button -->
+        <button class="btn btn-primary" (click)="setTab('devices')">
+          <ion-icon name="add-outline"></ion-icon>
+          <span>Manage Devices</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- NAVIGATION TABS -->
+    <nav class="biometric-nav-tabs">
+      <button
+        class="nav-tab-btn"
+        [class.active]="activeTab === 'overview'"
+        (click)="setTab('overview')"
+      >
+        <ion-icon name="speedometer-outline"></ion-icon>
+        <span>Overview</span>
+      </button>
+
+      <button
+        class="nav-tab-btn"
+        [class.active]="activeTab === 'devices'"
+        (click)="setTab('devices')"
+      >
+        <ion-icon name="hardware-chip-outline"></ion-icon>
+        <span>Terminal Devices</span>
+        <span class="tab-badge" *ngIf="devices.length > 0">{{ devices.length }}</span>
+      </button>
+
+      <button
+        class="nav-tab-btn"
+        [class.active]="activeTab === 'mappings'"
+        (click)="setTab('mappings')"
+      >
+        <ion-icon name="people-outline"></ion-icon>
+        <span>Employee Mappings</span>
+        <span class="tab-badge warn" *ngIf="unmappedCount > 0" title="Unmapped user IDs detected">{{ unmappedCount }}</span>
+      </button>
+
+      <button
+        class="nav-tab-btn"
+        [class.active]="activeTab === 'raw-logs'"
+        (click)="setTab('raw-logs')"
+      >
+        <ion-icon name="receipt-outline"></ion-icon>
+        <span>Raw Punch Logs</span>
+      </button>
+
+      <button
+        class="nav-tab-btn"
+        [class.active]="activeTab === 'daily-records'"
+        (click)="setTab('daily-records')"
+      >
+        <ion-icon name="calendar-outline"></ion-icon>
+        <span>Daily Attendance</span>
+      </button>
+    </nav>
+
+    <!-- TAB 1: OVERVIEW -->
+    <section class="tab-section-content" *ngIf="activeTab === 'overview'">
+      
+      <!-- System Status Banner -->
+      <div class="daemon-status-banner">
+        <div class="daemon-left">
+          <div class="daemon-pulse-wrap">
+            <span class="daemon-pulse"></span>
+            <ion-icon name="radio-outline"></ion-icon>
+          </div>
+          <div class="daemon-meta">
+            <div class="daemon-title-row">
+              <span class="daemon-status-tag success">ACTIVE</span>
+              <span class="daemon-source">Biometric Terminal System</span>
+            </div>
+            <div class="daemon-sub">
+              Hardware Terminals Configured: <strong>{{ devices.length }}</strong>
+              • Total Raw Punch Logs: <strong>{{ (statusData?.stats?.rawPunchesTotal || 0) | number }}</strong>
+              • Real-time biometric attendance processing
+            </div>
+          </div>
+        </div>
+
+        <div class="daemon-right">
+          <button class="btn btn-sm btn-outline" (click)="refreshAll()" [disabled]="loading">
+            <ion-icon name="refresh-outline" [class.spin]="loading"></ion-icon>
+            <span>Refresh State</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Unmapped Users Alert Banner -->
+      <div class="unmapped-alert-banner" *ngIf="unmappedCount > 0" (click)="setTab('mappings')">
+        <div class="alert-content">
+          <ion-icon name="alert-circle"></ion-icon>
+          <span>
+            <strong>{{ unmappedCount }} unrecognized biometric user ID(s)</strong> found in machine logs. Map them to employees to include in payroll & attendance.
+          </span>
+        </div>
+        <button class="btn btn-sm btn-primary">Resolve Mappings</button>
+      </div>
+
+      <!-- Key Metrics 4-Cards Grid -->
+      <div class="kpi-metrics-grid" *ngIf="statusData">
+        <!-- Total Raw Punches -->
+        <div class="kpi-card" (click)="setTab('raw-logs')">
+          <div class="kpi-icon-wrap blue">
+            <ion-icon name="finger-print-outline"></ion-icon>
+          </div>
+          <div class="kpi-data">
+            <span class="kpi-label">Raw Machine Logs</span>
+            <span class="kpi-value">{{ statusData.stats.rawPunchesTotal | number }}</span>
+            <span class="kpi-trend">All terminal punches recorded</span>
+          </div>
+        </div>
+
+        <!-- Mapped Punches -->
+        <div class="kpi-card" (click)="setTab('mappings')">
+          <div class="kpi-icon-wrap emerald">
+            <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+          </div>
+          <div class="kpi-data">
+            <span class="kpi-label">Mapped Punches</span>
+            <span class="kpi-value text-emerald">{{ statusData.stats.mappedPunchesTotal | number }}</span>
+            <span class="kpi-trend">Matched to employee profiles</span>
+          </div>
+        </div>
+
+        <!-- Daily Summaries -->
+        <div class="kpi-card" (click)="setTab('daily-records')">
+          <div class="kpi-icon-wrap purple">
+            <ion-icon name="calendar-outline"></ion-icon>
+          </div>
+          <div class="kpi-data">
+            <span class="kpi-label">Daily Attendance Rows</span>
+            <span class="kpi-value">{{ statusData.stats.dailySummariesTotal | number }}</span>
+            <span class="kpi-trend">Calculated First-In & Last-Out</span>
+          </div>
+        </div>
+
+        <!-- Connected Devices -->
+        <div class="kpi-card" (click)="setTab('devices')">
+          <div class="kpi-icon-wrap amber">
+            <ion-icon name="hardware-chip-outline"></ion-icon>
+          </div>
+          <div class="kpi-data">
+            <span class="kpi-label">Terminal Devices</span>
+            <span class="kpi-value">{{ devices.length }}</span>
+            <span class="kpi-trend text-emerald">Configured hardware</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overview Dual Grid: Terminal Devices & Operations Summary -->
+      <div class="overview-dual-grid">
+        <!-- Terminal Devices View -->
+        <div class="overview-card">
+          <div class="card-header-row">
+            <div>
+              <h3 class="card-title">Configured Terminal Devices</h3>
+              <p class="card-subtitle">Active biometric reader terminals</p>
+            </div>
+            <button class="btn btn-sm btn-outline" (click)="setTab('devices')">
+              <span>Manage Devices</span>
+              <ion-icon name="arrow-forward-outline"></ion-icon>
+            </button>
+          </div>
+
+          <div class="mini-devices-list" *ngIf="devices.length > 0">
+            <div class="mini-device-item" *ngFor="let dev of devices">
+              <div class="mini-device-left">
+                <div class="device-icon-box" [ngClass]="dev.status">
+                  <ion-icon name="hardware-chip-outline"></ion-icon>
+                </div>
+                <div class="mini-device-meta">
+                  <div class="name-row">
+                    <strong>{{ dev.name }}</strong>
+                    <span class="device-id-badge">#{{ dev.deviceId }}</span>
+                  </div>
+                  <div class="sub-row">
+                    <span *ngIf="dev.location">{{ dev.location }} • </span>
+                    <span class="code-text" *ngIf="dev.ipAddress">{{ dev.ipAddress }}</span>
+                    <span *ngIf="!dev.ipAddress">{{ dev.type }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="mini-device-right">
+                <span class="punches-stat">{{ dev.totalPunches | number }} punches</span>
+                <button class="btn btn-xs btn-outline" (click)="onViewDeviceLogs(dev.deviceId)">Logs</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="empty-state-mini" *ngIf="devices.length === 0">
+            <ion-icon name="hardware-chip-outline" style="font-size: 32px; color: #94a3b8; margin-bottom: 8px;"></ion-icon>
+            <p>No terminal devices configured yet.</p>
+            <button class="btn btn-sm btn-primary" style="margin-top: 10px;" (click)="setTab('devices')">
+              <ion-icon name="add-outline"></ion-icon>
+              <span>Add Your First Device</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Quick Actions & Operations Card -->
+        <div class="overview-card">
+          <div class="card-header-row">
+            <div>
+              <h3 class="card-title">Biometric Hub Actions</h3>
+              <p class="card-subtitle">Common operations and tools</p>
+            </div>
+          </div>
+
+          <div class="quick-actions-list">
+            <div class="quick-action-item" (click)="setTab('devices')">
+              <div class="action-icon blue">
+                <ion-icon name="add-circle-outline"></ion-icon>
+              </div>
+              <div class="action-text">
+                <strong>Register Terminal Device</strong>
+                <span>Add physical biometric machine with IP address & device ID</span>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="arrow"></ion-icon>
+            </div>
+
+            <div class="quick-action-item" (click)="setTab('mappings')">
+              <div class="action-icon emerald">
+                <ion-icon name="person-add-outline"></ion-icon>
+              </div>
+              <div class="action-text">
+                <strong>Map Employees to Biometric IDs</strong>
+                <span>Link punch machine user IDs with HRMS employee profiles</span>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="arrow"></ion-icon>
+            </div>
+
+            <div class="quick-action-item" (click)="setTab('raw-logs')">
+              <div class="action-icon purple">
+                <ion-icon name="receipt-outline"></ion-icon>
+              </div>
+              <div class="action-text">
+                <strong>Explore Raw Punch Logs</strong>
+                <span>Audit incoming punches by device, employee, or date</span>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="arrow"></ion-icon>
+            </div>
+
+            <div class="quick-action-item" (click)="setTab('daily-records')">
+              <div class="action-icon amber">
+                <ion-icon name="calendar-outline"></ion-icon>
+              </div>
+              <div class="action-text">
+                <strong>Review Daily Attendance</strong>
+                <span>View daily gross hours, first-in, last-out, and audit timelines</span>
+              </div>
+              <ion-icon name="chevron-forward-outline" class="arrow"></ion-icon>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- TAB 2: TERMINAL DEVICES -->
+    <section class="tab-section-content" *ngIf="activeTab === 'devices'">
+      <app-biometric-devices (viewDeviceLogs)="onViewDeviceLogs($event)"></app-biometric-devices>
+    </section>
+
+    <!-- TAB 3: EMPLOYEE MAPPINGS -->
+    <section class="tab-section-content" *ngIf="activeTab === 'mappings'">
+      <app-biometric-mappings></app-biometric-mappings>
+    </section>
+
+    <!-- TAB 4: RAW PUNCH LOGS -->
+    <section class="tab-section-content" *ngIf="activeTab === 'raw-logs'">
+      <app-biometric-raw-logs [initialDeviceId]="selectedDeviceIdForLogs"></app-biometric-raw-logs>
+    </section>
+
+    <!-- TAB 5: DAILY ATTENDANCE -->
+    <section class="tab-section-content" *ngIf="activeTab === 'daily-records'">
+      <app-biometric-daily-records></app-biometric-daily-records>
+    </section>
+
+  </div>
+</ion-content>

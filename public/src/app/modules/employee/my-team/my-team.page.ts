@@ -210,9 +210,11 @@ export class MyTeamPage implements OnInit, OnDestroy {
       const attStatus = (att.status || '').toLowerCase();
       const isAttLeave = attStatus === 'on-leave' || attStatus === 'on_leave';
       if (!isAttLeave) {
-        const isClockedIn = att.is_clocked_in !== undefined ? Boolean(att.is_clocked_in) : (!att.last_out || att.last_out === att.first_in || att.last_check_out === null);
+        const isClockedIn = att.is_clocked_in !== undefined
+          ? Boolean(att.is_clocked_in)
+          : (!att.last_out || att.last_out === att.first_in || att.last_check_out === null);
         newStatuses[att.employee_id] = {
-          status: isClockedIn ? 'in' : 'out',
+          status: isToday ? (isClockedIn ? 'in' : 'out') : 'present',
           is_clocked_in: isClockedIn,
           first_in: att.first_in || att.first_check_in,
           last_out: att.last_out || att.last_check_out,
@@ -319,6 +321,11 @@ export class MyTeamPage implements OnInit, OnDestroy {
     }
     if (status === 'not_punched' || status === 'not_checked_in' || status === 'not in yet') {
       return '#8099b0';              // Not Punched / Not In Yet — Slate/Gray
+    }
+    if (!this.isTodaySelected()) {
+      if (status === 'present' || status === 'in' || status === 'out') {
+        return 'rgb(0, 152, 61)';    // Past date Present — Green
+      }
     }
     if (status === 'in' || stats.is_clocked_in) {
       return 'rgb(0, 152, 61)';      // In — Green
@@ -427,6 +434,13 @@ export class MyTeamPage implements OnInit, OnDestroy {
       if (workMode.includes('REMOTE')) return 'NOT IN YET (REMOTE)';
       return 'NOT IN YET';
     }
+    if (!this.isTodaySelected()) {
+      if (status === 'present' || status === 'in' || status === 'out') {
+        if (workMode.includes('WFH') || workMode.includes('HOME')) return 'PRESENT (WFH)';
+        if (workMode.includes('REMOTE')) return 'PRESENT (REMOTE)';
+        return 'PRESENT';
+      }
+    }
     if (status === 'in' || stats.is_clocked_in) {
       if (workMode.includes('WFH') || workMode.includes('HOME')) return 'IN (WFH)';
       if (workMode.includes('REMOTE')) return 'IN (REMOTE)';
@@ -446,6 +460,9 @@ export class MyTeamPage implements OnInit, OnDestroy {
     if (status.includes('leave') || status === 'on_leave') return 'leave-status';
     if (status === 'absent') return 'absent';
     if (status === 'not_punched' || status === 'not_checked_in' || status === 'not in yet') return 'not-punched-status';
+    if (!this.isTodaySelected()) {
+      if (status === 'present' || status === 'in' || status === 'out') return 'status-in';
+    }
     if (status === 'in' || stats.is_clocked_in) return 'status-in';
     if (status === 'out') return 'status-out';
     return 'status-in';

@@ -235,6 +235,27 @@ export class FinanceAdminService {
   /**
    * Bulk upload contracts from Excel
    */
+  getEmployeeBankDetails(search: string = ''): Observable<any> {
+    const url = `${this.baseUrl}/upload/employee-bank-details`;
+    let params = new HttpParams();
+    if (search?.trim()) {
+      params = params.set('q', search.trim());
+    }
+    return this.http.get<any>(url, { params, headers: this.getHeaders() });
+  }
+
+  downloadBankDetailsTemplate(): Observable<Blob> {
+    const url = `${this.baseUrl}/upload/employee-bank-details/template`;
+    return this.http.get(url, { headers: this.getHeaders(), responseType: 'blob' });
+  }
+
+  uploadEmployeeBankDetails(file: File): Observable<any> {
+    const url = `${this.baseUrl}/upload/employee-bank-details`;
+    const formData = new FormData();
+    formData.append('file', file);
+    return this.http.post<any>(url, formData, { headers: this.getHeaders() });
+  }
+
   uploadBulkContracts(file: File, templateId?: number): Observable<any> {
     const url = `${this.baseUrl}/upload/payroll-contracts`;
     const formData = new FormData();

@@ -1328,16 +1328,17 @@ router.put("/users/:id/role", auth, hr, async (req, res) => {
   }
 
   const { role } = req.body;
-  if (!role || !["admin", "employee", "hr", "manager", "finance"].includes(role)) {
+  const normalizedRole = (role || "").toLowerCase();
+  if (!role || !["admin", "employee", "hr", "manager", "finance", "networking"].includes(normalizedRole)) {
     return res
       .status(400)
-      .json({ error: "Valid role required (admin, employee, hr, manager, finance)" });
+      .json({ error: "Valid role required (admin, employee, hr, manager, finance, networking)" });
   }
 
   const c = await db();
   try {
     await c.query("UPDATE users SET role = ? WHERE id = ?", [
-      role,
+      normalizedRole,
       req.params.id,
     ]);
     c.end();
@@ -1525,6 +1526,46 @@ router.post("/users/:id/make-finance", auth, async (req, res) => {
   }
 });
 
+// Make user Networking
+router.post("/users/:id/make-networking", auth, async (req, res) => {
+  const userRole = (req.user.role || "").toLowerCase();
+  if (userRole !== "admin" && userRole !== "hr") {
+    return res
+      .status(403)
+      .json({ error: "Access denied. Admin or HR role required." });
+  }
+
+  const c = await db();
+  try {
+    const [user] = await c.query(
+      "SELECT id, username, role FROM users WHERE id = ?",
+      [req.params.id]
+    );
+    if (!user.length) {
+      c.end();
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    await c.query("UPDATE users SET role = 'networking' WHERE id = ?", [
+      req.params.id,
+    ]);
+    c.end();
+    res.json({
+      message: "User role updated to Networking successfully",
+      user: {
+        id: user[0].id,
+        username: user[0].username,
+        previousRole: user[0].role,
+        newRole: "networking",
+      },
+    });
+  } catch (err) {
+    c.end();
+    console.error("make networking error", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Demote user to Employee
 router.post("/users/:id/make-employee", auth, async (req, res) => {
   const userRole = (req.user.role || "").toLowerCase();
@@ -1588,10 +1629,11 @@ router.post("/users/bulk-role-update", auth, async (req, res) => {
     const results = [];
     for (const update of updates) {
       const { userId, role } = update;
+      const normalizedRole = (role || "").toLowerCase();
       if (
         !userId ||
         !role ||
-        !["admin", "hr", "manager", "employee", "finance"].includes(role)
+        !["admin", "hr", "manager", "employee", "finance", "networking"].includes(normalizedRole)
       ) {
         results.push({
           userId,
@@ -1602,8 +1644,8 @@ router.post("/users/bulk-role-update", auth, async (req, res) => {
       }
 
       try {
-        await c.query("UPDATE users SET role = ? WHERE id = ?", [role, userId]);
-        results.push({ userId, success: true, role });
+        await c.query("UPDATE users SET role = ? WHERE id = ?", [normalizedRole, userId]);
+        results.push({ userId, success: true, role: normalizedRole });
       } catch (err) {
         results.push({ userId, success: false, error: err.message });
       }

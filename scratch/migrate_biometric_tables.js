@@ -2,6 +2,22 @@ const { db } = require('../config/database');
 
 async function migrate() {
   const tables = [
+    `CREATE TABLE IF NOT EXISTS biometric_devices (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      device_id VARCHAR(100) NOT NULL UNIQUE,
+      name VARCHAR(255) NOT NULL,
+      location VARCHAR(255) DEFAULT NULL,
+      device_type VARCHAR(100) DEFAULT 'Biometric / Fingerprint & Face',
+      ip_address VARCHAR(100) DEFAULT NULL,
+      port INT DEFAULT 4370,
+      serial_number VARCHAR(100) DEFAULT NULL,
+      status ENUM('active','inactive') DEFAULT 'active',
+      is_active TINYINT(1) DEFAULT 1,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_device_id (device_id),
+      INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`,
     `CREATE TABLE IF NOT EXISTS biometric_attendance_raw (
       id BIGINT AUTO_INCREMENT PRIMARY KEY,
       device_log_id BIGINT UNIQUE NOT NULL,

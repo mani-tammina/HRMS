@@ -1,0 +1,283 @@
+<div class="mappings-container">
+  <!-- Header Bar -->
+  <div class="mappings-header-bar">
+    <div class="tab-pills">
+      <button
+        class="tab-pill-btn"
+        [class.active]="activeTab === 'mapped'"
+        (click)="activeTab = 'mapped'"
+      >
+        <ion-icon name="people-outline"></ion-icon>
+        <span>Mapped Employees</span>
+        <span class="count-badge">{{ mappings.length }}</span>
+      </button>
+
+      <button
+        class="tab-pill-btn"
+        [class.active]="activeTab === 'unmapped'"
+        (click)="activeTab = 'unmapped'"
+      >
+        <ion-icon name="alert-circle-outline"></ion-icon>
+        <span>Unmapped Device Users</span>
+        <span class="count-badge unmapped" *ngIf="unmappedUsers.length > 0">{{ unmappedUsers.length }}</span>
+      </button>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn btn-primary-accent" (click)="autoMatchAll()" [disabled]="autoMatching">
+        <ion-icon name="sparkles-outline" [class.spin]="autoMatching"></ion-icon>
+        <span>Auto-Match All</span>
+      </button>
+
+      <button class="btn btn-primary" (click)="openAddMappingModal()">
+        <ion-icon name="add-outline"></ion-icon>
+        <span>Add Mapping</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 1: Mapped Employees -->
+  <div class="tab-content" *ngIf="activeTab === 'mapped'">
+    <div class="search-toolbar">
+      <div class="search-wrap">
+        <ion-icon name="search-outline"></ion-icon>
+        <input
+          type="text"
+          [(ngModel)]="searchQuery"
+          placeholder="Filter by employee name, employee code, or biometric ID..."
+          class="search-input"
+        />
+        <button *ngIf="searchQuery" class="clear-btn" (click)="searchQuery = ''">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <div class="results-count">
+        Showing {{ filteredMappings.length }} of {{ mappings.length }} mappings
+      </div>
+    </div>
+
+    <div class="table-card" *ngIf="!loading && filteredMappings.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Employee</th>
+            <th>Emp Code</th>
+            <th>Biometric User ID</th>
+            <th>Bound Device</th>
+            <th>Status</th>
+            <th class="text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let m of filteredMappings">
+            <td>
+              <div class="employee-identity">
+                <div class="avatar-circle">{{ m.FirstName?.charAt(0) }}{{ m.LastName?.charAt(0) }}</div>
+                <div class="employee-meta">
+                  <span class="employee-name">{{ m.FirstName }} {{ m.LastName }}</span>
+                  <span class="employee-email">{{ m.WorkEmail }}</span>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="badge-code">{{ m.EmployeeNumber }}</span>
+            </td>
+            <td>
+              <span class="badge-bio-id">{{ m.biometric_user_id }}</span>
+            </td>
+            <td>
+              <span class="device-cell" *ngIf="m.device_id">Device #{{ m.device_id }}</span>
+              <span class="text-muted" *ngIf="!m.device_id">All Devices</span>
+            </td>
+            <td>
+              <span class="status-badge" [class.active]="m.active">
+                {{ m.active ? 'Active' : 'Inactive' }}
+              </span>
+            </td>
+            <td class="text-right">
+              <div class="action-btn-group">
+                <button class="icon-btn edit-btn" (click)="openEditMappingModal(m)" title="Edit mapping">
+                  <ion-icon name="create-outline"></ion-icon>
+                </button>
+                <button class="icon-btn delete-btn" (click)="deleteMapping(m)" title="Remove mapping">
+                  <ion-icon name="trash-outline"></ion-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty-loading-state" *ngIf="loading">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Loading biometric employee mappings...</p>
+    </div>
+
+    <div class="empty-loading-state" *ngIf="!loading && filteredMappings.length === 0">
+      <ion-icon name="people-outline" class="empty-icon"></ion-icon>
+      <h4>No mappings found</h4>
+      <p>Click "Add Mapping" or "Auto-Match All" to link biometric device user IDs with HRMS employees.</p>
+    </div>
+  </div>
+
+  <!-- TAB 2: Unmapped Users -->
+  <div class="tab-content" *ngIf="activeTab === 'unmapped'">
+    <div class="alert-info-banner">
+      <ion-icon name="information-circle-outline"></ion-icon>
+      <div class="banner-text">
+        <strong>Unrecognized Biometric User IDs:</strong>
+        These are user IDs captured from terminal punch logs that are not yet linked to any employee record. Click "Assign to Employee" or "Auto-Match All" to resolve them.
+      </div>
+    </div>
+
+    <div class="search-toolbar">
+      <div class="search-wrap">
+        <ion-icon name="search-outline"></ion-icon>
+        <input
+          type="text"
+          [(ngModel)]="unmappedSearchQuery"
+          placeholder="Filter unmapped IDs..."
+          class="search-input"
+        />
+        <button *ngIf="unmappedSearchQuery" class="clear-btn" (click)="unmappedSearchQuery = ''">
+          <ion-icon name="close-circle"></ion-icon>
+        </button>
+      </div>
+
+      <div class="results-count">
+        {{ filteredUnmappedUsers.length }} unmapped user IDs
+      </div>
+    </div>
+
+    <div class="table-card" *ngIf="!loadingUnmapped && filteredUnmappedUsers.length > 0">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Biometric User ID</th>
+            <th>Observed on Devices</th>
+            <th>Punch Count</th>
+            <th>Last Punch Recorded</th>
+            <th class="text-right">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let u of filteredUnmappedUsers">
+            <td>
+              <span class="badge-bio-id highlight">{{ u.biometric_user_id }}</span>
+            </td>
+            <td>
+              <span class="device-cell">Device #{{ u.device_ids }}</span>
+            </td>
+            <td>
+              <span class="punch-count-pill">{{ u.punch_count | number }} punches</span>
+            </td>
+            <td>
+              <span class="text-muted">{{ u.last_seen | date:'medium' }}</span>
+            </td>
+            <td class="text-right">
+              <button
+                class="btn btn-sm btn-primary"
+                (click)="openAddMappingModal(u.biometric_user_id, u.device_ids)"
+              >
+                <ion-icon name="person-add-outline"></ion-icon>
+                <span>Assign to Employee</span>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="empty-loading-state" *ngIf="loadingUnmapped">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <p>Checking for unmapped machine punches...</p>
+    </div>
+
+    <div class="empty-loading-state" *ngIf="!loadingUnmapped && filteredUnmappedUsers.length === 0">
+      <ion-icon name="checkmark-done-circle-outline" class="empty-icon text-emerald"></ion-icon>
+      <h4>All biometric punches are mapped!</h4>
+      <p>No unrecognized biometric machine punches found in raw logs.</p>
+    </div>
+  </div>
+
+  <!-- ADD / EDIT MAPPING MODAL -->
+  <div class="modal-backdrop" *ngIf="showMappingModal" (click)="closeModal()">
+    <div class="modal-dialog" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3>{{ modalMode === 'add' ? 'Link Employee to Biometric ID' : 'Edit Biometric Mapping' }}</h3>
+        <button class="close-btn" (click)="closeModal()">
+          <ion-icon name="close-outline"></ion-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Employee Search & Select -->
+        <div class="form-group">
+          <label class="form-label">Employee *</label>
+          <input
+            type="text"
+            class="form-control"
+            [(ngModel)]="employeeSearchTerm"
+            (input)="filterEmployees()"
+            placeholder="Type employee name or ID..."
+          />
+          <div class="employee-dropdown-list" *ngIf="filteredEmployeesList.length > 0 && !mappingForm.employeeId">
+            <div
+              class="dropdown-emp-item"
+              *ngFor="let emp of filteredEmployeesList"
+              (click)="selectEmployee(emp)"
+            >
+              <div class="emp-name">{{ emp.FirstName }} {{ emp.LastName }}</div>
+              <div class="emp-sub">ID: {{ emp.EmployeeNumber || emp.id }} • {{ emp.WorkEmail }}</div>
+            </div>
+          </div>
+          <p class="field-hint" *ngIf="mappingForm.employeeId">
+            Selected: <strong class="text-emerald">{{ employeeSearchTerm }}</strong>
+            <button class="clear-select-btn" (click)="mappingForm.employeeId = null; employeeSearchTerm = ''; filterEmployees()">Change</button>
+          </p>
+        </div>
+
+        <!-- Biometric User ID -->
+        <div class="form-group">
+          <label class="form-label">Biometric User ID (Machine ID) *</label>
+          <input
+            type="text"
+            class="form-control"
+            [(ngModel)]="mappingForm.biometricUserId"
+            placeholder="e.g. STSS-102 or 1000"
+          />
+          <p class="field-hint">The exact User ID registered inside the biometric fingerprint or face device.</p>
+        </div>
+
+        <!-- Bound Device -->
+        <div class="form-group">
+          <label class="form-label">Restrict to Device (Optional)</label>
+          <select class="form-control" [(ngModel)]="mappingForm.deviceId">
+            <option value="">All Devices (Default)</option>
+            <option *ngFor="let d of devices" [value]="d.deviceId">Device #{{ d.deviceId }} - {{ d.name }} ({{ d.location }})</option>
+          </select>
+        </div>
+
+        <!-- Active Status -->
+        <div class="form-group checkbox-group">
+          <label class="checkbox-label">
+            <input type="checkbox" [checked]="mappingForm.active === 1" (change)="mappingForm.active = $any($event.target).checked ? 1 : 0" />
+            <span>Enable Biometric Sync for this employee</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" (click)="closeModal()">Cancel</button>
+        <button class="btn btn-primary" (click)="saveMapping()" [disabled]="savingMapping">
+          <ion-icon name="checkmark-outline" *ngIf="!savingMapping"></ion-icon>
+          <ion-spinner name="crescent" *ngIf="savingMapping"></ion-spinner>
+          <span>{{ modalMode === 'add' ? 'Save Mapping' : 'Update Mapping' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
