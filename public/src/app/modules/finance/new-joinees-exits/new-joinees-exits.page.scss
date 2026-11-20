@@ -588,10 +588,39 @@
   background-color: #f1f5f9;
   color: #475569;
 
-  &.badge-approved {
+  &.badge-approved,
+  &.badge-relieved,
+  &.badge-completed {
     background-color: #dcfce7;
     color: #15803d;
   }
+
+  &.badge-notice,
+  &.badge-initiated {
+    background-color: #fef3c7;
+    color: #b45309;
+  }
+}
+
+.exp-badge {
+  &.badge-relieved,
+  &.badge-completed {
+    background-color: #dcfce7;
+    color: #15803d;
+  }
+
+  &.badge-notice {
+    background-color: #fef3c7;
+    color: #b45309;
+  }
+}
+
+.font-medium {
+  font-weight: 500;
+}
+
+.font-semibold {
+  font-weight: 600;
 }
 
 .text-success {

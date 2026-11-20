@@ -225,7 +225,7 @@
                 <th class="col-expand"></th>
                 <th class="col-employee">EMPLOYEE</th>
                 <th>RESIGNATION DATE</th>
-                <th>LAST WORKING DAY</th>
+                <th>RELIEVING / LAST DAY</th>
                 <th>NOTICE DAYS</th>
                 <th>STATUS</th>
                 <th>PAY ACTION</th>
@@ -233,49 +233,98 @@
               </tr>
             </thead>
             <tbody>
-              <tr *ngFor="let row of filteredExits" class="data-row">
-                <td class="col-expand">
-                  <button type="button" class="btn-chevron" (click)="toggleRow(row)">
-                    <span class="chevron-icon" [class.rotated]="row.expanded">›</span>
-                  </button>
-                </td>
-                <td class="col-employee">
-                  <div class="emp-meta">
-                    <span class="emp-code">{{ row.employee_code }}</span>
-                    <span class="emp-name">{{ row.employee_name }}</span>
-                  </div>
-                </td>
-                <td>{{ row.resignation_date }}</td>
-                <td>{{ row.last_working_day }}</td>
-                <td>{{ row.notice_served_days }} / {{ row.notice_period_days }} Days</td>
-                <td>
-                  <span class="badge-status">{{ row.status }}</span>
-                </td>
-                <td class="col-action">
-                  <div class="select-wrapper">
-                    <select [(ngModel)]="row.pay_action" class="nje-select">
-                      <option value="Hold in F&F">Hold in F&F</option>
-                      <option value="Process as salary">Process as salary</option>
-                      <option value="Process as F&F">Process as F&F</option>
-                      <option value="Stop payment">Stop payment</option>
-                    </select>
-                  </div>
-                </td>
-                <td class="col-comments">
-                  <div class="comment-field-wrap">
-                    <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
-                    <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                      </svg>
+              <ng-container *ngFor="let row of filteredExits">
+                <tr class="data-row" [class.row-expanded]="row.expanded">
+                  <td class="col-expand">
+                    <button type="button" class="btn-chevron" (click)="toggleRow(row)" [attr.aria-expanded]="row.expanded">
+                      <span class="chevron-icon" [class.rotated]="row.expanded">›</span>
                     </button>
-                  </div>
-                </td>
-              </tr>
+                  </td>
+                  <td class="col-employee">
+                    <div class="emp-meta">
+                      <span class="emp-code">{{ row.employee_code }}</span>
+                      <span class="emp-name">{{ row.employee_name }}</span>
+                    </div>
+                  </td>
+                  <td>{{ row.resignation_date }}</td>
+                  <td>
+                    <span class="font-medium text-purple">{{ row.last_working_day }}</span>
+                  </td>
+                  <td>{{ row.notice_served_days }} / {{ row.notice_period_days }} Days</td>
+                  <td>
+                    <span class="badge-status"
+                          [class.badge-relieved]="row.status === 'Relieved' || row.status === 'Completed'"
+                          [class.badge-notice]="row.status === 'Under Notice' || row.status === 'Initiated'">
+                      {{ row.status }}
+                    </span>
+                  </td>
+                  <td class="col-action">
+                    <div class="select-wrapper">
+                      <select [(ngModel)]="row.pay_action" class="nje-select">
+                        <option value="Hold in F&F">Hold in F&F</option>
+                        <option value="Process as salary">Process as salary</option>
+                        <option value="Process as F&F">Process as F&F</option>
+                        <option value="Stop payment">Stop payment</option>
+                      </select>
+                    </div>
+                  </td>
+                  <td class="col-comments">
+                    <div class="comment-field-wrap">
+                      <input type="text" [(ngModel)]="row.comments" placeholder="" class="comment-input" />
+                      <button type="button" class="btn-comment-bubble" (click)="openCommentModal(row)">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                        </svg>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Expanded Row for Relieved / Exit Employee Details -->
+                <tr *ngIf="row.expanded" class="expand-detail-row">
+                  <td colspan="8">
+                    <div class="expanded-card">
+                      <div class="exp-header">
+                        <h4>Relieving &amp; Exit Clearance for {{ row.employee_name }} ({{ row.employee_code }})</h4>
+                        <span class="exp-badge"
+                              [class.badge-relieved]="row.status === 'Relieved' || row.status === 'Completed'">
+                          {{ row.status }}
+                        </span>
+                      </div>
+                      <div class="exp-grid">
+                        <div class="exp-item">
+                          <span class="exp-label">Department</span>
+                          <span class="exp-value">{{ row.department || 'General' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Designation</span>
+                          <span class="exp-value">{{ row.designation || 'Staff' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Employment Status</span>
+                          <span class="exp-value font-medium">{{ row.employment_status || row.status }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Exit Type</span>
+                          <span class="exp-value">{{ row.exit_type || 'Resignation' }}</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Notice Period</span>
+                          <span class="exp-value">{{ row.notice_period_days }} Days (Served: {{ row.notice_served_days }} Days, Shortfall: {{ row.shortfall_days }} Days)</span>
+                        </div>
+                        <div class="exp-item">
+                          <span class="exp-label">Relieving Date</span>
+                          <span class="exp-value text-purple font-semibold">{{ row.last_working_day }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
 
               <tr *ngIf="filteredExits.length === 0">
                 <td colspan="8" class="no-records-cell">
-                  <p>No employees in exit process for {{ monthLabel }}</p>
+                  <p>No employees relieved or in exit process for {{ monthLabel }}</p>
                 </td>
               </tr>
             </tbody>

@@ -33,8 +33,12 @@ export interface ExitingEmployeeRow {
   shortfall_days: number;
   exit_type: string;
   status: string;
+  employment_status?: string;
   pay_action: string;
   comments: string;
+  department?: string;
+  designation?: string;
+  monthly_gross?: number;
   expanded?: boolean;
 }
 
@@ -140,197 +144,20 @@ export class NewJoineesExitsPage implements OnInit {
           this.exitingRecords = res.exitingEmployees || [];
           this.settlementRecords = res.settlementEmployees || [];
         } else {
-          this.generateFallbackData();
+          this.newJoineesRecords = [];
+          this.exitingRecords = [];
+          this.settlementRecords = [];
         }
       },
       error: (err) => {
         this.isLoading = false;
-        console.warn('API error, falling back to local generated state:', err);
-        this.generateFallbackData();
+        console.error('Failed to load new joinees & exits:', err);
+        this.toaster.showError(`Failed to load new joinees & exits for ${this.monthLabel}`);
+        this.newJoineesRecords = [];
+        this.exitingRecords = [];
+        this.settlementRecords = [];
       }
     });
-  }
-
-  generateFallbackData() {
-    const [yStr, mStr] = (this.selectedMonth || '2026-10').split('-');
-    const year = parseInt(yStr, 10) || 2026;
-    const monthNum = parseInt(mStr, 10) || 10;
-    const daysInMonth = new Date(year, monthNum, 0).getDate();
-    const shortNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    const mShort = shortNames[monthNum - 1];
-
-    this.newJoineesRecords = [
-      {
-        id: 1511,
-        employee_code: 'STSS-1511',
-        employee_name: 'Hymavathi Sotta',
-        date_of_joining: `01 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-01`,
-        no_of_units_worked: daysInMonth,
-        units_worked_label: `${daysInMonth} Days`,
-        monthly_salary: 16000,
-        salary: 16000,
-        salary_formatted: 'INR 16,000',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Operations',
-        designation: 'Associate',
-        expanded: false
-      },
-      {
-        id: 1512,
-        employee_code: 'STSS-1512',
-        employee_name: 'Ritika Jha',
-        date_of_joining: `05 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-05`,
-        no_of_units_worked: daysInMonth - 4,
-        units_worked_label: `${daysInMonth - 4} Days`,
-        monthly_salary: 10000,
-        salary: 8710,
-        salary_formatted: 'INR 8,710',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Human Resources',
-        designation: 'HR Executive',
-        expanded: false
-      },
-      {
-        id: 1513,
-        employee_code: 'STSS-1513',
-        employee_name: 'Bhargavi Duvvada',
-        date_of_joining: `07 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-07`,
-        no_of_units_worked: daysInMonth - 6,
-        units_worked_label: `${daysInMonth - 6} Days`,
-        monthly_salary: 13000,
-        salary: 10484,
-        salary_formatted: 'INR 10,484',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Quality Assurance',
-        designation: 'QA Engineer',
-        expanded: false
-      },
-      {
-        id: 1514,
-        employee_code: 'STSS-1514',
-        employee_name: 'Sai Nikhil Majji',
-        date_of_joining: `07 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-07`,
-        no_of_units_worked: daysInMonth - 6,
-        units_worked_label: `${daysInMonth - 6} Days`,
-        monthly_salary: 13000,
-        salary: 10484,
-        salary_formatted: 'INR 10,484',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Engineering',
-        designation: 'Software Engineer',
-        expanded: false
-      },
-      {
-        id: 1515,
-        employee_code: 'STSS-1515',
-        employee_name: 'Leela Tripura Venkatesh Gola',
-        date_of_joining: `12 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-12`,
-        no_of_units_worked: daysInMonth - 11,
-        units_worked_label: `${daysInMonth - 11} Days`,
-        monthly_salary: 54166,
-        salary: 34946,
-        salary_formatted: 'INR 34,946',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Technology',
-        designation: 'Senior Developer',
-        expanded: false
-      },
-      {
-        id: 1516,
-        employee_code: 'STSS-1516',
-        employee_name: 'Haritha kommoju',
-        date_of_joining: `22 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-22`,
-        no_of_units_worked: daysInMonth - 21,
-        units_worked_label: `${daysInMonth - 21} Days`,
-        monthly_salary: 13000,
-        salary: 4194,
-        salary_formatted: 'INR 4,194',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Customer Success',
-        designation: 'Support Specialist',
-        expanded: false
-      },
-      {
-        id: 1518,
-        employee_code: 'STSS-1518',
-        employee_name: 'Himabindu Jula',
-        date_of_joining: `23 ${mShort} ${year}`,
-        raw_date_of_joining: `${year}-${String(monthNum).padStart(2, '0')}-23`,
-        no_of_units_worked: daysInMonth - 22,
-        units_worked_label: `${daysInMonth - 22} Days`,
-        monthly_salary: 116666,
-        salary: 33871,
-        salary_formatted: 'INR 33,871',
-        pay_action: 'Process as salary',
-        comments: '',
-        department: 'Product',
-        designation: 'Product Manager',
-        expanded: false
-      }
-    ];
-
-    this.exitingRecords = [
-      {
-        id: 1005,
-        employee_code: 'STSS-1005',
-        employee_name: 'Yogendra Tarak Tikkada',
-        resignation_date: `15 ${mShort} ${year}`,
-        last_working_day: `31 ${mShort} ${year}`,
-        notice_period_days: 30,
-        notice_served_days: 16,
-        shortfall_days: 14,
-        exit_type: 'Resignation',
-        status: 'Under Notice',
-        pay_action: 'Hold in F&F',
-        comments: 'Notice period underway',
-        expanded: false
-      },
-      {
-        id: 1007,
-        employee_code: 'STSS-1007',
-        employee_name: 'Syed Raza Ali Zaidi',
-        resignation_date: `02 ${mShort} ${year}`,
-        last_working_day: `20 ${mShort} ${year}`,
-        notice_period_days: 30,
-        notice_served_days: 18,
-        shortfall_days: 12,
-        exit_type: 'Relieved',
-        status: 'Exit Processed',
-        pay_action: 'Process as F&F',
-        comments: 'Clearances completed',
-        expanded: false
-      }
-    ];
-
-    this.settlementRecords = [
-      {
-        id: 1007,
-        employee_code: 'STSS-1007',
-        employee_name: 'Syed Raza Ali Zaidi',
-        last_working_day: `20 ${mShort} ${year}`,
-        payable_days: 20,
-        earned_salary: 32000,
-        leave_encashment_days: 4,
-        leave_encashment_amount: 4266,
-        gratuity_amount: 0,
-        notice_recovery_amount: 0,
-        net_settlement_payable: 36266,
-        status: 'Approved',
-        comments: 'F&F approved by HR & Finance'
-      }
-    ];
   }
 
   // Filtered lists based on search terms
