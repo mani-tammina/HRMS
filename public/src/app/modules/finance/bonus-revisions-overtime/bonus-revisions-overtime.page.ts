@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { AlertController } from '@ionic/angular';
 import { environment } from '../../../../environments/environment';
 import { ToasterService } from '../../../core/services/toaster.service';
 
@@ -23,6 +24,8 @@ export interface BonusRow {
 
 export interface RevisionRow {
   id: number;
+  contract_id?: number;
+  adjustment_id?: number;
   employee_code: string;
   employee_name: string;
   department?: string;
@@ -124,9 +127,22 @@ export class BonusRevisionsOvertimePage implements OnInit {
   newBonusAmount: number | null = null;
   newBonusComment: string = '';
 
+  newSalaryAnnual: number | null = null;
   newHikePct: number = 10;
   newArrearsMonths: number = 1;
+  newRevisionAction: 'Process as salary' | 'Process revision & arrears' | 'Process revision only' | 'Hold revision' | 'Do not process' = 'Process as salary';
   newRevisionComment: string = '';
+
+  // ─── SALARY REVISION EDIT MODAL STATE ───
+  showEditRevisionModal: boolean = false;
+  editingRevision: RevisionRow | null = null;
+  editRevisedCtc: number = 0;
+  editHikePercentage: number = 0;
+  editEffectiveDate: string = '';
+  editArrearsMonths: number = 1;
+  editPayAction: 'Process as salary' | 'Process revision & arrears' | 'Process revision only' | 'Hold revision' | 'Do not process' = 'Process as salary';
+  editComments: string = '';
+  isSavingRevision: boolean = false;
 
   newOtHours: number = 8;
   newOtMultiplier: number = 1.5;
@@ -138,7 +154,8 @@ export class BonusRevisionsOvertimePage implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private http: HttpClient,
-    private toaster: ToasterService
+    private toaster: ToasterService,
+    private alertCtrl: AlertController
   ) {}
 
   ngOnInit() {
@@ -225,13 +242,47 @@ export class BonusRevisionsOvertimePage implements OnInit {
     this.newBonusAmount = null;
     this.newBonusComment = '';
     this.newBonusType = 'Performance Bonus';
+    this.newSalaryAnnual = null;
     this.newHikePct = 10;
     this.newArrearsMonths = 1;
+    this.newRevisionAction = 'Process as salary';
     this.newRevisionComment = '';
     this.newOtHours = 8;
     this.newOtMultiplier = 1.5;
     this.newOtComment = '';
     this.showAddModal = true;
+  }
+
+  onSelectedEmployeeChange() {
+    if (this.currentStep === 2 && this.selectedEmpId) {
+      const emp = this.workingEmployees.find(e => e.id === Number(this.selectedEmpId));
+      if (emp) {
+        const monthly = emp.monthly_salary || 25000;
+        const currentCtc = emp.annual_ctc || (monthly * 12);
+        this.newHikePct = 10;
+        this.newSalaryAnnual = Math.round(currentCtc * 1.10);
+      }
+    }
+  }
+
+  onNewSalaryChange() {
+    if (!this.selectedEmpId) return;
+    const emp = this.workingEmployees.find(e => e.id === Number(this.selectedEmpId));
+    if (!emp) return;
+    const currentCtc = emp.annual_ctc || ((emp.monthly_salary || 25000) * 12);
+    if (currentCtc > 0 && this.newSalaryAnnual && this.newSalaryAnnual > 0) {
+      this.newHikePct = parseFloat((((this.newSalaryAnnual - currentCtc) / currentCtc) * 100).toFixed(2));
+    }
+  }
+
+  onNewHikeChange() {
+    if (!this.selectedEmpId) return;
+    const emp = this.workingEmployees.find(e => e.id === Number(this.selectedEmpId));
+    if (!emp) return;
+    const currentCtc = emp.annual_ctc || ((emp.monthly_salary || 25000) * 12);
+    if (currentCtc > 0) {
+      this.newSalaryAnnual = Math.round(currentCtc * (1 + (Number(this.newHikePct || 0) / 100)));
+    }
   }
 
   closeAddModal() {
@@ -286,39 +337,66 @@ export class BonusRevisionsOvertimePage implements OnInit {
     } else if (this.currentStep === 2) {
       const currentCtc = emp.annual_ctc || (monthlyGross * 12);
       const hike = Number(this.newHikePct) || 10;
-      const revisedCtc = Math.round(currentCtc * (1 + (hike / 100)));
+      const revisedCtc = this.newSalaryAnnual && this.newSalaryAnnual > 0 ? Number(this.newSalaryAnnual) : Math.round(currentCtc * (1 + (hike / 100)));
       const prevMonthly = Math.round(currentCtc / 12);
       const revMonthly = Math.round(revisedCtc / 12);
-      const diff = revMonthly - prevMonthly;
+      const diff = Math.max(0, revMonthly - prevMonthly);
       const arrearsMonths = Number(this.newArrearsMonths) || 1;
       const arrearsAmount = diff * arrearsMonths;
+      const hikeStr = `${hike >= 0 ? '+' : ''}${hike.toFixed(1)}%`;
+      const effDate = `${this.selectedMonth}-01`;
 
-      const newRow: RevisionRow = {
-        id: emp.id,
-        employee_code: emp.employee_code,
-        employee_name: emp.employee_name,
-        department: emp.department || 'General',
-        designation: emp.designation || 'Staff',
+      const payload = {
+        employee_id: emp.id,
+        month: this.selectedMonth,
         previous_ctc: currentCtc,
-        previous_ctc_formatted: `INR ${currentCtc.toLocaleString('en-IN')}`,
         revised_ctc: revisedCtc,
-        revised_ctc_formatted: `INR ${revisedCtc.toLocaleString('en-IN')}`,
-        hike_percentage: `${hike.toFixed(1)}%`,
-        previous_monthly: prevMonthly,
-        revised_monthly: revMonthly,
-        monthly_increment: diff,
-        effective_date: `01 ${this.monthLabel.split('-')[0]} ${this.year}`,
-        arrears_applicable: true,
+        hike_percentage: hikeStr,
+        effective_date: effDate,
         arrears_months: arrearsMonths,
         arrears_amount: arrearsAmount,
-        arrears_amount_formatted: `INR ${arrearsAmount.toLocaleString('en-IN')}`,
-        status: 'Approved',
-        pay_action: 'Process revision & arrears',
-        comments: this.newRevisionComment || `Appraisal revision of ${hike}%`,
-        expanded: false
+        pay_action: this.newRevisionAction || 'Process as salary',
+        comments: this.newRevisionComment || `Appraisal revision of ${hike.toFixed(1)}%`
       };
-      this.revisionRecords.unshift(newRow);
-      this.toaster.showSuccess(`Added revision for ${emp.employee_name}`);
+
+      this.http.post<any>(`${this.apiUrl}/api/payroll/v2/bonus-revisions-overtime/revision`, payload).subscribe({
+        next: (res) => {
+          const newRow: RevisionRow = {
+            id: emp.id,
+            contract_id: res?.contract_id,
+            employee_code: emp.employee_code,
+            employee_name: emp.employee_name,
+            department: emp.department || 'General',
+            designation: emp.designation || 'Staff',
+            previous_ctc: currentCtc,
+            previous_ctc_formatted: `INR ${currentCtc.toLocaleString('en-IN')}`,
+            revised_ctc: revisedCtc,
+            revised_ctc_formatted: `INR ${revisedCtc.toLocaleString('en-IN')}`,
+            hike_percentage: hikeStr,
+            previous_monthly: prevMonthly,
+            revised_monthly: revMonthly,
+            monthly_increment: diff,
+            effective_date: effDate,
+            arrears_applicable: true,
+            arrears_months: arrearsMonths,
+            arrears_amount: arrearsAmount,
+            arrears_amount_formatted: `INR ${arrearsAmount.toLocaleString('en-IN')}`,
+            status: 'Approved',
+            pay_action: this.newRevisionAction || 'Process as salary',
+            comments: this.newRevisionComment || `Appraisal revision of ${hike.toFixed(1)}%`,
+            expanded: false
+          };
+          this.revisionRecords.unshift(newRow);
+          this.recalculateSummaries();
+          this.toaster.showSuccess(`Added revision for ${emp.employee_name}`);
+        },
+        error: (err) => {
+          console.error("Failed to add revision:", err);
+          this.toaster.showError("Failed to save salary revision");
+        }
+      });
+      this.closeAddModal();
+      return;
     } else if (this.currentStep === 3) {
       const hourlyRate = Math.round(monthlyGross / (26 * 8)) || 100;
       const otHours = Math.max(0, Number(this.newOtHours) || 0);
@@ -579,5 +657,165 @@ export class BonusRevisionsOvertimePage implements OnInit {
   toggleHelpItem(id: number) {
     this.openedHelpItem = this.openedHelpItem === id ? null : id;
   }
+
+  // ─── SALARY REVISION EDIT & DELETE CRUD OPERATIONS ─────────────────────────
+
+  openEditRevisionModal(row: RevisionRow) {
+    this.editingRevision = { ...row };
+    this.editRevisedCtc = Number(row.revised_ctc) || 0;
+    const prev = Number(row.previous_ctc) || 0;
+    if (prev > 0 && this.editRevisedCtc > 0) {
+      this.editHikePercentage = parseFloat((((this.editRevisedCtc - prev) / prev) * 100).toFixed(2));
+    } else {
+      this.editHikePercentage = 0;
+    }
+    this.editEffectiveDate = row.effective_date && row.effective_date.length >= 10 ? row.effective_date : `${this.selectedMonth}-01`;
+    this.editArrearsMonths = row.arrears_months || 1;
+    this.editPayAction = row.pay_action || 'Process as salary';
+    this.editComments = row.comments || '';
+    this.showEditRevisionModal = true;
+  }
+
+  closeEditRevisionModal() {
+    this.showEditRevisionModal = false;
+    this.editingRevision = null;
+    this.isSavingRevision = false;
+  }
+
+  onEditCtcChange() {
+    const prev = Number(this.editingRevision?.previous_ctc) || 0;
+    if (prev > 0 && this.editRevisedCtc > 0) {
+      this.editHikePercentage = parseFloat((((this.editRevisedCtc - prev) / prev) * 100).toFixed(2));
+    }
+  }
+
+  onEditHikeChange() {
+    const prev = Number(this.editingRevision?.previous_ctc) || 0;
+    if (prev > 0) {
+      this.editRevisedCtc = Math.round(prev * (1 + (Number(this.editHikePercentage || 0) / 100)));
+    }
+  }
+
+  get editPrevMonthly(): number {
+    return Math.round((Number(this.editingRevision?.previous_ctc) || 0) / 12);
+  }
+
+  get editRevMonthly(): number {
+    return Math.round((Number(this.editRevisedCtc) || 0) / 12);
+  }
+
+  get editMonthlyIncrement(): number {
+    return Math.max(0, this.editRevMonthly - this.editPrevMonthly);
+  }
+
+  get editArrearsAmount(): number {
+    return this.editMonthlyIncrement * (Number(this.editArrearsMonths) || 1);
+  }
+
+  get editGrossPayThisMonth(): number {
+    const arrears = (this.editPayAction === 'Process revision & arrears' || this.editPayAction === 'Process as salary') ? this.editArrearsAmount : 0;
+    return this.editRevMonthly + arrears;
+  }
+
+  saveEditedRevision() {
+    if (!this.editingRevision) return;
+    if (!this.editRevisedCtc || this.editRevisedCtc <= 0) {
+      this.toaster.showError('Please enter a valid revised annual salary.');
+      return;
+    }
+
+    this.isSavingRevision = true;
+    const empId = this.editingRevision.id;
+    const revCtc = Number(this.editRevisedCtc);
+    const prevCtc = Number(this.editingRevision.previous_ctc);
+    const hike = this.editHikePercentage;
+    const hikeStr = `${hike >= 0 ? '+' : ''}${hike.toFixed(1)}%`;
+    const arrearsAmt = this.editArrearsAmount;
+
+    const payload = {
+      month: this.selectedMonth,
+      contract_id: this.editingRevision.contract_id,
+      previous_ctc: prevCtc,
+      revised_ctc: revCtc,
+      hike_percentage: hikeStr,
+      effective_date: this.editEffectiveDate,
+      arrears_months: this.editArrearsMonths,
+      arrears_amount: arrearsAmt,
+      pay_action: this.editPayAction,
+      comments: this.editComments
+    };
+
+    this.http.put<any>(`${this.apiUrl}/api/payroll/v2/bonus-revisions-overtime/revision/${empId}`, payload).subscribe({
+      next: (res) => {
+        this.isSavingRevision = false;
+        // Update local record
+        const idx = this.revisionRecords.findIndex(r => r.id === empId);
+        if (idx !== -1) {
+          this.revisionRecords[idx] = {
+            ...this.revisionRecords[idx],
+            revised_ctc: revCtc,
+            revised_ctc_formatted: `INR ${revCtc.toLocaleString('en-IN')}`,
+            hike_percentage: hikeStr,
+            revised_monthly: this.editRevMonthly,
+            monthly_increment: this.editMonthlyIncrement,
+            effective_date: this.editEffectiveDate,
+            arrears_months: this.editArrearsMonths,
+            arrears_amount: arrearsAmt,
+            arrears_amount_formatted: `INR ${arrearsAmt.toLocaleString('en-IN')}`,
+            pay_action: this.editPayAction,
+            comments: this.editComments
+          };
+        }
+        this.recalculateSummaries();
+        this.toaster.showSuccess(`Updated revision for ${this.editingRevision?.employee_name}`);
+        this.closeEditRevisionModal();
+      },
+      error: (err) => {
+        this.isSavingRevision = false;
+        console.error("Failed to update revision:", err);
+        this.toaster.showError("Failed to update salary revision");
+      }
+    });
+  }
+
+  async confirmDeleteRevision(row: RevisionRow) {
+    const alert = await this.alertCtrl.create({
+      header: 'Delete Salary Revision',
+      subHeader: `${row.employee_name} (${row.employee_code})`,
+      message: `Are you sure you want to delete the salary revision of <strong>${row.revised_ctc_formatted}</strong> (${row.hike_percentage})?<br><br>This will remove the revision from this payroll month and restore the previous salary structure.`,
+      buttons: [
+        { text: 'Cancel', role: 'cancel' },
+        {
+          text: 'Delete',
+          role: 'destructive',
+          handler: () => {
+            this.deleteRevision(row);
+          }
+        }
+      ]
+    });
+    await alert.present();
+  }
+
+  deleteRevision(row: RevisionRow) {
+    const contractParam = row.contract_id ? `&contract_id=${row.contract_id}` : '';
+    const url = `${this.apiUrl}/api/payroll/v2/bonus-revisions-overtime/revision/${row.id}?month=${this.selectedMonth}${contractParam}`;
+
+    this.http.delete<any>(url).subscribe({
+      next: () => {
+        this.revisionRecords = this.revisionRecords.filter(r => r.id !== row.id);
+        this.recalculateSummaries();
+        this.toaster.showSuccess(`Deleted salary revision for ${row.employee_name}`);
+      },
+      error: (err) => {
+        console.error("Failed to delete revision:", err);
+        // Fallback: delete locally from array
+        this.revisionRecords = this.revisionRecords.filter(r => r.id !== row.id);
+        this.recalculateSummaries();
+        this.toaster.showSuccess(`Removed salary revision for ${row.employee_name}`);
+      }
+    });
+  }
+
 }
 

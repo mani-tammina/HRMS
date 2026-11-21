@@ -70,6 +70,11 @@
       </h2>
 
       <div class="header-actions">
+        <button class="step-btn export-action" (click)="exportToExcel()" [disabled]="isExporting" title="Export Payroll to Excel">
+          <ion-icon [name]="isExporting ? 'hourglass-outline' : 'download-outline'"></ion-icon>
+          <span>{{ isExporting ? 'Exporting...' : 'Export' }}</span>
+        </button>
+
         <button class="step-btn danger-action" *ngIf="dashboardData?.hasActiveRun || dashboardData?.run || dashboardData?.outcome?.runId" (click)="confirmCancelPayroll()" [disabled]="isCancelling" title="Cancel and Delete Payroll for this month">
           <ion-icon name="trash-outline"></ion-icon>
           <span>{{ isCancelling ? 'Cancelling...' : 'Cancel Payroll' }}</span>
@@ -348,6 +353,10 @@
 
             <!-- Bottom Actions Bar -->
             <div class="steps-actions-row">
+              <button class="btn-action-outline export-step-btn" (click)="exportToExcel()" [disabled]="isExporting" title="Export current payroll calculations to Excel">
+                <ion-icon [name]="isExporting ? 'hourglass-outline' : 'download-outline'"></ion-icon>
+                <span>{{ isExporting ? 'Exporting...' : 'Export' }}</span>
+              </button>
               <button class="btn-action-outline" (click)="processPayrollAction()">Process Payroll</button>
               <button class="btn-action-outline" (click)="reviewAllEmployeesAction()">Review all employees</button>
               <button class="btn-action-solid-purple" (click)="lockPayrollAction()">Lock Payroll</button>

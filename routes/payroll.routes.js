@@ -2015,7 +2015,7 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                 JOIN employees e ON pa.employee_id = e.id
                 LEFT JOIN departments d ON e.DepartmentId = d.id
                 LEFT JOIN designations des ON e.DesignationId = des.id
-                LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id
+                LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
                 WHERE pa.payroll_month = ?
                 ORDER BY pa.id ASC
             `, [targetMonth]);
@@ -2053,11 +2053,14 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                             expanded: false
                         });
                     } else if (row.adjustment_type === 'ARREAR') {
+                        if (revisionRecords.some(r => Number(r.id) === Number(row.employee_id))) continue;
                         const amt = Math.round(Number(row.amount) || 0);
                         const prevCtc = Number(parsedReason.previous_ctc) || annualCtc;
                         const revCtc = Number(parsedReason.revised_ctc) || annualCtc;
                         revisionRecords.push({
                             id: row.employee_id,
+                            adjustment_id: row.id,
+                            contract_id: row.contract_id || null,
                             employee_code: row.EmployeeNumber,
                             employee_name: empName,
                             department: row.DepartmentName || 'General',
@@ -2108,6 +2111,102 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
             }
         } catch (adjErr) {
             console.warn("Could not query payroll_adjustments:", adjErr.message);
+        }
+
+        // Load salary revisions directly from employee_salary_contracts for this month
+        try {
+            const [revContractRows] = await c.query(`
+                SELECT esc.contract_id, esc.employee_id, esc.annual_ctc, esc.effective_from, esc.effective_to, esc.status, esc.created_at,
+                       e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                       d.name AS DepartmentName, des.name AS DesignationName, e.lpa
+                FROM employee_salary_contracts esc
+                JOIN employees e ON esc.employee_id = e.id
+                LEFT JOIN departments d ON e.DepartmentId = d.id
+                LEFT JOIN designations des ON e.DesignationId = des.id
+                WHERE (
+                    -- Contract effective in target month and employee has a previous contract (meaning it's a revision)
+                    (DATE_FORMAT(esc.effective_from, '%Y-%m') = ? AND EXISTS (
+                        SELECT 1 FROM employee_salary_contracts prev 
+                        WHERE prev.employee_id = esc.employee_id AND prev.contract_id != esc.contract_id
+                    ))
+                    -- OR contract was created/activated in target month as a revision over a superseded contract with a salary change
+                    OR (esc.status = 'Active' AND EXISTS (
+                        SELECT 1 FROM employee_salary_contracts prev 
+                        WHERE prev.employee_id = esc.employee_id 
+                          AND prev.contract_id != esc.contract_id 
+                          AND prev.status = 'Superseded'
+                          AND (DATE_FORMAT(prev.updated_at, '%Y-%m') = ? OR DATE_FORMAT(esc.created_at, '%Y-%m') = ?)
+                          AND prev.annual_ctc != esc.annual_ctc
+                    ))
+                )
+                ORDER BY esc.effective_from DESC, esc.contract_id DESC
+            `, [targetMonth, targetMonth, targetMonth]);
+
+            for (const esc of revContractRows) {
+                // If this employee is already in revisionRecords (from payroll_adjustments), skip
+                if (revisionRecords.some(r => Number(r.id) === Number(esc.employee_id))) {
+                    continue;
+                }
+
+                // Find previous contract to compute previous CTC & Hike %
+                const [prevRows] = await c.query(`
+                    SELECT annual_ctc, effective_from 
+                    FROM employee_salary_contracts 
+                    WHERE employee_id = ? AND contract_id != ? AND contract_id < ?
+                    ORDER BY contract_id DESC LIMIT 1
+                `, [esc.employee_id, esc.contract_id, esc.contract_id]);
+
+                let prevCtc = 0;
+                if (prevRows.length > 0 && prevRows[0].annual_ctc) {
+                    prevCtc = Number(prevRows[0].annual_ctc);
+                } else {
+                    prevCtc = Number(esc.lpa) || Number(esc.annual_ctc) || 0;
+                }
+
+                const revCtc = Number(esc.annual_ctc) || 0;
+                const prevMonthly = Math.round(prevCtc / 12);
+                const revMonthly = Math.round(revCtc / 12);
+                const monthlyDiff = Math.max(0, revMonthly - prevMonthly);
+
+                let hikePercentage = '0%';
+                if (prevCtc > 0 && revCtc > 0 && revCtc !== prevCtc) {
+                    const pct = ((revCtc - prevCtc) / prevCtc) * 100;
+                    hikePercentage = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+                }
+
+                const empName = esc.FullName || `${esc.FirstName || ''} ${esc.LastName || ''}`.trim();
+                const effectiveDateStr = esc.effective_from 
+                    ? new Date(esc.effective_from).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : `01 ${mShort} ${year}`;
+
+                revisionRecords.push({
+                    id: esc.employee_id,
+                    contract_id: esc.contract_id,
+                    employee_code: esc.EmployeeNumber || `EMP-${esc.employee_id}`,
+                    employee_name: empName,
+                    department: esc.DepartmentName || 'General',
+                    designation: esc.DesignationName || 'Staff',
+                    previous_ctc: prevCtc,
+                    previous_ctc_formatted: `INR ${prevCtc.toLocaleString('en-IN')}`,
+                    revised_ctc: revCtc,
+                    revised_ctc_formatted: `INR ${revCtc.toLocaleString('en-IN')}`,
+                    hike_percentage: hikePercentage,
+                    previous_monthly: prevMonthly,
+                    revised_monthly: revMonthly,
+                    monthly_increment: monthlyDiff,
+                    effective_date: effectiveDateStr,
+                    arrears_applicable: true,
+                    arrears_months: 1,
+                    arrears_amount: 0,
+                    arrears_amount_formatted: 'INR 0',
+                    status: esc.status || 'Active',
+                    pay_action: 'Process as salary',
+                    comments: `Salary revised to INR ${revCtc.toLocaleString('en-IN')} effective ${effectiveDateStr}`,
+                    expanded: false
+                });
+            }
+        } catch (contractErr) {
+            console.warn("Could not query contracts for revisions:", contractErr.message);
         }
 
         const totalBonus = bonusRecords.reduce((sum, r) => sum + (r.bonus_amount || 0), 0);
@@ -2171,21 +2270,19 @@ router.post("/v2/bonus-revisions-overtime/save-step", auth, async (req, res) => 
             if (Array.isArray(records)) {
                 for (const rec of records) {
                     const amt = Number(rec.arrears_amount) || 0;
-                    if (amt > 0) {
-                        const reason = JSON.stringify({
-                            previous_ctc: rec.previous_ctc,
-                            revised_ctc: rec.revised_ctc,
-                            hike_percentage: rec.hike_percentage,
-                            effective_date: rec.effective_date,
-                            arrears_months: rec.arrears_months,
-                            pay_action: rec.pay_action,
-                            comments: rec.comments
-                        });
-                        await c.query(`
-                            INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
-                            VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
-                        `, [rec.id, targetMonth, amt, reason, userId]);
-                    }
+                    const reason = JSON.stringify({
+                        previous_ctc: rec.previous_ctc,
+                        revised_ctc: rec.revised_ctc,
+                        hike_percentage: rec.hike_percentage,
+                        effective_date: rec.effective_date,
+                        arrears_months: rec.arrears_months,
+                        pay_action: rec.pay_action || 'Process as salary',
+                        comments: rec.comments || ''
+                    });
+                    await c.query(`
+                        INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                        VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
+                    `, [rec.id, targetMonth, amt, reason, userId]);
                 }
             }
         } else if (step === 3) {
@@ -2330,6 +2427,228 @@ router.get("/v2/bonus-revisions-overtime/download-template", (req, res) => {
         res.download(filePath, 'Interact One Time Payments Import - Sree Tammina Software Solutions Pvt. Ltd..xlsx');
     } else {
         res.status(404).send('Template file not found');
+    }
+});
+
+/* =========================================================================
+   SALARY REVISION CRUD ENDPOINTS (STEP 2)
+   ========================================================================= */
+
+// Create Salary Revision
+router.post("/v2/bonus-revisions-overtime/revision", auth, async (req, res) => {
+    let c = null;
+    try {
+        const {
+            employee_id,
+            month,
+            previous_ctc,
+            revised_ctc,
+            hike_percentage,
+            effective_date,
+            arrears_months,
+            arrears_amount,
+            pay_action,
+            comments
+        } = req.body;
+        const empId = Number(employee_id);
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!empId) {
+            return res.status(400).json({ success: false, error: 'employee_id is required' });
+        }
+
+        c = await db();
+
+        const amt = Number(arrears_amount) || 0;
+        const reason = JSON.stringify({
+            previous_ctc: Number(previous_ctc) || 0,
+            revised_ctc: Number(revised_ctc) || 0,
+            hike_percentage: String(hike_percentage || '0%'),
+            effective_date: effective_date || '',
+            arrears_months: Number(arrears_months) || 1,
+            pay_action: pay_action || 'Process as salary',
+            comments: comments || ''
+        });
+
+        // 1. Insert or Update in payroll_adjustments
+        const [existingAdj] = await c.query(
+            `SELECT id FROM payroll_adjustments WHERE employee_id = ? AND payroll_month = ? AND adjustment_type = 'ARREAR' LIMIT 1`,
+            [empId, targetMonth]
+        );
+
+        if (existingAdj.length > 0) {
+            await c.query(
+                `UPDATE payroll_adjustments SET amount = ?, reason = ? WHERE id = ?`,
+                [amt, reason, existingAdj[0].id]
+            );
+        } else {
+            await c.query(
+                `INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                 VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())`,
+                [empId, targetMonth, amt, reason, userId]
+            );
+        }
+
+        // 2. If revised_ctc provided, ensure active salary contract is updated/created
+        let createdContractId = null;
+        if (revised_ctc) {
+            const [curContracts] = await c.query(
+                `SELECT contract_id, template_id, annual_ctc FROM employee_salary_contracts WHERE employee_id = ? AND status = 'Active' ORDER BY contract_id DESC LIMIT 1`,
+                [empId]
+            );
+            if (curContracts.length > 0) {
+                if (Number(curContracts[0].annual_ctc) !== Number(revised_ctc)) {
+                    await c.query(`UPDATE employee_salary_contracts SET status = 'Superseded', updated_at = NOW() WHERE contract_id = ?`, [curContracts[0].contract_id]);
+                    const effFrom = effective_date || `${targetMonth}-01`;
+                    const [insRes] = await c.query(
+                        `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, status, created_at, updated_at)
+                         VALUES (?, ?, ?, ?, 'Active', NOW(), NOW())`,
+                        [empId, curContracts[0].template_id, revised_ctc, effFrom]
+                    );
+                    createdContractId = insRes.insertId;
+                } else {
+                    createdContractId = curContracts[0].contract_id;
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            contract_id: createdContractId,
+            message: 'Salary revision created successfully'
+        });
+    } catch (err) {
+        console.error("Error creating salary revision:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// Update Salary Revision
+router.put("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const empId = Number(req.params.id);
+        const {
+            month,
+            contract_id,
+            previous_ctc,
+            revised_ctc,
+            hike_percentage,
+            effective_date,
+            arrears_months,
+            arrears_amount,
+            pay_action,
+            comments
+        } = req.body;
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        c = await db();
+
+        const amt = Number(arrears_amount) || 0;
+        const reason = JSON.stringify({
+            previous_ctc: Number(previous_ctc) || 0,
+            revised_ctc: Number(revised_ctc) || 0,
+            hike_percentage: String(hike_percentage || '0%'),
+            effective_date: effective_date || '',
+            arrears_months: Number(arrears_months) || 1,
+            pay_action: pay_action || 'Process as salary',
+            comments: comments || ''
+        });
+
+        // 1. Update or Insert in payroll_adjustments
+        const [existingAdj] = await c.query(
+            `SELECT id FROM payroll_adjustments WHERE employee_id = ? AND payroll_month = ? AND adjustment_type = 'ARREAR' LIMIT 1`,
+            [empId, targetMonth]
+        );
+
+        if (existingAdj.length > 0) {
+            await c.query(
+                `UPDATE payroll_adjustments SET amount = ?, reason = ? WHERE id = ?`,
+                [amt, reason, existingAdj[0].id]
+            );
+        } else {
+            await c.query(
+                `INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                 VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())`,
+                [empId, targetMonth, amt, reason, userId]
+            );
+        }
+
+        // 2. Update employee_salary_contracts if revised_ctc is provided
+        if (revised_ctc) {
+            if (contract_id) {
+                await c.query(
+                    `UPDATE employee_salary_contracts SET annual_ctc = ?, updated_at = NOW() WHERE contract_id = ?`,
+                    [revised_ctc, contract_id]
+                );
+            } else {
+                await c.query(
+                    `UPDATE employee_salary_contracts SET annual_ctc = ?, updated_at = NOW() WHERE employee_id = ? AND status = 'Active'`,
+                    [revised_ctc, empId]
+                );
+            }
+        }
+
+        res.json({ success: true, message: 'Salary revision updated successfully' });
+    } catch (err) {
+        console.error("Error updating salary revision:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// Delete Salary Revision
+router.delete("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const empId = Number(req.params.id);
+        const month = req.query.month || (req.body && req.body.month);
+        const contractId = req.query.contract_id || (req.body && req.body.contract_id);
+        c = await db();
+
+        // 1. Delete from payroll_adjustments for this employee
+        if (month) {
+            await c.query(`DELETE FROM payroll_adjustments WHERE employee_id = ? AND payroll_month = ? AND adjustment_type = 'ARREAR'`, [empId, month]);
+        } else {
+            await c.query(`DELETE FROM payroll_adjustments WHERE employee_id = ? AND adjustment_type = 'ARREAR'`, [empId]);
+        }
+
+        // 2. If a specific contract was provided or if there are multiple contracts
+        if (contractId) {
+            await c.query(`DELETE FROM employee_salary_contracts WHERE contract_id = ?`, [contractId]);
+            const [remaining] = await c.query(
+                `SELECT contract_id FROM employee_salary_contracts WHERE employee_id = ? ORDER BY contract_id DESC LIMIT 1`,
+                [empId]
+            );
+            if (remaining && remaining.length > 0) {
+                await c.query(`UPDATE employee_salary_contracts SET status = 'Active' WHERE contract_id = ?`, [remaining[0].contract_id]);
+            }
+        } else {
+            const [contracts] = await c.query(
+                `SELECT contract_id, status FROM employee_salary_contracts WHERE employee_id = ? ORDER BY contract_id DESC`,
+                [empId]
+            );
+            if (contracts && contracts.length > 1) {
+                const latest = contracts[0];
+                await c.query(`DELETE FROM employee_salary_contracts WHERE contract_id = ?`, [latest.contract_id]);
+                const prev = contracts[1];
+                if (prev && prev.contract_id) {
+                    await c.query(`UPDATE employee_salary_contracts SET status = 'Active' WHERE contract_id = ?`, [prev.contract_id]);
+                }
+            }
+        }
+
+        res.json({ success: true, message: 'Salary revision deleted successfully' });
+    } catch (err) {
+        console.error("Error deleting salary revision:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
     }
 });
 

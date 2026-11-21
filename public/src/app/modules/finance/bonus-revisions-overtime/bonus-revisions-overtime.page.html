@@ -222,8 +222,12 @@
             All pending revisions (including on-hold revisions from past months) will be displayed here.
           </div>
 
-          <!-- Search Toolbar (Right-aligned) -->
+          <!-- Search Toolbar & Add Revision Button -->
           <div class="revision-toolbar">
+            <button type="button" class="btn-add-revision" (click)="openAddModal()" title="Add Salary Revision">
+              <ion-icon name="add-outline"></ion-icon>
+              <span>+ Add Revision</span>
+            </button>
             <div class="revision-search-wrap">
               <span class="search-icon">🔍</span>
               <input type="text" [(ngModel)]="revisionSearchTerm" placeholder="Search" class="revision-search-input" />
@@ -247,6 +251,7 @@
                   <th>GROSS PAY THIS MONTH</th>
                   <th>REVISION ACTION</th>
                   <th>COMMENT</th>
+                  <th class="col-crud-actions">ACTIONS</th>
                 </tr>
               </thead>
               <tbody>
@@ -274,10 +279,18 @@
                   <td class="col-comment">
                     <input type="text" [(ngModel)]="row.comments" placeholder="" class="table-comment-input" />
                   </td>
+                  <td class="col-crud-actions">
+                    <button type="button" class="btn-action-icon edit-icon" (click)="openEditRevisionModal(row)" title="Edit Salary Revision">
+                      <ion-icon name="create-outline"></ion-icon>
+                    </button>
+                    <button type="button" class="btn-action-icon delete-icon" (click)="confirmDeleteRevision(row)" title="Delete Salary Revision">
+                      <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                  </td>
                 </tr>
 
                 <tr *ngIf="filteredRevisions.length === 0" class="no-records-row">
-                  <td colspan="7" class="no-records-cell">
+                  <td colspan="8" class="no-records-cell">
                     <p class="no-records-text">No records found</p>
                   </td>
                 </tr>
@@ -597,7 +610,7 @@
       <div class="modal-body">
         <div class="form-group-modal">
           <label class="modal-label">Select Employee *</label>
-          <select [(ngModel)]="selectedEmpId" class="modal-select">
+          <select [(ngModel)]="selectedEmpId" (ngModelChange)="onSelectedEmployeeChange()" class="modal-select">
             <option [ngValue]="null" disabled>-- Choose active staff member --</option>
             <option *ngFor="let emp of availableEmployeesToAdd" [value]="emp.id">
               {{ emp.employee_name }} ({{ emp.employee_code }}) - {{ emp.department || 'General' }}
@@ -630,12 +643,28 @@
         <!-- Step 2 Fields -->
         <ng-container *ngIf="currentStep === 2">
           <div class="form-group-modal">
+            <label class="modal-label">New Salary (Annual CTC in INR) *</label>
+            <div class="input-money-wrap">
+              <span class="prefix">INR</span>
+              <input type="number" [(ngModel)]="newSalaryAnnual" (ngModelChange)="onNewSalaryChange()" placeholder="e.g. 900000" class="modal-input" />
+            </div>
+          </div>
+          <div class="form-group-modal">
             <label class="modal-label">Hike Percentage (%) *</label>
-            <input type="number" [(ngModel)]="newHikePct" placeholder="e.g. 12" class="modal-input" />
+            <input type="number" [(ngModel)]="newHikePct" (ngModelChange)="onNewHikeChange()" placeholder="e.g. 12" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
+            <label class="modal-label">Revision Action</label>
+            <select [(ngModel)]="newRevisionAction" class="modal-select">
+              <option value="Process as salary">Process as salary</option>
+              <option value="Process revision & arrears">Process revision &amp; arrears</option>
+              <option value="Hold revision">Hold revision</option>
+              <option value="Do not process">Do not process</option>
+            </select>
           </div>
           <div class="form-group-modal">
             <label class="modal-label">Arrears Months Applicable</label>
-            <input type="number" [(ngModel)]="newArrearsMonths" placeholder="e.g. 1" min="1" max="12" class="modal-input" />
+            <input type="number" [(ngModel)]="newArrearsMonths" placeholder="e.g. 1" min="0" max="12" class="modal-input" />
           </div>
           <div class="form-group-modal">
             <label class="modal-label">Remarks</label>
@@ -670,5 +699,118 @@
     </div>
   </div>
 
-</div>
 
+  <!-- ============================================
+       EDIT SALARY REVISION MODAL (STEP 2)
+       ============================================ -->
+  <div *ngIf="showEditRevisionModal && editingRevision" class="modal-backdrop">
+    <div class="modal-dialog modal-dialog-edit">
+      <div class="modal-header">
+        <div class="modal-header-title">
+          <h3>Edit Salary Revision</h3>
+          <span class="modal-header-subtitle">{{ editingRevision.employee_name }} ({{ editingRevision.employee_code }})</span>
+        </div>
+        <button type="button" class="btn-close-modal" (click)="closeEditRevisionModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Employee Info Summary Banner -->
+        <div class="edit-emp-banner">
+          <div class="banner-stat">
+            <span class="stat-label">Department</span>
+            <span class="stat-val">{{ editingRevision.department || 'General' }}</span>
+          </div>
+          <div class="banner-stat">
+            <span class="stat-label">Designation</span>
+            <span class="stat-val">{{ editingRevision.designation || 'Staff' }}</span>
+          </div>
+          <div class="banner-stat">
+            <span class="stat-label">Previous CTC</span>
+            <span class="stat-val font-semibold">{{ editingRevision.previous_ctc_formatted }}</span>
+          </div>
+          <div class="banner-stat">
+            <span class="stat-label">Previous Monthly</span>
+            <span class="stat-val">INR {{ editPrevMonthly.toLocaleString('en-IN') }}</span>
+          </div>
+        </div>
+
+        <!-- Revised Salary & Hike Percentage Row -->
+        <div class="edit-form-row">
+          <div class="form-group-modal col-half">
+            <label class="modal-label">New Salary (Annual CTC in INR) *</label>
+            <div class="input-money-wrap">
+              <span class="prefix">INR</span>
+              <input type="number" [(ngModel)]="editRevisedCtc" (ngModelChange)="onEditCtcChange()" placeholder="e.g. 900000" class="modal-input" />
+            </div>
+          </div>
+
+          <div class="form-group-modal col-half">
+            <label class="modal-label">Percentage Hike (%) *</label>
+            <div class="input-suffix-wrap">
+              <input type="number" [(ngModel)]="editHikePercentage" (ngModelChange)="onEditHikeChange()" placeholder="e.g. 12.5" class="modal-input" />
+              <span class="suffix">%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Dynamic Calculation Preview Cards -->
+        <div class="calc-preview-grid">
+          <div class="calc-card">
+            <span class="calc-label">Revised Monthly</span>
+            <span class="calc-value font-semibold">INR {{ editRevMonthly.toLocaleString('en-IN') }}</span>
+          </div>
+          <div class="calc-card">
+            <span class="calc-label">Monthly Increment</span>
+            <span class="calc-value text-green font-semibold">+INR {{ editMonthlyIncrement.toLocaleString('en-IN') }}</span>
+          </div>
+          <div class="calc-card">
+            <span class="calc-label">Arrears ({{ editArrearsMonths }} mo)</span>
+            <span class="calc-value text-purple font-semibold">INR {{ editArrearsAmount.toLocaleString('en-IN') }}</span>
+          </div>
+          <div class="calc-card highlight">
+            <span class="calc-label">Gross Pay This Month</span>
+            <span class="calc-value text-primary font-bold">INR {{ editGrossPayThisMonth.toLocaleString('en-IN') }}</span>
+          </div>
+        </div>
+
+        <!-- Revision Action & Effective Date Row -->
+        <div class="edit-form-row">
+          <div class="form-group-modal col-half">
+            <label class="modal-label">Revision Action *</label>
+            <select [(ngModel)]="editPayAction" class="modal-select">
+              <option value="Process as salary">Process as salary</option>
+              <option value="Process revision & arrears">Process revision &amp; arrears</option>
+              <option value="Hold revision">Hold revision</option>
+              <option value="Do not process">Do not process</option>
+            </select>
+          </div>
+
+          <div class="form-group-modal col-half">
+            <label class="modal-label">Effective Date *</label>
+            <input type="date" [(ngModel)]="editEffectiveDate" class="modal-input" />
+          </div>
+        </div>
+
+        <!-- Arrears Months & Remarks Row -->
+        <div class="edit-form-row">
+          <div class="form-group-modal col-half">
+            <label class="modal-label">Arrears Months Applicable</label>
+            <input type="number" [(ngModel)]="editArrearsMonths" min="0" max="12" class="modal-input" />
+          </div>
+
+          <div class="form-group-modal col-half">
+            <label class="modal-label">Remarks / Note</label>
+            <input type="text" [(ngModel)]="editComments" placeholder="Performance increment note..." class="modal-input" />
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" (click)="closeEditRevisionModal()">Cancel</button>
+        <button type="button" class="btn-primary" (click)="saveEditedRevision()" [disabled]="isSavingRevision">
+          <span>{{ isSavingRevision ? 'Saving...' : 'Save Changes' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -120,10 +120,44 @@ async function getAttendanceSummaryMap(c, year, month, employees) {
 
   if (!employees || employees.length === 0) return {};
 
+  let snapshotsByEmpId = {};
+  try {
+    const [snaps] = await c.query(`
+      SELECT pas.* 
+      FROM payroll_attendance_snapshots pas
+      JOIN payroll_cycles cy ON cy.id = pas.cycle_id
+      WHERE cy.year = ? AND cy.month = ?
+    `, [year, month]);
+    if (snaps && snaps.length > 0) {
+      snaps.forEach(s => {
+        snapshotsByEmpId[s.employee_id] = s;
+      });
+    }
+  } catch (err) {
+    console.warn("Could not load payroll_attendance_snapshots:", err.message);
+  }
+
   const attendanceRoutes = require('../routes/attendance-enhanced.routes');
   const result = {};
 
   for (const emp of employees) {
+    if (snapshotsByEmpId[emp.id]) {
+      const snap = snapshotsByEmpId[emp.id];
+      const lopDays = Number(snap.lop_days || 0);
+      const paidDays = Number(snap.paid_days !== undefined && snap.paid_days !== null ? snap.paid_days : Math.max(0, lastDay - lopDays));
+      const presentDays = Number(snap.total_present || 0);
+      const totalDays = Number(snap.working_days || lastDay);
+
+      result[emp.id] = {
+        calendar_days: lastDay,
+        lop_days: lopDays,
+        paid_days: paidDays,
+        present_days: presentDays,
+        total_days: totalDays
+      };
+      continue;
+    }
+
     try {
       const rep = await attendanceRoutes.getUnifiedAttendanceListAndSummary(c, emp.id, sd, ed, month, year);
       const summ = rep?.summary || {};
@@ -296,6 +330,24 @@ async function calculateDryRunFinancials(c, year, month) {
 
   const attSummaryMap = await getAttendanceSummaryMap(c, year, month, allEmployees);
 
+  const targetMonthStr = `${year}-${String(month).padStart(2, '0')}`;
+  let adjustmentsByEmpId = {};
+  try {
+    const [adjustments] = await c.query(`
+      SELECT employee_id, adjustment_type, amount, reason
+      FROM payroll_adjustments
+      WHERE payroll_month = ?
+    `, [targetMonthStr]);
+    if (adjustments && adjustments.length > 0) {
+      adjustments.forEach(adj => {
+        if (!adjustmentsByEmpId[adj.employee_id]) adjustmentsByEmpId[adj.employee_id] = [];
+        adjustmentsByEmpId[adj.employee_id].push(adj);
+      });
+    }
+  } catch (adjErr) {
+    console.warn("Could not load payroll_adjustments in calculateDryRunFinancials:", adjErr.message);
+  }
+
   const templateIds = [...new Set(allEmployees.map(e => e.template_id).filter(Boolean))];
   let compMap = {};
   if (templateIds.length > 0) {
@@ -432,6 +484,83 @@ async function calculateDryRunFinancials(c, year, month) {
       totalEarnings += specialAmt;
     }
 
+    // Incorporate payroll adjustments (Bonuses, Arrears, Overtime, Deductions, Reimbursements)
+    const empAdjs = adjustmentsByEmpId[emp.id] || [];
+    let bonusAmt = 0;
+    let arrearAmt = 0;
+    let otAmt = 0;
+    let deductionAmt = 0;
+    let advanceAmt = 0;
+    let reimbursementAmt = 0;
+
+    empAdjs.forEach(adj => {
+      const amt = Number(adj.amount || 0);
+      const type = (adj.adjustment_type || '').toUpperCase();
+      if (type === 'BONUS') {
+        bonusAmt += amt;
+      } else if (type === 'ARREAR') {
+        arrearAmt += amt;
+      } else if (type === 'CORRECTION' || type === 'OVERTIME') {
+        otAmt += amt;
+      } else if (type === 'DEDUCTION' || type === 'PENALTY') {
+        deductionAmt += amt;
+      } else if (type === 'ADVANCE') {
+        advanceAmt += amt;
+      } else if (type === 'REIMBURSEMENT' || type === 'EXPENSE') {
+        reimbursementAmt += amt;
+      }
+    });
+
+    if (bonusAmt > 0) {
+      calculatedComponents.push({
+        component_code: 'BONUS',
+        component_name: 'Bonus / Incentive',
+        component_type: 'EARNING',
+        calculated_amount: bonusAmt
+      });
+      totalEarnings += bonusAmt;
+    }
+
+    if (arrearAmt > 0) {
+      calculatedComponents.push({
+        component_code: 'ARREAR',
+        component_name: 'Salary Arrears',
+        component_type: 'EARNING',
+        calculated_amount: arrearAmt
+      });
+      totalEarnings += arrearAmt;
+    }
+
+    if (otAmt > 0) {
+      calculatedComponents.push({
+        component_code: 'OVERTIME',
+        component_name: 'Overtime Payment',
+        component_type: 'EARNING',
+        calculated_amount: otAmt
+      });
+      totalEarnings += otAmt;
+    }
+
+    if (deductionAmt > 0) {
+      calculatedComponents.push({
+        component_code: 'DEDUCTION',
+        component_name: 'Ad-hoc Deductions',
+        component_type: 'DEDUCTION',
+        calculated_amount: deductionAmt
+      });
+      totalDeductions += deductionAmt;
+    }
+
+    if (advanceAmt > 0) {
+      calculatedComponents.push({
+        component_code: 'ADVANCE',
+        component_name: 'Advance Recovery',
+        component_type: 'DEDUCTION',
+        calculated_amount: advanceAmt
+      });
+      totalDeductions += advanceAmt;
+    }
+
     let erBundle = 0;
     let employeePf = 0;
     let hasExplicitPfEr = false;
@@ -487,7 +616,7 @@ async function calculateDryRunFinancials(c, year, month) {
 
     const finalGross = totalEarnings - erBundle;
     const finalDeductions = totalDeductions - erBundle;
-    const net = finalGross - finalDeductions;
+    const net = finalGross - finalDeductions + reimbursementAmt;
     const empContributions = erBundle + (hasExplicitPfEr ? 0 : employeePf);
 
     if (employeePf > 0 || employerPf > 0) {
@@ -556,6 +685,13 @@ async function calculateDryRunFinancials(c, year, month) {
       total_deductions: finalDeductions,
       total_net: net,
       total_net_payout: net,
+      bonus: bonusAmt,
+      arrears: arrearAmt,
+      overtime: otAmt,
+      ad_hoc_deduction: deductionAmt,
+      cash_advance: advanceAmt,
+      total_reimbursements: reimbursementAmt + bonusAmt,
+      base_reimbursements: reimbursementAmt,
       lop_days: lopDays,
       calendar_days: calendarDays,
       paid_days: paidDays,
@@ -2336,5 +2472,6 @@ module.exports = {
   updatePayoutStatus,
   getPaymentBatches,
   markPaymentBatchPaid,
-  exportTransferStatement
+  exportTransferStatement,
+  calculateDryRunFinancials
 };

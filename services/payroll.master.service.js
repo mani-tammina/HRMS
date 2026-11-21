@@ -488,6 +488,12 @@ exports.createContract = async (req, res) => {
 
     await c.beginTransaction();
     try {
+      const [prevContracts] = await c.query(
+        "SELECT annual_ctc, effective_from FROM employee_salary_contracts WHERE employee_id = ? ORDER BY contract_id DESC LIMIT 1",
+        [employee_id]
+      );
+      const prevCtc = prevContracts.length > 0 ? Number(prevContracts[0].annual_ctc) : 0;
+
       await c.query(
         `UPDATE employee_salary_contracts
          SET status = 'Superseded', effective_to = DATE_SUB(?, INTERVAL 1 DAY), updated_at = NOW()
@@ -514,6 +520,45 @@ exports.createContract = async (req, res) => {
          WHERE e.id = ?`,
         [employee_id]
       );
+
+      // Record this salary revision into payroll_adjustments for that month
+      try {
+        const revisionMonth = String(effective_from).substring(0, 7);
+        const prevMonthly = Math.round(prevCtc / 12);
+        const revMonthly = Math.round(Number(annual_ctc) / 12);
+        const diff = Math.max(0, revMonthly - prevMonthly);
+        const pct = prevCtc > 0 ? (((Number(annual_ctc) - prevCtc) / prevCtc) * 100).toFixed(1) + '%' : '0%';
+        
+        const reasonObj = JSON.stringify({
+          previous_ctc: prevCtc,
+          revised_ctc: Number(annual_ctc),
+          hike_percentage: pct,
+          effective_date: effective_from,
+          arrears_months: 1,
+          monthly_increment: diff,
+          pay_action: 'Process as salary',
+          comments: req.body.notes || `Salary revised to INR ${Number(annual_ctc).toLocaleString('en-IN')} effective from ${effective_from}`
+        });
+
+        const [existingAdj] = await c.query(
+          "SELECT id FROM payroll_adjustments WHERE employee_id = ? AND payroll_month = ? AND adjustment_type = 'ARREAR'",
+          [employee_id, revisionMonth]
+        );
+
+        if (existingAdj.length > 0) {
+          await c.query(
+            "UPDATE payroll_adjustments SET amount = ?, reason = ? WHERE id = ?",
+            [0, reasonObj, existingAdj[0].id]
+          );
+        } else {
+          await c.query(
+            "INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at) VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())",
+            [employee_id, revisionMonth, 0, reasonObj, created_by || 1]
+          );
+        }
+      } catch (adjErr) {
+        console.warn("Could not sync payroll_adjustments:", adjErr.message);
+      }
 
       await c.commit();
       c.end();
@@ -665,6 +710,15 @@ exports.deleteContract = async (req, res) => {
          WHERE e.id = ?`,
         [employeeId]
       );
+      try {
+        const [remaining] = await c.query(
+          "SELECT COUNT(*) as count FROM employee_salary_contracts WHERE employee_id = ?",
+          [employeeId]
+        );
+        if (remaining[0].count <= 1) {
+          await c.query("DELETE FROM payroll_adjustments WHERE employee_id = ? AND adjustment_type = 'ARREAR'", [employeeId]);
+        }
+      } catch (_) {}
     }
 
     c.end();

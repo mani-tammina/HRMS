@@ -1,6 +1,9 @@
 import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
+import * as XLSX from 'xlsx';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { PayrollApiService, PayrollDashboardData, PayrollTimelineMonth } from '../../../core/services/payroll-api.service';
 import { ToasterService } from '../../../core/services/toaster.service';
 
@@ -29,6 +32,7 @@ export class PayrollDashboardPage implements OnInit {
   selectedMonth: string;
   isLoading = false;
   isDownloadingRegister = false;
+  isExporting = false;
   dashboardData: PayrollDashboardData | null = null;
   outcomeCollapsed = false;
 
@@ -405,7 +409,7 @@ export class PayrollDashboardPage implements OnInit {
         try {
           localStorage.removeItem(`payroll_steps_${this.selectedMonth}`);
           localStorage.removeItem(`payroll_stage_${this.selectedMonth}`);
-        } catch (e) {}
+        } catch (e) { }
 
         this.payrollSteps.forEach(s => {
           s.completed = false;
@@ -732,6 +736,278 @@ export class PayrollDashboardPage implements OnInit {
       return;
     }
     this.toaster.showInfo(`Viewing ${count} related ${type} records for ${this.selectedMonth}`);
+  }
+
+  // ─── EXCEL EXPORT (MIRRORS PREVIEW STAGE WITH LIVE 6-STAGE DATA) ────────────
+  getComponentAmount(emp: any, name: string): number {
+    const comp = emp.components?.find((c: any) =>
+      c.name?.toLowerCase() === name.toLowerCase() ||
+      c.code?.toLowerCase() === name.toLowerCase()
+    );
+    return comp ? Number(comp.amount) || 0 : 0;
+  }
+
+  getEmployeePf(emp: any): number {
+    if (emp.pf_employee !== undefined && emp.pf_employee !== null && emp.pf_employee !== 0) {
+      return Number(emp.pf_employee);
+    }
+    const fromComp = this.getComponentAmount(emp, 'PF Employee Contribution') ||
+      this.getComponentAmount(emp, 'PF Employee') ||
+      this.getComponentAmount(emp, 'PF_DEDUCT') ||
+      this.getComponentAmount(emp, 'PF');
+    if (fromComp) return Number(fromComp);
+    return 0;
+  }
+
+  getEmployerPf(emp: any): number {
+    if (emp.pf_employer !== undefined && emp.pf_employer !== null && emp.pf_employer !== 0) {
+      return Number(emp.pf_employer);
+    }
+    const fromComp = this.getComponentAmount(emp, 'PF Employer Contribution') ||
+      this.getComponentAmount(emp, 'PF Employer') ||
+      this.getComponentAmount(emp, 'PF_ER') ||
+      this.getComponentAmount(emp, 'PF_DEDUCT_EMPLOYER');
+    if (fromComp) return Number(fromComp);
+    return this.getEmployeePf(emp);
+  }
+
+  getEmployeeEsi(emp: any): number {
+    if (emp.esi_employee !== undefined && emp.esi_employee !== null && emp.esi_employee !== 0) {
+      return Number(emp.esi_employee);
+    }
+    const fromComp = this.getComponentAmount(emp, 'ESI Employee Contribution') ||
+      this.getComponentAmount(emp, 'ESI Employee') ||
+      this.getComponentAmount(emp, 'ESI_EE') ||
+      this.getComponentAmount(emp, 'ESI');
+    if (fromComp) return Number(fromComp);
+    return 0;
+  }
+
+  getEmployerEsi(emp: any): number {
+    if (emp.esi_employer !== undefined && emp.esi_employer !== null && emp.esi_employer !== 0) {
+      return Number(emp.esi_employer);
+    }
+    const fromComp = this.getComponentAmount(emp, 'ESI Employer Contribution') ||
+      this.getComponentAmount(emp, 'ESI Employer') ||
+      this.getComponentAmount(emp, 'ESI_ER');
+    if (fromComp) return Number(fromComp);
+    const ee = this.getEmployeeEsi(emp);
+    if (ee > 0) return Math.round(ee * (3.25 / 0.75));
+    return 0;
+  }
+
+  exportToExcel() {
+    const rawMonth: string = this.selectedMonth;
+    if (!rawMonth) {
+      this.toaster.showError('No month selected.');
+      return;
+    }
+
+    const [year, month] = rawMonth.split('-').map(Number);
+    if (!year || !month) {
+      this.toaster.showError('Invalid month format.');
+      return;
+    }
+
+    this.isExporting = true;
+    this.toaster.showInfo('Fetching all employee details for export...');
+
+    forkJoin({
+      preview: this.payrollApi.previewPayroll({
+        year,
+        month,
+        page: 1,
+        limit: 10000,
+        all: true
+      } as any).pipe(
+        catchError((err) => {
+          console.warn('previewPayroll with all: true failed, falling back', err);
+          return of({ data: { detailedPreview: [] } });
+        })
+      ),
+      employeeDirectory: this.payrollApi.getAllEmployees(2000).pipe(
+        catchError((err) => {
+          console.warn('Failed to load employee directory for enrichment', err);
+          return of({ data: [] });
+        })
+      ),
+      locations: this.payrollApi.getLocations().pipe(
+        catchError((err) => {
+          console.warn('Failed to load locations', err);
+          return of([]);
+        })
+      )
+    }).subscribe({
+      next: ({ preview, employeeDirectory, locations }) => {
+        this.isExporting = false;
+        const allEmployees = preview?.data?.detailedPreview;
+        const listToExport = (allEmployees && allEmployees.length > 0) ? allEmployees : [];
+
+        if (!listToExport || listToExport.length === 0) {
+          this.toaster.showError('No payroll data available to export for ' + rawMonth);
+          return;
+        }
+
+        // Build Employee Directory Map
+        const empDir = Array.isArray(employeeDirectory) ? employeeDirectory : (employeeDirectory?.data || []);
+        const empMap = new Map<string, any>();
+        empDir.forEach((e: any) => {
+          if (e.EmployeeNumber) empMap.set(String(e.EmployeeNumber).trim().toUpperCase(), e);
+          if (e.id) empMap.set(String(e.id), e);
+        });
+
+        // Build Locations Map
+        const locList = Array.isArray(locations) ? locations : (locations?.data || []);
+        const locMap = new Map<string | number, string>();
+        locList.forEach((l: any) => {
+          if (l.id) {
+            locMap.set(l.id, l.name);
+            locMap.set(String(l.id), l.name);
+          }
+        });
+
+        this.generateExcelFile(listToExport, year, month, empMap, locMap);
+      },
+      error: (err) => {
+        this.isExporting = false;
+        this.toaster.showError('Failed to prepare payroll export.');
+        console.error(err);
+      }
+    });
+  }
+
+  private generateExcelFile(
+    employees: any[],
+    year: number,
+    month: number,
+    empMap: Map<string, any>,
+    locMap: Map<string | number, string>
+  ) {
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const payrollMonthStr = `${monthNames[month - 1]} - ${year}`;
+
+    const getComp = (emp: any, ...aliases: string[]): number => {
+      if (!emp.components || !Array.isArray(emp.components)) return 0;
+      for (const alias of aliases) {
+        const found = emp.components.find((c: any) =>
+          (c.name && c.name.toLowerCase() === alias.toLowerCase()) ||
+          (c.code && c.code.toLowerCase() === alias.toLowerCase())
+        );
+        if (found) return Number(found.amount) || 0;
+      }
+      return 0;
+    };
+
+    const data = employees.map((emp: any) => {
+      const basic = getComp(emp, 'Basic Salary', 'BASIC');
+      const hra = getComp(emp, 'House Rent Allowance', 'HRA');
+      const medical = getComp(emp, 'Medical Allowance', 'MEDICAL');
+      const transport = getComp(emp, 'Transport Allowance', 'Conveyance Allowance', 'TRANSPORT ALLOWANCE', 'CONVEYANCE');
+      const special = getComp(emp, 'Special Allowance', 'SPECIAL');
+      const bonus = getComp(emp, 'Bonus / Incentive', 'BONUS') || Number(emp.bonus || 0);
+      const arrears = getComp(emp, 'Salary Arrears', 'ARREAR') || Number(emp.arrears || 0);
+      const overtime = getComp(emp, 'Overtime Payment', 'OVERTIME') || Number(emp.overtime || 0);
+
+      // If bonus is included in Total Reimbursements (Column F), gross earnings before reimbursement excludes bonus
+      // so that Total Net Pay (A - B - C + D + E + F) does not double-count the bonus.
+      const totalEarningsRaw = Number(emp.total_earnings || 0);
+      const grossA = Math.max(0, totalEarningsRaw - bonus);
+      const pfEmployee = this.getEmployeePf(emp);
+      const pfEmployer = this.getEmployerPf(emp);
+      const esiEmployee = this.getEmployeeEsi(emp);
+      const esiEmployer = this.getEmployerEsi(emp);
+      const totalContributionsB = pfEmployee + esiEmployee;
+      const total = grossA + pfEmployer + esiEmployer;
+
+      const profTax = Number(emp.professional_tax !== undefined ? emp.professional_tax : getComp(emp, 'Professional Tax', 'PROF_TAX', 'PT'));
+      const totalDeductionsC = Math.max(0, Number(emp.total_deductions || 0) - totalContributionsB);
+      const netPayABC = grossA - totalContributionsB - totalDeductionsC;
+
+      const cashAdvanceD = Number(emp.cash_advance || 0);
+      const settlementE = 0;
+      const baseReimbursements = Number(emp.base_reimbursements !== undefined ? emp.base_reimbursements : (emp.total_reimbursements || 0));
+      const reimbursementF = baseReimbursements > 0 && baseReimbursements >= bonus && emp.base_reimbursements === undefined
+        ? baseReimbursements
+        : baseReimbursements + bonus;
+      const totalNetPay = netPayABC + cashAdvanceD + settlementE + reimbursementF;
+
+      const calDays = emp.calendar_days || 30;
+      const paidDays = emp.paid_days !== undefined ? emp.paid_days : calDays;
+      const workingDays = calDays;
+      const lopDays = emp.lop_days || 0;
+
+      // Lookup employee directory data for demographic details (fallback for empty fields)
+      const empNumKey = String(emp.employee_number || '').trim().toUpperCase();
+      const empIdKey = String(emp.employee_id || '');
+      const empInfo = empMap.get(empNumKey) || empMap.get(empIdKey) || {};
+
+      const panNumber = emp.pan_number || empInfo.PANNumber || empInfo.pan_number || empInfo.pan || '';
+      const employmentStatus = emp.employment_status || empInfo.EmploymentStatus || empInfo.employment_status || 'Working';
+      const dateOfJoining = emp.date_of_joining || empInfo.DateJoined || empInfo.date_of_joining || empInfo.joining_date || '';
+      const gender = emp.gender || empInfo.Gender || empInfo.gender || '';
+      const dateOfBirth = emp.date_of_birth || empInfo.DateOfBirth || empInfo.date_of_birth || empInfo.dob || '';
+      const locId = empInfo.LocationId || emp.location_id;
+      const location = emp.location || (locId ? locMap.get(locId) : '') || empInfo.location_name || empInfo.Location || '';
+
+      return {
+        'Employee Number': emp.employee_number || '',
+        'Employee Name': emp.full_name || '',
+        'Job Title': emp.designation || '',
+        'PAN Number': panNumber,
+        'Employment Status': employmentStatus,
+        'Date Of Joining': dateOfJoining ? String(dateOfJoining).substring(0, 10) : '',
+        'Gender': gender,
+        'Date Of Birth': dateOfBirth ? String(dateOfBirth).substring(0, 10) : '',
+        'Location': location,
+        'Department': emp.department || '',
+        'Payroll Month': payrollMonthStr,
+        'Payroll Type': 'Regular',
+        'Status': 'ExecutedAsSalary',
+        'Status Description': 'ExecutedAsSalary',
+        'Actual Payable days': calDays,
+        'Working days': workingDays,
+        'Loss of Pay Days': lopDays,
+        'Days Payable': paidDays,
+        'Payable Units': `${paidDays}/${calDays} Days`,
+        'Remuneration Amount': `${Number(emp.monthly_gross || 0).toFixed(2)} / MONTH`,
+        'Basic': basic,
+        'HRA': hra,
+        'Medical Allowance': medical,
+        'Transport Allowance': transport,
+        'Special Allowance': special,
+        'Bonus': bonus,
+        'Arrears': arrears,
+        'Overtime': overtime,
+        'Gross(A)': grossA,
+        'PF - Employer': pfEmployer,
+        'ESI Employer': esiEmployer,
+        'Total': total,
+        'PF Employee': pfEmployee,
+        'ESI Employee': esiEmployee,
+        'Total Contributions(B)': totalContributionsB,
+        'Professional Tax': profTax,
+        'Total Deductions(C)': totalDeductionsC,
+        'Net Pay(A-B-C)': netPayABC,
+        'Cash Advance(D)': cashAdvanceD,
+        'Settlement Aganist Advance(E)': settlementE,
+        'Total Reimbursements(F)': reimbursementF,
+        'Total Net Pay(A-B-C+D+E+F)': totalNetPay
+      };
+    });
+
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Payroll Run Data');
+
+    // Auto fit column widths
+    const colWidths = Object.keys(data[0] || {}).map(key => ({
+      wch: Math.max(key.length, 12)
+    }));
+    ws['!cols'] = colWidths;
+
+    const filename = `Payroll_Export_${this.selectedMonth || payrollMonthStr.replace(/\s+/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    this.toaster.showSuccess(`Exported ${data.length} employees successfully`);
   }
 
 }
