@@ -1,0 +1,508 @@
+<div class="rad-workflow-container">
+
+  <!-- ============================================
+       TOP HEADER & WORKFLOW STEPPER
+       ============================================ -->
+  <header class="rad-header">
+    <div class="header-left">
+      <h1 class="header-title">Reimbursement, Adhoc Payment, Deduction: {{ monthLabel }}</h1>
+    </div>
+
+    <!-- Center: 4-Step Stepper -->
+    <nav class="header-stepper" aria-label="Step Stepper">
+      <!-- Step 1: SALARY COMPONENT CLAIM -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="setStep(1)">
+        <span class="step-badge">1</span>
+        <span class="step-label">SALARY COMPONENT CLAIM</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 2: EXPENSES -->
+      <div class="stepper-item" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="setStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">EXPENSES</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 3: ADHOC PAYMENTS -->
+      <div class="stepper-item" [class.active]="currentStep === 3" [class.completed]="currentStep > 3" (click)="setStep(3)">
+        <span class="step-badge">3</span>
+        <span class="step-label">ADHOC PAYMENTS</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 4: ADHOC DEDUCTIONS -->
+      <div class="stepper-item" [class.active]="currentStep === 4" (click)="setStep(4)">
+        <span class="step-badge">4</span>
+        <span class="step-label">ADHOC DEDUCTIONS</span>
+      </div>
+    </nav>
+
+    <!-- Right: Header Actions -->
+    <div class="header-right">
+      <button class="btn-back" type="button" (click)="handleBack()">
+        Back
+      </button>
+
+      <button class="btn-save-close" type="button" (click)="saveAndClose()">
+        Save &amp; Close
+      </button>
+
+      <button class="btn-mark-completed" type="button" (click)="markAsComplete()">
+        Mark as Complete
+      </button>
+
+      <button class="btn-close-header" type="button" (click)="closeWorkflow()" title="Close and return to Payroll Dashboard">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT: SPLIT VIEW (TABLE + HELP PANEL)
+       ============================================ -->
+  <div class="rad-content-body">
+    <main class="rad-main-content">
+
+      <!-- ====================================================
+           STEP 4: ADHOC DEDUCTIONS (PRIMARY FROM SCREENSHOT)
+           ==================================================== -->
+      <section *ngIf="currentStep === 4" class="step-section">
+        <h2 class="step-section-title">Adhoc Deductions</h2>
+
+        <!-- Info Notice Banner -->
+        <div class="info-notice-banner">
+          <p class="banner-text">
+            Adhoc deductions that are supposed to be deducted from the employees salary in this month, can be managed below.
+          </p>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="table-toolbar">
+          <div class="toolbar-left-actions">
+            <button type="button" class="btn-toolbar-outline" (click)="openAddEmployeeModal()">
+              + Add Employee
+            </button>
+
+            <span class="toolbar-separator-text">OR</span>
+
+            <button type="button" class="btn-toolbar-outline" (click)="importPreviousMonth()">
+              Import Data From Previous Month
+            </button>
+
+            <span class="toolbar-separator-text">OR</span>
+
+            <button type="button" class="btn-toolbar-outline" (click)="openImportModal()">
+              Import Adhoc Deductions
+            </button>
+
+            <button type="button" class="btn-toolbar-outline btn-delete-action" [disabled]="selectedCount === 0" (click)="confirmDeleteSelected()">
+              Delete
+            </button>
+          </div>
+
+          <div class="toolbar-search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Search" class="search-input" />
+          </div>
+        </div>
+
+        <!-- Data Table Card -->
+        <div class="table-card">
+          <table class="rad-table">
+            <thead>
+              <tr>
+                <th class="col-checkbox">
+                  <input type="checkbox" [(ngModel)]="selectAll" (change)="toggleSelectAll()" title="Select All" />
+                </th>
+                <th class="col-employee">EMPLOYEE</th>
+                <th class="col-type">ADHOC DEDUCTION TYPE</th>
+                <th class="col-amount">AMOUNT</th>
+                <th class="col-comment">COMMENT</th>
+                <th class="col-action">ACTION</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- Data Rows -->
+              <tr *ngFor="let row of filteredDeductions" class="data-row">
+                <td class="col-checkbox">
+                  <input type="checkbox" [(ngModel)]="row.selected" (change)="onRowSelectChange()" />
+                </td>
+                <td class="col-employee">
+                  <div class="employee-meta-cell">
+                    <div class="emp-avatar">{{ row.employee_name ? row.employee_name.charAt(0) : 'E' }}</div>
+                    <div class="emp-text-details">
+                      <span class="emp-full-name">{{ row.employee_name }}</span>
+                      <span class="emp-sub-info">{{ row.employee_code }} &bull; {{ row.department }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td class="col-type">
+                  <span class="deduction-type-badge">{{ row.deduction_type }}</span>
+                </td>
+                <td class="col-amount font-medium">
+                  INR {{ row.amount ? row.amount.toLocaleString('en-IN') : '0' }}
+                </td>
+                <td class="col-comment">
+                  {{ row.comment || '-' }}
+                </td>
+                <td class="col-action">
+                  <div class="row-actions">
+                    <button type="button" class="btn-icon edit-icon" (click)="openEditModal(row)" title="Edit Deduction">
+                      <ion-icon name="create-outline"></ion-icon>
+                    </button>
+                    <button type="button" class="btn-icon delete-icon" (click)="confirmDeleteSingle(row)" title="Delete Deduction">
+                      <ion-icon name="trash-outline"></ion-icon>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+
+              <!-- Empty State Matching Screenshot -->
+              <tr *ngIf="filteredDeductions.length === 0">
+                <td colspan="6" class="empty-state-cell">
+                  <div class="empty-state-content">
+                    <p class="empty-text">No records found</p>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- Table Footer / Pagination -->
+          <div class="table-pagination-footer">
+            <span class="pagination-info">
+              {{ filteredDeductions.length > 0 ? ('1 to ' + filteredDeductions.length + ' of ' + filteredDeductions.length) : '0 to 0 of 0' }}
+            </span>
+            <div class="pagination-controls">
+              <span class="page-arrow disabled">|&lt;</span>
+              <span class="page-arrow disabled">&lt;</span>
+              <span class="page-current">Page {{ filteredDeductions.length > 0 ? 1 : 0 }} of {{ filteredDeductions.length > 0 ? 1 : 0 }}</span>
+              <span class="page-arrow disabled">&gt;</span>
+              <span class="page-arrow disabled">&gt;|</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 1: SALARY COMPONENT CLAIM
+           ==================================================== -->
+      <section *ngIf="currentStep === 1" class="step-section">
+        <h2 class="step-section-title">Salary Component Claim</h2>
+        <div class="info-notice-banner">
+          <p class="banner-text">Flexible salary component claims submitted by employees for this payroll month can be reviewed and approved here.</p>
+        </div>
+
+        <div class="table-toolbar">
+          <div class="toolbar-left-actions">
+            <button type="button" class="btn-toolbar-outline" (click)="openAddEmployeeModal()">+ Add Claim</button>
+          </div>
+          <div class="toolbar-search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Search claims" class="search-input" />
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="rad-table">
+            <thead>
+              <tr>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>CLAIM TYPE</th>
+                <th>AMOUNT</th>
+                <th>STATUS</th>
+                <th>COMMENT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredClaims" class="data-row">
+                <td class="col-employee">
+                  <div class="employee-meta-cell">
+                    <div class="emp-avatar">{{ row.employee_name?.charAt(0) || 'E' }}</div>
+                    <div class="emp-text-details">
+                      <span class="emp-full-name">{{ row.employee_name }}</span>
+                      <span class="emp-sub-info">{{ row.employee_code }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ row.claim_type }}</td>
+                <td class="font-medium">INR {{ row.amount?.toLocaleString('en-IN') }}</td>
+                <td><span class="status-pill status-approved">{{ row.status || 'Approved' }}</span></td>
+                <td>{{ row.comment || '-' }}</td>
+              </tr>
+              <tr *ngIf="filteredClaims.length === 0">
+                <td colspan="5" class="empty-state-cell">
+                  <div class="empty-state-content"><p class="empty-text">No records found</p></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 2: EXPENSES
+           ==================================================== -->
+      <section *ngIf="currentStep === 2" class="step-section">
+        <h2 class="step-section-title">Expenses</h2>
+        <div class="info-notice-banner">
+          <p class="banner-text">Employee travel, client meals, and non-taxable expense reimbursements for this month can be managed below.</p>
+        </div>
+
+        <div class="table-toolbar">
+          <div class="toolbar-left-actions">
+            <button type="button" class="btn-toolbar-outline" (click)="openAddEmployeeModal()">+ Add Expense</button>
+          </div>
+          <div class="toolbar-search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Search expenses" class="search-input" />
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="rad-table">
+            <thead>
+              <tr>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>EXPENSE CATEGORY</th>
+                <th>AMOUNT</th>
+                <th>ATTACHMENT</th>
+                <th>COMMENT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredExpenses" class="data-row">
+                <td class="col-employee">
+                  <div class="employee-meta-cell">
+                    <div class="emp-avatar">{{ row.employee_name?.charAt(0) || 'E' }}</div>
+                    <div class="emp-text-details">
+                      <span class="emp-full-name">{{ row.employee_name }}</span>
+                      <span class="emp-sub-info">{{ row.employee_code }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ row.expense_category }}</td>
+                <td class="font-medium">INR {{ row.amount?.toLocaleString('en-IN') }}</td>
+                <td><span class="attachment-tag">Receipt attached</span></td>
+                <td>{{ row.comment || '-' }}</td>
+              </tr>
+              <tr *ngIf="filteredExpenses.length === 0">
+                <td colspan="5" class="empty-state-cell">
+                  <div class="empty-state-content"><p class="empty-text">No records found</p></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ====================================================
+           STEP 3: ADHOC PAYMENTS
+           ==================================================== -->
+      <section *ngIf="currentStep === 3" class="step-section">
+        <h2 class="step-section-title">Adhoc Payments</h2>
+        <div class="info-notice-banner">
+          <p class="banner-text">One-time spot awards, variable additions, or special allowances for this month are configured below.</p>
+        </div>
+
+        <div class="table-toolbar">
+          <div class="toolbar-left-actions">
+            <button type="button" class="btn-toolbar-outline" (click)="openAddEmployeeModal()">+ Add Payment</button>
+          </div>
+          <div class="toolbar-search-box">
+            <span class="search-icon">🔍</span>
+            <input type="text" [(ngModel)]="searchTerm" placeholder="Search payments" class="search-input" />
+          </div>
+        </div>
+
+        <div class="table-card">
+          <table class="rad-table">
+            <thead>
+              <tr>
+                <th class="col-employee">EMPLOYEE</th>
+                <th>PAYMENT TYPE</th>
+                <th>AMOUNT</th>
+                <th>PAY ACTION</th>
+                <th>COMMENT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let row of filteredPayments" class="data-row">
+                <td class="col-employee">
+                  <div class="employee-meta-cell">
+                    <div class="emp-avatar">{{ row.employee_name?.charAt(0) || 'E' }}</div>
+                    <div class="emp-text-details">
+                      <span class="emp-full-name">{{ row.employee_name }}</span>
+                      <span class="emp-sub-info">{{ row.employee_code }}</span>
+                    </div>
+                  </div>
+                </td>
+                <td>{{ row.payment_type }}</td>
+                <td class="font-medium">INR {{ row.amount?.toLocaleString('en-IN') }}</td>
+                <td>{{ row.pay_action || 'Process with salary' }}</td>
+                <td>{{ row.comment || '-' }}</td>
+              </tr>
+              <tr *ngIf="filteredPayments.length === 0">
+                <td colspan="5" class="empty-state-cell">
+                  <div class="empty-state-content"><p class="empty-text">No records found</p></div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ============================================
+         RIGHT SIDEBAR: "NEED HELP?" CARD
+         ============================================ -->
+    <aside class="rad-help-sidebar">
+      <div class="help-card">
+        <div class="help-icon-circle">
+          <span class="help-q-mark">?</span>
+        </div>
+        <h3 class="help-title">Need help?</h3>
+        <p class="help-description">
+          If you have questions talk to us, we're here for you.
+        </p>
+        <button type="button" class="help-link-btn" (click)="openHelp()">
+          Talk to us &rarr;
+        </button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================================
+       MODAL 1: ADD EMPLOYEE DEDUCTION
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showAddModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Add Adhoc Deduction</h3>
+        <button type="button" class="modal-close-btn" (click)="closeAddModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Select Employee <span class="required">*</span></label>
+          <select [(ngModel)]="modalEmpId" class="form-select">
+            <option *ngFor="let emp of workingEmployees" [value]="emp.id">
+              {{ emp.employee_name }} ({{ emp.employee_code }}) &bull; {{ emp.designation }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Deduction Type <span class="required">*</span></label>
+          <select [(ngModel)]="modalDeductionType" class="form-select">
+            <option *ngFor="let type of deductionTypes" [value]="type">{{ type }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (INR) <span class="required">*</span></label>
+          <input type="number" [(ngModel)]="modalAmount" placeholder="e.g. 5000" class="form-input" min="1" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comment / Administrative Reason</label>
+          <textarea [(ngModel)]="modalComment" placeholder="Explain the reason for this adhoc deduction..." class="form-textarea" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeAddModal()">Cancel</button>
+        <button type="button" class="btn-modal-submit" [disabled]="isSaving" (click)="saveAddDeduction()">
+          {{ isSaving ? 'Adding...' : 'Add Deduction' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 2: EDIT DEDUCTION
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showEditModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Edit Adhoc Deduction</h3>
+        <button type="button" class="modal-close-btn" (click)="closeEditModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Employee</label>
+          <div class="readonly-field-box">
+            <strong>{{ editingEmpName }}</strong> ({{ editingEmpCode }})
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Deduction Type</label>
+          <select [(ngModel)]="editDeductionType" class="form-select">
+            <option *ngFor="let type of deductionTypes" [value]="type">{{ type }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Amount (INR)</label>
+          <input type="number" [(ngModel)]="editAmount" class="form-input" min="1" />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Comment</label>
+          <textarea [(ngModel)]="editComment" class="form-textarea" rows="3"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeEditModal()">Cancel</button>
+        <button type="button" class="btn-modal-submit" [disabled]="isSaving" (click)="saveEditDeduction()">
+          {{ isSaving ? 'Updating...' : 'Save Changes' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 3: IMPORT DEDUCTIONS (CSV / EXCEL)
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showImportModal">
+    <div class="custom-modal-card import-modal-card">
+      <div class="modal-header">
+        <h3 class="modal-title">Import Adhoc Deductions</h3>
+        <button type="button" class="modal-close-btn" (click)="closeImportModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p class="import-help-text">
+          Upload a CSV or Excel file containing the adhoc deductions for month <strong>{{ monthLabel }}</strong>.
+        </p>
+
+        <div class="sample-download-box">
+          <span>Need the template?</span>
+          <button type="button" class="btn-link-download" (click)="downloadSampleTemplate()">
+            Download Sample CSV Template
+          </button>
+        </div>
+
+        <div class="file-upload-dropzone">
+          <input type="file" (change)="onFileSelected($event)" accept=".csv,.xlsx" id="fileUpload" class="file-input-hidden" />
+          <label for="fileUpload" class="dropzone-label">
+            <div class="upload-icon">📂</div>
+            <span class="upload-text">
+              {{ importFileName ? importFileName : 'Click to select CSV file' }}
+            </span>
+          </label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-modal-cancel" (click)="closeImportModal()">Cancel</button>
+        <button type="button" class="btn-modal-submit" [disabled]="!importFile || isUploading" (click)="uploadImportFile()">
+          {{ isUploading ? 'Importing...' : 'Upload & Import' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

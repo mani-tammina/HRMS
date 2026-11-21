@@ -263,6 +263,15 @@ export class TemplateCompositionPage implements OnInit {
     });
   }
 
+  isEmployerComponent(comp: any): boolean {
+    const code = (comp.component_code || comp.code || '').toUpperCase();
+    const name = (comp.component_name || comp.name || '').toUpperCase();
+    return code.includes('EMPLOYER') || name.includes('EMPLOYER') || 
+           code.includes('_ER') || name.includes('_ER') ||
+           code === 'PF_ER' || code === 'ESI_ER' ||
+           (code.includes('PF') && code.includes('EMPLOYER'));
+  }
+
   calculateTotals() {
     // 1. First Pass: Calculate all fixed and percentage components
     const calculatedAmts: { [code: string]: number } = { 'CTC': this.sampleCTC };
@@ -274,7 +283,7 @@ export class TemplateCompositionPage implements OnInit {
     const isSA = (code: string, name: string) => {
       const c = (code || '').toUpperCase();
       const n = (name || '').toUpperCase();
-      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || n.includes('SPECIAL ALLOWANCE');
+      return c === 'SPECIAL_ALLOWANCE' || c === 'SA' || n.includes('SPECIAL ALLOWANCE') || c === 'SPECIAL';
     };
     
     const specialAllowanceComp = this.compositionData.find(c => isSA(c.component_code, c.component_name));
@@ -284,13 +293,9 @@ export class TemplateCompositionPage implements OnInit {
 
       this.compositionData.forEach(c => {
         if (c !== specialAllowanceComp) {
-          const codeUpper = (c.component_code || '').toUpperCase();
-          const nameUpper = (c.component_name || '').toUpperCase();
-          const isER = codeUpper.includes('EMPLOYER') || nameUpper.includes('EMPLOYER') || codeUpper.includes('_ER') || nameUpper.includes('_ER');
-
           if (c.component_type?.toUpperCase() === 'EARNING') {
             sumOfEarnings += calculatedAmts[c.component_code] || 0;
-          } else if (isER || codeUpper.includes('PF_') || nameUpper.includes('PF_') || codeUpper.includes('ESI_') || nameUpper.includes('ESI_')) {
+          } else if (this.isEmployerComponent(c)) {
             sumOfEmployerPortions += calculatedAmts[c.component_code] || 0;
           }
         }
@@ -299,15 +304,27 @@ export class TemplateCompositionPage implements OnInit {
       const balance = Math.max(0, this.sampleCTC - sumOfEarnings - sumOfEmployerPortions);
       // Update the component in the list so the UI reflects the balanced amount
       specialAllowanceComp.formula_or_value = balance.toString();
+      calculatedAmts[specialAllowanceComp.component_code] = balance;
     }
 
-    this.totalEarnings = this.compositionData
+    // Base earnings (Basic, HRA, Allowances, Special Allowance)
+    const baseEarnings = this.compositionData
       .filter(c => (c.component_type)?.toUpperCase() === 'EARNING')
       .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0);
 
-    this.totalDeductions = this.compositionData
-      .filter(c => (c.component_type)?.toUpperCase() === 'DEDUCTION')
+    // Sum of PF Employer / Employer portions to add to Total Earnings for CTC validation
+    const employerPortions = this.compositionData
+      .filter(c => this.isEmployerComponent(c) && (c.component_type)?.toUpperCase() !== 'EARNING')
       .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0);
+
+    // Total Earnings includes PF Employer so it validates against Preview CTC
+    this.totalEarnings = Math.round(baseEarnings + employerPortions);
+
+    this.totalDeductions = Math.round(
+      this.compositionData
+        .filter(c => (c.component_type)?.toUpperCase() === 'DEDUCTION')
+        .reduce((sum, c) => sum + this.getCalculatedAmount(c), 0)
+    );
   }
 
   /** Resolve formula_or_value to an actual rupee amount based on sampleCTC or base comp */

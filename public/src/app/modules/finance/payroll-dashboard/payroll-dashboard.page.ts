@@ -264,6 +264,23 @@ export class PayrollDashboardPage implements OnInit {
       });
       return;
     }
+    if (step.id === 4) {
+      this.router.navigate(['/finance/run-payroll/reimbursement-adhoc-deduction'], {
+        queryParams: { month: this.selectedMonth, step: 4 }
+      }).then(success => {
+        if (!success) {
+          this.router.navigate(['/finance/reimbursement-adhoc-deduction'], {
+            queryParams: { month: this.selectedMonth, step: 4 }
+          });
+        }
+      }).catch(err => {
+        console.error('Navigation to reimbursement-adhoc-deduction failed:', err);
+        this.router.navigate(['/finance/reimbursement-adhoc-deduction'], {
+          queryParams: { month: this.selectedMonth, step: 4 }
+        });
+      });
+      return;
+    }
     this.activeStepModal = step;
   }
 
@@ -908,10 +925,7 @@ export class PayrollDashboardPage implements OnInit {
       const arrears = getComp(emp, 'Salary Arrears', 'ARREAR') || Number(emp.arrears || 0);
       const overtime = getComp(emp, 'Overtime Payment', 'OVERTIME') || Number(emp.overtime || 0);
 
-      // If bonus is included in Total Reimbursements (Column F), gross earnings before reimbursement excludes bonus
-      // so that Total Net Pay (A - B - C + D + E + F) does not double-count the bonus.
-      const totalEarningsRaw = Number(emp.total_earnings || 0);
-      const grossA = Math.max(0, totalEarningsRaw - bonus);
+      const grossA = Number(emp.total_earnings || 0);
       const pfEmployee = this.getEmployeePf(emp);
       const pfEmployer = this.getEmployerPf(emp);
       const esiEmployee = this.getEmployeeEsi(emp);
@@ -925,10 +939,7 @@ export class PayrollDashboardPage implements OnInit {
 
       const cashAdvanceD = Number(emp.cash_advance || 0);
       const settlementE = 0;
-      const baseReimbursements = Number(emp.base_reimbursements !== undefined ? emp.base_reimbursements : (emp.total_reimbursements || 0));
-      const reimbursementF = baseReimbursements > 0 && baseReimbursements >= bonus && emp.base_reimbursements === undefined
-        ? baseReimbursements
-        : baseReimbursements + bonus;
+      const reimbursementF = Number(emp.total_reimbursements || 0);
       const totalNetPay = netPayABC + cashAdvanceD + settlementE + reimbursementF;
 
       const calDays = emp.calendar_days || 30;

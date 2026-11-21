@@ -220,6 +220,200 @@
             </div>
           </div>
 
+          <!-- ─── WORKFORCE RECONCILIATION FOR FINANCIAL ADMINS (ACCORDION, DEFAULT COLLAPSED) ─── -->
+          <div class="reconciliation-panel" [class.collapsed]="!showReconciliationDetails" *ngIf="reconciliationData">
+            
+            <!-- Accordion Header (Click anywhere to Toggle) -->
+            <div class="reconciliation-header accordion-toggle" (click)="toggleReconciliationDetails()">
+              <div class="rec-title-group">
+                <div class="rec-icon-box">
+                  <ion-icon name="pie-chart-outline"></ion-icon>
+                </div>
+                <div class="rec-title-texts">
+                  <div class="title-with-pill">
+                    <h4>Workforce Headcount Reconciliation</h4>
+                    <span class="coverage-pill">{{ reconciliationData.readinessPercentage }}% Processed</span>
+                  </div>
+                  <p>Audit breakdown: <strong>{{ reconciliationData.totalWorking }}</strong> Active Workforce &bull; <strong class="text-success">{{ reconciliationData.includedCount }}</strong> Included &bull; <strong class="text-danger">{{ reconciliationData.excludedCount }}</strong> Excluded</p>
+                </div>
+              </div>
+
+              <div class="rec-header-actions">
+                <!-- Mini chips shown when collapsed for immediate clarity -->
+                <div class="quick-status-chips" *ngIf="!showReconciliationDetails">
+                  <span class="mini-chip success">
+                    <ion-icon name="checkmark-circle"></ion-icon> {{ reconciliationData.includedCount }} Included
+                  </span>
+                  <span class="mini-chip danger" *ngIf="reconciliationData.excludedCount > 0">
+                    <ion-icon name="alert-circle"></ion-icon> {{ reconciliationData.excludedCount }} Excluded
+                  </span>
+                </div>
+
+                <!-- Toggle Indicator Button -->
+                <button type="button" class="accordion-chevron-btn">
+                  <span>{{ showReconciliationDetails ? 'Collapse Details' : 'View Breakdown' }}</span>
+                  <ion-icon [name]="showReconciliationDetails ? 'chevron-up' : 'chevron-down'"></ion-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Accordion Collapsible Body -->
+            <div class="reconciliation-body" *ngIf="showReconciliationDetails">
+              <div class="rec-sub-action-bar">
+                <span class="rec-sub-hint">Review why each member was included or excluded, filter by category, or export report.</span>
+                <ion-button fill="outline" size="small" class="export-rec-btn" (click)="$event.stopPropagation(); exportReconciliationExcel()">
+                  <ion-icon name="download-outline" slot="start"></ion-icon> Export Reconciliation (Excel)
+                </ion-button>
+              </div>
+
+            <!-- 4 Metric Cards -->
+            <div class="rec-metrics-grid">
+              <div class="rec-metric-card total">
+                <div class="rec-metric-label">Total Active Workforce</div>
+                <div class="rec-metric-value">{{ reconciliationData.totalWorking }}</div>
+                <div class="rec-metric-sub">Active working employees</div>
+              </div>
+
+              <div class="rec-metric-card included">
+                <div class="rec-metric-label">Included in Payroll</div>
+                <div class="rec-metric-value">{{ reconciliationData.includedCount }}</div>
+                <div class="rec-metric-sub text-success">
+                  <ion-icon name="checkmark-circle"></ion-icon> Successfully processed
+                </div>
+              </div>
+
+              <div class="rec-metric-card excluded">
+                <div class="rec-metric-label">Excluded from Run</div>
+                <div class="rec-metric-value">{{ reconciliationData.excludedCount }}</div>
+                <div class="rec-metric-sub text-danger">
+                  <ion-icon name="alert-circle"></ion-icon> Requires review / action
+                </div>
+              </div>
+
+              <div class="rec-metric-card coverage">
+                <div class="rec-metric-label">Payroll Coverage</div>
+                <div class="rec-metric-value">{{ reconciliationData.readinessPercentage }}%</div>
+                <div class="rec-progress-container">
+                  <div class="rec-progress-fill" [style.width.%]="reconciliationData.readinessPercentage"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Category Filter Pills -->
+            <div class="rec-category-bar">
+              <span class="category-bar-label">Filter Excluded by Reason:</span>
+              <div class="category-pills">
+                <button type="button" class="cat-pill" [class.active]="reconciliationFilter === 'ALL'"
+                  (click)="setReconciliationFilter('ALL')">
+                  All Excluded <span class="pill-badge">{{ reconciliationData.excludedCount }}</span>
+                </button>
+                <button type="button" class="cat-pill danger"
+                  [class.active]="reconciliationFilter === 'MISSING_CONTRACT'"
+                  (click)="setReconciliationFilter('MISSING_CONTRACT')">
+                  No Salary Structure <span class="pill-badge">{{ reconciliationData.categories.missingContract
+                    }}</span>
+                </button>
+                <button type="button" class="cat-pill warning" [class.active]="reconciliationFilter === 'CONTRACT_GAP'"
+                  (click)="setReconciliationFilter('CONTRACT_GAP')">
+                  Contract Gap / Superseded <span class="pill-badge">{{ reconciliationData.categories.contractGap
+                    }}</span>
+                </button>
+                <button type="button" class="cat-pill warning"
+                  [class.active]="reconciliationFilter === 'ZERO_ATTENDANCE'"
+                  (click)="setReconciliationFilter('ZERO_ATTENDANCE')">
+                  Zero Attendance <span class="pill-badge">{{ reconciliationData.categories.zeroAttendance }}</span>
+                </button>
+                <button type="button" class="cat-pill primary" [class.active]="reconciliationFilter === 'FUTURE_JOINER'"
+                  (click)="setReconciliationFilter('FUTURE_JOINER')">
+                  Future Joiner <span class="pill-badge">{{ reconciliationData.categories.futureJoiner }}</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Excluded Employees List / Table -->
+            <div class="rec-table-card">
+              <div class="rec-table-header">
+                <div class="header-text-group">
+                  <h5>Excluded Employee Details ({{ filteredExcludedEmployees.length }})</h5>
+                  <span class="rec-hint">Financial admins can verify why each member was not included and take
+                    appropriate action.</span>
+                </div>
+              </div>
+              <div class="rec-table-wrapper">
+                <table class="rec-table">
+                  <thead>
+                    <tr>
+                      <th class="col-emp">Employee</th>
+                      <th class="col-dept">Department & Role</th>
+                      <th class="col-date">Date of Joining</th>
+                      <th class="col-att text-center">Month Attendance</th>
+                      <th class="col-cat">Exclusion Category</th>
+                      <th class="col-reason">Reason for Exclusion</th>
+                      <th class="col-action">Recommended Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let emp of filteredExcludedEmployees">
+                      <td class="col-emp">
+                        <div class="emp-profile-cell">
+                          <div class="emp-avatar-badge">{{ emp.fullName.slice(0, 2).toUpperCase() }}</div>
+                          <div class="emp-info-text">
+                            <span class="emp-name">{{ emp.fullName }}</span>
+                            <span class="emp-code">{{ emp.employeeNumber }}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="col-dept">
+                        <div class="dept-cell">
+                          <span class="dept-name">{{ emp.department }}</span>
+                          <span class="desig-name">{{ emp.designation }}</span>
+                        </div>
+                      </td>
+                      <td class="col-date">
+                        <span class="date-chip">{{ emp.dateJoined ? (emp.dateJoined | date:'dd MMM yyyy') : '—'
+                          }}</span>
+                      </td>
+                      <td class="col-att text-center">
+                        <span class="attendance-badge" [class.zero]="emp.attendanceDays === 0">
+                          {{ emp.attendanceDays }} Days
+                        </span>
+                      </td>
+                      <td class="col-cat">
+                        <span class="exclusion-badge" [ngClass]="emp.badgeColor">
+                          {{ emp.categoryLabel }}
+                        </span>
+                      </td>
+                      <td class="col-reason">
+                        <div class="reason-text">{{ emp.reason }}</div>
+                      </td>
+                      <td class="col-action">
+                        <div class="action-hint">
+                          <ion-icon name="arrow-forward-circle-outline"></ion-icon>
+                          <span class="action-text">{{ emp.action }}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Admin Notice Banner -->
+            <div class="admin-notice-card">
+              <ion-icon name="information-circle"></ion-icon>
+              <div class="notice-content">
+                <strong>Financial Admin Notice</strong>
+                <p>
+                  {{ reconciliationData.categories.missingContract }} active employees who worked during {{
+                  selectedMonth }} have no salary contract assigned (LPA ₹0.00). Once their salary structure is
+                  configured under <em>Employee Profile → Compensation</em>, re-running payroll will automatically
+                  include them into this month's payroll.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
           <div class="action-footer" style="margin-top:2rem">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('run')">Back</ion-button>
             <ion-button class="secondary-btn" (click)="loadSummary()">
@@ -281,8 +475,8 @@
             <ion-icon name="eye-outline"></ion-icon>
             <h3>Preview — Dry Run</h3>
             <span class="badge">Not committed</span>
-            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()" [disabled]="isExporting"
-              style="margin-left: auto;">
+            <ion-button fill="outline" size="small" class="export-btn" (click)="exportToExcel()"
+              [disabled]="isExporting" style="margin-left: auto;">
               <ion-icon [name]="isExporting ? 'hourglass-outline' : 'download-outline'" slot="start"></ion-icon>
               {{ isExporting ? 'Exporting...' : 'Export' }}
             </ion-button>
@@ -325,21 +519,26 @@
             <div class="stat-chip" *ngIf="previewData.data?.estimate?.pf"
               style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
               <strong style="color: #1e293b; font-weight: 600;">PF:</strong>
-              <span style="color: #475569;">Emp Share: <strong>{{ formatCurrency(previewData.data?.estimate?.pf?.employeeShare || 0) }}</strong></span>
+              <span style="color: #475569;">Emp Share: <strong>{{
+                  formatCurrency(previewData.data?.estimate?.pf?.employeeShare || 0) }}</strong></span>
               <span style="color: #cbd5e1;">|</span>
-              <span style="color: #475569;">Employer Share: <strong>{{ formatCurrency(previewData.data?.estimate?.pf?.employerShare || 0) }}</strong></span>
+              <span style="color: #475569;">Employer Share: <strong>{{
+                  formatCurrency(previewData.data?.estimate?.pf?.employerShare || 0) }}</strong></span>
             </div>
             <div class="stat-chip" *ngIf="previewData.data?.estimate?.esi"
               style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
               <strong style="color: #1e293b; font-weight: 600;">ESI:</strong>
-              <span style="color: #475569;">Emp Share: <strong>{{ formatCurrency(previewData.data?.estimate?.esi?.employeeShare || 0) }}</strong></span>
+              <span style="color: #475569;">Emp Share: <strong>{{
+                  formatCurrency(previewData.data?.estimate?.esi?.employeeShare || 0) }}</strong></span>
               <span style="color: #cbd5e1;">|</span>
-              <span style="color: #475569;">Employer Share: <strong>{{ formatCurrency(previewData.data?.estimate?.esi?.employerShare || 0) }}</strong></span>
+              <span style="color: #475569;">Employer Share: <strong>{{
+                  formatCurrency(previewData.data?.estimate?.esi?.employerShare || 0) }}</strong></span>
             </div>
             <div class="stat-chip" *ngIf="previewData.data?.estimate?.professionalTax"
               style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 8px 16px; font-size: 0.85rem; display: flex; gap: 10px; align-items: center; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
               <strong style="color: #1e293b; font-weight: 600;">PT:</strong>
-              <span style="color: #475569;">Total Tax: <strong>{{ formatCurrency(previewData.data?.estimate?.professionalTax?.totalTax || 0) }}</strong></span>
+              <span style="color: #475569;">Total Tax: <strong>{{
+                  formatCurrency(previewData.data?.estimate?.professionalTax?.totalTax || 0) }}</strong></span>
             </div>
           </div>
 
@@ -379,7 +578,8 @@
                     <td class="num">{{ formatCurrency(emp.annual_ctc) }}</td>
                     <td class="num bold">{{ formatCurrency(emp.monthly_gross) }}</td>
                     <td class="num">{{ emp.calendar_days }}</td>
-                    <td class="num highlight-attendance">{{ emp.present_days !== undefined ? emp.present_days : 0 }}</td>
+                    <td class="num highlight-attendance">{{ emp.present_days !== undefined ? emp.present_days : 0 }}
+                    </td>
                     <td class="num bold lop-val">{{ emp.lop_days }}</td>
                     <td class="num bold paid-val">{{ emp.paid_days }}</td>
                     <td *ngFor="let head of getPreviewComponentHeaders()" class="num">
@@ -496,8 +696,10 @@
           <div class="lock-summary payroll-inset" *ngIf="runStatus">
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
             <div class="ls-row"><span>Month</span><strong>{{ selectedMonth }}</strong></div>
-            <div class="ls-row"><span>Net Payout</span><strong style="color: #10b981;">{{ formatCurrency(lockNetPayout) }}</strong></div>
-            <div class="ls-row"><span>Employees</span><strong>{{ previewData?.data?.estimate?.employeeCount || runStatus.employee_count }}</strong></div>
+            <div class="ls-row"><span>Net Payout</span><strong style="color: #10b981;">{{ formatCurrency(lockNetPayout)
+                }}</strong></div>
+            <div class="ls-row"><span>Employees</span><strong>{{ previewData?.data?.estimate?.employeeCount ||
+                runStatus.employee_count }}</strong></div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('validate')">Back</ion-button>
@@ -544,7 +746,8 @@
             <div class="ls-row"><span>Run ID</span><strong>#{{ runStatus.run_id }}</strong></div>
             <div class="ls-row"><span>Status</span><span class="status-pill-sm"
                 [style.background]="getStatusColor(runStatus.status)">{{ runStatus.status }}</span></div>
-            <div class="ls-row"><span>Net Payout</span><strong class="highlight" style="color: #10b981;">{{ formatCurrency(lockNetPayout) }}</strong></div>
+            <div class="ls-row"><span>Net Payout</span><strong class="highlight" style="color: #10b981;">{{
+                formatCurrency(lockNetPayout) }}</strong></div>
           </div>
           <div class="action-footer">
             <ion-button fill="outline" class="secondary-btn" (click)="goToStep('lock')">Back</ion-button>
@@ -565,9 +768,11 @@
               available.</p>
           </div>
           <div class="completion-stats payroll-inset">
-            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{ previewData?.data?.estimate?.employeeCount || runStatus?.employee_count }}
+            <div class="cs-item"><ion-icon name="people-outline"></ion-icon><span>{{
+                previewData?.data?.estimate?.employeeCount || runStatus?.employee_count }}
                 Employees</span></div>
-            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(lockNetPayout) }}</span></div>
+            <div class="cs-item"><ion-icon name="cash-outline"></ion-icon><span>{{ formatCurrency(lockNetPayout)
+                }}</span></div>
             <div class="cs-item"><ion-icon name="calendar-outline"></ion-icon><span>{{ selectedMonth }}</span></div>
           </div>
           <div class="action-footer vertical" style="margin-top:2rem">

@@ -220,13 +220,18 @@ async function buildRunValidation(year, month) {
     const runId = existingRun.length > 0 ? existingRun[0].id : null;
 
     const [employees] = await c.query(
-      `SELECT e.id, e.EmployeeNumber, e.FullName
+      `SELECT e.id, e.EmployeeNumber, e.FullName, ap.name as attendance_policy_name
        FROM employees e
-       INNER JOIN (
+       LEFT JOIN (
          SELECT DISTINCT employee_id 
          FROM attendance 
          WHERE attendance_date BETWEEN ? AND ?
+         UNION
+         SELECT DISTINCT employee_id 
+         FROM biometric_daily_attendance 
+         WHERE attendance_date BETWEEN ? AND ?
        ) a ON e.id = a.employee_id
+       LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
        INNER JOIN (
          SELECT DISTINCT employee_id
          FROM employee_salary_contracts
@@ -234,8 +239,9 @@ async function buildRunValidation(year, month) {
            AND effective_from <= LAST_DAY(?)
            AND (effective_to IS NULL OR effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
        ) esc ON e.id = esc.employee_id
-       WHERE e.EmploymentStatus = 'Working'`,
-      [sd, ed, sd, sd]
+       WHERE e.EmploymentStatus = 'Working'
+         AND (a.employee_id IS NOT NULL OR ap.name = 'No Attendance')`,
+      [sd, ed, sd, ed, sd, sd]
     );
 
     const [withStructure] = await c.query(
@@ -250,17 +256,29 @@ async function buildRunValidation(year, month) {
     const [attendance] = await c.query(
       `SELECT DISTINCT employee_id
        FROM attendance
-       WHERE YEAR(attendance_date) = ? AND MONTH(attendance_date) = ?`,
-      [year, month]
+       WHERE attendance_date BETWEEN ? AND ?
+       UNION
+       SELECT DISTINCT employee_id
+       FROM biometric_daily_attendance
+       WHERE attendance_date BETWEEN ? AND ?`,
+      [sd, ed, sd, ed]
     );
 
-    const allEmployees = employees.map(e => ({ id: Number(e.id), name: e.FullName, number: e.EmployeeNumber }));
+    const allEmployees = employees.map(e => ({ 
+      id: Number(e.id), 
+      name: e.FullName, 
+      number: e.EmployeeNumber,
+      attendancePolicy: e.attendance_policy_name 
+    }));
     const structureEmployees = new Set(withStructure.map((r) => Number(r.employee_id)));
     const attendanceEmployees = new Set(attendance.map((r) => Number(r.employee_id)));
 
     const missingAttendance = [];
 
     for (const emp of allEmployees) {
+      if (emp.attendancePolicy === 'No Attendance') {
+        continue;
+      }
       if (!attendanceEmployees.has(emp.id)) {
         missingAttendance.push({ employeeId: emp.id, employeeName: emp.name });
       }
@@ -301,7 +319,12 @@ async function calculateDryRunFinancials(c, year, month) {
       SELECT DISTINCT employee_id 
       FROM attendance 
       WHERE attendance_date BETWEEN ? AND ?
+      UNION
+      SELECT DISTINCT employee_id 
+      FROM biometric_daily_attendance 
+      WHERE attendance_date BETWEEN ? AND ?
     ) att ON e.id = att.employee_id
+    LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
     INNER JOIN employee_salary_contracts esc ON esc.employee_id = e.id AND esc.status = 'Active'
       AND esc.effective_from <= LAST_DAY(?)
       AND (esc.effective_to IS NULL OR esc.effective_to >= DATE_FORMAT(?, '%Y-%m-01'))
@@ -311,7 +334,8 @@ async function calculateDryRunFinancials(c, year, month) {
     LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
     LEFT JOIN weekly_off_policies wop ON e.weekly_off_policy_id = wop.id
     WHERE e.EmploymentStatus = 'Working'
-  `, [sd, ed, sd, sd]);
+      AND (att.employee_id IS NOT NULL OR ap.name = 'No Attendance')
+  `, [sd, ed, sd, ed, sd, sd]);
 
   if (!allEmployees.length) {
     return {
@@ -365,7 +389,7 @@ async function calculateDryRunFinancials(c, year, month) {
       LEFT JOIN salary_components lc ON lc.id = sc.component_id
       WHERE sc.template_id IN (?)
     `, [templateIds]);
-    
+
     compMap = compositions.reduce((acc, comp) => {
       if (!acc[comp.template_id]) acc[comp.template_id] = [];
       acc[comp.template_id].push(comp);
@@ -393,7 +417,7 @@ async function calculateDryRunFinancials(c, year, month) {
     const annualCTC = Number(emp.annual_ctc || 0);
     const monthlyGross = Math.round(annualCTC / 12);
     const comps = compMap[emp.template_id] || [];
-    
+
     const attSummary = attSummaryMap[emp.id] || { calendar_days: 30, lop_days: 0, paid_days: 30 };
     const lopDays = attSummary.lop_days;
     const calendarDays = attSummary.calendar_days;
@@ -403,18 +427,18 @@ async function calculateDryRunFinancials(c, year, month) {
     const basicComp = comps.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
     let fullMonthlyBasic = 0;
     if (basicComp) {
-        const override = parseFormulaOverride(basicComp.formula_or_value);
-        let inputVal = Number(basicComp.default_value || 0);
-        let calculation_type = basicComp.calculation_type;
-        if (override) {
-            if (override.calculation_type) calculation_type = override.calculation_type;
-            inputVal = override.value;
-        }
-        if (calculation_type === 'PERCENTAGE') {
-            fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
-        } else {
-            fullMonthlyBasic = inputVal / 12.0;
-        }
+      const override = parseFormulaOverride(basicComp.formula_or_value);
+      let inputVal = Number(basicComp.default_value || 0);
+      let calculation_type = basicComp.calculation_type;
+      if (override) {
+        if (override.calculation_type) calculation_type = override.calculation_type;
+        inputVal = override.value;
+      }
+      if (calculation_type === 'PERCENTAGE') {
+        fullMonthlyBasic = (monthlyGross * inputVal) / 100.0;
+      } else {
+        fullMonthlyBasic = inputVal / 12.0;
+      }
     }
 
     const computed = {};
@@ -466,7 +490,7 @@ async function calculateDryRunFinancials(c, year, month) {
 
       const rounded = Math.round(amt);
       computed[r.component_code] = rounded;
-      
+
       if (r.component_type === 'EARNING') {
         totalEarnings += rounded;
       } else {
@@ -931,7 +955,7 @@ async function calculateRunFinancials(c, run) {
         totalPf: ee * 2
       };
     });
-  } catch (err) {}
+  } catch (err) { }
 
   const [esiEmpCountRows] = await c.query(
     `SELECT COUNT(DISTINCT s.id) as esiCount
@@ -968,7 +992,7 @@ async function calculateRunFinancials(c, run) {
         totalEsi: ee + er
       };
     });
-  } catch (err) {}
+  } catch (err) { }
 
   const [ptEmpCountRows] = await c.query(
     `SELECT COUNT(DISTINCT s.id) as ptCount, COALESCE(SUM(t.amount), 0) as sumPt
@@ -1000,7 +1024,7 @@ async function calculateRunFinancials(c, run) {
       designation: r.designation,
       amount: Number(r.amount) || 0
     }));
-  } catch (err) {}
+  } catch (err) { }
 
   return {
     deposit: depositRounded,
@@ -1054,7 +1078,7 @@ async function getPayrollDashboard(req, res) {
       joiners = jRows[0]?.cnt || 0;
       const [lRows] = await c.query("SELECT COUNT(*) as cnt FROM employees WHERE exit_date >= ? AND exit_date <= ?", [monthStartStr, monthEndStr]);
       leavers = lRows[0]?.cnt || 0;
-    } catch (e) {}
+    } catch (e) { }
 
     // 2. Financial Year Timeline (12 months from Apr of fyStart to Mar of fyStart+1)
     const fyStart = parsed.month >= 4 ? parsed.year : parsed.year - 1;
@@ -1147,7 +1171,7 @@ async function getPayrollDashboard(req, res) {
           [currentRun.id]
         );
         payslipsCount = psRows[0]?.cnt || 0;
-      } catch (e) {}
+      } catch (e) { }
       if (payslipsCount === 0 && (currentRun.status === 'COMPLETED' || currentRun.status === 'PAID')) {
         payslipsCount = currentRun.total_employees || 0;
       }
@@ -1241,7 +1265,7 @@ async function getPayrollDashboard(req, res) {
         leavers
       },
       payrollProcessedCount: hasActiveRun ? currentFinancials.payingCount : 0,
-      payrollProcessedRatio: hasActiveRun 
+      payrollProcessedRatio: hasActiveRun
         ? `${totalEmployees}/${currentFinancials.payingCount} EMPLOYEES`
         : `0/${totalEmployees} EMPLOYEES`,
       run: currentRun,
@@ -1334,7 +1358,7 @@ async function getEmployeeRunStatus(req, res) {
     if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
 
     const c = await db();
-    
+
     // 1. Get Payroll Run Status (if any)
     const [rows] = await c.query(
       `SELECT
@@ -1390,14 +1414,14 @@ async function getEmployeeRunStatus(req, res) {
     let totalEarnings = 0;
 
     if (empCalc && empCalc.components) {
-        monthlyGross = empCalc.monthly_gross || monthlyGross;
-        totalEarnings = empCalc.total_earnings || 0;
+      monthlyGross = empCalc.monthly_gross || monthlyGross;
+      totalEarnings = empCalc.total_earnings || 0;
 
-        const fullMonthlyCTC = Number(empCalc.annual_ctc || 0) / 12.0;
-        let compRows = [];
-        if (contract) {
-            const [rows] = await c.query(
-                `SELECT sc.*, 
+      const fullMonthlyCTC = Number(empCalc.annual_ctc || 0) / 12.0;
+      let compRows = [];
+      if (contract) {
+        const [rows] = await c.query(
+          `SELECT sc.*, 
                         COALESCE(mc.code, lc.code) AS component_code,
                         COALESCE(mc.name, lc.name) AS component_name,
                         COALESCE(mc.component_type, lc.component_type) AS component_type,
@@ -1410,77 +1434,77 @@ async function getEmployeeRunStatus(req, res) {
                  LEFT JOIN salary_components lc ON lc.id = sc.component_id
                  WHERE sc.template_id = ?
                  ORDER BY COALESCE(mc.sequence, lc.sequence, 999)`,
-                [contract.template_id]
-            );
-            compRows = rows;
+          [contract.template_id]
+        );
+        compRows = rows;
+      }
+
+      const basicComp = compRows.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
+      let fullMonthlyBasic = 0;
+      if (basicComp) {
+        const override = parseFormulaOverride(basicComp.formula_or_value);
+        let inputVal = Number(basicComp.default_value || basicComp.value || 0);
+        let calcType = basicComp.calculation_type;
+        if (override) {
+          if (override.calculation_type) calcType = override.calculation_type;
+          inputVal = override.value;
+        }
+        if (calcType === 'PERCENTAGE') {
+          fullMonthlyBasic = (fullMonthlyCTC * inputVal) / 100.0;
+        } else {
+          fullMonthlyBasic = inputVal / 12.0;
+        }
+      }
+
+      const fullComputed = {};
+      let fullOtherEarnings = 0;
+      let specialIdx = -1;
+
+      templateComponents = empCalc.components.map((cmp, idx) => {
+        const r = compRows.find(x => x.component_code === cmp.code || x.component_name === cmp.name) || cmp;
+        const override = parseFormulaOverride(r.formula_or_value);
+        let calculation_type = r.calculation_type || 'FIXED';
+        let inputVal = Number(r.default_value || r.value || 0);
+        let percentage_of_code = r.percentage_of_code;
+
+        if (override) {
+          if (override.calculation_type) calculation_type = override.calculation_type;
+          inputVal = override.value;
+          if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
         }
 
-        const basicComp = compRows.find(c => c.component_code === 'BASIC' || c.component_name === 'Basic Salary');
-        let fullMonthlyBasic = 0;
-        if (basicComp) {
-            const override = parseFormulaOverride(basicComp.formula_or_value);
-            let inputVal = Number(basicComp.default_value || basicComp.value || 0);
-            let calcType = basicComp.calculation_type;
-            if (override) {
-                if (override.calculation_type) calcType = override.calculation_type;
-                inputVal = override.value;
-            }
-            if (calcType === 'PERCENTAGE') {
-                fullMonthlyBasic = (fullMonthlyCTC * inputVal) / 100.0;
-            } else {
-                fullMonthlyBasic = inputVal / 12.0;
-            }
+        let fullVal = 0;
+        if (cmp.code === 'SPECIAL' || cmp.name === 'Special Allowance') {
+          specialIdx = idx;
+        } else if (calculation_type === 'PERCENTAGE') {
+          if (percentage_of_code && fullComputed[percentage_of_code] !== undefined) {
+            fullVal = (fullComputed[percentage_of_code] * inputVal) / 100.0;
+          } else {
+            fullVal = (fullMonthlyCTC * inputVal) / 100.0;
+          }
+        } else {
+          fullVal = inputVal > 1000 ? (inputVal / 12.0) : inputVal;
         }
 
-        const fullComputed = {};
-        let fullOtherEarnings = 0;
-        let specialIdx = -1;
-
-        templateComponents = empCalc.components.map((cmp, idx) => {
-            const r = compRows.find(x => x.component_code === cmp.code || x.component_name === cmp.name) || cmp;
-            const override = parseFormulaOverride(r.formula_or_value);
-            let calculation_type = r.calculation_type || 'FIXED';
-            let inputVal = Number(r.default_value || r.value || 0);
-            let percentage_of_code = r.percentage_of_code;
-
-            if (override) {
-                if (override.calculation_type) calculation_type = override.calculation_type;
-                inputVal = override.value;
-                if (override.percentage_of_code) percentage_of_code = override.percentage_of_code;
-            }
-
-            let fullVal = 0;
-            if (cmp.code === 'SPECIAL' || cmp.name === 'Special Allowance') {
-                specialIdx = idx;
-            } else if (calculation_type === 'PERCENTAGE') {
-                if (percentage_of_code && fullComputed[percentage_of_code] !== undefined) {
-                    fullVal = (fullComputed[percentage_of_code] * inputVal) / 100.0;
-                } else {
-                    fullVal = (fullMonthlyCTC * inputVal) / 100.0;
-                }
-            } else {
-                fullVal = inputVal > 1000 ? (inputVal / 12.0) : inputVal;
-            }
-
-            const roundedFull = Math.round(fullVal);
-            fullComputed[cmp.code] = roundedFull;
-            if (cmp.type === 'EARNING' && cmp.code !== 'SPECIAL') {
-                fullOtherEarnings += roundedFull;
-            }
-
-            return {
-                component_code: cmp.code,
-                component_name: cmp.name,
-                component_type: cmp.type,
-                value: Math.round(cmp.amount).toString(),
-                full_value: roundedFull.toString()
-            };
-        });
-
-        if (specialIdx !== -1) {
-            const fullSpecial = Math.max(0, Math.round(fullMonthlyCTC) - fullOtherEarnings);
-            templateComponents[specialIdx].full_value = fullSpecial.toString();
+        const roundedFull = Math.round(fullVal);
+        fullComputed[cmp.code] = roundedFull;
+        if (cmp.type === 'EARNING' && cmp.code !== 'SPECIAL') {
+          fullOtherEarnings += roundedFull;
         }
+
+        return {
+          component_code: cmp.code,
+          component_name: cmp.name,
+          component_type: cmp.type,
+          value: Math.round(cmp.amount).toString(),
+          full_value: roundedFull.toString()
+        };
+      });
+
+      if (specialIdx !== -1) {
+        const fullSpecial = Math.max(0, Math.round(fullMonthlyCTC) - fullOtherEarnings);
+        templateComponents[specialIdx].full_value = fullSpecial.toString();
+      }
     }
 
     const monthlyCTCValue = contract ? Math.round(Number(contract.annual_ctc || 0) / 12) : 0;
@@ -1500,13 +1524,13 @@ async function getEmployeeRunStatus(req, res) {
         days_payable,
         lop_days,
         attendanceSummary: {
-            total_days: attSummary.total_days || totalCalendarDays,
-            present_days,
-            absent_days: Number(attSummary.absent_days || 0),
-            leave_days: Number(attSummary.leave_days || 0),
-            weekend_days: Number(attSummary.weekend_days || 0),
-            holiday_days: Number(attSummary.holiday_days || 0),
-            lop_days
+          total_days: attSummary.total_days || totalCalendarDays,
+          present_days,
+          absent_days: Number(attSummary.absent_days || 0),
+          leave_days: Number(attSummary.leave_days || 0),
+          weekend_days: Number(attSummary.weekend_days || 0),
+          holiday_days: Number(attSummary.holiday_days || 0),
+          lop_days
         },
         templateComponents
       });
@@ -1525,13 +1549,13 @@ async function getEmployeeRunStatus(req, res) {
       days_payable,
       lop_days,
       attendanceSummary: {
-          total_days: attSummary.total_days || totalCalendarDays,
-          present_days,
-          absent_days: Number(attSummary.absent_days || 0),
-          leave_days: Number(attSummary.leave_days || 0),
-          weekend_days: Number(attSummary.weekend_days || 0),
-          holiday_days: Number(attSummary.holiday_days || 0),
-          lop_days
+        total_days: attSummary.total_days || totalCalendarDays,
+        present_days,
+        absent_days: Number(attSummary.absent_days || 0),
+        leave_days: Number(attSummary.leave_days || 0),
+        weekend_days: Number(attSummary.weekend_days || 0),
+        holiday_days: Number(attSummary.holiday_days || 0),
+        lop_days
       },
       templateComponents
     });
@@ -2244,7 +2268,7 @@ async function markPaymentBatchPaid(req, res) {
       await c.query("UPDATE payroll_runs SET status = 'PAID' WHERE id = ?", [runId]);
       try {
         await c.query("UPDATE payroll_payouts SET status = 'COMPLETED', paid_at = NOW() WHERE run_id = ?", [runId]);
-      } catch (_) {}
+      } catch (_) { }
     } else if (month) {
       const parsed = parseMonthInput(month);
       if (parsed) {
@@ -2452,6 +2476,200 @@ async function exportTransferStatement(req, res) {
   }
 }
 
+async function getPayrollReconciliation(req, res) {
+  let c = null;
+  try {
+    const monthInput = req.query.month || req.body.month;
+    const parsed = parseMonthInput(monthInput);
+    if (!parsed) return fail(res, 400, 'month required in YYYY-MM format');
+
+    const { year, month } = parsed;
+    const sd = `${year}-${String(month).padStart(2, '0')}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const ed = `${year}-${String(month).padStart(2, '0')}-${lastDay}`;
+
+    c = await db();
+
+    // 1. Find latest run for this month
+    const [runs] = await c.query(`
+      SELECT r.id as run_id, r.status, COUNT(s.id) as employee_count, SUM(s.gross_earnings) as total_gross
+      FROM payroll_runs r
+      JOIN payroll_cycles cy ON cy.id = r.cycle_id
+      LEFT JOIN payroll_employee_salaries s ON s.run_id = r.id
+      WHERE cy.year = ? AND cy.month = ?
+      GROUP BY r.id
+      ORDER BY r.id DESC LIMIT 1
+    `, [year, month]);
+
+    const latestRun = runs[0] || null;
+
+    // 2. All working employees
+    const [allEmployees] = await c.query(`
+      SELECT e.id, e.EmployeeNumber, e.FullName, e.DateJoined, e.EmploymentStatus,
+             e.attendance_policy_id, ap.name as attendance_policy_name,
+             d.name as designation, dept.name as department
+      FROM employees e
+      LEFT JOIN attendance_policies ap ON e.attendance_policy_id = ap.id
+      LEFT JOIN designations d ON d.id = e.DesignationId
+      LEFT JOIN departments dept ON dept.id = e.DepartmentId
+      WHERE e.EmploymentStatus = 'Working'
+      ORDER BY e.FullName ASC
+    `);
+
+    // 3. Processed employees in run
+    let processedEmpIds = new Set();
+    if (latestRun) {
+      const [salRows] = await c.query(
+        'SELECT employee_id FROM payroll_employee_salaries WHERE run_id = ?',
+        [latestRun.run_id]
+      );
+      processedEmpIds = new Set(salRows.map(s => s.employee_id));
+    }
+
+    // 4. Attendance counts for period
+    const [attPunches] = await c.query(`
+      SELECT employee_id, COUNT(DISTINCT attendance_date) as cnt
+      FROM attendance
+      WHERE attendance_date BETWEEN ? AND ?
+      GROUP BY employee_id
+    `, [sd, ed]);
+    const attMap = {};
+    attPunches.forEach(a => { attMap[a.employee_id] = Number(a.cnt); });
+
+    const [bioPunches] = await c.query(`
+      SELECT employee_id, COUNT(DISTINCT attendance_date) as cnt
+      FROM biometric_daily_attendance
+      WHERE attendance_date BETWEEN ? AND ?
+      GROUP BY employee_id
+    `, [sd, ed]);
+    const bioMap = {};
+    bioPunches.forEach(b => { bioMap[b.employee_id] = Number(b.cnt); });
+
+    // 5. Salary contracts
+    const [allContracts] = await c.query(`
+      SELECT esc.*, t.template_name
+      FROM employee_salary_contracts esc
+      LEFT JOIN salary_structure_templates t ON t.template_id = esc.template_id
+    `);
+    const contractsByEmp = {};
+    allContracts.forEach(esc => {
+      if (!contractsByEmp[esc.employee_id]) contractsByEmp[esc.employee_id] = [];
+      contractsByEmp[esc.employee_id].push(esc);
+    });
+
+    const includedList = [];
+    const excludedList = [];
+
+    for (const emp of allEmployees) {
+      const isIncludedInRun = processedEmpIds.has(emp.id);
+      const dateJoinedStr = emp.DateJoined ? (emp.DateJoined.toISOString ? emp.DateJoined.toISOString().slice(0, 10) : String(emp.DateJoined).slice(0, 10)) : null;
+      const webAtt = attMap[emp.id] || 0;
+      const bioAtt = bioMap[emp.id] || 0;
+      const totalAttDays = Math.max(webAtt, bioAtt);
+      const hasPunches = (webAtt > 0 || bioAtt > 0);
+      const isNoAttendance = (emp.attendance_policy_name === 'No Attendance');
+
+      const empContracts = contractsByEmp[emp.id] || [];
+      const activeContractInMonth = empContracts.find(c =>
+        c.status === 'Active' &&
+        c.effective_from <= ed &&
+        (!c.effective_to || c.effective_to >= sd)
+      );
+      const supersededCoveringMonth = empContracts.find(c =>
+        c.status === 'Superseded' &&
+        c.effective_from <= ed &&
+        (!c.effective_to || c.effective_to >= sd)
+      );
+      const futureContract = empContracts.find(c =>
+        c.status === 'Active' && c.effective_from > ed
+      );
+
+      if (isIncludedInRun) {
+        includedList.push({
+          id: emp.id,
+          employeeNumber: emp.EmployeeNumber,
+          fullName: emp.FullName,
+          department: emp.department || '—',
+          designation: emp.designation || '—',
+          dateJoined: dateJoinedStr,
+          attendanceDays: totalAttDays,
+          templateName: activeContractInMonth?.template_name || 'Standard Package'
+        });
+      } else {
+        let category = 'OTHER';
+        let categoryLabel = 'Review Needed';
+        let reason = 'Excluded from payroll run';
+        let action = 'Review employee records';
+        let badgeColor = 'danger';
+
+        if (dateJoinedStr && dateJoinedStr > ed) {
+          category = 'FUTURE_JOINER';
+          categoryLabel = 'Future Joiner';
+          badgeColor = 'primary';
+          reason = `Joined on ${dateJoinedStr} (after payroll month).`;
+          action = 'No action required — will be included in subsequent month payroll.';
+        } else if (!hasPunches && !isNoAttendance && activeContractInMonth) {
+          category = 'ZERO_ATTENDANCE';
+          categoryLabel = 'Zero Attendance';
+          badgeColor = 'warning';
+          reason = `0 days of attendance logged in month under ${emp.attendance_policy_name || 'tracking policy'}.`;
+          action = 'Verify if employee was on unapproved leave, or update exit date if resigned.';
+        } else if (supersededCoveringMonth && !activeContractInMonth && futureContract) {
+          category = 'CONTRACT_GAP';
+          categoryLabel = 'Contract Gap / Superseded';
+          badgeColor = 'warning';
+          reason = `Active contract begins ${futureContract.effective_from}; previous contract covering month was marked 'Superseded'.`;
+          action = `Adjust contract effective date or set prior contract #${supersededCoveringMonth.contract_id} as Active.`;
+        } else if (!activeContractInMonth) {
+          category = 'MISSING_CONTRACT';
+          categoryLabel = 'No Salary Structure';
+          badgeColor = 'danger';
+          reason = `No active salary template or contract assigned (LPA ₹0.00).`;
+          action = 'Assign a Salary Structure Template under Employee Profile → Compensation.';
+        }
+
+        excludedList.push({
+          id: emp.id,
+          employeeNumber: emp.EmployeeNumber,
+          fullName: emp.FullName,
+          department: emp.department || '—',
+          designation: emp.designation || '—',
+          dateJoined: dateJoinedStr,
+          attendanceDays: totalAttDays,
+          attendancePolicy: emp.attendance_policy_name || 'Standard',
+          category,
+          categoryLabel,
+          badgeColor,
+          reason,
+          action
+        });
+      }
+    }
+
+    const payload = {
+      month: `${year}-${String(month).padStart(2, '0')}`,
+      totalWorking: allEmployees.length,
+      includedCount: includedList.length,
+      excludedCount: excludedList.length,
+      readinessPercentage: Math.round((includedList.length / (allEmployees.length || 1)) * 1000) / 10,
+      categories: {
+        missingContract: excludedList.filter(e => e.category === 'MISSING_CONTRACT').length,
+        contractGap: excludedList.filter(e => e.category === 'CONTRACT_GAP').length,
+        zeroAttendance: excludedList.filter(e => e.category === 'ZERO_ATTENDANCE').length,
+        futureJoiner: excludedList.filter(e => e.category === 'FUTURE_JOINER').length
+      },
+      excludedEmployees: excludedList,
+      includedEmployees: includedList
+    };
+
+    return ok(res, payload);
+  } catch (err) {
+    return fail(res, 500, err.message);
+  } finally {
+    if (c) c.end();
+  }
+}
+
 module.exports = {
   previewRun,
   validateRun,
@@ -2473,5 +2691,6 @@ module.exports = {
   getPaymentBatches,
   markPaymentBatchPaid,
   exportTransferStatement,
-  calculateDryRunFinancials
+  calculateDryRunFinancials,
+  getPayrollReconciliation
 };

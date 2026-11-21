@@ -100,6 +100,20 @@ export class PayrollProcessPage implements OnInit {
   isCancelling = false;
   isExporting = false;
 
+  // ─── Workforce Reconciliation for Financial Admins ────────
+  reconciliationData: any = null;
+  isLoadingReconciliation = false;
+  reconciliationFilter: string = 'ALL';
+  showReconciliationDetails = false;
+
+  get filteredExcludedEmployees(): any[] {
+    if (!this.reconciliationData?.excludedEmployees) return [];
+    if (this.reconciliationFilter === 'ALL') {
+      return this.reconciliationData.excludedEmployees;
+    }
+    return this.reconciliationData.excludedEmployees.filter((e: any) => e.category === this.reconciliationFilter);
+  }
+
   constructor(
     private fb: FormBuilder,
     private payrollApi: PayrollApiService,
@@ -236,6 +250,7 @@ export class PayrollProcessPage implements OnInit {
         this.selectedRun = null;
         this.previewData = null;
         this.fullDetailedPreview = [];
+        this.reconciliationData = null;
         this.validationResult = null;
         this.lockResult = null;
         this.paidResult = null;
@@ -274,6 +289,7 @@ export class PayrollProcessPage implements OnInit {
     this.processForm.patchValue({ month }, { emitEvent: false });
     this.previewForm.patchValue({ month }, { emitEvent: false });
     this.previewData = null;
+    this.reconciliationData = null;
     this.validationResult = null;
     this.lockResult = null;
     this.paidResult = null;
@@ -356,6 +372,7 @@ export class PayrollProcessPage implements OnInit {
     this.lastestrun = [];
     this.selectedRun = null;
     this.previewData = null;
+    this.reconciliationData = null;
     this.validationResult = null;
     this.lockResult = null;
     this.paidResult = null;
@@ -410,6 +427,7 @@ navigateToExecution() {
         this.isRunning = false;
         this.saveMonthStage(this.selectedMonth, 'summary');
         this.toaster.showSuccess(`Payroll run #${res.data?.runId} created.`);
+        this.goToStep('summary');
       },
       error: (err) => {
         this.isRunning = false;
@@ -452,6 +470,7 @@ navigateToExecution() {
 
   loadSummary() {
     this.isLoadingSummary = true;
+    this.loadReconciliation();
     this.payrollApi.getV2RunSummary(this.selectedMonth).subscribe({
       next: (res) => {
         this.runList = res || [];
@@ -476,6 +495,62 @@ navigateToExecution() {
         console.error(err);
       }
     });
+  }
+
+  loadReconciliation() {
+    this.isLoadingReconciliation = true;
+    this.payrollApi.getV2PayrollReconciliation(this.selectedMonth).subscribe({
+      next: (res) => {
+        this.reconciliationData = res?.data || null;
+        this.isLoadingReconciliation = false;
+      },
+      error: (err) => {
+        this.isLoadingReconciliation = false;
+        console.error('Failed to load payroll reconciliation:', err);
+      }
+    });
+  }
+
+  setReconciliationFilter(filter: string) {
+    this.reconciliationFilter = filter;
+  }
+
+  toggleReconciliationDetails() {
+    this.showReconciliationDetails = !this.showReconciliationDetails;
+  }
+
+  exportReconciliationExcel() {
+    if (!this.reconciliationData?.excludedEmployees?.length) {
+      this.toaster.showError('No excluded employees data available to export.');
+      return;
+    }
+
+    const data = this.reconciliationData.excludedEmployees.map((emp: any, idx: number) => ({
+      'S.No': idx + 1,
+      'Employee Code': emp.employeeNumber,
+      'Employee Name': emp.fullName,
+      'Department': emp.department,
+      'Designation': emp.designation,
+      'Date of Joining': emp.dateJoined || '',
+      'Month Attendance (Days)': emp.attendanceDays,
+      'Attendance Policy': emp.attendancePolicy,
+      'Exclusion Category': emp.categoryLabel,
+      'Reason for Exclusion': emp.reason,
+      'Recommended Action': emp.action
+    }));
+
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Excluded Employees');
+
+    const colWidths = Object.keys(data[0] || {}).map(key => ({
+      wch: Math.max(key.length, 18)
+    }));
+    ws['!cols'] = colWidths;
+
+    const filename = `Payroll_Exclusion_Reconciliation_${this.selectedMonth}.xlsx`;
+    XLSX.writeFile(wb, filename);
+    this.toaster.showSuccess(`Exported ${data.length} excluded employee records successfully`);
   }
 
   /** Called when user clicks a run card in the list */
@@ -858,6 +933,9 @@ navigateToExecution() {
       const medical = getComp(emp, 'Medical Allowance', 'MEDICAL');
       const transport = getComp(emp, 'Transport Allowance', 'Conveyance Allowance', 'TRANSPORT ALLOWANCE', 'CONVEYANCE');
       const special = getComp(emp, 'Special Allowance', 'SPECIAL');
+      const bonus = getComp(emp, 'Bonus / Incentive', 'BONUS') || Number(emp.bonus || 0);
+      const arrears = getComp(emp, 'Salary Arrears', 'ARREAR') || Number(emp.arrears || 0);
+      const overtime = getComp(emp, 'Overtime Payment', 'OVERTIME') || Number(emp.overtime || 0);
 
       const grossA = Number(emp.total_earnings || 0);
       const pfEmployee = this.getEmployeePf(emp);
@@ -871,9 +949,9 @@ navigateToExecution() {
       const totalDeductionsC = Math.max(0, Number(emp.total_deductions || 0) - totalContributionsB);
       const netPayABC = grossA - totalContributionsB - totalDeductionsC;
 
-      const cashAdvanceD = 0;
+      const cashAdvanceD = Number(emp.cash_advance || 0);
       const settlementE = 0;
-      const reimbursementF = 0;
+      const reimbursementF = Number(emp.total_reimbursements || 0);
       const totalNetPay = netPayABC + cashAdvanceD + settlementE + reimbursementF;
 
       const calDays = emp.calendar_days || 30;
@@ -920,6 +998,9 @@ navigateToExecution() {
         'Medical Allowance': medical,
         'Transport Allowance': transport,
         'Special Allowance': special,
+        'Bonus': bonus,
+        'Arrears': arrears,
+        'Overtime': overtime,
         'Gross(A)': grossA,
         'PF - Employer': pfEmployer,
         'ESI Employer': esiEmployer,

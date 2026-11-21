@@ -91,6 +91,9 @@ router.get('/v2/run', auth, finance, async (req, res) => {
     }
 });
 
+// GET /api/payroll/v2/reconciliation?month=YYYY-MM  -> workforce & exclusion reconciliation for month
+router.get('/v2/reconciliation', auth, finance, payrollAdmin.getPayrollReconciliation);
+
 // DELETE /api/payroll/v2/run/:runId or DELETE /api/payroll/v2/run?month=YYYY-MM
 // Cancel and delete all run records for that run/month so the user can start from again
 async function handleCancelPayrollRun(req, res) {
@@ -231,15 +234,15 @@ router.get('/v2/earnings/:employeeId', auth, resolvePayrollEmployeeContext, asyn
              WHERE s.employee_id = ? AND cy.year = ? AND cy.month = ? AND b.component_type = 'EARNING'`,
             [employeeId, year, mon]
         );
-        
+
         if (rows.length > 0) {
             return res.json(rows);
         }
 
         // Fallback: Compute live monthly breakdown from current structure
-        const live = await payrollService.getSalaryStructureForEmployee(employeeId, { 
-            monthly: true, 
-            date: `${year}-${String(mon).padStart(2, '0')}-01` 
+        const live = await payrollService.getSalaryStructureForEmployee(employeeId, {
+            monthly: true,
+            date: `${year}-${String(mon).padStart(2, '0')}-01`
         });
 
         if (!live) return res.json([]);
@@ -285,9 +288,9 @@ router.get('/v2/deductions/:employeeId', auth, resolvePayrollEmployeeContext, as
         }
 
         // Fallback: Compute live monthly breakdown from current structure
-        const live = await payrollService.getSalaryStructureForEmployee(employeeId, { 
-            monthly: true, 
-            date: `${year}-${String(mon).padStart(2, '0')}-01` 
+        const live = await payrollService.getSalaryStructureForEmployee(employeeId, {
+            monthly: true,
+            date: `${year}-${String(mon).padStart(2, '0')}-01`
         });
 
         if (!live) return res.json([]);
@@ -594,7 +597,7 @@ router.get("/salary/structure/:empId", auth, async (req, res) => {
     markLegacySalaryStructureRoute(res);
     const empId = parseInt(req.params.empId);
     const userRole = (req.user.role || '').toLowerCase();
-    
+
     // Check authorization: only self, HR, or Admin
     if (userRole !== 'admin' && userRole !== 'hr') {
         const viewerEmployee = await findEmployeeByUserId(req.user.id);
@@ -602,7 +605,7 @@ router.get("/salary/structure/:empId", auth, async (req, res) => {
             return res.status(403).json({ error: "Unauthorized to view this employee's salary structure" });
         }
     }
-    
+
     let c = null;
     try {
         c = await db();
@@ -626,7 +629,7 @@ router.get("/salary/structure/:empId", auth, async (req, res) => {
 router.post("/generate", auth, finance, async (req, res) => {
     const { month, year } = req.body;
     let c = null;
-    
+
     try {
         c = await db();
         // Create payroll run
@@ -635,12 +638,12 @@ router.post("/generate", auth, finance, async (req, res) => {
             [month, year, req.user.id]
         );
         const runId = runResult.insertId;
-        
+
         // Get all active employees
         const [employees] = await c.query("SELECT id FROM employees WHERE status = 'active'");
-        
+
         let processedCount = 0;
-        
+
         for (const emp of employees) {
             // Get salary structure as rows
             const [structureRows] = await c.query("SELECT component_name, component_value FROM salary_structures WHERE employee_id = ?", [emp.id]);
@@ -671,24 +674,24 @@ router.post("/generate", auth, finance, async (req, res) => {
                  pf, esi, professional_tax, other_deductions, total_deductions, 
                  net_salary, days_worked, days_in_month, status) 
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'generated')`,
-                [runId, emp.id, month, year, 
-                 basicEarned, hraEarned, conveyanceEarned, specialAllowanceEarned, grossEarned,
-                 s.pf, s.esi, s.professional_tax, s.other_deductions, 
-                 (s.pf + s.esi + s.professional_tax + s.other_deductions),
-                 netEarned, presentDays, workingDays]
+                [runId, emp.id, month, year,
+                    basicEarned, hraEarned, conveyanceEarned, specialAllowanceEarned, grossEarned,
+                    s.pf, s.esi, s.professional_tax, s.other_deductions,
+                    (s.pf + s.esi + s.professional_tax + s.other_deductions),
+                    netEarned, presentDays, workingDays]
             );
-            
+
             processedCount++;
         }
-        
+
         // Update run status
         await c.query(
             "UPDATE payroll_runs SET status = 'completed', completed_at = NOW() WHERE id = ?",
             [runId]
         );
-        
+
         res.json({ success: true, run_id: runId, processed: processedCount });
-        
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     } finally {
@@ -737,34 +740,34 @@ router.get("/:run", auth, finance, async (req, res) => {
 router.post("/recalculate/:empId", auth, finance, async (req, res) => {
     const { empId } = req.params;
     const { month, year } = req.body;
-    
+
     let c = null;
-    
+
     try {
         c = await db();
         // Get salary structure
         const [structure] = await c.query("SELECT * FROM salary_structures WHERE employee_id = ?", [empId]);
-        
+
         if (structure.length === 0) {
             return res.status(404).json({ error: "Salary structure not found" });
         }
-        
+
         const s = structure[0];
-        
+
         // Calculate attendance
         const [attendance] = await c.query(
             "SELECT COUNT(*) as present_days FROM attendance WHERE employee_id = ? AND MONTH(attendance_date) = ? AND YEAR(attendance_date) = ? AND status = 'present'",
             [empId, month, year]
         );
-        
+
         const presentDays = attendance[0]?.present_days || 0;
         const workingDays = 30;
-        
+
         const basicEarned = (s.basic / workingDays) * presentDays;
         const hraEarned = (s.hra / workingDays) * presentDays;
         const grossEarned = basicEarned + hraEarned + (s.conveyance || 0) + (s.special_allowance || 0);
         const netEarned = grossEarned - (s.pf + s.esi + s.professional_tax + s.other_deductions);
-        
+
         // Update existing slip or create new one
         await c.query(
             `INSERT INTO payroll_slips (employee_id, month, year, basic, hra, gross_salary, pf, esi, professional_tax, net_salary, days_worked, days_in_month)
@@ -772,9 +775,9 @@ router.post("/recalculate/:empId", auth, finance, async (req, res) => {
              ON DUPLICATE KEY UPDATE basic=VALUES(basic), hra=VALUES(hra), gross_salary=VALUES(gross_salary), net_salary=VALUES(net_salary), days_worked=VALUES(days_worked)`,
             [empId, month, year, basicEarned, hraEarned, grossEarned, s.pf, s.esi, s.professional_tax, netEarned, presentDays, workingDays]
         );
-        
+
         res.json({ success: true, net_salary: netEarned });
-        
+
     } catch (error) {
         res.status(500).json({ error: error.message });
     } finally {
@@ -804,7 +807,7 @@ router.get("/slips/all", auth, finance, async (req, res) => {
 router.get("/slips/employee/:employee_id", auth, async (req, res) => {
     const employeeId = parseInt(req.params.employee_id);
     const userRole = (req.user.role || '').toLowerCase();
-    
+
     // Check authorization: only self, HR, or Admin
     if (userRole !== 'admin' && userRole !== 'hr') {
         const viewerEmployee = await findEmployeeByUserId(req.user.id);
@@ -812,11 +815,11 @@ router.get("/slips/employee/:employee_id", auth, async (req, res) => {
             return res.status(403).json({ error: "Unauthorized to view this employee's payslips" });
         }
     }
-    
+
     let c = null;
     try {
         c = await db();
-        const [r] = await c.query("SELECT * FROM payroll_slips WHERE employee_id = ? ORDER BY year DESC, month DESC", 
+        const [r] = await c.query("SELECT * FROM payroll_slips WHERE employee_id = ? ORDER BY year DESC, month DESC",
             [employeeId]);
         res.json(r);
     } catch (error) {
@@ -830,7 +833,7 @@ router.get("/slips/employee/:employee_id", auth, async (req, res) => {
 router.get("/slips/:employee_id/:slip_id", auth, async (req, res) => {
     const employeeId = parseInt(req.params.employee_id);
     const userRole = (req.user.role || '').toLowerCase();
-    
+
     // Check authorization: only self, HR, or Admin
     if (userRole !== 'admin' && userRole !== 'hr') {
         const viewerEmployee = await findEmployeeByUserId(req.user.id);
@@ -838,11 +841,11 @@ router.get("/slips/:employee_id/:slip_id", auth, async (req, res) => {
             return res.status(403).json({ error: "Unauthorized to view this payslip" });
         }
     }
-    
+
     let c = null;
     try {
         c = await db();
-        const [r] = await c.query("SELECT * FROM payroll_slips WHERE employee_id = ? AND id = ?", 
+        const [r] = await c.query("SELECT * FROM payroll_slips WHERE employee_id = ? AND id = ?",
             [employeeId, req.params.slip_id]);
         res.json(r[0] || null);
     } catch (error) {
@@ -858,14 +861,14 @@ router.get("/slip/:id", auth, async (req, res) => {
     try {
         c = await db();
         const [r] = await c.query("SELECT * FROM payroll_slips WHERE id = ?", [req.params.id]);
-        
+
         if (r.length === 0) {
             return res.status(404).json({ error: "Payslip not found" });
         }
-        
+
         const payslip = r[0];
         const userRole = (req.user.role || '').toLowerCase();
-        
+
         // Check authorization: only self, HR, or Admin
         if (userRole !== 'admin' && userRole !== 'hr') {
             const viewerEmployee = await findEmployeeByUserId(req.user.id);
@@ -873,7 +876,7 @@ router.get("/slip/:id", auth, async (req, res) => {
                 return res.status(403).json({ error: "Unauthorized to view this payslip" });
             }
         }
-        
+
         res.json(payslip);
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -1426,7 +1429,7 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
         const att = attMap.get(dateStr);
         const bio = bioMap.get(dateStr);
         const hasWorked = (att && (att.first_check_in || parseFloat(att.gross_hours) > 0) && !(att.notes || '').includes('[REGULARIZED]')) ||
-                          (bio && parseFloat(bio.gross_hours) > 0);
+            (bio && parseFloat(bio.gross_hours) > 0);
 
         if (hasWorked) {
             presentDates.push(dateStr);
@@ -2175,7 +2178,7 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                 }
 
                 const empName = esc.FullName || `${esc.FirstName || ''} ${esc.LastName || ''}`.trim();
-                const effectiveDateStr = esc.effective_from 
+                const effectiveDateStr = esc.effective_from
                     ? new Date(esc.effective_from).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                     : `01 ${mShort} ${year}`;
 
@@ -2650,6 +2653,359 @@ router.delete("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res
     } finally {
         if (c) await c.end();
     }
+});
+
+/* =====================================================
+   REIMBURSEMENT, ADHOC PAYMENT, DEDUCTION (STEP 4)
+   ===================================================== */
+
+// GET /api/payroll/v2/reimbursement-adhoc-deduction?month=YYYY-MM
+router.get("/v2/reimbursement-adhoc-deduction", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month } = req.query;
+        const [yStr, mStr] = (month || '2026-11').split('-');
+        const year = parseInt(yStr, 10) || 2026;
+        const monthNum = parseInt(mStr, 10) || 11;
+        const targetMonth = month || `${year}-${String(monthNum).padStart(2, '0')}`;
+
+        c = await db();
+
+        // Query active employees for selection dropdown
+        const [employees] = await c.query(`
+            SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   e.DateJoined, d.name AS DepartmentName, des.name AS DesignationName,
+                   esc.annual_ctc, e.lpa
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+            WHERE (e.EmploymentStatus != 'Relieved' OR e.EmploymentStatus IS NULL)
+            ORDER BY e.id ASC
+        `);
+
+        const workingEmployees = employees.map(emp => {
+            const annualCtc = Number(emp.annual_ctc) || Number(emp.lpa) || 0;
+            const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+            return {
+                id: emp.id,
+                employee_code: emp.EmployeeNumber,
+                employee_name: emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim(),
+                department: emp.DepartmentName || 'General',
+                designation: emp.DesignationName || 'Staff',
+                monthly_salary: monthlyGross,
+                annual_ctc: annualCtc
+            };
+        });
+
+        // Load records from payroll_adjustments for targetMonth
+        const [adjRows] = await c.query(`
+            SELECT pa.*, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   d.name AS DepartmentName, des.name AS DesignationName
+            FROM payroll_adjustments pa
+            JOIN employees e ON pa.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            WHERE pa.payroll_month = ?
+            ORDER BY pa.id DESC
+        `, [targetMonth]);
+
+        const claimRecords = [];
+        const expenseRecords = [];
+        const adhocPaymentRecords = [];
+        const adhocDeductionRecords = [];
+
+        (adjRows || []).forEach(row => {
+            const empName = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim();
+            let parsedReason = {};
+            try {
+                parsedReason = typeof row.reason === 'string' && row.reason.startsWith('{')
+                    ? JSON.parse(row.reason)
+                    : { comments: row.reason || '' };
+            } catch (_) {
+                parsedReason = { comments: row.reason || '' };
+            }
+
+            const baseRec = {
+                id: row.id,
+                employee_id: row.employee_id,
+                employee_code: row.EmployeeNumber,
+                employee_name: empName,
+                department: row.DepartmentName || 'General',
+                designation: row.DesignationName || 'Staff',
+                amount: Number(row.amount) || 0,
+                amount_formatted: `INR ${(Number(row.amount) || 0).toLocaleString('en-IN')}`,
+                comment: parsedReason.comments || parsedReason.comment || row.reason || '',
+                raw_reason: parsedReason
+            };
+
+            const type = (row.adjustment_type || '').toUpperCase();
+            if (type === 'CLAIM' || type === 'SALARY_CLAIM') {
+                claimRecords.push({
+                    ...baseRec,
+                    claim_type: parsedReason.claim_type || 'Fuel Allowance',
+                    status: parsedReason.status || 'Approved'
+                });
+            } else if (type === 'EXPENSE') {
+                expenseRecords.push({
+                    ...baseRec,
+                    expense_category: parsedReason.expense_category || 'Travel & Food',
+                    bill_attached: !!parsedReason.bill_attached
+                });
+            } else if (type === 'ADHOC_PAYMENT' || type === 'ADVANCE_PAYMENT') {
+                adhocPaymentRecords.push({
+                    ...baseRec,
+                    payment_type: parsedReason.payment_type || 'Special Allowance',
+                    pay_action: parsedReason.pay_action || 'Process with salary'
+                });
+            } else if (type === 'DEDUCTION') {
+                adhocDeductionRecords.push({
+                    ...baseRec,
+                    deduction_type: parsedReason.deduction_type || 'Advance Recovery',
+                    pay_action: parsedReason.pay_action || 'Deduct from salary'
+                });
+            }
+        });
+
+        const totalClaims = claimRecords.reduce((s, r) => s + r.amount, 0);
+        const totalExpenses = expenseRecords.reduce((s, r) => s + r.amount, 0);
+        const totalAdhocPayments = adhocPaymentRecords.reduce((s, r) => s + r.amount, 0);
+        const totalAdhocDeductions = adhocDeductionRecords.reduce((s, r) => s + r.amount, 0);
+
+        res.json({
+            success: true,
+            targetMonth,
+            employees: workingEmployees,
+            claimRecords,
+            expenseRecords,
+            adhocPaymentRecords,
+            adhocDeductionRecords,
+            summaryData: {
+                totalClaims,
+                totalExpenses,
+                totalAdhocPayments,
+                totalAdhocDeductions,
+                countClaims: claimRecords.length,
+                countExpenses: expenseRecords.length,
+                countAdhocPayments: adhocPaymentRecords.length,
+                countAdhocDeductions: adhocDeductionRecords.length
+            }
+        });
+    } catch (err) {
+        console.error("Error loading reimbursement, adhoc & deductions:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/reimbursement-adhoc-deduction/save-step
+router.post("/v2/reimbursement-adhoc-deduction/save-step", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month, step, records } = req.body;
+        const targetMonth = month || '2026-11';
+        c = await db();
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        let type = 'DEDUCTION';
+        if (step === 1) type = 'CLAIM';
+        else if (step === 2) type = 'EXPENSE';
+        else if (step === 3) type = 'ADHOC_PAYMENT';
+        else if (step === 4) type = 'DEDUCTION';
+
+        await c.query(`DELETE FROM payroll_adjustments WHERE payroll_month = ? AND adjustment_type = ?`, [targetMonth, type]);
+
+        if (Array.isArray(records) && records.length > 0) {
+            for (const rec of records) {
+                const amt = Number(rec.amount) || 0;
+                if (amt > 0 && (rec.employee_id || rec.id)) {
+                    const empId = rec.employee_id || rec.id;
+                    const reason = JSON.stringify({
+                        deduction_type: rec.deduction_type || rec.type || 'Adhoc Deduction',
+                        claim_type: rec.claim_type,
+                        expense_category: rec.expense_category,
+                        payment_type: rec.payment_type,
+                        comments: rec.comment || rec.comments || ''
+                    });
+                    await c.query(`
+                        INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                        VALUES (?, ?, ?, ?, ?, ?, NOW())
+                    `, [empId, targetMonth, type, amt, reason, userId]);
+                }
+            }
+        }
+
+        res.json({ success: true, message: `Step ${step} adjustments saved successfully` });
+    } catch (err) {
+        console.error("Error saving reimbursement-adhoc step:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/reimbursement-adhoc-deduction/deduction (Add single deduction)
+router.post("/v2/reimbursement-adhoc-deduction/deduction", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employee_id, month, deduction_type, amount, comment } = req.body;
+        const empId = Number(employee_id);
+        const amt = Number(amount) || 0;
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!empId || amt <= 0) {
+            return res.status(400).json({ success: false, error: 'Valid employee and positive amount required' });
+        }
+
+        c = await db();
+
+        const reason = JSON.stringify({
+            deduction_type: deduction_type || 'Advance Recovery',
+            comments: comment || ''
+        });
+
+        const [result] = await c.query(`
+            INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+            VALUES (?, ?, 'DEDUCTION', ?, ?, ?, NOW())
+        `, [empId, targetMonth, amt, reason, userId]);
+
+        res.json({ success: true, id: result.insertId, message: 'Adhoc deduction added successfully' });
+    } catch (err) {
+        console.error("Error creating adhoc deduction:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// PUT /api/payroll/v2/reimbursement-adhoc-deduction/deduction/:id (Edit single deduction)
+router.put("/v2/reimbursement-adhoc-deduction/deduction/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        const { deduction_type, amount, comment } = req.body;
+        const amt = Number(amount) || 0;
+
+        c = await db();
+
+        const [existing] = await c.query(`SELECT * FROM payroll_adjustments WHERE id = ?`, [id]);
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, error: 'Record not found' });
+        }
+
+        let parsedReason = {};
+        try {
+            parsedReason = typeof existing[0].reason === 'string' && existing[0].reason.startsWith('{')
+                ? JSON.parse(existing[0].reason)
+                : {};
+        } catch (_) { }
+
+        parsedReason.deduction_type = deduction_type || parsedReason.deduction_type || 'Advance Recovery';
+        parsedReason.comments = comment !== undefined ? comment : (parsedReason.comments || '');
+
+        await c.query(`
+            UPDATE payroll_adjustments 
+            SET amount = ?, reason = ?
+            WHERE id = ?
+        `, [amt, JSON.stringify(parsedReason), id]);
+
+        res.json({ success: true, message: 'Adhoc deduction updated successfully' });
+    } catch (err) {
+        console.error("Error updating adhoc deduction:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// DELETE /api/payroll/v2/reimbursement-adhoc-deduction/deduction/:id
+router.delete("/v2/reimbursement-adhoc-deduction/deduction/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        c = await db();
+        await c.query(`DELETE FROM payroll_adjustments WHERE id = ?`, [id]);
+        res.json({ success: true, message: 'Adhoc deduction deleted successfully' });
+    } catch (err) {
+        console.error("Error deleting adhoc deduction:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/reimbursement-adhoc-deduction/bulk-delete
+router.post("/v2/reimbursement-adhoc-deduction/bulk-delete", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, error: 'Array of ids required' });
+        }
+        c = await db();
+        await c.query(`DELETE FROM payroll_adjustments WHERE id IN (?)`, [ids]);
+        res.json({ success: true, message: `${ids.length} records deleted successfully` });
+    } catch (err) {
+        console.error("Error bulk deleting deductions:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/reimbursement-adhoc-deduction/import-previous-month
+router.post("/v2/reimbursement-adhoc-deduction/import-previous-month", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { current_month, step } = req.body;
+        const [yStr, mStr] = (current_month || '2026-11').split('-');
+        let prevY = parseInt(yStr, 10);
+        let prevM = parseInt(mStr, 10) - 1;
+        if (prevM < 1) { prevM = 12; prevY--; }
+        const prevMonthStr = `${prevY}-${String(prevM).padStart(2, '0')}`;
+        const targetMonth = current_month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        let adjType = 'DEDUCTION';
+        if (step === 1) adjType = 'CLAIM';
+        else if (step === 2) adjType = 'EXPENSE';
+        else if (step === 3) adjType = 'ADHOC_PAYMENT';
+        else if (step === 4) adjType = 'DEDUCTION';
+
+        c = await db();
+
+        const [prevRows] = await c.query(
+            `SELECT employee_id, amount, reason FROM payroll_adjustments WHERE payroll_month = ? AND adjustment_type = ?`,
+            [prevMonthStr, adjType]
+        );
+
+        if (!prevRows || prevRows.length === 0) {
+            return res.json({ success: true, importedCount: 0, message: `No ${adjType} records found in ${prevMonthStr}` });
+        }
+
+        let imported = 0;
+        for (const row of prevRows) {
+            await c.query(`
+                INSERT INTO payroll_adjustments (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, NOW())
+            `, [row.employee_id, targetMonth, adjType, row.amount, row.reason, userId]);
+            imported++;
+        }
+
+        res.json({ success: true, importedCount: imported, message: `Imported ${imported} records from ${prevMonthStr}` });
+    } catch (err) {
+        console.error("Error importing previous month deductions:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/reimbursement-adhoc-deduction/mark-complete
+router.post("/v2/reimbursement-adhoc-deduction/mark-complete", auth, async (req, res) => {
+    res.json({ success: true, message: 'Step 4 (Reimbursement, Adhoc Payment, Deduction) marked as completed' });
 });
 
 module.exports = router;

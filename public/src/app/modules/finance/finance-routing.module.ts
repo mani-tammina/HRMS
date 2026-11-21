@@ -67,6 +67,14 @@ const routes: Routes = [
     loadChildren: () => import('./bonus-revisions-overtime/bonus-revisions-overtime.module').then(m => m.BonusRevisionsOvertimePageModule)
   },
   {
+    path: 'run-payroll/reimbursement-adhoc-deduction',
+    loadChildren: () => import('./reimbursement-adhoc-deduction/reimbursement-adhoc-deduction.module').then(m => m.ReimbursementAdhocDeductionPageModule)
+  },
+  {
+    path: 'reimbursement-adhoc-deduction',
+    loadChildren: () => import('./reimbursement-adhoc-deduction/reimbursement-adhoc-deduction.module').then(m => m.ReimbursementAdhocDeductionPageModule)
+  },
+  {
     path: 'dashboard',
     loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
   },

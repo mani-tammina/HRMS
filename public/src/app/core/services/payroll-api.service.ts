@@ -141,7 +141,7 @@ export interface V2RunResponse {
     runId: number;
     cycleId: number;
     totalEmployees: number;
-  payingEmployees?: number;
+    payingEmployees?: number;
     totalGross: number;
     totalDeductions: number;
     totalNet: number;
@@ -238,7 +238,7 @@ export interface PayrollValidationResult {
   data: {
     month: string;
     totalEmployees: number;
-  payingEmployees?: number;
+    payingEmployees?: number;
     withSalaryStructure: number;
     withAttendance: number;
     missingSalaryStructureCount: number;
@@ -257,7 +257,7 @@ export interface PayrollPreviewResponse {
     validation: {
       month: string;
       totalEmployees: number;
-  payingEmployees?: number;
+      payingEmployees?: number;
       withSalaryStructure: number;
       withAttendance: number;
       missingSalaryStructureCount: number;
@@ -570,12 +570,18 @@ export class PayrollApiService {
     return this.http.get<V2RunSummary[]>(`${this.baseUrl}/payroll/v2/run`, { headers: this.getHeaders(), params });
   }
 
+  /** GET /api/payroll/v2/reconciliation?month=YYYY-MM — Workforce and exclusion reconciliation */
+  getV2PayrollReconciliation(month: string): Observable<any> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get<any>(`${this.baseUrl}/payroll/v2/reconciliation`, { headers: this.getHeaders(), params });
+  }
+
   /** DELETE /api/payroll/v2/run/:runId?month=YYYY-MM — Cancel/delete a payroll run so the month can be started again */
   cancelPayrollRun(runId?: number | null, month?: string): Observable<any> {
     let params = new HttpParams();
     if (month) params = params.set('month', month);
-    const url = runId 
-      ? `${this.baseUrl}/payroll/v2/run/${runId}` 
+    const url = runId
+      ? `${this.baseUrl}/payroll/v2/run/${runId}`
       : `${this.baseUrl}/payroll/v2/run`;
     return this.http.delete(url, { headers: this.getHeaders(), params });
   }
