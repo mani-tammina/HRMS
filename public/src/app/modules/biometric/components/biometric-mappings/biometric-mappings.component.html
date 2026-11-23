@@ -73,7 +73,7 @@
           <tr *ngFor="let m of filteredMappings">
             <td>
               <div class="employee-identity">
-                <div class="avatar-circle">{{ m.FirstName?.charAt(0) }}{{ m.LastName?.charAt(0) }}</div>
+                <div class="avatar-circle">{{ m.FirstName.charAt(0) }}{{ m.LastName.charAt(0) }}</div>
                 <div class="employee-meta">
                   <span class="employee-name">{{ m.FirstName }} {{ m.LastName }}</span>
                   <span class="employee-email">{{ m.WorkEmail }}</span>

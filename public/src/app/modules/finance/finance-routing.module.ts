@@ -75,6 +75,14 @@ const routes: Routes = [
     loadChildren: () => import('./reimbursement-adhoc-deduction/reimbursement-adhoc-deduction.module').then(m => m.ReimbursementAdhocDeductionPageModule)
   },
   {
+    path: 'run-payroll/salaries-on-hold-arrears',
+    loadChildren: () => import('./salaries-on-hold-arrears/salaries-on-hold-arrears.module').then(m => m.SalariesOnHoldArrearsPageModule)
+  },
+  {
+    path: 'salaries-on-hold-arrears',
+    loadChildren: () => import('./salaries-on-hold-arrears/salaries-on-hold-arrears.module').then(m => m.SalariesOnHoldArrearsPageModule)
+  },
+  {
     path: 'dashboard',
     loadChildren: () => import('./payroll-dashboard/payroll-dashboard.module').then(m => m.PayrollDashboardPageModule)
   },

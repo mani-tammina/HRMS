@@ -654,6 +654,10 @@
             <input type="number" [(ngModel)]="newHikePct" (ngModelChange)="onNewHikeChange()" placeholder="e.g. 12" class="modal-input" />
           </div>
           <div class="form-group-modal">
+            <label class="modal-label">Effective Date *</label>
+            <input type="date" [(ngModel)]="newEffectiveDate" (ngModelChange)="onNewEffectiveDateChange()" class="modal-input" />
+          </div>
+          <div class="form-group-modal">
             <label class="modal-label">Revision Action</label>
             <select [(ngModel)]="newRevisionAction" class="modal-select">
               <option value="Process as salary">Process as salary</option>
@@ -664,11 +668,37 @@
           </div>
           <div class="form-group-modal">
             <label class="modal-label">Arrears Months Applicable</label>
-            <input type="number" [(ngModel)]="newArrearsMonths" placeholder="e.g. 1" min="0" max="12" class="modal-input" />
+            <input type="number" [(ngModel)]="newArrearsMonths" placeholder="0" min="0" max="12" class="modal-input" />
+            <small class="helper-text" *ngIf="newArrearsMonths === 0" style="color: #10b981; margin-top: 4px; display: block; font-size: 11.5px;">
+              ✓ Effective in this payroll month. Arrears = 0 (revised salary applies directly).
+            </small>
+            <small class="helper-text" *ngIf="newArrearsMonths > 0" style="color: #f59e0b; margin-top: 4px; display: block; font-size: 11.5px;">
+              ⚠️ Retroactive hike: {{ newArrearsMonths }} month(s) arrears will be paid with this month's salary.
+            </small>
           </div>
           <div class="form-group-modal">
             <label class="modal-label">Remarks</label>
             <input type="text" [(ngModel)]="newRevisionComment" placeholder="Appraisal cycle note..." class="modal-input" />
+          </div>
+
+          <!-- Live Preview Summary Card -->
+          <div class="revision-calc-summary" *ngIf="newSalaryAnnual && newSalaryAnnual > 0" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
+              <span style="color: #64748b;">Previous Monthly:</span>
+              <span style="font-weight: 600;">INR {{ newPrevMonthly.toLocaleString('en-IN') }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
+              <span style="color: #64748b;">New Monthly Salary:</span>
+              <span style="font-weight: 600; color: #10b981;">INR {{ newRevMonthly.toLocaleString('en-IN') }} (+{{ newHikePct }}%)</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 12.5px;">
+              <span style="color: #64748b;">Arrears Amount ({{ newArrearsMonths }} mo):</span>
+              <span style="font-weight: 600; color: #f59e0b;">INR {{ newArrearsAmount.toLocaleString('en-IN') }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; padding-top: 6px; border-top: 1px dashed #cbd5e1; font-size: 13.5px;">
+              <span style="font-weight: 700; color: #1e293b;">Gross Pay This Month:</span>
+              <span style="font-weight: 700; color: #3b82f6;">INR {{ newGrossPayThisMonth.toLocaleString('en-IN') }}</span>
+            </div>
           </div>
         </ng-container>
 
@@ -787,7 +817,7 @@
 
           <div class="form-group-modal col-half">
             <label class="modal-label">Effective Date *</label>
-            <input type="date" [(ngModel)]="editEffectiveDate" class="modal-input" />
+            <input type="date" [(ngModel)]="editEffectiveDate" (ngModelChange)="onEditEffectiveDateChange()" class="modal-input" />
           </div>
         </div>
 
@@ -796,6 +826,12 @@
           <div class="form-group-modal col-half">
             <label class="modal-label">Arrears Months Applicable</label>
             <input type="number" [(ngModel)]="editArrearsMonths" min="0" max="12" class="modal-input" />
+            <small class="helper-text" *ngIf="editArrearsMonths === 0" style="color: #10b981; margin-top: 4px; display: block; font-size: 11.5px;">
+              ✓ Effective in this payroll month. Arrears = 0 (revised salary applies directly).
+            </small>
+            <small class="helper-text" *ngIf="editArrearsMonths > 0" style="color: #f59e0b; margin-top: 4px; display: block; font-size: 11.5px;">
+              ⚠️ Retroactive hike: {{ editArrearsMonths }} month(s) arrears will be paid with this month's salary.
+            </small>
           </div>
 
           <div class="form-group-modal col-half">

@@ -1,0 +1,821 @@
+<div class="soh-workflow-container">
+
+  <!-- ============================================
+       TOP HEADER & WORKFLOW STEPPER
+       ============================================ -->
+  <header class="soh-header">
+    <div class="header-left">
+      <h1 class="header-title">Salaries on Hold &amp; Arrears: {{ monthLabel }}</h1>
+    </div>
+
+    <!-- Center: 2-Step Stepper -->
+    <nav class="header-stepper" aria-label="Step 5 Stepper">
+      <!-- Step 1: SALARIES ON HOLD -->
+      <div class="stepper-item" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="setStep(1)">
+        <span class="step-badge">
+          <ion-icon name="checkmark-outline" *ngIf="currentStep > 1"></ion-icon>
+          <span *ngIf="currentStep <= 1">1</span>
+        </span>
+        <span class="step-label">SALARIES ON HOLD</span>
+      </div>
+
+      <div class="stepper-divider"></div>
+
+      <!-- Step 2: SALARY ARREARS -->
+      <div class="stepper-item" [class.active]="currentStep === 2" (click)="setStep(2)">
+        <span class="step-badge">2</span>
+        <span class="step-label">SALARY ARREARS</span>
+      </div>
+    </nav>
+
+    <!-- Right: Header Actions -->
+    <div class="header-right">
+      <button class="btn-back" type="button" (click)="handleBack()">
+        Back
+      </button>
+
+      <button class="btn-save-close" type="button" (click)="saveAndClose()">
+        Save &amp; Close
+      </button>
+
+      <button class="btn-mark-completed" type="button" (click)="markAsComplete()">
+        Mark as Complete
+      </button>
+
+      <button class="btn-close-header" type="button" (click)="closeWorkflow()" title="Close and return to Payroll Dashboard">
+        ✕
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================
+       MAIN CONTENT: SPLIT VIEW (TABLE + HELP PANEL)
+       ============================================ -->
+  <div class="soh-content-body">
+    <main class="soh-main-content">
+
+      <!-- Loading State -->
+      <div class="loading-state-box" *ngIf="isLoading">
+        <ion-spinner name="crescent" color="primary"></ion-spinner>
+        <p>Loading salaries on hold and arrears data...</p>
+      </div>
+
+      <div *ngIf="!isLoading">
+
+        <!-- ====================================================
+             KPI SUMMARY CARDS ROW
+             ==================================================== -->
+        <div class="kpi-cards-grid" *ngIf="currentStep === 1">
+          <div class="kpi-card danger-card">
+            <div class="kpi-icon-wrap danger-bg">
+              <ion-icon name="pause-circle-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ summaryData.totalHeldEmployees || 0 }}</span>
+              <span class="kpi-label">Salaries on Hold</span>
+            </div>
+          </div>
+
+          <div class="kpi-card warning-card">
+            <div class="kpi-icon-wrap warning-bg">
+              <ion-icon name="wallet-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ formatCurrency(summaryData.totalHeldAmount || 0) }}</span>
+              <span class="kpi-label">Total Held Gross Payout</span>
+            </div>
+          </div>
+
+          <div class="kpi-card success-card">
+            <div class="kpi-icon-wrap success-bg">
+              <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ summaryData.totalReleasedEmployees || 0 }}</span>
+              <span class="kpi-label">Released This Cycle</span>
+            </div>
+          </div>
+
+          <div class="kpi-card info-card">
+            <div class="kpi-icon-wrap info-bg">
+              <ion-icon name="people-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ workingEmployees.length }}</span>
+              <span class="kpi-label">Eligible Staff</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="kpi-cards-grid" *ngIf="currentStep === 2">
+          <div class="kpi-card purple-card">
+            <div class="kpi-icon-wrap purple-bg">
+              <ion-icon name="hourglass-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ summaryData.totalArrearsCount || 0 }}</span>
+              <span class="kpi-label">Total Arrear Records</span>
+            </div>
+          </div>
+
+          <div class="kpi-card success-card">
+            <div class="kpi-icon-wrap success-bg">
+              <ion-icon name="cash-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ formatCurrency(summaryData.totalArrearsAmount || 0) }}</span>
+              <span class="kpi-label">Total Arrears Payout</span>
+            </div>
+          </div>
+
+          <div class="kpi-card info-card">
+            <div class="kpi-icon-wrap info-bg">
+              <ion-icon name="person-add-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">{{ summaryData.totalArrearEmployees || 0 }}</span>
+              <span class="kpi-label">Staff Receiving Arrears</span>
+            </div>
+          </div>
+
+          <div class="kpi-card warning-card">
+            <div class="kpi-icon-wrap warning-bg">
+              <ion-icon name="receipt-outline"></ion-icon>
+            </div>
+            <div class="kpi-data">
+              <span class="kpi-val">ARREAR</span>
+              <span class="kpi-label">Earning Component</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ====================================================
+             STEP 1: SALARIES ON HOLD
+             ==================================================== -->
+        <section *ngIf="currentStep === 1" class="step-section">
+          <div class="section-heading-row">
+            <div>
+              <h2 class="step-section-title">Salaries on Hold</h2>
+              <p class="step-section-desc">Manage employee salaries withheld for {{ monthLabel }} due to verification, disciplinary, or separation procedures.</p>
+            </div>
+          </div>
+
+          <!-- Info Notice Banner -->
+          <div class="info-notice-banner warning-banner">
+            <ion-icon name="alert-circle-outline" class="banner-icon"></ion-icon>
+            <div class="banner-text-wrap">
+              <strong>Administrative Hold Policy:</strong>
+              <span>Employees with status <strong>ON HOLD</strong> will have their payslip and salary disbursement paused for {{ monthLabel }}. Releasing a hold allows paying it in the current or subsequent pay cycle as an arrear.</span>
+            </div>
+          </div>
+
+          <!-- Action Toolbar -->
+          <div class="table-toolbar">
+            <div class="toolbar-left-actions">
+              <div class="search-box">
+                <ion-icon name="search-outline"></ion-icon>
+                <input type="text" [(ngModel)]="searchTerm" placeholder="Search by name, code, reason..." class="search-input" />
+              </div>
+
+              <div class="filter-group">
+                <label>Status:</label>
+                <select [(ngModel)]="statusFilter" class="filter-select">
+                  <option value="ALL">All Status</option>
+                  <option value="ON_HOLD">On Hold</option>
+                  <option value="RELEASED">Released</option>
+                </select>
+              </div>
+
+              <div class="filter-group" *ngIf="departments.length > 0">
+                <label>Dept:</label>
+                <select [(ngModel)]="departmentFilter" class="filter-select">
+                  <option value="ALL">All Departments</option>
+                  <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar-right-actions">
+              <button type="button" class="btn-bulk danger-btn" *ngIf="selectedHoldsCount > 0" (click)="bulkDeleteHolds()">
+                <ion-icon name="trash-outline"></ion-icon> Delete ({{ selectedHoldsCount }})
+              </button>
+
+              <button type="button" class="btn-bulk success-btn" *ngIf="selectedHoldsCount > 0" (click)="bulkReleaseHolds()">
+                <ion-icon name="checkmark-done-outline"></ion-icon> Release ({{ selectedHoldsCount }})
+              </button>
+
+              <button type="button" class="btn-toolbar-outline" (click)="exportHoldsToCsv()">
+                <ion-icon name="download-outline"></ion-icon> Export CSV
+              </button>
+
+              <button type="button" class="btn-primary-purple" (click)="openAddHoldModal()">
+                <ion-icon name="pause-circle-outline"></ion-icon> + Put Salary on Hold
+              </button>
+            </div>
+          </div>
+
+          <!-- Holds Table -->
+          <div class="table-card">
+            <table class="soh-table">
+              <thead>
+                <tr>
+                  <th class="col-chk">
+                    <input type="checkbox" [(ngModel)]="selectAllHolds" (change)="toggleSelectAllHolds()" />
+                  </th>
+                  <th class="col-employee">EMPLOYEE</th>
+                  <th>MONTHLY CTC</th>
+                  <th>HELD AMOUNT</th>
+                  <th>HOLD REASON</th>
+                  <th>STATUS</th>
+                  <th>REMARKS</th>
+                  <th class="col-actions">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredHolds" [class.row-released]="row.hold_status === 'RELEASED'">
+                  <td class="col-chk">
+                    <input type="checkbox" [(ngModel)]="row.selected" />
+                  </td>
+
+                  <td class="col-employee">
+                    <div class="emp-profile-cell">
+                      <div class="emp-avatar" [class.avatar-held]="row.hold_status === 'ON_HOLD'" [class.avatar-released]="row.hold_status === 'RELEASED'">
+                        {{ getInitials(row.employee_name) }}
+                      </div>
+                      <div class="emp-details">
+                        <span class="emp-name">{{ row.employee_name }}</span>
+                        <div class="emp-sub">
+                          <span class="emp-code">{{ row.employee_code }}</span>
+                          <span class="dot-sep">•</span>
+                          <span class="emp-dept">{{ row.department }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td class="amount-cell">{{ formatCurrency(row.monthly_salary) }}</td>
+
+                  <td class="amount-cell bold-amt" [class.held-text]="row.hold_status === 'ON_HOLD'">
+                    {{ formatCurrency(row.held_gross_amount) }}
+                  </td>
+
+                  <td>
+                    <span class="reason-tag">{{ row.hold_reason }}</span>
+                  </td>
+
+                  <td>
+                    <span class="status-pill" [class.pill-on-hold]="row.hold_status === 'ON_HOLD'" [class.pill-released]="row.hold_status === 'RELEASED'">
+                      <span class="status-dot"></span>
+                      {{ row.hold_status === 'ON_HOLD' ? 'ON HOLD' : 'RELEASED' }}
+                    </span>
+                  </td>
+
+                  <td class="remarks-cell" [title]="row.remarks">
+                    <span>{{ row.remarks || '—' }}</span>
+                    <span *ngIf="row.hold_status === 'RELEASED' && row.release_reason" class="release-subtext">
+                      Release Note: {{ row.release_reason }}
+                    </span>
+                  </td>
+
+                  <td class="col-actions">
+                    <div class="actions-wrapper">
+                      <!-- Release Button (Only if ON_HOLD) -->
+                      <button *ngIf="row.hold_status === 'ON_HOLD'" class="action-btn-pill release" (click)="openReleaseModal(row)" title="Release Salary Hold">
+                        <ion-icon name="play-outline"></ion-icon> Release
+                      </button>
+
+                      <!-- Edit Button -->
+                      <button class="action-btn-icon edit" (click)="openEditHoldModal(row)" title="Edit Hold Details">
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+
+                      <!-- Delete Button -->
+                      <button class="action-btn-icon delete" (click)="confirmDeleteHold(row)" title="Remove Hold">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Empty State -->
+                <tr *ngIf="filteredHolds.length === 0">
+                  <td colspan="8" class="empty-state-cell">
+                    <div class="empty-content">
+                      <div class="empty-icon-circle">
+                        <ion-icon name="checkmark-done-circle-outline"></ion-icon>
+                      </div>
+                      <h3>No Salaries on Hold</h3>
+                      <p>There are no employees placed on salary hold for {{ monthLabel }}. All staff are currently cleared for payment.</p>
+                      <button type="button" class="btn-primary-purple" (click)="openAddHoldModal()">
+                        + Put Salary on Hold
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ====================================================
+             STEP 2: SALARY ARREARS
+             ==================================================== -->
+        <section *ngIf="currentStep === 2" class="step-section">
+          <div class="section-heading-row">
+            <div>
+              <h2 class="step-section-title">Salary Arrears</h2>
+              <p class="step-section-desc">Manage arrears from retroactive revisions, previous held salaries, or attendance adjustments to be disbursed in {{ monthLabel }}.</p>
+            </div>
+          </div>
+
+          <!-- Info Notice Banner -->
+          <div class="info-notice-banner info-banner">
+            <ion-icon name="information-circle-outline" class="banner-icon"></ion-icon>
+            <div class="banner-text-wrap">
+              <strong>Payroll Calculation Integration:</strong>
+              <span>All approved arrears are automatically mapped into this cycle's gross earnings under the <code>ARREAR</code> component and factored into Provident Fund and tax brackets.</span>
+            </div>
+          </div>
+
+          <!-- Action Toolbar -->
+          <div class="table-toolbar">
+            <div class="toolbar-left-actions">
+              <div class="search-box">
+                <ion-icon name="search-outline"></ion-icon>
+                <input type="text" [(ngModel)]="searchTerm" placeholder="Search by employee, category, comments..." class="search-input" />
+              </div>
+
+              <div class="filter-group" *ngIf="departments.length > 0">
+                <label>Dept:</label>
+                <select [(ngModel)]="departmentFilter" class="filter-select">
+                  <option value="ALL">All Departments</option>
+                  <option *ngFor="let d of departments" [value]="d">{{ d }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="toolbar-right-actions">
+              <button type="button" class="btn-bulk danger-btn" *ngIf="selectedArrearsCount > 0" (click)="bulkDeleteArrears()">
+                <ion-icon name="trash-outline"></ion-icon> Delete ({{ selectedArrearsCount }})
+              </button>
+
+              <button type="button" class="btn-toolbar-outline" (click)="exportArrearsToCsv()">
+                <ion-icon name="download-outline"></ion-icon> Export CSV
+              </button>
+
+              <button type="button" class="btn-primary-purple" (click)="openAddArrearModal()">
+                <ion-icon name="add-circle-outline"></ion-icon> + Add Arrear
+              </button>
+            </div>
+          </div>
+
+          <!-- Arrears Table -->
+          <div class="table-card">
+            <table class="soh-table">
+              <thead>
+                <tr>
+                  <th class="col-chk">
+                    <input type="checkbox" [(ngModel)]="selectAllArrears" (change)="toggleSelectAllArrears()" />
+                  </th>
+                  <th class="col-employee">EMPLOYEE</th>
+                  <th>ARREAR CATEGORY</th>
+                  <th>FOR PERIOD</th>
+                  <th>ARREAR AMOUNT</th>
+                  <th>PAY ACTION</th>
+                  <th>COMMENTS</th>
+                  <th class="col-actions">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of filteredArrears">
+                  <td class="col-chk">
+                    <input type="checkbox" [(ngModel)]="row.selected" />
+                  </td>
+
+                  <td class="col-employee">
+                    <div class="emp-profile-cell">
+                      <div class="emp-avatar avatar-arrear">
+                        {{ getInitials(row.employee_name) }}
+                      </div>
+                      <div class="emp-details">
+                        <span class="emp-name">{{ row.employee_name }}</span>
+                        <div class="emp-sub">
+                          <span class="emp-code">{{ row.employee_code }}</span>
+                          <span class="dot-sep">•</span>
+                          <span class="emp-dept">{{ row.department }}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>
+                    <span class="category-tag">{{ row.category }}</span>
+                  </td>
+
+                  <td>
+                    <span class="period-pill">{{ row.period || 'Prior Cycle' }}</span>
+                  </td>
+
+                  <td class="amount-cell bold-amt success-amt">
+                    {{ formatCurrency(row.amount) }}
+                  </td>
+
+                  <td>
+                    <span class="pay-action-pill">{{ row.pay_action }}</span>
+                  </td>
+
+                  <td class="remarks-cell" [title]="row.comments">
+                    <span>{{ row.comments || '—' }}</span>
+                  </td>
+
+                  <td class="col-actions">
+                    <div class="actions-wrapper">
+                      <!-- Edit Button -->
+                      <button class="action-btn-icon edit" (click)="openEditArrearModal(row)" title="Edit Arrear">
+                        <ion-icon name="create-outline"></ion-icon>
+                      </button>
+
+                      <!-- Delete Button -->
+                      <button class="action-btn-icon delete" (click)="confirmDeleteArrear(row)" title="Delete Arrear">
+                        <ion-icon name="trash-outline"></ion-icon>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+
+                <!-- Empty State -->
+                <tr *ngIf="filteredArrears.length === 0">
+                  <td colspan="8" class="empty-state-cell">
+                    <div class="empty-content">
+                      <div class="empty-icon-circle purple-circle">
+                        <ion-icon name="hourglass-outline"></ion-icon>
+                      </div>
+                      <h3>No Arrears for {{ monthLabel }}</h3>
+                      <p>There are no pending salary arrears recorded for this payroll cycle.</p>
+                      <button type="button" class="btn-primary-purple" (click)="openAddArrearModal()">
+                        + Add Arrear
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- ============================================
+         RIGHT ASIDE: STATUTORY & POLICY PANEL
+         ============================================ -->
+    <aside class="soh-side-panel">
+      <div class="help-card">
+        <div class="help-header">
+          <ion-icon name="shield-checkmark-outline"></ion-icon>
+          <h3>Hold &amp; Arrears Guidelines</h3>
+        </div>
+        <p class="help-intro">Quick compliance tips for handling withheld salaries and retroactive adjustments.</p>
+
+        <div class="help-item">
+          <h4>1. Administrative Hold</h4>
+          <p>Holding a salary pauses payout generation for the affected employee while keeping all other employees in the run active. Bank transfers will skip held employees.</p>
+        </div>
+
+        <div class="help-item">
+          <h4>2. Arrears &amp; Statutory Taxes</h4>
+          <p>Arrears added to this month are treated as taxable gross earnings. When payroll executes, TDS and EPF calculations automatically incorporate these sums.</p>
+        </div>
+
+        <div class="help-item">
+          <h4>3. Releasing Withheld Pay</h4>
+          <p>When unholding an employee, toggle <strong>"Pay as Arrear"</strong> to disburse their previously held wages directly in the current payroll batch.</p>
+        </div>
+      </div>
+
+      <div class="summary-box">
+        <h4 class="summary-title">Month Impact Summary</h4>
+        <div class="summary-line">
+          <span>Active Holds:</span>
+          <strong>{{ summaryData.totalHeldEmployees || 0 }} Staff</strong>
+        </div>
+        <div class="summary-line">
+          <span>Withheld Payout:</span>
+          <strong class="danger-text">{{ formatCurrency(summaryData.totalHeldAmount || 0) }}</strong>
+        </div>
+        <div class="summary-line">
+          <span>Total Arrears:</span>
+          <strong class="success-text">{{ formatCurrency(summaryData.totalArrearsAmount || 0) }}</strong>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- ============================================
+       MODAL 1: ADD SALARY HOLD
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showAddHoldModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <ion-icon name="pause-circle-outline" class="modal-icon-danger"></ion-icon>
+          <div>
+            <h3>Put Employee Salary on Hold</h3>
+            <p>Payroll Month: <strong>{{ monthLabel }}</strong></p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeAddHoldModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Select Employee <span class="req">*</span></label>
+          <select [(ngModel)]="modalHoldEmpId" (change)="onHoldEmployeeSelect()" class="modal-select">
+            <option *ngFor="let emp of workingEmployees" [value]="emp.id">
+              {{ emp.employee_name }} ({{ emp.employee_code }}) — {{ emp.department }} [Monthly Gross: {{ formatCurrency(emp.monthly_salary) }}]
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Hold Reason <span class="req">*</span></label>
+          <select [(ngModel)]="modalHoldReason" class="modal-select">
+            <option *ngFor="let r of holdReasons" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Hold Scope</label>
+          <div class="radio-row">
+            <label class="radio-lbl">
+              <input type="radio" name="holdScope" value="FULL" [(ngModel)]="modalHoldScope" (change)="onHoldScopeChange()" />
+              Full Monthly Salary
+            </label>
+            <label class="radio-lbl">
+              <input type="radio" name="holdScope" value="CUSTOM" [(ngModel)]="modalHoldScope" />
+              Custom Amount
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" *ngIf="modalHoldScope === 'CUSTOM'">
+          <label>Custom Amount (₹) <span class="req">*</span></label>
+          <input type="number" [(ngModel)]="modalHoldAmount" placeholder="Enter amount to withhold" class="modal-input" />
+        </div>
+
+        <div class="form-group">
+          <label>Remarks / Internal Justification</label>
+          <textarea [(ngModel)]="modalHoldRemarks" rows="3" placeholder="Provide context, audit reference, or instructions..." class="modal-textarea"></textarea>
+        </div>
+
+        <div class="warning-callout">
+          <ion-icon name="warning-outline"></ion-icon>
+          <span>This employee's salary disbursement will be withheld from the bank payout file until this hold is explicitly released.</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeAddHoldModal()">Cancel</button>
+        <button class="btn-danger-confirm" [disabled]="isSavingHold" (click)="saveNewHold()">
+          {{ isSavingHold ? 'Placing on Hold...' : 'Put on Hold' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 2: RELEASE SALARY HOLD
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showReleaseModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <ion-icon name="checkmark-done-circle-outline" class="modal-icon-success"></ion-icon>
+          <div>
+            <h3>Release Salary Hold</h3>
+            <p>{{ releasingHold?.employee_name }} ({{ releasingHold?.employee_code }})</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeReleaseModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="release-info-box">
+          <div class="info-row">
+            <span>Withheld Since:</span>
+            <strong>{{ releasingHold?.payroll_month }}</strong>
+          </div>
+          <div class="info-row">
+            <span>Held Reason:</span>
+            <strong>{{ releasingHold?.hold_reason }}</strong>
+          </div>
+          <div class="info-row">
+            <span>Held Amount:</span>
+            <strong class="success-text">{{ formatCurrency(releasingHold?.held_gross_amount || 0) }}</strong>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Release Into Cycle</label>
+          <input type="text" [(ngModel)]="releaseMonth" class="modal-input" placeholder="e.g. 2026-11" />
+        </div>
+
+        <div class="form-group checkbox-group">
+          <label class="checkbox-lbl">
+            <input type="checkbox" [(ngModel)]="payAsArrear" />
+            <span>Disburse released amount as <strong>Salary Arrear</strong> in {{ releaseMonth }}?</span>
+          </label>
+        </div>
+
+        <div class="form-group" *ngIf="payAsArrear">
+          <label>Arrear Payout Amount (₹)</label>
+          <input type="number" [(ngModel)]="releaseArrearAmount" class="modal-input" />
+        </div>
+
+        <div class="form-group">
+          <label>Release Clearance Note</label>
+          <textarea [(ngModel)]="releaseReason" rows="2" placeholder="e.g. Document verified, disciplinary clearance approved..." class="modal-textarea"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeReleaseModal()">Cancel</button>
+        <button class="btn-success-confirm" [disabled]="isReleasing" (click)="confirmReleaseHold()">
+          {{ isReleasing ? 'Releasing...' : 'Confirm Release' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 3: EDIT SALARY HOLD
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showEditHoldModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <ion-icon name="create-outline"></ion-icon>
+          <div>
+            <h3>Edit Hold Details</h3>
+            <p>{{ editingHold?.employee_name }} ({{ editingHold?.employee_code }})</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeEditHoldModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Hold Reason</label>
+          <select [(ngModel)]="editHoldReason" class="modal-select">
+            <option *ngFor="let r of holdReasons" [value]="r">{{ r }}</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Held Amount (₹)</label>
+          <input type="number" [(ngModel)]="editHoldAmount" class="modal-input" />
+        </div>
+
+        <div class="form-group">
+          <label>Remarks</label>
+          <textarea [(ngModel)]="editHoldRemarks" rows="3" class="modal-textarea"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeEditHoldModal()">Cancel</button>
+        <button class="btn-primary-confirm" [disabled]="isUpdatingHold" (click)="saveEditHold()">
+          {{ isUpdatingHold ? 'Saving...' : 'Update Details' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 4: ADD ARREAR
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showAddArrearModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <ion-icon name="add-circle-outline" class="modal-icon-purple"></ion-icon>
+          <div>
+            <h3>Add Salary Arrear</h3>
+            <p>Disburse in: <strong>{{ monthLabel }}</strong></p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeAddArrearModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Select Employee <span class="req">*</span></label>
+          <select [(ngModel)]="modalArrearEmpId" class="modal-select">
+            <option *ngFor="let emp of workingEmployees" [value]="emp.id">
+              {{ emp.employee_name }} ({{ emp.employee_code }}) — {{ emp.department }}
+            </option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Arrear Category <span class="req">*</span></label>
+          <select [(ngModel)]="modalArrearCategory" class="modal-select">
+            <option *ngFor="let c of arrearCategories" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>Pertaining Period / Month</label>
+            <input type="text" [(ngModel)]="modalArrearPeriod" placeholder="e.g. 2026-10" class="modal-input" />
+          </div>
+
+          <div class="form-group">
+            <label>Arrear Amount (₹) <span class="req">*</span></label>
+            <input type="number" [(ngModel)]="modalArrearAmount" placeholder="e.g. 5000" class="modal-input" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select [(ngModel)]="modalArrearPayAction" class="modal-select">
+            <option value="Process with salary">Process with salary (Component: ARREAR)</option>
+            <option value="Pay as separate voucher">Pay as separate voucher</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Comments / Justification</label>
+          <textarea [(ngModel)]="modalArrearComments" rows="2" placeholder="e.g. Retroactive increment effective 01 Oct 2026..." class="modal-textarea"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeAddArrearModal()">Cancel</button>
+        <button class="btn-primary-confirm" [disabled]="isSavingArrear" (click)="saveNewArrear()">
+          {{ isSavingArrear ? 'Adding Arrear...' : 'Save Arrear' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================
+       MODAL 5: EDIT ARREAR
+       ============================================ -->
+  <div class="custom-modal-backdrop" *ngIf="showEditArrearModal">
+    <div class="custom-modal-card">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <ion-icon name="create-outline"></ion-icon>
+          <div>
+            <h3>Edit Salary Arrear</h3>
+            <p>{{ editingArrear?.employee_name }} ({{ editingArrear?.employee_code }})</p>
+          </div>
+        </div>
+        <button class="modal-close-btn" (click)="closeEditArrearModal()">✕</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Category</label>
+          <select [(ngModel)]="editArrearCategory" class="modal-select">
+            <option *ngFor="let c of arrearCategories" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <div class="form-row-2">
+          <div class="form-group">
+            <label>Period</label>
+            <input type="text" [(ngModel)]="editArrearPeriod" class="modal-input" />
+          </div>
+
+          <div class="form-group">
+            <label>Arrear Amount (₹)</label>
+            <input type="number" [(ngModel)]="editArrearAmount" class="modal-input" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>Payment Method</label>
+          <select [(ngModel)]="editArrearPayAction" class="modal-select">
+            <option value="Process with salary">Process with salary</option>
+            <option value="Pay as separate voucher">Pay as separate voucher</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>Comments</label>
+          <textarea [(ngModel)]="editArrearComments" rows="2" class="modal-textarea"></textarea>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-cancel" (click)="closeEditArrearModal()">Cancel</button>
+        <button class="btn-primary-confirm" [disabled]="isUpdatingArrear" (click)="saveEditArrear()">
+          {{ isUpdatingArrear ? 'Saving...' : 'Update Arrear' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>

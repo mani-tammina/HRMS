@@ -129,7 +129,8 @@ export class BonusRevisionsOvertimePage implements OnInit {
 
   newSalaryAnnual: number | null = null;
   newHikePct: number = 10;
-  newArrearsMonths: number = 1;
+  newEffectiveDate: string = '';
+  newArrearsMonths: number = 0;
   newRevisionAction: 'Process as salary' | 'Process revision & arrears' | 'Process revision only' | 'Hold revision' | 'Do not process' = 'Process as salary';
   newRevisionComment: string = '';
 
@@ -139,7 +140,7 @@ export class BonusRevisionsOvertimePage implements OnInit {
   editRevisedCtc: number = 0;
   editHikePercentage: number = 0;
   editEffectiveDate: string = '';
-  editArrearsMonths: number = 1;
+  editArrearsMonths: number = 0;
   editPayAction: 'Process as salary' | 'Process revision & arrears' | 'Process revision only' | 'Hold revision' | 'Do not process' = 'Process as salary';
   editComments: string = '';
   isSavingRevision: boolean = false;
@@ -244,7 +245,8 @@ export class BonusRevisionsOvertimePage implements OnInit {
     this.newBonusType = 'Performance Bonus';
     this.newSalaryAnnual = null;
     this.newHikePct = 10;
-    this.newArrearsMonths = 1;
+    this.newEffectiveDate = `${this.selectedMonth}-01`;
+    this.newArrearsMonths = 0;
     this.newRevisionAction = 'Process as salary';
     this.newRevisionComment = '';
     this.newOtHours = 8;
@@ -261,8 +263,40 @@ export class BonusRevisionsOvertimePage implements OnInit {
         const currentCtc = emp.annual_ctc || (monthly * 12);
         this.newHikePct = 10;
         this.newSalaryAnnual = Math.round(currentCtc * 1.10);
+        this.newEffectiveDate = `${this.selectedMonth}-01`;
+        this.newArrearsMonths = 0;
       }
     }
+  }
+
+  onNewEffectiveDateChange() {
+    this.newArrearsMonths = this.calculateArrearsMonths(this.newEffectiveDate, this.selectedMonth);
+  }
+
+  get newPrevMonthly(): number {
+    if (!this.selectedEmpId) return 0;
+    const emp = this.workingEmployees.find(e => e.id === Number(this.selectedEmpId));
+    if (!emp) return 0;
+    const ctc = emp.annual_ctc || ((emp.monthly_salary || 25000) * 12);
+    return Math.round(ctc / 12);
+  }
+
+  get newRevMonthly(): number {
+    return Math.round((Number(this.newSalaryAnnual) || 0) / 12);
+  }
+
+  get newMonthlyIncrement(): number {
+    return Math.max(0, this.newRevMonthly - this.newPrevMonthly);
+  }
+
+  get newArrearsAmount(): number {
+    const months = (this.newArrearsMonths !== undefined && this.newArrearsMonths !== null) ? Number(this.newArrearsMonths) : 0;
+    return this.newMonthlyIncrement * Math.max(0, months);
+  }
+
+  get newGrossPayThisMonth(): number {
+    const arrears = (this.newRevisionAction === 'Process revision & arrears' || this.newRevisionAction === 'Process as salary') ? this.newArrearsAmount : 0;
+    return this.newRevMonthly + arrears;
   }
 
   onNewSalaryChange() {
@@ -341,10 +375,10 @@ export class BonusRevisionsOvertimePage implements OnInit {
       const prevMonthly = Math.round(currentCtc / 12);
       const revMonthly = Math.round(revisedCtc / 12);
       const diff = Math.max(0, revMonthly - prevMonthly);
-      const arrearsMonths = Number(this.newArrearsMonths) || 1;
+      const arrearsMonths = Number(this.newArrearsMonths ?? 0);
       const arrearsAmount = diff * arrearsMonths;
       const hikeStr = `${hike >= 0 ? '+' : ''}${hike.toFixed(1)}%`;
-      const effDate = `${this.selectedMonth}-01`;
+      const effDate = this.newEffectiveDate || `${this.selectedMonth}-01`;
 
       const payload = {
         employee_id: emp.id,
@@ -670,7 +704,9 @@ export class BonusRevisionsOvertimePage implements OnInit {
       this.editHikePercentage = 0;
     }
     this.editEffectiveDate = row.effective_date && row.effective_date.length >= 10 ? row.effective_date : `${this.selectedMonth}-01`;
-    this.editArrearsMonths = row.arrears_months || 1;
+    this.editArrearsMonths = (row.arrears_months !== undefined && row.arrears_months !== null)
+      ? Number(row.arrears_months)
+      : this.calculateArrearsMonths(this.editEffectiveDate, this.selectedMonth);
     this.editPayAction = row.pay_action || 'Process as salary';
     this.editComments = row.comments || '';
     this.showEditRevisionModal = true;
@@ -680,6 +716,20 @@ export class BonusRevisionsOvertimePage implements OnInit {
     this.showEditRevisionModal = false;
     this.editingRevision = null;
     this.isSavingRevision = false;
+  }
+
+  onEditEffectiveDateChange() {
+    this.editArrearsMonths = this.calculateArrearsMonths(this.editEffectiveDate, this.selectedMonth);
+  }
+
+  calculateArrearsMonths(effDate: string, selMonth: string): number {
+    if (!effDate || !selMonth) return 0;
+    const effStr = effDate.substring(0, 7);
+    const [effY, effM] = effStr.split('-').map(Number);
+    const [selY, selM] = selMonth.split('-').map(Number);
+    if (!effY || !effM || !selY || !selM) return 0;
+    const diff = (selY - effY) * 12 + (selM - effM);
+    return Math.max(0, diff);
   }
 
   onEditCtcChange() {
@@ -709,7 +759,8 @@ export class BonusRevisionsOvertimePage implements OnInit {
   }
 
   get editArrearsAmount(): number {
-    return this.editMonthlyIncrement * (Number(this.editArrearsMonths) || 1);
+    const months = (this.editArrearsMonths !== undefined && this.editArrearsMonths !== null) ? Number(this.editArrearsMonths) : 0;
+    return this.editMonthlyIncrement * Math.max(0, months);
   }
 
   get editGrossPayThisMonth(): number {

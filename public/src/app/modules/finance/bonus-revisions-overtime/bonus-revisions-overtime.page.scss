@@ -82,6 +82,7 @@
         color: #ffffff;
         box-shadow: 0 0 0 3px rgba(88, 64, 187, 0.18);
       }
+
       .step-label {
         color: #5840bb;
         font-weight: 700;
@@ -94,6 +95,7 @@
         color: #5840bb;
         background-color: #f5f3ff;
       }
+
       .step-label {
         color: #475569;
       }
@@ -1172,6 +1174,7 @@
     opacity: 0;
     transform: scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -2266,8 +2269,22 @@
   }
 }
 
-.text-green { color: #16a34a !important; }
-.text-purple { color: #7c3aed !important; }
-.text-primary { color: #5840bb !important; }
-.font-semibold { font-weight: 600 !important; }
-.font-bold { font-weight: 700 !important; }
+.text-green {
+  color: #16a34a !important;
+}
+
+.text-purple {
+  color: #7c3aed !important;
+}
+
+.text-primary {
+  color: #5840bb !important;
+}
+
+.font-semibold {
+  font-weight: 600 !important;
+}
+
+.font-bold {
+  font-weight: 700 !important;
+}

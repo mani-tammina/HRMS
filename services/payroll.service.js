@@ -286,6 +286,19 @@ async function runPayroll(year, month, runBy = null) {
         AND (a.employee_id IS NOT NULL OR ap.name = 'No Attendance')
     `, [sd, ed, sd, ed]);
 
+    // 1b. Fetch active holds for this cycle
+    const targetYm = `${year}-${String(month).padStart(2, '0')}`;
+    let holdsMap = {};
+    try {
+      const [holds] = await conn.query(
+        `SELECT * FROM payroll_salary_holds WHERE payroll_month = ? AND hold_status = 'ON_HOLD'`,
+        [targetYm]
+      );
+      if (holds && holds.length > 0) {
+        holds.forEach(h => { holdsMap[h.employee_id] = h; });
+      }
+    } catch (_) {}
+
     // 2. Fetch all attendance for the period (both web and biometric)
     const [attendance] = await conn.query(`
       SELECT employee_id, attendance_date, status FROM attendance 
@@ -563,13 +576,21 @@ async function runPayroll(year, month, runBy = null) {
 
       // Statutory Deductions (Rules provided by USER)
       // 1. PF Calculation
+      const fixedPfEmpComp = components.find(c => (c.code.includes('PF') || c.name.includes('PF')) && !c.code.includes('EMPLOYER') && !c.name.includes('Employer') && c.calculation_type === 'FIXED');
       let pfAmountEmp = 0.0;
-      if (computed['BASIC']) {
+      if (fixedPfEmpComp && computed[fixedPfEmpComp.code] !== undefined) {
+        pfAmountEmp = Number(computed[fixedPfEmpComp.code]);
+      } else if (computed['BASIC']) {
         // Rule: If skipDeductionProRata, calculate on FULL basic
         const pfBase = skipDeductionProRata ? fullMonthlyBasic : Number(computed['BASIC']);
         pfAmountEmp = Math.round(pfBase * 0.12);
       }
+
+      const fixedPfErComp = components.find(c => (c.code.includes('EMPLOYER') || c.name.includes('Employer')) && (c.code.includes('PF') || c.name.includes('PF')) && c.calculation_type === 'FIXED');
       let pfAmountEr = pfAmountEmp; // Employer matches
+      if (fixedPfErComp && computed[fixedPfErComp.code] !== undefined) {
+        pfAmountEr = Number(computed[fixedPfErComp.code]);
+      }
 
       // 2. ESI Calculation (Back-calculated from CTC-basis Gross)
       let esiAmountEmp = 0.0;
@@ -585,7 +606,6 @@ async function runPayroll(year, month, runBy = null) {
       }
 
       // Update computed results to ensure they are picked up in breakups and correctly subtracted
-      // We explicitly override these codes to ensure the statutory rules take precedence over template defaults
       computed['PF_DEDUCT'] = pfAmountEmp;
       computed['ESI_EE'] = esiAmountEmp;
       computed['ESI_ER'] = esiAmountEr;
@@ -607,12 +627,13 @@ async function runPayroll(year, month, runBy = null) {
       let ptAmount = 0;
       if (esiGrossBase > 15000) ptAmount = 200;
       computed['PT'] = ptAmount;
-      if (!components.find(c => c.code === 'PT')) deductions += ptAmount;
+      if (!components.find(c => c.code === 'PT' || c.code === 'PROF_TAX' || /prof.*tax/i.test(c.name || ''))) deductions += ptAmount;
 
-      // TDS (Simplified placeholder)
-      const tds = (esiGrossBase > 30000) ? (esiGrossBase * 0.10) : 0;
+      // TDS - only if explicitly configured in components or adjustments
+      const tdsComp = components.find(c => c.code === 'TDS');
+      const tds = tdsComp ? Number(computed['TDS'] || 0) : 0;
       computed['TDS'] = tds;
-      if (!components.find(c => c.code === 'TDS')) deductions += tds;
+      if (tdsComp && !components.find(c => c.code === 'TDS')) deductions += tds;
 
       const net = gross - deductions;
 
@@ -727,6 +748,24 @@ async function runPayroll(year, month, runBy = null) {
         finalEarnings.push({ component_code: 'SPECIAL', component_name: 'Special Allowance', component_type: 'EARNING', amount: (-erBundle).toFixed(2), taxable: 1, prorated: 1 });
       }
 
+      // Check hold status for employee
+      const empHold = holdsMap[employeeId] || null;
+      let heldAmount = 0;
+      let payoutAmount = Number(net.toFixed(2));
+      let isHold = false;
+      let holdType = 'NONE';
+      if (empHold) {
+        isHold = true;
+        holdType = (empHold.hold_type || 'FULL').toUpperCase();
+        if (holdType === 'CUSTOM') {
+          heldAmount = Math.min(payoutAmount, Number(empHold.held_net_amount || empHold.held_gross_amount || 0));
+          payoutAmount = Math.max(0, payoutAmount - heldAmount);
+        } else {
+          heldAmount = payoutAmount;
+          payoutAmount = 0;
+        }
+      }
+
       const payslip = {
         employee_id: employeeId,
         cycle: { year, month, start: sd, end: ed },
@@ -738,7 +777,16 @@ async function runPayroll(year, month, runBy = null) {
         totals: {
           gross: (Number(gross) - erBundle).toFixed(2),
           deductions: (Number(deductions) - erBundle).toFixed(2),
-          net: Number(net.toFixed(2))
+          net: Number(net.toFixed(2)),
+          held_amount: heldAmount,
+          payout_amount: payoutAmount
+        },
+        hold: {
+          is_on_hold: isHold,
+          hold_type: holdType,
+          held_amount: heldAmount,
+          payout_amount: payoutAmount,
+          reason: empHold ? (empHold.hold_reason || empHold.remarks || '') : null
         }
       };
 

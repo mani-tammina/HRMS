@@ -264,11 +264,11 @@ async function buildRunValidation(year, month) {
       [sd, ed, sd, ed]
     );
 
-    const allEmployees = employees.map(e => ({ 
-      id: Number(e.id), 
-      name: e.FullName, 
+    const allEmployees = employees.map(e => ({
+      id: Number(e.id),
+      name: e.FullName,
       number: e.EmployeeNumber,
-      attendancePolicy: e.attendance_policy_name 
+      attendancePolicy: e.attendance_policy_name
     }));
     const structureEmployees = new Set(withStructure.map((r) => Number(r.employee_id)));
     const attendanceEmployees = new Set(attendance.map((r) => Number(r.employee_id)));
@@ -372,6 +372,22 @@ async function calculateDryRunFinancials(c, year, month) {
     console.warn("Could not load payroll_adjustments in calculateDryRunFinancials:", adjErr.message);
   }
 
+  // Load active salaries on hold for this payroll month
+  let holdsByEmpId = {};
+  try {
+    const [holdRows] = await c.query(`
+      SELECT * FROM payroll_salary_holds
+      WHERE payroll_month = ? AND hold_status = 'ON_HOLD'
+    `, [targetMonthStr]);
+    if (holdRows && holdRows.length > 0) {
+      holdRows.forEach(h => {
+        holdsByEmpId[h.employee_id] = h;
+      });
+    }
+  } catch (holdErr) {
+    console.warn("Could not load payroll_salary_holds in calculateDryRunFinancials:", holdErr.message);
+  }
+
   const templateIds = [...new Set(allEmployees.map(e => e.template_id).filter(Boolean))];
   let compMap = {};
   if (templateIds.length > 0) {
@@ -401,6 +417,8 @@ async function calculateDryRunFinancials(c, year, month) {
   let aggNet = 0;
   let aggDeductions = 0;
   let aggContributions = 0;
+  let aggHeldAmount = 0;
+  let aggPayout = 0;
   let aggPfEmployees = 0;
   let aggPfEmployeeShare = 0;
   let aggPfEmployerShare = 0;
@@ -641,7 +659,11 @@ async function calculateDryRunFinancials(c, year, month) {
     const finalGross = totalEarnings - erBundle;
     const finalDeductions = totalDeductions - erBundle;
     const net = finalGross - finalDeductions + reimbursementAmt;
-    const empContributions = erBundle + (hasExplicitPfEr ? 0 : employeePf);
+    // User requested breakdown:
+    // Total Deductions = PF Employer + Professional Tax (PT) + ESI Employer
+    // Total Contributions = PF Employee + ESI Employee
+    const empDeductions = employerPf + employeePt + employerEsi;
+    const empContributions = employeePf + employeeEsi;
 
     if (employeePf > 0 || employerPf > 0) {
       aggPfEmployees++;
@@ -685,10 +707,32 @@ async function calculateDryRunFinancials(c, year, month) {
       });
     }
 
+    // Salary on Hold integration: check if employee has active hold for this month
+    const empHold = holdsByEmpId[emp.id] || null;
+    let heldAmount = 0;
+    let payoutAmount = net;
+    let holdStatus = 'NONE';
+    if (empHold) {
+      const hType = (empHold.hold_type || 'FULL').toUpperCase();
+      if (hType === 'CUSTOM') {
+        const customAmt = Number(empHold.held_net_amount || empHold.held_gross_amount || 0);
+        heldAmount = Math.min(net, customAmt);
+        payoutAmount = Math.max(0, net - heldAmount);
+        holdStatus = 'CUSTOM';
+      } else {
+        // FULL HOLD: withhold full net pay
+        heldAmount = net;
+        payoutAmount = 0;
+        holdStatus = 'FULL';
+      }
+    }
+
     aggGross += finalGross;
     aggNet += net;
-    aggDeductions += finalDeductions;
+    aggDeductions += empDeductions;
     aggContributions += empContributions;
+    aggHeldAmount += heldAmount;
+    aggPayout += payoutAmount;
 
     return {
       employee_id: emp.id,
@@ -708,7 +752,11 @@ async function calculateDryRunFinancials(c, year, month) {
       total_earnings: finalGross,
       total_deductions: finalDeductions,
       total_net: net,
-      total_net_payout: net,
+      held_amount: heldAmount,
+      total_net_payout: payoutAmount,
+      hold_status: holdStatus,
+      is_on_hold: holdStatus !== 'NONE',
+      hold_reason: empHold ? (empHold.hold_reason || empHold.remarks || '') : '',
       bonus: bonusAmt,
       arrears: arrearAmt,
       overtime: otAmt,
@@ -736,14 +784,20 @@ async function calculateDryRunFinancials(c, year, month) {
     };
   });
 
-  const deposit = Math.round(aggNet * 100) / 100;
+  const deposit = Math.round(aggPayout * 100) / 100;
+  const totalNet = Math.round(aggNet * 100) / 100;
+  const totalHeld = Math.round(aggHeldAmount * 100) / 100;
   const deductions = Math.round(aggDeductions * 100) / 100;
   const contributions = Math.round(aggContributions * 100) / 100;
   const deductionsContributions = Math.round((deductions + contributions) * 100) / 100;
-  const totalCost = Math.round((deposit + deductions + contributions) * 100) / 100;
+  const totalCost = Math.round((totalNet + deductions + contributions) * 100) / 100;
 
   return {
     deposit,
+    totalNet,
+    totalHeld,
+    heldCount: Object.keys(holdsByEmpId).length,
+    totalPayout: deposit,
     deductions,
     contributions,
     deductionsContributions,
@@ -805,7 +859,9 @@ async function previewRun(req, res) {
         pf: dryRun.pf,
         esi: dryRun.esi,
         professionalTax: dryRun.professionalTax,
-        totalNet: dryRun.deposit,
+        totalNet: dryRun.totalNet,
+        totalHeld: dryRun.totalHeld,
+        heldCount: dryRun.heldCount,
         totalPayout: dryRun.deposit
       },
       detailedPreview: detailedList,
@@ -846,6 +902,28 @@ async function calculateRunFinancials(c, run) {
       esi: { employeesPaying: 0, employeeShare: 0, employerShare: 0, totalEsi: 0, employees: [] },
       professionalTax: { employeesPaying: 0, totalTax: 0, employees: [] }
     };
+  }
+
+  // Check dry-run calculation first for 100% exact alignment with Preview — Dry Run stage
+  let runYear = run.year;
+  let runMonth = run.month;
+  if (!runYear || !runMonth) {
+    try {
+      const [cy] = await c.query('SELECT year, month FROM payroll_cycles WHERE id = ?', [run.cycle_id]);
+      if (cy && cy[0]) {
+        runYear = cy[0].year;
+        runMonth = cy[0].month;
+      }
+    } catch (e) { }
+  }
+
+  if (runYear && runMonth) {
+    try {
+      const dryRun = await calculateDryRunFinancials(c, runYear, runMonth);
+      if (dryRun && dryRun.payingCount > 0) {
+        return dryRun;
+      }
+    } catch (e) { }
   }
 
   // 1. Fetch salaries summary
@@ -900,26 +978,37 @@ async function calculateRunFinancials(c, run) {
   const employerPf = sumPfErBreakup > 0 ? sumPfErBreakup : sumPfEmp;
   const employerEsi = sumEsiEr > 0 ? sumEsiEr : (sumEsiEmp > 0 ? Math.ceil(sumEsiEmp * (3.25 / 0.75)) : 0);
 
-  // Total Contributions = All EPF (Employee + Employer) + All ESI (Employee + Employer)
-  const totalContributions = (sumPfEmp + employerPf) + (sumEsiEmp + employerEsi);
+  // User requested breakdown:
+  // Total Deductions = PF Employer + Professional Tax (PT) + ESI Employer
+  // Total Contributions = PF Employee + ESI Employee
+  const userDeductions = employerPf + sumOtherDeductions + employerEsi;
+  const userContributions = sumPfEmp + sumEsiEmp;
 
-  // Total Deductions = Professional Tax and other taxes (excluding EPF and ESI)
-  totalDeductions = sumOtherDeductions;
-  if (sumTax === 0 && Number(salStats.totalDeductions) > 0) {
-    totalDeductions = Math.max(0, Number(salStats.totalDeductions) - sumPfEmp - sumEsiEmp);
-  }
+  // 4. Employee Deposit (Net Pay) & Holds
+  let totalHeldAmount = 0;
+  let heldCount = 0;
+  try {
+    const runMonth = run.payroll_month || (run.year && run.month ? `${run.year}-${String(run.month).padStart(2, '0')}` : null);
+    if (runMonth) {
+      const [holdRows] = await c.query(
+        `SELECT COALESCE(SUM(held_gross_amount), 0) AS totalHeld, COUNT(*) AS count
+         FROM payroll_salary_holds 
+         WHERE payroll_month = ? AND hold_status = 'ON_HOLD'`,
+        [runMonth]
+      );
+      totalHeldAmount = Number(holdRows[0]?.totalHeld || 0);
+      heldCount = Number(holdRows[0]?.count || 0);
+    }
+  } catch (_) {}
 
-  // 4. Employee Deposit (Net Pay)
-  let employeeDeposit = totalNet;
-  if (totalGross > 0 && (employeeDeposit === 0 || Math.abs(employeeDeposit - totalGross) < 0.01)) {
-    employeeDeposit = Math.max(0, totalGross - (sumPfEmp + sumEsiEmp + totalDeductions));
-  }
+  let employeeDeposit = Math.max(0, totalNet - totalHeldAmount);
 
-  // 5. Total Payroll Cost = Employee Deposit + Total Deductions + Total contributions
+  // 5. Total Payroll Cost = Total Net + Total Deductions + Total contributions
   const depositRounded = Math.round(employeeDeposit * 100) / 100;
-  const deductionsRounded = Math.round(totalDeductions * 100) / 100;
-  const contributionsRounded = Math.round(totalContributions * 100) / 100;
-  const totalPayrollCost = Math.round((depositRounded + deductionsRounded + contributionsRounded) * 100) / 100;
+  const netRounded = Math.round(totalNet * 100) / 100;
+  const deductionsRounded = Math.round(userDeductions * 100) / 100;
+  const contributionsRounded = Math.round(userContributions * 100) / 100;
+  const totalPayrollCost = Math.round((netRounded + deductionsRounded + contributionsRounded) * 100) / 100;
 
   const [pfEmpCountRows] = await c.query(
     `SELECT COUNT(DISTINCT s.id) as pfCount
@@ -1028,6 +1117,10 @@ async function calculateRunFinancials(c, run) {
 
   return {
     deposit: depositRounded,
+    totalNet: netRounded,
+    totalHeld: totalHeldAmount,
+    heldCount: heldCount,
+    totalPayout: depositRounded,
     deductions: deductionsRounded,
     contributions: contributionsRounded,
     totalCost: totalPayrollCost,
@@ -1177,14 +1270,14 @@ async function getPayrollDashboard(req, res) {
       }
     }
 
-    let currentFinancials = null;
-    if (hasActiveRun) {
-      currentFinancials = await calculateRunFinancials(c, currentRun);
-      if (!currentFinancials || currentFinancials.payingCount === 0) {
-        currentFinancials = await calculateDryRunFinancials(c, parsed.year, parsed.month);
+    // Fetch Dry Run calculation for 100% exact alignment with Preview — Dry Run stage
+    let currentFinancials = await calculateDryRunFinancials(c, parsed.year, parsed.month);
+    if (!currentFinancials || currentFinancials.payingCount === 0) {
+      if (currentRun) {
+        currentFinancials = await calculateRunFinancials(c, currentRun);
       }
-    } else {
-      // Cleared state when payroll is cancelled / not run
+    }
+    if (!currentFinancials) {
       currentFinancials = {
         deposit: 0,
         deductions: 0,
@@ -1198,13 +1291,13 @@ async function getPayrollDashboard(req, res) {
       };
     }
 
-    let prevFinancials = null;
-    if (prevRun) {
-      prevFinancials = await calculateRunFinancials(c, prevRun);
-      if (!prevFinancials || prevFinancials.payingCount === 0) {
-        prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
+    let prevFinancials = await calculateDryRunFinancials(c, prevYear, prevMonth);
+    if (!prevFinancials || prevFinancials.payingCount === 0) {
+      if (prevRun) {
+        prevFinancials = await calculateRunFinancials(c, prevRun);
       }
-    } else {
+    }
+    if (!prevFinancials) {
       prevFinancials = {
         deposit: 0,
         deductions: 0,
@@ -1247,6 +1340,15 @@ async function getPayrollDashboard(req, res) {
       [parsed.year, parsed.month]
     );
 
+    let payslipsOnHold = 0;
+    try {
+      const [holdRows] = await c.query(
+        `SELECT COUNT(*) AS count FROM payroll_salary_holds WHERE payroll_month = ? AND hold_status = 'ON_HOLD'`,
+        [monthInput]
+      );
+      payslipsOnHold = Number(holdRows[0]?.count || 0);
+    } catch (_) {}
+
     c.end();
 
     const monthNameUpper = MONTH_NAMES_UPPER[parsed.month - 1];
@@ -1259,7 +1361,7 @@ async function getPayrollDashboard(req, res) {
       monthLabel: `${MONTH_NAMES_SHORT[parsed.month - 1]} ${parsed.year}`,
       monthHeading: `${monthNameUpper}-${parsed.year} (${monthNameUpper} 1 - ${monthNameUpper} ${daysInMonth}, ${daysInMonth} days)`,
       totalEmployees,
-      payingEmployees: hasActiveRun ? currentFinancials.payingCount : 0,
+      payingEmployees: currentFinancials.payingCount || 0,
       employeeChanges: {
         joiners,
         leavers
@@ -1271,71 +1373,71 @@ async function getPayrollDashboard(req, res) {
       run: currentRun,
       hasActiveRun,
       equation: {
-        totalGross: hasActiveRun ? currentFinancials.gross : 0,
-        totalPayrollCost: hasActiveRun ? currentFinancials.totalCost : 0,
-        employeeDeposit: hasActiveRun ? currentFinancials.deposit : 0,
-        totalDeductions: hasActiveRun ? currentFinancials.deductions : 0,
-        totalContributions: hasActiveRun ? currentFinancials.contributions : 0,
-        totalDeductionsContributions: hasActiveRun ? Math.round((currentFinancials.deductions + currentFinancials.contributions) * 100) / 100 : 0,
+        totalGross: currentFinancials.gross || 0,
+        totalPayrollCost: currentFinancials.totalCost || 0,
+        employeeDeposit: currentFinancials.deposit || 0,
+        totalDeductions: currentFinancials.deductions || 0,
+        totalContributions: currentFinancials.contributions || 0,
+        totalDeductionsContributions: currentFinancials.deductionsContributions !== undefined ? currentFinancials.deductionsContributions : Math.round(((currentFinancials.deductions || 0) + (currentFinancials.contributions || 0)) * 100) / 100,
         prevMonthLabel: prevMonthNameUpper,
-        prevMonthCost: prevFinancials.totalCost,
-        prevMonthGross: prevFinancials.gross,
-        prevMonthDeposit: prevFinancials.deposit,
-        prevMonthDeductions: prevFinancials.deductions,
-        prevMonthContributions: prevFinancials.contributions,
-        costDelta: hasActiveRun ? Math.round((currentFinancials.totalCost - prevFinancials.totalCost) * 100) / 100 : 0,
-        grossDelta: hasActiveRun ? Math.round((currentFinancials.gross - prevFinancials.gross) * 100) / 100 : 0,
-        depositDelta: hasActiveRun ? Math.round((currentFinancials.deposit - prevFinancials.deposit) * 100) / 100 : 0,
-        deductionsDelta: hasActiveRun ? Math.round((currentFinancials.deductions - prevFinancials.deductions) * 100) / 100 : 0,
-        contributionsDelta: hasActiveRun ? Math.round((currentFinancials.contributions - prevFinancials.contributions) * 100) / 100 : 0
+        prevMonthCost: prevFinancials.totalCost || 0,
+        prevMonthGross: prevFinancials.gross || 0,
+        prevMonthDeposit: prevFinancials.deposit || 0,
+        prevMonthDeductions: prevFinancials.deductions || 0,
+        prevMonthContributions: prevFinancials.contributions || 0,
+        costDelta: Math.round(((currentFinancials.totalCost || 0) - (prevFinancials.totalCost || 0)) * 100) / 100,
+        grossDelta: Math.round(((currentFinancials.gross || 0) - (prevFinancials.gross || 0)) * 100) / 100,
+        depositDelta: Math.round(((currentFinancials.deposit || 0) - (prevFinancials.deposit || 0)) * 100) / 100,
+        deductionsDelta: Math.round(((currentFinancials.deductions || 0) - (prevFinancials.deductions || 0)) * 100) / 100,
+        contributionsDelta: Math.round(((currentFinancials.contributions || 0) - (prevFinancials.contributions || 0)) * 100) / 100
       },
       outcome: {
         runId: currentRun?.id || null,
-        status: currentRun?.status || (hasActiveRun ? null : 'UNPROCESSED'),
-        noOfEmployees: hasActiveRun ? (currentFinancials.payingCount || currentRun?.total_employees || 0) : 0,
+        status: currentRun?.status || (hasActiveRun ? null : (currentFinancials.payingCount > 0 ? 'PREVIEW' : 'UNPROCESSED')),
+        noOfEmployees: currentFinancials.payingCount || currentRun?.total_employees || 0,
         payslipsReleased: payslipsCount,
-        payslipsOnHold: 0,
+        payslipsOnHold: payslipsOnHold,
         isCompleted: currentRun ? (currentRun.status === 'COMPLETED' || currentRun.status === 'PAID') : false,
         statutoryCards: {
           incomeTax: {
             title: 'Income Tax (ITR)',
-            employeesCount: hasActiveRun ? 5 : 0,
+            employeesCount: currentFinancials.payingCount > 0 ? 1 : 0,
             initiationDate: `07-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
             endDate: `${daysInMonth}-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}`,
             status: currentRun ? 'UPLOADED' : 'PENDING'
           },
           providentFund: {
             title: 'Provident Fund (PF)',
-            employeesCount: hasActiveRun ? (currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            employeeShare: hasActiveRun ? (currentFinancials.pf?.employeeShare ?? 0) : 0,
-            employerShare: hasActiveRun ? (currentFinancials.pf?.employerShare ?? 0) : 0,
-            totalPf: hasActiveRun ? (currentFinancials.pf?.totalPf ?? 0) : 0,
-            linkedRecordsCount: hasActiveRun ? (currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            employees: hasActiveRun ? (currentFinancials.pf?.employees || []) : []
+            employeesCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            employeeShare: currentFinancials.pf?.employeeShare ?? 0,
+            employerShare: currentFinancials.pf?.employerShare ?? 0,
+            totalPf: currentFinancials.pf?.totalPf ?? 0,
+            linkedRecordsCount: currentFinancials.pf?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            employees: currentFinancials.pf?.employees || []
           },
           esi: {
             title: 'Employee State Insurance (ESI)',
-            employeesCount: hasActiveRun ? (currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            employeeShare: hasActiveRun ? (currentFinancials.esi?.employeeShare ?? 0) : 0,
-            employerShare: hasActiveRun ? (currentFinancials.esi?.employerShare ?? 0) : 0,
-            totalEsi: hasActiveRun ? (currentFinancials.esi?.totalEsi ?? 0) : 0,
-            registeredRecordsCount: hasActiveRun ? (currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            employees: hasActiveRun ? (currentFinancials.esi?.employees || []) : []
+            employeesCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            employeeShare: currentFinancials.esi?.employeeShare ?? 0,
+            employerShare: currentFinancials.esi?.employerShare ?? 0,
+            totalEsi: currentFinancials.esi?.totalEsi ?? 0,
+            registeredRecordsCount: currentFinancials.esi?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            employees: currentFinancials.esi?.employees || []
           },
           professionalTax: {
             title: 'Professional Tax',
-            employeesCount: hasActiveRun ? (currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            totalTax: hasActiveRun ? (currentFinancials.professionalTax?.totalTax ?? 0) : 0,
-            amount: hasActiveRun ? (currentFinancials.professionalTax?.totalTax ?? 0) : 0,
-            relatedRecordsCount: hasActiveRun ? (currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0) : 0,
-            employees: hasActiveRun ? (currentFinancials.professionalTax?.employees || []) : []
+            employeesCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            totalTax: currentFinancials.professionalTax?.totalTax ?? 0,
+            amount: currentFinancials.professionalTax?.totalTax ?? 0,
+            relatedRecordsCount: currentFinancials.professionalTax?.employeesPaying ?? currentFinancials.payingCount ?? 0,
+            employees: currentFinancials.professionalTax?.employees || []
           },
           deductionComponents: {
             title: 'Deduction Components',
             componentName: 'PF - Data Change',
             lastExecutionDate: hasActiveRun ? `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}` : 'N/A',
             lastUmbrellaPlanDate: hasActiveRun ? `08-${MONTH_NAMES_SHORT[parsed.month - 1]}-${parsed.year}` : 'N/A',
-            totalEmployees: hasActiveRun ? (Math.round(totalEmployees * 0.91) || 233) : 0
+            totalEmployees: Math.round(totalEmployees * 0.91) || 233
           }
         }
       },
@@ -2395,8 +2497,9 @@ async function exportTransferStatement(req, res) {
       let txt = "RECORD_TYPE|EMP_ID|BENEFICIARY_NAME|ACCOUNT_NO|IFSC_CODE|AMOUNT|REMARKS\n";
       employees.forEach(emp => {
         const dryRunItem = dryRunMap.get(emp.id) || (emp.EmployeeNumber ? dryRunMap.get(emp.EmployeeNumber.trim().toLowerCase()) : null);
-        const netPay = dryRunItem ? Number(dryRunItem.total_net || 0) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
-        txt += `PAY|${emp.EmployeeNumber}|${emp.FullName}|${emp.BankAccountNo}|${emp.IFSCCode}|${netPay}|Salary for ${monthInput}\n`;
+        const netPay = dryRunItem ? Number(dryRunItem.total_net_payout !== undefined ? dryRunItem.total_net_payout : (dryRunItem.total_net || 0)) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+        const holdNote = dryRunItem?.is_on_hold ? (dryRunItem.hold_status === 'FULL' ? ' (ON HOLD)' : ` (Hold: INR ${dryRunItem.held_amount})`) : '';
+        txt += `PAY|${emp.EmployeeNumber}|${emp.FullName}|${emp.BankAccountNo}|${emp.IFSCCode}|${netPay}|Salary for ${monthInput}${holdNote}\n`;
       });
       res.setHeader('Content-Type', 'text/plain');
       res.setHeader('Content-Disposition', `attachment; filename=Transfer_Statement_${monthInput}.txt`);
@@ -2425,7 +2528,10 @@ async function exportTransferStatement(req, res) {
 
       employees.forEach((emp, index) => {
         const dryRunItem = dryRunMap.get(emp.id) || (emp.EmployeeNumber ? dryRunMap.get(emp.EmployeeNumber.trim().toLowerCase()) : null);
-        const netPay = dryRunItem ? Number(dryRunItem.total_net || 0) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+        const netPay = dryRunItem ? Number(dryRunItem.total_net_payout !== undefined ? dryRunItem.total_net_payout : (dryRunItem.total_net || 0)) : computeContractNetPay(emp.annual_ctc, emp.template_id, compMap);
+        const payFor = dryRunItem?.is_on_hold
+          ? (dryRunItem.hold_status === 'FULL' ? 'Salary - ON HOLD' : `Salary (INR ${dryRunItem.held_amount} on hold)`)
+          : 'Salary';
 
         aoa.push([
           index + 1,
@@ -2436,7 +2542,7 @@ async function exportTransferStatement(req, res) {
           emp.Bank || '',
           emp.IFSCCode || '',
           emp.BankAccountNo || '',
-          'Salary',
+          payFor,
           netPay
         ]);
       });

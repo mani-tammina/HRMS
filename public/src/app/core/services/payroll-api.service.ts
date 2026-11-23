@@ -1019,4 +1019,34 @@ export class PayrollApiService {
       responseType: 'blob'
     });
   }
+
+  /** GET /api/payroll/v2/salaries-on-hold-arrears?month=YYYY-MM */
+  getSalariesOnHoldArrears(month: string): Observable<any> {
+    const params = new HttpParams().set('month', month);
+    return this.http.get<any>(`${this.baseUrl}/payroll/v2/salaries-on-hold-arrears`, {
+      headers: this.getHeaders(),
+      params
+    });
+  }
+
+  /** POST /api/payroll/v2/salaries-on-hold-arrears/hold */
+  putSalaryOnHold(payload: { employee_id: number; month: string; hold_reason: string; remarks?: string; held_gross_amount?: number; held_net_amount?: number }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/payroll/v2/salaries-on-hold-arrears/hold`, payload, {
+      headers: this.getHeaders()
+    });
+  }
+
+  /** PUT /api/payroll/v2/salaries-on-hold-arrears/hold/:id/release */
+  releaseSalaryHold(id: number, payload: { release_month: string; release_reason?: string; pay_as_arrear?: boolean; arrear_amount?: number }): Observable<any> {
+    return this.http.put<any>(`${this.baseUrl}/payroll/v2/salaries-on-hold-arrears/hold/${id}/release`, payload, {
+      headers: this.getHeaders()
+    });
+  }
+
+  /** POST /api/payroll/v2/salaries-on-hold-arrears/arrear */
+  addSalaryArrear(payload: { employee_id: number; month: string; category: string; period?: string; amount: number; pay_action?: string; comments?: string }): Observable<any> {
+    return this.http.post<any>(`${this.baseUrl}/payroll/v2/salaries-on-hold-arrears/arrear`, payload, {
+      headers: this.getHeaders()
+    });
+  }
 }

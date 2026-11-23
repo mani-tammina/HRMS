@@ -2077,8 +2077,8 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                             revised_monthly: Math.round(revCtc / 12),
                             monthly_increment: Number(parsedReason.monthly_increment) || 0,
                             effective_date: parsedReason.effective_date || `01 ${mShort} ${year}`,
-                            arrears_applicable: true,
-                            arrears_months: Number(parsedReason.arrears_months) || 1,
+                            arrears_applicable: (Number(parsedReason.arrears_months) || 0) > 0,
+                            arrears_months: parsedReason.arrears_months !== undefined ? Number(parsedReason.arrears_months) : 0,
                             arrears_amount: amt,
                             arrears_amount_formatted: `INR ${amt.toLocaleString('en-IN')}`,
                             status: 'Approved',
@@ -2182,6 +2182,11 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                     ? new Date(esc.effective_from).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
                     : `01 ${mShort} ${year}`;
 
+                const effYm = esc.effective_from ? new Date(esc.effective_from).toISOString().substring(0, 7) : targetMonth;
+                const [effY, effM] = effYm.split('-').map(Number);
+                const contractArrearsMonths = (effY && effM) ? Math.max(0, (year - effY) * 12 + (monthNum - effM)) : 0;
+                const contractArrearsAmt = monthlyDiff * contractArrearsMonths;
+
                 revisionRecords.push({
                     id: esc.employee_id,
                     contract_id: esc.contract_id,
@@ -2198,10 +2203,10 @@ router.get("/v2/bonus-revisions-overtime", auth, async (req, res) => {
                     revised_monthly: revMonthly,
                     monthly_increment: monthlyDiff,
                     effective_date: effectiveDateStr,
-                    arrears_applicable: true,
-                    arrears_months: 1,
-                    arrears_amount: 0,
-                    arrears_amount_formatted: 'INR 0',
+                    arrears_applicable: contractArrearsMonths > 0,
+                    arrears_months: contractArrearsMonths,
+                    arrears_amount: contractArrearsAmt,
+                    arrears_amount_formatted: `INR ${contractArrearsAmt.toLocaleString('en-IN')}`,
                     status: esc.status || 'Active',
                     pay_action: 'Process as salary',
                     comments: `Salary revised to INR ${revCtc.toLocaleString('en-IN')} effective ${effectiveDateStr}`,
@@ -2469,7 +2474,7 @@ router.post("/v2/bonus-revisions-overtime/revision", auth, async (req, res) => {
             revised_ctc: Number(revised_ctc) || 0,
             hike_percentage: String(hike_percentage || '0%'),
             effective_date: effective_date || '',
-            arrears_months: Number(arrears_months) || 1,
+            arrears_months: arrears_months !== undefined ? Number(arrears_months) : 0,
             pay_action: pay_action || 'Process as salary',
             comments: comments || ''
         });
@@ -2557,7 +2562,7 @@ router.put("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res) =
             revised_ctc: Number(revised_ctc) || 0,
             hike_percentage: String(hike_percentage || '0%'),
             effective_date: effective_date || '',
-            arrears_months: Number(arrears_months) || 1,
+            arrears_months: arrears_months !== undefined ? Number(arrears_months) : 0,
             pay_action: pay_action || 'Process as salary',
             comments: comments || ''
         });
@@ -2621,7 +2626,10 @@ router.delete("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res
             await c.query(`DELETE FROM payroll_adjustments WHERE employee_id = ? AND adjustment_type = 'ARREAR'`, [empId]);
         }
 
-        // 2. If a specific contract was provided or if there are multiple contracts
+        // 2. Restore salary contract to previous state
+        const [empRows] = await c.query(`SELECT lpa, DateJoined FROM employees WHERE id = ?`, [empId]);
+        const baseLpa = empRows.length > 0 ? empRows[0].lpa : null;
+
         if (contractId) {
             await c.query(`DELETE FROM employee_salary_contracts WHERE contract_id = ?`, [contractId]);
             const [remaining] = await c.query(
@@ -2630,6 +2638,12 @@ router.delete("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res
             );
             if (remaining && remaining.length > 0) {
                 await c.query(`UPDATE employee_salary_contracts SET status = 'Active' WHERE contract_id = ?`, [remaining[0].contract_id]);
+            } else if (baseLpa) {
+                await c.query(
+                    `INSERT INTO employee_salary_contracts (employee_id, template_id, annual_ctc, effective_from, status, created_at, updated_at)
+                     VALUES (?, 8, ?, ?, 'Active', NOW(), NOW())`,
+                    [empId, baseLpa, empRows[0].DateJoined || '2026-01-01']
+                );
             }
         } else {
             const [contracts] = await c.query(
@@ -2643,6 +2657,12 @@ router.delete("/v2/bonus-revisions-overtime/revision/:id", auth, async (req, res
                 if (prev && prev.contract_id) {
                     await c.query(`UPDATE employee_salary_contracts SET status = 'Active' WHERE contract_id = ?`, [prev.contract_id]);
                 }
+            } else if (contracts && contracts.length === 1 && baseLpa) {
+                // If only 1 contract exists, revert its annual_ctc to the employee's original LPA
+                await c.query(
+                    `UPDATE employee_salary_contracts SET annual_ctc = ?, updated_at = NOW() WHERE contract_id = ?`,
+                    [baseLpa, contracts[0].contract_id]
+                );
             }
         }
 
@@ -3006,6 +3026,549 @@ router.post("/v2/reimbursement-adhoc-deduction/import-previous-month", auth, asy
 // POST /api/payroll/v2/reimbursement-adhoc-deduction/mark-complete
 router.post("/v2/reimbursement-adhoc-deduction/mark-complete", auth, async (req, res) => {
     res.json({ success: true, message: 'Step 4 (Reimbursement, Adhoc Payment, Deduction) marked as completed' });
+});
+
+/* =====================================================
+   SALARIES ON HOLD & ARREARS (STEP 5)
+   ===================================================== */
+
+// GET /api/payroll/v2/salaries-on-hold-arrears?month=YYYY-MM
+router.get("/v2/salaries-on-hold-arrears", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { month } = req.query;
+        const [yStr, mStr] = (month || '2026-11').split('-');
+        const year = parseInt(yStr, 10) || 2026;
+        const monthNum = parseInt(mStr, 10) || 11;
+        const targetMonth = month || `${year}-${String(monthNum).padStart(2, '0')}`;
+
+        c = await db();
+
+        // 1. Query active/working employees for modal dropdowns
+        const [employees] = await c.query(`
+            SELECT e.id, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   e.DateJoined, d.name AS DepartmentName, des.name AS DesignationName,
+                   esc.annual_ctc, e.lpa
+            FROM employees e
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+            WHERE (e.EmploymentStatus != 'Relieved' OR e.EmploymentStatus IS NULL)
+            ORDER BY e.FullName ASC
+        `);
+
+        const workingEmployees = employees.map(emp => {
+            const annualCtc = Number(emp.annual_ctc) || Number(emp.lpa) || 0;
+            const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+            return {
+                id: emp.id,
+                employee_code: emp.EmployeeNumber,
+                employee_name: emp.FullName || `${emp.FirstName || ''} ${emp.LastName || ''}`.trim(),
+                department: emp.DepartmentName || 'General',
+                designation: emp.DesignationName || 'Staff',
+                monthly_salary: monthlyGross,
+                annual_ctc: annualCtc
+            };
+        });
+
+        // 2. Query Salary Holds for targetMonth
+        const [holdRows] = await c.query(`
+            SELECT psh.*, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   d.name AS DepartmentName, des.name AS DesignationName,
+                   esc.annual_ctc, e.lpa
+            FROM payroll_salary_holds psh
+            JOIN employees e ON psh.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+            WHERE psh.payroll_month = ?
+            ORDER BY psh.id DESC
+        `, [targetMonth]);
+
+        const holdRecords = (holdRows || []).map(row => {
+            const empName = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim();
+            const annualCtc = Number(row.annual_ctc) || Number(row.lpa) || 0;
+            const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+            return {
+                id: row.id,
+                employee_id: row.employee_id,
+                employee_code: row.EmployeeNumber,
+                employee_name: empName,
+                department: row.DepartmentName || 'General',
+                designation: row.DesignationName || 'Staff',
+                monthly_salary: monthlyGross,
+                held_gross_amount: Number(row.held_gross_amount) || monthlyGross,
+                held_net_amount: Number(row.held_net_amount) || 0,
+                hold_status: row.hold_status || 'ON_HOLD',
+                hold_reason: row.hold_reason,
+                remarks: row.remarks || '',
+                payroll_month: row.payroll_month,
+                release_month: row.release_month || null,
+                release_reason: row.release_reason || null,
+                created_at: row.created_at,
+                updated_at: row.updated_at
+            };
+        });
+
+        // 3. Query Arrears from payroll_adjustments (adjustment_type = 'ARREAR')
+        const [arrearRows] = await c.query(`
+            SELECT pa.*, e.EmployeeNumber, e.FirstName, e.LastName, e.FullName,
+                   d.name AS DepartmentName, des.name AS DesignationName,
+                   esc.annual_ctc, e.lpa
+            FROM payroll_adjustments pa
+            JOIN employees e ON pa.employee_id = e.id
+            LEFT JOIN departments d ON e.DepartmentId = d.id
+            LEFT JOIN designations des ON e.DesignationId = des.id
+            LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+            WHERE pa.payroll_month = ? AND pa.adjustment_type = 'ARREAR'
+            ORDER BY pa.id DESC
+        `, [targetMonth]);
+
+        const arrearRecords = (arrearRows || []).map(row => {
+            const empName = row.FullName || `${row.FirstName || ''} ${row.LastName || ''}`.trim();
+            const annualCtc = Number(row.annual_ctc) || Number(row.lpa) || 0;
+            const monthlyGross = annualCtc > 0 ? Math.round(annualCtc / 12) : 0;
+            let parsedReason = {};
+            try {
+                parsedReason = typeof row.reason === 'string' && row.reason.startsWith('{')
+                    ? JSON.parse(row.reason)
+                    : { comments: row.reason || '' };
+            } catch (_) {
+                parsedReason = { comments: row.reason || '' };
+            }
+
+            return {
+                id: row.id,
+                employee_id: row.employee_id,
+                employee_code: row.EmployeeNumber,
+                employee_name: empName,
+                department: row.DepartmentName || 'General',
+                designation: row.DesignationName || 'Staff',
+                monthly_salary: monthlyGross,
+                category: parsedReason.category || 'Salary Arrears',
+                period: parsedReason.period || `${monthNum > 1 ? year : year - 1}-${String(monthNum > 1 ? monthNum - 1 : 12).padStart(2, '0')}`,
+                amount: Number(row.amount) || 0,
+                amount_formatted: `INR ${(Number(row.amount) || 0).toLocaleString('en-IN')}`,
+                pay_action: parsedReason.pay_action || 'Process with salary',
+                comments: parsedReason.comments || parsedReason.comment || row.reason || '',
+                created_at: row.created_at
+            };
+        });
+
+        // 4. Summaries
+        const onHoldRows = holdRecords.filter(r => r.hold_status === 'ON_HOLD');
+        const releasedRows = holdRecords.filter(r => r.hold_status === 'RELEASED');
+        const totalHeldAmount = onHoldRows.reduce((sum, r) => sum + (Number(r.held_gross_amount) || 0), 0);
+        const totalReleasedAmount = releasedRows.reduce((sum, r) => sum + (Number(r.held_gross_amount) || 0), 0);
+        const totalArrearsAmount = arrearRecords.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+        const uniqueArrearEmployees = new Set(arrearRecords.map(r => r.employee_id)).size;
+
+        res.json({
+            success: true,
+            targetMonth,
+            employees: workingEmployees,
+            holdRecords,
+            arrearRecords,
+            summaryData: {
+                totalHeldEmployees: onHoldRows.length,
+                totalHeldAmount,
+                totalReleasedEmployees: releasedRows.length,
+                totalReleasedAmount,
+                totalArrearsCount: arrearRecords.length,
+                totalArrearEmployees: uniqueArrearEmployees,
+                totalArrearsAmount
+            }
+        });
+    } catch (err) {
+        console.error("Error loading salaries on hold and arrears:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/hold (Put salary on hold)
+router.post("/v2/salaries-on-hold-arrears/hold", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employee_id, month, hold_reason, remarks, held_gross_amount, held_net_amount, hold_type } = req.body;
+        const empId = Number(employee_id);
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+        const hType = (hold_type || 'FULL').toUpperCase() === 'CUSTOM' ? 'CUSTOM' : 'FULL';
+
+        if (!empId || !hold_reason) {
+            return res.status(400).json({ success: false, error: 'Employee and hold reason are required' });
+        }
+
+        c = await db();
+
+        // Check if already on hold for this month
+        const [existing] = await c.query(
+            `SELECT id FROM payroll_salary_holds WHERE employee_id = ? AND payroll_month = ? AND hold_status = 'ON_HOLD' LIMIT 1`,
+            [empId, targetMonth]
+        );
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, error: 'This employee salary is already placed on hold for this month' });
+        }
+
+        // Get monthly gross if not passed
+        let grossAmt = Number(held_gross_amount) || 0;
+        if (grossAmt <= 0) {
+            const [empRows] = await c.query(`
+                SELECT esc.annual_ctc, e.lpa
+                FROM employees e
+                LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+                WHERE e.id = ? LIMIT 1
+            `, [empId]);
+            if (empRows.length > 0) {
+                const ctc = Number(empRows[0].annual_ctc) || Number(empRows[0].lpa) || 0;
+                grossAmt = ctc > 0 ? Math.round(ctc / 12) : 0;
+            }
+        }
+
+        const netAmt = Number(held_net_amount) || grossAmt;
+
+        const [result] = await c.query(`
+            INSERT INTO payroll_salary_holds 
+            (employee_id, payroll_month, hold_status, hold_type, hold_reason, remarks, held_gross_amount, held_net_amount, created_by, created_at)
+            VALUES (?, ?, 'ON_HOLD', ?, ?, ?, ?, ?, ?, NOW())
+        `, [empId, targetMonth, hType, hold_reason, remarks || '', grossAmt, netAmt, userId]);
+
+        res.json({ success: true, id: result.insertId, message: 'Employee salary placed on hold successfully' });
+    } catch (err) {
+        console.error("Error putting salary on hold:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// PUT /api/payroll/v2/salaries-on-hold-arrears/hold/:id (Update hold record)
+router.put("/v2/salaries-on-hold-arrears/hold/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        const { hold_reason, remarks, held_gross_amount, held_net_amount } = req.body;
+
+        c = await db();
+
+        const [existing] = await c.query(`SELECT * FROM payroll_salary_holds WHERE id = ?`, [id]);
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, error: 'Hold record not found' });
+        }
+
+        const newReason = hold_reason || existing[0].hold_reason;
+        const newRemarks = remarks !== undefined ? remarks : existing[0].remarks;
+        const newGross = held_gross_amount !== undefined ? Number(held_gross_amount) : existing[0].held_gross_amount;
+        const newNet = held_net_amount !== undefined ? Number(held_net_amount) : existing[0].held_net_amount;
+
+        await c.query(`
+            UPDATE payroll_salary_holds
+            SET hold_reason = ?, remarks = ?, held_gross_amount = ?, held_net_amount = ?, updated_at = NOW()
+            WHERE id = ?
+        `, [newReason, newRemarks, newGross, newNet, id]);
+
+        res.json({ success: true, message: 'Salary hold details updated successfully' });
+    } catch (err) {
+        console.error("Error updating salary hold:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// PUT /api/payroll/v2/salaries-on-hold-arrears/hold/:id/release (Release salary hold)
+router.put("/v2/salaries-on-hold-arrears/hold/:id/release", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        const { release_month, release_reason, pay_as_arrear, arrear_amount } = req.body;
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        c = await db();
+
+        const [existing] = await c.query(`SELECT * FROM payroll_salary_holds WHERE id = ?`, [id]);
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, error: 'Hold record not found' });
+        }
+
+        const holdRec = existing[0];
+        const targetReleaseMonth = release_month || holdRec.payroll_month;
+        const reasonText = release_reason || 'Administrative clearance / Hold released';
+
+        await c.query(`
+            UPDATE payroll_salary_holds
+            SET hold_status = 'RELEASED', release_month = ?, release_reason = ?, released_by = ?, updated_at = NOW()
+            WHERE id = ?
+        `, [targetReleaseMonth, reasonText, userId, id]);
+
+        // Default to true unless explicitly passed false
+        const shouldPayArrear = pay_as_arrear !== false;
+        if (shouldPayArrear) {
+            const amt = Number(arrear_amount) || Number(holdRec.held_net_amount) || Number(holdRec.held_gross_amount) || 0;
+            if (amt > 0) {
+                const arrearReason = JSON.stringify({
+                    category: 'Released Hold Payout',
+                    period: holdRec.payroll_month,
+                    hold_id: holdRec.id,
+                    pay_action: 'Process with salary',
+                    comments: `Released salary from ${holdRec.payroll_month} hold. Reason: ${reasonText}`
+                });
+
+                await c.query(`
+                    INSERT INTO payroll_adjustments 
+                    (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                    VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
+                `, [holdRec.employee_id, targetReleaseMonth, amt, arrearReason, userId]);
+            }
+        }
+
+        res.json({ success: true, message: 'Salary hold released successfully' });
+    } catch (err) {
+        console.error("Error releasing salary hold:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// DELETE /api/payroll/v2/salaries-on-hold-arrears/hold/:id (Delete hold record)
+router.delete("/v2/salaries-on-hold-arrears/hold/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        c = await db();
+        await c.query(`DELETE FROM payroll_salary_holds WHERE id = ?`, [id]);
+        res.json({ success: true, message: 'Salary hold record removed successfully' });
+    } catch (err) {
+        console.error("Error deleting salary hold:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/bulk-hold
+router.post("/v2/salaries-on-hold-arrears/bulk-hold", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employee_ids, month, hold_reason, remarks } = req.body;
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!Array.isArray(employee_ids) || employee_ids.length === 0 || !hold_reason) {
+            return res.status(400).json({ success: false, error: 'Valid employee IDs and hold reason are required' });
+        }
+
+        c = await db();
+        let heldCount = 0;
+
+        for (const empId of employee_ids) {
+            const [existing] = await c.query(
+                `SELECT id FROM payroll_salary_holds WHERE employee_id = ? AND payroll_month = ? AND hold_status = 'ON_HOLD' LIMIT 1`,
+                [empId, targetMonth]
+            );
+            if (existing.length === 0) {
+                const [empRows] = await c.query(`
+                    SELECT esc.annual_ctc, e.lpa
+                    FROM employees e
+                    LEFT JOIN employee_salary_contracts esc ON e.id = esc.employee_id AND esc.status = 'Active'
+                    WHERE e.id = ? LIMIT 1
+                `, [empId]);
+                const ctc = empRows.length > 0 ? (Number(empRows[0].annual_ctc) || Number(empRows[0].lpa) || 0) : 0;
+                const monthlyGross = ctc > 0 ? Math.round(ctc / 12) : 0;
+
+                await c.query(`
+                    INSERT INTO payroll_salary_holds 
+                    (employee_id, payroll_month, hold_status, hold_reason, remarks, held_gross_amount, held_net_amount, created_by, created_at)
+                    VALUES (?, ?, 'ON_HOLD', ?, ?, ?, ?, ?, NOW())
+                `, [empId, targetMonth, hold_reason, remarks || '', monthlyGross, monthlyGross, userId]);
+                heldCount++;
+            }
+        }
+
+        res.json({ success: true, heldCount, message: `${heldCount} employee salaries placed on hold` });
+    } catch (err) {
+        console.error("Error bulk holding salaries:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/bulk-release
+router.post("/v2/salaries-on-hold-arrears/bulk-release", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { ids, release_month, release_reason } = req.body;
+        const targetMonth = release_month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, error: 'Array of hold record IDs required' });
+        }
+
+        c = await db();
+
+        // 1. Fetch existing hold records to be released
+        const [holdsToRelease] = await c.query(`
+            SELECT * FROM payroll_salary_holds WHERE id IN (?) AND hold_status = 'ON_HOLD'
+        `, [ids]);
+
+        // 2. Mark as RELEASED
+        await c.query(`
+            UPDATE payroll_salary_holds
+            SET hold_status = 'RELEASED', release_month = ?, release_reason = ?, released_by = ?, updated_at = NOW()
+            WHERE id IN (?)
+        `, [targetMonth, release_reason || 'Bulk administrative release', userId, ids]);
+
+        // 3. Automatically insert Arrear adjustment for each in targetMonth
+        for (const h of holdsToRelease) {
+            const amt = Number(h.held_net_amount) || Number(h.held_gross_amount) || 0;
+            if (amt > 0) {
+                const arrearReason = JSON.stringify({
+                    category: 'Released Hold Payout',
+                    period: h.payroll_month,
+                    hold_id: h.id,
+                    pay_action: 'Process with salary',
+                    comments: `Released from ${h.payroll_month} hold. Reason: ${release_reason || 'Bulk administrative release'}`
+                });
+                await c.query(`
+                    INSERT INTO payroll_adjustments 
+                    (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+                    VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
+                `, [h.employee_id, targetMonth, amt, arrearReason, userId]);
+            }
+        }
+
+        res.json({ success: true, message: `${ids.length} salary holds released successfully` });
+    } catch (err) {
+        console.error("Error bulk releasing salary holds:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/arrear (Add salary arrear)
+router.post("/v2/salaries-on-hold-arrears/arrear", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { employee_id, month, category, period, amount, pay_action, comments } = req.body;
+        const empId = Number(employee_id);
+        const amt = Number(amount) || 0;
+        const targetMonth = month || '2026-11';
+        const userId = (req.user && req.user.id) ? req.user.id : 1;
+
+        if (!empId || amt <= 0) {
+            return res.status(400).json({ success: false, error: 'Valid employee and positive arrear amount required' });
+        }
+
+        c = await db();
+
+        const reason = JSON.stringify({
+            category: category || 'Salary Arrears',
+            period: period || '',
+            pay_action: pay_action || 'Process with salary',
+            comments: comments || ''
+        });
+
+        const [result] = await c.query(`
+            INSERT INTO payroll_adjustments 
+            (employee_id, payroll_month, adjustment_type, amount, reason, created_by, created_at)
+            VALUES (?, ?, 'ARREAR', ?, ?, ?, NOW())
+        `, [empId, targetMonth, amt, reason, userId]);
+
+        res.json({ success: true, id: result.insertId, message: 'Salary arrear added successfully' });
+    } catch (err) {
+        console.error("Error adding salary arrear:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// PUT /api/payroll/v2/salaries-on-hold-arrears/arrear/:id (Update salary arrear)
+router.put("/v2/salaries-on-hold-arrears/arrear/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        const { category, period, amount, pay_action, comments } = req.body;
+        const amt = Number(amount) || 0;
+
+        c = await db();
+
+        const [existing] = await c.query(`SELECT * FROM payroll_adjustments WHERE id = ? AND adjustment_type = 'ARREAR'`, [id]);
+        if (!existing || existing.length === 0) {
+            return res.status(404).json({ success: false, error: 'Arrear record not found' });
+        }
+
+        let parsedReason = {};
+        try {
+            parsedReason = typeof existing[0].reason === 'string' && existing[0].reason.startsWith('{')
+                ? JSON.parse(existing[0].reason)
+                : {};
+        } catch (_) {}
+
+        parsedReason.category = category || parsedReason.category || 'Salary Arrears';
+        parsedReason.period = period !== undefined ? period : (parsedReason.period || '');
+        parsedReason.pay_action = pay_action || parsedReason.pay_action || 'Process with salary';
+        parsedReason.comments = comments !== undefined ? comments : (parsedReason.comments || '');
+
+        await c.query(`
+            UPDATE payroll_adjustments 
+            SET amount = ?, reason = ?
+            WHERE id = ?
+        `, [amt > 0 ? amt : existing[0].amount, JSON.stringify(parsedReason), id]);
+
+        res.json({ success: true, message: 'Salary arrear updated successfully' });
+    } catch (err) {
+        console.error("Error updating salary arrear:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// DELETE /api/payroll/v2/salaries-on-hold-arrears/arrear/:id
+router.delete("/v2/salaries-on-hold-arrears/arrear/:id", auth, async (req, res) => {
+    let c = null;
+    try {
+        const id = Number(req.params.id);
+        c = await db();
+        await c.query(`DELETE FROM payroll_adjustments WHERE id = ? AND adjustment_type = 'ARREAR'`, [id]);
+        res.json({ success: true, message: 'Salary arrear removed successfully' });
+    } catch (err) {
+        console.error("Error deleting salary arrear:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/bulk-delete-arrears
+router.post("/v2/salaries-on-hold-arrears/bulk-delete-arrears", auth, async (req, res) => {
+    let c = null;
+    try {
+        const { ids } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ success: false, error: 'Array of IDs required' });
+        }
+        c = await db();
+        await c.query(`DELETE FROM payroll_adjustments WHERE id IN (?) AND adjustment_type = 'ARREAR'`, [ids]);
+        res.json({ success: true, message: `${ids.length} arrear records deleted successfully` });
+    } catch (err) {
+        console.error("Error bulk deleting arrears:", err);
+        res.status(500).json({ success: false, error: err.message });
+    } finally {
+        if (c) await c.end();
+    }
+});
+
+// POST /api/payroll/v2/salaries-on-hold-arrears/mark-complete
+router.post("/v2/salaries-on-hold-arrears/mark-complete", auth, async (req, res) => {
+    res.json({ success: true, message: 'Step 5 (Salaries on Hold & Arrears) marked as completed' });
 });
 
 module.exports = router;

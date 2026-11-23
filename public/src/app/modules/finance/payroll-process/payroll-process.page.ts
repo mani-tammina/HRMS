@@ -63,10 +63,23 @@ export class PayrollProcessPage implements OnInit {
   /** Alias so lock/paid steps keep working unchanged */
   get runStatus(): V2RunSummary | null { return this.selectedRun; }
   get lockNetPayout(): number {
+    if (this.previewData?.data?.estimate?.totalPayout !== undefined && this.previewData?.data?.estimate?.totalPayout !== null) {
+      return this.previewData.data.estimate.totalPayout;
+    }
     if (this.previewData?.data?.estimate?.totalNet !== undefined && this.previewData?.data?.estimate?.totalNet !== null) {
       return this.previewData.data.estimate.totalNet;
     }
     return this.runStatus?.total_net || 0;
+  }
+
+  get estimateTotalHeld(): number {
+    const est: any = this.previewData?.data?.estimate;
+    return Number(est?.totalHeld || 0);
+  }
+
+  get estimateHeldCount(): number {
+    const est: any = this.previewData?.data?.estimate;
+    return Number(est?.heldCount || 0);
   }
   previewData: PayrollPreviewResponse | null = null;
   validationResult: PayrollValidationResult | null = null;
@@ -951,7 +964,7 @@ navigateToExecution() {
 
       const cashAdvanceD = Number(emp.cash_advance || 0);
       const settlementE = 0;
-      const reimbursementF = Number(emp.total_reimbursements || 0);
+      const reimbursementF = Number(emp.base_reimbursements !== undefined ? emp.base_reimbursements : (emp.total_reimbursements || 0));
       const totalNetPay = netPayABC + cashAdvanceD + settlementE + reimbursementF;
 
       const calDays = emp.calendar_days || 30;
@@ -1018,6 +1031,62 @@ navigateToExecution() {
       };
     });
 
+    const employeeCount = data.length;
+
+    if (data.length > 0) {
+      const sum = (key: string): number => {
+        const val = data.reduce((acc, row: any) => acc + (Number(row[key]) || 0), 0);
+        return Math.round(val * 100) / 100;
+      };
+
+      const totalRow: any = {
+        'Employee Number': '',
+        'Employee Name': 'TOTAL',
+        'Job Title': '',
+        'PAN Number': '',
+        'Employment Status': '',
+        'Date Of Joining': '',
+        'Gender': '',
+        'Date Of Birth': '',
+        'Location': '',
+        'Department': '',
+        'Payroll Month': payrollMonthStr,
+        'Payroll Type': '',
+        'Status': '',
+        'Status Description': '',
+        'Actual Payable days': '',
+        'Working days': '',
+        'Loss of Pay Days': '',
+        'Days Payable': '',
+        'Payable Units': '',
+        'Remuneration Amount': '',
+        'Basic': sum('Basic'),
+        'HRA': sum('HRA'),
+        'Medical Allowance': sum('Medical Allowance'),
+        'Transport Allowance': sum('Transport Allowance'),
+        'Special Allowance': sum('Special Allowance'),
+        'Bonus': sum('Bonus'),
+        'Arrears': sum('Arrears'),
+        'Overtime': sum('Overtime'),
+        'Gross(A)': sum('Gross(A)'),
+        'PF - Employer': sum('PF - Employer'),
+        'ESI Employer': sum('ESI Employer'),
+        'Total': sum('Total'),
+        'PF Employee': sum('PF Employee'),
+        'ESI Employee': sum('ESI Employee'),
+        'Total Contributions(B)': sum('Total Contributions(B)'),
+        'Professional Tax': sum('Professional Tax'),
+        'Total Deductions(C)': sum('Total Deductions(C)'),
+        'Net Pay(A-B-C)': sum('Net Pay(A-B-C)'),
+        'Cash Advance(D)': sum('Cash Advance(D)'),
+        'Settlement Aganist Advance(E)': sum('Settlement Aganist Advance(E)'),
+        'Total Reimbursements(F)': sum('Total Reimbursements(F)'),
+        'Total Net Pay(A-B-C+D+E+F)': sum('Total Net Pay(A-B-C+D+E+F)')
+      };
+
+      data.push(totalRow);
+    }
+
     const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
     const wb: XLSX.WorkBook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Payroll Preview');
@@ -1030,7 +1099,7 @@ navigateToExecution() {
 
     const filename = `Payroll_Preview_${this.previewMonth || payrollMonthStr.replace(/\s+/g, '_')}.xlsx`;
     XLSX.writeFile(wb, filename);
-    this.toaster.showSuccess(`Exported ${data.length} employees successfully`);
+    this.toaster.showSuccess(`Exported ${employeeCount} employees successfully`);
   }
 
   trackByEmpId(index: number, item: any) {

@@ -281,6 +281,23 @@ export class PayrollDashboardPage implements OnInit {
       });
       return;
     }
+    if (step.id === 5) {
+      this.router.navigate(['/finance/run-payroll/salaries-on-hold-arrears'], {
+        queryParams: { month: this.selectedMonth, step: 1 }
+      }).then(success => {
+        if (!success) {
+          this.router.navigate(['/finance/salaries-on-hold-arrears'], {
+            queryParams: { month: this.selectedMonth, step: 1 }
+          });
+        }
+      }).catch(err => {
+        console.error('Navigation to salaries-on-hold-arrears failed:', err);
+        this.router.navigate(['/finance/salaries-on-hold-arrears'], {
+          queryParams: { month: this.selectedMonth, step: 1 }
+        });
+      });
+      return;
+    }
     this.activeStepModal = step;
   }
 
@@ -508,7 +525,7 @@ export class PayrollDashboardPage implements OnInit {
 
   formatCurrency(val: any): string {
     const num = Math.round(Number(val) || 0);
-    return 'INR ' + num.toLocaleString('en-IN');
+    return '₹' + num.toLocaleString('en-IN');
   }
 
   formatDelta(delta: any): string {
@@ -939,7 +956,7 @@ export class PayrollDashboardPage implements OnInit {
 
       const cashAdvanceD = Number(emp.cash_advance || 0);
       const settlementE = 0;
-      const reimbursementF = Number(emp.total_reimbursements || 0);
+      const reimbursementF = Number(emp.base_reimbursements !== undefined ? emp.base_reimbursements : (emp.total_reimbursements || 0));
       const totalNetPay = netPayABC + cashAdvanceD + settlementE + reimbursementF;
 
       const calDays = emp.calendar_days || 30;
@@ -1006,6 +1023,62 @@ export class PayrollDashboardPage implements OnInit {
       };
     });
 
+    const employeeCount = data.length;
+
+    if (data.length > 0) {
+      const sum = (key: string): number => {
+        const val = data.reduce((acc, row: any) => acc + (Number(row[key]) || 0), 0);
+        return Math.round(val * 100) / 100;
+      };
+
+      const totalRow: any = {
+        'Employee Number': '',
+        'Employee Name': 'TOTAL',
+        'Job Title': '',
+        'PAN Number': '',
+        'Employment Status': '',
+        'Date Of Joining': '',
+        'Gender': '',
+        'Date Of Birth': '',
+        'Location': '',
+        'Department': '',
+        'Payroll Month': payrollMonthStr,
+        'Payroll Type': '',
+        'Status': '',
+        'Status Description': '',
+        'Actual Payable days': '',
+        'Working days': '',
+        'Loss of Pay Days': '',
+        'Days Payable': '',
+        'Payable Units': '',
+        'Remuneration Amount': '',
+        'Basic': sum('Basic'),
+        'HRA': sum('HRA'),
+        'Medical Allowance': sum('Medical Allowance'),
+        'Transport Allowance': sum('Transport Allowance'),
+        'Special Allowance': sum('Special Allowance'),
+        'Bonus': sum('Bonus'),
+        'Arrears': sum('Arrears'),
+        'Overtime': sum('Overtime'),
+        'Gross(A)': sum('Gross(A)'),
+        'PF - Employer': sum('PF - Employer'),
+        'ESI Employer': sum('ESI Employer'),
+        'Total': sum('Total'),
+        'PF Employee': sum('PF Employee'),
+        'ESI Employee': sum('ESI Employee'),
+        'Total Contributions(B)': sum('Total Contributions(B)'),
+        'Professional Tax': sum('Professional Tax'),
+        'Total Deductions(C)': sum('Total Deductions(C)'),
+        'Net Pay(A-B-C)': sum('Net Pay(A-B-C)'),
+        'Cash Advance(D)': sum('Cash Advance(D)'),
+        'Settlement Aganist Advance(E)': sum('Settlement Aganist Advance(E)'),
+        'Total Reimbursements(F)': sum('Total Reimbursements(F)'),
+        'Total Net Pay(A-B-C+D+E+F)': sum('Total Net Pay(A-B-C+D+E+F)')
+      };
+
+      data.push(totalRow);
+    }
+
     const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
     const wb: XLSX.WorkBook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Payroll Run Data');
@@ -1018,7 +1091,7 @@ export class PayrollDashboardPage implements OnInit {
 
     const filename = `Payroll_Export_${this.selectedMonth || payrollMonthStr.replace(/\s+/g, '_')}.xlsx`;
     XLSX.writeFile(wb, filename);
-    this.toaster.showSuccess(`Exported ${data.length} employees successfully`);
+    this.toaster.showSuccess(`Exported ${employeeCount} employees successfully`);
   }
 
 }
