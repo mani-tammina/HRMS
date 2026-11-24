@@ -101,6 +101,7 @@ export class HomePage implements OnInit, OnDestroy {
   hasPunchedToday: boolean = false;
   isAutoClockedOut: boolean = false;
   isClockedIn: boolean = false;
+  isOverallClockedIn: boolean = false;
 
   constructor(
     private employeeService: EmployeeService,
@@ -643,7 +644,7 @@ export class HomePage implements OnInit, OnDestroy {
     if (this.clockInterval) clearInterval(this.clockInterval);
     this.clockInterval = setInterval(() => {
       this.currentTime = new Date().toLocaleTimeString('en-US', { hour12: true });
-      if (this.isClockedIn && this.currentPunches && this.currentPunches.length > 0 && new Date().getSeconds() % 30 === 0) {
+      if ((this.isOverallClockedIn || this.isClockedIn) && this.currentPunches && this.currentPunches.length > 0 && new Date().getSeconds() % 30 === 0) {
         this.recalculateTodayOverviewMetrics();
       }
     }, 1000);
@@ -836,10 +837,30 @@ export class HomePage implements OnInit, OnDestroy {
       const lastPunch = punches && punches.length > 0 ? punches[punches.length - 1] : null;
       this.isAutoClockedOut = res?.is_auto_clocked_out || (lastPunch ? ((lastPunch.notes || '').includes('OUT Missing') || (lastPunch.notes || '').includes('Auto Clock-Out')) : false);
 
+      const isBiometricPunch = (p: any): boolean => {
+        if (!p) return false;
+        const src = (p.source || '').toLowerCase();
+        const mode = (p.work_mode || '').toLowerCase();
+        const notes = (p.notes || '').toLowerCase();
+        const loc = (p.location || '').toLowerCase();
+        const dev = p.device_info != null ? String(p.device_info).trim().toLowerCase() : '';
+        if (src === 'biometric' || mode === 'biometric' || notes.includes('biometric')) return true;
+        if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) return true;
+        if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) return true;
+        return false;
+      };
+
+      const webPunches = punches.filter((p: any) => !isBiometricPunch(p));
+      const lastWebPunch = webPunches.length > 0 ? webPunches[webPunches.length - 1] : null;
+      const isWebClockedIn = res?.is_web_clocked_in !== undefined && res?.is_web_clocked_in !== null
+        ? Boolean(res.is_web_clocked_in)
+        : (!this.isAutoClockedOut && lastWebPunch ? lastWebPunch.punch_type === 'in' : false);
+
       const isOverallIn = lastPunch ? lastPunch.punch_type === 'in' : false;
-      this.isClockedIn = !this.isAutoClockedOut && (res?.is_clocked_in !== undefined ? Boolean(res.is_clocked_in) : Boolean(isOverallIn));
+      this.isOverallClockedIn = !this.isAutoClockedOut && (res?.is_clocked_in !== undefined ? Boolean(res.is_clocked_in) : Boolean(isOverallIn));
+      this.isClockedIn = isWebClockedIn;
       this.hasPunchedToday = punches.length > 0 && !this.isAutoClockedOut;
-      this.attendanceApi.setClockState(this.isClockedIn);
+      this.attendanceApi.setClockState(isWebClockedIn);
 
       if (this.isAutoClockedOut) {
         this.todayAttendance = null;
@@ -1236,7 +1257,7 @@ export class HomePage implements OnInit, OnDestroy {
   }
 
   getStatusLabel(): string {
-    if (this.isClockedIn) return 'In';
+    if (this.isOverallClockedIn || this.isClockedIn) return 'In';
     if (!this.hasPunchedToday || this.isAutoClockedOut) return 'Not In Yet';
     return 'Out';
   }

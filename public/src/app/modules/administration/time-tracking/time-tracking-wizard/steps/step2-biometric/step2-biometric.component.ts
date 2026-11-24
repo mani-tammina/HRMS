@@ -21,6 +21,8 @@ export class Step2BiometricComponent implements OnInit {
   @Input() allLocations: any[] = [];
 
   showAddIpModal = false;
+  isEditMode = false;
+  editingIpId: number | null = null;
   newIpName = '';
   newIpAddress = '';
   selectedLocationId: any = '';
@@ -117,27 +119,68 @@ export class Step2BiometricComponent implements OnInit {
   }
 
   openAddIpModal() {
+    this.isEditMode = false;
+    this.editingIpId = null;
     this.newIpName = '';
     this.newIpAddress = '';
     this.selectedLocationId = '';
     this.showAddIpModal = true;
   }
 
+  openEditIpModal(item: IpNetwork) {
+    this.isEditMode = true;
+    this.editingIpId = item.id;
+    this.newIpName = item.name;
+    this.newIpAddress = item.ip_address;
+    const found = this.allLocations.find(
+      l => String(l.id) === String(item.id) ||
+           (l.name && l.name.toLowerCase() === item.name.toLowerCase()) ||
+           (l.location_name && l.location_name.toLowerCase() === item.name.toLowerCase())
+    );
+    this.selectedLocationId = found ? found.id : '';
+    this.showAddIpModal = true;
+  }
+
   closeAddIpModal() {
     this.showAddIpModal = false;
+    this.isEditMode = false;
+    this.editingIpId = null;
+    this.newIpName = '';
+    this.newIpAddress = '';
+    this.selectedLocationId = '';
+  }
+
+  saveIpNetwork() {
+    if (!this.newIpName.trim() || !this.newIpAddress.trim()) return;
+
+    if (this.isEditMode && this.editingIpId !== null) {
+      const updated = this.ipNetworks.map(item => {
+        if (item.id === this.editingIpId) {
+          return {
+            ...item,
+            name: this.newIpName.trim(),
+            ip_address: this.newIpAddress.trim()
+          };
+        }
+        return item;
+      });
+      this.formGroup.get('ip_networks')?.setValue(updated);
+    } else {
+      const newItem: IpNetwork = {
+        id: Date.now(),
+        name: this.newIpName.trim(),
+        ip_address: this.newIpAddress.trim(),
+        selected: false
+      };
+      const updated = [...this.ipNetworks, newItem];
+      this.formGroup.get('ip_networks')?.setValue(updated);
+    }
+
+    this.closeAddIpModal();
   }
 
   addIpNetwork() {
-    if (!this.newIpName.trim() || !this.newIpAddress.trim()) return;
-    const newItem: IpNetwork = {
-      id: Date.now(),
-      name: this.newIpName.trim(),
-      ip_address: this.newIpAddress.trim(),
-      selected: false
-    };
-    const updated = [...this.ipNetworks, newItem];
-    this.formGroup.get('ip_networks')?.setValue(updated);
-    this.closeAddIpModal();
+    this.saveIpNetwork();
   }
 
   setFallbackOption(val: string) {

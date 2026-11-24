@@ -108,14 +108,24 @@
                   <td class="col-name font-medium">{{ item.name }}</td>
                   <td class="col-address text-secondary">{{ item.ip_address }}</td>
                   <td class="col-action">
-                    <button type="button" class="btn-icon-delete" (click)="removeSingleIp(item.id)"
-                      title="Delete IP Network">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                      </svg>
-                    </button>
+                    <div class="action-buttons">
+                      <button type="button" class="btn-icon-edit" (click)="openEditIpModal(item)"
+                        title="Edit IP Network">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                        </svg>
+                      </button>
+                      <button type="button" class="btn-icon-delete" (click)="removeSingleIp(item.id)"
+                        title="Delete IP Network">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                          <polyline points="3 6 5 6 21 6"></polyline>
+                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                      </button>
+                    </div>
                   </td>
                 </tr>
                 <tr *ngIf="ipNetworks.length === 0">
@@ -135,7 +145,7 @@
   <div class="modal-overlay" *ngIf="showAddIpModal">
     <div class="modal-card animate__animated animate__fadeInDown">
       <div class="modal-header">
-        <h5>Add IP Network</h5>
+        <h5>{{ isEditMode ? 'Edit IP Network' : 'Add IP Network' }}</h5>
         <button type="button" class="close-btn" (click)="closeAddIpModal()">&times;</button>
       </div>
       <div class="modal-body">
@@ -162,9 +172,9 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" (click)="closeAddIpModal()">Cancel</button>
-        <button type="button" class="btn-primary-green" (click)="addIpNetwork()"
+        <button type="button" class="btn-primary-green" (click)="saveIpNetwork()"
           [disabled]="!newIpName.trim() || !newIpAddress.trim()">
-          Save IP Network
+          {{ isEditMode ? 'Update IP Network' : 'Save IP Network' }}
         </button>
       </div>
     </div>

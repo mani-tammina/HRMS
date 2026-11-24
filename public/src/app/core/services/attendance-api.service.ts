@@ -86,18 +86,22 @@ export class AttendanceApiService {
     this.todayAttendance$ = this.http.get(`${this.BASE_URL}/today`, { headers: this.getHeaders() }).pipe(
       tap((res: any) => {
         const allPunches = res?.punches || [];
-        const isBiometricPunch = (p: any) => {
+        const isBiometricPunch = (p: any): boolean => {
+          if (!p) return false;
           const src = (p.source || '').toLowerCase();
           const mode = (p.work_mode || '').toLowerCase();
           const notes = (p.notes || '').toLowerCase();
-          return src === 'biometric' || mode === 'biometric' || notes.includes('biometric');
+          const loc = (p.location || '').toLowerCase();
+          const dev = p.device_info != null ? String(p.device_info).trim().toLowerCase() : '';
+          if (src === 'biometric' || mode === 'biometric' || notes.includes('biometric')) return true;
+          if (dev === '1' || dev === '2' || dev === '3' || (dev && /^\d+$/.test(dev))) return true;
+          if (loc.includes('main door') || loc.includes('door') || loc.includes('svs') || (loc.includes('floor') && !loc.includes('office'))) return true;
+          return false;
         };
         const webPunches = allPunches.filter((p: any) => !isBiometricPunch(p));
 
         if (res?.is_web_clocked_in !== undefined && res?.is_web_clocked_in !== null) {
           this.setClockState(Boolean(res.is_web_clocked_in));
-        } else if (res?.is_clocked_in !== undefined && res?.is_clocked_in !== null) {
-          this.setClockState(Boolean(res.is_clocked_in));
         } else if (webPunches.length > 0) {
           const lastPunch = webPunches[webPunches.length - 1];
           const isAutoOut = res?.is_auto_clocked_out || (lastPunch?.notes || '').includes('OUT Missing') || (lastPunch?.notes || '').includes('Auto Clock-Out');

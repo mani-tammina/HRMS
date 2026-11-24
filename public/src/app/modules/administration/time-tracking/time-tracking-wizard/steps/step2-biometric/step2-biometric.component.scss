@@ -210,8 +210,33 @@
     }
 
     .col-action {
-      width: 60px;
+      width: 80px;
       text-align: center;
+    }
+
+    .action-buttons {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .btn-icon-edit {
+      background: transparent;
+      border: none;
+      color: #64748b;
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+
+      &:hover {
+        color: #0284c7;
+        background: #e0f2fe;
+      }
     }
 
     .btn-icon-delete {
@@ -219,9 +244,12 @@
       border: none;
       color: #94a3b8;
       cursor: pointer;
-      padding: 4px;
+      padding: 5px;
       border-radius: 4px;
-      transition: color 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
 
       &:hover {
         color: #ef4444;
