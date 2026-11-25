@@ -153,6 +153,8 @@ export class LeaveAttendancePayablePage implements OnInit {
   // Step 3: Add Employee Modal
   showAddEmployeeModal: boolean = false;
   newEmployeeCode: string = '';
+  employeeDropdownSearch: string = '';
+  showEmployeeDropdown: boolean = false;
   newEmployeeActualLop: number = 1;
   newEmployeeAdjustment: number | null = null;
   newEmployeeComment: string = '';
@@ -164,6 +166,8 @@ export class LeaveAttendancePayablePage implements OnInit {
   reversalPageSize: number = 15;
   showAddReversalModal: boolean = false;
   newReversalEmployeeCode: string = '';
+  reversalEmployeeDropdownSearch: string = '';
+  showReversalEmployeeDropdown: boolean = false;
   newReversalMonth: string = '';
   newReversalActualLop: number = 1;
   newReversalDays: number = 1;
@@ -1047,6 +1051,8 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   openAddEmployeeModal() {
     this.newEmployeeCode = '';
+    this.employeeDropdownSearch = '';
+    this.showEmployeeDropdown = false;
     this.newEmployeeActualLop = 1;
     this.newEmployeeAdjustment = null;
     this.newEmployeeComment = '';
@@ -1055,11 +1061,39 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   closeAddEmployeeModal() {
     this.showAddEmployeeModal = false;
+    this.showEmployeeDropdown = false;
   }
 
   get availableEmployeesToAdd(): any[] {
     const existingCodes = new Set(this.lopSummaryRecords.map(r => r.employee_code));
     return (this.workingEmployees || []).filter(e => !existingCodes.has(e.employee_code));
+  }
+
+  get filteredEmployeesToAdd(): any[] {
+    return this.filterEmployeesByTerm(this.availableEmployeesToAdd, this.employeeDropdownSearch);
+  }
+
+  get selectedEmployeeLabel(): string {
+    if (!this.newEmployeeCode) return '-- Select an active employee --';
+    const emp = this.availableEmployeesToAdd.find(e => e.employee_code === this.newEmployeeCode)
+      || (this.workingEmployees || []).find(e => e.employee_code === this.newEmployeeCode);
+    return emp ? `${emp.employee_name} (${emp.employee_code}) - ${emp.department || 'General'}` : this.newEmployeeCode;
+  }
+
+  selectLopEmployee(emp: any) {
+    this.newEmployeeCode = emp.employee_code;
+    this.showEmployeeDropdown = false;
+    this.employeeDropdownSearch = '';
+  }
+
+  private filterEmployeesByTerm(list: any[], term: string): any[] {
+    const q = (term || '').trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(e =>
+      (e.employee_name || '').toLowerCase().includes(q) ||
+      (e.employee_code || '').toLowerCase().includes(q) ||
+      (e.department || '').toLowerCase().includes(q)
+    );
   }
 
   confirmAddEmployee() {
@@ -1377,6 +1411,8 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   openAddReversalModal() {
     this.newReversalEmployeeCode = '';
+    this.reversalEmployeeDropdownSearch = '';
+    this.showReversalEmployeeDropdown = false;
     this.newReversalMonth = this.monthLabel;
     this.newReversalActualLop = 1;
     this.newReversalDays = 1;
@@ -1388,6 +1424,7 @@ export class LeaveAttendancePayablePage implements OnInit {
 
   closeAddReversalModal() {
     this.showAddReversalModal = false;
+    this.showReversalEmployeeDropdown = false;
   }
 
   onNewReversalEmployeeSelect() {
@@ -1403,6 +1440,24 @@ export class LeaveAttendancePayablePage implements OnInit {
   get availableEmployeesToAddReversal(): any[] {
     const existingCodes = new Set(this.lopReversalRecords.map(r => r.employee_code));
     return (this.workingEmployees || []).filter(e => !existingCodes.has(e.employee_code));
+  }
+
+  get filteredEmployeesToAddReversal(): any[] {
+    return this.filterEmployeesByTerm(this.availableEmployeesToAddReversal, this.reversalEmployeeDropdownSearch);
+  }
+
+  get selectedReversalEmployeeLabel(): string {
+    if (!this.newReversalEmployeeCode) return '-- Select an active employee --';
+    const emp = this.availableEmployeesToAddReversal.find(e => e.employee_code === this.newReversalEmployeeCode)
+      || (this.workingEmployees || []).find(e => e.employee_code === this.newReversalEmployeeCode);
+    return emp ? `${emp.employee_name} (${emp.employee_code}) - ${emp.department || 'General'}` : this.newReversalEmployeeCode;
+  }
+
+  selectReversalEmployee(emp: any) {
+    this.newReversalEmployeeCode = emp.employee_code;
+    this.showReversalEmployeeDropdown = false;
+    this.reversalEmployeeDropdownSearch = '';
+    this.onNewReversalEmployeeSelect();
   }
 
   confirmAddReversalEmployee() {

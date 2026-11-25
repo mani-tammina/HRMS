@@ -1051,7 +1051,7 @@
        ADD EMPLOYEE MODAL (STEP 3)
   ═══════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" *ngIf="showAddEmployeeModal" (click)="closeAddEmployeeModal()">
-    <div class="lop-modal-box" (click)="$event.stopPropagation()">
+    <div class="lop-modal-box" (click)="$event.stopPropagation(); showEmployeeDropdown = false">
       <div class="lop-modal-header">
         <h3 class="lop-modal-title">Add Employee to LOP Summary</h3>
         <button class="btn-close-modal" type="button" (click)="closeAddEmployeeModal()">✕</button>
@@ -1059,12 +1059,32 @@
       <div class="lop-modal-body">
         <div class="lop-form-group">
           <label class="lop-form-label">Select Employee *</label>
-          <select [(ngModel)]="newEmployeeCode" class="lop-modal-select">
-            <option value="" disabled>-- Select an active employee --</option>
-            <option *ngFor="let emp of availableEmployeesToAdd" [value]="emp.employee_code">
-              {{ emp.employee_name }} ({{ emp.employee_code }}) - {{ emp.department || 'General' }}
-            </option>
-          </select>
+          <div class="searchable-emp-dropdown" (click)="$event.stopPropagation()">
+            <button type="button" class="searchable-emp-trigger" [class.open]="showEmployeeDropdown"
+              [class.placeholder]="!newEmployeeCode" (click)="showEmployeeDropdown = !showEmployeeDropdown">
+              <span class="trigger-text">{{ selectedEmployeeLabel }}</span>
+              <ion-icon name="chevron-down-outline" class="trigger-chevron"></ion-icon>
+            </button>
+            <div class="searchable-emp-menu" *ngIf="showEmployeeDropdown">
+              <div class="emp-search-box">
+                <ion-icon name="search-outline" class="emp-search-icon"></ion-icon>
+                <input type="text" [(ngModel)]="employeeDropdownSearch" class="emp-search-input"
+                  placeholder="Search by name, code, or dept..." autofocus />
+                <button type="button" class="emp-search-clear" *ngIf="employeeDropdownSearch"
+                  (click)="employeeDropdownSearch = ''">✕</button>
+              </div>
+              <div class="emp-options-list">
+                <button type="button" class="emp-option-item" *ngFor="let emp of filteredEmployeesToAdd"
+                  [class.selected]="emp.employee_code === newEmployeeCode" (click)="selectLopEmployee(emp)">
+                  <span class="emp-opt-name">{{ emp.employee_name }}</span>
+                  <span class="emp-opt-meta">{{ emp.employee_code }} &middot; {{ emp.department || 'General' }}</span>
+                </button>
+                <div class="emp-no-results" *ngIf="filteredEmployeesToAdd.length === 0">
+                  No matching employees found
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="lop-form-group">
           <label class="lop-form-label">Actual LOP Days *</label>
@@ -1090,7 +1110,7 @@
        ADD EMPLOYEE MODAL (STEP 4: LOP REVERSAL)
   ═══════════════════════════════════════════════════════════════ -->
   <div class="modal-overlay" *ngIf="showAddReversalModal" (click)="closeAddReversalModal()">
-    <div class="lop-modal-box" (click)="$event.stopPropagation()">
+    <div class="lop-modal-box" (click)="$event.stopPropagation(); showReversalEmployeeDropdown = false">
       <div class="lop-modal-header">
         <h3 class="lop-modal-title">Add Employee to LOP Reversal</h3>
         <button class="btn-close-modal" type="button" (click)="closeAddReversalModal()">✕</button>
@@ -1098,12 +1118,34 @@
       <div class="lop-modal-body">
         <div class="lop-form-group">
           <label class="lop-form-label">Select Employee *</label>
-          <select [(ngModel)]="newReversalEmployeeCode" class="lop-modal-select" (ngModelChange)="onNewReversalEmployeeSelect()">
-            <option value="" disabled>-- Select an active employee --</option>
-            <option *ngFor="let emp of availableEmployeesToAddReversal" [value]="emp.employee_code">
-              {{ emp.employee_name }} ({{ emp.employee_code }}) - {{ emp.department || 'General' }}
-            </option>
-          </select>
+          <div class="searchable-emp-dropdown" (click)="$event.stopPropagation()">
+            <button type="button" class="searchable-emp-trigger" [class.open]="showReversalEmployeeDropdown"
+              [class.placeholder]="!newReversalEmployeeCode"
+              (click)="showReversalEmployeeDropdown = !showReversalEmployeeDropdown">
+              <span class="trigger-text">{{ selectedReversalEmployeeLabel }}</span>
+              <ion-icon name="chevron-down-outline" class="trigger-chevron"></ion-icon>
+            </button>
+            <div class="searchable-emp-menu" *ngIf="showReversalEmployeeDropdown">
+              <div class="emp-search-box">
+                <ion-icon name="search-outline" class="emp-search-icon"></ion-icon>
+                <input type="text" [(ngModel)]="reversalEmployeeDropdownSearch" class="emp-search-input"
+                  placeholder="Search by name, code, or dept..." autofocus />
+                <button type="button" class="emp-search-clear" *ngIf="reversalEmployeeDropdownSearch"
+                  (click)="reversalEmployeeDropdownSearch = ''">✕</button>
+              </div>
+              <div class="emp-options-list">
+                <button type="button" class="emp-option-item" *ngFor="let emp of filteredEmployeesToAddReversal"
+                  [class.selected]="emp.employee_code === newReversalEmployeeCode"
+                  (click)="selectReversalEmployee(emp)">
+                  <span class="emp-opt-name">{{ emp.employee_name }}</span>
+                  <span class="emp-opt-meta">{{ emp.employee_code }} &middot; {{ emp.department || 'General' }}</span>
+                </button>
+                <div class="emp-no-results" *ngIf="filteredEmployeesToAddReversal.length === 0">
+                  No matching employees found
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="lop-form-group">
           <label class="lop-form-label">LOP Month</label>

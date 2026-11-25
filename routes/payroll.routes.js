@@ -94,6 +94,81 @@ router.get('/v2/run', auth, finance, async (req, res) => {
 // GET /api/payroll/v2/reconciliation?month=YYYY-MM  -> workforce & exclusion reconciliation for month
 router.get('/v2/reconciliation', auth, finance, payrollAdmin.getPayrollReconciliation);
 
+/**
+ * Revert attendance (and biometric_daily_attendance) changes written by Payroll LOP Finalization
+ * for a given payroll cycle. Uses the pre-payroll backup stored in payroll_attendance_snapshots.notes
+ * when available, and falls back to removing unpunched payroll-finalized rows for that month.
+ */
+async function revertPayrollAttendanceForCycle(c, cycleId) {
+    const [cycles] = await c.query(
+        `SELECT year, month FROM payroll_cycles WHERE id = ? LIMIT 1`,
+        [cycleId]
+    );
+    if (!cycles.length) return;
+
+    const { year, month } = cycles[0];
+    const monthStr = `${year}-${String(month).padStart(2, '0')}`;
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const startDateStr = `${monthStr}-01`;
+    const endDateStr = `${monthStr}-${String(daysInMonth).padStart(2, '0')}`;
+
+    const [snaps] = await c.query(
+        `SELECT employee_id, notes FROM payroll_attendance_snapshots WHERE cycle_id = ?`,
+        [cycleId]
+    );
+
+    const backedUpEmployees = new Set();
+    for (const snap of snaps) {
+        if (!snap.notes) continue;
+        let parsed = null;
+        try {
+            parsed = JSON.parse(snap.notes);
+        } catch (_) {
+            continue;
+        }
+        const backup = parsed?.attendance_backup;
+        if (!backup || typeof backup !== 'object') continue;
+
+        backedUpEmployees.add(snap.employee_id);
+        for (const [dateStr, orig] of Object.entries(backup)) {
+            if (orig && orig.existed) {
+                await c.query(
+                    `UPDATE attendance
+                     SET status = ?, approval_status = ?, notes = ?, updated_at = NOW()
+                     WHERE employee_id = ? AND attendance_date = ?`,
+                    [orig.status || 'absent', orig.approval_status || 'approved', orig.notes ?? null, snap.employee_id, dateStr]
+                );
+            } else {
+                await c.query(
+                    `DELETE FROM attendance
+                     WHERE employee_id = ? AND attendance_date = ? AND first_check_in IS NULL
+                       AND (notes = '[REGULARIZED] Regularized via Payroll LOP Finalization' OR notes = 'LOP')`,
+                    [snap.employee_id, dateStr]
+                );
+            }
+
+            if (orig && orig.bio_status !== undefined) {
+                await c.query(
+                    `UPDATE biometric_daily_attendance
+                     SET status = ?
+                     WHERE employee_id = ? AND attendance_date = ?`,
+                    [orig.bio_status, snap.employee_id, dateStr]
+                );
+            }
+        }
+    }
+
+    // Fallback for snapshots created before attendance_backup was added:
+    // remove unpunched rows created solely by Payroll LOP Finalization in this month
+    await c.query(
+        `DELETE FROM attendance
+         WHERE attendance_date BETWEEN ? AND ?
+           AND first_check_in IS NULL
+           AND (notes = '[REGULARIZED] Regularized via Payroll LOP Finalization' OR notes = 'LOP')`,
+        [startDateStr, endDateStr]
+    );
+}
+
 // DELETE /api/payroll/v2/run/:runId or DELETE /api/payroll/v2/run?month=YYYY-MM
 // Cancel and delete all run records for that run/month so the user can start from again
 async function handleCancelPayrollRun(req, res) {
@@ -156,11 +231,12 @@ async function handleCancelPayrollRun(req, res) {
             await c.query(`DELETE FROM payroll_runs WHERE id IN (?)`, [runIds]);
         }
 
-        // Reset cycles to OPEN so month can be run again
+        // Reset cycles to OPEN so month can be run again and revert payroll attendance changes
         if (cycleIds.length > 0) {
             for (const cyId of cycleIds) {
                 const [rem] = await c.query('SELECT id FROM payroll_runs WHERE cycle_id = ?', [cyId]);
                 if (rem.length === 0) {
+                    await revertPayrollAttendanceForCycle(c, cyId);
                     await c.query(`UPDATE payroll_cycles SET status = 'OPEN' WHERE id = ?`, [cyId]);
                     await c.query(`DELETE FROM payroll_attendance_snapshots WHERE cycle_id = ?`, [cyId]);
                 }
@@ -170,6 +246,10 @@ async function handleCancelPayrollRun(req, res) {
             if (parts.length === 2) {
                 const year = Number(parts[0]);
                 const mon = Number(parts[1]);
+                const [cyRows] = await c.query(`SELECT id FROM payroll_cycles WHERE year = ? AND month = ?`, [year, mon]);
+                for (const cy of cyRows) {
+                    await revertPayrollAttendanceForCycle(c, cy.id);
+                }
                 await c.query(`UPDATE payroll_cycles SET status = 'OPEN' WHERE year = ? AND month = ?`, [year, mon]);
                 await c.query(
                     `DELETE FROM payroll_attendance_snapshots WHERE cycle_id IN (SELECT id FROM payroll_cycles WHERE year = ? AND month = ?)`,
@@ -179,7 +259,7 @@ async function handleCancelPayrollRun(req, res) {
         }
 
         await c.commit();
-        res.json({ success: true, message: 'Payroll run deleted successfully', deletedCount: runIds.length });
+        res.json({ success: true, message: 'Payroll run deleted and attendance reverted successfully', deletedCount: runIds.length });
     } catch (err) {
         if (c) await c.rollback();
         console.error('Error cancelling payroll run:', err);
@@ -1378,7 +1458,7 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
 
     // 5. Existing attendance & punches
     const [attRows] = await c.query(`
-        SELECT DATE_FORMAT(attendance_date, '%Y-%m-%d') as dStr, status, gross_hours, notes, first_check_in
+        SELECT DATE_FORMAT(attendance_date, '%Y-%m-%d') as dStr, status, approval_status, gross_hours, notes, first_check_in
         FROM attendance
         WHERE employee_id = ? AND attendance_date BETWEEN ? AND ?
     `, [empId, startDateStr, endDateStr]);
@@ -1393,13 +1473,17 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
     const bioMap = new Map();
     bioRows.forEach(b => bioMap.set(b.dStr, b));
 
-    // 6. Loop through all calendar days in month to find working days and absent days
+    // 6. Loop through elapsed calendar days in month (do not mark today unpunched or future dates)
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     let workingDaysCount = 0;
     const presentDates = [];
-    const unattendedDates = []; // working days where employee was absent / unpunched
+    const unattendedDates = []; // past working days where employee was absent / unpunched
 
     for (let day = 1; day <= daysInTargetMonth; day++) {
         const dateStr = `${targetMonthStr}-${String(day).padStart(2, '0')}`;
+        if (dateStr > todayStr) continue;
+
         const dObj = new Date(targetYear, targetMonthNum - 1, day);
         const weekday = dObj.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
 
@@ -1433,7 +1517,8 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
 
         if (hasWorked) {
             presentDates.push(dateStr);
-        } else {
+        } else if (dateStr < todayStr) {
+            // Only treat completed past days as unattended; never pre-mark today or future dates
             unattendedDates.push(dateStr);
         }
     }
@@ -1445,6 +1530,33 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
 
     const regularizeDates = unattendedDates.slice(0, regularizeCount);
     const finalLopDates = unattendedDates.slice(regularizeCount);
+
+    // Preserve pre-payroll attendance state so Cancel Payroll can revert accurately
+    const [existingSnap] = await c.query(
+        `SELECT notes FROM payroll_attendance_snapshots WHERE cycle_id = ? AND employee_id = ? LIMIT 1`,
+        [cycleId, empId]
+    );
+    let attendanceBackup = {};
+    if (existingSnap.length > 0 && existingSnap[0].notes) {
+        try {
+            const parsedNotes = JSON.parse(existingSnap[0].notes);
+            if (parsedNotes && typeof parsedNotes.attendance_backup === 'object' && parsedNotes.attendance_backup !== null) {
+                attendanceBackup = parsedNotes.attendance_backup;
+            }
+        } catch (_) { }
+    }
+    for (const d of [...regularizeDates, ...finalLopDates]) {
+        if (Object.prototype.hasOwnProperty.call(attendanceBackup, d)) continue;
+        const origAtt = attMap.get(d);
+        const origBio = bioMap.get(d);
+        attendanceBackup[d] = {
+            existed: Boolean(origAtt),
+            status: origAtt ? origAtt.status : null,
+            approval_status: origAtt ? origAtt.approval_status : null,
+            notes: origAtt ? origAtt.notes : null,
+            ...(origBio ? { bio_status: origBio.status } : {})
+        };
+    }
 
     // 8. Update / Upsert regularized dates in 'attendance'
     for (const d of regularizeDates) {
@@ -1489,7 +1601,6 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
     // 10. Update payroll_attendance_snapshots
     const totalPresent = workingDaysCount - effectiveLop;
     const totalAbsent = effectiveLop;
-    const now = new Date();
     const auditNote = JSON.stringify({
         finalized_lop_days: effectiveLop,
         paid_days: paidDays,
@@ -1497,7 +1608,8 @@ async function applyFinalizedLopToEmployee(c, empId, targetYear, targetMonthNum,
         total_absent: totalAbsent,
         completed_by: userName || 'Admin',
         completed_at: now.toISOString(),
-        comment: auditComment || 'Final LOP applied on Mark as Completed'
+        comment: auditComment || 'Final LOP applied on Mark as Completed',
+        attendance_backup: attendanceBackup
     });
 
     await c.query(`

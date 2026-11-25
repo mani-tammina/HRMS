@@ -230,7 +230,7 @@ export class PayrollProcessPage implements OnInit {
     const alert = await this.alertCtrl.create({
       header: 'Cancel Payroll',
       subHeader: `Month: ${this.selectedMonth}`,
-      message: `Are you sure you want to cancel and delete the payroll for <strong>${this.selectedMonth}</strong>? All generated run records and payslips will be deleted, and you will start from the beginning.`,
+      message: `Are you sure you want to cancel and delete the payroll for <strong>${this.selectedMonth}</strong>? All generated run records, payslips, and payroll attendance adjustments will be reverted so you can start from the beginning.`,
       cssClass: 'glass-alert danger-alert',
       buttons: [
         { text: 'Keep Payroll', role: 'cancel' },

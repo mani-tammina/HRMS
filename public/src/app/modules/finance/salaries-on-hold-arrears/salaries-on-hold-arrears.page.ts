@@ -119,6 +119,8 @@ export class SalariesOnHoldArrearsPage implements OnInit {
   // Add Hold Modal State
   showAddHoldModal: boolean = false;
   modalHoldEmpId: number | null = null;
+  holdEmpDropdownOpen: boolean = false;
+  holdEmpSearch: string = '';
   modalHoldReason: string = 'Document Verification Pending';
   modalHoldScope: 'FULL' | 'CUSTOM' = 'FULL';
   modalHoldAmount: number | null = null;
@@ -145,6 +147,8 @@ export class SalariesOnHoldArrearsPage implements OnInit {
   // Add Arrear Modal State
   showAddArrearModal: boolean = false;
   modalArrearEmpId: number | null = null;
+  arrearEmpDropdownOpen: boolean = false;
+  arrearEmpSearch: string = '';
   modalArrearCategory: string = 'Retroactive Salary Increment';
   modalArrearPeriod: string = '';
   modalArrearAmount: number | null = null;
@@ -354,6 +358,8 @@ export class SalariesOnHoldArrearsPage implements OnInit {
 
   openAddHoldModal() {
     this.modalHoldEmpId = this.workingEmployees.length > 0 ? this.workingEmployees[0].id : null;
+    this.holdEmpDropdownOpen = false;
+    this.holdEmpSearch = '';
     this.modalHoldReason = 'Document Verification Pending';
     this.modalHoldScope = 'FULL';
     this.modalHoldAmount = null;
@@ -364,6 +370,36 @@ export class SalariesOnHoldArrearsPage implements OnInit {
 
   closeAddHoldModal() {
     this.showAddHoldModal = false;
+    this.holdEmpDropdownOpen = false;
+  }
+
+  get filteredHoldEmployees(): any[] {
+    return this.filterWorkingEmployees(this.holdEmpSearch);
+  }
+
+  get selectedHoldEmployeeLabel(): string {
+    if (!this.modalHoldEmpId) return '-- Select an employee --';
+    const emp = this.workingEmployees.find(e => e.id === Number(this.modalHoldEmpId));
+    return emp
+      ? `${emp.employee_name} (${emp.employee_code}) — ${emp.department} [Monthly Gross: ${this.formatCurrency(emp.monthly_salary)}]`
+      : '-- Select an employee --';
+  }
+
+  selectHoldEmployee(emp: any) {
+    this.modalHoldEmpId = emp.id;
+    this.holdEmpDropdownOpen = false;
+    this.holdEmpSearch = '';
+    this.onHoldEmployeeSelect();
+  }
+
+  private filterWorkingEmployees(term: string): any[] {
+    const q = (term || '').trim().toLowerCase();
+    if (!q) return this.workingEmployees || [];
+    return (this.workingEmployees || []).filter(e =>
+      (e.employee_name || '').toLowerCase().includes(q) ||
+      (e.employee_code || '').toLowerCase().includes(q) ||
+      (e.department || '').toLowerCase().includes(q)
+    );
   }
 
   onHoldEmployeeSelect() {
@@ -615,6 +651,8 @@ export class SalariesOnHoldArrearsPage implements OnInit {
 
   openAddArrearModal() {
     this.modalArrearEmpId = this.workingEmployees.length > 0 ? this.workingEmployees[0].id : null;
+    this.arrearEmpDropdownOpen = false;
+    this.arrearEmpSearch = '';
     this.modalArrearCategory = 'Retroactive Salary Increment';
     this.modalArrearPeriod = this.getPreviousMonthStr();
     this.modalArrearAmount = null;
@@ -625,6 +663,23 @@ export class SalariesOnHoldArrearsPage implements OnInit {
 
   closeAddArrearModal() {
     this.showAddArrearModal = false;
+    this.arrearEmpDropdownOpen = false;
+  }
+
+  get filteredArrearEmployees(): any[] {
+    return this.filterWorkingEmployees(this.arrearEmpSearch);
+  }
+
+  get selectedArrearEmployeeLabel(): string {
+    if (!this.modalArrearEmpId) return '-- Select an employee --';
+    const emp = this.workingEmployees.find(e => e.id === Number(this.modalArrearEmpId));
+    return emp ? `${emp.employee_name} (${emp.employee_code}) — ${emp.department}` : '-- Select an employee --';
+  }
+
+  selectArrearEmployee(emp: any) {
+    this.modalArrearEmpId = emp.id;
+    this.arrearEmpDropdownOpen = false;
+    this.arrearEmpSearch = '';
   }
 
   saveNewArrear() {
