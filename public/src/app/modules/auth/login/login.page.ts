@@ -17,7 +17,7 @@ import { BrandingService } from '../../../core/services/branding.service';
   standalone: false,
 })
 export class LoginPage implements OnInit {
-  companyLogoUrl: string = 'assets/TamminaLogo.png';
+  companyLogoUrl: string = 'assets/interact-logo-dark.png';
   companyName: string = 'Tech Tammina';
 
   loginForm!: FormGroup;
@@ -65,7 +65,9 @@ export class LoginPage implements OnInit {
   ngOnInit(): void {
     this.initForms();
     this.brandingService.logoUrl$.subscribe((url) => {
-      if (url) this.companyLogoUrl = url;
+      if (url && !url.includes('TamminaLogo')) {
+        this.companyLogoUrl = url;
+      }
     });
     this.brandingService.companyName$.subscribe((name) => {
       if (name) this.companyName = name;
@@ -73,7 +75,7 @@ export class LoginPage implements OnInit {
   }
 
   onLogoError(event: any) {
-    event.target.src = 'assets/TamminaLogo.png';
+    event.target.src = 'assets/interact-logo-dark.png';
   }
 
   private initForms() {

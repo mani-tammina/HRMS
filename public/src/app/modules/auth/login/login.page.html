@@ -1,296 +1,470 @@
 <ion-content class="ion-no-border login-content" [fullscreen]="true">
 
-  <div class="login-page-wrapper">
+  <div class="login-page-wrapper" [class.forgot-mode]="showForgotPassword">
 
-    <!-- ── LEFT: Blue Illustration Panel ── -->
-    <div class="left-panel">
-      <!-- Tech Tammina Logo (top-left) -->
-      <div class="left-logo">
-        <img [src]="companyLogoUrl" [alt]="companyName" class="left-logo-img" fetchpriority="high" loading="lazy"
-          (error)="onLogoError($event)" />
+    <!-- Ambient Animated Background Layer -->
+    <div class="bg-animated-layer" aria-hidden="true">
+      <div class="bg-orb bg-orb-1"></div>
+      <div class="bg-orb bg-orb-2"></div>
+      <div class="bg-orb bg-orb-3"></div>
+      <div class="bg-ring bg-ring-1"></div>
+      <div class="bg-ring bg-ring-2"></div>
+      <!-- Animated Paper Rocket -->
+      <div class="bg-rocket-track">
+        <svg class="bg-rocket-svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <path d="M56 8L8 29l17 7 7 17L56 8z" fill="#1F74BB" fill-opacity="0.22" stroke="#1F74BB" stroke-width="2"
+            stroke-linejoin="round" />
+          <path d="M56 8L25 36l2 14 7-11" stroke="#1F74BB" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
       </div>
-
-      <!-- Caption Text -->
-      <div class="left-caption">
-        <h2 class="caption-line1">Manage better.</h2>
-        <h2 class="caption-line2">Empower fast.</h2>
-        <p class="caption-subtitle">A unified platform to manage your workforce,<br />attendance, payroll, and more —
-          all in one place.</p>
-      </div>
-
-      <!-- Illustration Image (3D character + dashboard) -->
-      <div class="left-illustration">
-        <img src="assets/innerloginimg.png" alt="Interact illustration" class="illustration-img" fetchpriority="high"
-          loading="eager" />
-      </div>
-      <div class="left-img">
-        <img src="assets/papperrocket.png" alt="Interact illustration" class="papper-rocket" fetchpriority="high"
-          loading="eager" />
-      </div>
+      <svg class="bg-flow-wave" viewBox="0 0 1440 320" preserveAspectRatio="none">
+        <path fill="rgba(31, 116, 187, 0.08)"
+          d="M0,192L60,176C120,160,240,128,360,138.7C480,149,600,203,720,208C840,213,960,171,1080,149.3C1200,128,1320,128,1380,128L1440,128L1440,320L0,320Z" />
+      </svg>
     </div>
 
-    <!-- ── RIGHT: Login Form Panel ── -->
-    <div class="right-panel">
+    <div class="login-container">
 
-      <div class="right-panel-content">
+      <!-- ── LEFT: Hero & Feature Grid ── -->
+      <section class="left-panel">
 
-        <!-- Mobile Logo -->
-        <div class="mobile-logo-container">
-          <img [src]="companyLogoUrl" [alt]="companyName" class="mobile-logo" fetchpriority="high" loading="eager"
+        <!-- Brand Logo -->
+        <div class="brand-header">
+          <img src="assets/interact-logo-dark.png" [alt]="companyName" class="brand-logo-img" fetchpriority="high" loading="eager"
             (error)="onLogoError($event)" />
         </div>
 
-        <!-- LOGIN CARD -->
-        <div class="form-card" *ngIf="!showForgotPassword">
+        <!-- Hero Copy -->
+        <div class="hero-copy">
+          <h1 class="hero-title">
+            A Complete HRMS<br />
+            for a <span class="hero-highlight">Productive Workforce
+              <svg class="title-underline" viewBox="0 0 260 14" preserveAspectRatio="none" aria-hidden="true">
+                <path d="M4,10 Q130,2 256,8" stroke="#1F74BB" stroke-width="4" stroke-linecap="round" fill="none" />
+              </svg>
+            </span>
+          </h1>
+        </div>
 
-          <h1 class="form-heading">Welcome! <img src="assets/hi.png"></h1>
-          <p class="form-subheading">Sign in to continue to Interact</p>
+        <!-- HRMS Vector Illustration -->
+        <div class="left-vector-wrap">
+          <img src="assets/login-vector-hero.png" alt="Interact HRMS Vector Illustration" class="left-vector-img"
+            loading="eager" />
+        </div>
 
-          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+      </section>
 
-            <!-- USERNAME / EMAIL FIELD -->
-            <div class="field-group">
-              <label class="field-label" for="login-email">Email Address</label>
-              <div class="input-with-icon-left">
-                <ion-icon name="mail-outline" class="left-icon"></ion-icon>
-                <input id="login-email" type="text" formControlName="email" placeholder="Enter your email address"
-                  class="form-input has-left-icon" (focus)="usernameFocused = true" (blur)="usernameFocused = false" />
-              </div>
-            </div>
+      <!-- ── RIGHT: Floating Login Card Panel ── -->
+      <section class="right-panel">
+        <div class="right-panel-content">
 
-            <!-- PASSWORD FIELD -->
-            <div class="field-group" *ngIf="showPassword">
-              <label class="field-label" for="login-password">Password</label>
-              <div class="input-with-toggle">
-                <input id="login-password" [type]="showPasswordText ? 'text' : 'password'" formControlName="password"
-                  placeholder="Enter your password" class="form-input" (focus)="passwordFocused = true"
-                  (blur)="passwordFocused = false" />
-                <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-                </button>
-              </div>
-            </div>
-
-            <!-- OTP Verification Field -->
-            <div class="field-group" *ngIf="showCreatePassword && !otpVerified">
-              <div class="label-row"
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <label class="field-label" for="login-otp" style="margin-bottom: 0;">OTP Verification</label>
-                <a (click)="resendOtp()"
-                  style="font-size: 11px; color: #2563EB; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
-                  OTP</a>
-              </div>
-              <input id="login-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
-                maxlength="6" />
-            </div>
-
-            <!-- OTP Verified Success Badge -->
-            <div *ngIf="showCreatePassword && otpVerified" class="otp-success-alert"
-              style="background-color: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 20px; display: flex; align-items: center; font-size: 14px; font-weight: 500;">
-              <ion-icon name="checkmark-circle" style="font-size: 20px; margin-right: 8px; color: #2e7d32;"></ion-icon>
-              OTP Verified Successfully
-            </div>
-
-            <!-- CREATE PASSWORD FIELD -->
-            <div class="field-group pw-field-group" *ngIf="showCreatePassword && otpVerified">
-              <label class="field-label" for="login-create-password">Create Password</label>
-              <div class="input-with-toggle">
-                <input id="login-create-password" [type]="showPasswordText ? 'text' : 'password'"
-                  formControlName="password" placeholder="Create a new password" class="form-input"
-                  (focus)="createPwFocused = true; showPwStrength = true"
-                  (blur)="createPwFocused = false; showPwStrength = false" />
-                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
-                  (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
-                </button>
-              </div>
-              <!-- Live password strength popup -->
-              <div class="pw-strength-popup" *ngIf="showPwStrength">
-                <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
-                  <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
-                  <span>Min 8 characters</span>
-                </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
-                  <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
-                  <span>At least 1 uppercase letter</span>
-                </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
-                  <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
-                  <span>At least 1 number</span>
-                </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
-                  <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
-                  <span>At least 1 special character</span>
-                </div>
-              </div>
-            </div>
-
-            <!-- REMEMBER ME / FORGOT PASSWORD -->
-            <div class="remember-forgot-row" *ngIf="showPassword || (showCreatePassword && otpVerified)">
-              <label class="remember-label">
-                <input type="checkbox" [(ngModel)]="rememberMe" [ngModelOptions]="{standalone: true}" />
-                <span class="checkmark"></span>
-                Remember me
-              </label>
-              <a class="forgot-link" (click)="toggleForgotPassword()">Forgot Password?</a>
-            </div>
-
-            <!-- CONTINUE BUTTON (step 1: email only) -->
-            <button id="btn-continue-email" class="btn-primary" type="button" *ngIf="!emailChecked" (click)="onNext()"
-              [disabled]="loginForm.get('email')?.invalid">
-              Continue &rarr;
-            </button>
-
-            <!-- CONTINUE BUTTON (step 2: with password) -->
-            <button id="btn-continue-password" class="btn-primary" type="submit" *ngIf="showPassword"
-              [disabled]="loading">
-              <span *ngIf="!loading">Continue &rarr;</span>
-              <ion-spinner *ngIf="loading" name="crescent" style="--color:#fff; width:18px; height:18px;"></ion-spinner>
-            </button>
-
-            <!-- VERIFY OTP BUTTON -->
-            <button id="btn-verify-otp" class="btn-primary" type="button" *ngIf="showCreatePassword && !otpVerified"
-              (click)="verifyOtp()" [disabled]="loading || loginForm.get('otp')?.invalid">
-              Verify OTP
-            </button>
-
-            <!-- CREATE & SIGN IN BUTTON -->
-            <button id="btn-create-signin" class="btn-primary" type="submit" *ngIf="showCreatePassword && otpVerified"
-              [disabled]="loading || loginForm.get('password')?.invalid">
-              Create &amp; Sign In
-            </button>
-
-            <!-- OR DIVIDER -->
-            <div class="or-divider">
-              <span>or</span>
-            </div>
-
-            <!-- SSO BUTTON -->
-            <button type="button" id="btn-sso" class="btn-sso">
-              <img src="assets/lock.png">
-              Continue with SSO
-            </button>
-
-          </form>
-
-          <div class="secure-data-notice">
-            <!-- <ion-icon name="shield-outline" class="secure-icon"></ion-icon>
-              -->
-            <img src="assets/shield.png">
-            <span>Your data is secure with us</span>
+          <!-- Mobile Brand Header -->
+          <div class="mobile-logo-container">
+            <img src="assets/interact-logo-dark.png" [alt]="companyName" class="mobile-logo" fetchpriority="high" loading="eager"
+              (error)="onLogoError($event)" />
           </div>
-        </div>
 
-        <!-- FORGOT PASSWORD CARD -->
-        <div class="form-card" *ngIf="showForgotPassword" [class.forgot-mode]="showForgotPassword">
-
-          <h1 class="form-heading">Reset Password</h1>
-          <p class="form-subheading">Enter your Employee Email to reset</p>
-
-          <form [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPasswordSubmit()" class="login-form">
-
-            <!-- Employee Email Field -->
-            <div class="field-group">
-              <label class="field-label" for="reset-email">Employee Email</label>
-              <input id="reset-email" type="text" formControlName="employee_id"
-                placeholder="Enter your employee ID or email" class="form-input" [readonly]="forgotPasswordOtpSent" />
+          <!-- LOGIN CARD -->
+          <div class="form-card" *ngIf="!showForgotPassword">
+            <!-- Top-right brand blue corner accent -->
+            <div class="card-corner-accent" aria-hidden="true">
+              <svg viewBox="0 0 180 140" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cornerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2d8bd8" />
+                    <stop offset="100%" stop-color="#1F74BB" />
+                  </linearGradient>
+                </defs>
+                <path d="M20,0 L180,0 L180,130 C130,90 95,45 20,0 Z" fill="url(#cornerGrad)" />
+                <path d="M0,0 L45,0 C95,35 135,75 180,115 L180,140 C120,105 70,55 0,0 Z" fill="#60a5fa" fill-opacity="0.35" />
+              </svg>
             </div>
 
-            <!-- OTP Verification Field -->
-            <div class="field-group" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified">
-              <div class="label-row"
-                style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
-                <label class="field-label" for="reset-otp" style="margin-bottom: 0;">OTP Verification</label>
-                <a (click)="resendForgotPasswordOtp()"
-                  style="font-size: 11px; color: #2563EB; cursor: pointer; font-weight: 600; text-decoration: none;">Resend
-                  OTP</a>
-              </div>
-              <input id="reset-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
-                maxlength="6" />
-            </div>
+            <div class="card-body">
+              <h2 class="form-heading">
+                Welcome <span class="heading-accent">Back!</span>
+                <img src="assets/hi.png" alt="wave" class="wave-emoji" />
+              </h2>
+              <p class="form-subheading">Sign in to your Interact HRMS</p>
 
-            <!-- OTP Verified Success Badge -->
-            <div *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified" class="otp-success-alert"
-              style="background-color: #e8f5e9; color: #2e7d32; padding: 12px; border-radius: 8px; border: 1px solid #c8e6c9; margin-bottom: 20px; display: flex; align-items: center; font-size: 14px; font-weight: 500;">
-              <ion-icon name="checkmark-circle" style="font-size: 20px; margin-right: 8px; color: #2e7d32;"></ion-icon>
-              OTP Verified Successfully
-            </div>
+              <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
 
-            <!-- New Password Field -->
-            <div class="field-group pw-field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
-              <label class="field-label" for="reset-password">New Password</label>
-              <div class="input-with-toggle">
-                <input id="reset-password" [type]="showPasswordText ? 'text' : 'password'" formControlName="password"
-                  placeholder="Enter new password" class="form-input" (focus)="showPwStrength = true"
-                  (blur)="showPwStrength = false" />
-                <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
-                  (click)="showPasswordText = !showPasswordText" tabindex="-1">
-                  <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                <!-- USERNAME / EMAIL FIELD -->
+                <div class="field-group">
+                  <label class="field-label" for="login-email">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                    </svg>
+                    <span>Email Address</span>
+                  </label>
+                  <div class="input-with-icon-left">
+                    <ion-icon name="mail-outline" class="left-icon"></ion-icon>
+                    <input id="login-email" type="text" formControlName="email" placeholder="Enter your email address"
+                      class="form-input has-left-icon" (focus)="usernameFocused = true" (blur)="usernameFocused = false"
+                      (keypress)="onKeyPress($event)" />
+                  </div>
+                </div>
+
+                <!-- PASSWORD FIELD -->
+                <div class="field-group" *ngIf="showPassword">
+                  <label class="field-label" for="login-password">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Password</span>
+                  </label>
+                  <div class="input-with-icon-left input-with-toggle">
+                    <ion-icon name="lock-closed-outline" class="left-icon"></ion-icon>
+                    <input id="login-password" [type]="showPasswordText ? 'text' : 'password'" formControlName="password"
+                      placeholder="Enter your password" class="form-input has-left-icon" (focus)="passwordFocused = true"
+                      (blur)="passwordFocused = false" />
+                    <button type="button" class="eye-toggle" (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                      <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- OTP Verification Field -->
+                <div class="field-group" *ngIf="showCreatePassword && !otpVerified">
+                  <div class="label-row">
+                    <label class="field-label" for="login-otp">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                      </svg>
+                      <span>OTP Verification</span>
+                    </label>
+                    <a class="resend-link" (click)="resendOtp()">Resend OTP</a>
+                  </div>
+                  <input id="login-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
+                    maxlength="6" />
+                </div>
+
+                <!-- OTP Verified Success Badge -->
+                <div *ngIf="showCreatePassword && otpVerified" class="otp-success-alert">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>OTP Verified Successfully</span>
+                </div>
+
+                <!-- CREATE PASSWORD FIELD -->
+                <div class="field-group pw-field-group" *ngIf="showCreatePassword && otpVerified">
+                  <label class="field-label" for="login-create-password">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    <span>Create Password</span>
+                  </label>
+                  <div class="input-with-icon-left input-with-toggle">
+                    <ion-icon name="lock-closed-outline" class="left-icon"></ion-icon>
+                    <input id="login-create-password" [type]="showPasswordText ? 'text' : 'password'"
+                      formControlName="password" placeholder="Create a new password" class="form-input has-left-icon"
+                      (focus)="createPwFocused = true; showPwStrength = true"
+                      (blur)="createPwFocused = false; showPwStrength = false" />
+                    <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
+                      (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                      <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                    </button>
+                  </div>
+                  <!-- Live password strength popup -->
+                  <div class="pw-strength-popup" *ngIf="showPwStrength">
+                    <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
+                      <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
+                      <span>Min 8 characters</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
+                      <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
+                      <span>At least 1 uppercase letter</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
+                      <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
+                      <span>At least 1 number</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
+                      <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
+                      <span>At least 1 special character</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- REMEMBER ME / FORGOT PASSWORD -->
+                <div class="remember-forgot-row">
+                  <label class="remember-label" *ngIf="showPassword || (showCreatePassword && otpVerified)">
+                    <input type="checkbox" [(ngModel)]="rememberMe" [ngModelOptions]="{standalone: true}" />
+                    <span class="checkmark"></span>
+                    Remember me
+                  </label>
+                  <span *ngIf="!showPassword && !(showCreatePassword && otpVerified)"></span>
+                  <a class="forgot-link" (click)="toggleForgotPassword()">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="inline-link-icon" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd" />
+                    </svg>
+                    Forgot Password?
+                  </a>
+                </div>
+
+                <!-- CONTINUE BUTTON (step 1: email only) -->
+                <button id="btn-continue-email" class="btn-primary" type="button" *ngIf="!emailChecked" (click)="onNext()"
+                  [disabled]="loginForm.get('email')?.invalid">
+                  <span>Continue</span>
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="btn-arrow-icon" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
                 </button>
+
+                <!-- SIGN IN BUTTON (step 2: with password) -->
+                <button id="btn-continue-password" class="btn-primary" type="submit" *ngIf="showPassword"
+                  [disabled]="loading">
+                  <ng-container *ngIf="!loading">
+                    <span>Sign In</span>
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="btn-arrow-icon" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                  </ng-container>
+                  <ion-spinner *ngIf="loading" name="crescent" style="--color:#fff; width:18px; height:18px;"></ion-spinner>
+                </button>
+
+                <!-- VERIFY OTP BUTTON -->
+                <button id="btn-verify-otp" class="btn-primary" type="button" *ngIf="showCreatePassword && !otpVerified"
+                  (click)="verifyOtp()" [disabled]="loading || loginForm.get('otp')?.invalid">
+                  Verify OTP
+                </button>
+
+                <!-- CREATE & SIGN IN BUTTON -->
+                <button id="btn-create-signin" class="btn-primary" type="submit" *ngIf="showCreatePassword && otpVerified"
+                  [disabled]="loading || loginForm.get('password')?.invalid">
+                  Create &amp; Sign In
+                </button>
+
+                <!-- OR DIVIDER -->
+                <div class="or-divider">
+                  <span>OR</span>
+                </div>
+
+                <!-- SSO BUTTON -->
+                <button type="button" id="btn-sso" class="btn-sso">
+                  <svg viewBox="0 0 20 20" fill="currentColor" class="sso-lock-svg" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                  </svg>
+                  <span>Continue with SSO</span>
+                </button>
+
+              </form>
+            </div>
+
+            <!-- Bottom Trust Strip -->
+            <div class="trust-strip">
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <div class="trust-text">
+                  <strong>Secure</strong>
+                  <span>&amp; Reliable</span>
+                </div>
               </div>
-              <!-- Live password strength popup -->
-              <div class="pw-strength-popup" *ngIf="showPwStrength">
-                <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
-                  <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
-                  <span>Min 8 characters</span>
+              <div class="trust-divider"></div>
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                <div class="trust-text">
+                  <strong>Fast</strong>
+                  <span>&amp; Simple</span>
                 </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
-                  <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
-                  <span>At least 1 uppercase letter</span>
-                </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
-                  <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
-                  <span>At least 1 number</span>
-                </div>
-                <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
-                  <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
-                  <span>At least 1 special character</span>
+              </div>
+              <div class="trust-divider"></div>
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                </svg>
+                <div class="trust-text">
+                  <strong>24&times;7</strong>
+                  <span>Support</span>
                 </div>
               </div>
             </div>
 
-            <!-- SEND OTP BUTTON -->
-            <button class="btn-primary" type="button" *ngIf="!forgotPasswordOtpSent" (click)="sendForgotPasswordOtp()"
-              [disabled]="forgotPasswordForm.get('employee_id')?.invalid">
-              Send OTP
-            </button>
-
-            <!-- VERIFY OTP BUTTON -->
-            <button class="btn-primary" type="button" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified"
-              (click)="verifyForgotPasswordOtp()" [disabled]="forgotPasswordForm.get('otp')?.invalid">
-              Verify OTP
-            </button>
-
-            <!-- RESET PASSWORD BUTTON -->
-            <button class="btn-primary" type="submit" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified"
-              [disabled]="forgotPasswordForm.invalid">
-              Reset Password
-            </button>
-
-            <div class="or-divider"><span>or</span></div>
-
-
-            <button class="btn-sso" type="button" (click)="toggleForgotPassword()">
-              <ion-icon name="arrow-back-outline"></ion-icon>
-              Back to Sign In
-            </button>
-
-          </form>
-
-        </div>
-
-        <div class="form-footer">
-          <div class="copyright">&#169; 2024 Tech Tammina. All rights reserved.</div>
-          <div class="footer-links">
-            <a href="#">Privacy Policy</a>
-            <span class="dot">&middot;</span>
-            <a href="#">Terms of Service</a>
-            <span class="dot">&middot;</span>
-            <a href="#">Support</a>
           </div>
-        </div>
 
-      </div>
+          <!-- FORGOT PASSWORD CARD -->
+          <div class="form-card" *ngIf="showForgotPassword" [class.forgot-mode]="showForgotPassword">
+            <div class="card-corner-accent" aria-hidden="true">
+              <svg viewBox="0 0 180 140" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="cornerGradForgot" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2d8bd8" />
+                    <stop offset="100%" stop-color="#1F74BB" />
+                  </linearGradient>
+                </defs>
+                <path d="M20,0 L180,0 L180,130 C130,90 95,45 20,0 Z" fill="url(#cornerGradForgot)" />
+                <path d="M0,0 L45,0 C95,35 135,75 180,115 L180,140 C120,105 70,55 0,0 Z" fill="#60a5fa" fill-opacity="0.35" />
+              </svg>
+            </div>
+
+            <div class="card-body">
+              <h2 class="form-heading">Reset <span class="heading-accent">Password</span></h2>
+              <p class="form-subheading">Enter your Employee Email to reset</p>
+
+              <form [formGroup]="forgotPasswordForm" (ngSubmit)="onForgotPasswordSubmit()" class="login-form">
+
+                <!-- Employee Email Field -->
+                <div class="field-group">
+                  <label class="field-label" for="reset-email">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                      <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                      <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
+                    </svg>
+                    <span>Employee Email</span>
+                  </label>
+                  <div class="input-with-icon-left">
+                    <ion-icon name="mail-outline" class="left-icon"></ion-icon>
+                    <input id="reset-email" type="text" formControlName="employee_id"
+                      placeholder="Enter your employee ID or email" class="form-input has-left-icon"
+                      [readonly]="forgotPasswordOtpSent" />
+                  </div>
+                </div>
+
+                <!-- OTP Verification Field -->
+                <div class="field-group" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified">
+                  <div class="label-row">
+                    <label class="field-label" for="reset-otp">
+                      <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                        <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                      </svg>
+                      <span>OTP Verification</span>
+                    </label>
+                    <a class="resend-link" (click)="resendForgotPasswordOtp()">Resend OTP</a>
+                  </div>
+                  <input id="reset-otp" type="text" formControlName="otp" placeholder="Enter 6-digit OTP" class="form-input"
+                    maxlength="6" />
+                </div>
+
+                <!-- OTP Verified Success Badge -->
+                <div *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified" class="otp-success-alert">
+                  <ion-icon name="checkmark-circle"></ion-icon>
+                  <span>OTP Verified Successfully</span>
+                </div>
+
+                <!-- New Password Field -->
+                <div class="field-group pw-field-group" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified">
+                  <label class="field-label" for="reset-password">
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="label-svg-icon" aria-hidden="true">
+                      <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                    </svg>
+                    <span>New Password</span>
+                  </label>
+                  <div class="input-with-icon-left input-with-toggle">
+                    <ion-icon name="lock-closed-outline" class="left-icon"></ion-icon>
+                    <input id="reset-password" [type]="showPasswordText ? 'text' : 'password'" formControlName="password"
+                      placeholder="Enter new password" class="form-input has-left-icon" (focus)="showPwStrength = true"
+                      (blur)="showPwStrength = false" />
+                    <button type="button" class="eye-toggle" (mousedown)="$event.preventDefault()"
+                      (click)="showPasswordText = !showPasswordText" tabindex="-1">
+                      <ion-icon [name]="showPasswordText ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+                    </button>
+                  </div>
+                  <!-- Live password strength popup -->
+                  <div class="pw-strength-popup" *ngIf="showPwStrength">
+                    <div class="pw-rule" [class.pass]="pwChecks.minLength" [class.fail]="!pwChecks.minLength">
+                      <span class="pw-icon">{{ pwChecks.minLength ? '✓' : '✗' }}</span>
+                      <span>Min 8 characters</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasUpper" [class.fail]="!pwChecks.hasUpper">
+                      <span class="pw-icon">{{ pwChecks.hasUpper ? '✓' : '✗' }}</span>
+                      <span>At least 1 uppercase letter</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasNumber" [class.fail]="!pwChecks.hasNumber">
+                      <span class="pw-icon">{{ pwChecks.hasNumber ? '✓' : '✗' }}</span>
+                      <span>At least 1 number</span>
+                    </div>
+                    <div class="pw-rule" [class.pass]="pwChecks.hasSpecial" [class.fail]="!pwChecks.hasSpecial">
+                      <span class="pw-icon">{{ pwChecks.hasSpecial ? '✓' : '✗' }}</span>
+                      <span>At least 1 special character</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- SEND OTP BUTTON -->
+                <button class="btn-primary" type="button" *ngIf="!forgotPasswordOtpSent" (click)="sendForgotPasswordOtp()"
+                  [disabled]="forgotPasswordForm.get('employee_id')?.invalid">
+                  Send OTP
+                </button>
+
+                <!-- VERIFY OTP BUTTON -->
+                <button class="btn-primary" type="button" *ngIf="forgotPasswordOtpSent && !forgotPasswordOtpVerified"
+                  (click)="verifyForgotPasswordOtp()" [disabled]="forgotPasswordForm.get('otp')?.invalid">
+                  Verify OTP
+                </button>
+
+                <!-- RESET PASSWORD BUTTON -->
+                <button class="btn-primary" type="submit" *ngIf="forgotPasswordOtpSent && forgotPasswordOtpVerified"
+                  [disabled]="forgotPasswordForm.invalid">
+                  Reset Password
+                </button>
+
+                <div class="or-divider"><span>OR</span></div>
+
+                <button class="btn-sso" type="button" (click)="toggleForgotPassword()">
+                  <ion-icon name="arrow-back-outline" class="sso-lock-icon"></ion-icon>
+                  <span>Back to Sign In</span>
+                </button>
+
+              </form>
+            </div>
+
+            <!-- Bottom Trust Strip -->
+            <div class="trust-strip">
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                  <path d="M9 12l2 2 4-4" />
+                </svg>
+                <div class="trust-text">
+                  <strong>Secure</strong>
+                  <span>&amp; Reliable</span>
+                </div>
+              </div>
+              <div class="trust-divider"></div>
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+                <div class="trust-text">
+                  <strong>Fast</strong>
+                  <span>&amp; Simple</span>
+                </div>
+              </div>
+              <div class="trust-divider"></div>
+              <div class="trust-item">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="trust-svg-icon" aria-hidden="true">
+                  <path d="M3 18v-6a9 9 0 0 1 18 0v6" />
+                  <path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z" />
+                </svg>
+                <div class="trust-text">
+                  <strong>24&times;7</strong>
+                  <span>Support</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Footer -->
+          <div class="form-footer">
+            <div class="copyright">&#169; 2024 Tech Tammina. All rights reserved.</div>
+            <div class="footer-links">
+              <a href="#">Privacy Policy</a>
+              <span class="sep">|</span>
+              <a href="#">Terms of Service</a>
+              <span class="sep">|</span>
+              <a href="#">Support</a>
+            </div>
+          </div>
+
+        </div>
+      </section>
 
     </div>
   </div>
