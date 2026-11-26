@@ -39,8 +39,11 @@ function resolveBiometricPunchDirection(punch, isOpen) {
   if (ps === 1 || ps === 5) {
     return { direction: 'out', nextIsOpen: false };
   }
+  const hasRawPayload = punch && (punch.rawPayload !== undefined && punch.rawPayload !== null || punch.raw_payload !== undefined && punch.raw_payload !== null);
   const rawDir = String(punch?.direction || punch?.punch_type || '').toLowerCase().trim();
-  if (!isOpen && rawDir === 'out') {
+  // Only trust rawDir === 'out' when no raw_payload exists (e.g. unit test / direct API)
+  // because biometric_punches.direction may have been written by legacy alternating logic.
+  if (!isOpen && !hasRawPayload && rawDir === 'out') {
     return { direction: 'out', nextIsOpen: false };
   }
   const direction = isOpen ? 'out' : 'in';
