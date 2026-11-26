@@ -967,7 +967,8 @@ router.get("/today", auth, async (req, res) => {
                 'Biometric Punch' as notes,
                 'biometric' as source,
                 'Biometric' as work_mode,
-                bp.created_at
+                bp.created_at,
+                (SELECT bar.raw_payload FROM biometric_attendance_raw bar WHERE bar.employee_id = bp.employee_id AND bar.punch_time = bp.punch_time LIMIT 1) as raw_payload
          FROM biometric_punches bp
          LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
          WHERE bp.employee_id = ? AND bp.punch_date = ?
@@ -976,18 +977,10 @@ router.get("/today", auth, async (req, res) => {
       );
       if (bioPunches && bioPunches.length > 0) {
         bioPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-        const bioOpenByDevice = new Map();
-        const mappedBio = bioPunches.map((p) => {
-          const devKey = String(p.device_id || p.location || 'default').trim();
-          const devOpen = bioOpenByDevice.get(devKey) || false;
-          const pt = devOpen ? 'out' : 'in';
-          bioOpenByDevice.set(devKey, !devOpen);
-          return {
-            ...p,
-            punch_type: pt,
-            direction: pt
-          };
-        });
+        const mappedBio = mapBiometricPunchesWithDirection(bioPunches).map((p) => ({
+          ...p,
+          direction: p.punch_type
+        }));
         const bioTimes = new Set(mappedBio.map(b => b.punch_time));
         punches = punches.filter(p => !bioTimes.has(p.punch_time));
         punches.push(...mappedBio);
@@ -1980,7 +1973,8 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
              bp.direction, bp.device_id, bp.device_id as device_info,
              COALESCE(bd.name, CONCAT('Device #', bp.device_id)) as location,
              bd.name as device_name,
-             'biometric' as source
+             'biometric' as source,
+             (SELECT bar.raw_payload FROM biometric_attendance_raw bar WHERE bar.employee_id = bp.employee_id AND bar.punch_time = bp.punch_time LIMIT 1) as raw_payload
       FROM biometric_punches bp
       LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
       WHERE bp.employee_id = ? AND bp.punch_date BETWEEN ? AND ?
@@ -1996,14 +1990,7 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
     }
     const mappedBioRange = [];
     bioByDate.forEach((dayBioPunches) => {
-      const bioOpenByDevice = new Map();
-      for (const p of dayBioPunches) {
-        const devKey = String(p.device_id || p.location || 'default');
-        const devOpen = bioOpenByDevice.get(devKey) || false;
-        const pt = devOpen ? 'out' : 'in';
-        bioOpenByDevice.set(devKey, !devOpen);
-        mappedBioRange.push({ ...p, punch_type: pt });
-      }
+      mappedBioRange.push(...mapBiometricPunchesWithDirection(dayBioPunches));
     });
 
     const bioTimes = new Set((mappedBioRange || []).map(b => b.punch_time));
@@ -3134,25 +3121,19 @@ async function calculateAndUpdateHours(connection, attendanceId) {
     const attDate = attRows[0].att_date;
     try {
       const [bioPunches] = await connection.query(
-        `SELECT id, direction, device_id, DATE_FORMAT(punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source 
-         FROM biometric_punches
-         WHERE employee_id = ? AND (
-           punch_date = ? 
-           OR (DATE(punch_time) = DATE_ADD(?, INTERVAL 1 DAY) AND HOUR(punch_time) < 7)
+        `SELECT bp.id, bp.direction, bp.device_id, DATE_FORMAT(bp.punch_time, '%Y-%m-%d %H:%i:%s') as punch_time, 'Biometric' as notes, 'biometric' as source,
+                (SELECT bar.raw_payload FROM biometric_attendance_raw bar WHERE bar.employee_id = bp.employee_id AND bar.punch_time = bp.punch_time LIMIT 1) as raw_payload
+         FROM biometric_punches bp
+         WHERE bp.employee_id = ? AND (
+           bp.punch_date = ? 
+           OR (DATE(bp.punch_time) = DATE_ADD(?, INTERVAL 1 DAY) AND HOUR(bp.punch_time) < 7)
          )
-         AND NOT (DATE(punch_time) = ? AND HOUR(punch_time) < 7 AND punch_date < ?)
-         ORDER BY punch_time ASC`,
+         AND NOT (DATE(bp.punch_time) = ? AND HOUR(bp.punch_time) < 7 AND bp.punch_date < ?)
+         ORDER BY bp.punch_time ASC`,
         [empId, attDate, attDate, attDate, attDate]
       );
       if (bioPunches && bioPunches.length > 0) {
-        const bioOpenByDevice = new Map();
-        const mappedBio = bioPunches.map(p => {
-          const devKey = String(p.device_id || 'default').trim();
-          const devOpen = bioOpenByDevice.get(devKey) || false;
-          const pt = devOpen ? 'out' : 'in';
-          bioOpenByDevice.set(devKey, !devOpen);
-          return { ...p, punch_type: pt };
-        });
+        const mappedBio = mapBiometricPunchesWithDirection(bioPunches);
         const bioTimes = new Set(mappedBio.map(b => b.punch_time));
         allPunches = allPunches.filter(p => !bioTimes.has(p.punch_time));
         allPunches = [...allPunches, ...mappedBio];
