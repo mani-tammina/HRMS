@@ -977,7 +977,15 @@ router.get("/today", auth, async (req, res) => {
       );
       if (bioPunches && bioPunches.length > 0) {
         bioPunches.sort((a, b) => new Date(a.punch_time).getTime() - new Date(b.punch_time).getTime());
-        const mappedBio = mapBiometricPunchesWithDirection(bioPunches).map((p) => ({
+        let prevDayHadMissingOut = false;
+        try {
+          const [prevRows] = await c.query(
+            `SELECT COUNT(*) as cnt FROM biometric_punches WHERE employee_id = ? AND punch_date = DATE_SUB(?, INTERVAL 1 DAY)`,
+            [emp.id, shiftDate]
+          );
+          prevDayHadMissingOut = Number(prevRows[0]?.cnt || 0) % 2 === 1;
+        } catch (_) { }
+        const mappedBio = mapBiometricPunchesWithDirection(bioPunches, { prevDayHadMissingOut }).map((p) => ({
           ...p,
           direction: p.punch_type
         }));
@@ -1697,7 +1705,15 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     const [bioPunches] = await c.query(bioQuery, bioParams);
 
     if (bioPunches && bioPunches.length > 0) {
-      const mappedBioPunches = mapBiometricPunchesWithDirection(bioPunches);
+      let prevDayHadMissingOut = false;
+      try {
+        const [prevRows] = await c.query(
+          `SELECT COUNT(*) as cnt FROM biometric_punches WHERE employee_id = ? AND punch_date = DATE_SUB(?, INTERVAL 1 DAY)`,
+          [employeeId, date]
+        );
+        prevDayHadMissingOut = Number(prevRows[0]?.cnt || 0) % 2 === 1;
+      } catch (_) { }
+      const mappedBioPunches = mapBiometricPunchesWithDirection(bioPunches, { prevDayHadMissingOut });
       const bioTimes = new Set(mappedBioPunches.map(b => b.punch_time));
       punches = punches.filter(p => !bioTimes.has(p.punch_time));
       punches.push(...mappedBioPunches);
@@ -1989,8 +2005,11 @@ async function getUnifiedAttendanceListAndSummary(c, targetEmpId, startDate, end
       bioByDate.get(d).push(bp);
     }
     const mappedBioRange = [];
-    bioByDate.forEach((dayBioPunches) => {
-      mappedBioRange.push(...mapBiometricPunchesWithDirection(dayBioPunches));
+    bioByDate.forEach((dayBioPunches, dStr) => {
+      const prevDateStr = addDaysToDate(dStr, -1);
+      const prevPunches = bioByDate.get(prevDateStr) || [];
+      const prevDayHadMissingOut = prevPunches.length % 2 === 1;
+      mappedBioRange.push(...mapBiometricPunchesWithDirection(dayBioPunches, { prevDayHadMissingOut }));
     });
 
     const bioTimes = new Set((mappedBioRange || []).map(b => b.punch_time));
