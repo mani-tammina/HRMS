@@ -1085,18 +1085,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
               notes: p.notes
             });
             currentIn = null;
-          } else {
-            // Orphan OUT punch (e.g. anti-passback reset): show IN Missing + OUT time, then continue normally
-            addSessionToGroup(modeName, {
-              rawTime: this.parsePunchTimeToMs(p.punch_time),
-              inTime: 'MISSING',
-              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
-              isMissingIn: true,
-              isMissingOut: isAutoOut,
-              isAutoOut: isAutoOut,
-              notes: p.notes
-            });
           }
+          // Skip leading OUT punch (no open IN) and wait for the first IN punch
         }
       }
 

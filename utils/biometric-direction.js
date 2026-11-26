@@ -49,20 +49,26 @@ function resolveBiometricPunchDirection(punch, isOpen) {
 
 /**
  * Map a chronologically sorted list of biometric punches to include `punch_type`
- * per device stream, respecting orphan OUT punches.
+ * per device stream, skipping any leading orphan OUT punch (e.g. anti-passback reset)
+ * so the day starts at the first IN punch.
  */
 function mapBiometricPunchesWithDirection(punches) {
   const bioOpenByDevice = new Map();
-  return punches.map((p) => {
+  const mapped = [];
+  for (const p of punches) {
     const devKey = String(p.device_id || p.location || 'default').trim();
     const devOpen = bioOpenByDevice.get(devKey) || false;
     const { direction, nextIsOpen } = resolveBiometricPunchDirection(p, devOpen);
     bioOpenByDevice.set(devKey, nextIsOpen);
-    return {
+    if (!devOpen && direction === 'out') {
+      continue; // Skip leading OUT punch and take the first IN punch
+    }
+    mapped.push({
       ...p,
       punch_type: direction
-    };
-  });
+    });
+  }
+  return mapped;
 }
 
 module.exports = {
