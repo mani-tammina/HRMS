@@ -8,6 +8,7 @@
 const { db } = require('../config/database');
 const cron = require('node-cron');
 const { isOvernightShift } = require('../utils/shift-helper');
+const { mapBiometricPunchesWithDirection } = require('../utils/biometric-direction');
 
 class AutoClockOutService {
   constructor() {
@@ -174,14 +175,7 @@ class AutoClockOutService {
           [empId, attDate, attDate, attDate, attDate]
         );
         if (bioPunches && bioPunches.length > 0) {
-          const bioOpenByDevice = new Map();
-          const mappedBio = bioPunches.map(p => {
-            const devKey = String(p.device_id || 'default').trim();
-            const devOpen = bioOpenByDevice.get(devKey) || false;
-            const pt = devOpen ? 'out' : 'in';
-            bioOpenByDevice.set(devKey, !devOpen);
-            return { ...p, punch_type: pt };
-          });
+          const mappedBio = mapBiometricPunchesWithDirection(bioPunches);
           const bioTimes = new Set(mappedBio.map(b => b.punch_time));
           allPunches = allPunches.filter(p => !bioTimes.has(p.punch_time));
           allPunches = [...allPunches, ...mappedBio];
@@ -248,6 +242,10 @@ class AutoClockOutService {
         let currentIn = null;
         for (const p of streamPunches) {
           const pMs = parseTime(p.punch_time);
+          const rawDir = (p.punch_type || p.direction || '').toLowerCase();
+          if (!currentIn && rawDir === 'out') {
+            continue; // Orphan OUT (IN Missing) contributes 0 work hours
+          }
           const pt = currentIn ? 'out' : 'in';
           if (pt === 'in') {
             if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;

@@ -16,6 +16,7 @@ const {
   isOvernightShift,
   getOvernightCutoffHour
 } = require("../utils/shift-helper");
+const { mapBiometricPunchesWithDirection } = require("../utils/biometric-direction");
 
 const ATTENDANCE_LOCK_WAIT_SECONDS = 10;
 
@@ -1419,6 +1420,10 @@ function calculateAttendanceMetrics(rawPunches, isToday) {
       let currentIn = null;
       for (const p of streamPunches) {
         const pMs = parseTime(p.punch_time);
+        const rawDir = (p.punch_type || p.direction || '').toLowerCase();
+        if (!currentIn && rawDir === 'out') {
+          continue; // Orphan OUT (IN Missing) contributes 0 work hours
+        }
         const pt = currentIn ? 'out' : 'in';
         if (pt === 'in') {
           if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;
@@ -1585,23 +1590,43 @@ function calculatePunchPairs(punches) {
           work_mode: punch.work_mode || 'Office',
           source: punch.source || 'web'
         };
-      } else if (punchType === "out" && currentPair.punch_in) {
+      } else if (punchType === "out") {
         const isMissingOut = (punch.notes || '').includes('OUT Missing') || (punch.notes || '').includes('Auto Clock-Out');
-        currentPair.punch_out = isMissingOut ? null : formattedTime;
-        currentPair.punch_out_raw = formattedTime;
-        currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : formattedTime;
-        currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
-        currentPair.punch_out_notes = punch.notes;
-        currentPair.is_missing_out = isMissingOut;
+        if (currentPair.punch_in) {
+          currentPair.punch_out = isMissingOut ? null : formattedTime;
+          currentPair.punch_out_raw = formattedTime;
+          currentPair.punch_out_display = isMissingOut ? 'OUT Missing' : formattedTime;
+          currentPair.punch_out_location = isMissingOut ? 'Missing Clock-Out' : punch.location;
+          currentPair.punch_out_notes = punch.notes;
+          currentPair.is_missing_out = isMissingOut;
 
-        const punchIn = new Date(currentPair.punch_in);
-        const punchOut = new Date(formattedTime);
-        const hours = isMissingOut ? '0.00' : Math.max(0, ((punchOut - punchIn) / (1000 * 60 * 60))).toFixed(2);
+          const punchIn = new Date(currentPair.punch_in);
+          const punchOut = new Date(formattedTime);
+          const hours = isMissingOut ? '0.00' : Math.max(0, ((punchOut - punchIn) / (1000 * 60 * 60))).toFixed(2);
 
-        currentPair.hours_worked = hours;
-        currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
-        allPairs.push({ ...currentPair });
-        currentPair = {};
+          currentPair.hours_worked = hours;
+          currentPair.status = isMissingOut ? "OUT Missing" : "Completed";
+          allPairs.push({ ...currentPair });
+          currentPair = {};
+        } else {
+          allPairs.push({
+            punch_in: null,
+            punch_in_display: 'IN Missing',
+            punch_in_location: 'Missing Clock-In',
+            punch_in_notes: null,
+            punch_out: isMissingOut ? null : formattedTime,
+            punch_out_raw: formattedTime,
+            punch_out_display: isMissingOut ? 'OUT Missing' : formattedTime,
+            punch_out_location: isMissingOut ? 'Missing Clock-Out' : punch.location,
+            punch_out_notes: punch.notes,
+            is_missing_in: true,
+            is_missing_out: isMissingOut,
+            hours_worked: '0.00',
+            work_mode: punch.work_mode || 'Office',
+            source: punch.source || 'web',
+            status: 'IN Missing'
+          });
+        }
       }
     }
 
@@ -1614,8 +1639,8 @@ function calculatePunchPairs(punches) {
     }
   });
 
-  // Sort pairs chronologically by punch_in
-  return allPairs.sort((a, b) => new Date(a.punch_in).getTime() - new Date(b.punch_in).getTime());
+  // Sort pairs chronologically by punch_in (or punch_out when IN Missing)
+  return allPairs.sort((a, b) => new Date(a.punch_in || a.punch_out).getTime() - new Date(b.punch_in || b.punch_out).getTime());
 }
 
 async function getUnifiedAttendanceDetails(c, employeeId, date) {
@@ -1698,19 +1723,7 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
     const [bioPunches] = await c.query(bioQuery, bioParams);
 
     if (bioPunches && bioPunches.length > 0) {
-      const bioOpenByDevice = new Map();
-      const mappedBioPunches = bioPunches.map(p => {
-        const devKey = String(p.device_id || p.location || 'default');
-        const devOpen = bioOpenByDevice.get(devKey) || false;
-        // On a per-floor/device basis, punches strictly alternate:
-        // When not open, a punch is IN. When open, a punch is OUT.
-        const pt = devOpen ? 'out' : 'in';
-        bioOpenByDevice.set(devKey, !devOpen);
-        return {
-          ...p,
-          punch_type: pt
-        };
-      });
+      const mappedBioPunches = mapBiometricPunchesWithDirection(bioPunches);
       const bioTimes = new Set(mappedBioPunches.map(b => b.punch_time));
       punches = punches.filter(p => !bioTimes.has(p.punch_time));
       punches.push(...mappedBioPunches);

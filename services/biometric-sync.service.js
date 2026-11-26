@@ -10,6 +10,7 @@
 const { db } = require('../config/database');
 const { getBiometricPool } = require('./biometric-sql.service');
 const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour, getMorningCutoffHour } = require('../utils/shift-helper');
+const { mapBiometricPunchesWithDirection } = require('../utils/biometric-direction');
 
 const SOURCE_SYSTEM = 'ETIMETRACK_MSSQL';
 let isSyncRunning = false;
@@ -192,16 +193,19 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     return;
   }
 
-  const firstPunch = punches[0];
-  const lastPunch = punches[punches.length - 1];
+  const mappedPunches = mapBiometricPunchesWithDirection(punches);
+  const firstInPunch = mappedPunches.find(p => p.punch_type === 'in') || null;
+  const lastOutPunch = [...mappedPunches].reverse().find(p => p.punch_type === 'out') || null;
 
-  const firstPunchInTime = firstPunch.punch_time_clock;
-  const lastPunchOutTime = punches.length > 1 ? lastPunch.punch_time_clock : null;
+  const firstPunchInTime = firstInPunch ? firstInPunch.punch_time_clock : punches[0].punch_time_clock;
+  const lastPunchOutTime = punches.length > 1
+    ? (lastOutPunch ? lastOutPunch.punch_time_clock : punches[punches.length - 1].punch_time_clock)
+    : null;
 
   let grossHours = 0;
-  if (punches.length > 1) {
-    const startMs = new Date(firstPunch.punch_time_str.replace(' ', 'T')).getTime();
-    const endMs = new Date(lastPunch.punch_time_str.replace(' ', 'T')).getTime();
+  if (firstInPunch && lastOutPunch) {
+    const startMs = new Date(firstInPunch.punch_time_str.replace(' ', 'T')).getTime();
+    const endMs = new Date(lastOutPunch.punch_time_str.replace(' ', 'T')).getTime();
     const diffHours = (endMs - startMs) / (1000 * 60 * 60);
     grossHours = Math.max(0, Math.round(diffHours * 100) / 100);
   }
@@ -231,19 +235,12 @@ async function recalculateDailyBiometric(employeeId, punchDate) {
     } catch (_) {}
   }
 
-  const bioOpenByDevice = new Map();
-  const detailJson = JSON.stringify(punches.map((p) => {
-    const devKey = String(p.device_id || 'default').trim();
-    const devOpen = bioOpenByDevice.get(devKey) || false;
-    const dir = devOpen ? 'out' : 'in';
-    bioOpenByDevice.set(devKey, !devOpen);
-    return {
-      id: p.id,
-      time: p.punch_time_clock,
-      direction: dir,
-      device: p.device_id
-    };
-  }));
+  const detailJson = JSON.stringify(mappedPunches.map((p) => ({
+    id: p.id,
+    time: p.punch_time_clock,
+    direction: p.punch_type,
+    device: p.device_id
+  })));
 
   await db.query(
     `INSERT INTO biometric_daily_attendance 

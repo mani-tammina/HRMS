@@ -533,6 +533,10 @@ export class MePage implements OnInit, AfterViewInit, OnDestroy {
         let currentIn: any = null;
         for (const p of streamPunches) {
           const pMs = this.parsePunchTimeToMs(p.punch_time);
+          const rawDir = (p.punch_type || p.direction || '').toLowerCase();
+          if (!currentIn && rawDir === 'out') {
+            continue;
+          }
           const pt = currentIn ? 'out' : 'in';
           if (pt === 'in') {
             if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;

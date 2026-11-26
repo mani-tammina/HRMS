@@ -73,6 +73,7 @@ const net = require('net');
 const { db } = require('../config/database');
 const { getShiftDateForPunch, isOvernightShift, getOvernightCutoffHour, getMorningCutoffHour } = require('../utils/shift-helper');
 const { recalculateDailyBiometric, getEmployeeLookupMap } = require('./biometric-sync.service');
+const { resolveBiometricPunchDirection } = require('../utils/biometric-direction');
 
 const SOURCE_SYSTEM = 'DIRECT_DEVICE';
 const activeDevicePromises = new Map();
@@ -284,19 +285,21 @@ async function ingestDirectPunches(punches) {
         const chunkEmps = empArr.slice(i, i + 500);
         try {
           const [existingRows] = await db.query(
-            `SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') as punch_date, punch_time 
+            `SELECT employee_id, DATE_FORMAT(punch_date, '%Y-%m-%d') as punch_date, punch_time, device_id, direction 
              FROM biometric_punches 
              WHERE employee_id IN (?) AND punch_date IN (?) 
              ORDER BY employee_id, punch_date, punch_time ASC`,
             [chunkEmps, dateArr]
           );
           for (const r of existingRows) {
-            const trackKey = `EMP:${r.employee_id}:${r.punch_date}`;
+            const devKey = r.device_id ? String(r.device_id).trim() : 'DEFAULT';
+            const trackKey = `EMP:${r.employee_id}:${devKey}:${r.punch_date}`;
             if (!trackingState.has(trackKey)) {
-              trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
+              trackingState.set(trackKey, { isOpen: false, existingTimestamps: new Set() });
             }
             const st = trackingState.get(trackKey);
-            st.punchCount++;
+            const resolved = resolveBiometricPunchDirection(r, st.isOpen);
+            st.isOpen = resolved.nextIsOpen;
             st.existingTimestamps.add(new Date(r.punch_time).getTime());
           }
         } catch (err) {
@@ -311,19 +314,21 @@ async function ingestDirectPunches(punches) {
         const chunkRaw = rawArr.slice(i, i + 500);
         try {
           const [existingRaw] = await db.query(
-            `SELECT biometric_user_id, DATE_FORMAT(punch_time, '%Y-%m-%d') as punch_date, punch_time 
+            `SELECT biometric_user_id, DATE_FORMAT(punch_time, '%Y-%m-%d') as punch_date, punch_time, device_id, direction, raw_payload 
              FROM biometric_attendance_raw 
              WHERE biometric_user_id IN (?) AND DATE(punch_time) IN (?) 
              ORDER BY biometric_user_id, punch_time ASC`,
             [chunkRaw, dateArr]
           );
           for (const r of existingRaw) {
-            const trackKey = `RAW:${r.biometric_user_id}:${r.punch_date}`;
+            const devKey = r.device_id ? String(r.device_id).trim() : 'DEFAULT';
+            const trackKey = `RAW:${r.biometric_user_id}:${devKey}:${r.punch_date}`;
             if (!trackingState.has(trackKey)) {
-              trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
+              trackingState.set(trackKey, { isOpen: false, existingTimestamps: new Set() });
             }
             const st = trackingState.get(trackKey);
-            st.punchCount++;
+            const resolved = resolveBiometricPunchDirection(r, st.isOpen);
+            st.isOpen = resolved.nextIsOpen;
             st.existingTimestamps.add(new Date(r.punch_time).getTime());
           }
         } catch (err) {
@@ -361,21 +366,19 @@ async function ingestDirectPunches(punches) {
     const punchDate = getShiftDateForPunch(empShift, formattedTime);
     const punchTimeMs = punchDateObj.getTime();
 
-    const trackKey = employeeId ? `EMP:${employeeId}:${punchDate}` : `RAW:${userId}:${punchDate}`;
+    const trackKey = employeeId ? `EMP:${employeeId}:${deviceId}:${punchDate}` : `RAW:${userId}:${deviceId}:${punchDate}`;
 
     // Initialize state in-memory if no prior records existed (zero DB calls needed inside loop)
     if (!trackingState.has(trackKey)) {
-      trackingState.set(trackKey, { punchCount: 0, existingTimestamps: new Set() });
+      trackingState.set(trackKey, { isOpen: false, existingTimestamps: new Set() });
     }
 
     const state = trackingState.get(trackKey);
 
-    // The biometric devices are configured for alternate IN and OUT.
-    // Without an IN punch there will be no OUT punch.
-    // Every punch strictly alternates: (odd count = in, even count = out).
     // Check if this exact punch timestamp is already recorded in DB
     const isExactExisting = state.existingTimestamps.has(punchTimeMs);
-    let dir = (state.punchCount % 2 === 0) ? 'in' : 'out';
+    const resolved = resolveBiometricPunchDirection(p, state.isOpen);
+    const dir = resolved.direction;
 
     if (isExactExisting) {
       rawInsertRows.push({
@@ -394,7 +397,7 @@ async function ingestDirectPunches(punches) {
 
     // Update tracking state for next punch in batch
     state.existingTimestamps.add(punchTimeMs);
-    state.punchCount++;
+    state.isOpen = resolved.nextIsOpen;
 
     rawInsertRows.push({
       source_system: SOURCE_SYSTEM,

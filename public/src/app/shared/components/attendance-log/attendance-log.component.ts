@@ -1056,11 +1056,8 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         const p = streamPunches[i];
         const isAutoOut = (p.notes || '').includes('OUT Missing') || (p.notes || '').includes('Auto Clock-Out');
         
-        // The biometric devices are configured for alternate IN and OUT.
-        // Without an IN punch there will be no OUT punch.
-        // Therefore, every punch strictly alternates: IN -> OUT -> IN -> OUT...
         let punchType = (p.punch_type || p.direction || '').toLowerCase();
-        if (isBioStream || punchType === 'auto' || !punchType) {
+        if (punchType === 'auto' || !punchType || (isBioStream && punchType !== 'in' && punchType !== 'out')) {
           punchType = currentIn ? 'out' : 'in';
         }
 
@@ -1089,8 +1086,16 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
             });
             currentIn = null;
           } else {
-            // Without an IN punch there can be no OUT punch: treat as starting IN session
-            currentIn = p;
+            // Orphan OUT punch (e.g. anti-passback reset): show IN Missing + OUT time, then continue normally
+            addSessionToGroup(modeName, {
+              rawTime: this.parsePunchTimeToMs(p.punch_time),
+              inTime: 'MISSING',
+              outTime: isAutoOut ? 'MISSING' : getFormattedTime(p.punch_time),
+              isMissingIn: true,
+              isMissingOut: isAutoOut,
+              isAutoOut: isAutoOut,
+              notes: p.notes
+            });
           }
         }
       }
@@ -1254,6 +1259,10 @@ export class AttendanceLogComponent implements OnInit, OnDestroy, OnChanges {
         let currentIn: any = null;
         for (const p of streamPunches) {
           const pMs = this.parsePunchTimeToMs(p.punch_time);
+          const rawDir = (p.punch_type || p.direction || '').toLowerCase();
+          if (!currentIn && rawDir === 'out') {
+            continue;
+          }
           const pt = currentIn ? 'out' : 'in';
           if (pt === 'in') {
             if (firstBioInMs === null || pMs < firstBioInMs) firstBioInMs = pMs;
