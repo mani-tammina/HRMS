@@ -1709,7 +1709,8 @@ async function getUnifiedAttendanceDetails(c, employeeId, date) {
              'Biometric Punch' as notes,
              'biometric' as source,
              'Biometric' as work_mode,
-             bp.created_at
+             bp.created_at,
+             (SELECT bar.raw_payload FROM biometric_attendance_raw bar WHERE bar.employee_id = bp.employee_id AND bar.punch_time = bp.punch_time LIMIT 1) as raw_payload
       FROM biometric_punches bp
       LEFT JOIN biometric_devices bd ON bp.device_id = bd.device_id
       WHERE bp.employee_id = ?

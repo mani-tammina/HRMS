@@ -381,6 +381,7 @@ async function ingestDirectPunches(punches) {
     const dir = resolved.direction;
 
     if (isExactExisting) {
+      state.isOpen = resolved.nextIsOpen;
       rawInsertRows.push({
         source_system: SOURCE_SYSTEM,
         source_log_id: sourceLogId,
@@ -392,6 +393,18 @@ async function ingestDirectPunches(punches) {
         status: 'processed',
         employee_id: employeeId
       });
+      if (employeeId) {
+        punchInsertRows.push({
+          employee_id: employeeId,
+          user_id: userId,
+          punch_time: formattedTime,
+          punch_date: punchDate,
+          direction: dir,
+          device_id: deviceId,
+          raw_log_id: null
+        });
+        affectedEmpDates.add(`${employeeId}:${punchDate}`);
+      }
       continue; // Already processed into biometric_punches
     }
 
